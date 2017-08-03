@@ -4,7 +4,6 @@ const runMiddlewares = (middlewares, ctx, done) => {
     const nextMiddleware = stack.shift()
 
     if (nextMiddleware) {
-      console.log('running', nextMiddleware, ctx)
       return nextMiddleware(ctx, runNext)
     }
 
@@ -26,6 +25,7 @@ const middy = (handler) => {
     }
 
     runMiddlewares(beforeMiddlewares, ctx, () => {
+      instance.ctx = ctx
       handler.ctx = ctx
       handler(ctx.event, context, (err, response) => {
         ctx.error = err

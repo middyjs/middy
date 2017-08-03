@@ -9,25 +9,21 @@ describe('Test middlewares execution', () => {
 
     const m1 = () => ({
       before: (ctx, next) => {
-        console.log('executing before m1', ctx)
-        ctx.event.executedBefore = ['m1']
+        ctx.executedBefore = ['m1']
         next()
       },
       after: (ctx, next) => {
-        console.log('executing after m1', ctx)
-        ctx.event.executedAfter.push('m1')
+        ctx.executedAfter.push('m1')
         next()
       }
     })
 
     const m2 = () => ({
       before: (ctx, next) => {
-        console.log('executing before m2', ctx)
         ctx.executedBefore.push('m2')
         next()
       },
       after: (ctx, next) => {
-        console.log('executing after m2', ctx)
         ctx.executedAfter = ['m2']
         next()
       }
@@ -41,10 +37,8 @@ describe('Test middlewares execution', () => {
     const event = {}
     const context = {}
     handler(event, context, () => {
-      console.log('handler.ctx', handler.ctx)
-      console.log(event)
-      expect(event.executedBefore).toBe(['m1', 'm2'])
-      expect(event.executedAfter).toBe(['m2', 'm1'])
+      expect(handler.ctx.executedBefore).toEqual(['m1', 'm2'])
+      expect(handler.ctx.executedAfter).toEqual(['m2', 'm1'])
       endTest()
     })
   })
