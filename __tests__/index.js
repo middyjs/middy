@@ -42,4 +42,33 @@ describe('Test middlewares execution', () => {
       endTest()
     })
   })
+
+  test('"after" middlewares should be able to change response and error', (endTest) => {
+    const handler = middy((event, context, callback) => {
+      return callback(new Error('some error'), {done: true})
+    })
+
+    const m = () => ({
+      after: (ctx, next) => {
+        ctx.error.middy = true
+        ctx.response.middy = true
+        next()
+      }
+    })
+
+    handler.use(m())
+
+    const event = {}
+    const context = {}
+    handler(event, context, () => {
+      expect(handler.ctx.response.middy).toBe(true)
+      expect(handler.ctx.error.middy).toBe(true)
+      endTest()
+    })
+  })
+
+  test('handler should be able to access middie context with this', (endTest) => {
+    // TODO
+    endTest()
+  })
 })
