@@ -93,6 +93,14 @@ const middy = (handler) => {
   }
 
   instance.use = (middleware) => {
+    if (typeof middleware !== 'object') {
+      throw new Error('Middleware must be an object')
+    }
+
+    if (!middleware.before && !middleware.after && !middleware.error) {
+      throw new Error('Middleware must contain at least one key among "before", "after", "error"')
+    }
+
     if (middleware.before) {
       instance.before(middleware.before)
     }
