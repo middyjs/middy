@@ -4,7 +4,9 @@
   "description": "A simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "index.js",
   "scripts": {
-    "test": "jest --verbose --coverage"
+    "test:lint": "eslint --ignore-path='node_modules/' .",
+    "test:unit": "jest --verbose --coverage",
+    "test": "npm run test:lint && npm run test:unit"
   },
   "repository": {
     "type": "git",
@@ -23,6 +25,12 @@
   },
   "homepage": "https://github.com/Plnt9/middy#readme",
   "devDependencies": {
+    "eslint": "^4.4.1",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-node": "^5.1.1",
+    "eslint-plugin-promise": "^3.5.0",
+    "eslint-plugin-standard": "^3.0.1",
     "jest": "^20.0.4"
   }
 }

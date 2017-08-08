@@ -52,7 +52,7 @@ const middy = (handler) => {
   const instance = (event, context, callback) => {
     const ctx = {
       event,
-      response : null,
+      response: null,
       error: null
     }
 
@@ -124,6 +124,12 @@ const middy = (handler) => {
     errorMiddlewares.push(errorMiddleware)
 
     return instance
+  }
+
+  instance._middlewares = {
+    before: beforeMiddlewares,
+    after: afterMiddlewares,
+    error: errorMiddlewares
   }
 
   return instance
