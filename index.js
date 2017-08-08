@@ -57,7 +57,6 @@ const middy = (handler) => {
     }
 
     instance.ctx = ctx
-    handler.ctx = ctx
     
     const terminate = (err) => {
       if (err) {
@@ -72,7 +71,7 @@ const middy = (handler) => {
         return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
       }
       
-      handler(ctx.event, context, (err, response) => {
+      handler.call(ctx, ctx.event, context, (err, response) => {
         ctx.error = err
         ctx.response = response
         
