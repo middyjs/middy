@@ -21,7 +21,7 @@ const runMiddlewares = (middlewares, ctx, done) => {
   runNext()
 }
 
-const onErrorMiddlewares = (middlewares, ctx, done) => {
+const runErrorMiddlewares = (middlewares, ctx, done) => {
   const stack = Array.from(middlewares)
   const runNext = (err) => {
     try {
@@ -69,7 +69,7 @@ const middy = (handler) => {
     runMiddlewares(beforeMiddlewares, ctx, (err) => {
       if (err) {
         ctx.error = err
-        return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
+        return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
       }
 
       handler.call(ctx, ctx.event, context, (err, response) => {
@@ -77,13 +77,13 @@ const middy = (handler) => {
 
         if (err) {
           ctx.error = err
-          return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
+          return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
         }
 
         runMiddlewares(afterMiddlewares, ctx, (err) => {
           if (err) {
             ctx.error = err
-            return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
+            return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
           }
 
           return terminate()
