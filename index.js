@@ -50,10 +50,10 @@ const middy = (handler) => {
   const errorMiddlewares = []
 
   const instance = (event, context, callback) => {
-    instance.event = event;
-    instance.context = context;
-    instance.response = null;
-    instance.error = null;
+    instance.event = event
+    instance.context = context
+    instance.response = null
+    instance.error = null
 
     const terminate = (err) => {
       if (err) {
