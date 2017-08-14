@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: node:6.11.2-alpine
+      - image: circleci/node:6.10
 
     working_directory: ~/middy
 
@@ -13,10 +13,6 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "package.json" }}
           - v1-dependencies-
-
-      - run: 
-          name: update npm
-          command: npm install -g npm@5.3.0
       
       - run:
           name: install dependencies
