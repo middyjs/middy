@@ -21,7 +21,7 @@ const runMiddlewares = (middlewares, ctx, done) => {
   runNext()
 }
 
-const runErrorMiddlewares = (middlewares, ctx, done) => {
+const onErrorMiddlewares = (middlewares, ctx, done) => {
   const stack = Array.from(middlewares)
   const runNext = (err) => {
     try {
@@ -69,7 +69,7 @@ const middy = (handler) => {
     runMiddlewares(beforeMiddlewares, ctx, (err) => {
       if (err) {
         ctx.error = err
-        return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+        return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
       }
 
       handler.call(ctx, ctx.event, context, (err, response) => {
@@ -77,13 +77,13 @@ const middy = (handler) => {
 
         if (err) {
           ctx.error = err
-          return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+          return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
         }
 
         runMiddlewares(afterMiddlewares, ctx, (err) => {
           if (err) {
             ctx.error = err
-            return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+            return onErrorMiddlewares(errorMiddlewares, ctx, terminate)
           }
 
           return terminate()
@@ -97,8 +97,8 @@ const middy = (handler) => {
       throw new Error('Middleware must be an object')
     }
 
-    if (!middleware.before && !middleware.after && !middleware.error) {
-      throw new Error('Middleware must contain at least one key among "before", "after", "error"')
+    if (!middleware.before && !middleware.after && !middleware.onError) {
+      throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
     if (middleware.before) {
@@ -109,8 +109,8 @@ const middy = (handler) => {
       instance.after(middleware.after)
     }
 
-    if (middleware.error) {
-      instance.error(middleware.error)
+    if (middleware.onError) {
+      instance.onError(middleware.onError)
     }
 
     return instance
@@ -128,7 +128,7 @@ const middy = (handler) => {
     return instance
   }
 
-  instance.error = (errorMiddleware) => {
+  instance.onError = (errorMiddleware) => {
     errorMiddlewares.push(errorMiddleware)
 
     return instance
@@ -137,7 +137,7 @@ const middy = (handler) => {
   instance._middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
-    error: errorMiddlewares
+    onError: errorMiddlewares
   }
 
   return instance
