@@ -134,7 +134,7 @@ const middy = (handler) => {
     return instance
   }
 
-  instance._middlewares = {
+  instance.__middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
     onError: errorMiddlewares

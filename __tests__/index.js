@@ -16,7 +16,7 @@ describe('🛵  Middy test suite', () => {
     const middleware = () => ({ before })
     const handler = middy(jest.fn())
     handler.use(middleware())
-    expect(handler._middlewares.before[0]).toBe(before)
+    expect(handler.__middlewares.before[0]).toBe(before)
   })
 
   test('"use" can add after middlewares', () => {
@@ -24,7 +24,7 @@ describe('🛵  Middy test suite', () => {
     const middleware = () => ({ after })
     const handler = middy(jest.fn())
     handler.use(middleware())
-    expect(handler._middlewares.after[0]).toBe(after)
+    expect(handler.__middlewares.after[0]).toBe(after)
   })
 
   test('"use" can add error middlewares', () => {
@@ -32,7 +32,7 @@ describe('🛵  Middy test suite', () => {
     const middleware = () => ({ onError })
     const handler = middy(jest.fn())
     handler.use(middleware())
-    expect(handler._middlewares.onError[0]).toBe(onError)
+    expect(handler.__middlewares.onError[0]).toBe(onError)
   })
 
   test('"use" can add all types of middlewares', () => {
@@ -50,9 +50,9 @@ describe('🛵  Middy test suite', () => {
 
     handler.use(middleware())
 
-    expect(handler._middlewares.before[0]).toBe(before)
-    expect(handler._middlewares.after[0]).toBe(after)
-    expect(handler._middlewares.onError[0]).toBe(onError)
+    expect(handler.__middlewares.before[0]).toBe(before)
+    expect(handler.__middlewares.after[0]).toBe(after)
+    expect(handler.__middlewares.onError[0]).toBe(onError)
   })
 
   test('"before" should add a before middleware', () => {
@@ -61,7 +61,7 @@ describe('🛵  Middy test suite', () => {
     const handler = middy(jest.fn())
 
     handler.before(beforeMiddleware)
-    expect(handler._middlewares.before[0]).toBe(beforeMiddleware)
+    expect(handler.__middlewares.before[0]).toBe(beforeMiddleware)
   })
 
   test('"after" should add an after middleware', () => {
@@ -70,7 +70,7 @@ describe('🛵  Middy test suite', () => {
     const handler = middy(jest.fn())
 
     handler.after(afterMiddleware)
-    expect(handler._middlewares.after[0]).toBe(afterMiddleware)
+    expect(handler.__middlewares.after[0]).toBe(afterMiddleware)
   })
 
   test('"onError" should add an error middleware', () => {
@@ -79,7 +79,7 @@ describe('🛵  Middy test suite', () => {
     const handler = middy(jest.fn())
 
     handler.onError(errorMiddleware)
-    expect(handler._middlewares.onError[0]).toBe(errorMiddleware)
+    expect(handler.__middlewares.onError[0]).toBe(errorMiddleware)
   })
 
   test('It should execute before and after middlewares in the right order', (endTest) => {
