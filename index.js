@@ -97,8 +97,8 @@ const middy = (handler) => {
       throw new Error('Middleware must be an object')
     }
 
-    if (!middleware.before && !middleware.after && !middleware.error) {
-      throw new Error('Middleware must contain at least one key among "before", "after", "error"')
+    if (!middleware.before && !middleware.after && !middleware.onError) {
+      throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
     if (middleware.before) {
@@ -109,8 +109,8 @@ const middy = (handler) => {
       instance.after(middleware.after)
     }
 
-    if (middleware.error) {
-      instance.error(middleware.error)
+    if (middleware.onError) {
+      instance.onError(middleware.onError)
     }
 
     return instance
@@ -128,16 +128,16 @@ const middy = (handler) => {
     return instance
   }
 
-  instance.error = (errorMiddleware) => {
+  instance.onError = (errorMiddleware) => {
     errorMiddlewares.push(errorMiddleware)
 
     return instance
   }
 
-  instance._middlewares = {
+  instance.__middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
-    error: errorMiddlewares
+    onError: errorMiddlewares
   }
 
   return instance
