@@ -1,10 +1,10 @@
 const createError = require('http-errors')
 
 module.exports = () => ({
-  before: (ctx, next) => {
-    if (ctx.event.headers['Content-Type'] === 'application/json') {
+  before: (handler, next) => {
+    if (handler.event.headers && handler.event.headers['Content-Type'] === 'application/json') {
       try {
-        ctx.event.body = JSON.parse(ctx.event.body)
+        handler.event.body = JSON.parse(handler.event.body)
       } catch (err) {
         throw new createError.UnprocessableEntity('Content type defined as JSON but an invalid JSON was provided')
       }
