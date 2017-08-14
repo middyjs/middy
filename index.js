@@ -1,4 +1,4 @@
-const runMiddlewares = (middlewares, ctx, done) => {
+const runMiddlewares = (middlewares, instance, done) => {
   const stack = Array.from(middlewares)
   const runNext = (err) => {
     try {
@@ -9,7 +9,7 @@ const runMiddlewares = (middlewares, ctx, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        return nextMiddleware(ctx, runNext)
+        return nextMiddleware(instance, runNext)
       }
 
       return done()
@@ -21,7 +21,7 @@ const runMiddlewares = (middlewares, ctx, done) => {
   runNext()
 }
 
-const runErrorMiddlewares = (middlewares, ctx, done) => {
+const runErrorMiddlewares = (middlewares, instance, done) => {
   const stack = Array.from(middlewares)
   const runNext = (err) => {
     try {
@@ -32,7 +32,7 @@ const runErrorMiddlewares = (middlewares, ctx, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        return nextMiddleware(ctx, runNext)
+        return nextMiddleware(instance, runNext)
       }
 
       return done(err)
@@ -41,7 +41,7 @@ const runErrorMiddlewares = (middlewares, ctx, done) => {
     }
   }
 
-  runNext(ctx.error)
+  runNext(instance.error)
 }
 
 const middy = (handler) => {
@@ -50,40 +50,37 @@ const middy = (handler) => {
   const errorMiddlewares = []
 
   const instance = (event, context, callback) => {
-    const ctx = {
-      event,
-      response: null,
-      error: null
-    }
-
-    instance.ctx = ctx
+    instance.event = event;
+    instance.context = context;
+    instance.response = null;
+    instance.error = null;
 
     const terminate = (err) => {
       if (err) {
         return callback(err)
       }
 
-      return callback(null, ctx.response)
+      return callback(null, instance.response)
     }
 
-    runMiddlewares(beforeMiddlewares, ctx, (err) => {
+    runMiddlewares(beforeMiddlewares, instance, (err) => {
       if (err) {
-        ctx.error = err
-        return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+        instance.error = err
+        return runErrorMiddlewares(errorMiddlewares, instance, terminate)
       }
 
-      handler.call(ctx, ctx.event, context, (err, response) => {
-        ctx.response = response
+      handler.call(instance, instance.event, context, (err, response) => {
+        instance.response = response
 
         if (err) {
-          ctx.error = err
-          return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+          instance.error = err
+          return runErrorMiddlewares(errorMiddlewares, instance, terminate)
         }
 
-        runMiddlewares(afterMiddlewares, ctx, (err) => {
+        runMiddlewares(afterMiddlewares, instance, (err) => {
           if (err) {
-            ctx.error = err
-            return runErrorMiddlewares(errorMiddlewares, ctx, terminate)
+            instance.error = err
+            return runErrorMiddlewares(errorMiddlewares, instance, terminate)
           }
 
           return terminate()

@@ -88,23 +88,23 @@ describe('🛵  Middy test suite', () => {
     })
 
     const m1 = () => ({
-      before: (ctx, next) => {
-        ctx.executedBefore = ['m1']
+      before: (handler, next) => {
+        handler.executedBefore = ['m1']
         next()
       },
-      after: (ctx, next) => {
-        ctx.executedAfter.push('m1')
+      after: (handler, next) => {
+        handler.executedAfter.push('m1')
         next()
       }
     })
 
     const m2 = () => ({
-      before: (ctx, next) => {
-        ctx.executedBefore.push('m2')
+      before: (handler, next) => {
+        handler.executedBefore.push('m2')
         next()
       },
-      after: (ctx, next) => {
-        ctx.executedAfter = ['m2']
+      after: (handler, next) => {
+        handler.executedAfter = ['m2']
         next()
       }
     })
@@ -115,8 +115,8 @@ describe('🛵  Middy test suite', () => {
 
     // executes the handler
     handler({}, {}, (_, response) => {
-      expect(handler.ctx.executedBefore).toEqual(['m1', 'm2'])
-      expect(handler.ctx.executedAfter).toEqual(['m2', 'm1'])
+      expect(handler.executedBefore).toEqual(['m1', 'm2'])
+      expect(handler.executedAfter).toEqual(['m2', 'm1'])
       expect(response).toEqual({foo: 'bar'})
       endTest()
     })
@@ -127,15 +127,15 @@ describe('🛵  Middy test suite', () => {
       return callback(null, {foo: 'bar'})
     })
 
-    const changeEventMiddleware = (ctx, next) => {
-      ctx.event.modified = true
+    const changeEventMiddleware = (handler, next) => {
+      handler.event.modified = true
       next()
     }
 
     handler.before(changeEventMiddleware)
 
     handler({}, {}, () => {
-      expect(handler.ctx.event.modified).toBe(true)
+      expect(handler.event.modified).toBe(true)
       endTest()
     })
   })
@@ -145,15 +145,15 @@ describe('🛵  Middy test suite', () => {
       return callback(null, {foo: 'bar'})
     })
 
-    const changeResponseMiddleware = (ctx, next) => {
-      ctx.response.modified = true
+    const changeResponseMiddleware = (handler, next) => {
+      handler.response.modified = true
       next()
     }
 
     handler.after(changeResponseMiddleware)
 
     handler({}, {}, () => {
-      expect(handler.ctx.response.modified).toBe(true)
+      expect(handler.response.modified).toBe(true)
       endTest()
     })
   })
