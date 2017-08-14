@@ -158,6 +158,43 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
+  test('"before" middleware should be able to access context', (endTest) => {
+    const context = {}
+
+    const handler = middy((event, context, callback) => {
+      return callback(null, {foo: 'bar'})
+    })
+
+    const getLambdaContext = (handler, next) => {
+      expect(handler.context).toEqual(context)
+      next()
+    }
+
+    handler.before(getLambdaContext)
+
+    handler({}, context, () => {
+      endTest()
+    })
+  })
+
+  test('"before" middleware should be able to modify context', (endTest) => {
+    const handler = middy((event, context, callback) => {
+      expect(context.modified).toBeTruthy()
+      return callback(null, {foo: 'bar'})
+    })
+
+    const getLambdaContext = (handler, next) => {
+      handler.context.modified = true
+      next()
+    }
+
+    handler.before(getLambdaContext)
+
+    handler({}, {}, () => {
+      endTest()
+    })
+  })
+
   test('Handler should be able to access middie context with "this"', (endTest) => {
     const handler = middy(function (event, context, callback) {
       expect(this).toBeDefined()
