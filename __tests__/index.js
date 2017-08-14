@@ -88,23 +88,23 @@ describe('🛵  Middy test suite', () => {
     })
 
     const m1 = () => ({
-      before: (ctx, next) => {
-        ctx.executedBefore = ['m1']
+      before: (handler, next) => {
+        handler.executedBefore = ['m1']
         next()
       },
-      after: (ctx, next) => {
-        ctx.executedAfter.push('m1')
+      after: (handler, next) => {
+        handler.executedAfter.push('m1')
         next()
       }
     })
 
     const m2 = () => ({
-      before: (ctx, next) => {
-        ctx.executedBefore.push('m2')
+      before: (handler, next) => {
+        handler.executedBefore.push('m2')
         next()
       },
-      after: (ctx, next) => {
-        ctx.executedAfter = ['m2']
+      after: (handler, next) => {
+        handler.executedAfter = ['m2']
         next()
       }
     })
@@ -115,8 +115,8 @@ describe('🛵  Middy test suite', () => {
 
     // executes the handler
     handler({}, {}, (_, response) => {
-      expect(handler.ctx.executedBefore).toEqual(['m1', 'm2'])
-      expect(handler.ctx.executedAfter).toEqual(['m2', 'm1'])
+      expect(handler.executedBefore).toEqual(['m1', 'm2'])
+      expect(handler.executedAfter).toEqual(['m2', 'm1'])
       expect(response).toEqual({foo: 'bar'})
       endTest()
     })
@@ -127,15 +127,15 @@ describe('🛵  Middy test suite', () => {
       return callback(null, {foo: 'bar'})
     })
 
-    const changeEventMiddleware = (ctx, next) => {
-      ctx.event.modified = true
+    const changeEventMiddleware = (handler, next) => {
+      handler.event.modified = true
       next()
     }
 
     handler.before(changeEventMiddleware)
 
     handler({}, {}, () => {
-      expect(handler.ctx.event.modified).toBe(true)
+      expect(handler.event.modified).toBe(true)
       endTest()
     })
   })
@@ -145,15 +145,52 @@ describe('🛵  Middy test suite', () => {
       return callback(null, {foo: 'bar'})
     })
 
-    const changeResponseMiddleware = (ctx, next) => {
-      ctx.response.modified = true
+    const changeResponseMiddleware = (handler, next) => {
+      handler.response.modified = true
       next()
     }
 
     handler.after(changeResponseMiddleware)
 
     handler({}, {}, () => {
-      expect(handler.ctx.response.modified).toBe(true)
+      expect(handler.response.modified).toBe(true)
+      endTest()
+    })
+  })
+
+  test('"before" middleware should be able to access context', (endTest) => {
+    const context = {}
+
+    const handler = middy((event, context, callback) => {
+      return callback(null, {foo: 'bar'})
+    })
+
+    const getLambdaContext = (handler, next) => {
+      expect(handler.context).toEqual(context)
+      next()
+    }
+
+    handler.before(getLambdaContext)
+
+    handler({}, context, () => {
+      endTest()
+    })
+  })
+
+  test('"before" middleware should be able to modify context', (endTest) => {
+    const handler = middy((event, context, callback) => {
+      expect(context.modified).toBeTruthy()
+      return callback(null, {foo: 'bar'})
+    })
+
+    const getLambdaContext = (handler, next) => {
+      handler.context.modified = true
+      next()
+    }
+
+    handler.before(getLambdaContext)
+
+    handler({}, {}, () => {
       endTest()
     })
   })
@@ -172,12 +209,12 @@ describe('🛵  Middy test suite', () => {
     const handler = middy(originalHandler)
     const error = new Error('Some error')
 
-    const failingMiddleware = (ctx, next) => {
+    const failingMiddleware = (handler, next) => {
       next(error)
     }
 
-    const onErrorMiddleware = jest.fn((ctx, next) => {
-      expect(ctx.error).toBe(error)
+    const onErrorMiddleware = jest.fn((handler, next) => {
+      expect(handler.error).toBe(error)
       next()
     })
 
@@ -198,8 +235,8 @@ describe('🛵  Middy test suite', () => {
       return callback(error)
     })
 
-    const onErrorMiddleware = jest.fn((ctx, next) => {
-      expect(ctx.error).toBe(error)
+    const onErrorMiddleware = jest.fn((handler, next) => {
+      expect(handler.error).toBe(error)
       next()
     })
 
@@ -219,12 +256,12 @@ describe('🛵  Middy test suite', () => {
     const handler = middy(originalHandler)
     const error = new Error('Some error')
 
-    const failingMiddleware = (ctx, next) => {
+    const failingMiddleware = (handler, next) => {
       next(error)
     }
 
-    const onErrorMiddleware = jest.fn((ctx, next) => {
-      expect(ctx.error).toBe(error)
+    const onErrorMiddleware = jest.fn((handler, next) => {
+      expect(handler.error).toBe(error)
       next()
     })
 
@@ -242,8 +279,8 @@ describe('🛵  Middy test suite', () => {
   test('If theres an error and one error middleware handles the error, the next error middlewares is not executed', (endTest) => {
     const expectedResponse = { message: 'error handled' }
 
-    const onErrorMiddleware1 = jest.fn((ctx, next) => {
-      ctx.response = expectedResponse
+    const onErrorMiddleware1 = jest.fn((handler, next) => {
+      handler.response = expectedResponse
       next() // the error has been handled
     })
 
@@ -270,12 +307,12 @@ describe('🛵  Middy test suite', () => {
   test('If theres an error and the first error middleware doesn\'t handle the error, the next error middlewares is executed', (endTest) => {
     const expectedResponse = { message: 'error handled' }
 
-    const onErrorMiddleware1 = jest.fn((ctx, next) => {
-      next(ctx.error) // propagates the error
+    const onErrorMiddleware1 = jest.fn((handler, next) => {
+      next(handler.error) // propagates the error
     })
 
-    const onErrorMiddleware2 = jest.fn((ctx, next) => {
-      ctx.response = expectedResponse
+    const onErrorMiddleware2 = jest.fn((handler, next) => {
+      handler.response = expectedResponse
       next() // the error has been handled
     })
 
@@ -300,7 +337,7 @@ describe('🛵  Middy test suite', () => {
   test('It handler synchronous errors generated by throw statements in the before middleware', (endTest) => {
     const expectedError = new Error('some error')
 
-    const beforeMiddleware = (ctx, next) => {
+    const beforeMiddleware = (handler, next) => {
       throw expectedError
     }
 
@@ -331,7 +368,7 @@ describe('🛵  Middy test suite', () => {
   test('It handler synchronous errors generated by throw statements in the after middleware', (endTest) => {
     const expectedError = new Error('some error')
 
-    const afterMiddleware = (ctx, next) => {
+    const afterMiddleware = (handler, next) => {
       throw expectedError
     }
 
@@ -351,7 +388,7 @@ describe('🛵  Middy test suite', () => {
   test('It handler synchronous errors generated by throw statements in the error middleware', (endTest) => {
     const expectedError = new Error('successive error in error handler')
 
-    const onErrorMiddleware = (ctx, next) => {
+    const onErrorMiddleware = (handler, next) => {
       throw expectedError
     }
 
