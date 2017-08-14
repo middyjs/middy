@@ -14,12 +14,19 @@ jobs:
           - v1-dependencies-{{ checksum "package.json" }}
           - v1-dependencies-
 
-      - run: npm install -g npm@5.3.0
-      - run: npm install
+      - run: 
+          name: update npm
+          command: sudo npm install -g npm@5.3.0
+      
+      - run:
+          name: install dependencies
+          command: npm install
 
       - save_cache:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
         
-      - run: npm test
+      - run:
+          name: unit tests
+          command: npm test
