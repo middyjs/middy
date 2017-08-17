@@ -7,6 +7,21 @@ The simple (but cool 😎) middleware engine for AWS lambda in Node.js
 [![Standard Code Style](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com/)
 
 
+## TOC
+
+ - [A little appetizer](#a-little-appetizer)
+ - [Install](#install)
+ - [Requirements](#requirements)
+ - [Why?](#why)
+ - [Usage](#usage)
+ - [How it works](#how-it-works)
+ - [Writing a middleware](#writing-a-middleware)
+ - [Available middlewares](#available-middlewares)
+ - [API](#api)
+ - [Contributing](#contributing)
+ - [License](#license)
+
+
 ## A little appetizer
 
 Middy is a very simple middleware engine. If you are used to web frameworks like
@@ -72,15 +87,17 @@ npm install middy
 ```
 
 
-## Why ?
-
-
 ## Requirements
 
-Middy has been built to work by default from Node >= 6.10.
+Middy has been built to work by default from **Node >= 6.10**.
 
 If you need to run it in earlier versions of Node (eg. 4.3) then you will have to
 *transpile* middy's code yourself using [babel](https://babeljs.io/) or a similar tools.
+
+
+## Why?
+
+...
 
 
 ## Usage
@@ -128,9 +145,18 @@ Middy implements the classic *onion-like* middleware pattern, with some peculiar
 
 ## Writing a middleware
 
+...
+
 
 ## Available middlewares
 
+Currently available middlewares:
+
+ - [`jsonBodyParser`](/src/middlewares/jsonBodyParser.js): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ `httpErrorHanler`.
+ - `urlEncodedBodyParser`: to be added
+ - `validator`: to be added
+ - `httpErrorHandler`: to be added
 
 ## Api
 
