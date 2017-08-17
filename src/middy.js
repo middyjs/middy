@@ -153,20 +153,22 @@ const middy = (handler) => {
       throw new Error('Middleware must be an object')
     }
 
-    if (!middleware.before && !middleware.after && !middleware.onError) {
+    const { before, after, onError } = middleware
+
+    if (!before && !after && !onError) {
       throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
-    if (middleware.before) {
-      instance.before(middleware.before)
+    if (before) {
+      instance.before(before)
     }
 
-    if (middleware.after) {
-      instance.after(middleware.after)
+    if (after) {
+      instance.after(after)
     }
 
-    if (middleware.onError) {
-      instance.onError(middleware.onError)
+    if (onError) {
+      instance.onError(onError)
     }
 
     return instance
