@@ -395,7 +395,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 | --- | --- | --- |
 | event | <code>Object</code> | the AWS Lambda event from the original handler |
 | context | <code>Object</code> | the AWS Lambda context from the original handler |
-| callback | <code>function</code> | the AWS Lambca callback from the original handler |
+| callback | <code>function</code> | the AWS Lambda callback from the original handler |
 
 **Properties**
 

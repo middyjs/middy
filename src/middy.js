@@ -3,7 +3,7 @@
  * @type function
  * @param {Object} event - the AWS Lambda event from the original handler
  * @param {Object} context - the AWS Lambda context from the original handler
- * @param {function} callback - the AWS Lambca callback from the original handler
+ * @param {function} callback - the AWS Lambda callback from the original handler
  * @property {useFunction} use - attach a new middleware
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
  * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
