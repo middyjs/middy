@@ -122,25 +122,23 @@ const middy = (handler) => {
       return callback(null, instance.response)
     }
 
-    runMiddlewares(beforeMiddlewares, instance, (err) => {
+    const errorHandler = err => {
       if (err) {
         instance.error = err
         return runErrorMiddlewares(errorMiddlewares, instance, terminate)
       }
+    }
+
+    runMiddlewares(beforeMiddlewares, instance, (err) => {
+      if (err) return errorHandler(err)
 
       handler.call(instance, instance.event, context, (err, response) => {
         instance.response = response
 
-        if (err) {
-          instance.error = err
-          return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-        }
+        if (err) return errorHandler(err)
 
         runMiddlewares(afterMiddlewares, instance, (err) => {
-          if (err) {
-            instance.error = err
-            return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-          }
+          if (err) return errorHandler(err)
 
           return terminate()
         })
@@ -153,20 +151,22 @@ const middy = (handler) => {
       throw new Error('Middleware must be an object')
     }
 
-    if (!middleware.before && !middleware.after && !middleware.onError) {
+    const { before, after, onError } = middleware
+
+    if (!before && !after && !onError) {
       throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
-    if (middleware.before) {
-      instance.before(middleware.before)
+    if (before) {
+      instance.before(before)
     }
 
-    if (middleware.after) {
-      instance.after(middleware.after)
+    if (after) {
+      instance.after(after)
     }
 
-    if (middleware.onError) {
-      instance.onError(middleware.onError)
+    if (onError) {
+      instance.onError(onError)
     }
 
     return instance
