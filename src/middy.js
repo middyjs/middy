@@ -122,25 +122,23 @@ const middy = (handler) => {
       return callback(null, instance.response)
     }
 
-    runMiddlewares(beforeMiddlewares, instance, (err) => {
+    const errorHandler = err => {
       if (err) {
         instance.error = err
         return runErrorMiddlewares(errorMiddlewares, instance, terminate)
       }
+    }
+
+    runMiddlewares(beforeMiddlewares, instance, (err) => {
+      if (err) return errorHandler(err)
 
       handler.call(instance, instance.event, context, (err, response) => {
         instance.response = response
 
-        if (err) {
-          instance.error = err
-          return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-        }
+        if (err) return errorHandler(err)
 
         runMiddlewares(afterMiddlewares, instance, (err) => {
-          if (err) {
-            instance.error = err
-            return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-          }
+          if (err) return errorHandler(err)
 
           return terminate()
         })
