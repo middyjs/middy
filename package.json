@@ -8,7 +8,11 @@
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
     "test": "npm run test:lint && npm run test:unit",
-    "release:tag": "git tag $npm_package_version && git push --tags"
+    "build:readme": "jsdoc2md --template README.md.hb src/* > README.md",
+    "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
+    "build": "npm run build:docs && npm run build:readme",
+    "release:tag": "git tag $npm_package_version && git push --tags",
+    "precommit": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -33,7 +37,10 @@
     "eslint-plugin-node": "^5.1.1",
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-standard": "^3.0.1",
-    "jest": "^20.0.4"
+    "husky": "^0.14.3",
+    "jest": "^20.0.4",
+    "jsdoc": "^3.5.4",
+    "jsdoc-to-markdown": "^3.0.0"
   },
   "dependencies": {
     "http-errors": "^1.6.2"

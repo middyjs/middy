@@ -1,4 +1,4 @@
-const middy = require('../..')
+const middy = require('../../middy')
 const jsonBodyParser = require('../jsonBodyParser')
 
 describe('📦  Middleware Body Parser', () => {

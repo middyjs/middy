@@ -1,4 +1,4 @@
-const middy = require('..')
+const middy = require('../middy')
 
 describe('🛵  Middy test suite', () => {
   test('Middleware attached with "use" must be an object', () => {
