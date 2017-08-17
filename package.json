@@ -4,7 +4,7 @@
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "scripts": {
-    "test:lint": "eslint --ignore-pattern='node_modules' --ignore-pattern='coverage/' .",
+    "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
     "test": "npm run test:lint && npm run test:unit",
