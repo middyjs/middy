@@ -279,11 +279,11 @@ With this convention in mind, using a middleware will always look like the follo
 const middy = require('middy')
 const myMiddleware = require('myMiddleware')
 
-const handler = midd((event, context, callback) => {
+const handler = middy((event, context, callback) => {
   // do stuff
 })
 
-handler.use(myHandler({
+handler.use(myMiddleware({
   option1: 'foo',
   option2: 'bar'
 }))
@@ -306,7 +306,7 @@ Let's see how inline middlewares work with a simple example:
 ```javascript
 const middy = require('middy')
 
-const handler = midd((event, context, callback) => {
+const handler = middy((event, context, callback) => {
   // do stuff
 })
 
