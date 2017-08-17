@@ -1,10 +1,18 @@
-# 🛵 Middy
+<div align="center">
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/Plnt9/middy/master/img/middy-logo.png"/>
+</div>
 
-The simple (but cool 😎) middleware engine for AWS lambda in Node.js
+<div align="center">
+  <p><strong>The stylish Node.js middleware engine for AWS Lambda</strong></p>
+</div>
+
+<div align="center">
 
 [![CircleCI](https://circleci.com/gh/Plnt9/middy.svg?style=shield&circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a)](https://circleci.com/gh/Plnt9/middy)
 [![npm version](https://badge.fury.io/js/middy.svg)](http://badge.fury.io/js/middy)
 [![Standard Code Style](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com/)
+
+</div>
 
 
 ## TOC
@@ -42,10 +50,10 @@ const { urlEncodedBodyParser, validator, httpErrorHandler } = require('middy/mid
 const processPayment = (event, context, callback) => {
   // we don't need to deserialize the body ourself as a middleware will be used to do that
   const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
-  
+
   // do stuff with this data
   // ...
-  
+
   return callback(null, { result: 'success', message: 'payment processed correctly'})
 }
 
@@ -111,7 +119,7 @@ In other contexts, like generic web frameworks ([express](http://expressjs.com/)
 [fastify](http://fastify.io), [hapi](https://hapijs.com/), etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
-This pattern allows developers to isolate this common technical concerns into 
+This pattern allows developers to isolate this common technical concerns into
 *"steps"* that *decorate* the main business logic code.
 Middleware functions are generally written as independent modules and then plugged in into
 the application in a configuration step, thus not polluting the main business logic
@@ -124,7 +132,7 @@ to create middy, our own middleware framework for serverless in AWS land.
 
 ## Usage
 
-As you might have already got from our first example here, using middy is very 
+As you might have already got from our first example here, using middy is very
 simple and requires just few steps:
 
  1. Write your Lambda handlers as usual, focusing mostly on implementing the bare
@@ -172,7 +180,7 @@ When another middleware is attached this will wrap the handler again and it will
 all the previously added middlewares in order, creating multiple layers for interacting with
 the *request* (event) and the *response*.
 
-This way the *request-response cycle* flows through all the middlewares, the 
+This way the *request-response cycle* flows through all the middlewares, the
 handler and all the middlewares again, giving to every step, the opportunity to
 modify or enrich the current request, context or the response.
 
@@ -181,7 +189,7 @@ modify or enrich the current request, context or the response.
 
 Middlewares have two phases: `before` and `after`.
 
-The `before` phase, happens *before* the handler is executed. In this code the 
+The `before` phase, happens *before* the handler is executed. In this code the
 response is not created yet, so you will have access only to the request.
 
 The `after` phase, happens *after* the handler is executed. In this code you will
