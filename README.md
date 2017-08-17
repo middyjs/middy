@@ -351,34 +351,45 @@ Currently available middlewares:
 
 ## Api
 
-<a name="module_Middy"></a>
+## Functions
 
-## Middy
+<dl>
+<dt><a href="#middy">middy(handler)</a> ⇒ <code><a href="#middy">middy</a></code></dt>
+<dd><p>Middy factory function. Use it to wrap your existing handler to enable middlewares on it.</p>
+</dd>
+</dl>
 
-* [Middy](#module_Middy)
-    * [.middy(handler)](#module_Middy.middy) ⇒ [<code>middy</code>](#module_Middy.middy)
-    * [.middy](#module_Middy.middy) : <code>function</code>
-    * [.useFunction](#module_Middy.useFunction) ⇒ [<code>middy</code>](#module_Middy.middy)
-    * [.middlewareAttachFunction](#module_Middy.middlewareAttachFunction) ⇒ [<code>middy</code>](#module_Middy.middy)
-    * [.middlewareFunction](#module_Middy.middlewareFunction) : <code>function</code>
-    * [.middlewareObject](#module_Middy.middlewareObject) : <code>Object</code>
+## Typedefs
 
-<a name="module_Middy.middy"></a>
+<dl>
+<dt><a href="#middy">middy</a> : <code>function</code></dt>
+<dd></dd>
+<dt><a href="#useFunction">useFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
+<dd></dd>
+<dt><a href="#middlewareAttachFunction">middlewareAttachFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
+<dd></dd>
+<dt><a href="#middlewareFunction">middlewareFunction</a> : <code>function</code></dt>
+<dd></dd>
+<dt><a href="#middlewareObject">middlewareObject</a> : <code>Object</code></dt>
+<dd></dd>
+</dl>
 
-### Middy.middy(handler) ⇒ [<code>middy</code>](#module_Middy.middy)
+<a name="middy"></a>
+
+## middy(handler) ⇒ [<code>middy</code>](#middy)
 Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
 
-**Kind**: static method of [<code>Middy</code>](#module_Middy)  
-**Returns**: [<code>middy</code>](#module_Middy.middy) - - a `middy` instance  
+**Kind**: global function  
+**Returns**: [<code>middy</code>](#middy) - - a `middy` instance  
 
 | Param | Type | Description |
 | --- | --- | --- |
 | handler | <code>function</code> | your original AWS Lambda function |
 
-<a name="module_Middy.middy"></a>
+<a name="middy"></a>
 
-### Middy.middy : <code>function</code>
-**Kind**: static typedef of [<code>Middy</code>](#module_Middy)  
+## middy : <code>function</code>
+**Kind**: global typedef  
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -390,51 +401,51 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 
 | Name | Type | Description |
 | --- | --- | --- |
-| use | <code>useFunction</code> | attach a new middleware |
-| before | [<code>middlewareAttachFunction</code>](#module_Middy.middlewareAttachFunction) | attach a new *before-only* middleware |
-| after | [<code>middlewareAttachFunction</code>](#module_Middy.middlewareAttachFunction) | attach a new *after-only* middleware |
-| onError | [<code>middlewareAttachFunction</code>](#module_Middy.middlewareAttachFunction) | attach a new *error-handler-only* middleware |
+| use | [<code>useFunction</code>](#useFunction) | attach a new middleware |
+| before | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *before-only* middleware |
+| after | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *after-only* middleware |
+| onError | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *error-handler-only* middleware |
 | __middlewares | <code>Object</code> | contains the list of all the attached    middlewares organised by type (`before`, `after`, `onError`). To be used only   for testing and debugging purposes |
 
-<a name="module_Middy.useFunction"></a>
+<a name="useFunction"></a>
 
-### Middy.useFunction ⇒ [<code>middy</code>](#module_Middy.middy)
-**Kind**: static typedef of [<code>Middy</code>](#module_Middy)  
-
-| Type | Description |
-| --- | --- |
-| [<code>middlewareObject</code>](#module_Middy.middlewareObject) | the middleware object to attach |
-
-<a name="module_Middy.middlewareAttachFunction"></a>
-
-### Middy.middlewareAttachFunction ⇒ [<code>middy</code>](#module_Middy.middy)
-**Kind**: static typedef of [<code>Middy</code>](#module_Middy)  
+## useFunction ⇒ [<code>middy</code>](#middy)
+**Kind**: global typedef  
 
 | Type | Description |
 | --- | --- |
-| [<code>middlewareFunction</code>](#module_Middy.middlewareFunction) | the middleware function to attach |
+| [<code>middlewareObject</code>](#middlewareObject) | the middleware object to attach |
 
-<a name="module_Middy.middlewareFunction"></a>
+<a name="middlewareAttachFunction"></a>
 
-### Middy.middlewareFunction : <code>function</code>
-**Kind**: static typedef of [<code>Middy</code>](#module_Middy)  
+## middlewareAttachFunction ⇒ [<code>middy</code>](#middy)
+**Kind**: global typedef  
+
+| Type | Description |
+| --- | --- |
+| [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach |
+
+<a name="middlewareFunction"></a>
+
+## middlewareFunction : <code>function</code>
+**Kind**: global typedef  
 
 | Param | Type | Description |
 | --- | --- | --- |
 | handler | <code>function</code> | the original handler function.   It will expose properties `event`, `context`, `response` and `error` that can   be used to interact with the middleware lifecycle |
-| next | <code>function</code> |  |
+| next | <code>function</code> | the callback to invoke to pass the control to the next middleware |
 
-<a name="module_Middy.middlewareObject"></a>
+<a name="middlewareObject"></a>
 
-### Middy.middlewareObject : <code>Object</code>
-**Kind**: static typedef of [<code>Middy</code>](#module_Middy)  
+## middlewareObject : <code>Object</code>
+**Kind**: global typedef  
 **Properties**
 
 | Name | Type | Description |
 | --- | --- | --- |
-| before | [<code>middlewareFunction</code>](#module_Middy.middlewareFunction) | the middleware function to attach as *before* middleware |
-| after | [<code>middlewareFunction</code>](#module_Middy.middlewareFunction) | the middleware function to attach as *after* middleware |
-| onError | [<code>middlewareFunction</code>](#module_Middy.middlewareFunction) | the middleware function to attach as *error* middleware |
+| before | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *before* middleware |
+| after | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *after* middleware |
+| onError | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *error* middleware |
 
 
 

@@ -1,16 +1,13 @@
-/** @module Middy **/
-
 /**
  * @typedef middy
- * @memberof module:Middy
  * @type function
  * @param {Object} event - the AWS Lambda event from the original handler
  * @param {Object} context - the AWS Lambda context from the original handler
  * @param {function} callback - the AWS Lambca callback from the original handler
  * @property {useFunction} use - attach a new middleware
- * @property {module:Middy.middlewareAttachFunction} before - attach a new *before-only* middleware
- * @property {module:Middy.middlewareAttachFunction} after - attach a new *after-only* middleware
- * @property {module:Middy.middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
+ * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
+ * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
+ * @property {middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
  * @property {Object} __middlewares - contains the list of all the attached 
  *   middlewares organised by type (`before`, `after`, `onError`). To be used only
  *   for testing and debugging purposes
@@ -18,37 +15,33 @@
 
 /**
  * @typedef useFunction
- * @memberof module:Middy
  * @type {function}
- * @param {module:Middy.middlewareObject} - the middleware object to attach
- * @return {module:Middy.middy}
+ * @param {middlewareObject} - the middleware object to attach
+ * @return {middy}
  */
 
 /**
  * @typedef middlewareAttachFunction
- * @memberof module:Middy
  * @type {function}
- * @param {module:Middy.middlewareFunction} - the middleware function to attach
- * @return {module:Middy.middy}
+ * @param {middlewareFunction} - the middleware function to attach
+ * @return {middy}
  */
 
 /**
  * @typedef middlewareFunction
- * @memberof module:Middy
  * @type {function}
  * @param {function} handler - the original handler function.
  *   It will expose properties `event`, `context`, `response` and `error` that can
  *   be used to interact with the middleware lifecycle
- * @param {function} next
+ * @param {function} next - the callback to invoke to pass the control to the next middleware
  */
 
 /**
  * @typedef middlewareObject
- * @memberof module:Middy
  * @type Object
- * @property {module:Middy.middlewareFunction} before - the middleware function to attach as *before* middleware
- * @property {module:Middy.middlewareFunction} after - the middleware function to attach as *after* middleware
- * @property {module:Middy.middlewareFunction} onError - the middleware function to attach as *error* middleware
+ * @property {middlewareFunction} before - the middleware function to attach as *before* middleware
+ * @property {middlewareFunction} after - the middleware function to attach as *after* middleware
+ * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
  */
 
 const runMiddlewares = (middlewares, instance, done) => {
@@ -99,9 +92,8 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
- * @memberof module:Middy
  * @param  {function} handler - your original AWS Lambda function
- * @return {module:Middy.middy} - a `middy` instance
+ * @return {middy} - a `middy` instance
  */
 const middy = (handler) => {
   const beforeMiddlewares = []
