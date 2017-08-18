@@ -7,11 +7,17 @@
 </div>
 
 <div align="center">
-
-[![CircleCI](https://circleci.com/gh/Plnt9/middy.svg?style=shield&circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a)](https://circleci.com/gh/Plnt9/middy)
-[![npm version](https://badge.fury.io/js/middy.svg)](http://badge.fury.io/js/middy)
-[![Standard Code Style](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com/)
-
+<p>
+  <a href="https://circleci.com/gh/Plnt9/middy">
+    <img src="https://circleci.com/gh/Plnt9/middy.svg?style=shield&amp;circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a" alt="CircleCI" style="max-width:100%;">
+  </a>
+  <a href="http://badge.fury.io/js/middy">
+    <img src="https://badge.fury.io/js/middy.svg" alt="npm version" style="max-width:100%;">
+  </a>
+  <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  </a>
+</p>
 </div>
 
 
