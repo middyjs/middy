@@ -53,4 +53,20 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       })
     })
   })
+
+  test('It shouldn\'t process the body if no header is passed', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(urlencodedBodyParser())
+
+    // invokes the handler
+    const event = {
+      body: JSON.stringify({foo: 'bar'})
+    }
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual('{"foo":"bar"}')
+    })
+  })
 })
