@@ -360,7 +360,7 @@ Currently available middlewares:
  `httpErrorHanler`.
  - `urlEncodedBodyParser`: **to be added**
  - `validator`: **to be added**
- - `httpErrorHandler`: **to be added**
+ - - [`httpErrorHandler`](/src/middlewares/httpErrorHandler.js): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
 
 
 ## Api
