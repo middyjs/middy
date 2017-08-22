@@ -72,7 +72,7 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
   const runNext = (err) => {
     try {
       if (!err) {
-        return done()
+        instance.__handledError = true
       }
 
       const nextMiddleware = stack.shift()
@@ -81,7 +81,7 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
         return nextMiddleware(instance, runNext)
       }
 
-      return done(err)
+      return done(instance.__handledError ? null : err)
     } catch (err) {
       return done(err)
     }
