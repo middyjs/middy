@@ -1,7 +1,7 @@
 const middy = require('../../middy')
 const jsonBodyParser = require('../jsonBodyParser')
 
-describe('📦  Middleware Body Parser', () => {
+describe('📦  Middleware JSON Body Parser', () => {
   test('It should parse a JSON request', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
