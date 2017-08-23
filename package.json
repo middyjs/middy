@@ -45,6 +45,8 @@
   "dependencies": {
     "ajv": "^5.2.2",
     "ajv-keywords": "^2.1.0",
-    "http-errors": "^1.6.2"
+    "http-errors": "^1.6.2",
+    "qs": "^6.5.0",
+    "querystring": "^0.2.0"
   }
 }
