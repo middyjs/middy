@@ -56,6 +56,7 @@ describe('📦  Middleware Validator', () => {
     }
     handler.use(jsonBodyParser())
     handler.use(validator(schema))
+    
     // invokes the handler, note that property foo is missing
     const event = {
       headers: {
@@ -81,10 +82,9 @@ describe('📦  Middleware Validator', () => {
         }
       }
     }
-    // invokes the handler
+
     handler.use(jsonBodyParser())
     handler.use(validator(null, schema))
-    // invokes the handler
 
     const event = {
       headers: {
@@ -111,6 +111,7 @@ describe('📦  Middleware Validator', () => {
         }
       }
     }
+
     handler.use(jsonBodyParser())
     handler.use(validator(null, schema))
 
