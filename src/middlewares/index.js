@@ -1,3 +1,4 @@
 module.exports = {
-  jsonBodyParser: require('./jsonBodyParser')
+  jsonBodyParser: require('./jsonBodyParser'),
+  urlencodeBodyParser: require('./urlencodeBodyParser')
 }
