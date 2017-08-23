@@ -358,7 +358,7 @@ Currently available middlewares:
 
  - [`jsonBodyParser`](/src/middlewares/jsonBodyParser.js): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
- - `urlEncodedBodyParser`: **to be added**
+ - - [`urlencodeBodyParser`](/src/middlewares/urlencodeBodyParser.js): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - `validator`: **to be added**
  - `httpErrorHandler`: **to be added**
 
