@@ -69,6 +69,7 @@ const runMiddlewares = (middlewares, instance, done) => {
 
 const runErrorMiddlewares = (middlewares, instance, done) => {
   const stack = Array.from(middlewares)
+  instance.__handledError = false
   const runNext = (err) => {
     try {
       if (!err) {
