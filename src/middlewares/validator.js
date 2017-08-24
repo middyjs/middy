@@ -11,9 +11,6 @@ module.exports = (options) => {
   const validateOut = ajv.compile(outputSchema || true)
   return {
     before: (handler, next) => {
-      if (!inputSchema) {
-        return next()
-      }
       const valid = validateIn(handler.event)
       if (!valid) {
         throw new createError.BadRequest('Event object failed validation', validateIn.errors)
@@ -21,9 +18,6 @@ module.exports = (options) => {
       next()
     },
     after: (handler, next) => {
-      if (!outputSchema) {
-        return next()
-      }
       const valid = validateOut(handler.response)
       if (!valid) {
         throw new createError.InternalServerError('Response object failed validation', validateOut.errors)
