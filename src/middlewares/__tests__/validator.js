@@ -8,8 +8,7 @@ describe('📦  Middleware Validator', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    const schema = {
-      required: ['headers', 'body'],
+    const inputSchema = {
       properties: {
         headers: {
           type: 'object'
@@ -28,7 +27,7 @@ describe('📦  Middleware Validator', () => {
     }
 
     handler.use(jsonBodyParser())
-    handler.use(validator(schema))
+    handler.use(validator({ inputSchema }))
 
     handler(event, {}, (_, body) => {
       expect(body).toEqual({foo: 'bar'})
@@ -40,7 +39,7 @@ describe('📦  Middleware Validator', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    const schema = {
+    const inputSchema = {
       required: ['headers', 'body', 'foo'],
       properties: {
         headers: {
@@ -55,8 +54,8 @@ describe('📦  Middleware Validator', () => {
       }
     }
     handler.use(jsonBodyParser())
-    handler.use(validator(schema))
-    
+    handler.use(validator({ inputSchema }))
+
     // invokes the handler, note that property foo is missing
     const event = {
       headers: {
@@ -74,7 +73,7 @@ describe('📦  Middleware Validator', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    const schema = {
+    const outputSchema = {
       required: ['foo'],
       properties: {
         foo: {
@@ -84,7 +83,7 @@ describe('📦  Middleware Validator', () => {
     }
 
     handler.use(jsonBodyParser())
-    handler.use(validator(null, schema))
+    handler.use(validator({ outputSchema }))
 
     const event = {
       headers: {
@@ -94,7 +93,6 @@ describe('📦  Middleware Validator', () => {
     }
 
     handler(event, {}, (_, body) => {
-      console.error('output valid. 1')
       expect(body).toEqual('{"foo":"bar"}')
     })
   })
@@ -103,7 +101,7 @@ describe('📦  Middleware Validator', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body)
     })
-    const schema = {
+    const outputSchema = {
       required: ['foo'],
       properties: {
         foo: {
@@ -113,7 +111,7 @@ describe('📦  Middleware Validator', () => {
     }
 
     handler.use(jsonBodyParser())
-    handler.use(validator(null, schema))
+    handler.use(validator({ outputSchema }))
 
     const event = {
       headers: {
@@ -123,7 +121,6 @@ describe('📦  Middleware Validator', () => {
     }
 
     handler(event, {}, (_, body) => {
-      console.error('output valid. 2')
       expect(body).toEqual('Response object failed validation')
     })
   })
