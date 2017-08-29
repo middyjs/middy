@@ -1,37 +1,32 @@
 const middy = require('../../middy')
-const jsonBodyParser = require('../jsonBodyParser')
 const validator = require('../validator')
 
 describe('📦  Middleware Validator', () => {
   test('It should validate an incoming object', () => {
     const handler = middy((event, context, cb) => {
-      cb(null, event.body) // propagates the body as a response
+      return cb(null, event.body) // propagates the body as a response
     })
 
     const schema = {
-      required: ['headers', 'body'],
+      required: ['body'],
       properties: {
-        headers: {
-          type: 'object'
-        },
         body: {
-          type: 'object'
+          type: 'string'
         }
       }
     }
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
     // invokes the handler
     const event = {
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({foo: 'bar'})
     }
-
-    handler.use(jsonBodyParser())
-    handler.use(validator(schema))
-
-    handler(event, {}, (_, body) => {
-      expect(body).toEqual({foo: 'bar'})
+    handler(event, {}, (err, body) => {
+      expect(err).toEqual(null)
+      expect(body).toEqual('{"foo":"bar"}')
     })
   })
 
@@ -41,90 +36,90 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
-      required: ['headers', 'body', 'foo'],
+      required: ['body', 'foo'],
       properties: {
-        headers: {
-          type: 'object'
-        },
+        // this will pass validation
         body: {
-          type: 'object'
+          type: 'string'
         },
+        // this won't as it won't be in the event
         foo: {
           type: 'string'
         }
       }
     }
-    handler.use(jsonBodyParser())
-    handler.use(validator(schema))
-    
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
     // invokes the handler, note that property foo is missing
     const event = {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({something: 'somethingelse'})
     }
-    handler(event, {}, (err) => {
+    handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
     })
   })
 
   test('It should validate response', () => {
+    const expectedResponse = {
+      body: 'Hello world',
+      statusCode: 200
+    }
+
     const handler = middy((event, context, cb) => {
-      cb(null, event.body) // propagates the body as a response
+      cb(null, expectedResponse)
     })
 
     const schema = {
-      required: ['foo'],
+      required: ['body', 'statusCode'],
       properties: {
-        foo: {
+        body: {
           type: 'string'
+        },
+        statusCode: {
+          type: 'number'
         }
       }
     }
 
-    handler.use(jsonBodyParser())
-    handler.use(validator(null, schema))
+    handler.use(validator({outputSchema: schema}))
 
-    const event = {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({foo: 'bar'})
-    }
-
-    handler(event, {}, (_, body) => {
-      console.error('output valid. 1')
-      expect(body).toEqual('{"foo":"bar"}')
+    handler({}, {}, (err, response) => {
+      expect(err).toBe(null)
+      expect(response).toBe(expectedResponse)
     })
   })
 
-  it('should invalidate incorrect responses', () => {
+  test('It should make requests with invalid responses fail with an Internal Server Error', () => {
+    const expectedResponse = {
+      body: 'Hello world',
+      statusCode: 200
+    }
+
     const handler = middy((event, context, cb) => {
-      cb(null, event.body)
+      cb(null, expectedResponse)
     })
+
     const schema = {
-      required: ['foo'],
+      required: ['body', 'statusCode'],
       properties: {
-        foo: {
-          type: 'string'
+        body: {
+          type: 'object'
+        },
+        statusCode: {
+          type: 'number'
         }
       }
     }
 
-    handler.use(jsonBodyParser())
-    handler.use(validator(null, schema))
+    handler.use(validator({outputSchema: schema}))
 
-    const event = {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({notfoo: 'bar'})
-    }
-
-    handler(event, {}, (_, body) => {
-      console.error('output valid. 2')
-      expect(body).toEqual('Response object failed validation')
+    handler({}, {}, (err, response) => {
+      expect(err).not.toBe(null)
+      expect(err.message).toEqual('Response object failed validation')
+      expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
     })
   })
 })
