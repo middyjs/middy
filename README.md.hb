@@ -229,7 +229,10 @@ the order they have been attached.
 Every `onError` middleware can decide to handle the error and create a proper response or
 to delegate the error to the next middleware.
 
-When a middleware handles the error, the execution is stopped and the response is returned.
+When a middleware handles the error and creates a response, the execution is still propagated to all the other
+error middlewares and they have a chance to update or replace the response as
+needed. At the end of the error middlewares sequence, the response is returned
+to the user.
 
 If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
 
@@ -360,7 +363,7 @@ Currently available middlewares:
  `httpErrorHanler`.
  - - [`urlencodeBodyParser`](/src/middlewares/urlencodeBodyParser.js): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - `validator`: **to be added**
- - `httpErrorHandler`: **to be added**
+ - - [`httpErrorHandler`](/src/middlewares/httpErrorHandler.js): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
 
 
 ## Api
