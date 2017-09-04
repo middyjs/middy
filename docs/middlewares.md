@@ -20,6 +20,9 @@ It should be set as the last error handler.
 ### Sample usage
 
 ```javascript
+const middy = require('middy')
+const { httpErrorHandler } = require('middy/middlewares')
+
 const handler = middy((event, context, cb) => {
   throw new createError.UnprocessableEntity()
 })
@@ -47,6 +50,9 @@ It can also be used in combination of validator as a prior step to normalize the
 event body input as an object so that the content can be validated. 
 
 ```example
+const middy = require('middy')
+const { jsonBodyParser } = require('middy/middlewares')
+
 const handler = middy((event, context, cb) => {
   cb(null, {})
 })
@@ -91,6 +97,9 @@ response to the user.
 Example for input validation:
 
 ```javascript
+const middy = require('middy')
+const { validator } = require('middy/middlewares')
+
 const handler = middy((event, context, cb) => {
   cb(null, {})
 })
@@ -125,6 +134,9 @@ handler(event, {}, (err, res) => {
 Example for output validation:
 
 ```javascript
+const middy = require('middy')
+const { validator } = require('middy/middlewares')
+
 const handler = middy((event, context, cb) => {
   cb(null, {})
 })
@@ -163,6 +175,9 @@ of a form submit).
 ### Sample Usage
 
 ```javascript
+const middy = require('middy')
+const { urlencodeBodyParser } = require('middy/middlewares')
+
 const handler = middy((event, context, cb) => {
   cb(null, event.body) // propagates the body as response
 })
