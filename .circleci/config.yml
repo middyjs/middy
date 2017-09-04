@@ -31,6 +31,9 @@ jobs:
           name: unit tests
           command: npm test
 
-      - run:
+      - deploy:
           name: publish
-          command: if [ $CIRCLE_BRANCH = 'master' ]; then npm publish && npm run release:tag; fi
+          command: |
+            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              npm publish && npm run release:tag;
+            fi
