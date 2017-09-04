@@ -15,6 +15,10 @@ jobs:
           - v1-dependencies-
       
       - run:
+          name: configure NPM registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+
+      - run:
           name: install dependencies
           command: npm install
 
@@ -26,3 +30,7 @@ jobs:
       - run:
           name: unit tests
           command: npm test
+
+      - run:
+          name: publish
+          command: if [ $CIRCLE_BRANCH = 'master' ]; then npm publish && npm run release:tag; fi
