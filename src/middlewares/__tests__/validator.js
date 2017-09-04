@@ -93,13 +93,8 @@ describe('📦  Middleware Validator', () => {
   })
 
   test('It should make requests with invalid responses fail with an Internal Server Error', () => {
-    const expectedResponse = {
-      body: 'Hello world',
-      statusCode: 200
-    }
-
     const handler = middy((event, context, cb) => {
-      cb(null, expectedResponse)
+      cb(null, {})
     })
 
     const schema = {
