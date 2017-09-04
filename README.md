@@ -359,12 +359,14 @@ on how to write a middleware.
 
 Currently available middlewares:
 
- - [`jsonBodyParser`](/src/middlewares/jsonBodyParser.js): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ - [`jsonBodyParser`](/docs/middlewares.md#jsonBodyParser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
- - [`urlencodeBodyParser`](/src/middlewares/urlencodeBodyParser.js): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
- - [`validator`](/src/middlewares/validator.js): automatically validates incoming events and outgoing responses against custom schemas
- - [`httpErrorHandler`](/src/middlewares/httpErrorHandler.js): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+ - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodeBodyParser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
+ - [`httpErrorHandler`](/docs/middlewares.md#httpErrorHandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
 
+For a dedicated documentation on those middlewares check out the [Middlewares
+documentation](/docs/middlewares.md)
 
 ## Api
 
