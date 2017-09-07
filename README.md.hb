@@ -359,11 +359,11 @@ on how to write a middleware.
 
 Currently available middlewares:
 
- - [`httpErrorHandler`](/docs/middlewares.md#httpErrorHandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
- - [`jsonBodyParser`](/docs/middlewares.md#jsonBodyParser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+ - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
- - [s3KeyNormalizer](/docs/middlewares.md#s3KeyNormalizer): normalizes key names in s3 events.
- - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodeBodyParser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): normalizes key names in s3 events.
+ - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
 
  

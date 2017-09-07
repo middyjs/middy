@@ -2,11 +2,11 @@
 
 ## Available middlewares
 
- - [httpErrorHandler](#httpErrorHandler)
- - [jsonBodyParser](#jsonBodyParser)
- - [s3KeyNormalizer](#s3KeyNormalizer)
+ - [httpErrorHandler](#httperrorhandler)
+ - [jsonBodyParser](#jsonbodyparser)
+ - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
- - [urlencodeBodyParser](#urlencodeBodyParser)
+ - [urlencodeBodyParser](#urlencodebodyparser)
 
 
 ## [httpErrorHandler](/src/middlewares/jsonBodyParser.js)
