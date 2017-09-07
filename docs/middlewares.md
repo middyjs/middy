@@ -80,7 +80,7 @@ Normalizes key names in s3 events.
 S3 events like S3 PUT and S3 DELETE will contain in the event a list of the files
 that were affected by the change.
 
-In this list the file keys are encoded in a very peculiar way (urlencoded and 
+In this list the file keys are encoded [in a very peculiar way](http://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html) (urlencoded and 
 space characters replaced by a `+`). It happens very often that you will use the
 key directly to perform operation on the file using the AWS S3 sdk, in such case,
 it's very easy to forget to decode the key correctly.
