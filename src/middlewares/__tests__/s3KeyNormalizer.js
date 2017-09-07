@@ -68,7 +68,7 @@ describe('📦  Middleware s3KeyNormalizer', () => {
             'configurationId': 'testConfigRule',
             'object': {
               'sequencer': '0A1B2C3D4E5F678901',
-              'key': 'This is a picture.jpg'
+              'key': 'This+is+a+picture.jpg'
             },
             'bucket': {
               'arn': 'arn:aws:s3:::mybucket',
