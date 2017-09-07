@@ -4,6 +4,7 @@
 
  - [httpErrorHandler](#httpErrorHandler)
  - [jsonBodyParser](#jsonBodyParser)
+ - [s3KeyNormalizer](#s3KeyNormalizer)
  - [validator](#validator)
  - [urlencodeBodyParser](#urlencodeBodyParser)
 
@@ -70,6 +71,42 @@ handler(event, {}, (_, body) => {
   expect(body).toEqual({foo: 'bar'})
 })
 ```
+
+
+## [s3KeyNormalizer](/src/middlewares/s3KeyNormalizer.js)
+
+Normalizes key names in s3 events.
+
+S3 events like S3 PUT and S3 DELETE will contain in the event a list of the files
+that were affected by the change.
+
+In this list the file keys are encoded in a very peculiar way (urlencoded and 
+space characters replaced by a `+`). It happens very often that you will use the
+key directly to perform operation on the file using the AWS S3 sdk, in such case,
+it's very easy to forget to decode the key correctly.
+
+This middleware, once attached, makes sure that every S3 event has the file keys
+properly normalized.
+
+
+### Sample usage
+
+```javascript
+const middy = require('middy')
+const { s3KeyNormalizer } = require('middy/s3KeyNormalizer')
+
+const handler = middy((event, context, cb) => {
+  // use the event key directly without decoding it
+  console.log(event.Records[0].s3.object.key)
+  
+  // return all the keys
+  callback(null, event.Records.map(record => record.s3.object.key))
+})
+
+handler
+  .use(s3KeyNormalizer())
+```
+
 
 
 ## [validator](/src/middlewares/validator.js)

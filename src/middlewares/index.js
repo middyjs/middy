@@ -1,6 +1,7 @@
 module.exports = {
   httpErrorHandler: require('./httpErrorHandler'),
   jsonBodyParser: require('./jsonBodyParser'),
-  validator: require('./validator'),
-  urlencodeBodyParser: require('./urlencodeBodyParser')
+  s3KeyNormalizer: require('./s3KeyNormalizer'),
+  urlencodeBodyParser: require('./urlencodeBodyParser'),
+  validator: require('./validator')
 }
