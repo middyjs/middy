@@ -1,7 +1,7 @@
 const middy = require('../../middy')
 const doNotWaitForEmptyEventLoop = require('../doNotWaitForEmptyEventLoop')
 
-describe('Do Not Wait For Empty Event Loop', () => {
+describe('🥃 Do Not Wait For Empty Event Loop', () => {
   test(`It should set context's callbackWaitsForEmptyEventLoop property to false`, () => {
     const handler = middy((event, context, cb) => {
       cb()
