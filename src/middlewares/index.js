@@ -3,5 +3,6 @@ module.exports = {
   jsonBodyParser: require('./jsonBodyParser'),
   s3KeyNormalizer: require('./s3KeyNormalizer'),
   urlencodeBodyParser: require('./urlencodeBodyParser'),
-  validator: require('./validator')
+  validator: require('./validator'),
+  doNotWaitForEmptyEventLoop: require('./doNotWaitForEmptyEventLoop')
 }

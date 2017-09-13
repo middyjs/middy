@@ -365,6 +365,7 @@ Currently available middlewares:
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): normalizes key names in s3 events.
  - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
+ - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
 
  
 
