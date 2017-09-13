@@ -240,7 +240,7 @@ handler(event, {}, (_, body) => {
 
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
-Sets context.callbackWaitsForEmptyEventLoop property to false. This will prevent lambda for timing out because of hanging connection
+Sets `context.callbackWaitsForEmptyEventLoop` property to `false`. This will prevent lambda for timing out because of hanging connection
 
 ### Sample Usage
 
