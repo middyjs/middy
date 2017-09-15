@@ -12,6 +12,7 @@
     "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
     "release:tag": "git tag $npm_package_version && git push --tags",
+    "coverage:submit": "codecov",
     "precommit": "npm run build"
   },
   "repository": {

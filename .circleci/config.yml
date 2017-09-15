@@ -33,7 +33,7 @@ jobs:
           
       - run:
           name: coverage reporting
-          command: node_modules/.bin/codecov
+          command: npm run coverage:submit
 
       - deploy:
           name: publish
