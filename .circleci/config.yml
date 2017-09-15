@@ -30,6 +30,10 @@ jobs:
       - run:
           name: unit tests
           command: npm test
+          
+      - run:
+          name: coverage reporting
+          command: npm run coverage:submit
 
       - deploy:
           name: publish
