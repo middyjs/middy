@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "scripts": {
@@ -31,6 +31,7 @@
   },
   "homepage": "https://github.com/Plnt9/middy#readme",
   "devDependencies": {
+    "codecov": "^2.3.0",
     "eslint": "^4.4.1",
     "eslint-config-standard": "^10.2.1",
     "eslint-plugin-import": "^2.7.0",
