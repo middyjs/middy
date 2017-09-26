@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Plnt9/middy.git"
+    "url": "git+https://github.com/middyjs/middy.git"
   },
   "keywords": [
     "Lambda",
@@ -28,9 +28,9 @@
   "author": "Luciano Mammino, Peter Caulfield, Joe Minichino, Domagoj Katavic",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Plnt9/middy/issues"
+    "url": "https://github.com/middyjs/middy/issues"
   },
-  "homepage": "https://github.com/Plnt9/middy#readme",
+  "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
     "codecov": "^2.3.0",
     "eslint": "^4.4.1",

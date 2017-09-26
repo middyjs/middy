@@ -1,5 +1,5 @@
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/Plnt9/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
 </div>
 
 <div align="center">
@@ -11,14 +11,14 @@
   <a href="http://badge.fury.io/js/middy">
     <img src="https://badge.fury.io/js/middy.svg" alt="npm version" style="max-width:100%;">
   </a>
-  <a href="https://circleci.com/gh/Plnt9/middy">
-    <img src="https://circleci.com/gh/Plnt9/middy.svg?style=shield&amp;circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a" alt="CircleCI" style="max-width:100%;">
+  <a href="https://circleci.com/gh/middyjs/middy">
+    <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield&amp;circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a" alt="CircleCI" style="max-width:100%;">
   </a>
-  <a href="https://codecov.io/gh/Plnt9/middy">
-    <img src="https://codecov.io/gh/Plnt9/middy/branch/master/graph/badge.svg" alt="codecov" style="max-width:100%;">
+  <a href="https://codecov.io/gh/middyjs/middy">
+    <img src="https://codecov.io/gh/middyjs/middy/branch/master/graph/badge.svg" alt="codecov" style="max-width:100%;">
   </a>
-  <a href="https://snyk.io/test/github/plnt9/middy">
-    <img src="https://snyk.io/test/github/plnt9/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/plnt9/middy" style="max-width:100%;">
+  <a href="https://snyk.io/test/github/middyjs/middy">
+    <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
@@ -373,7 +373,7 @@ Currently available middlewares:
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
 
- 
+
 
 
 For a dedicated documentation on those middlewares check out the [Middlewares
