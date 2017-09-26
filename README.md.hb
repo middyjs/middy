@@ -12,7 +12,7 @@
     <img src="https://badge.fury.io/js/middy.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://circleci.com/gh/middyjs/middy">
-    <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield&amp;circle-token=fa7f80307b57bd4f51a950d2259ead77388dee3a" alt="CircleCI" style="max-width:100%;">
+    <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield" alt="CircleCI" style="max-width:100%;">
   </a>
   <a href="https://codecov.io/gh/middyjs/middy">
     <img src="https://codecov.io/gh/middyjs/middy/branch/master/graph/badge.svg" alt="codecov" style="max-width:100%;">
