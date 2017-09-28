@@ -23,6 +23,9 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
+  <a href="https://gitter.im/middyjs">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+  </a>
 </p>
 </div>
 
