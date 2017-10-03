@@ -2,7 +2,7 @@ const middy = require('../../middy')
 const cors = require('../cors')
 
 describe('📦 Middleware CORS', () => {
-  test('It should default to "*"', () => {
+  test('Access-Control-Allow-Origin header should default to "*"', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -22,7 +22,7 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
-  test('It should not override already declared cors header', () => {
+  test('It should not override already declared Access-Control-Allow-Origin header', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
