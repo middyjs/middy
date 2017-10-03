@@ -2,11 +2,39 @@
 
 ## Available middlewares
 
+ - [cors](#cors)
  - [httpErrorHandler](#httperrorhandler)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
  - [urlencodeBodyParser](#urlencodebodyparser)
+
+
+## [cors](/src/middlewares/cors.js)
+
+Sets CORS headers (`Access-Control-Allow-Origin`), necessary for making cross-origin requests, to response object.
+
+### Options
+
+ - `origin` (string) (optional): origin to put in the header (default: "*")
+
+### Sample usage
+
+```javascript
+const middy = require('middy')
+const { cors } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(cors())
+
+// when Lambda runs the handler...
+handler({}, {}, (_, response) => {
+  expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
+})
+```
 
 
 ## [httpErrorHandler](/src/middlewares/jsonBodyParser.js)

@@ -368,6 +368,7 @@ on how to write a middleware.
 
 Currently available middlewares:
 
+ - [`cors`](/docs/middlewares.md#cors): sets CORS headers on response
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
