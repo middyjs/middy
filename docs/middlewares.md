@@ -48,7 +48,7 @@ object. Also handles gracefully broken JSON as UnprocessableEntity (422 errors)
 if used in combination of `httpErrorHanler`.
 
 It can also be used in combination of validator as a prior step to normalize the
-event body input as an object so that the content can be validated. 
+event body input as an object so that the content can be validated.
 
 ```example
 const middy = require('middy')
@@ -80,7 +80,7 @@ Normalizes key names in s3 events.
 S3 events like S3 PUT and S3 DELETE will contain in the event a list of the files
 that were affected by the change.
 
-In this list the file keys are encoded [in a very peculiar way](http://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html) (urlencoded and 
+In this list the file keys are encoded [in a very peculiar way](http://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html) (urlencoded and
 space characters replaced by a `+`). It happens very often that you will use the
 key directly to perform operation on the file using the AWS S3 sdk, in such case,
 it's very easy to forget to decode the key correctly.
@@ -93,12 +93,12 @@ properly normalized.
 
 ```javascript
 const middy = require('middy')
-const { s3KeyNormalizer } = require('middy/s3KeyNormalizer')
+const { s3KeyNormalizer } = require('middy/middlewares')
 
 const handler = middy((event, context, cb) => {
   // use the event key directly without decoding it
   console.log(event.Records[0].s3.object.key)
-  
+
   // return all the keys
   callback(null, event.Records.map(record => record.s3.object.key))
 })
@@ -111,7 +111,7 @@ handler
 
 ## [validator](/src/middlewares/validator.js)
 
-Automatically validates incoming events and outgoing responses against custom 
+Automatically validates incoming events and outgoing responses against custom
 schemas defined with the [JSON schema syntax](http://json-schema.org/).
 
 If an incoming event failes validation a `BadRequest` error is raised.
