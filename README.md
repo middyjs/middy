@@ -32,6 +32,8 @@
 
 ## TOC
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/middyjs/middy.svg)](https://greenkeeper.io/)
+
  - [A little appetizer](#a-little-appetizer)
  - [Install](#install)
  - [Requirements](#requirements)
