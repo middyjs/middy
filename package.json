@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "scripts": {
@@ -40,7 +40,7 @@
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-standard": "^3.0.1",
     "husky": "^0.14.3",
-    "jest": "^20.0.4",
+    "jest": "^21.2.1",
     "jsdoc": "^3.5.5",
     "jsdoc-to-markdown": "^3.0.0"
   },
