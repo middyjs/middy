@@ -26,14 +26,12 @@
   <a href="https://gitter.im/middyjs">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
+  [![Greenkeeper badge](https://badges.greenkeeper.io/middyjs/middy.svg)](https://greenkeeper.io/)
 </p>
 </div>
 
 
 ## TOC
-
-[![Greenkeeper badge](https://badges.greenkeeper.io/middyjs/middy.svg)](https://greenkeeper.io/)
-
  - [A little appetizer](#a-little-appetizer)
  - [Install](#install)
  - [Requirements](#requirements)
