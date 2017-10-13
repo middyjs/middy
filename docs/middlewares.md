@@ -3,12 +3,12 @@
 ## Available middlewares
 
  - [cors](#cors)
+ - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
  - [httpErrorHandler](#httperrorhandler)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
  - [urlencodeBodyParser](#urlencodebodyparser)
- - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
 
 
 ## [cors](/src/middlewares/cors.js)
