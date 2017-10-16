@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "scripts": {
@@ -52,6 +52,8 @@
     "querystring": "^0.2.0"
   },
   "jest": {
-    "collectCoverageFrom": ["src/**/*.js"]
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ]
   }
 }
