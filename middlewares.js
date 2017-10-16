@@ -1,1 +1,1 @@
-module.exports = require('./src/middlwares')
+module.exports = require('./src/middlewares')
