@@ -1,3 +1,5 @@
+const isPromise = require('./isPromise')
+
 /**
  * @typedef middy
  * @type function
@@ -8,7 +10,7 @@
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
  * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
  * @property {middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
- * @property {Object} __middlewares - contains the list of all the attached 
+ * @property {Object} __middlewares - contains the list of all the attached
  *   middlewares organised by type (`before`, `after`, `onError`). To be used only
  *   for testing and debugging purposes
  */
@@ -55,7 +57,19 @@ const runMiddlewares = (middlewares, instance, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        return nextMiddleware(instance, runNext)
+        const retVal = nextMiddleware(instance, runNext)
+
+        if (retVal) {
+          if (!isPromise(retVal)) {
+            throw new Error('Unexpected return value in middleware')
+          }
+
+          retVal
+            .then(runNext)
+            .catch(done)
+        }
+
+        return
       }
 
       return done()
@@ -79,7 +93,23 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        return nextMiddleware(instance, runNext)
+        // return nextMiddleware(instance, runNext)
+        const retVal = nextMiddleware(instance, runNext)
+
+        if (retVal) {
+          if (!isPromise(retVal)) {
+            const invalidMiddlewareReturnError = new Error('Unexpected return value in onError middleware')
+            // embed original error to avoid swallowing the real exception
+            invalidMiddlewareReturnError.originalError = err
+            throw invalidMiddlewareReturnError
+          }
+
+          retVal
+            .then(runNext)
+            .catch(done)
+        }
+
+        return
       }
 
       return done(instance.__handledError ? null : err)
