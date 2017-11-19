@@ -23,6 +23,9 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
+  <a href="https://greenkeeper.io/">
+    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
+  </a>
   <a href="https://gitter.im/middyjs">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
@@ -244,6 +247,45 @@ needed. At the end of the error middlewares sequence, the response is returned
 to the user.
 
 If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
+
+
+### Async Middlewares
+
+Middy supports middlewares that return promises instead that directly calling the callback:
+
+```javascript
+const asyncValidator = () => {
+  before: (handler) => {
+    if (handler.event.body) {
+      return new Promise((resolve, reject) => {
+        // async validation logic
+      })
+    }
+
+    return Promise.resolve()
+  }
+}
+
+handler.use(asyncValidator())
+```
+
+Thanks to this behaviour you can define middlewares using `async` functions:
+
+```javascript
+const asyncValidator = () => {
+  before: async (handler) => {
+    if (handler.event.body) {
+      return await asyncValidate(handler.event.body)
+    }
+
+    return
+  }
+}
+
+handler.use(asyncValidator())
+```
+
+Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ## Writing a middleware

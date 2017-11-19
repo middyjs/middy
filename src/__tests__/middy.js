@@ -404,4 +404,107 @@ describe('🛵  Middy test suite', () => {
       endTest()
     })
   })
+
+  test('It should handle async middlewares', (endTest) => {
+    const asyncBefore = async (handler) => {
+      handler.event.asyncBefore = true
+    }
+
+    const asyncAfter = async (handler) => {
+      handler.event.asyncAfter = true
+    }
+
+    const handler = middy((event, context, callback) => {
+      return callback(null, {some: 'response'})
+    })
+
+    handler
+      .before(asyncBefore)
+      .after(asyncAfter)
+
+    handler({}, {}, (err, response) => {
+      expect(err).toBe(null)
+      expect(handler.event.asyncBefore).toBeTruthy()
+      expect(handler.event.asyncAfter).toBeTruthy()
+      endTest()
+    })
+  })
+
+  test('It should handle async error middlewares', (endTest) => {
+    const expectedError = new Error('Error in handler')
+
+    const asyncOnError = async (handler) => {
+      handler.error = null
+      handler.response = {result: 'The error is handled'}
+    }
+
+    const handler = middy((event, context, callback) => {
+      return callback(expectedError)
+    })
+
+    handler
+      .onError(asyncOnError)
+
+    handler({}, {}, (err, response) => {
+      expect(err).toBe(null)
+      expect(response).toEqual({result: 'The error is handled'})
+      endTest()
+    })
+  })
+
+  test('A middleware that return a non-promise should trigger an error', (endTest) => {
+    const beforeMiddleware = (handler) => {
+      return 'this is not a promise'
+    }
+
+    const handler = middy((event, context, callback) => {
+      return callback(null, {foo: 'bar'})
+    })
+
+    handler
+      .before(beforeMiddleware)
+
+    handler({}, {}, (err, response) => {
+      expect(err.message).toBe('Unexpected return value in middleware')
+      endTest()
+    })
+  })
+
+  test('An error middleware that return a non-promise should trigger an error', (endTest) => {
+    const onErrorMiddleware = (handler) => {
+      return 'this is not a promise'
+    }
+
+    const handler = middy((event, context, callback) => {
+      throw new Error('something happened')
+    })
+
+    handler
+      .onError(onErrorMiddleware)
+
+    handler({}, {}, (err, response) => {
+      expect(err.message).toBe('Unexpected return value in onError middleware')
+      expect(err.originalError.message).toBe('something happened')
+      endTest()
+    })
+  })
+
+  // see issue #49 (https://github.com/middyjs/middy/issues/49)
+  test('Handles error thrown in async functions', (endTest) => {
+    const beforeMiddleware = async (handler) => {
+      throw new Error('I am throwing in an async func')
+    }
+
+    const handler = middy((event, context, callback) => {
+      return callback(null, {foo: 'bar'})
+    })
+
+    handler
+      .before(beforeMiddleware)
+
+    handler({}, {}, (err, response) => {
+      expect(err.message).toBe('I am throwing in an async func')
+      endTest()
+    })
+  })
 })
