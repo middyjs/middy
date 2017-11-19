@@ -93,7 +93,6 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        // return nextMiddleware(instance, runNext)
         const retVal = nextMiddleware(instance, runNext)
 
         if (retVal) {
