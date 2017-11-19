@@ -249,6 +249,45 @@ to the user.
 If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
 
 
+### Async Middlewares
+
+Middy supports middlewares that return promises instead that directly calling the callback:
+
+```javascript
+const asyncValiator = () => {
+  before: (handler) => {
+    if (handler.event.body) {
+      return new Promise((resolve, reject) => {
+        // async validation logic
+      })
+    }
+
+    return Promise.resolve()
+  }
+}
+
+handler.use(asyncValidator)
+```
+
+Thanks to this behaviour you can define middlewares using `async` functions:
+
+```javascript
+const asyncValiator = () => {
+  before: async (handler) => {
+    if (handler.event.body) {
+      return await asyncValidate(handler.event.body)
+    }
+
+    return
+  }
+}
+
+handler.use(asyncValidator)
+```
+
+Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+
+
 ## Writing a middleware
 
 A middleware is an object that should contain at least 1 of 3 possible keys:
