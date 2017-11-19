@@ -490,7 +490,7 @@ describe('🛵  Middy test suite', () => {
   })
 
   // see issue #49 (https://github.com/middyjs/middy/issues/49)
-  test.only('Handles error thrown in async functions', (endTest) => {
+  test('Handles error thrown in async functions', (endTest) => {
     const beforeMiddleware = async (handler) => {
       throw new Error('I am throwing in an async func')
     }
