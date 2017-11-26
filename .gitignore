@@ -61,5 +61,5 @@ typings/
 .DS_Store
 docs/
 
-# webstorm
+# webstorm directory
 /.idea
