@@ -9,7 +9,7 @@ export interface IMiddy {
 
 export type IMiddyUseFunction = (config?: object) => IMiddyMiddlewareObject;
 
-interface IMiddyMiddlewareObject {
+export interface IMiddyMiddlewareObject {
   before?: IMiddyMiddlewareFunction;
   after?: IMiddyMiddlewareFunction;
   onError?: IMiddyMiddlewareFunction;
