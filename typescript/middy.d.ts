@@ -18,9 +18,9 @@ export interface IMiddyMiddlewareObject {
 type IMiddyMiddlewareFunction = (
   handler: IHandlerLambda,
   next: IMiddyNextFunction
-) => void;
+) => void | Promise<any>;
 
-export type IMiddyNextFunction = () => void;
+export type IMiddyNextFunction = (error?: any) => void;
 
 export interface IHandlerLambda {
   event: any;
