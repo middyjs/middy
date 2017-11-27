@@ -1,8 +1,9 @@
 {
   "name": "middy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
+  "types": "./typescript/middy.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:unit": "jest --verbose --coverage",
@@ -48,6 +49,7 @@
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
+    "@types/aws-lambda": "0.0.21",
     "ajv": "^5.2.2",
     "ajv-keywords": "^2.1.0",
     "http-errors": "^1.6.2",
