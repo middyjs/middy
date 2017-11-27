@@ -444,7 +444,9 @@ documentation](/docs/middlewares.md)
 <dd></dd>
 <dt><a href="#middlewareAttachFunction">middlewareAttachFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
 <dd></dd>
-<dt><a href="#middlewareFunction">middlewareFunction</a> : <code>function</code></dt>
+<dt><a href="#middlewareNextFunction">middlewareNextFunction</a> : <code>function</code></dt>
+<dd></dd>
+<dt><a href="#middlewareFunction">middlewareFunction</a> ⇒ <code>void</code> | <code>Promise</code></dt>
 <dd></dd>
 <dt><a href="#middlewareObject">middlewareObject</a> : <code>Object</code></dt>
 <dd></dd>
@@ -501,15 +503,27 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 | --- | --- |
 | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach |
 
-<a name="middlewareFunction"></a>
+<a name="middlewareNextFunction"></a>
 
-## middlewareFunction : <code>function</code>
+## middlewareNextFunction : <code>function</code>
 **Kind**: global typedef  
 
 | Param | Type | Description |
 | --- | --- | --- |
+| error | <code>error</code> | An optional error object to pass in case an error occurred |
+
+<a name="middlewareFunction"></a>
+
+## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
+**Kind**: global typedef  
+**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
+                         In this case middy will wait for the promise to resolve (or reject) and it will automatically
+                         propagate the result to the next middleware.  
+
+| Param | Type | Description |
+| --- | --- | --- |
 | handler | <code>function</code> | the original handler function.   It will expose properties `event`, `context`, `response` and `error` that can   be used to interact with the middleware lifecycle |
-| next | <code>function</code> | the callback to invoke to pass the control to the next middleware |
+| next | [<code>middlewareNextFunction</code>](#middlewareNextFunction) | the callback to invoke to pass the control to the next middleware |
 
 <a name="middlewareObject"></a>
 

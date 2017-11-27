@@ -30,12 +30,21 @@ const isPromise = require('./isPromise')
  */
 
 /**
+  * @typedef middlewareNextFunction
+  * @type {function}
+  * @param {error} error - An optional error object to pass in case an error occurred
+  */
+
+/**
  * @typedef middlewareFunction
  * @type {function}
  * @param {function} handler - the original handler function.
  *   It will expose properties `event`, `context`, `response` and `error` that can
  *   be used to interact with the middleware lifecycle
- * @param {function} next - the callback to invoke to pass the control to the next middleware
+ * @param {middlewareNextFunction} next - the callback to invoke to pass the control to the next middleware
+ * @return {void|Promise} - A middleware can return a Promise instead of using the `next` function as a callback.
+ *                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
+ *                          propagate the result to the next middleware.
  */
 
 /**
