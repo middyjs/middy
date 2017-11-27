@@ -5,7 +5,6 @@ export interface IMiddy {
   before: IMiddyMiddlewareFunction;
   after: IMiddyMiddlewareFunction;
   onError: IMiddyMiddlewareFunction;
-  __middlewares: object;
 }
 
 export type IMiddyUseFunction = (config?: object) => IMiddyMiddlewareObject;
