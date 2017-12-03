@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "types": "./typescript/middy.d.ts",
@@ -49,7 +49,7 @@
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
-    "@types/aws-lambda": "0.0.21",
+    "@types/aws-lambda": "0.0.22",
     "ajv": "^5.2.2",
     "ajv-keywords": "^2.1.0",
     "http-errors": "^1.6.2",
