@@ -249,6 +249,43 @@ to the user.
 If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
 
 
+### Async/Await support
+
+Middy allows you to write *async/await handlers*. In *async/await handlers* you don't
+have to invoke the callback but just return the output (in case of success) or
+throw an error (in case of failure).
+
+We believe that this feature makes handling asynchronous logic easier to reason about
+and asynchronous code easier to read.
+
+Take the following code as an example:
+
+```javascript
+middy(async (event, context) => {
+  await someAsyncStuff()
+  await someOtherAsyncStuff()
+
+  return ({foo: bar})
+})
+```
+
+this code is equivalent to:
+
+```javascript
+middy(async (event, context, callback) => {
+  someAsyncStuff()
+    .then(() => {
+      return someOtherAsyncStuff()
+    })
+    .then(() => {
+      callback(null, {foo: bar})
+    })
+})
+```
+
+Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+
+
 ### Async Middlewares
 
 Middy supports middlewares that return promises instead that directly calling the callback:
@@ -269,7 +306,7 @@ const asyncValidator = () => {
 handler.use(asyncValidator())
 ```
 
-Thanks to this behaviour you can define middlewares using `async` functions:
+Thanks to this behavior you can define middlewares using `async` functions:
 
 ```javascript
 const asyncValidator = () => {

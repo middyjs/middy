@@ -154,26 +154,42 @@ const middy = (handler) => {
     }
 
     const errorHandler = err => {
-      if (err) {
-        instance.error = err
-        return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-      }
+      instance.error = err
+      return runErrorMiddlewares(errorMiddlewares, instance, terminate)
     }
 
     runMiddlewares(beforeMiddlewares, instance, (err) => {
       if (err) return errorHandler(err)
 
-      handler.call(instance, instance.event, context, (err, response) => {
+      const onHandlerError = (err) => {
+        instance.response = null
+        return errorHandler(err)
+      }
+
+      const onHandlerSuccess = (response) => {
         instance.response = response
-
-        if (err) return errorHandler(err)
-
         runMiddlewares(afterMiddlewares, instance, (err) => {
           if (err) return errorHandler(err)
 
           return terminate()
         })
+      }
+
+      const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
+        if (err) return onHandlerError(err)
+        onHandlerSuccess(response)
       })
+
+      // support for async/await promise return in handler
+      if (handlerReturnValue) {
+        if (!isPromise(handlerReturnValue)) {
+          throw new Error('Unexpected return value in handler')
+        }
+
+        handlerReturnValue
+          .then(onHandlerSuccess)
+          .catch(onHandlerError)
+      }
     })
   }
 
