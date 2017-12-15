@@ -429,7 +429,7 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
-  test('An handler that returns a rejected promise will behave as an errored execution', (endTest) => {
+  test('A handler that returns a rejected promise will behave as an errored execution', (endTest) => {
     const handler = middy((event, context) => {
       return Promise.reject(new Error('bad stuff happened'))
     })
@@ -451,7 +451,7 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
-  test('An handler that returns a non-promise should trigger an error', (endTest) => {
+  test('A handler that returns a non-promise should trigger an error', (endTest) => {
     const handler = middy((event, context) => {
       return 'this is not a promise'
     })

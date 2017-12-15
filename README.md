@@ -283,8 +283,6 @@ middy(async (event, context, callback) => {
 })
 ```
 
-We believe that the async/await version is easier to read and reason about.
-
 Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
