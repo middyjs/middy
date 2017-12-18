@@ -33,7 +33,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "babel-jest": "^21.2.0",
+    "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
     "codecov": "^3.0.0",
     "eslint": "^4.4.1",
