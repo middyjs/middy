@@ -452,7 +452,7 @@ Currently available middlewares:
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): normalizes key names in s3 events.
- - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
 
@@ -494,8 +494,8 @@ documentation](/docs/middlewares.md)
 ## middy(handler) ⇒ [<code>middy</code>](#middy)
 Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
 
-**Kind**: global function  
-**Returns**: [<code>middy</code>](#middy) - - a `middy` instance  
+**Kind**: global function
+**Returns**: [<code>middy</code>](#middy) - - a `middy` instance
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -504,7 +504,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="middy"></a>
 
 ## middy : <code>function</code>
-**Kind**: global typedef  
+**Kind**: global typedef
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -525,7 +525,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="useFunction"></a>
 
 ## useFunction ⇒ [<code>middy</code>](#middy)
-**Kind**: global typedef  
+**Kind**: global typedef
 
 | Type | Description |
 | --- | --- |
@@ -534,7 +534,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="middlewareAttachFunction"></a>
 
 ## middlewareAttachFunction ⇒ [<code>middy</code>](#middy)
-**Kind**: global typedef  
+**Kind**: global typedef
 
 | Type | Description |
 | --- | --- |
@@ -543,7 +543,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="middlewareNextFunction"></a>
 
 ## middlewareNextFunction : <code>function</code>
-**Kind**: global typedef  
+**Kind**: global typedef
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -552,10 +552,10 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="middlewareFunction"></a>
 
 ## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
-**Kind**: global typedef  
+**Kind**: global typedef
 **Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
-                         propagate the result to the next middleware.  
+                         propagate the result to the next middleware.
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -565,7 +565,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 <a name="middlewareObject"></a>
 
 ## middlewareObject : <code>Object</code>
-**Kind**: global typedef  
+**Kind**: global typedef
 **Properties**
 
 | Name | Type | Description |

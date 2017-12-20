@@ -8,7 +8,7 @@
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
- - [urlencodeBodyParser](#urlencodebodyparser)
+ - [urlEncodeBodyParser](#urlencodebodyparser)
 
 
 ## [cors](/src/middlewares/cors.js)
@@ -228,7 +228,7 @@ handler({}, {}, (err, response) => {
 })
 ```
 
-## [urlencodeBodyParser](/src/middlewares/urlencodeBodyParser.js)
+## [urlEncodeBodyParser](/src/middlewares/urlEncodeBodyParser.js)
 
 Automatically parses HTTP requests with URL encoded body (typically the result
 of a form submit).
@@ -242,7 +242,7 @@ of a form submit).
 
 ```javascript
 const middy = require('middy')
-const { urlencodeBodyParser } = require('middy/middlewares')
+const { urlEncodeBodyParser } = require('middy/middlewares')
 
 const handler = middy((event, context, cb) => {
   cb(null, event.body) // propagates the body as response
