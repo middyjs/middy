@@ -1,5 +1,5 @@
 const middy = require('../../middy')
-const urlencodedBodyParser = require('../urlencodeBodyParser')
+const urlencodedBodyParser = require('../urlEncodeBodyParser')
 
 describe('📦 Middleware URL Encoded Body Parser', () => {
   test('It should decode simple url encoded requests', () => {
