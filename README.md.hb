@@ -469,9 +469,9 @@ documentation](/docs/middlewares.md)
 
 ## Contributing
 
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](/issues) or to [submit Pull Requests](/pulls).
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017 Planet9.
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
