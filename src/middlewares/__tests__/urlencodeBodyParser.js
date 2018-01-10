@@ -1,5 +1,5 @@
 const middy = require('../../middy')
-const urlencodedBodyParser = require('../urlEncodeBodyParser')
+const urlEncodeBodyParser = require('../urlEncodeBodyParser')
 
 describe('📦 Middleware URL Encoded Body Parser', () => {
   test('It should decode simple url encoded requests', () => {
@@ -7,7 +7,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlencodedBodyParser({extended: false}))
+    handler.use(urlEncodeBodyParser({extended: false}))
 
     // invokes the handler
     const event = {
@@ -31,7 +31,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlencodedBodyParser({extended: true}))
+    handler.use(urlEncodeBodyParser({extended: true}))
 
     // invokes the handler
     const event = {
@@ -59,7 +59,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(urlencodedBodyParser())
+    handler.use(urlEncodeBodyParser())
 
     // invokes the handler
     const event = {

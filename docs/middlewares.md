@@ -248,7 +248,7 @@ const handler = middy((event, context, cb) => {
   cb(null, event.body) // propagates the body as response
 })
 
-handler.use(urlencodedBodyParser({extended: false}))
+handler.use(urlEncodeBodyParser({extended: false}))
 
 // When Lambda runs the handler with a sample event...
 const event = {
