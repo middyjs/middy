@@ -261,7 +261,7 @@ const cacheMiddleware = (options) => {
 
       return next()
     },
-    after: (handler, next) {
+    after: (handler, next) => {
       // stores the calculated response in the cache
       options.storage[cacheKey] = handler.response
       next()
