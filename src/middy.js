@@ -142,6 +142,7 @@ const middy = (handler) => {
   const instance = (event, context, callback) => {
     instance.event = event
     instance.context = context
+    instance.callback = callback
     instance.response = null
     instance.error = null
 
