@@ -1,4 +1,5 @@
 module.exports = {
+  cache: require('./cache'),
   cors: require('./cors'),
   doNotWaitForEmptyEventLoop: require('./doNotWaitForEmptyEventLoop'),
   httpErrorHandler: require('./httpErrorHandler'),
