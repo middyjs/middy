@@ -236,6 +236,10 @@ Some middlewares might need to stop the whole execution flow and return a respon
 
 If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
 
+**Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
+and early response (or an error) directly at the lambda level. If you middlewares that do specific task on every requests
+like output serialization or error handling, those won't be invoked in this case.
+
 In this example we can use this capability for building a sample caching middleware:
 
 ```javascript
