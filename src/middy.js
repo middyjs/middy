@@ -39,7 +39,7 @@ const isPromise = require('./isPromise')
  * @typedef middlewareFunction
  * @type {function}
  * @param {function} handler - the original handler function.
- *   It will expose properties `event`, `context`, `response` and `error` that can
+ *   It will expose properties `event`, `context`, `response`, `error` and `callback` that can
  *   be used to interact with the middleware lifecycle
  * @param {middlewareNextFunction} next - the callback to invoke to pass the control to the next middleware
  * @return {void|Promise} - A middleware can return a Promise instead of using the `next` function as a callback.
@@ -142,6 +142,7 @@ const middy = (handler) => {
   const instance = (event, context, callback) => {
     instance.event = event
     instance.context = context
+    instance.callback = callback
     instance.response = null
     instance.error = null
 
