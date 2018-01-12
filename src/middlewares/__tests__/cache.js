@@ -25,13 +25,13 @@ describe('💽 Cache stuff', () => {
     const calculateCacheId = (event) => Promise.resolve(event.id)
     const myStorage = {}
     const getValue = (key) => new Promise((resolve, reject) => {
-      setTimeout(() => resolve(myStorage[key]), 500)
+      setTimeout(() => resolve(myStorage[key]), 50)
     })
     const setValue = (key, value) => new Promise((resolve, reject) => {
       setTimeout(() => {
         myStorage[key] = value
         return resolve()
-      }, 500)
+      }, 50)
     })
 
     const originalHandler = jest.fn((event, context, cb) => {
