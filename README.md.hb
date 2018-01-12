@@ -230,6 +230,53 @@ be the first able to change the request and last able to modify the response bef
 it gets sent to the user.
 
 
+### Interrupt middleware execution early
+
+Some middlewares might need to stop the whole execution flow and return a response immediately.
+
+If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
+
+**Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
+and early response (or an error) directly at the lambda level. If you middlewares that do specific task on every requests
+like output serialization or error handling, those won't be invoked in this case.
+
+In this example we can use this capability for building a sample caching middleware:
+
+```javascript
+
+// some function that calculates the cache id based on the current event
+const calculateCacheId = (event) => { /* ... */ }
+const storage = {}
+
+// middleware
+const cacheMiddleware = (options) => {
+  let cacheKey
+  return ({
+    before: (handler, next) => {
+      cacheKey = options.calculateCacheId(handler.event)
+      if (options.storage.hasOwnProperty(cacheKey)) {
+        // exits early and returns the value from the cache if it's already there
+        return handler.callback(null, options.storage[cacheKey])
+      }
+
+      return next()
+    },
+    after: (handler, next) => {
+      // stores the calculated response in the cache
+      options.storage[cacheKey] = handler.response
+      next()
+    }
+  })
+}
+
+// sample Usage
+const handler = middy((event, context, callback) => { /* ... */ })
+  .use(cacheMiddleware({
+    calculateCacheId, storage
+  }))
+```
+
+
 ### Handling errors
 
 But what happens in case there is an error?

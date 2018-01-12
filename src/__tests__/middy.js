@@ -564,4 +564,29 @@ describe('🛵  Middy test suite', () => {
       endTest()
     })
   })
+
+  test('Middlewares can be stopped by calling the callback from the context', (endTest) => {
+    const beforeMiddleware = (handler, next) => {
+      // calling the handler.callback directly and not calling next()
+      return handler.callback(null, 'ending early')
+    }
+
+    const beforeMiddleware2 = jest.fn()
+    const originalHandler = jest.fn()
+    const afterMiddleware = jest.fn()
+
+    const handler = middy(originalHandler)
+      .before(beforeMiddleware)
+      .before(beforeMiddleware2)
+      .after(afterMiddleware)
+
+    handler({}, {}, (err, response) => {
+      expect(err).toBeNull()
+      expect(response).toEqual('ending early')
+      expect(beforeMiddleware2).not.toHaveBeenCalled()
+      expect(originalHandler).not.toHaveBeenCalled()
+      expect(afterMiddleware).not.toHaveBeenCalled()
+      endTest()
+    })
+  })
 })
