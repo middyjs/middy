@@ -21,7 +21,9 @@ describe('🥃 Lambda Is Warming Up', () => {
     })
     handler.use(lambdaIsWarmingUp())
 
-    const event = {}
+    const event = {
+      source: 'serverless-warmup-plugin'
+    }
     const context = {}
     handler(event, context, (_, response) => {
       expect(response).toBe('warmup')
