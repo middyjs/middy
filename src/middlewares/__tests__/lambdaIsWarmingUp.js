@@ -1,7 +1,7 @@
 const middy = require('../../middy')
 const lambdaIsWarmingUp = require('../lambdaIsWarmingUp')
 
-describe('🥃 Do Not Wait For Empty Event Loop', () => {
+describe('🥃 Lambda Is Warming Up', () => {
   test(`Should exit with 'warmup' if config.isWarmingUp boolean is provided`, () => {
     const handler = middy((event, context, cb) => {
       cb()
