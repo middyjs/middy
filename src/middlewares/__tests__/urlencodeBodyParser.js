@@ -12,7 +12,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
     // invokes the handler
     const event = {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       },
       body: 'frappucino=muffin&goat%5B%5D=scone&pond=moose'
     }
@@ -36,7 +36,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
     // invokes the handler
     const event = {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       },
       body: 'a[b][c][d]=i'
     }

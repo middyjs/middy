@@ -494,6 +494,7 @@ on how to write a middleware.
 
 Currently available middlewares:
 
+ - [`cache`](/docs/middlewares.md#cache): a simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): sets CORS headers on response
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
@@ -504,8 +505,6 @@ Currently available middlewares:
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
 
 
-
-
 For a dedicated documentation on those middlewares check out the [Middlewares
 documentation](/docs/middlewares.md)
 
@@ -513,28 +512,16 @@ documentation](/docs/middlewares.md)
 
 ## Functions
 
-<dl>
-<dt><a href="#middy">middy(handler)</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd><p>Middy factory function. Use it to wrap your existing handler to enable middlewares on it.</p>
-</dd>
-</dl>
+* [middy(handler)](#middy) ⇒ [<code>middy</code>](#middy)
 
 ## Typedefs
 
-<dl>
-<dt><a href="#middy">middy</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#useFunction">useFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareAttachFunction">middlewareAttachFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareNextFunction">middlewareNextFunction</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#middlewareFunction">middlewareFunction</a> ⇒ <code>void</code> | <code>Promise</code></dt>
-<dd></dd>
-<dt><a href="#middlewareObject">middlewareObject</a> : <code>Object</code></dt>
-<dd></dd>
-</dl>
+* [middy](#middy) : <code>function</code>
+* [useFunction](#useFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareAttachFunction](#middlewareAttachFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareNextFunction](#middlewareNextFunction) : <code>function</code>
+* [middlewareFunction](#middlewareFunction) ⇒ <code>void</code> \| <code>Promise</code>
+* [middlewareObject](#middlewareObject) : <code>Object</code>
 
 <a name="middy"></a>
 

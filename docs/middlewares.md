@@ -2,6 +2,7 @@
 
 ## Available middlewares
 
+ - [cache](#cache)
  - [cors](#cors)
  - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
  - [httpErrorHandler](#httperrorhandler)
@@ -9,6 +10,61 @@
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
  - [urlEncodeBodyParser](#urlencodebodyparser)
+
+
+## [cache](/src/middlewares/cache.js)
+
+Offers a simple but flexible caching layer that allows to cache the response associated
+to a given event and return it directly (without running the handler) if such event is received again
+in a successive execution.
+
+By default, the middleware stores the cache in memory, so the persistence is guaranteed only for
+a short amount of time (the duration of the container), but you can use the configuration
+layer to provide your own caching implementation.
+
+### Options
+
+ - `calculateCacheId`: a function that accepts the `event` object as a parameter
+   and returns a promise that resolves to a string which is the cache id for the
+   give request. By default the cache id is calculated as `md5(JSON.stringify(event))`.
+ - `getValue`: a function that defines how to retrieve a the value associated to a given
+   cache id from the cache storage. it accepts `key` (a string) and returns a promise
+   that resolves to the cached response (if any) or to `undefined` (if the given key
+   does not exists in the cache)
+ - `setValue`: a function that defines how to set a value in the cache. It accepts
+   a `key` (string) and a `value` (response object). It must return a promise that
+   resolves when the value has been stored.
+
+### Sample usage
+
+```javascript
+// assumes the event contains a unique event identifier
+const calculateCacheId = (event) => Promise.resolve(event.id)
+// use an in memory storage as example
+const myStorage = {}
+// simulates a delay in retrieving the value from the caching storage
+const getValue = (key) => new Promise((resolve, reject) => {
+  setTimeout(() => resolve(myStorage[key]), 100)
+})
+// simulates a delay in writing the value in the caching storage
+const setValue = (key, value) => new Promise((resolve, reject) => {
+  setTimeout(() => {
+    myStorage[key] = value
+    return resolve()
+  }, 100)
+})
+
+const originalHandler = (event, context, cb) => {
+  /* ... */
+}
+
+const handler = middy(originalHandler)
+  .use(cache({
+    calculateCacheId,
+    getValue,
+    setValue
+  }))
+```
 
 
 ## [cors](/src/middlewares/cors.js)
