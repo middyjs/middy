@@ -511,31 +511,6 @@ documentation](/docs/middlewares.md)
 
 ## Api
 
-## Functions
-
-<dl>
-<dt><a href="#middy">middy(handler)</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd><p>Middy factory function. Use it to wrap your existing handler to enable middlewares on it.</p>
-</dd>
-</dl>
-
-## Typedefs
-
-<dl>
-<dt><a href="#middy">middy</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#useFunction">useFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareAttachFunction">middlewareAttachFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareNextFunction">middlewareNextFunction</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#middlewareFunction">middlewareFunction</a> ⇒ <code>void</code> | <code>Promise</code></dt>
-<dd></dd>
-<dt><a href="#middlewareObject">middlewareObject</a> : <code>Object</code></dt>
-<dd></dd>
-</dl>
-
 <a name="middy"></a>
 
 ## middy(handler) ⇒ [<code>middy</code>](#middy)
@@ -598,9 +573,9 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 
 <a name="middlewareFunction"></a>
 
-## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
+## middlewareFunction ⇒ <code>void</code><code>Promise</code>
 **Kind**: global typedef  
-**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
+**Returns**: <code>void</code><code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
                          propagate the result to the next middleware.  
 
