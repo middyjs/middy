@@ -6,5 +6,6 @@ module.exports = {
   jsonBodyParser: require('./jsonBodyParser'),
   s3KeyNormalizer: require('./s3KeyNormalizer'),
   urlEncodeBodyParser: require('./urlEncodeBodyParser'),
-  validator: require('./validator')
+  validator: require('./validator'),
+  warmup: require('./warmup')
 }

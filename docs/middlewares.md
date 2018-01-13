@@ -10,6 +10,7 @@
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
  - [urlEncodeBodyParser](#urlencodebodyparser)
+ - [warmup](#warmup)
 
 
 ## [cache](/src/middlewares/cache.js)
@@ -344,4 +345,37 @@ handler.use(doNotWaitForEmptyEventLoop())
 handler(event, context, (_, response) => {
   expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
 })
+```
+
+
+## [warmup](/src/middlewares/warmup.js)
+
+Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with the [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.
+
+The idea of this middleware is that you have to keep your important lambdas  (the ones that needs to be always very responsive) running often (e.g. every 5 minutes) on a special schedule that will make the lambda running, by running the handler, but skipping the main business logic to avoid side effects.
+
+If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup) the scheduling part is done by the plugin and you just have to attach the middleware to your "middified" handler. If you don't want to use the plugin you have to create the schedule yourself and define the `isWarmingUp` function to define wether the current event is a warmup event or an actual business logic execution.
+
+
+### Options
+
+ - `isWarmingUp`: a function that accepts the `event` object as a parameter
+   and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
+ - `onWarmup`: a function that gets executed before the handler exits in case of warmup. By default the function just prints: `Exiting early via warmup Middleware`.
+
+### Sample usage
+
+```javascript
+const isWarmingUp = (event) => event.isWarmingUp === true
+const onWarmup = (event) => console.log('I am just warming up', event)
+
+const originalHandler = (event, context, cb) => {
+  /* ... */
+}
+
+const handler = middy(originalHandler)
+  .use(warmup({
+    isWarmingUp,
+    onWarmup
+  }))
 ```
