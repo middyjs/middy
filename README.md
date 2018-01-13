@@ -512,28 +512,16 @@ documentation](/docs/middlewares.md)
 
 ## Functions
 
-<dl>
-<dt><a href="#middy">middy(handler)</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd><p>Middy factory function. Use it to wrap your existing handler to enable middlewares on it.</p>
-</dd>
-</dl>
+* [middy(handler)](#middy) ⇒ [<code>middy</code>](#middy)
 
 ## Typedefs
 
-<dl>
-<dt><a href="#middy">middy</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#useFunction">useFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareAttachFunction">middlewareAttachFunction</a> ⇒ <code><a href="#middy">middy</a></code></dt>
-<dd></dd>
-<dt><a href="#middlewareNextFunction">middlewareNextFunction</a> : <code>function</code></dt>
-<dd></dd>
-<dt><a href="#middlewareFunction">middlewareFunction</a> ⇒ <code>void</code> | <code>Promise</code></dt>
-<dd></dd>
-<dt><a href="#middlewareObject">middlewareObject</a> : <code>Object</code></dt>
-<dd></dd>
-</dl>
+* [middy](#middy) : <code>function</code>
+* [useFunction](#useFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareAttachFunction](#middlewareAttachFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareNextFunction](#middlewareNextFunction) : <code>function</code>
+* [middlewareFunction](#middlewareFunction) ⇒ <code>void</code> \| <code>Promise</code>
+* [middlewareObject](#middlewareObject) : <code>Object</code>
 
 <a name="middy"></a>
 

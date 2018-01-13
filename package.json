@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "types": "./typescript/middy.d.ts",
@@ -9,7 +9,7 @@
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
     "test": "npm run test:lint && npm run test:unit",
-    "build:readme": "jsdoc2md --template README.md.hb src/* > README.md",
+    "build:readme": "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
     "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
     "release:tag": "git tag $npm_package_version && git push --tags",
@@ -46,6 +46,7 @@
     "jest": "^22.0.0",
     "jsdoc": "^3.5.5",
     "jsdoc-to-markdown": "^3.0.0",
+    "marked": "^0.3.12",
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
