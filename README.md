@@ -494,6 +494,7 @@ on how to write a middleware.
 
 Currently available middlewares:
 
+ - [`cache`](/docs/middlewares.md#cache): a simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): sets CORS headers on response
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
@@ -502,8 +503,6 @@ Currently available middlewares:
  - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
-
-
 
 
 For a dedicated documentation on those middlewares check out the [Middlewares
