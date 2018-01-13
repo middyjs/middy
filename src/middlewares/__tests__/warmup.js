@@ -25,7 +25,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should exit with 'warmup' if event.source === 'serverless-warmup-plugin' if no warmup check function provided`, (endTest) => {
+  test(`Should exit with 'warmup' if event.source === 'serverless-plugin-warmup' if no warmup check function provided`, (endTest) => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -34,7 +34,7 @@ describe('🥃 Warmup', () => {
     }))
 
     const event = {
-      source: 'serverless-warmup-plugin'
+      source: 'serverless-plugin-warmup'
     }
     const context = {}
     handler(event, context, (_, response) => {
@@ -52,7 +52,7 @@ describe('🥃 Warmup', () => {
     handler.use(lambdaIsWarmingUp({}))
 
     const event = {
-      source: 'serverless-warmup-plugin'
+      source: 'serverless-plugin-warmup'
     }
     const context = {}
     handler(event, context, (_, response) => {

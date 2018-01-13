@@ -1,6 +1,6 @@
 module.exports = (config) => {
   const defaults = {
-    isWarmingUp: (event) => event.source === 'serverless-warmup-plugin',
+    isWarmingUp: (event) => event.source === 'serverless-plugin-warmup',
     onWarmup: (event) => console.log('Exiting early via warmup Middleware')
   }
 
