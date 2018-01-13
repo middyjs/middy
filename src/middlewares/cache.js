@@ -22,7 +22,7 @@ module.exports = (opts) => {
           return options.getValue(cacheKey)
         })
         .then((cachedResponse) => {
-          if (cachedResponse) {
+          if (typeof cachedResponse !== 'undefined') {
             return handler.callback(null, cachedResponse)
           }
 
