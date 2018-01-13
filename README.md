@@ -511,6 +511,19 @@ documentation](/docs/middlewares.md)
 
 ## Api
 
+## Functions
+
+* [middy(handler)](#middy) ⇒ [<code>middy</code>](#middy)
+
+## Typedefs
+
+* [middy](#middy) : <code>function</code>
+* [useFunction](#useFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareAttachFunction](#middlewareAttachFunction) ⇒ [<code>middy</code>](#middy)
+* [middlewareNextFunction](#middlewareNextFunction) : <code>function</code>
+* [middlewareFunction](#middlewareFunction) ⇒ <code>void</code> \| <code>Promise</code>
+* [middlewareObject](#middlewareObject) : <code>Object</code>
+
 <a name="middy"></a>
 
 ## middy(handler) ⇒ [<code>middy</code>](#middy)
@@ -573,9 +586,9 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 
 <a name="middlewareFunction"></a>
 
-## middlewareFunction ⇒ <code>void</code><code>Promise</code>
+## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
 **Kind**: global typedef  
-**Returns**: <code>void</code><code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
+**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
                          propagate the result to the next middleware.  
 
