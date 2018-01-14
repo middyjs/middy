@@ -1,8 +1,15 @@
 {
   "name": "middy",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
+  "files": [
+    "src",
+    "typescript",
+    "index.js",
+    "middlewares.js",
+    "!__tests__"
+  ],
   "types": "./typescript/middy.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
