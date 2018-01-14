@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "files": [
     "src",
+    "typescript",
     "index.js",
     "middlewares.js",
     "!__tests__"
