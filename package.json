@@ -3,6 +3,10 @@
   "version": "0.7.0",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
+  "files": [
+    "src",
+    "!__tests__"
+  ],
   "types": "./typescript/middy.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
