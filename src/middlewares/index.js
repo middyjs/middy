@@ -3,6 +3,7 @@ module.exports = {
   cors: require('./cors'),
   doNotWaitForEmptyEventLoop: require('./doNotWaitForEmptyEventLoop'),
   httpErrorHandler: require('./httpErrorHandler'),
+  httpHeaderNormalizer: require('./httpHeaderNormalizer'),
   jsonBodyParser: require('./jsonBodyParser'),
   s3KeyNormalizer: require('./s3KeyNormalizer'),
   urlEncodeBodyParser: require('./urlEncodeBodyParser'),
