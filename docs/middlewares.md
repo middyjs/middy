@@ -6,6 +6,7 @@
  - [cors](#cors)
  - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
  - [httpErrorHandler](#httperrorhandler)
+ - [httpHeaderNormalizer](#httpHeaderNormalizer)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [validator](#validator)
@@ -25,14 +26,14 @@ layer to provide your own caching implementation.
 
 ### Options
 
- - `calculateCacheId`: a function that accepts the `event` object as a parameter
+ - `calculateCacheId` (function) (optional): a function that accepts the `event` object as a parameter
    and returns a promise that resolves to a string which is the cache id for the
    give request. By default the cache id is calculated as `md5(JSON.stringify(event))`.
- - `getValue`: a function that defines how to retrieve a the value associated to a given
+ - `getValue` (function) (optional): a function that defines how to retrieve a the value associated to a given
    cache id from the cache storage. it accepts `key` (a string) and returns a promise
    that resolves to the cached response (if any) or to `undefined` (if the given key
    does not exists in the cache)
- - `setValue`: a function that defines how to set a value in the cache. It accepts
+ - `setValue` (function) (optional): a function that defines how to set a value in the cache. It accepts
    a `key` (string) and a `value` (response object). It must return a promise that
    resolves when the value has been stored.
 
@@ -74,7 +75,7 @@ Sets CORS headers (`Access-Control-Allow-Origin`), necessary for making cross-or
 
 ### Options
 
- - `origin` (string) (optional): origin to put in the header (default: "*")
+ - `origin` (string) (optional): origin to put in the header (default: "`*`")
 
 ### Sample usage
 
@@ -127,6 +128,40 @@ handler({}, {}, (_, response) => {
 ```
 
 
+## [httpHeaderNormalizer](/src/middlewares/httpHeaderNormalizer.js)
+
+Normalizes HTTP header names to their canonical format. Very useful if clients are
+not using the canonical names of header (e.g. `content-type` as opposed to `Content-Type`).
+
+API Gateway does not perform any normalization, so the headers are propagated to Lambda
+exactly as they were sent by the client.
+
+Other middlewares like [`jsonBodyParser`](#jsonBodyParser) or [`urlEncodeBodyParser`](#urlEncodeBodyParser)
+will rely on headers to be in the canonical format, so if you want to support non normalized headers in your
+app you have to use this middleware before those ones:
+
+### Options
+
+ - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
+   canonical representation. a
+
+### Sample usage
+
+```javascript
+const middy = require('middy')
+const { httpHeaderNormalizer, jsonBodyParser, urlEncodeBodyParser } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler
+  .use(httpHeaderNormalizer())
+  .use(jsonBodyParser())
+  .use(urlEncodeBodyParser())
+```
+
+
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
 
 Automatically parses HTTP requests with JSON body and converts the body into an
@@ -136,7 +171,7 @@ if used in combination of `httpErrorHanler`.
 It can also be used in combination of validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
 
-```example
+```javascript
 const middy = require('middy')
 const { jsonBodyParser } = require('middy/middlewares')
 
