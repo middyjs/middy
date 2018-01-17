@@ -1,14 +1,39 @@
 module.exports = (opts) => {
-  const exceptions = {
-    'content-md5': 'Content-MD5',
-    'dnt': 'DNT',
-    'etag': 'ETag',
-    'last-event-id': 'Last-Event-ID',
-    'tcn': 'TCN',
-    'te': 'TE',
-    'www-authenticate': 'WWW-Authenticate',
-    'x-dnsprefetch-control': 'X-DNSPrefetch-Control'
-  }
+  const exceptionsList = [
+    'ALPN',
+    'C-PEP',
+    'C-PEP-Info',
+    'CalDAV-Timezones',
+    'Content-ID',
+    'Content-MD5',
+    'DASL',
+    'DAV',
+    'DNT',
+    'ETag',
+    'GetProfile',
+    'HTTP2-Settings',
+    'Last-Event-ID',
+    'MIME-Version',
+    'Optional-WWW-Authenticate',
+    'Sec-WebSocket-Accept',
+    'Sec-WebSocket-Extensions',
+    'Sec-WebSocket-Key',
+    'Sec-WebSocket-Protocol',
+    'Sec-WebSocket-Version',
+    'SLUG',
+    'TCN',
+    'TE',
+    'TTL',
+    'WWW-Authenticate',
+    'X-ATT-DeviceId',
+    'X-DNSPrefetch-Control',
+    'X-UIDH'
+  ]
+
+  const exceptions = exceptionsList.reduce((acc, curr) => {
+    acc[curr.toLowerCase()] = curr
+    return acc
+  }, {})
 
   const normalizeHeaderKey = (key) => {
     if (exceptions[key.toLowerCase()]) {
