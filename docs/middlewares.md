@@ -138,12 +138,14 @@ exactly as they were sent by the client.
 
 Other middlewares like [`jsonBodyParser`](#jsonBodyParser) or [`urlEncodeBodyParser`](#urlEncodeBodyParser)
 will rely on headers to be in the canonical format, so if you want to support non normalized headers in your
-app you have to use this middleware before those ones:
+app you have to use this middleware before those ones.
+
+This middleware will copy the original headers in `event.rawHeaders`.
 
 ### Options
 
  - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
-   canonical representation. a
+   canonical representation.
 
 ### Sample usage
 
