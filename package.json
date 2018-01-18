@@ -52,7 +52,7 @@
     "husky": "^0.14.3",
     "jest": "^22.0.0",
     "jsdoc": "^3.5.5",
-    "jsdoc-to-markdown": "^3.0.0",
+    "jsdoc-to-markdown": "^4.0.1",
     "marked": "^0.3.12",
     "regenerator-runtime": "^0.11.0"
   },
