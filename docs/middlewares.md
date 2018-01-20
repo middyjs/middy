@@ -9,6 +9,7 @@
  - [httpHeaderNormalizer](#httpHeaderNormalizer)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
+ - [ssm](#ssm)
  - [validator](#validator)
  - [urlEncodeBodyParser](#urlencodebodyparser)
  - [warmup](#warmup)
@@ -264,7 +265,72 @@ handler
   .use(s3KeyNormalizer())
 ```
 
+## [ssm](/src/middlewares/ssm.js)
 
+Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
+Requires Lambda to have IAM permission for `ssm:GetParameters` action.
+Middleware makes 1 API request to fetch all the parameters at once for efficiency.
+
+By default parameters are assigned to `process.env` node.js object.
+They can be assigned to function handler's `context` object by setting `setToContext` flag.
+
+### Options
+
+- `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
+  Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
+- `params` (object): Map of parameters to fetch from SSM, where key is name of
+  parameter middleware will set, and value is param name in SSM.
+  Example: `{params: {DB_URL: '/dev/service/db_url''}}`
+- `setToContext` (boolean) (optional): This will assign parameters to `context` object
+  of function handler.
+  
+### Sample Usage
+
+Simplest usage, exports parameters as environment variables.
+
+```javascript
+const middy = require('middy')
+const { ssm } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(ssm({
+  params: {
+    SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+  }
+}))
+
+// Before running function handler, middleware will fetch SSM params
+
+handler(event, context, (_, response) => {
+  expect(process.env.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+})
+```
+
+Export parameters to `context` object, override AWS region.
+
+```javascript
+const middy = require('middy')
+const { ssm } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(ssm({
+  awsSdkOptions: {region: 'us-west-1'},
+  params: {
+    SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+  },
+  setToContext: true
+}))
+
+handler(event, context, (_, response) => {
+  expect(context.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+})
+```
 
 ## [validator](/src/middlewares/validator.js)
 
