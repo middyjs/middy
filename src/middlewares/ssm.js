@@ -7,7 +7,6 @@ module.exports = (opts) => {
       retryDelayOptions: {base: 200}
     },
     params: {},
-    setToEnv: true,
     setToContext: false
   }
 
@@ -31,10 +30,6 @@ module.exports = (opts) => {
 function getTargetObjectToAssign (handler, options) {
   if (options.setToContext) {
     return handler.context
-  }
-
-  if (handler.setToEnv) {
-    return process.env
   }
 
   return process.env
