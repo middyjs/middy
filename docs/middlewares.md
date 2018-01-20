@@ -363,7 +363,15 @@ handler(event, {}, (_, body) => {
 
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
-Sets `context.callbackWaitsForEmptyEventLoop` property to `false`. This will prevent lambda for timing out because of hanging connection
+Sets `context.callbackWaitsForEmptyEventLoop` property to `false`. This will prevent lambda for timing out because of open database connections, etc.
+
+### Options
+
+By default middleware sets the property to `false` in `before` step, meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
+
+- `runOnBefore` (defaults to `true`) - sets property before running your handler
+- `runOnAfter`  (defaults  to `false`)
+- `runOnError` (defaults to `false`)
 
 ### Sample Usage
 
@@ -375,7 +383,7 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler.use(doNotWaitForEmptyEventLoop())
+handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
 
 // When Lambda runs the handler it get context with callbackWaitsForEmptyEventLoop property set to false
 
