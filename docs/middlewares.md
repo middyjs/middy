@@ -96,6 +96,40 @@ handler({}, {}, (_, response) => {
 ```
 
 
+## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
+
+Sets `context.callbackWaitsForEmptyEventLoop` property to `false`.
+This will prevent lambda for timing out because of open database connections, etc.
+
+### Options
+
+By default middleware sets the `callbackWaitsForEmptyEventLoop` property to `false` only in the `before` phase,
+meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
+
+- `runOnBefore` (defaults to `true`) - sets property before running your handler
+- `runOnAfter`  (defaults  to `false`)
+- `runOnError` (defaults to `false`)
+
+### Sample Usage
+
+```javascript
+const middy = require('middy')
+const { doNotWaitForEmptyEventLoop } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
+
+// When Lambda runs the handler it get context with callbackWaitsForEmptyEventLoop property set to false
+
+handler(event, context, (_, response) => {
+  expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
+})
+```
+
+
 ## [httpErrorHandler](/src/middlewares/jsonBodyParser.js)
 
 Automatically handles uncatched errors that are created with
@@ -358,29 +392,6 @@ handler(event, {}, (_, body) => {
     'goat[]': 'scone',
     pond: 'moose'
   })
-})
-```
-
-## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
-
-Sets `context.callbackWaitsForEmptyEventLoop` property to `false`. This will prevent lambda for timing out because of hanging connection
-
-### Sample Usage
-
-```javascript
-const middy = require('middy')
-const { doNotWaitForEmptyEventLoop } = require('middy/middlewares')
-
-const handler = middy((event, context, cb) => {
-  cb(null, {})
-})
-
-handler.use(doNotWaitForEmptyEventLoop())
-
-// When Lambda runs the handler it get context with callbackWaitsForEmptyEventLoop property set to false
-
-handler(event, context, (_, response) => {
-  expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
 })
 ```
 

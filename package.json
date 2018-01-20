@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "files": [
