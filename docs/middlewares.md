@@ -274,6 +274,10 @@ Middleware makes 1 API request to fetch all the parameters at once for efficienc
 By default parameters are assigned to `process.env` node.js object.
 They can be assigned to function handler's `context` object by setting `setToContext` flag.
 
+It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default.
+If your project which uses this middleware doesn't use `aws-sdk` yet,
+you may need to install it as a `devDependency` in order to run tests.  
+
 ### Options
 
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
