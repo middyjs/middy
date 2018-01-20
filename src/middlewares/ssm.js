@@ -15,23 +15,33 @@ module.exports = (opts) => {
 
   return ({
     before (handler) {
-      const paramsTarget = getParamsTargetToAttach(handler, options)
+      const targetParamsObject = getTargetObjectToAssign(handler, options)
       const ssmParamNames = getSSMParamNames(options.params)
 
       lazilyLoadSSMInstance(options.awsSdkOptions)
 
       return getSSMParams(ssmParamNames)
         .then(ssmResponse => {
-          const paramsToAttach = getParamsToAttach(options.params, ssmResponse)
-
-          Object.assign(paramsTarget, paramsToAttach)
+          assignSSMParamsToTarget(targetParamsObject, options.params, ssmResponse)
         })
     }
   })
 }
 
-function getSSMParamNames (paramsMap) {
-  return Object.keys(paramsMap).map(key => paramsMap[key])
+function getTargetObjectToAssign (handler, options) {
+  if (options.setToContext) {
+    return handler.context
+  }
+
+  if (handler.setToEnv) {
+    return process.env
+  }
+
+  return process.env
+}
+
+function getSSMParamNames (userParamsMap) {
+  return Object.keys(userParamsMap).map(key => userParamsMap[key])
 }
 
 /**
@@ -55,18 +65,12 @@ function lazilyLoadSSMInstance (awsSdkOptions) {
   ssmInstance = new SSM(awsSdkOptions)
 }
 
-function getParamsTargetToAttach (handler, options) {
-  if (options.setToContext) {
-    return handler.context
-  }
-
-  if (handler.setToEnv) {
-    return process.env
-  }
-
-  return process.env
-}
-
+/**
+ * Get array of SSM params using aws-sdk
+ * @throws {Error} When any invalid parameters found in response
+ * @param {String[]} ssmParamNames Array of param names to fetch
+ * @return {Promise.<Object[]>} Array of SSM params from aws-sdk
+ */
 function getSSMParams (ssmParamNames) {
   // prevents throwing error from aws-sdk when empty params passed
   if (!ssmParamNames.length) {
@@ -84,11 +88,29 @@ function getSSMParams (ssmParamNames) {
     })
 }
 
-function getParamsToAttach (userParamsMap, ssmResponse) {
+/**
+ * Assigns params from SSM response to target object using names from middleware options
+ * @param {Object} paramsTarget Target object to assign params to
+ * @param {Object} userParamsMap Options from middleware defining param names
+ * @param {Object[]} ssmResponse Array of params returned from SSM by aws-sdk
+ */
+function assignSSMParamsToTarget (paramsTarget, userParamsMap, ssmResponse) {
+  const paramsToAttach = getParamsToAssign(userParamsMap, ssmResponse)
+
+  Object.assign(paramsTarget, paramsToAttach)
+}
+
+/**
+ * Get object of user param names as keys and SSM param values as value
+ * @param {Object} userParamsMap Params object from middleware options
+ * @param {Object[]} ssmParams Array of parameters from SSM returned by aws-sdk
+ * @return {Object} Merged object for assignment to target object
+ */
+function getParamsToAssign (userParamsMap, ssmParams) {
   const ssmToUserParamsMap = invertObject(userParamsMap)
   const targetObject = {}
 
-  for (let {Name: ssmParamName, Value: ssmParamValue} of ssmResponse) {
+  for (let {Name: ssmParamName, Value: ssmParamValue} of ssmParams) {
     const userParamName = ssmToUserParamsMap[ssmParamName]
 
     targetObject[userParamName] = ssmParamValue
