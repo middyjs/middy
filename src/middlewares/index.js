@@ -9,5 +9,6 @@ module.exports = {
   ssm: require('./ssm'),
   urlEncodeBodyParser: require('./urlEncodeBodyParser'),
   validator: require('./validator'),
-  warmup: require('./warmup')
+  warmup: require('./warmup'),
+  withDefaultHttpEvent: require('./withDefaultHttpEvent')
 }
