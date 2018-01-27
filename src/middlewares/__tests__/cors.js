@@ -74,4 +74,26 @@ describe('📦 Middleware CORS', () => {
       })
     })
   })
+
+  test('It should add headers even onError', () => {
+    const handler = middy((event, context, cb) => {
+      throw new Error('')
+    })
+
+    handler.use(cors({
+      origin: 'https://example.com'
+    }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://example.com'
+        }
+      })
+    })
+  })
 })
