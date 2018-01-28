@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.8.2",
+  "version": "0.8.4",
   "description": "The simple (but cool 😎) middleware engine for AWS lambda in Node.js",
   "main": "src/index.js",
   "files": [
@@ -40,7 +40,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "aws-sdk": "2.186.0",
+    "aws-sdk": "2.176.0",
     "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
     "codecov": "^3.0.0",
@@ -58,7 +58,7 @@
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
-    "@types/aws-lambda": "0.0.27",
+    "@types/aws-lambda": "^0.0.30",
     "ajv": "^6.0.0",
     "ajv-keywords": "^3.0.0",
     "content-type": "^1.0.4",

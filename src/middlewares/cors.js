@@ -4,6 +4,7 @@ const defaults = {
 
 function addCorsHeaders (opts, handler, next) {
   const options = Object.assign({}, defaults, opts)
+
   if (handler.event.hasOwnProperty('httpMethod')) {
     handler.response = handler.response || {}
     handler.response.headers = handler.response.headers || {}

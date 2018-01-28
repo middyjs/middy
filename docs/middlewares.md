@@ -74,6 +74,8 @@ const handler = middy(originalHandler)
 
 Sets CORS headers (`Access-Control-Allow-Origin`), necessary for making cross-origin requests, to response object.
 
+Sets headers in `after` and `onError` phases.
+
 ### Options
 
  - `origin` (string) (optional): origin to put in the header (default: "`*`")
