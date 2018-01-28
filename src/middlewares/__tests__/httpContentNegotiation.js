@@ -33,4 +33,49 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       endTest()
     })
   })
+
+  test('It should skip the middleware if no headers are sent', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should not parse charset if disabled', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should not parse encoding if disabled', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should not parse language if disabled', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should not parse media types if disabled', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should fail with mismatching charset', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should fail with mismatching encoding', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should fail with mismatching language', (endTest) => {
+    // TODO
+    endTest()
+  })
+
+  test('It should fail with mismatching media type', (endTest) => {
+    // TODO
+    endTest()
+  })
 })
