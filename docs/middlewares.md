@@ -165,6 +165,39 @@ handler({}, {}, (_, response) => {
 ```
 
 
+## [httpEventNormalizer](/src/middlewares/httpEventNormalizer.js)
+
+If you need to access query string or path parameters in an API Gateway event you
+can do so by reading the attributes in the `event.queryStringParameters` and
+`event.pathParameters`, for example: `event.pathParameters.userId`. Unfortunately
+if there are no parameters for one of this parameters holders, the key `queryStringParameters`
+or `pathParameters` won't be available in the object, causing an expression like:
+`event.pathParameters.userId` to fail with error: `TypeError: Cannot read property 'userId' of undefined`.
+
+A simple solution would be to add an `if` statement to verify if the `pathParameters` (or `queryStringParameters`)
+exists before accessing one of its parameters, but this approach is very verbose and error prone.
+
+This middleware normalizes the API Gateway event, making sure that an object for
+`queryStringParameters` and `pathParameters` is always available (resulting in empty objects
+when no parameter is available), this way you don't have to worry about adding extra `if`
+statements before trying to read a property and calling `event.pathParameters.userId` will
+result in `undefined` when no path parameter is available, but not in an error.
+
+### Sample usage
+
+```javascript
+const middy = require('middy')
+const { httpEventNormalizer } = require('middy/httpEventNormalizer')
+
+const handler = middy((event, context, cb) => {
+  console.log('Hello user #{event.pathParameters.userId}') // might produce `Hello user #undefined`, but not an error
+  cb(null, {})
+})
+
+handler.use(httpEventNormalizer())
+```
+
+
 ## [httpHeaderNormalizer](/src/middlewares/httpHeaderNormalizer.js)
 
 Normalizes HTTP header names to their canonical format. Very useful if clients are
@@ -289,7 +322,7 @@ you may need to install it as a `devDependency` in order to run tests.
   Example: `{params: {DB_URL: '/dev/service/db_url''}}`
 - `setToContext` (boolean) (optional): This will assign parameters to `context` object
   of function handler.
-  
+
 ### Sample Usage
 
 Simplest usage, exports parameters as environment variables.

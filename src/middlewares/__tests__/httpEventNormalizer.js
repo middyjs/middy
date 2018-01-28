@@ -1,7 +1,7 @@
 const middy = require('../../middy')
-const withDefaultHttpEvent = require('../withDefaultHttpEvent')
+const httpEventNormalizer = require('../httpEventNormalizer')
 
-describe('📦 Middleware withDefaultHttpEvent', () => {
+describe('📦 Middleware normalize HTTP event', () => {
   test('It should do nothing if not HTTP event', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
@@ -9,8 +9,11 @@ describe('📦 Middleware withDefaultHttpEvent', () => {
       source: 's3'
     }
 
+    handler.use(httpEventNormalizer())
+
     handler(nonEvent, {}, (_, event) => {
       expect(event).toEqual(nonEvent)
+      expect(event.queryStringParameters).toBeUndefined()
       endTest()
     })
   })
@@ -18,7 +21,7 @@ describe('📦 Middleware withDefaultHttpEvent', () => {
   test('It should default queryStringParameters', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
-    handler.use(withDefaultHttpEvent())
+    handler.use(httpEventNormalizer())
 
     const event = {
       httpMethod: 'GET'
@@ -33,7 +36,7 @@ describe('📦 Middleware withDefaultHttpEvent', () => {
   test('It should default pathParameters', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
-    handler.use(withDefaultHttpEvent())
+    handler.use(httpEventNormalizer())
 
     const event = {
       httpMethod: 'GET'
@@ -48,7 +51,7 @@ describe('📦 Middleware withDefaultHttpEvent', () => {
   test('It should not overwrite queryStringParameters', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
-    handler.use(withDefaultHttpEvent())
+    handler.use(httpEventNormalizer())
 
     const event = {
       httpMethod: 'GET',
@@ -64,7 +67,7 @@ describe('📦 Middleware withDefaultHttpEvent', () => {
   test('It should not overwrite pathParameters', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
-    handler.use(withDefaultHttpEvent())
+    handler.use(httpEventNormalizer())
 
     const event = {
       httpMethod: 'GET',

@@ -7,6 +7,6 @@ module.exports = () => ({
       event.pathParameters = event.pathParameters || {}
     }
 
-    next()
+    return next()
   }
 })
