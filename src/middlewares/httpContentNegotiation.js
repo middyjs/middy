@@ -41,7 +41,7 @@ module.exports = (opts) => {
 
         if (options.parseLanguages) {
           const parseLanguage = require('negotiator/lib/language')
-          event.preferredLanguages = parseLanguage(event.headers['Accept-Language'], options.availableEncodings)
+          event.preferredLanguages = parseLanguage(event.headers['Accept-Language'], options.availableLanguages)
           event.preferredLanguage = event.preferredLanguages[0]
 
           if (typeof event.preferredLanguage === 'undefined' && options.failOnMismatch) {
@@ -51,7 +51,7 @@ module.exports = (opts) => {
 
         if (options.parseMediaTypes) {
           const parseMediaType = require('negotiator/lib/mediaType')
-          event.preferredMediaTypes = parseMediaType(event.headers['Accept'], options.availableEncodings)
+          event.preferredMediaTypes = parseMediaType(event.headers['Accept'], options.availableMediaTypes)
           event.preferredMediaType = event.preferredMediaTypes[0]
 
           if (typeof event.preferredMediaType === 'undefined' && options.failOnMismatch) {
