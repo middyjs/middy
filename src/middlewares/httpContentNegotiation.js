@@ -15,48 +15,38 @@ module.exports = (opts) => {
 
   const options = Object.assign({}, defaults, opts)
 
+  const parseHeader = (headerName, type, availableValues, failOnMismatch, event) => {
+    const parseFn = require(`negotiator/lib/${type}`)
+    const singular = type.charAt(0).toUpperCase() + type.slice(1)
+    const plural = singular + 's'
+    const resultsName = `preferred${plural}`
+    const resultName = `preferred${singular}`
+    event[resultsName] = parseFn(event.headers[headerName], availableValues)
+    event[resultName] = event[resultsName][0]
+
+    if (typeof event[resultName] === 'undefined' && failOnMismatch) {
+      throw new createError.NotAcceptable(`Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`)
+    }
+  }
+
   return ({
     before: (handler, next) => {
       const { event } = handler
       if (event.headers) {
         if (options.parseCharsets) {
-          const parseCharset = require('negotiator/lib/charset')
-          event.preferredCharsets = parseCharset(event.headers['Accept-Charset'], options.availableCharsets)
-          event.preferredCharset = event.preferredCharsets[0]
-
-          if (typeof event.preferredCharset === 'undefined' && options.failOnMismatch) {
-            throw new createError.NotAcceptable(`Unsupported charset. Acceptable charsets: ${options.availableCharsets.join(', ')}`)
-          }
+          parseHeader('Accept-Charset', 'charset', options.availableCharsets, options.failOnMismatch, event)
         }
 
         if (options.parseEncodings) {
-          const parseEncoding = require('negotiator/lib/encoding')
-          event.preferredEncodings = parseEncoding(event.headers['Accept-Encoding'], options.availableEncodings)
-          event.preferredEncoding = event.preferredEncodings[0]
-
-          if (typeof event.preferredEncoding === 'undefined' && options.failOnMismatch) {
-            throw new createError.NotAcceptable(`Unsupported encoding. Acceptable encodings: ${options.availableEncodings.join(', ')}`)
-          }
+          parseHeader('Accept-Encoding', 'encoding', options.availableEncodings, options.failOnMismatch, event)
         }
 
         if (options.parseLanguages) {
-          const parseLanguage = require('negotiator/lib/language')
-          event.preferredLanguages = parseLanguage(event.headers['Accept-Language'], options.availableLanguages)
-          event.preferredLanguage = event.preferredLanguages[0]
-
-          if (typeof event.preferredLanguage === 'undefined' && options.failOnMismatch) {
-            throw new createError.NotAcceptable(`Unsupported language. Acceptable languages: ${options.availableLanguages.join(', ')}`)
-          }
+          parseHeader('Accept-Language', 'language', options.availableLanguages, options.failOnMismatch, event)
         }
 
         if (options.parseMediaTypes) {
-          const parseMediaType = require('negotiator/lib/mediaType')
-          event.preferredMediaTypes = parseMediaType(event.headers['Accept'], options.availableMediaTypes)
-          event.preferredMediaType = event.preferredMediaTypes[0]
-
-          if (typeof event.preferredMediaType === 'undefined' && options.failOnMismatch) {
-            throw new createError.NotAcceptable(`Unsupported mediaType. Acceptable mediaTypes: ${options.availableMediaTypes.join(', ')}`)
-          }
+          parseHeader('Accept', 'mediaType', options.availableMediaTypes, options.failOnMismatch, event)
         }
       }
 
