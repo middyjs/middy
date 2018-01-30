@@ -191,8 +191,10 @@ const handler = middy((event, context, cb) => {
       break
     case 'application/yaml':
       body = `---\nmessage: ${message}`
+      break
     case 'application/json':
       body = JSON.stringify({ message })
+      break
     default:
       body = message
   }
@@ -200,7 +202,7 @@ const handler = middy((event, context, cb) => {
   return cb(null, {
     statusCode: 200,
     body
-  })  
+  })
 })
 
 handler
@@ -208,7 +210,7 @@ handler
   .use(httpContentNegotiation({
     parseCharsets: false,
     parseEncodings: false,
-    availableLanguages: ['it-it', 'fr-fr', 'en']
+    availableLanguages: ['it-it', 'fr-fr', 'en'],
     availableMediaTypes: ['application/xml', 'application/yaml', 'application/json', 'text/plain']
   }))
   .use(httpErrorHandler())
