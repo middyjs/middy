@@ -136,7 +136,7 @@ handler(event, context, (_, response) => {
 
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 
-Parses `Accept-*` headers and provides utilities for [HTTP content negotiation](HTTP content negotiation) (charset, encoding, language and media type).
+Parses `Accept-*` headers and provides utilities for [HTTP content negotiation](https://tools.ietf.org/html/rfc7231#section-5.3) (charset, encoding, language and media type).
 
 By default the middleware parses charsets (`Accept-Charset`), languages (`Accept-Language`), encodings (`Accept-Encoding`) and media types (`Accept`) during the
 `before` phase and expands the `event` object by adding the following properties:
