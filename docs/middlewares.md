@@ -5,6 +5,7 @@
  - [cache](#cache)
  - [cors](#cors)
  - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
+ - [httpContentNegotiation](#httpcontentnegotiation)
  - [httpErrorHandler](#httperrorhandler)
  - [httpEventNormalizer](#httpeventnormalizer)
  - [httpHeaderNormalizer](#httpheadernormalizer)
@@ -107,7 +108,7 @@ This will prevent lambda for timing out because of open database connections, et
 
 ### Options
 
-By default middleware sets the `callbackWaitsForEmptyEventLoop` property to `false` only in the `before` phase,
+By default the middleware sets the `callbackWaitsForEmptyEventLoop` property to `false` only in the `before` phase,
 meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
 
 - `runOnBefore` (defaults to `true`) - sets property before running your handler
@@ -131,6 +132,91 @@ handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
 handler(event, context, (_, response) => {
   expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
 })
+```
+
+
+## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
+
+Parses `Accept-*` headers and provides utilities for [HTTP content negotiation](https://tools.ietf.org/html/rfc7231#section-5.3) (charset, encoding, language and media type).
+
+By default the middleware parses charsets (`Accept-Charset`), languages (`Accept-Language`), encodings (`Accept-Encoding`) and media types (`Accept`) during the
+`before` phase and expands the `event` object by adding the following properties:
+
+- `preferredCharsets` (`array`) - The list of charsets that can be safely used by the app (as the result of the negotiation)
+- `preferredCharset` (`string`) - The preferred charset  as the result of the negotiation
+- `preferredEncodings` (`array`) - The list of encodings that can be safely used by the app (as the result of the negotiation)
+- `preferredEncoding` (`string`) - The preferred encoding as the result of the negotiation
+- `preferredLanguages` (`array`) - The list of languages that can be safely used by the app (as the result of the negotiation)
+- `preferredLanguage` (`string`) - The preferred language as the result of the negotiation
+- `preferredMediaTypes` (`array`) - The list of media types that can be safely used by the app (as the result of the negotiation)
+- `preferredMediaType` (`string`) - The preferred media types as the result of the negotiation
+
+This middleware expects the headers in canonical format, so it should be attached after the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware.
+It also can throw HTTP exception, so it can be convenient to use it in combination with the [`httpErrorHandler`](#httperrorhandler).
+
+### Options
+
+- `parseCharsets` (defaults to `true`) - Allows to enable/disable the charsets parsing
+- `availableCharsets` (defaults to `undefined`) - Allows to define the list of charsets supported by the lambda function
+- `parseEncodings` (defaults to `true`) - Allows to enable/disable the encodings parsing
+- `availableEncodings` (defaults to `undefined`) - Allows to define the list of encodings supported by the lambda function
+- `parseLanguages` (defaults to `true`) - Allows to enable/disable the languages parsing
+- `availableLanguages` (defaults to `undefined`) - Allows to define the list of languages supported by the lambda function
+- `parseMediaTypes` (defaults to `true`) - Allows to enable/disable the media types parsing
+- `availableMediaTypes` (defaults to `undefined`) - Allows to define the list of media types supported by the lambda function
+- `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception whether the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
+
+### Sample Usage
+
+```javascript
+const middy = require('middy')
+const { httpContentNegotiation, httpHeaderNormalizer, httpErrorHandler } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  let message, body
+
+  switch (event.preferredLanguage) {
+    case 'it-it':
+      message = 'Ciao Mondo'
+      break
+    case 'fr-fr':
+      message = 'Bonjour le monde'
+      break
+    default:
+      message = 'Hello world'
+  }
+
+  switch (event.preferredMediaType) {
+    case 'application/xml':
+      body = `<message>${message}</message>`
+      break
+    case 'application/yaml':
+      body = `---\nmessage: ${message}`
+      break
+    case 'application/json':
+      body = JSON.stringify({ message })
+      break
+    default:
+      body = message
+  }
+
+  return cb(null, {
+    statusCode: 200,
+    body
+  })
+})
+
+handler
+  .use(httpHeaderNormalizer())
+  .use(httpContentNegotiation({
+    parseCharsets: false,
+    parseEncodings: false,
+    availableLanguages: ['it-it', 'fr-fr', 'en'],
+    availableMediaTypes: ['application/xml', 'application/yaml', 'application/json', 'text/plain']
+  }))
+  .use(httpErrorHandler())
+
+module.exports = { handler }
 ```
 
 
