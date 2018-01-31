@@ -6,6 +6,7 @@
  - [cors](#cors)
  - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
  - [httpErrorHandler](#httperrorhandler)
+ - [httpEventNormalizer](#httpEventNormalizer)
  - [httpHeaderNormalizer](#httpHeaderNormalizer)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
