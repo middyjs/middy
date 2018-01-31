@@ -7,6 +7,7 @@
  - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
  - [httpContentNegotiation](#httpcontentnegotiation)
  - [httpErrorHandler](#httperrorhandler)
+ - [httpEventNormalizer](#httpeventnormalizer)
  - [httpHeaderNormalizer](#httpheadernormalizer)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
