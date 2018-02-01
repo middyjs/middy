@@ -408,7 +408,9 @@ you may need to install it as a `devDependency` in order to run tests.
   parameter middleware will set, and value is param name in SSM.
   Example: `{params: {DB_URL: '/dev/service/db_url''}}`
 - `setToContext` (boolean) (optional): This will assign parameters to `context` object
-  of function handler.
+  of function handler. Defaults to `false`
+- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
+  again if parameter was already fetched in previous Lambda execution 
 
 ### Sample Usage
 
@@ -425,7 +427,8 @@ const handler = middy((event, context, cb) => {
 handler.use(ssm({
   params: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
-  }
+  },
+  cache: true
 }))
 
 // Before running function handler, middleware will fetch SSM params
@@ -450,7 +453,8 @@ handler.use(ssm({
   params: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
   },
-  setToContext: true
+  setToContext: true,
+  cache: true
 }))
 
 handler(event, context, (_, response) => {
