@@ -1,4 +1,4 @@
-module.exports = wallaby => {
+module.exports = () => {
   process.env.NODE_ENV = 'test'
 
   return {
@@ -8,9 +8,6 @@ module.exports = wallaby => {
     env: {
       type: 'node',
       runner: 'node'
-    },
-    compilers: {
-      'src/**/*.js': wallaby.compilers.babel()
     },
     setup (wallaby) {
       wallaby.testFramework.configure(require('./package.json').jest)
