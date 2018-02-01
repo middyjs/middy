@@ -7,16 +7,22 @@ module.exports = (opts) => {
       retryDelayOptions: {base: 200}
     },
     params: {},
-    setToContext: false
+    setToContext: false,
+    cache: false
   }
 
   const options = Object.assign({}, defaults, opts)
 
   return ({
-    before (handler) {
+    before (handler, next) {
       const targetParamsObject = getTargetObjectToAssign(handler, options)
-      const ssmParamNames = getSSMParamNames(options.params)
+      const stillCached = areParamsStillCached(options, targetParamsObject)
 
+      if (stillCached) {
+        return next()
+      }
+
+      const ssmParamNames = getSSMParamNames(options.params)
       lazilyLoadSSMInstance(options.awsSdkOptions)
 
       return getSSMParams(ssmParamNames)
@@ -33,6 +39,22 @@ function getTargetObjectToAssign (handler, options) {
   }
 
   return process.env
+}
+
+function areParamsStillCached (options, targetParamsObject) {
+  if (!options.cache) {
+    return false
+  }
+
+  for (const userParamsName in options.params) {
+    if (options.params.hasOwnProperty(userParamsName)) {
+      if (typeof targetParamsObject[userParamsName] === 'undefined') {
+        return false
+      }
+    }
+  }
+
+  return true
 }
 
 function getSSMParamNames (userParamsMap) {
