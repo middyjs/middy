@@ -91,6 +91,25 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
+  test(`It should call aws-sdk if cache enabled but param not cached`, (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
+      },
+      middlewareOptions: {
+        params: {
+          secureValue: '/dev/service_name/secure_param'
+        },
+        cache: true,
+        setToContext: true
+      },
+      cb () {
+        expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+        done()
+      }
+    })
+  })
+
   test(`It should set SSM param value to context if set in options`, (done) => {
     testScenario({
       ssmMockResponse: {
