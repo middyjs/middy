@@ -402,15 +402,15 @@ you may need to install it as a `devDependency` in order to run tests.
 
 ### Options
 
-- `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
-  Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
+- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
+  again if parameter was already fetched in previous Lambda execution 
 - `params` (object): Map of parameters to fetch from SSM, where key is name of
   parameter middleware will set, and value is param name in SSM.
   Example: `{params: {DB_URL: '/dev/service/db_url''}}`
+- `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
+  Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to `context` object
   of function handler. Defaults to `false`
-- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
-  again if parameter was already fetched in previous Lambda execution 
 
 ### Sample Usage
 
@@ -425,10 +425,10 @@ const handler = middy((event, context, cb) => {
 })
 
 handler.use(ssm({
+  cache: true,
   params: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
-  },
-  cache: true
+  }
 }))
 
 // Before running function handler, middleware will fetch SSM params
@@ -449,12 +449,12 @@ const handler = middy((event, context, cb) => {
 })
 
 handler.use(ssm({
-  awsSdkOptions: {region: 'us-west-1'},
+  cache: true,
   params: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
   },
-  setToContext: true,
-  cache: true
+  awsSdkOptions: {region: 'us-west-1'},
+  setToContext: true
 }))
 
 handler(event, context, (_, response) => {
