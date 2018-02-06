@@ -32,7 +32,7 @@ module.exports = ({inputSchema, outputSchema, ajvOptions}) => {
     },
     after (handler, next) {
       if (!outputSchema) {
-        return next(null, 'from after')
+        return next()
       }
 
       const valid = validateOutput(handler.response)
