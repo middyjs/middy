@@ -467,8 +467,8 @@ handler(event, context, (_, response) => {
 Automatically validates incoming events and outgoing responses against custom
 schemas defined with the [JSON schema syntax](http://json-schema.org/).
 
-If an incoming event failes validation a `BadRequest` error is raised.
-If an outgoing response failes validation a `InternalServerError` error is
+If an incoming event fails validation a `BadRequest` error is raised.
+If an outgoing response fails validation a `InternalServerError` error is
 raised.
 
 This middleware can be used in combination with
@@ -481,6 +481,8 @@ response to the user.
    to validate the input (`handler.event`) of the Lambda handler.
  - `outputSchema` (object) (optional): the JSON schema object that will be used
    to validate the output (`handler.response`) of the Lambda handler.
+ - `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
+    class constructor. Defaults are `{v5: true, $data: true, allErrors: true}`  
 
 ### Sample Usage
 
