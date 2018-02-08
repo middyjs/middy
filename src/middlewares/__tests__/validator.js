@@ -117,4 +117,34 @@ describe('📦  Middleware Validator', () => {
       expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
     })
   })
+
+  describe('🏗 Ajv constructor options', () => {
+    const schema = {required: ['email'], properties: {email: {type: 'string', format: 'email'}}}
+
+    test('It should allow invalid email using default constructor options', () => {
+      const handler = middy((event, context, cb) => {
+        cb(null, {})
+      })
+
+      handler.use(validator({inputSchema: schema}))
+
+      // This email is considered as valid in 'fast' mode
+      handler({email: 'abc@abc'}, {}, (err) => {
+        expect(err).toEqual(null)
+      })
+    })
+
+    test('It should not allow bad email format using custom ajv constructor options', () => {
+      const handler = middy((event, context, cb) => {
+        cb(null, {})
+      })
+
+      handler.use(validator({inputSchema: schema, ajvOptions: {format: 'full'}}))
+
+      // This same email is not a valid one in 'full' validation mode
+      handler({email: 'abc@abc'}, {}, (err) => {
+        expect(err.details[0].message).toEqual('should match format "email"')
+      })
+    })
+  })
 })
