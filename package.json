@@ -58,7 +58,7 @@
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
-    "@types/aws-lambda": "^0.0.31",
+    "@types/aws-lambda": "^0.0.32",
     "ajv": "^6.0.0",
     "ajv-keywords": "^3.0.0",
     "content-type": "^1.0.4",
