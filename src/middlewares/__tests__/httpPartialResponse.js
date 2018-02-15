@@ -22,7 +22,7 @@ const createDefaultStringifiedResponse = () =>
     }
   )
 
-describe('📦  Middleware Partial Response', () => {
+describe('📦  Middleware Http Partial Response', () => {
   test('It should filter a response with default opts', () => {
     const handler = middy((event, context, cb) =>
       cb(null, createDefaultObjectResponse())
