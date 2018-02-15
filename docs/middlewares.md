@@ -9,6 +9,7 @@
  - [httpErrorHandler](#httperrorhandler)
  - [httpEventNormalizer](#httpeventnormalizer)
  - [httpHeaderNormalizer](#httpheadernormalizer)
+ - [httpPartialResponse](#httppartialresponse)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [ssm](#ssm)
@@ -220,7 +221,7 @@ module.exports = { handler }
 ```
 
 
-## [httpErrorHandler](/src/middlewares/jsonBodyParser.js)
+## [httpErrorHandler](/src/middlewares/httpErrorHandler.js)
 
 Automatically handles uncatched errors that are created with
 [`http-errors`](https://npm.im/http-errors) and creates a proper HTTP response
@@ -320,6 +321,50 @@ handler
   .use(urlEncodeBodyParser())
 ```
 
+## [httpPartialResponse](/src/middlewares/httpPartialResponse.js)
+
+Filter object or json stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your json response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
+
+This middleware is based on the awesome `json-mask` package wrote by [Yuriy Nemtsov](https://github.com/nemtsov)
+
+```javascript
+const middy = require('middy')
+const { httpPartialResponse } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  const response = {
+    statusCode: 200,
+    body: {
+      firstname: 'John',
+      lastname: 'Doe',
+      gender: 'male',
+      age: 30,
+      address: {
+        street: 'Avenue des Champs-Élysées',
+        city: 'Paris'
+      }
+    }
+  }
+
+  cb(null, response)
+})
+
+handler.use(httpPartialResponse())
+
+const event = {
+  queryStringParameters: {
+    fields: 'firstname,lastname'
+  }
+}
+
+handler(event, {}, (_, response) => {
+  expect(response.body).toEqual({
+    firstname: 'John',
+    lastname: 'Doe'
+  })
+})
+```
+
 
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
 
@@ -351,7 +396,6 @@ handler(event, {}, (_, body) => {
   expect(body).toEqual({foo: 'bar'})
 })
 ```
-
 
 ## [s3KeyNormalizer](/src/middlewares/s3KeyNormalizer.js)
 
