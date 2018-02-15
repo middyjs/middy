@@ -221,7 +221,7 @@ module.exports = { handler }
 ```
 
 
-## [httpErrorHandler](/src/middlewares/jsonBodyParser.js)
+## [httpErrorHandler](/src/middlewares/httpErrorHandler.js)
 
 Automatically handles uncatched errors that are created with
 [`http-errors`](https://npm.im/http-errors) and creates a proper HTTP response
