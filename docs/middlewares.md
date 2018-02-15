@@ -325,7 +325,7 @@ handler
 
 Filter object or json stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your json response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
 
-This middleware is based on the awesome `json-mask` package wrote by (Yuriy Nemtsov)[https://github.com/nemtsov]
+This middleware is based on the awesome `json-mask` package wrote by [Yuriy Nemtsov](https://github.com/nemtsov)
 
 ```javascript
 const middy = require('middy')
