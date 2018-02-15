@@ -1,5 +1,5 @@
 const middy = require('../../middy')
-const partialResponse = require('../partialResponse')
+const httpPartialResponse = require('../httpPartialResponse')
 
 const createDefaultObjectResponse = () =>
   Object.assign(
@@ -28,7 +28,7 @@ describe('📦  Middleware Partial Response', () => {
       cb(null, createDefaultObjectResponse())
     )
 
-    handler.use(partialResponse())
+    handler.use(httpPartialResponse())
 
     const event = {
       queryStringParameters: {
@@ -46,7 +46,7 @@ describe('📦  Middleware Partial Response', () => {
       cb(null, createDefaultObjectResponse())
     )
 
-    handler.use(partialResponse({ filteringKeyName: 'filter' }))
+    handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
 
     const event = {
       queryStringParameters: {
@@ -64,7 +64,7 @@ describe('📦  Middleware Partial Response', () => {
       cb(null, createDefaultStringifiedResponse())
     )
 
-    handler.use(partialResponse())
+    handler.use(httpPartialResponse())
 
     const event = {
       queryStringParameters: {
@@ -80,7 +80,7 @@ describe('📦  Middleware Partial Response', () => {
   test('It should return the initial response if response body is empty', () => {
     const handler = middy((event, context, cb) => cb(null, ''))
 
-    handler.use(partialResponse())
+    handler.use(httpPartialResponse())
 
     const event = {}
 
@@ -94,7 +94,7 @@ describe('📦  Middleware Partial Response', () => {
       cb(null, { statusCode: 200, body: 'success response' })
     )
 
-    handler.use(partialResponse())
+    handler.use(httpPartialResponse())
 
     const event = {}
 
@@ -108,7 +108,7 @@ describe('📦  Middleware Partial Response', () => {
       cb(null, createDefaultObjectResponse())
     })
 
-    handler.use(partialResponse())
+    handler.use(httpPartialResponse())
 
     const event = {}
 

@@ -9,8 +9,8 @@
  - [httpErrorHandler](#httperrorhandler)
  - [httpEventNormalizer](#httpeventnormalizer)
  - [httpHeaderNormalizer](#httpheadernormalizer)
+ - [httpPartialResponse](#httppartialresponse)
  - [jsonBodyParser](#jsonbodyparser)
- - [partialResponse](#partialresponse)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [ssm](#ssm)
  - [validator](#validator)
@@ -321,6 +321,50 @@ handler
   .use(urlEncodeBodyParser())
 ```
 
+## [httpPartialResponse](/src/middlewares/httpPartialResponse.js)
+
+Filter object or json stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your json response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
+
+This middleware is based on the awesome `json-mask` package wrote by (Yuriy Nemtsov)[https://github.com/nemtsov]
+
+```javascript
+const middy = require('middy')
+const { httpPartialResponse } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  const response = {
+    statusCode: 200,
+    body: {
+      firstname: 'John',
+      lastname: 'Doe',
+      gender: 'male',
+      age: 30,
+      address: {
+        street: 'Avenue des Champs-Élysées',
+        city: 'Paris'
+      }
+    }
+  }
+
+  cb(null, response)
+})
+
+handler.use(httpPartialResponse())
+
+const event = {
+  queryStringParameters: {
+    fields: 'firstname,lastname'
+  }
+}
+
+handler(event, {}, (_, response) => {
+  expect(response.body).toEqual({
+    firstname: 'John',
+    lastname: 'Doe'
+  })
+})
+```
+
 
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
 
@@ -350,50 +394,6 @@ const event = {
 }
 handler(event, {}, (_, body) => {
   expect(body).toEqual({foo: 'bar'})
-})
-```
-
-## [partialResponse](/src/middlewares/partialResponse.js)
-
-Filter object or json stringified response has never been so easy. Add the `partialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your json response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
-
-This middleware is based on the awesome `json-mask` package wrote by (Yuriy Nemtsov)[https://github.com/nemtsov]
-
-```javascript
-const middy = require('middy')
-const { partialResponse } = require('middy/middlewares')
-
-const handler = middy((event, context, cb) => {
-  const response = {
-    statusCode: 200,
-    body: {
-      firstname: 'John',
-      lastname: 'Doe',
-      gender: 'male',
-      age: 30,
-      address: {
-        street: 'Avenue des Champs-Élysées',
-        city: 'Paris'
-      }
-    }
-  }
-
-  cb(null, response)
-})
-
-handler.use(partialResponse())
-
-const event = {
-  queryStringParameters: {
-    fields: 'firstname,lastname'
-  }
-}
-
-handler(event, {}, (_, response) => {
-  expect(response.body).toEqual({
-    firstname: 'John',
-    lastname: 'Doe'
-  })
 })
 ```
 
