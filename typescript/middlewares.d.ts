@@ -1,6 +1,6 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
-import { IMiddyMiddlewareObject } from './typescript/middy'
+import middy from './middy'
 
 interface ICorsOptions {
   origin: string;
@@ -56,19 +56,19 @@ interface IWarmupOptions {
   onWarmup?: (event: any) => void;
 }
 
-declare function cache(opts?: ICacheOptions): IMiddyMiddlewareObject;
-declare function cors(opts?: ICorsOptions): IMiddyMiddlewareObject;
-declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): IMiddyMiddlewareObject;
-declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): IMiddyMiddlewareObject;
-declare function httpErrorHandler(): IMiddyMiddlewareObject;
-declare function httpEventNormalizer(): IMiddyMiddlewareObject;
-declare function httpHeaderNormalizer(opts: IHTTPHeaderNormalizerOptions): IMiddyMiddlewareObject;
-declare function httpPartialResponse(): IMiddyMiddlewareObject;
-declare function jsonBodyParser(): IMiddyMiddlewareObject;
-declare function s3KeyNormalizer(): IMiddyMiddlewareObject;
-declare function ssm(opts?: ISSMOptions): IMiddyMiddlewareObject;
-declare function validator(opts?: IValidatorOptions): IMiddyMiddlewareObject;
-declare function urlEncodeBodyParser(opts?: IURLEncodeBodyParserOptions): IMiddyMiddlewareObject;
-declare function warmup(opts?: IWarmupOptions): IMiddyMiddlewareObject;
+declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
+declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
+declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
+declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
+declare function httpErrorHandler(): middy.IMiddyMiddlewareObject;
+declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
+declare function httpHeaderNormalizer(opts: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
+declare function httpPartialResponse(): middy.IMiddyMiddlewareObject;
+declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
+declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
+declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
+declare function validator(opts?: IValidatorOptions): middy.IMiddyMiddlewareObject;
+declare function urlEncodeBodyParser(opts?: IURLEncodeBodyParserOptions): middy.IMiddyMiddlewareObject;
+declare function warmup(opts?: IWarmupOptions): middy.IMiddyMiddlewareObject;
 
 export as namespace middlewares;

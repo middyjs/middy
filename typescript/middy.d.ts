@@ -38,4 +38,4 @@ declare namespace middy {
   }
 }
 
-export = middy;
+export default middy;
