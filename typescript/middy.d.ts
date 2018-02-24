@@ -7,7 +7,7 @@ declare var middy: {
 };
 
 declare namespace middy {
-  interface IMiddy {
+  interface IMiddy extends Handler {
     use: IMiddyUseFunction;
     before: IMiddyMiddlewareFunction;
     after: IMiddyMiddlewareFunction;
