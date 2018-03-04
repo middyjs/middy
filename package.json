@@ -1,8 +1,8 @@
 {
   "name": "middy",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
-  "main": "src/index.js",
+  "main": "./index.js",
   "files": [
     "src",
     "typescript",
@@ -10,7 +10,7 @@
     "middlewares.js",
     "!__tests__"
   ],
-  "types": "./typescript/middy.d.ts",
+  "types": "./index.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:unit": "jest --verbose --coverage",
