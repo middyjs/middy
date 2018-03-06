@@ -60,3 +60,6 @@ typings/
 .tern-port
 .DS_Store
 docs/
+!docs/middlewares.md
+
+.idea/

@@ -39,7 +39,7 @@ const isPromise = require('./isPromise')
  * @typedef middlewareFunction
  * @type {function}
  * @param {function} handler - the original handler function.
- *   It will expose properties `event`, `context`, `response` and `error` that can
+ *   It will expose properties `event`, `context`, `response`, `error` and `callback` that can
  *   be used to interact with the middleware lifecycle
  * @param {middlewareNextFunction} next - the callback to invoke to pass the control to the next middleware
  * @return {void|Promise} - A middleware can return a Promise instead of using the `next` function as a callback.
@@ -142,6 +142,7 @@ const middy = (handler) => {
   const instance = (event, context, callback) => {
     instance.event = event
     instance.context = context
+    instance.callback = callback
     instance.response = null
     instance.error = null
 
@@ -154,26 +155,42 @@ const middy = (handler) => {
     }
 
     const errorHandler = err => {
-      if (err) {
-        instance.error = err
-        return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-      }
+      instance.error = err
+      return runErrorMiddlewares(errorMiddlewares, instance, terminate)
     }
 
     runMiddlewares(beforeMiddlewares, instance, (err) => {
       if (err) return errorHandler(err)
 
-      handler.call(instance, instance.event, context, (err, response) => {
+      const onHandlerError = (err) => {
+        instance.response = null
+        return errorHandler(err)
+      }
+
+      const onHandlerSuccess = (response) => {
         instance.response = response
-
-        if (err) return errorHandler(err)
-
         runMiddlewares(afterMiddlewares, instance, (err) => {
           if (err) return errorHandler(err)
 
           return terminate()
         })
+      }
+
+      const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
+        if (err) return onHandlerError(err)
+        onHandlerSuccess(response)
       })
+
+      // support for async/await promise return in handler
+      if (handlerReturnValue) {
+        if (!isPromise(handlerReturnValue)) {
+          throw new Error('Unexpected return value in handler')
+        }
+
+        handlerReturnValue
+          .then(onHandlerSuccess)
+          .catch(onHandlerError)
+      }
     })
   }
 

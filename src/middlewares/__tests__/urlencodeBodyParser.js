@@ -1,5 +1,5 @@
 const middy = require('../../middy')
-const urlencodedBodyParser = require('../urlencodeBodyParser')
+const urlEncodeBodyParser = require('../urlEncodeBodyParser')
 
 describe('📦 Middleware URL Encoded Body Parser', () => {
   test('It should decode simple url encoded requests', () => {
@@ -7,12 +7,12 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlencodedBodyParser({extended: false}))
+    handler.use(urlEncodeBodyParser({extended: false}))
 
     // invokes the handler
     const event = {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       },
       body: 'frappucino=muffin&goat%5B%5D=scone&pond=moose'
     }
@@ -31,12 +31,12 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlencodedBodyParser({extended: true}))
+    handler.use(urlEncodeBodyParser({extended: true}))
 
     // invokes the handler
     const event = {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       },
       body: 'a[b][c][d]=i'
     }
@@ -59,7 +59,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(urlencodedBodyParser())
+    handler.use(urlEncodeBodyParser())
 
     // invokes the handler
     const event = {

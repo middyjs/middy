@@ -26,7 +26,7 @@
   <a href="https://greenkeeper.io/">
     <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
-  <a href="https://gitter.im/middyjs">
+  <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
 </p>
@@ -61,7 +61,7 @@ Let's assume you are building an JSON API to process a payment:
 # handler.js
 
 const middy = require('middy')
-const { urlEncodedBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
+const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
 
 // This is your common handler, no way different than what you are used to do every day
 // in AWS Lambda
@@ -96,7 +96,7 @@ const inputSchema = {
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
-  .use(urlEncodedBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
@@ -230,6 +230,53 @@ be the first able to change the request and last able to modify the response bef
 it gets sent to the user.
 
 
+### Interrupt middleware execution early
+
+Some middlewares might need to stop the whole execution flow and return a response immediately.
+
+If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
+
+**Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
+and early response (or an error) directly at the lambda level. If you middlewares that do specific task on every requests
+like output serialization or error handling, those won't be invoked in this case.
+
+In this example we can use this capability for building a sample caching middleware:
+
+```javascript
+
+// some function that calculates the cache id based on the current event
+const calculateCacheId = (event) => { /* ... */ }
+const storage = {}
+
+// middleware
+const cacheMiddleware = (options) => {
+  let cacheKey
+  return ({
+    before: (handler, next) => {
+      cacheKey = options.calculateCacheId(handler.event)
+      if (options.storage.hasOwnProperty(cacheKey)) {
+        // exits early and returns the value from the cache if it's already there
+        return handler.callback(null, options.storage[cacheKey])
+      }
+
+      return next()
+    },
+    after: (handler, next) => {
+      // stores the calculated response in the cache
+      options.storage[cacheKey] = handler.response
+      next()
+    }
+  })
+}
+
+// sample Usage
+const handler = middy((event, context, callback) => { /* ... */ })
+  .use(cacheMiddleware({
+    calculateCacheId, storage
+  }))
+```
+
+
 ### Handling errors
 
 But what happens in case there is an error?
@@ -247,6 +294,43 @@ needed. At the end of the error middlewares sequence, the response is returned
 to the user.
 
 If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
+
+
+### Async/Await support
+
+Middy allows you to write *async/await handlers*. In *async/await handlers* you don't
+have to invoke the callback but just return the output (in case of success) or
+throw an error (in case of failure).
+
+We believe that this feature makes handling asynchronous logic easier to reason about
+and asynchronous code easier to read.
+
+Take the following code as an example:
+
+```javascript
+middy(async (event, context) => {
+  await someAsyncStuff()
+  await someOtherAsyncStuff()
+
+  return ({foo: bar})
+})
+```
+
+this code is equivalent to:
+
+```javascript
+middy(async (event, context, callback) => {
+  someAsyncStuff()
+    .then(() => {
+      return someOtherAsyncStuff()
+    })
+    .then(() => {
+      callback(null, {foo: bar})
+    })
+})
+```
+
+Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ### Async Middlewares
@@ -269,7 +353,7 @@ const asyncValidator = () => {
 handler.use(asyncValidator())
 ```
 
-Thanks to this behaviour you can define middlewares using `async` functions:
+Thanks to this behavior you can define middlewares using `async` functions:
 
 ```javascript
 const asyncValidator = () => {
@@ -410,16 +494,20 @@ on how to write a middleware.
 
 Currently available middlewares:
 
+ - [`cache`](/docs/middlewares.md#cache): a simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): sets CORS headers on response
+ - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
+ - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+ - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
+ - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
+ - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): normalizes key names in s3 events.
- - [`urlencodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
  - [`validator`](/docs/middlewares.md#validator): automatically validates incoming events and outgoing responses against custom schemas
- - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): sets callbackWaitsForEmptyEventLoop property to false
-
-
+ - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`warmup`](/docs/middlewares.md#warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
 
 
 For a dedicated documentation on those middlewares check out the [Middlewares
@@ -432,9 +520,9 @@ documentation](/docs/middlewares.md)
 
 ## Contributing
 
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](/issues) or to [submit Pull Requests](/pulls).
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017 Planet9.
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).

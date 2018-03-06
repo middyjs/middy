@@ -1,13 +1,13 @@
 import { Callback, Context, Handler, ProxyResult } from 'aws-lambda';
 
-
+type AsyncHandler = (event: any, context: Context) => Promise<ProxyResult | object>;
 
 declare var middy: {
-  (handler: Handler): middy.IMiddy;
+  (handler: Handler | AsyncHandler): middy.IMiddy;
 };
 
 declare namespace middy {
-  interface IMiddy {
+  interface IMiddy extends Handler {
     use: IMiddyUseFunction;
     before: IMiddyMiddlewareFunction;
     after: IMiddyMiddlewareFunction;
