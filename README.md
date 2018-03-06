@@ -515,11 +515,11 @@ documentation](/docs/middlewares.md)
 
 ## Api
 
-## 
+## Functions
 
 * [middy(handler)](#middy) ⇒ [<code>middy</code>](#middy)
 
-## 
+## Typedefs
 
 * [middy](#middy) : <code>function</code>
 * [useFunction](#useFunction) ⇒ [<code>middy</code>](#middy)
