@@ -7,6 +7,7 @@
     "src",
     "typescript",
     "index.js",
+    "index.d.ts",
     "middlewares.js",
     "!__tests__"
   ],
