@@ -29,10 +29,10 @@ declare namespace middy {
 
   type IMiddyNextFunction = (error?: any) => void;
 
-  interface IHandlerLambda {
-    event: any;
+  interface IHandlerLambda<T = any, V = object> {
+    event: T;
     context: Context;
-    response: ProxyResult | object;
+    response: V;
     error: Error;
     callback: Callback;
   }
