@@ -75,13 +75,15 @@ const handler = middy(originalHandler)
 
 ## [cors](/src/middlewares/cors.js)
 
-Sets CORS headers (`Access-Control-Allow-Origin`), necessary for making cross-origin requests, to response object.
+Sets CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to response object.
 
 Sets headers in `after` and `onError` phases.
 
 ### Options
 
  - `origin` (string) (optional): origin to put in the header (default: "`*`")
+ - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
+ - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
 ### Sample usage
 

@@ -16,9 +16,7 @@ describe('📦 Middleware CORS', () => {
     handler(event, {}, (_, response) => {
       expect(response).toEqual({
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': '*'
         }
       })
     })
@@ -49,9 +47,7 @@ describe('📦 Middleware CORS', () => {
     handler(event, {}, (_, response) => {
       expect(response).toEqual({
         headers: {
-          'Access-Control-Allow-Origin': 'https://example.com',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': 'https://example.com'
         }
       })
     })
@@ -75,9 +71,7 @@ describe('📦 Middleware CORS', () => {
     handler(event, {}, (_, response) => {
       expect(response).toEqual({
         headers: {
-          'Access-Control-Allow-Origin': 'https://example.com',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': 'https://example.com'
         }
       })
     })
@@ -101,9 +95,7 @@ describe('📦 Middleware CORS', () => {
     handler(event, {}, (_, response) => {
       expect(response).toEqual({
         headers: {
-          'Access-Control-Allow-Origin': 'https://example.com',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': 'https://example.com'
         }
       })
     })
@@ -125,7 +117,9 @@ describe('📦 Middleware CORS', () => {
         next()
       }
     })
-    handler.use(cors())
+    handler.use(cors({
+      headers: 'x-example-2'
+    }))
 
     const event = {
       httpMethod: 'GET'
@@ -196,9 +190,7 @@ describe('📦 Middleware CORS', () => {
       expect(response).toEqual({
         headers: {
           'Access-Control-Allow-Credentials': 'false',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': '*'
         }
       })
     })
@@ -237,9 +229,7 @@ describe('📦 Middleware CORS', () => {
       expect(response).toEqual({
         headers: {
           'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'http://example.com',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': 'http://example.com'
         }
       })
     })
@@ -267,9 +257,7 @@ describe('📦 Middleware CORS', () => {
       expect(response).toEqual({
         headers: {
           'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'http://example.com',
-          'Access-Control-Allow-Headers':
-            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'
+          'Access-Control-Allow-Origin': 'http://example.com'
         }
       })
     })
