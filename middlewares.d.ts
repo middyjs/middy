@@ -4,6 +4,8 @@ import middy from './middy'
 
 interface ICorsOptions {
   origin: string;
+  headers: string;
+  credentials: boolean;
 }
 
 interface ICacheOptions {
