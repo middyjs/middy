@@ -58,9 +58,11 @@ describe('📦 Middleware CORS', () => {
       cb(null, {})
     })
 
-    handler.use(cors({
-      origin: 'https://example.com'
-    }))
+    handler.use(
+      cors({
+        origin: 'https://example.com'
+      })
+    )
 
     const event = {
       httpMethod: 'GET'
@@ -80,9 +82,11 @@ describe('📦 Middleware CORS', () => {
       throw new Error('')
     })
 
-    handler.use(cors({
-      origin: 'https://example.com'
-    }))
+    handler.use(
+      cors({
+        origin: 'https://example.com'
+      })
+    )
 
     const event = {
       httpMethod: 'GET'
@@ -94,6 +98,182 @@ describe('📦 Middleware CORS', () => {
           'Access-Control-Allow-Origin': 'https://example.com'
         }
       })
+    })
+  })
+
+  test('It should not override already declared Access-Control-Allow-Headers header', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    // other middleware that puts the cors header
+    handler.use({
+      after: (handler, next) => {
+        handler.response = {
+          headers: {
+            'Access-Control-Allow-Headers': 'x-example'
+          }
+        }
+        next()
+      }
+    })
+    handler.use(cors({
+      headers: 'x-example-2'
+    }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'x-example'
+        }
+      })
+    })
+  })
+
+  test('It should use allowed headers specified in options', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        headers: 'x-example'
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'x-example'
+        }
+      })
+    })
+  })
+
+  test('It should not override already declared Access-Control-Allow-Credentials header as false', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    // other middleware that puts the cors header
+    handler.use({
+      after: (handler, next) => {
+        handler.response = {
+          headers: {
+            'Access-Control-Allow-Credentials': 'false'
+          }
+        }
+        next()
+      }
+    })
+    handler.use(
+      cors({
+        credentials: true
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Credentials': 'false',
+          'Access-Control-Allow-Origin': '*'
+        }
+      })
+    })
+  })
+
+  test('It should not override already declared Access-Control-Allow-Credentials header as true', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    // other middleware that puts the cors header
+    handler.use({
+      after: (handler, next) => {
+        handler.response = {
+          headers: {
+            'Access-Control-Allow-Credentials': 'true'
+          }
+        }
+        next()
+      }
+    })
+    handler.use(
+      cors({
+        credentials: false
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        Origin: 'http://example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'http://example.com'
+        }
+      })
+    })
+  })
+
+  test('It should use change credentials as specified in options (true)', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        credentials: true
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        Origin: 'http://example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'http://example.com'
+        }
+      })
+    })
+  })
+
+  test('It should not change anything if HTTP method is not present in the request', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors())
+
+    const event = {}
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({})
     })
   })
 })
