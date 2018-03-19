@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
@@ -41,7 +41,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "aws-sdk": "2.176.0",
+    "aws-sdk": "2.205.0",
     "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
     "codecov": "^3.0.0",
