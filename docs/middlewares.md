@@ -296,7 +296,7 @@ not using the canonical names of header (e.g. `content-type` as opposed to `Cont
 API Gateway does not perform any normalization, so the headers are propagated to Lambda
 exactly as they were sent by the client.
 
-Other middlewares like [`jsonBodyParser`](#jsonBodyParser) or [`urlEncodeBodyParser`](#urlEncodeBodyParser)
+Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyParser`](#urlencodebodyparser)
 will rely on headers to be in the canonical format, so if you want to support non normalized headers in your
 app you have to use this middleware before those ones.
 
@@ -518,7 +518,7 @@ If an outgoing response fails validation a `InternalServerError` error is
 raised.
 
 This middleware can be used in combination with
-[`httpErrorHandler`](#httpErrorHandler) to automatically return the right
+[`httpErrorHandler`](#httperrorhandler) to automatically return the right
 response to the user.
 
 ### Options
