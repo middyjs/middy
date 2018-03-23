@@ -3,7 +3,7 @@
   "version": "0.10.2",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
-  "files": ["src", "typescript", "index.js", "index.d.ts", "middlewares.js", "middlewares.d.ts", "!__tests__"],
+  "files": ["src", "index.js", "index.d.ts", "middlewares.js", "middlewares.d.ts", "!__tests__"],
   "types": "./index.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
