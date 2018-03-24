@@ -1,17 +1,27 @@
 {
   "name": "middy",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
-  "files": ["src", "index.js", "index.d.ts", "middlewares.js", "middlewares.d.ts", "!__tests__"],
+  "files": [
+    "src",
+    "index.js",
+    "index.d.ts",
+    "middlewares.js",
+    "middlewares.d.ts",
+    "!__tests__"
+  ],
   "types": "./index.d.ts",
   "scripts": {
-    "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
+    "test:lint":
+      "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
     "test": "npm run test:lint && npm run test:unit",
-    "build:readme": "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
-    "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
+    "build:readme":
+      "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
+    "build:docs":
+      "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "coverage:submit": "codecov",
@@ -21,7 +31,14 @@
     "type": "git",
     "url": "git+https://github.com/middyjs/middy.git"
   },
-  "keywords": ["Lambda", "Middleware", "Serverless", "Framework"],
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda"
+  ],
   "author": "Luciano Mammino, Peter Caulfield, Joe Minichino, Domagoj Katavic",
   "license": "MIT",
   "bugs": {
@@ -47,7 +64,7 @@
     "regenerator-runtime": "^0.11.0"
   },
   "dependencies": {
-    "@types/aws-lambda": "^0.0.33",
+    "@types/aws-lambda": "^0.0.34",
     "ajv": "^6.0.0",
     "ajv-keywords": "^3.0.0",
     "content-type": "^1.0.4",
