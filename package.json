@@ -3,7 +3,14 @@
   "version": "0.10.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
-  "files": ["src", "index.js", "index.d.ts", "middlewares.js", "middlewares.d.ts", "!__tests__"],
+  "files": [
+    "src",
+    "index.js",
+    "index.d.ts",
+    "middlewares.js",
+    "middlewares.d.ts",
+    "!__tests__"
+  ],
   "types": "./index.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
@@ -21,7 +28,14 @@
     "type": "git",
     "url": "git+https://github.com/middyjs/middy.git"
   },
-  "keywords": ["Lambda", "Middleware", "Serverless", "Framework"],
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda"
+  ],
   "author": "Luciano Mammino, Peter Caulfield, Joe Minichino, Domagoj Katavic",
   "license": "MIT",
   "bugs": {
@@ -58,6 +72,8 @@
     "querystring": "^0.2.0"
   },
   "jest": {
-    "collectCoverageFrom": ["src/**/*.js"]
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ]
   }
 }
