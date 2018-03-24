@@ -1,6 +1,6 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
-import middy from './middy'
+import middy from './src/middy'
 
 interface ICorsOptions {
   origin: string;
