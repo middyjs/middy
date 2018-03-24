@@ -13,15 +13,12 @@
   ],
   "types": "./index.d.ts",
   "scripts": {
-    "test:lint":
-      "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
+    "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
     "test": "npm run test:lint && npm run test:unit",
-    "build:readme":
-      "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
-    "build:docs":
-      "jsdoc --readme README.md --package package.json --destination docs src",
+    "build:readme": "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
+    "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "coverage:submit": "codecov",
@@ -75,6 +72,8 @@
     "querystring": "^0.2.0"
   },
   "jest": {
-    "collectCoverageFrom": ["src/**/*.js"]
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ]
   }
 }
