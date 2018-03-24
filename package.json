@@ -1,14 +1,14 @@
 {
   "name": "middy",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
     "src",
-    "typescript",
     "index.js",
     "index.d.ts",
     "middlewares.js",
+    "middlewares.d.ts",
     "!__tests__"
   ],
   "types": "./index.d.ts",
@@ -32,7 +32,9 @@
     "Lambda",
     "Middleware",
     "Serverless",
-    "Framework"
+    "Framework",
+    "AWS",
+    "AWS Lambda"
   ],
   "author": "Luciano Mammino, Peter Caulfield, Joe Minichino, Domagoj Katavic",
   "license": "MIT",
