@@ -502,7 +502,7 @@ Currently available middlewares:
  - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
  - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
  - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
- - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
  - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
@@ -593,9 +593,7 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 
 ## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
 **Kind**: global typedef  
-**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
-                         In this case middy will wait for the promise to resolve (or reject) and it will automatically
-                         propagate the result to the next middleware.  
+**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.                         In this case middy will wait for the promise to resolve (or reject) and it will automatically                         propagate the result to the next middleware.  
 
 | Param | Type | Description |
 | --- | --- | --- |

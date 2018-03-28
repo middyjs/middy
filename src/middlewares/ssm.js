@@ -138,21 +138,10 @@ function getSSMParamsByName (ssmParamNames) {
  * @return {Promise.<Object[]>} Array of SSM params from aws-sdk
  */
 function getSSMParamsByPath (ssmParamPath) {
-  // prevents throwing error from aws-sdk when empty params passed
-  if (!ssmParamPath.length) {
-    return Promise.resolve([])
-  }
-
   return ssmInstance
     .getParametersByPath({ Path: ssmParamPath, Recursive: true, WithDecryption: true })
     .promise()
-    .then(({ Parameters, InvalidParameters }) => {
-      if (InvalidParameters && InvalidParameters.length) {
-        throw new Error(`InvalidParameters present: ${InvalidParameters.join(', ')}`)
-      }
-
-      return Parameters
-    })
+    .then(({ Parameters }) => Parameters)
 }
 
 /**
