@@ -7,15 +7,23 @@ const ssm = require('../ssm')
 describe('🔒 SSM Middleware', () => {
   const getParametersMock = jest.fn()
   SSM.prototype.getParameters = getParametersMock
+  const getParametersByPathMock = jest.fn()
+  SSM.prototype.getParametersByPath = getParametersByPathMock
 
   beforeEach(() => {
     getParametersMock.mockReset()
     getParametersMock.mockClear()
+    getParametersByPathMock.mockReset()
+    getParametersByPathMock.mockClear()
     delete process.env.MONGO_URL
   })
 
   function testScenario ({ssmMockResponse, middlewareOptions, context = {}, cb}) {
     getParametersMock.mockReturnValueOnce({
+      promise: () => Promise.resolve(ssmMockResponse)
+    })
+
+    getParametersByPathMock.mockReturnValueOnce({
       promise: () => Promise.resolve(ssmMockResponse)
     })
 
@@ -152,6 +160,21 @@ describe('🔒 SSM Middleware', () => {
       middlewareOptions: {},
       cb (error) {
         expect(error).toBeFalsy()
+        done()
+      }
+    })
+  })
+
+  test('It should set properties on target with names equal to full parameter name sans specified path', (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/MONGO_URL', Value: 'my-mongo-url'}]
+      },
+      middlewareOptions: {
+        path: '/dev/service_name'
+      },
+      cb () {
+        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
         done()
       }
     })
