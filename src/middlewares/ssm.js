@@ -36,30 +36,45 @@ module.exports = opts => {
         return next()
       }
 
-      const ssmParamNames = getSSMParamNames(options.params)
-      const ssmParamPaths = typeof options.paths === 'string' ? [options.paths] : options.paths
       lazilyLoadSSMInstance(options.awsSdkOptions)
 
+      const ssmParamPaths = getSSMParamPaths(options.paths)
       if (ssmParamPaths.length) {
-        const paramArrays = ssmParamPaths.map(path =>
-          getSSMParamsByPath(path)
-            .then(ssmResponse => assignSSMParamsToTarget({
-              paramsTarget: targetParamsObject,
-              userParamsPath: path,
-              ssmResponse,
-              nameMapper: options.getParamNameFromPath
-            }))
-        )
-        return Promise.all(paramArrays)
+        const getter = path => ssmInstance
+          .getParametersByPath({ Path: path, Recursive: true, WithDecryption: true })
+          .promise()
+
+        const paramArrays = ssmParamPaths.map(path => {
+          getSSMParams(getter(path))
+            .then(ssmResponse => {
+              assignSSMParamsToTarget({
+                paramsTarget: targetParamsObject,
+                userParamsPath: path,
+                ssmResponse,
+                nameMapper: options.getParamNameFromPath
+              })
+            })
+        })
+        return Promise.all(paramArrays).then(() => console.log('here'))
       }
 
-      return getSSMParamsByName(ssmParamNames).then(ssmResponse => {
-        assignSSMParamsToTarget({
-          paramsTarget: targetParamsObject,
-          userParamsMap: options.params,
-          ssmResponse
+      const ssmParamNames = getSSMParamNames(options.params)
+      if (ssmParamNames.length) {
+        const getter = ssmInstance
+          .getParameters({ Names: ssmParamNames, WithDecryption: true })
+          .promise()
+
+        return getSSMParams(getter).then(ssmResponse => {
+          assignSSMParamsToTarget({
+            paramsTarget: targetParamsObject,
+            userParamsMap: options.params,
+            ssmResponse
+          })
         })
-      })
+      }
+
+      // prevents throwing error from aws-sdk when empty params passed  
+      return Promise.resolve([]).then(() => {})
     }
   }
 }
@@ -82,6 +97,10 @@ function areParamsStillCached (options, targetParamsObject) {
 
 function getSSMParamNames (userParamsMap) {
   return Object.keys(userParamsMap).map(key => userParamsMap[key])
+}
+
+function getSSMParamPaths (userParamsPaths) {
+  return typeof userParamsPaths === 'string' ? [userParamsPaths] : userParamsPaths
 }
 
 /**
@@ -108,18 +127,11 @@ function lazilyLoadSSMInstance (awsSdkOptions) {
 /**
  * Get array of SSM params using aws-sdk
  * @throws {Error} When any invalid parameters found in response
- * @param {String[]} ssmParamNames Array of param names to fetch
+ * @param {Function} getter Function that returns a promise which resolves with the params returned from ssm
  * @return {Promise.<Object[]>} Array of SSM params from aws-sdk
  */
-function getSSMParamsByName (ssmParamNames) {
-  // prevents throwing error from aws-sdk when empty params passed
-  if (!ssmParamNames.length) {
-    return Promise.resolve([])
-  }
-
-  return ssmInstance
-    .getParameters({ Names: ssmParamNames, WithDecryption: true })
-    .promise()
+function getSSMParams (getter) {
+  return getter
     .then(({ Parameters, InvalidParameters }) => {
       if (InvalidParameters && InvalidParameters.length) {
         throw new Error(`InvalidParameters present: ${InvalidParameters.join(', ')}`)
@@ -127,22 +139,6 @@ function getSSMParamsByName (ssmParamNames) {
 
       return Parameters
     })
-}
-
-/**
- * Get array of SSM params using aws-sdk
- * @throws {Error} When any invalid parameters found in response
- * @param {String} ssmParamPath String of the path to return params from
- * @return {Promise.<Object[]>} Array of SSM params from aws-sdk
- */
-function getSSMParamsByPath (ssmParamPath) {
-  return ssmInstance
-    .getParametersByPath({ Path: ssmParamPath, Recursive: true, WithDecryption: true })
-    .promise()
-    .then(({ Parameters }) => {
-      return Parameters
-    })
-    .catch(console.log)
 }
 
 /**
@@ -155,7 +151,6 @@ function assignSSMParamsToTarget ({ paramsTarget, userParamsMap, userParamsPath,
   const paramsToAttach = userParamsPath
     ? getParamsToAssignByPath(userParamsPath, ssmResponse, nameMapper)
     : getParamsToAssignByName(userParamsMap, ssmResponse)
-
   Object.assign(paramsTarget, paramsToAttach)
 }
 
