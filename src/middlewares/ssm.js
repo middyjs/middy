@@ -2,15 +2,15 @@ let ssmInstance
 
 module.exports = opts => {
   // returns full parameter name sans the path as specified, with slashes replaced with underscores
-  // e.g. if path is '/dev/myApi/', the parameter '/dev/myApi/connString/default' will be returned with the name 'conString_default'
+  // e.g. if path is '/dev/myApi/', the parameter '/dev/myApi/connString/default' will be returned with the name 'CONNSTRING_DEFAULT'
   // see: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-su-organize.html
   function getParamNameFromPathDefault (path, name) {
     return name
-      .split(path)
-      .join(``) // replace path
+      .split(`${path}/`)
+      .join(``) // replace path and trailing slash
       .split(`/`)
-      .splice(1) // remove starting slash
       .join(`_`) // replace remaining slashes with underscores
+      .toUpperCase()
   }
 
   const defaults = {
@@ -19,7 +19,7 @@ module.exports = opts => {
       retryDelayOptions: { base: 200 }
     },
     params: {},
-    path: ``,
+    paths: [],
     getParamNameFromPath: getParamNameFromPathDefault,
     setToContext: false,
     cache: false
@@ -37,22 +37,28 @@ module.exports = opts => {
       }
 
       const ssmParamNames = getSSMParamNames(options.params)
-      const ssmParamPath = options.path
+      const ssmParamPaths = typeof options.paths === 'string' ? [options.paths] : options.paths
       lazilyLoadSSMInstance(options.awsSdkOptions)
 
-      if (ssmParamPath) {
-        return getSSMParamsByPath(ssmParamPath).then(ssmResponse => {
-          assignSSMParamsToTarget(targetParamsObject, options.params, options.path, ssmResponse, options.getParamNameFromPath)
-        })
+      if (ssmParamPaths.length) {
+        const paramArrays = ssmParamPaths.map(path =>
+          getSSMParamsByPath(path)
+            .then(ssmResponse => assignSSMParamsToTarget({
+              paramsTarget: targetParamsObject,
+              userParamsPath: path,
+              ssmResponse,
+              nameMapper: options.getParamNameFromPath
+            }))
+        )
+        return Promise.all(paramArrays)
       }
 
       return getSSMParamsByName(ssmParamNames).then(ssmResponse => {
-        assignSSMParamsToTarget(
-          targetParamsObject,
-          options.params,
-          options.path,
+        assignSSMParamsToTarget({
+          paramsTarget: targetParamsObject,
+          userParamsMap: options.params,
           ssmResponse
-        )
+        })
       })
     }
   }
@@ -71,15 +77,7 @@ function areParamsStillCached (options, targetParamsObject) {
     return false
   }
 
-  for (const userParamsName in options.params) {
-    if (options.params.hasOwnProperty(userParamsName)) {
-      if (typeof targetParamsObject[userParamsName] === 'undefined') {
-        return false
-      }
-    }
-  }
-
-  return true
+  return !Object.keys(options.params).some(p => typeof targetParamsObject[p] === 'undefined')
 }
 
 function getSSMParamNames (userParamsMap) {
@@ -141,7 +139,10 @@ function getSSMParamsByPath (ssmParamPath) {
   return ssmInstance
     .getParametersByPath({ Path: ssmParamPath, Recursive: true, WithDecryption: true })
     .promise()
-    .then(({ Parameters }) => Parameters)
+    .then(({ Parameters }) => {
+      return Parameters
+    })
+    .catch(console.log)
 }
 
 /**
@@ -150,7 +151,7 @@ function getSSMParamsByPath (ssmParamPath) {
  * @param {Object} userParamsMap Options from middleware defining param names
  * @param {Object[]} ssmResponse Array of params returned from SSM by aws-sdk
  */
-function assignSSMParamsToTarget (paramsTarget, userParamsMap, userParamsPath, ssmResponse, nameMapper) {
+function assignSSMParamsToTarget ({ paramsTarget, userParamsMap, userParamsPath, ssmResponse, nameMapper }) {
   const paramsToAttach = userParamsPath
     ? getParamsToAssignByPath(userParamsPath, ssmResponse, nameMapper)
     : getParamsToAssignByName(userParamsMap, ssmResponse)
@@ -184,27 +185,21 @@ function getParamsToAssignByName (userParamsMap, ssmParams) {
  * @return {Object} Merged object for assignment to target object
  */
 function getParamsToAssignByPath (userParamsPath, ssmParams, nameMapper) {
-  const initialValue = {}
-  const reducer = (targetObject, {ssmParamName, ssmParamValue}) => {
-    targetObject[nameMapper(userParamsPath, ssmParamName)] = ssmParamValue
-  }
+  const targetObject = {}
 
-  const targetObject = ssmParams.map(reducer, initialValue)
-  // for (let { Name: ssmParamName, Value: ssmParamValue } of ssmParams) {
-  //   const userParamName = nameMapper(userParamsPath, ssmParamName)
-  //   targetObject[userParamName] = ssmParamValue
-  // }
+  for (let { Name: ssmParamName, Value: ssmParamValue } of ssmParams) {
+    const userParamName = nameMapper(userParamsPath, ssmParamName)
+    targetObject[userParamName] = ssmParamValue
+  }
   return targetObject
 }
 
 function invertObject (obj) {
   const invertedObject = {}
 
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      invertedObject[obj[key]] = key
-    }
-  }
+  Object.keys(obj).forEach(key => {
+    invertedObject[obj[key]] = key
+  })
 
   return invertedObject
 }

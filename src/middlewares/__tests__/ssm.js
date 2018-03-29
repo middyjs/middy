@@ -16,6 +16,8 @@ describe('🔒 SSM Middleware', () => {
     getParametersByPathMock.mockReset()
     getParametersByPathMock.mockClear()
     delete process.env.MONGO_URL
+    delete process.env.OTHER_MONGO_URL
+    delete process.env.SERVICE_NAME_MONGO_URL
   })
 
   function testScenario ({ssmMockResponse, middlewareOptions, context = {}, cb}) {
@@ -23,7 +25,7 @@ describe('🔒 SSM Middleware', () => {
       promise: () => Promise.resolve(ssmMockResponse)
     })
 
-    getParametersByPathMock.mockReturnValueOnce({
+    getParametersByPathMock.mockReturnValue({
       promise: () => Promise.resolve(ssmMockResponse)
     })
 
@@ -165,10 +167,10 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not throw error when empty path passed`, (done) => {
+  test(`It should not throw error when empty paths array passed`, (done) => {
     testScenario({
       ssmMockResponse: {},
-      middlewareOptions: {path: ''},
+      middlewareOptions: {paths: []},
       cb (error) {
         expect(error).toBeFalsy()
         done()
@@ -179,10 +181,10 @@ describe('🔒 SSM Middleware', () => {
   test('It should set properties on target with names equal to full parameter name sans specified path', (done) => {
     testScenario({
       ssmMockResponse: {
-        Parameters: [{Name: '/dev/service_name/MONGO_URL', Value: 'my-mongo-url'}]
+        Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        path: '/dev/service_name'
+        paths: ['/dev/service_name']
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
@@ -194,17 +196,33 @@ describe('🔒 SSM Middleware', () => {
   test('It should call SSMParamsByPath if path is specified', (done) => {
     testScenario({
       ssmMockResponse: {
-        Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}, {Name: '/dev/other_service/mongo_url', Value: 'my-other-mongo-url'}]
+        Parameters: [ {Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'} ]
       },
       middlewareOptions: {
         params: {
-          MONGO_URL: '/dev/service_name/mongo_url',
-          OTHER_MONGO_URL: '/dev/other_service/mongo_url'
+          MONGO_URL_BY_NAME: '/dev/service_name/mongo_url'
         },
-        path: '/dev/service_name'
+        paths: '/dev/service_name'
       },
       cb () {
-        expect(process.env.OTHER_MONGO_URL).toBeUndefined()
+        expect(process.env.MONGO_URL_BY_NAME).toBeUndefined()
+        done()
+      }
+    })
+  })
+
+  test('It should retrieve params from multiple paths', (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
+      },
+      middlewareOptions: {
+        paths: ['/dev/service_name', '/dev']
+      },
+      cb () {
+        // console.log(process.env)
+        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+        expect(process.env.SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
         done()
       }
     })
