@@ -68,7 +68,7 @@ declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOp
 declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
 declare function httpErrorHandler(): middy.IMiddyMiddlewareObject;
 declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
-declare function httpHeaderNormalizer(opts: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
+declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
 declare function httpPartialResponse(opts?: IHTTPPartialResponseOptions): middy.IMiddyMiddlewareObject;
 declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
 declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
