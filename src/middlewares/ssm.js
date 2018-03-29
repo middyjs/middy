@@ -1,18 +1,6 @@
 let ssmInstance
 
 module.exports = opts => {
-  // returns full parameter name sans the path as specified, with slashes replaced with underscores
-  // e.g. if path is '/dev/myApi/', the parameter '/dev/myApi/connString/default' will be returned with the name 'conString_default'
-  // see: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-su-organize.html
-  function getParamNameFromPathDefault (path, name) {
-    return name
-      .split(path)
-      .join(``) // replace path
-      .split(`/`)
-      .splice(1) // remove starting slash
-      .join(`_`) // replace remaining slashes with underscores
-  }
-
   const defaults = {
     awsSdkOptions: {
       maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
@@ -56,6 +44,17 @@ module.exports = opts => {
       })
     }
   }
+}
+// returns full parameter name sans the path as specified, with slashes replaced with underscores
+// e.g. if path is '/dev/myApi/', the parameter '/dev/myApi/connString/default' will be returned with the name 'conString_default'
+// see: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-su-organize.html
+function getParamNameFromPathDefault (path, name) {
+  return name
+    .split(path)
+    .join(``) // replace path
+    .split(`/`)
+    .splice(1) // remove starting slash
+    .join(`_`) // replace remaining slashes with underscores
 }
 
 function getTargetObjectToAssign (handler, options) {
