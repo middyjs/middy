@@ -220,7 +220,6 @@ describe('🔒 SSM Middleware', () => {
         paths: ['/dev/service_name', '/dev']
       },
       cb () {
-        // console.log(process.env)
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
         expect(process.env.SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
         done()
