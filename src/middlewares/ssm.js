@@ -184,11 +184,16 @@ function getParamsToAssignByName (userParamsMap, ssmParams) {
  * @return {Object} Merged object for assignment to target object
  */
 function getParamsToAssignByPath (userParamsPath, ssmParams, nameMapper) {
-  const targetObject = {}
-  for (let { Name: ssmParamName, Value: ssmParamValue } of ssmParams) {
-    const userParamName = nameMapper(userParamsPath, ssmParamName)
-    targetObject[userParamName] = ssmParamValue
+  const initialValue = {}
+  const reducer = (targetObject, {ssmParamName, ssmParamValue}) => {
+    targetObject[nameMapper(userParamsPath, ssmParamName)] = ssmParamValue
   }
+
+  const targetObject = ssmParams.map(reducer, initialValue)
+  // for (let { Name: ssmParamName, Value: ssmParamValue } of ssmParams) {
+  //   const userParamName = nameMapper(userParamsPath, ssmParamName)
+  //   targetObject[userParamName] = ssmParamValue
+  // }
   return targetObject
 }
 
