@@ -7,7 +7,7 @@ let ajv
 let previousConstructorOptions
 const defaults = {v5: true, $data: true, allErrors: true}
 
-module.exports = ({inputSchema, outputSchema, ajvOptions}) => {
+module.exports = ({inputSchema, outputSchema, ajvOptions, inputBodyOnly}) => {
   const options = Object.assign({}, defaults, ajvOptions)
   lazyLoadAjv(options)
 
@@ -20,7 +20,9 @@ module.exports = ({inputSchema, outputSchema, ajvOptions}) => {
         return next()
       }
 
-      const valid = validateInput(handler.event)
+      // validate only the body payload, or the whole event object
+      const data = inputBodyOnly ? handler.event.body : handler.event
+      const valid = validateInput(data)
 
       if (!valid) {
         const error = new createError.BadRequest('Event object failed validation')
