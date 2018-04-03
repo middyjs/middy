@@ -76,6 +76,7 @@ function getParamNameFromPathDefault (path, name) {
     .split(`/`)
     .splice(1) // remove starting slash
     .join(`_`) // replace remaining slashes with underscores
+    .toUpperCase()
 }
 
 function getTargetObjectToAssign (handler, options) {
