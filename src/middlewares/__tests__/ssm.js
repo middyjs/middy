@@ -167,45 +167,17 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not throw error when empty paths array passed`, (done) => {
-    testScenario({
-      ssmMockResponse: {},
-      middlewareOptions: {paths: []},
-      cb (error) {
-        expect(error).toBeFalsy()
-        done()
-      }
-    })
-  })
-
   test('It should set properties on target with names equal to full parameter name sans specified path', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        paths: ['/dev/service_name']
+        params: {'': '/dev/service_name'},
+        usePaths: true
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
-        done()
-      }
-    })
-  })
-
-  test('It should call SSMParamsByPath if path is specified', (done) => {
-    testScenario({
-      ssmMockResponse: {
-        Parameters: [ {Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'} ]
-      },
-      middlewareOptions: {
-        params: {
-          MONGO_URL_BY_NAME: '/dev/service_name/mongo_url'
-        },
-        paths: '/dev/service_name'
-      },
-      cb () {
-        expect(process.env.MONGO_URL_BY_NAME).toBeUndefined()
         done()
       }
     })
@@ -217,11 +189,12 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        paths: ['/dev/service_name', '/dev']
+        params: {'': '/dev/service_name', 'prefix': '/dev'},
+        usePaths: true
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
-        expect(process.env.SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
+        expect(process.env.PREFIX_SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
         done()
       }
     })
