@@ -32,7 +32,7 @@ module.exports = opts => {
         return ssmInstance
           .getParameters({ Names: ssmParamValues, WithDecryption: true })
           .promise()
-          .then(getSSMParams)
+          .then(handleInvalidParams)
           .then(ssmResponse => getParamsToAssignByName(options.params, ssmResponse))
           .then(paramsToAssign => Object.assign(targetParamsObject, paramsToAssign))
       }
@@ -42,7 +42,7 @@ module.exports = opts => {
         return ssmInstance
           .getParametersByPath({ Path: path, Recursive: true, WithDecryption: true })
           .promise()
-          .then(getSSMParams)
+          .then(handleInvalidParams)
           .then(ssmResponse => getParamsToAssignByPath(path, ssmResponse, prefix, options.getParamNameFromPath))
           .then(paramsToAssign => Object.assign(targetParamsObject, paramsToAssign))
       })
@@ -55,35 +55,25 @@ module.exports = opts => {
 // returns full parameter name sans the path as specified, with slashes replaced with underscores
 // e.g. if path is '/dev/myApi/', the parameter '/dev/myApi/connString/default' will be returned with the name 'conString_default'
 // see: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-su-organize.html
-function getParamNameFromPathDefault (path, name, prefix) {
+const getParamNameFromPathDefault = (path, name, prefix) => {
   const localName = name
     .split(`${path}/`)
     .join(``) // replace path
     .split(`/`)
     .join(`_`) // replace remaining slashes with underscores
 
-  const fullLocalName = prefix
-    ? `${prefix}_${localName}`
-    : localName
+  const fullLocalName = prefix ? `${prefix}_${localName}` : localName
 
   return fullLocalName.toUpperCase()
 }
 
-function getTargetObjectToAssign (handler, options) {
-  if (options.setToContext) return handler.context
+const getTargetObjectToAssign = (handler, options) => options.setToContext ? handler.context : process.env
 
-  return process.env
-}
+const areParamsStillCached = (options, targetParamsObject) => !options.cache
+  ? false
+  : !Object.keys(options.params).some(p => typeof targetParamsObject[p] === 'undefined')
 
-function areParamsStillCached (options, targetParamsObject) {
-  if (!options.cache) return false
-
-  return !Object.keys(options.params).some(p => typeof targetParamsObject[p] === 'undefined')
-}
-
-function getSSMParamValues (userParamsMap) {
-  return Object.keys(userParamsMap).map(key => userParamsMap[key])
-}
+const getSSMParamValues = userParamsMap => Object.keys(userParamsMap).map(key => userParamsMap[key])
 
 /**
  * Lazily load aws-sdk and initialize SSM constructor
@@ -92,7 +82,7 @@ function getSSMParamValues (userParamsMap) {
  * or returns if it's already initialized
  * @param {Object} awsSdkOptions Options to use to initialize aws sdk constructor
  */
-function lazilyLoadSSMInstance (awsSdkOptions) {
+const lazilyLoadSSMInstance = (awsSdkOptions) => {
   // lazy load aws-sdk and SSM constructor to avoid performance
   // penalties if you don't use this middleware
 
@@ -105,12 +95,12 @@ function lazilyLoadSSMInstance (awsSdkOptions) {
 }
 
 /**
- * Get array of SSM params using aws-sdk
+ * Throw error if SSM returns an error because we asked for params that don't exist
  * @throws {Error} When any invalid parameters found in response
  * @param {Function} getter Function that returns a promise which resolves with the params returned from ssm
  * @return {Promise.<Object[]>} Array of SSM params from aws-sdk
  */
-function getSSMParams ({ Parameters, InvalidParameters }) {
+const handleInvalidParams = ({ Parameters, InvalidParameters }) => {
   if (InvalidParameters && InvalidParameters.length) {
     throw new Error(`InvalidParameters present: ${InvalidParameters.join(', ')}`)
   }
@@ -124,7 +114,7 @@ function getSSMParams ({ Parameters, InvalidParameters }) {
  * @param {Object[]} ssmParams Array of parameters from SSM returned by aws-sdk
  * @return {Object} Merged object for assignment to target object
  */
-function getParamsToAssignByName (userParamsMap, ssmParams) {
+const getParamsToAssignByName = (userParamsMap, ssmParams) => {
   const ssmToUserParamsMap = invertObject(userParamsMap)
 
   return ssmParams.reduce((aggregator, ssmParam) => {
@@ -139,16 +129,14 @@ function getParamsToAssignByName (userParamsMap, ssmParams) {
  * @param {Object[]} ssmParams Array of parameters from SSM returned by aws-sdk
  * @return {Object} Merged object for assignment to target object
  */
-function getParamsToAssignByPath (userParamsPath, ssmParams, prefix, nameMapper) {
-  return ssmParams.reduce((aggregator, ssmParam) => {
+const getParamsToAssignByPath = (userParamsPath, ssmParams, prefix, nameMapper) =>
+  ssmParams.reduce((aggregator, ssmParam) => {
     aggregator[nameMapper(userParamsPath, ssmParam.Name, prefix)] = ssmParam.Value
     return aggregator
   }, {})
-}
 
-function invertObject (obj) {
-  return Object.keys(obj).reduce((aggregator, key) => {
+const invertObject = obj =>
+  Object.keys(obj).reduce((aggregator, key) => {
     aggregator[obj[key]] = key
     return aggregator
   }, {})
-}
