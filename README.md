@@ -14,6 +14,7 @@
   <a href="https://circleci.com/gh/middyjs/middy">
     <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield" alt="CircleCI" style="max-width:100%;">
   </a>
+<a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=shield"/></a>
   <a href="https://codecov.io/gh/middyjs/middy">
     <img src="https://codecov.io/gh/middyjs/middy/branch/master/graph/badge.svg" alt="codecov" style="max-width:100%;">
   </a>
@@ -47,6 +48,9 @@
  - [Contributing](#contributing)
  - [License](#license)
 
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large)
 
 ## A little appetizer
 
