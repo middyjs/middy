@@ -1,3 +1,4 @@
+let paramsLoaded = false
 let ssmInstance
 
 module.exports = opts => {
@@ -10,19 +11,17 @@ module.exports = opts => {
     names: {},
     getParamNameFromPath: getParamNameFromPathDefault,
     setToContext: false,
-    cache: false
+    cache: false,
+    paramsLoaded: paramsLoaded
   }
 
   const options = Object.assign({}, defaults, opts)
 
   return {
     before: (handler, next) => {
-      const targetParamsObject = getTargetObjectToAssign(handler, options)
-      const stillCached = areParamsStillCached(options, targetParamsObject)
+      if (options.cache && options.paramsLoaded) return next()
 
-      if (stillCached) return next()
-
-      lazilyLoadSSMInstance(options.awsSdkOptions)
+      ssmInstance = ssmInstance || getSSMInstance(options.awsSdkOptions)
 
       const ssmPromises = Object.keys(options.paths).reduce((aggregator, prefix) => {
         const pathsData = options.paths[prefix]
@@ -51,11 +50,13 @@ module.exports = opts => {
         )
       }
 
-      return Promise.all(ssmPromises).then(objectsToMap =>
+      return Promise.all(ssmPromises).then(objectsToMap => {
+        const targetParamsObject = getTargetObjectToAssign(handler, options)
         objectsToMap.forEach(object => {
           Object.assign(targetParamsObject, object)
         })
-      )
+        paramsLoaded = true
+      })
     }
   }
 }
@@ -78,9 +79,6 @@ const getParamNameFromPathDefault = (path, name, prefix) => {
 
 const getTargetObjectToAssign = (handler, options) => (options.setToContext ? handler.context : process.env)
 
-const areParamsStillCached = (options, targetParamsObject) =>
-  options.cache ? !Object.keys(options.names).some(p => typeof targetParamsObject[p] === 'undefined') : false
-
 const getSSMParamValues = userParamsMap => Object.keys(userParamsMap).map(key => userParamsMap[key])
 
 /**
@@ -90,16 +88,14 @@ const getSSMParamValues = userParamsMap => Object.keys(userParamsMap).map(key =>
  * or returns if it's already initialized
  * @param {Object} awsSdkOptions Options to use to initialize aws sdk constructor
  */
-const lazilyLoadSSMInstance = awsSdkOptions => {
+const getSSMInstance = awsSdkOptions => {
   // lazy load aws-sdk and SSM constructor to avoid performance
   // penalties if you don't use this middleware
-
-  if (ssmInstance) return ssmInstance
 
   // AWS Lambda has aws-sdk included version 2.176.0
   // see https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
   const { SSM } = require('aws-sdk')
-  ssmInstance = new SSM(awsSdkOptions)
+  return new SSM(awsSdkOptions)
 }
 
 /**

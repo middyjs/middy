@@ -111,7 +111,8 @@ describe('🔒 SSM Middleware', () => {
           secureValue: '/dev/service_name/secure_param'
         },
         cache: true,
-        setToContext: true
+        setToContext: true,
+        paramsLoaded: false
       },
       cb () {
         expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
