@@ -24,7 +24,7 @@ module.exports = opts => {
 
       lazilyLoadSSMInstance(options.awsSdkOptions)
 
-      const ssmPromises = Object.keys(options.paths || {}).reduce((aggregator, prefix) => {
+      const ssmPromises = Object.keys(options.paths).reduce((aggregator, prefix) => {
         const pathsData = options.paths[prefix]
         const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
         return paths.reduce((subAggregator, path) => {
@@ -81,7 +81,7 @@ const getTargetObjectToAssign = (handler, options) => (options.setToContext ? ha
 const areParamsStillCached = (options, targetParamsObject) =>
   options.cache ? !Object.keys(options.names).some(p => typeof targetParamsObject[p] === 'undefined') : false
 
-const getSSMParamValues = userParamsMap => Object.keys(userParamsMap || {}).map(key => userParamsMap[key])
+const getSSMParamValues = userParamsMap => Object.keys(userParamsMap).map(key => userParamsMap[key])
 
 /**
  * Lazily load aws-sdk and initialize SSM constructor

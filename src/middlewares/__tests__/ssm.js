@@ -188,7 +188,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        paths: {'': '/dev/service_name', 'prefix': '/dev'}
+        paths: {'': ['/dev/service_name'], 'prefix': '/dev'}
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
