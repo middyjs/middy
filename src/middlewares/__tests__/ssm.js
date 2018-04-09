@@ -46,7 +46,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           MONGO_URL: '/dev/service_name/mongo_url'
         }
       },
@@ -66,7 +66,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           MONGO_URL: '/dev/service_name/mongo_url'
         },
         cache: true
@@ -88,7 +88,7 @@ describe('🔒 SSM Middleware', () => {
         secureValue: '/dev/service_name/secure_param'
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         cache: true,
@@ -107,7 +107,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         cache: true,
@@ -126,7 +126,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         setToContext: true
@@ -144,7 +144,7 @@ describe('🔒 SSM Middleware', () => {
         InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
       },
       middlewareOptions: {
-        params: {
+        names: {
           invalidParam: 'invalid-smm-param-name',
           anotherInvalidParam: 'another-invalid-ssm-param'
         }
@@ -173,8 +173,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {'': '/dev/service_name'},
-        usePaths: true
+        paths: {'': '/dev/service_name'}
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
@@ -189,8 +188,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {'': '/dev/service_name', 'prefix': '/dev'},
-        usePaths: true
+        paths: {'': '/dev/service_name', 'prefix': '/dev'}
       },
       cb () {
         expect(process.env.MONGO_URL).toEqual('my-mongo-url')
