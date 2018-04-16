@@ -20,6 +20,25 @@ describe('📦 Middleware Http Error Handler', () => {
     })
   })
 
+  test('It should create a response for HTTP errors, with details', () => {
+    const handler = middy((event, context, cb) => {
+      const error = new createError.UnprocessableEntity()
+      error.details = 'Try writing tests that pass'
+      throw error
+    })
+
+    handler
+      .use(httpErrorHandler())
+
+    // run the handler
+    handler({}, {}, (_, response) => {
+      expect(response).toEqual({
+        statusCode: 422,
+        body: 'Unprocessable Entity: Try writing tests that pass'
+      })
+    })
+  })
+
   test('It should NOT handle non HTTP errors', () => {
     const handler = middy((event, context, cb) => {
       throw new Error('non-http error')
