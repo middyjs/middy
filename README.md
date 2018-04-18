@@ -26,6 +26,9 @@
   <a href="https://greenkeeper.io/">
     <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
+  <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
+    <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">
+  </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
@@ -502,7 +505,7 @@ Currently available middlewares:
  - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
  - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
  - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
- - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHanler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
  - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
