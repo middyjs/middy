@@ -1,16 +1,28 @@
 const { HttpError } = require('http-errors')
 
-module.exports = () => ({
-  onError: (handler, next) => {
-    if (handler.error instanceof HttpError) {
-      handler.response = {
-        statusCode: handler.error.statusCode,
-        body: handler.error.message
+module.exports = (opts) => {
+  const defaults = {
+    logger: console.error
+  }
+
+  const options = Object.assign({}, defaults, opts)
+
+  return ({
+    onError: (handler, next) => {
+      if (handler.error instanceof HttpError) {
+        if (typeof options.logger === 'function') {
+          options.logger(handler.error)
+        }
+
+        handler.response = {
+          statusCode: handler.error.statusCode,
+          body: handler.error.message
+        }
+
+        return next()
       }
 
-      return next()
+      return next(handler.error)
     }
-
-    return next(handler.error)
-  }
-})
+  })
+}

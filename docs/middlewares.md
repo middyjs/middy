@@ -231,6 +231,9 @@ for them (using the message and the status code provided by the error object).
 
 It should be set as the last error handler.
 
+### Options
+
+- `logger` (defaults to `console.error`) - a logging function that is invoked with the current error as argument. You can pass `false` if you don't want the logging to happen.
 
 ### Sample usage
 
@@ -449,7 +452,7 @@ you may need to install it as a `devDependency` in order to run tests.
 ### Options
 
 - `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
-  again if parameter was already fetched in previous Lambda execution 
+  again if parameter was already fetched in previous Lambda execution
 - `params` (object): Map of parameters to fetch from SSM, where key is name of
   parameter middleware will set, and value is param name in SSM.
   Example: `{params: {DB_URL: '/dev/service/db_url''}}`
