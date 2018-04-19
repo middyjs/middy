@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
@@ -64,7 +64,7 @@
     "typings-tester": "^0.3.1"
   },
   "dependencies": {
-    "@types/aws-lambda": "^0.0.34",
+    "@types/aws-lambda": "^8.10.1",
     "@types/http-errors": "^1.6.1",
     "ajv": "^6.0.0",
     "ajv-keywords": "^3.0.0",
