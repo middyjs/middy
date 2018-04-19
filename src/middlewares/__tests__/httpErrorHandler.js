@@ -9,7 +9,7 @@ describe('📦 Middleware Http Error Handler', () => {
     })
 
     handler
-      .use(httpErrorHandler())
+      .use(httpErrorHandler({ logger: false }))
 
     // run the handler
     handler({}, {}, (_, response) => {
@@ -26,12 +26,29 @@ describe('📦 Middleware Http Error Handler', () => {
     })
 
     handler
-      .use(httpErrorHandler())
+      .use(httpErrorHandler({ logger: false }))
 
     // run the handler
     handler({}, {}, (error, response) => {
       expect(response).toBe(undefined)
       expect(error.message).toEqual('non-http error')
+    })
+  })
+
+  test('It should be possible to pass a custom logger function', () => {
+    const expectedError = new createError.UnprocessableEntity()
+    const logger = jest.fn()
+
+    const handler = middy((event, context, cb) => {
+      throw expectedError
+    })
+
+    handler
+      .use(httpErrorHandler({ logger }))
+
+    // run the handler
+    handler({}, {}, (_, response) => {
+      expect(logger).toHaveBeenCalledWith(expectedError)
     })
   })
 })
