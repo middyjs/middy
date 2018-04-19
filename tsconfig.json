@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "lib": ["es2015"],
+    "target": "es2015"
+  },
+  "files": [
+    "index.d.ts",
+    "middlewares.d.ts"
+  ]
+}

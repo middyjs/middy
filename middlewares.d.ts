@@ -1,5 +1,6 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
+import { HttpError } from 'http-errors'
 import middy from './src/middy'
 
 interface ICorsOptions {
@@ -30,6 +31,10 @@ interface IHTTPContentNegotiationOptions {
   parseMediaTypes?: boolean;
   availableMediaTypes?: string[];
   failOnMismatch?: boolean;
+}
+
+interface IHTTPErrorHandlerOptions {
+  logger?: (error: HttpError) => void;
 }
 
 interface IHTTPHeaderNormalizerOptions {
@@ -66,7 +71,7 @@ declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
 declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
 declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
 declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
-declare function httpErrorHandler(): middy.IMiddyMiddlewareObject;
+declare function httpErrorHandler(opts?: IHTTPErrorHandlerOptions): middy.IMiddyMiddlewareObject;
 declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
 declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
 declare function httpPartialResponse(opts?: IHTTPPartialResponseOptions): middy.IMiddyMiddlewareObject;
