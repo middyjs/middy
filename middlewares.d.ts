@@ -1,5 +1,6 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
+import { HttpError } from 'http-errors'
 import middy from './src/middy'
 
 interface ICorsOptions {
@@ -32,6 +33,10 @@ interface IHTTPContentNegotiationOptions {
   failOnMismatch?: boolean;
 }
 
+interface IHTTPErrorHandlerOptions {
+  logger?: (error: HttpError) => void;
+}
+
 interface IHTTPHeaderNormalizerOptions {
   normalizeHeaderKey?: (key: string) => string;
 }
@@ -42,9 +47,11 @@ interface IHTTPPartialResponseOptions {
 
 interface ISSMOptions {
   cache?: boolean;
-  params: { [key: string]: string; };
+  paths?: { [key: string]: string; };
+  names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   setToContext?: boolean;
+  getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
 }
 
 interface IValidatorOptions {
@@ -66,9 +73,9 @@ declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
 declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
 declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
 declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
-declare function httpErrorHandler(): middy.IMiddyMiddlewareObject;
+declare function httpErrorHandler(opts?: IHTTPErrorHandlerOptions): middy.IMiddyMiddlewareObject;
 declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
-declare function httpHeaderNormalizer(opts: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
+declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
 declare function httpPartialResponse(opts?: IHTTPPartialResponseOptions): middy.IMiddyMiddlewareObject;
 declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
 declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;

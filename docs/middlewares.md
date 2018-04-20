@@ -231,6 +231,9 @@ for them (using the message and the status code provided by the error object).
 
 It should be set as the last error handler.
 
+### Options
+
+- `logger` (defaults to `console.error`) - a logging function that is invoked with the current error as argument. You can pass `false` if you don't want the logging to happen.
 
 ### Sample usage
 
@@ -437,26 +440,31 @@ handler
 
 Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 Requires Lambda to have IAM permission for `ssm:GetParameters` action.
-Middleware makes 1 API request to fetch all the parameters at once for efficiency.
 
-By default parameters are assigned to `process.env` node.js object.
-They can be assigned to function handler's `context` object by setting `setToContext` flag.
+Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/). 
 
-It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default.
-If your project which uses this middleware doesn't use `aws-sdk` yet,
-you may need to install it as a `devDependency` in order to run tests.  
+By default parameters are assigned to `process.env` node.js object. They can be assigned to function handler's `context` object by setting `setToContext` flag. By default all parameters are added to `process.env` or `context` with uppercase names.
+
+Middleware makes 1 API request to fetch all the parameters defined by name, but must make an additional request per defined path. This is because the AWS SDK doesn't expose a method to retrieve parameters from multiple paths.
+
+For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
+
+It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default. If your project which uses this middleware doesn't useaws-sdk` yet, you may need to install it as a `devDependency` in order to run tests.  
 
 ### Options
 
 - `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
-  again if parameter was already fetched in previous Lambda execution 
-- `params` (object): Map of parameters to fetch from SSM, where key is name of
+  again if parameter was already fetched in previous Lambda execution
+- `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where key is the prefix for the name that the middleware will set, and value    is the path. Example: `{paths: {DB_: '/dev/service/db'}}`
+- `names` (object) (optional*): Map of parameters to fetch from SSM, where key is name of
   parameter middleware will set, and value is param name in SSM.
-  Example: `{params: {DB_URL: '/dev/service/db_url''}}`
+  Example: `{names: {DB_URL: '/dev/service/db_url'}}`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to `context` object
-  of function handler. Defaults to `false`
+  of function handler rather than to `process.env`. Defaults to `false`
+
+* while you don't need _both_ `paths` and `names`, you do need at least one of them!
 
 ### Sample Usage
 
@@ -472,7 +480,10 @@ const handler = middy((event, context, cb) => {
 
 handler.use(ssm({
   cache: true,
-  params: {
+  paths: {
+    SOME_PREFIX_
+  },
+  names: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
   }
 }))
@@ -496,7 +507,7 @@ const handler = middy((event, context, cb) => {
 
 handler.use(ssm({
   cache: true,
-  params: {
+  names: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
   },
   awsSdkOptions: {region: 'us-west-1'},
