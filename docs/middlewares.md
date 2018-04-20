@@ -481,7 +481,7 @@ const handler = middy((event, context, cb) => {
 handler.use(ssm({
   cache: true,
   paths: {
-    SOME_PREFIX_
+    SOME_PREFIX_: '/dev/db'
   },
   names: {
     SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
@@ -489,9 +489,10 @@ handler.use(ssm({
 }))
 
 // Before running function handler, middleware will fetch SSM params
-
+// The '/dev/db' path contains the CONNECTION_STRING parameter
 handler(event, context, (_, response) => {
   expect(process.env.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+  expect(process.env.SOME_PREFIX_CONNECTION_STRING).toEqual('some-connection-string')
 })
 ```
 
