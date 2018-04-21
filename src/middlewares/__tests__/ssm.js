@@ -7,15 +7,25 @@ const ssm = require('../ssm')
 describe('🔒 SSM Middleware', () => {
   const getParametersMock = jest.fn()
   SSM.prototype.getParameters = getParametersMock
+  const getParametersByPathMock = jest.fn()
+  SSM.prototype.getParametersByPath = getParametersByPathMock
 
   beforeEach(() => {
     getParametersMock.mockReset()
     getParametersMock.mockClear()
+    getParametersByPathMock.mockReset()
+    getParametersByPathMock.mockClear()
     delete process.env.MONGO_URL
+    delete process.env.OTHER_MONGO_URL
+    delete process.env.SERVICE_NAME_MONGO_URL
   })
 
   function testScenario ({ssmMockResponse, middlewareOptions, context = {}, cb}) {
     getParametersMock.mockReturnValueOnce({
+      promise: () => Promise.resolve(ssmMockResponse)
+    })
+
+    getParametersByPathMock.mockReturnValue({
       promise: () => Promise.resolve(ssmMockResponse)
     })
 
@@ -36,7 +46,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           MONGO_URL: '/dev/service_name/mongo_url'
         }
       },
@@ -56,7 +66,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           MONGO_URL: '/dev/service_name/mongo_url'
         },
         cache: true
@@ -78,7 +88,7 @@ describe('🔒 SSM Middleware', () => {
         secureValue: '/dev/service_name/secure_param'
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         cache: true,
@@ -97,11 +107,12 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         cache: true,
-        setToContext: true
+        setToContext: true,
+        paramsLoaded: false
       },
       cb () {
         expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
@@ -116,7 +127,7 @@ describe('🔒 SSM Middleware', () => {
         Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
       },
       middlewareOptions: {
-        params: {
+        names: {
           secureValue: '/dev/service_name/secure_param'
         },
         setToContext: true
@@ -134,7 +145,7 @@ describe('🔒 SSM Middleware', () => {
         InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
       },
       middlewareOptions: {
-        params: {
+        names: {
           invalidParam: 'invalid-smm-param-name',
           anotherInvalidParam: 'another-invalid-ssm-param'
         }
@@ -152,6 +163,37 @@ describe('🔒 SSM Middleware', () => {
       middlewareOptions: {},
       cb (error) {
         expect(error).toBeFalsy()
+        done()
+      }
+    })
+  })
+
+  test('It should set properties on target with names equal to full parameter name sans specified path', (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
+      },
+      middlewareOptions: {
+        paths: {'': '/dev/service_name'}
+      },
+      cb () {
+        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+        done()
+      }
+    })
+  })
+
+  test('It should retrieve params from multiple paths', (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
+      },
+      middlewareOptions: {
+        paths: {'': ['/dev/service_name'], 'prefix': '/dev'}
+      },
+      cb () {
+        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+        expect(process.env.PREFIX_SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
         done()
       }
     })

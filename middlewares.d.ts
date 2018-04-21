@@ -47,9 +47,11 @@ interface IHTTPPartialResponseOptions {
 
 interface ISSMOptions {
   cache?: boolean;
-  params: { [key: string]: string; };
+  paths?: { [key: string]: string; };
+  names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   setToContext?: boolean;
+  getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
 }
 
 interface IValidatorOptions {
