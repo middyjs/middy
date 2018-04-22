@@ -38,7 +38,7 @@ const chooseLanguage = (event) => {
   return results[0]
 }
 
-module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors => errors }) => {
+module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
   const options = Object.assign({}, defaults, ajvOptions)
   lazyLoadAjv(options)
 
@@ -60,7 +60,7 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors 
         const locale = chooseLanguage(handler.event)
         ajvLocalize[locale](validateInput.errors)
 
-        error.details = errorFormat(validateInput.errors)
+        error.details = validateInput.errors
         throw error
       }
 
