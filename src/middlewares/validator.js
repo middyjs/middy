@@ -3,6 +3,7 @@ const Ajv = require('ajv')
 const ajvKeywords = require('ajv-keywords')
 const ajvLocalize = require('ajv-i18n')
 const {deepEqual} = require('assert')
+const parseFn = require(`negotiator/lib/language`)
 
 let ajv
 let previousConstructorOptions
@@ -14,9 +15,8 @@ const defaults = {
   $data: true // required for ajv-keywords
 }
 
-module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors => errors }) => {
-  const acceptLanguage = require('accept-language')
-  acceptLanguage.languages([
+const chooseLanguage = (event) => {
+  const results = parseFn(event.headers['Accept-Language'], [
     'en',
     'ar',
     'cz',
@@ -34,7 +34,11 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors 
     'sv',
     'zh'
   ])
+  if (!results.length) return 'en'
+  return results[0]
+}
 
+module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors => errors }) => {
   const options = Object.assign({}, defaults, ajvOptions)
   lazyLoadAjv(options)
 
@@ -52,9 +56,8 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors 
       if (!valid) {
         const error = new createError.BadRequest('Event object failed validation')
         handler.event.headers = Object.assign({}, handler.event.headers)
-        const locale = handler.event.headers['Accept-Language']
-          ? acceptLanguage.get(handler.event.headers['Accept-Language'])
-          : 'en'
+        console.log(chooseLanguage(handler.event))
+        const locale = chooseLanguage(handler.event)
         ajvLocalize[locale](validateInput.errors)
 
         error.details = errorFormat(validateInput.errors)

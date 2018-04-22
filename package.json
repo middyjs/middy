@@ -13,7 +13,7 @@
   ],
   "types": "./index.d.ts",
   "scripts": {
-    "test:lint": "eslint --fix --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
+    "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts middlewares.d.ts",
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
@@ -66,7 +66,6 @@
   "dependencies": {
     "@types/aws-lambda": "^8.10.1",
     "@types/http-errors": "^1.6.1",
-    "accept-language": "^3.0.18",
     "ajv": "^6.0.0",
     "ajv-i18n": "^3.1.0",
     "ajv-keywords": "^3.0.0",
