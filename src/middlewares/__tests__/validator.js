@@ -184,30 +184,4 @@ describe('📦  Middleware Validator', () => {
       })
     })
   })
-
-  describe('🏗 errorFormat constructor options', () => {
-    const schema = {required: ['email'], properties: {email: {type: 'string', enum: ['abc@abc.com']}}}
-
-    test('It should format the error.details', () => {
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({inputSchema: schema,
-        errorFormat: errors => errors.map(error => ({
-          detail: error.message,
-          source: {
-            pointer: error.schemaPath.substr(1),
-            parameter: error.dataPath.substr(1)
-          },
-          meta: error.params
-        }))
-      }))
-
-      handler({email: 'abc@abc'}, {}, (err) => {
-        expect(err.details[0].detail).toEqual('should be equal to one of predefined values')
-        expect(err.details[0].source.parameter).toEqual('email')
-      })
-    })
-  })
 })
