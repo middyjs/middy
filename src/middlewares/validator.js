@@ -1,13 +1,41 @@
 const createError = require('http-errors')
 const Ajv = require('ajv')
 const ajvKeywords = require('ajv-keywords')
+const ajvLocalize = require('ajv-i18n')
 const {deepEqual} = require('assert')
 
 let ajv
 let previousConstructorOptions
-const defaults = {v5: true, $data: true, allErrors: true}
+const defaults = {
+  v5: true,
+  format: 'full',
+  coerceTypes: 'array', // important for query string params
+  allErrors: true,
+  useDefaults: true,
+  $data: true           // required for ajv-keywords
+}
 
-module.exports = ({inputSchema, outputSchema, ajvOptions}) => {
+module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors => errors }) => {
+  const acceptLanguage = require('accept-language')
+  acceptLanguage.languages([
+    'en',
+    'ar',
+    'cz',
+    'de',
+    'es',
+    'fr',
+    'hu',
+    'it',
+    'ja',
+    'nb',
+    'pl',
+    'pt-BR',
+    'ru',
+    'sk',
+    'sv',
+    'zh'
+  ])
+
   const options = Object.assign({}, defaults, ajvOptions)
   lazyLoadAjv(options)
 
@@ -23,15 +51,21 @@ module.exports = ({inputSchema, outputSchema, ajvOptions}) => {
       const valid = validateInput(handler.event)
 
       if (!valid) {
-        const error = new createError.BadRequest('Event object failed validation')
-        error.details = validateInput.errors
-        throw error
+        handler.event.headers = Object.assign({}, handler.event.headers)
+        const locale = handler.event.headers['Accept-Language']
+          ? acceptLanguage.get(handler.event.headers['Accept-Language'])
+          : 'en'
+        ajvLocalize[locale](validateInput.errors)
+
+        throw new createError.BadRequest(
+          errorFormat(validateInput.errors)
+        )
       }
 
       return next()
     },
     after (handler, next) {
-      if (!outputSchema) {
+      if (!outputSchema || (!handler.response && handler.error)) {
         return next()
       }
 
