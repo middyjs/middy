@@ -59,6 +59,43 @@ describe('📦  Middleware Validator', () => {
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'should have required property foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+    })
+  })
+
+  test('It should handle invalid schema as a BadRequest in a different language', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    const schema = {
+      required: ['body', 'foo'],
+      properties: {
+        // this will pass validation
+        body: {
+          type: 'string'
+        },
+        // this won't as it won't be in the event
+        foo: {
+          type: 'string'
+        }
+      }
+    }
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
+    // invokes the handler, note that property foo is missing
+    const event = {
+      headers: {
+        'Accept-Language': 'fr-CA, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5'
+      },
+      body: JSON.stringify({something: 'somethingelse'})
+    }
+    handler(event, {}, (err, res) => {
+      expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'requiert la propriété foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
     })
   })
 
@@ -144,6 +181,32 @@ describe('📦  Middleware Validator', () => {
       // This same email is not a valid one in 'full' validation mode
       handler({email: 'abc@abc'}, {}, (err) => {
         expect(err.details[0].message).toEqual('should match format "email"')
+      })
+    })
+  })
+
+  describe('🏗 errorFormat constructor options', () => {
+    const schema = {required: ['email'], properties: {email: {type: 'string', enum: ['abc@abc.com']}}}
+
+    test('It should format the error.details', () => {
+      const handler = middy((event, context, cb) => {
+        cb(null, {})
+      })
+
+      handler.use(validator({inputSchema: schema,
+        errorFormat: errors => errors.map(error => ({
+          detail: error.message,
+          source: {
+            pointer: error.schemaPath.substr(1),
+            parameter: error.dataPath.substr(1)
+          },
+          meta: error.params
+        }))
+      }))
+
+      handler({email: 'abc@abc'}, {}, (err) => {
+        expect(err.details[0].detail).toEqual('should be equal to one of predefined values')
+        expect(err.details[0].source.parameter).toEqual('email')
       })
     })
   })

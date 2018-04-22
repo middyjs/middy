@@ -8,11 +8,10 @@ let ajv
 let previousConstructorOptions
 const defaults = {
   v5: true,
-  format: 'full',
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: true,
-  $data: true           // required for ajv-keywords
+  $data: true // required for ajv-keywords
 }
 
 module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors => errors }) => {
@@ -51,15 +50,15 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions, errorFormat = errors 
       const valid = validateInput(handler.event)
 
       if (!valid) {
+        const error = new createError.BadRequest('Event object failed validation')
         handler.event.headers = Object.assign({}, handler.event.headers)
         const locale = handler.event.headers['Accept-Language']
           ? acceptLanguage.get(handler.event.headers['Accept-Language'])
           : 'en'
         ajvLocalize[locale](validateInput.errors)
 
-        throw new createError.BadRequest(
-          errorFormat(validateInput.errors)
-        )
+        error.details = errorFormat(validateInput.errors)
+        throw error
       }
 
       return next()
