@@ -336,7 +336,7 @@ middy(async (event, context, callback) => {
 })
 ```
 
-Of course, if you're running your AWS lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+Of course, if you're running your AWS Lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ### Async Middlewares
@@ -375,7 +375,7 @@ const asyncValidator = () => {
 handler.use(asyncValidator())
 ```
 
-Of course, if you're running your AWS lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+Of course, if you're running your AWS Lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ## Writing a middleware
