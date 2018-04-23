@@ -54,8 +54,8 @@ Middy is a very simple middleware engine. If you are used to web frameworks like
 express, than you will be familiar with the concepts adopted in Middy and you will
 be able to get started very quickly.
 
-But code is better than 10.000 words, so let's jump into an example.
-Let's assume you are building an JSON API to process a payment:
+But code is better than 10,000 words, so let's jump into an example.
+Let's assume you are building a JSON API to process a payment:
 
 ```javascript
 # handler.js
@@ -63,7 +63,7 @@ Let's assume you are building an JSON API to process a payment:
 const middy = require('middy')
 const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
 
-// This is your common handler, no way different than what you are used to do every day
+// This is your common handler, in no way different than what you are used to doing every day
 // in AWS Lambda
 const processPayment = (event, context, callback) => {
   // we don't need to deserialize the body ourself as a middleware will be used to do that
@@ -75,7 +75,8 @@ const processPayment = (event, context, callback) => {
   return callback(null, { result: 'success', message: 'payment processed correctly'})
 }
 
-// Notice that in the handler you only added base business logic (no deserilization, validation or error handler), we will add the rest with middlewares
+// Notice that in the handler you only added base business logic (no deserilization,
+// validation or error handler), we will add the rest with middlewares
 
 const inputSchema = {
   type: 'object',
@@ -112,6 +113,11 @@ As simple as:
 npm install middy
 ```
 
+or
+
+```bash
+yarn add middy
+```
 
 ## Requirements
 
@@ -126,7 +132,7 @@ If you need to run it in earlier versions of Node (eg. 4.3) then you will have t
 One of the main strengths of serverless and AWS Lambda is that, from a developer
 perspective, your focus is mostly shifted toward implementing business logic.
 
-Anyway, when you are writing an handler, you still have to deal with some common technical concerns
+Anyway, when you are writing a handler, you still have to deal with some common technical concerns
 outside business logic, like input parsing and validation, output serialization,
 error handling, etc.
 
@@ -137,7 +143,7 @@ In other contexts, like generic web frameworks ([express](http://expressjs.com/)
 [fastify](http://fastify.io), [hapi](https://hapijs.com/), etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
-This pattern allows developers to isolate this common technical concerns into
+This pattern allows developers to isolate these common technical concerns into
 *"steps"* that *decorate* the main business logic code.
 Middleware functions are generally written as independent modules and then plugged in into
 the application in a configuration step, thus not polluting the main business logic
@@ -156,7 +162,7 @@ simple and requires just few steps:
  1. Write your Lambda handlers as usual, focusing mostly on implementing the bare
     business logic for them.
  2. Import `middy` and all the middlewares you want to use
- 3. Wrap you handler in the `middy()` factory function. This will return a new
+ 3. Wrap your handler in the `middy()` factory function. This will return a new
     enhanced instance of your original handler, to which you will be able to attach
     the middlewares you need.
  4. Attach all the middlewares you need using the function `.use(somemiddleware())`
@@ -182,7 +188,7 @@ module.exports = { handler }
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
 `.onError`.
 
-For a more detailed use cases and examples check the [Writing a middleware section](#writing-a-middleware) and the [API section](#api).
+For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware) and the [API section](#api).
 
 
 ## How it works
@@ -199,7 +205,7 @@ all the previously added middlewares in order, creating multiple layers for inte
 the *request* (event) and the *response*.
 
 This way the *request-response cycle* flows through all the middlewares, the
-handler and all the middlewares again, giving to every step, the opportunity to
+handler and all the middlewares again, giving the opportunity within every step to
 modify or enrich the current request, context or the response.
 
 
@@ -237,8 +243,8 @@ Some middlewares might need to stop the whole execution flow and return a respon
 If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
 
 **Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
-and early response (or an error) directly at the lambda level. If you middlewares that do specific task on every requests
-like output serialization or error handling, those won't be invoked in this case.
+an early response (or an error) directly at the lambda level. If your middlewares do a specific task on every request
+like output serialization or error handling, these won't be invoked in this case.
 
 In this example we can use this capability for building a sample caching middleware:
 
@@ -269,7 +275,7 @@ const cacheMiddleware = (options) => {
   })
 }
 
-// sample Usage
+// sample usage
 const handler = middy((event, context, callback) => { /* ... */ })
   .use(cacheMiddleware({
     calculateCacheId, storage
@@ -279,7 +285,7 @@ const handler = middy((event, context, callback) => { /* ... */ })
 
 ### Handling errors
 
-But what happens in case there is an error?
+But what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
 moved back to all the middlewares that implements a special phase called `onError`, following
@@ -316,7 +322,7 @@ middy(async (event, context) => {
 })
 ```
 
-this code is equivalent to:
+This code is equivalent to:
 
 ```javascript
 middy(async (event, context, callback) => {
@@ -330,12 +336,12 @@ middy(async (event, context, callback) => {
 })
 ```
 
-Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+Of course, if you're running your AWS lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ### Async Middlewares
 
-Middy supports middlewares that return promises instead that directly calling the callback:
+Middy supports middlewares that return promises instead of directly calling the callback:
 
 ```javascript
 const asyncValidator = () => {
@@ -369,7 +375,7 @@ const asyncValidator = () => {
 handler.use(asyncValidator())
 ```
 
-Of course, since AWS lambda runs on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
+Of course, if you're running your AWS lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ## Writing a middleware
@@ -390,10 +396,10 @@ function (handler, next) {
 
 Where:
 
- - `handler`: is a reference to the current context and it allows to access (and modify)
+ - `handler`: is a reference to the current context and it allows access to (and modification of)
    the current `event` (request), the `response` (in the *after* phase) and `error`
    (in case of an error).
- - `next`: is a callback function that needs to be invoked when the middleware finished
+ - `next`: is a callback function that needs to be invoked when the middleware has finished
    its job so that the next middleware can be invoked
 
 ### Configurable middlewares
@@ -446,11 +452,11 @@ module.exports = { handler }
 
 ### Inline middlewares
 
-Sometimes you want to create handlers that serve very small needs and that are not
+Sometimes you want to create handlers that serve a very small need and that are not
 necessarily re-usable. In such cases you probably will need to hook only into one of
 the different phases (`before`, `after` or `onError`).
 
-In these cases you can use **inline middlewares** which are shortcut function to hook
+In these cases you can use **inline middlewares** which are shortcut functions to hook
 logic into Middy's control flow.
 
 Let's see how inline middlewares work with a simple example:
@@ -480,13 +486,13 @@ handler.onError((handler, next) => {
 module.exports = { handler }
 ```
 
-As you can see above, a middy instance exposes also the `before`, `after` and `onError`
+As you can see above, a middy instance also exposes the `before`, `after` and `onError`
 methods to allow you to quickly hook-in simple inline middlewares.
 
 
 ### More details on creating middlewares
 
-Check the [code for existing middlewares](/src/middlewares) to have more examples
+Check the [code for existing middlewares](/src/middlewares) to see more examples
 on how to write a middleware.
 
 
@@ -503,7 +509,7 @@ Currently available middlewares:
  - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
  - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
- `httpErrorHanler`.
+ `httpErrorHandler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
  - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
  - [`validator`](/docs/middlewares.md#validator): Automatically validates incoming events and outgoing responses against custom schemas
@@ -511,7 +517,7 @@ Currently available middlewares:
  - [`warmup`](/docs/middlewares.md#warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
 
 
-For a dedicated documentation on those middlewares check out the [Middlewares
+For dedicated documentation on available middlewares check out the [Middlewares
 documentation](/docs/middlewares.md)
 
 ## Api
