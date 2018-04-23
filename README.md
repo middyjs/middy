@@ -188,7 +188,8 @@ module.exports = { handler }
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
 `.onError`.
 
-For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware) and the [API section](#api).
+For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware) and
+the [API section](#api).
 
 
 ## How it works
