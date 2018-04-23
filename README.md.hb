@@ -301,17 +301,55 @@ to the user.
 
 If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
+### Promise support
 
-### Async/Await support
+Middy allows you to return promises (or throw errors) from your handlers (instead of calling callback) and middlewares
+(instead of calling next).
 
-Middy allows you to write *async/await handlers*. In *async/await handlers* you don't
-have to invoke the callback but just return the output (in case of success) or
-throw an error (in case of failure).
+Here is an example of a handler that returns a promise:
 
-We believe that this feature makes handling asynchronous logic easier to reason about
-and asynchronous code easier to read.
+```javascript
+middy((event, context, callback) => {
+  return someAsyncStuff()
+    .then(() => {
+      return someOtherAsyncStuff()
+    })
+    .then(() => {
+      return {foo: bar}
+    }
+})
+```
 
-Take the following code as an example:
+And here is an example of a middleware that returns a similar promise:
+
+```javascript
+const asyncValidator = () => {
+  before: (handler) => {
+    if (handler.event.body) {
+      return someAsyncStuff(handler.event.body)
+        .then(() => {
+          return {foo: bar}
+        })
+    }
+
+    return Promise.resolve()
+  }
+}
+
+handler.use(asyncValidator())
+```
+
+
+### Using async/await
+
+Node.js 8.10 supports [async/await](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function),
+allowing you to work with promises in a way that makes handling asynchronous logic easier to reason about and
+asynchronous code easier to read.
+
+You can still use async/await if you're running AWS Lambda on Node.js 6.10, but you will need to transpile your
+`async/await` code (e.g. using [babel](https://babeljs.io/)).
+
+Take the following code as an example of a handler written with async/await:
 
 ```javascript
 middy(async (event, context) => {
@@ -322,50 +360,16 @@ middy(async (event, context) => {
 })
 ```
 
-This code is equivalent to:
 
-```javascript
-middy(async (event, context, callback) => {
-  someAsyncStuff()
-    .then(() => {
-      return someOtherAsyncStuff()
-    })
-    .then(() => {
-      callback(null, {foo: bar})
-    })
-})
-```
-
-Of course, if you're running your AWS Lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
-
-
-### Async Middlewares
-
-Middy supports middlewares that return promises instead of directly calling the callback:
-
-```javascript
-const asyncValidator = () => {
-  before: (handler) => {
-    if (handler.event.body) {
-      return new Promise((resolve, reject) => {
-        // async validation logic
-      })
-    }
-
-    return Promise.resolve()
-  }
-}
-
-handler.use(asyncValidator())
-```
-
-Thanks to this behavior you can define middlewares using `async` functions:
+And here is an example of a middleware written with async/await:
 
 ```javascript
 const asyncValidator = () => {
   before: async (handler) => {
     if (handler.event.body) {
-      return await asyncValidate(handler.event.body)
+      await asyncValidate(handler.event.body)
+
+      return {foo: bar}
     }
 
     return
@@ -374,8 +378,6 @@ const asyncValidator = () => {
 
 handler.use(asyncValidator())
 ```
-
-Of course, if you're running your AWS Lambda on Node.js 6.10, you will need to transpile your `async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 
 ## Writing a middleware
