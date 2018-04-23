@@ -449,7 +449,7 @@ Middleware makes 1 API request to fetch all the parameters defined by name, but 
 
 For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
 
-It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default. If your project which uses this middleware doesn't useaws-sdk` yet, you may need to install it as a `devDependency` in order to run tests.  
+It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default. If your project which uses this middleware doesn't use `aws-sdk` yet, you may need to install it as a `devDependency` in order to run tests.  
 
 ### Options
 
@@ -464,7 +464,7 @@ It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included
 - `setToContext` (boolean) (optional): This will assign parameters to `context` object
   of function handler rather than to `process.env`. Defaults to `false`
 
-* while you don't need _both_ `paths` and `names`, you do need at least one of them!
+\* while you don't need _both_ `paths` and `names`, you do need at least one of them!
 
 ### Sample Usage
 
