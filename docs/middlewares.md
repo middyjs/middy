@@ -21,7 +21,7 @@
 ## [cache](/src/middlewares/cache.js)
 
 Offers a simple but flexible caching layer that allows to cache the response associated
-to a given event and return it directly (without running the handler) if such event is received again
+to a given event and return it directly (without running the handler) if the same event is received again
 in a successive execution.
 
 By default, the middleware stores the cache in memory, so the persistence is guaranteed only for
@@ -33,8 +33,8 @@ layer to provide your own caching implementation.
  - `calculateCacheId` (function) (optional): a function that accepts the `event` object as a parameter
    and returns a promise that resolves to a string which is the cache id for the
    give request. By default the cache id is calculated as `md5(JSON.stringify(event))`.
- - `getValue` (function) (optional): a function that defines how to retrieve a the value associated to a given
-   cache id from the cache storage. it accepts `key` (a string) and returns a promise
+ - `getValue` (function) (optional): a function that defines how to retrieve the value associated to a given
+   cache id from the cache storage. It accepts `key` (a string) and returns a promise
    that resolves to the cached response (if any) or to `undefined` (if the given key
    does not exists in the cache)
  - `setValue` (function) (optional): a function that defines how to set a value in the cache. It accepts
@@ -46,7 +46,7 @@ layer to provide your own caching implementation.
 ```javascript
 // assumes the event contains a unique event identifier
 const calculateCacheId = (event) => Promise.resolve(event.id)
-// use an in memory storage as example
+// use in-memory storage as example
 const myStorage = {}
 // simulates a delay in retrieving the value from the caching storage
 const getValue = (key) => new Promise((resolve, reject) => {
@@ -75,7 +75,7 @@ const handler = middy(originalHandler)
 
 ## [cors](/src/middlewares/cors.js)
 
-Sets CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to response object.
+Sets CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.
 
 Sets headers in `after` and `onError` phases.
 
@@ -107,7 +107,7 @@ handler({}, {}, (_, response) => {
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
 Sets `context.callbackWaitsForEmptyEventLoop` property to `false`.
-This will prevent lambda for timing out because of open database connections, etc.
+This will prevent Lambda from timing out because of open database connections, etc.
 
 ### Options
 
@@ -130,7 +130,7 @@ const handler = middy((event, context, cb) => {
 
 handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
 
-// When Lambda runs the handler it get context with callbackWaitsForEmptyEventLoop property set to false
+// When Lambda runs the handler it gets context with callbackWaitsForEmptyEventLoop property set to false
 
 handler(event, context, (_, response) => {
   expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
@@ -146,28 +146,28 @@ By default the middleware parses charsets (`Accept-Charset`), languages (`Accept
 `before` phase and expands the `event` object by adding the following properties:
 
 - `preferredCharsets` (`array`) - The list of charsets that can be safely used by the app (as the result of the negotiation)
-- `preferredCharset` (`string`) - The preferred charset  as the result of the negotiation
+- `preferredCharset` (`string`) - The preferred charset (as the result of the negotiation)
 - `preferredEncodings` (`array`) - The list of encodings that can be safely used by the app (as the result of the negotiation)
-- `preferredEncoding` (`string`) - The preferred encoding as the result of the negotiation
+- `preferredEncoding` (`string`) - The preferred encoding (as the result of the negotiation)
 - `preferredLanguages` (`array`) - The list of languages that can be safely used by the app (as the result of the negotiation)
-- `preferredLanguage` (`string`) - The preferred language as the result of the negotiation
+- `preferredLanguage` (`string`) - The preferred language (as the result of the negotiation)
 - `preferredMediaTypes` (`array`) - The list of media types that can be safely used by the app (as the result of the negotiation)
-- `preferredMediaType` (`string`) - The preferred media types as the result of the negotiation
+- `preferredMediaType` (`string`) - The preferred media types (as the result of the negotiation)
 
 This middleware expects the headers in canonical format, so it should be attached after the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware.
-It also can throw HTTP exception, so it can be convenient to use it in combination with the [`httpErrorHandler`](#httperrorhandler).
+It also can throw an HTTP exception, so it can be convenient to use it in combination with the [`httpErrorHandler`](#httperrorhandler).
 
 ### Options
 
-- `parseCharsets` (defaults to `true`) - Allows to enable/disable the charsets parsing
-- `availableCharsets` (defaults to `undefined`) - Allows to define the list of charsets supported by the lambda function
-- `parseEncodings` (defaults to `true`) - Allows to enable/disable the encodings parsing
-- `availableEncodings` (defaults to `undefined`) - Allows to define the list of encodings supported by the lambda function
-- `parseLanguages` (defaults to `true`) - Allows to enable/disable the languages parsing
-- `availableLanguages` (defaults to `undefined`) - Allows to define the list of languages supported by the lambda function
-- `parseMediaTypes` (defaults to `true`) - Allows to enable/disable the media types parsing
-- `availableMediaTypes` (defaults to `undefined`) - Allows to define the list of media types supported by the lambda function
-- `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception whether the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
+- `parseCharsets` (defaults to `true`) - Allows enabling/disabling the charsets parsing
+- `availableCharsets` (defaults to `undefined`) - Allows defining the list of charsets supported by the Lambda function
+- `parseEncodings` (defaults to `true`) - Allows enabling/disabling the encodings parsing
+- `availableEncodings` (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda function
+- `parseLanguages` (defaults to `true`) - Allows enabling/disabling the languages parsing
+- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function
+- `parseMediaTypes` (defaults to `true`) - Allows enabling/disabling the media types parsing
+- `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
+- `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
 
 ### Sample Usage
 
@@ -225,7 +225,7 @@ module.exports = { handler }
 
 ## [httpErrorHandler](/src/middlewares/httpErrorHandler.js)
 
-Automatically handles uncatched errors that are created with
+Automatically handles uncaught errors that are created with
 [`http-errors`](https://npm.im/http-errors) and creates a proper HTTP response
 for them (using the message and the status code provided by the error object).
 
@@ -233,7 +233,7 @@ It should be set as the last error handler.
 
 ### Options
 
-- `logger` (defaults to `console.error`) - a logging function that is invoked with the current error as argument. You can pass `false` if you don't want the logging to happen.
+- `logger` (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
 
 ### Sample usage
 
@@ -260,12 +260,12 @@ handler({}, {}, (_, response) => {
 
 ## [httpEventNormalizer](/src/middlewares/httpEventNormalizer.js)
 
-If you need to access query string or path parameters in an API Gateway event you
-can do so by reading the attributes in the `event.queryStringParameters` and
+If you need to access the query string or path parameters in an API Gateway event you
+can do so by reading the attributes in `event.queryStringParameters` and
 `event.pathParameters`, for example: `event.pathParameters.userId`. Unfortunately
-if there are no parameters for one of this parameters holders, the key `queryStringParameters`
-or `pathParameters` won't be available in the object, causing an expression like:
-`event.pathParameters.userId` to fail with error: `TypeError: Cannot read property 'userId' of undefined`.
+if there are no parameters for these parameter holders, the relevant key `queryStringParameters`
+or `pathParameters` won't be available in the object, causing an expression like `event.pathParameters.userId`
+to fail with the error: `TypeError: Cannot read property 'userId' of undefined`.
 
 A simple solution would be to add an `if` statement to verify if the `pathParameters` (or `queryStringParameters`)
 exists before accessing one of its parameters, but this approach is very verbose and error prone.
@@ -300,7 +300,7 @@ API Gateway does not perform any normalization, so the headers are propagated to
 exactly as they were sent by the client.
 
 Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyParser`](#urlencodebodyparser)
-will rely on headers to be in the canonical format, so if you want to support non normalized headers in your
+will rely on headers to be in the canonical format, so if you want to support non-normalized headers in your
 app you have to use this middleware before those ones.
 
 This middleware will copy the original headers in `event.rawHeaders`.
@@ -328,9 +328,9 @@ handler
 
 ## [httpPartialResponse](/src/middlewares/httpPartialResponse.js)
 
-Filter object or json stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your json response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
+Filtering the data returned in an object or JSON stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your JSON response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.
 
-This middleware is based on the awesome `json-mask` package wrote by [Yuriy Nemtsov](https://github.com/nemtsov)
+This middleware is based on the awesome `json-mask` package written by [Yuriy Nemtsov](https://github.com/nemtsov)
 
 ```javascript
 const middy = require('middy')
@@ -373,11 +373,11 @@ handler(event, {}, (_, response) => {
 
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
 
-Automatically parses HTTP requests with JSON body and converts the body into an
+Automatically parses HTTP requests with a JSON body and converts the body into an
 object. Also handles gracefully broken JSON as UnprocessableEntity (422 errors)
-if used in combination of `httpErrorHanler`.
+if used in combination with `httpErrorHandler`.
 
-It can also be used in combination of validator as a prior step to normalize the
+It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
 
 ```javascript
@@ -410,9 +410,8 @@ S3 events like S3 PUT and S3 DELETE will contain in the event a list of the file
 that were affected by the change.
 
 In this list the file keys are encoded [in a very peculiar way](http://docs.aws.amazon.com/AmazonS3/latest/dev/notification-content-structure.html) (urlencoded and
-space characters replaced by a `+`). It happens very often that you will use the
-key directly to perform operation on the file using the AWS S3 sdk, in such case,
-it's very easy to forget to decode the key correctly.
+space characters replaced by a `+`). Very often you will use the
+key directly to perform operations on the file using the AWS S3 SDK, in which case it's very easy to forget to decode the key correctly.
 
 This middleware, once attached, makes sure that every S3 event has the file keys
 properly normalized.
@@ -439,32 +438,30 @@ handler
 ## [ssm](/src/middlewares/ssm.js)
 
 Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
-Requires Lambda to have IAM permission for `ssm:GetParameters` action.
 
 Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/). 
 
-By default parameters are assigned to `process.env` node.js object. They can be assigned to function handler's `context` object by setting `setToContext` flag. By default all parameters are added to `process.env` or `context` with uppercase names.
+By default parameters are assigned to the Node.js `process.env` object. They can instead be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
 
-Middleware makes 1 API request to fetch all the parameters defined by name, but must make an additional request per defined path. This is because the AWS SDK doesn't expose a method to retrieve parameters from multiple paths.
+The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
 
-For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
-
-It assumes AWS Lambda environment which has `aws-sdk` version `2.176.0` included by default. If your project which uses this middleware doesn't use `aws-sdk` yet, you may need to install it as a `devDependency` in order to run tests.  
+For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.  
 
 ### Options
 
-- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip calls to AWS SSM
-  again if parameter was already fetched in previous Lambda execution
-- `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where key is the prefix for the name that the middleware will set, and value    is the path. Example: `{paths: {DB_: '/dev/service/db'}}`
-- `names` (object) (optional*): Map of parameters to fetch from SSM, where key is name of
-  parameter middleware will set, and value is param name in SSM.
+- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS SSM
+- `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where the key is the prefix for the destination name, and value is the SSM path. Example: `{paths: {DB_: '/dev/service/db'}}`
+- `names` (object) (optional*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
-- `setToContext` (boolean) (optional): This will assign parameters to `context` object
-  of function handler rather than to `process.env`. Defaults to `false`
+- `setToContext` (boolean) (optional): This will assign parameters to the `context` object
+  of the function handler rather than to `process.env`. Defaults to `false`
 
-\* while you don't need _both_ `paths` and `names`, you do need at least one of them!
+NOTES:
+* While you don't need _both_ `paths` and `names`, you do need at least one of them!
+* Lambda is required to have IAM permissions for `ssm:GetParameters*` actions
+* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
 
 ### Sample Usage
 
@@ -488,11 +485,10 @@ handler.use(ssm({
   }
 }))
 
-// Before running function handler, middleware will fetch SSM params
-// The '/dev/db' path contains the CONNECTION_STRING parameter
+// Before running the function handler, the middleware will fetch SSM params
 handler(event, context, (_, response) => {
+  expect(process.env.SOME_PREFIX_CONNECTION_STRING).toEqual('some-connection-string') // The '/dev/db' path contains the CONNECTION_STRING parameter
   expect(process.env.SOME_ACCESS_TOKEN).toEqual('some-access-token')
-  expect(process.env.SOME_PREFIX_CONNECTION_STRING).toEqual('some-connection-string')
 })
 ```
 
@@ -535,9 +531,9 @@ response to the user.
 
 ### Options
 
- - `inputSchema` (object) (optional): the JSON schema object that will be used
+ - `inputSchema` (object) (optional): The JSON schema object that will be used
    to validate the input (`handler.event`) of the Lambda handler.
- - `outputSchema` (object) (optional): the JSON schema object that will be used
+ - `outputSchema` (object) (optional): The JSON schema object that will be used
    to validate the output (`handler.response`) of the Lambda handler.
  - `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
     class constructor. Defaults are `{v5: true, $data: true, allErrors: true}`  
@@ -614,7 +610,7 @@ handler({}, {}, (err, response) => {
 
 ## [urlEncodeBodyParser](/src/middlewares/urlEncodeBodyParser.js)
 
-Automatically parses HTTP requests with URL encoded body (typically the result
+Automatically parses HTTP requests with URL-encoded body (typically the result
 of a form submit).
 
 ### Options
@@ -654,11 +650,11 @@ handler(event, {}, (_, body) => {
 
 ## [warmup](/src/middlewares/warmup.js)
 
-Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with the [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.
+Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.
 
-The idea of this middleware is that you have to keep your important lambdas  (the ones that needs to be always very responsive) running often (e.g. every 5 minutes) on a special schedule that will make the lambda running, by running the handler, but skipping the main business logic to avoid side effects.
+This middleware allows you to specify a schedule to keep Lambdas that always need to be very responsive warmed-up. It does this by regularly invoking the Lambda, but will terminate early to avoid the actual handler logic from being run.
 
-If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup) the scheduling part is done by the plugin and you just have to attach the middleware to your "middified" handler. If you don't want to use the plugin you have to create the schedule yourself and define the `isWarmingUp` function to define wether the current event is a warmup event or an actual business logic execution.
+If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup) the scheduling part is done by the plugin and you just have to attach the middleware to your "middyfied" handler. If you don't want to use the plugin you have to create the schedule yourself and define the `isWarmingUp` function to define wether the current event is a warmup event or an actual business logic execution.
 
 
 ### Options
