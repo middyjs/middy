@@ -304,8 +304,8 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ### Promise support
 
-Middy allows you to return promises (or throw errors) from your handlers (instead of calling callback) and middlewares
-(instead of calling next).
+Middy allows you to return promises (or throw errors) from your handlers (instead of calling `callback()`) and middlewares
+(instead of calling `next()`).
 
 Here is an example of a handler that returns a promise:
 
