@@ -243,7 +243,7 @@ Some middlewares might need to stop the whole execution flow and return a respon
 If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
 
 **Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
-an early response (or an error) directly at the lambda level. If your middlewares do a specific task on every request
+an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
 like output serialization or error handling, these won't be invoked in this case.
 
 In this example we can use this capability for building a sample caching middleware:
@@ -299,7 +299,7 @@ error middlewares and they have a chance to update or replace the response as
 needed. At the end of the error middlewares sequence, the response is returned
 to the user.
 
-If no middleware manages the error, the lambda execution fails reporting the unmanaged error.
+If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
 
 ### Async/Await support
