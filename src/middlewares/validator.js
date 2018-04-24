@@ -2,8 +2,7 @@ const createError = require('http-errors')
 const Ajv = require('ajv')
 const ajvKeywords = require('ajv-keywords')
 const ajvLocalize = require('ajv-i18n')
-const {deepEqual} = require('assert')
-const parseFn = require(`negotiator/lib/language`)
+const { deepEqual } = require('assert')
 
 let ajv
 let previousConstructorOptions
@@ -12,30 +11,31 @@ const defaults = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: true,
-  $data: true // required for ajv-keywords
+  $data: true, // required for ajv-keywords
+  defaultLanguage: 'en'
 }
 
-const chooseLanguage = (event) => {
-  const results = parseFn(event.headers['Accept-Language'], [
-    'en',
-    'ar',
-    'cz',
-    'de',
-    'es',
-    'fr',
-    'hu',
-    'it',
-    'ja',
-    'nb',
-    'pl',
-    'pt-BR',
-    'ru',
-    'sk',
-    'sv',
-    'zh'
-  ])
-  if (!results.length) return 'en'
-  return results[0]
+const availableLanguages = Object.keys(ajvLocalize)
+
+/* in ajv-i18n Portuguese is represented as pt-BR */
+const languageNormalizationMap = {
+  'pt': 'pt-BR',
+  'pt-br': 'pt-BR',
+  'pt_BR': 'pt-BR',
+  'pt_br': 'pt-BR'
+}
+
+const normalizePreferredLanguage = (lang) => languageNormalizationMap[lang] || lang
+
+const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
+  if (preferredLanguage) {
+    const lang = normalizePreferredLanguage(preferredLanguage)
+    if (availableLanguages.includes(lang)) {
+      return lang
+    }
+  }
+
+  return defaultLanguage
 }
 
 module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
@@ -56,9 +56,8 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
       if (!valid) {
         const error = new createError.BadRequest('Event object failed validation')
         handler.event.headers = Object.assign({}, handler.event.headers)
-        console.log(chooseLanguage(handler.event))
-        const locale = chooseLanguage(handler.event)
-        ajvLocalize[locale](validateInput.errors)
+        const language = chooseLanguage(handler.event, options.defaultLanguage)
+        ajvLocalize[language](validateInput.errors)
 
         error.details = validateInput.errors
         throw error
