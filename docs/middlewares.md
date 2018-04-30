@@ -439,7 +439,7 @@ handler
 
 Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 
-Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/). 
+Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/).
 
 By default parameters are assigned to the Node.js `process.env` object. They can instead be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
 
@@ -529,6 +529,8 @@ This middleware can be used in combination with
 [`httpErrorHandler`](#httperrorhandler) to automatically return the right
 response to the user.
 
+It can also be used in combination with [`httpcontentnegotiation`](#httpContentNegotiation) to load localised translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-i18n`](http://npm.im/ajv-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
+
 ### Options
 
  - `inputSchema` (object) (optional): The JSON schema object that will be used
@@ -536,7 +538,7 @@ response to the user.
  - `outputSchema` (object) (optional): The JSON schema object that will be used
    to validate the output (`handler.response`) of the Lambda handler.
  - `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
-    class constructor. Defaults are `{v5: true, $data: true, allErrors: true}`  
+    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en'}`  
 
 ### Sample Usage
 
