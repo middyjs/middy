@@ -59,6 +59,75 @@ describe('📦  Middleware Validator', () => {
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'should have required property foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+    })
+  })
+
+  test('It should handle invalid schema as a BadRequest in a different language', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    const schema = {
+      required: ['body', 'foo'],
+      properties: {
+        // this will pass validation
+        body: {
+          type: 'string'
+        },
+        // this won't as it won't be in the event
+        foo: {
+          type: 'string'
+        }
+      }
+    }
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
+    // invokes the handler, note that property foo is missing
+    const event = {
+      preferredLanguage: 'fr',
+      body: JSON.stringify({something: 'somethingelse'})
+    }
+    handler(event, {}, (err, res) => {
+      expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'requiert la propriété foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+    })
+  })
+
+  test('It should handle invalid schema as a BadRequest in a different language (with normalization)', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    const schema = {
+      required: ['body', 'foo'],
+      properties: {
+        // this will pass validation
+        body: {
+          type: 'string'
+        },
+        // this won't as it won't be in the event
+        foo: {
+          type: 'string'
+        }
+      }
+    }
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
+    // invokes the handler, note that property foo is missing
+    const event = {
+      preferredLanguage: 'pt',
+      body: JSON.stringify({something: 'somethingelse'})
+    }
+    handler(event, {}, (err, res) => {
+      expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'deve ter a propriedade requerida foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
     })
   })
 

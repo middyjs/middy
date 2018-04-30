@@ -602,7 +602,9 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 
 ## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
 **Kind**: global typedef  
-**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.                         In this case middy will wait for the promise to resolve (or reject) and it will automatically                         propagate the result to the next middleware.  
+**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
+                         In this case middy will wait for the promise to resolve (or reject) and it will automatically
+                         propagate the result to the next middleware.  
 
 | Param | Type | Description |
 | --- | --- | --- |
