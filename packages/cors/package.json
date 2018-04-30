@@ -1,0 +1,41 @@
+{
+  "name": "@middy/cors",
+  "version": "1.0.0-alpha.1",
+  "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
+  "engines": {
+    "node": ">=6.10"
+  },
+  "engineStrict": true,
+  "scripts": {
+    "test": "npm run test:typings && npm run test:unit",
+    "test:unit": "jest",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "CORS",
+    "Cross-Origin Resource Sharing"
+  ],
+  "author": {
+    "name" : "Middy contributors",
+    "url" : "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
+  }
+}

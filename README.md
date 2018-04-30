@@ -43,7 +43,6 @@
  - [How it works](#how-it-works)
  - [Writing a middleware](#writing-a-middleware)
  - [Available middlewares](#available-middlewares)
- - [API](#api)
  - [Contributing](#contributing)
  - [License](#license)
 
@@ -188,8 +187,7 @@ module.exports = { handler }
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
 `.onError`.
 
-For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware) and
-the [API section](#api).
+For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware).
 
 
 ## How it works
@@ -522,107 +520,6 @@ Currently available middlewares:
 
 For dedicated documentation on available middlewares check out the [Middlewares
 documentation](/docs/middlewares.md)
-
-## Api
-
-## 
-
-* [middy(handler)](#middy) ⇒ [<code>middy</code>](#middy)
-
-## 
-
-* [middy](#middy) : <code>function</code>
-* [useFunction](#useFunction) ⇒ [<code>middy</code>](#middy)
-* [middlewareAttachFunction](#middlewareAttachFunction) ⇒ [<code>middy</code>](#middy)
-* [middlewareNextFunction](#middlewareNextFunction) : <code>function</code>
-* [middlewareFunction](#middlewareFunction) ⇒ <code>void</code> \| <code>Promise</code>
-* [middlewareObject](#middlewareObject) : <code>Object</code>
-
-<a name="middy"></a>
-
-## middy(handler) ⇒ [<code>middy</code>](#middy)
-Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
-
-**Kind**: global function  
-**Returns**: [<code>middy</code>](#middy) - - a `middy` instance  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| handler | <code>function</code> | your original AWS Lambda function |
-
-<a name="middy"></a>
-
-## middy : <code>function</code>
-**Kind**: global typedef  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| event | <code>Object</code> | the AWS Lambda event from the original handler |
-| context | <code>Object</code> | the AWS Lambda context from the original handler |
-| callback | <code>function</code> | the AWS Lambda callback from the original handler |
-
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| use | [<code>useFunction</code>](#useFunction) | attach a new middleware |
-| before | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *before-only* middleware |
-| after | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *after-only* middleware |
-| onError | [<code>middlewareAttachFunction</code>](#middlewareAttachFunction) | attach a new *error-handler-only* middleware |
-| __middlewares | <code>Object</code> | contains the list of all the attached   middlewares organised by type (`before`, `after`, `onError`). To be used only   for testing and debugging purposes |
-
-<a name="useFunction"></a>
-
-## useFunction ⇒ [<code>middy</code>](#middy)
-**Kind**: global typedef  
-
-| Type | Description |
-| --- | --- |
-| [<code>middlewareObject</code>](#middlewareObject) | the middleware object to attach |
-
-<a name="middlewareAttachFunction"></a>
-
-## middlewareAttachFunction ⇒ [<code>middy</code>](#middy)
-**Kind**: global typedef  
-
-| Type | Description |
-| --- | --- |
-| [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach |
-
-<a name="middlewareNextFunction"></a>
-
-## middlewareNextFunction : <code>function</code>
-**Kind**: global typedef  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| error | <code>error</code> | An optional error object to pass in case an error occurred |
-
-<a name="middlewareFunction"></a>
-
-## middlewareFunction ⇒ <code>void</code> \| <code>Promise</code>
-**Kind**: global typedef  
-**Returns**: <code>void</code> \| <code>Promise</code> - - A middleware can return a Promise instead of using the `next` function as a callback.
-                         In this case middy will wait for the promise to resolve (or reject) and it will automatically
-                         propagate the result to the next middleware.  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| handler | <code>function</code> | the original handler function.   It will expose properties `event`, `context`, `response`, `error` and `callback` that can   be used to interact with the middleware lifecycle |
-| next | [<code>middlewareNextFunction</code>](#middlewareNextFunction) | the callback to invoke to pass the control to the next middleware |
-
-<a name="middlewareObject"></a>
-
-## middlewareObject : <code>Object</code>
-**Kind**: global typedef  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| before | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *before* middleware |
-| after | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *after* middleware |
-| onError | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *error* middleware |
-
 
 
 ## Contributing

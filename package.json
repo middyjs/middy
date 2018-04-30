@@ -1,29 +1,17 @@
 {
-  "name": "middy",
-  "version": "0.13.0",
+  "name": "middy-monorepo",
+  "version": "1.0.0-alpha.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
-  "main": "./index.js",
-  "files": [
-    "src",
-    "index.js",
-    "index.d.ts",
-    "middlewares.js",
-    "middlewares.d.ts",
-    "!__tests__"
-  ],
-  "types": "./index.d.ts",
+  "engines": {
+    "node": ">=6.10"
+  },
+  "engineStrict": true,
   "scripts": {
+    "test": "npm run test:lint && npm run test:packages",
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
-    "test:typings": "typings-tester --config tsconfig.json index.d.ts middlewares.d.ts",
-    "test:unit": "jest --verbose --coverage",
-    "test:unit:watch": "jest --verbose --coverage --watch",
-    "test": "npm run test:lint && npm run test:unit",
-    "build:readme": "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
-    "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
-    "build": "npm run build:docs && npm run build:readme",
+    "test:packages": "lerna run --parallel test",
     "release:tag": "git tag $npm_package_version && git push --tags",
-    "coverage:submit": "codecov",
-    "precommit": "npm run build"
+    "coverage:submit": "codecov"
   },
   "repository": {
     "type": "git",
@@ -47,38 +35,17 @@
     "aws-sdk": "2.221.1",
     "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
-    "codecov": "^3.0.0",
+    "codecov": "^3.0.1",
     "eslint": "^4.4.1",
     "eslint-config-standard": "^10.2.1",
     "eslint-plugin-import": "^2.7.0",
     "eslint-plugin-node": "^6.0.0",
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-standard": "^3.0.1",
-    "husky": "^0.14.3",
-    "jest": "^22.0.0",
-    "jsdoc": "^3.5.5",
-    "jsdoc-to-markdown": "^4.0.1",
-    "marked": "^0.3.12",
+    "jest": "^22.4.3",
+    "lerna": "^2.11.0",
     "regenerator-runtime": "^0.11.0",
     "typescript": "^2.8.1",
     "typings-tester": "^0.3.1"
-  },
-  "dependencies": {
-    "@types/aws-lambda": "^8.10.1",
-    "@types/http-errors": "^1.6.1",
-    "ajv": "^6.0.0",
-    "ajv-i18n": "^3.1.0",
-    "ajv-keywords": "^3.0.0",
-    "content-type": "^1.0.4",
-    "http-errors": "^1.6.2",
-    "json-mask": "^0.3.8",
-    "negotiator": "^0.6.1",
-    "qs": "^6.5.0",
-    "querystring": "^0.2.0"
-  },
-  "jest": {
-    "collectCoverageFrom": [
-      "src/**/*.js"
-    ]
   }
 }
