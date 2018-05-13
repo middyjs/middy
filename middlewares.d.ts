@@ -1,7 +1,7 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
 import { HttpError } from 'http-errors'
-import middy from './src/middy'
+import middy from './'
 
 interface ICorsOptions {
   origin: string;
