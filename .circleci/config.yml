@@ -13,27 +13,31 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "package.json" }}
           - v1-dependencies-
-      
+
       - run:
           name: configure NPM registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
 
       - run:
-          name: install dependencies
-          command: npm install
+          name: install lerna
+          command: sudo npm i -g lerna
+
+      - run:
+          name: lerna bootstrap
+          command: lerna bootstrap
 
       - save_cache:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
-        
+
       - run:
           name: unit tests
           command: npm test
-          
-      - run:
-          name: coverage reporting
-          command: npm run coverage:submit
+
+      # - run:
+      #     name: coverage reporting
+      #     command: npm run coverage:submit
 
       - deploy:
           name: publish
