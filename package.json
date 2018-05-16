@@ -44,6 +44,9 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.1",
+    "@types/http-errors": "^1.6.1",
+    "@types/node": "^8.0.57",
     "aws-sdk": "2.221.1",
     "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
@@ -60,16 +63,15 @@
     "jsdoc-to-markdown": "^4.0.1",
     "marked": "^0.3.12",
     "regenerator-runtime": "^0.11.0",
-    "typescript": "^2.8.1",
+    "typescript": "^2.8.3",
     "typings-tester": "^0.3.1"
   },
   "dependencies": {
-    "@types/aws-lambda": "^8.10.1",
-    "@types/http-errors": "^1.6.1",
     "ajv": "^6.0.0",
     "ajv-i18n": "^3.1.0",
     "ajv-keywords": "^3.0.0",
     "content-type": "^1.0.4",
+    "global": "^4.3.2",
     "http-errors": "^1.6.2",
     "json-mask": "^0.3.8",
     "negotiator": "^0.6.1",
