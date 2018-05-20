@@ -1,6 +1,6 @@
 {
   "name": "@middy/s3-key-normalizer",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "S3 key normalizer middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -28,8 +28,8 @@
     "S3 Key Normalizer"
   ],
   "author": {
-    "name" : "Middy contributors",
-    "url" : "https://github.com/middyjs/middy/graphs/contributors"
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
   },
   "repository": {
     "type": "git",

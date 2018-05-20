@@ -10,8 +10,8 @@
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/middy">
-    <img src="https://badge.fury.io/js/middy.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fcore">
+    <img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://circleci.com/gh/middyjs/middy">
     <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield" alt="CircleCI" style="max-width:100%;">

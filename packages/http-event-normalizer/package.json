@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-event-normalizer",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Http event normalizer middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -28,8 +28,8 @@
     "Event normalizer"
   ],
   "author": {
-    "name" : "Middy contributors",
-    "url" : "https://github.com/middyjs/middy/graphs/contributors"
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
   },
   "repository": {
     "type": "git",

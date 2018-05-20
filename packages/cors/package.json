@@ -1,6 +1,6 @@
 {
   "name": "@middy/cors",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -27,8 +27,8 @@
     "Cross-Origin Resource Sharing"
   ],
   "author": {
-    "name" : "Middy contributors",
-    "url" : "https://github.com/middyjs/middy/graphs/contributors"
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
   },
   "repository": {
     "type": "git",

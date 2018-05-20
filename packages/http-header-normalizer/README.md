@@ -10,8 +10,8 @@
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/@middy/http-header-normalizer">
-    <img src="https://badge.fury.io/js/@middy/http-header-normalizer.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fhttp-header-normalizer">
+    <img src="https://badge.fury.io/js/%40middy%2Fhttp-header-normalizer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">

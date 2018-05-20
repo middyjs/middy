@@ -1,6 +1,6 @@
 {
   "name": "@middy/cache",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "Cache middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -26,8 +26,8 @@
     "Cache"
   ],
   "author": {
-    "name" : "Middy contributors",
-    "url" : "https://github.com/middyjs/middy/graphs/contributors"
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
   },
   "repository": {
     "type": "git",
