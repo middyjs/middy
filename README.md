@@ -1,3 +1,5 @@
+# Middy
+
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
 </div>
@@ -13,9 +15,6 @@
   </a>
   <a href="https://circleci.com/gh/middyjs/middy">
     <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield" alt="CircleCI" style="max-width:100%;">
-  </a>
-  <a href="https://codecov.io/gh/middyjs/middy">
-    <img src="https://codecov.io/gh/middyjs/middy/branch/master/graph/badge.svg" alt="codecov" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -33,98 +32,79 @@
 </div>
 
 
-## TOC
+## What is Middy
 
- - [A little appetizer](#a-little-appetizer)
- - [Install](#install)
- - [Requirements](#requirements)
- - [Why?](#why)
- - [Usage](#usage)
- - [How it works](#how-it-works)
- - [Writing a middleware](#writing-a-middleware)
- - [Available middlewares](#available-middlewares)
- - [Contributing](#contributing)
- - [License](#license)
+Middy is a very simple middleware engine that allows to simplify your AWS Lambda code when using Node.js.
+
+If you are used to web frameworks like Express, than you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
+
+A middleware engine allows you to focus on the strict business logic of your Lambda and then attach additional common elements like authentication, authorization, validation, serialization, etc. in a modular and reusable way by decorating the main business logic.
 
 
-## A little appetizer
+## Install
 
-Middy is a very simple middleware engine. If you are used to web frameworks like
-express, than you will be familiar with the concepts adopted in Middy and you will
-be able to get started very quickly.
+To install middy you can use NPM:
 
-But code is better than 10,000 words, so let's jump into an example.
+```bash
+npm install --save @middy/core
+```
+
+
+## Quick example
+
+code is better than 10,000 words, so let's jump into an example.
 Let's assume you are building a JSON API to process a payment:
 
 ```javascript
 # handler.js
 
-const middy = require('middy')
-const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
+// import core
+const middy = require('@middy/core')
 
-// This is your common handler, in no way different than what you are used to doing every day
-// in AWS Lambda
+// import some middlewares
+const urlEncodeBodyParser = require('@middy/http-urlencode-body-parser')
+const httpErrorHandler = require('@middy/http-error-handler')
+const validator = require('@middy/validator')
+
+// This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
 const processPayment = (event, context, callback) => {
-  // we don't need to deserialize the body ourself as a middleware will be used to do that
-  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
+ // we don't need to deserialize the body ourself as a middleware will be used to do that
+ const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
-  // do stuff with this data
-  // ...
+ // do stuff with this data
+ // ...
 
-  return callback(null, { result: 'success', message: 'payment processed correctly'})
+ return callback(null, { result: 'success', message: 'payment processed correctly'})
 }
 
 // Notice that in the handler you only added base business logic (no deserilization,
 // validation or error handler), we will add the rest with middlewares
 
 const inputSchema = {
-  type: 'object',
-  properties: {
-    body: {
-      type: 'object',
-      properties: {
-        creditCardNumber: { type: 'string', minLength: 12, maxLength: 19, pattern: '\d+' },
-        expiryMonth: { type: 'integer', minimum: 1, maximum: 12 },
-        expiryYear: { type: 'integer', minimum: 2017, maximum: 2027 },
-        cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
-        nameOnCard: { type: 'string' },
-        amount: { type: 'number' }
-      }
-    }
-  }
+ type: 'object',
+ properties: {
+   body: {
+     type: 'object',
+     properties: {
+       creditCardNumber: { type: 'string', minLength: 12, maxLength: 19, pattern: '\d+' },
+       expiryMonth: { type: 'integer', minimum: 1, maximum: 12 },
+       expiryYear: { type: 'integer', minimum: 2017, maximum: 2027 },
+       cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
+       nameOnCard: { type: 'string' },
+       amount: { type: 'number' }
+     }
+   }
+ }
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
-  .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
-  .use(validator({inputSchema})) // validates the input
-  .use(httpErrorHandler()) // handles common http errors and returns proper responses
+ .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
+ .use(validator({inputSchema})) // validates the input
+ .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
 module.exports = { handler }
 ```
-
-
-## Install
-
-As simple as:
-
-```bash
-npm install middy
-```
-
-or
-
-```bash
-yarn add middy
-```
-
-## Requirements
-
-Middy has been built to work by default from **Node >= 6.10**.
-
-If you need to run it in earlier versions of Node (eg. 4.3) then you will have to
-*transpile* middy's code yourself using [babel](https://babeljs.io/) or a similar tool.
-
 
 ## Why?
 
@@ -169,10 +149,14 @@ simple and requires just few steps:
 Example:
 
 ```javascript
-const middy = require('middy')
-const { middleware1, middleware2, middleware3 } = require('middy/middlewares')
+const middy = require('@middy/core')
+const middleware1 = require('sample-middleware1')
+const middleware2 = require('sample-middleware2')
+const middleware3 = require('sample-middleware3')
 
-const originalHandler = (event, context, callback) => { /* your business logic */ }
+const originalHandler = (event, context, callback) => {
+  /* your business logic */
+}
 
 const handler = middy(originalHandler)
 
@@ -435,7 +419,7 @@ module.exports = myMiddleware
 With this convention in mind, using a middleware will always look like the following example:
 
 ```javascript
-const middy = require('middy')
+const middy = require('@middy/core')
 const myMiddleware = require('myMiddleware')
 
 const handler = middy((event, context, callback) => {
@@ -463,7 +447,7 @@ logic into Middy's control flow.
 Let's see how inline middlewares work with a simple example:
 
 ```javascript
-const middy = require('middy')
+const middy = require('@middy/core')
 
 const handler = middy((event, context, callback) => {
   // do stuff
@@ -501,25 +485,21 @@ on how to write a middleware.
 
 Currently available middlewares:
 
- - [`cache`](/docs/middlewares.md#cache): A simple but flexible caching layer
- - [`cors`](/docs/middlewares.md#cors): Sets CORS headers on response
- - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
- - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
- - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
- - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
- - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
- - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
- - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+ - [`cache`](/packages/cache): A simple but flexible caching layer
+ - [`cors`](/packages/cors): Sets CORS headers on response
+ - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+ - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+ - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+ - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
+ - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
+ - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHandler`.
- - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
- - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
- - [`validator`](/docs/middlewares.md#validator): Automatically validates incoming events and outgoing responses against custom schemas
- - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
- - [`warmup`](/docs/middlewares.md#warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
-
-
-For dedicated documentation on available middlewares check out the [Middlewares
-documentation](/docs/middlewares.md)
+ - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
+ - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
+ - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
+ - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
+ - [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
 
 
 ## Contributing
