@@ -11,7 +11,7 @@
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
     "test:packages": "lerna run --parallel test",
     "release:tag": "git tag $npm_package_version && git push --tags",
-    "lerna:publish": "lerna publish --canary --npm-tag next"
+    "lerna:publish": "lerna publish --yes --skip-git --npm-tag next"
   },
   "repository": {
     "type": "git",
