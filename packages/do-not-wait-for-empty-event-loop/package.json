@@ -6,6 +6,9 @@
     "node": ">=6.10"
   },
   "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "jest",
