@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "engines": {
     "node": ">=6.10"
@@ -12,7 +12,7 @@
     "test:packages": "lerna run --parallel test",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:sync": "lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
-    "lerna:publish": "lerna publish --yes --skip-git --npm-tag next --repo-version $npm_package_version"
+    "lerna:publish": "lerna publish --yes --skip-git --repo-version $npm_package_version"
   },
   "repository": {
     "type": "git",
