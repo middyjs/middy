@@ -1,17 +1,17 @@
-# Middy http-event-normalizer middleware
+# Middy http-header-normalizer middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>HTTP event normalizer middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>HTTP header normalizer middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/@middy/http-event-normalizer">
-    <img src="https://badge.fury.io/js/@middy/http-event-normalizer.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/@middy/http-header-normalizer">
+    <img src="https://badge.fury.io/js/@middy/http-header-normalizer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -28,49 +28,45 @@
 </p>
 </div>
 
-If you need to access the query string or path parameters in an API Gateway event you
-can do so by reading the attributes in `event.queryStringParameters` and
-`event.pathParameters`, for example: `event.pathParameters.userId`. Unfortunately
-if there are no parameters for these parameter holders, the relevant key `queryStringParameters`
-or `pathParameters` won't be available in the object, causing an expression like `event.pathParameters.userId`
-to fail with the error: `TypeError: Cannot read property 'userId' of undefined`.
+This middleware normalizes HTTP header names to their canonical format. Very useful if clients are
+not using the canonical names of header (e.g. `content-type` as opposed to `Content-Type`).
 
-A simple solution would be to add an `if` statement to verify if the `pathParameters` (or `queryStringParameters`)
-exists before accessing one of its parameters, but this approach is very verbose and error prone.
+API Gateway does not perform any normalization, so the headers are propagated to Lambda
+exactly as they were sent by the client.
 
-This middleware normalizes the API Gateway event, making sure that an object for
-`queryStringParameters` and `pathParameters` is always available (resulting in empty objects
-when no parameter is available), this way you don't have to worry about adding extra `if`
-statements before trying to read a property and calling `event.pathParameters.userId` will
-result in `undefined` when no path parameter is available, but not in an error.
+Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyParser`](#urlencodebodyparser)
+will rely on headers to be in the canonical format, so if you want to support non-normalized headers in your
+app you have to use this middleware before those ones.
 
+This middleware will copy the original headers in `event.rawHeaders`.
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/http-event-normalizer
+npm install --save @middy/http-header-normalizer
 ```
 
 
 ## Options
 
-This middleware does not have any option
+ - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
+  canonical representation.
 
 
 ## Sample usage
 
 ```javascript
 const middy = require('@middy/core')
-const httpEventNormalizer = require('@middy/http-event-normalizer')
+const httpHeaderNormalizer = require('@middy/http-header-normalizer')
 
 const handler = middy((event, context, cb) => {
-  console.log(`Hello user ${event.pathParameters.userId}`) // might produce `Hello user #undefined`, but not an error
   cb(null, {})
 })
 
-handler.use(httpEventNormalizer())
+handler
+  .use(httpHeaderNormalizer())
 ```
 
 

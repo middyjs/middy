@@ -42,6 +42,6 @@ jobs:
       - deploy:
           name: publish
           command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]; then
-              npm publish && npm run release:tag;
+            if [ "${CIRCLE_BRANCH}" == "1.0.0-alpha" ]; then
+              npm run lerna:publish && npm run release:tag;
             fi
