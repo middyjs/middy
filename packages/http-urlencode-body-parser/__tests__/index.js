@@ -26,6 +26,30 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
     })
   })
 
+  test('It should decode simple url encoded requests with lowercase header', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as response
+    })
+
+    handler.use(urlEncodeBodyParser({extended: false}))
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: 'frappucino=muffin&goat%5B%5D=scone&pond=moose'
+    }
+
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual({
+        frappucino: 'muffin',
+        'goat[]': 'scone',
+        pond: 'moose'
+      })
+    })
+  })
+
   test('It should decode complex url encoded requests using extended option', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as response
