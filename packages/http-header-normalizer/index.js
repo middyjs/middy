@@ -35,9 +35,13 @@ module.exports = (opts) => {
     return acc
   }, {})
 
-  const normalizeHeaderKey = (key) => {
+  const normalizeHeaderKey = (key, camelCase) => {
     if (exceptions[key.toLowerCase()]) {
       return exceptions[key.toLowerCase()]
+    }
+
+    if (!camelCase) {
+      return key.toLowerCase()
     }
 
     return key
@@ -49,7 +53,8 @@ module.exports = (opts) => {
   }
 
   const defaults = {
-    normalizeHeaderKey
+    normalizeHeaderKey,
+    camelCase: false
   }
 
   const options = Object.assign({}, defaults, opts)
@@ -62,7 +67,7 @@ module.exports = (opts) => {
 
         Object.keys(handler.event.headers).forEach((key) => {
           rawHeaders[key] = handler.event.headers[key]
-          headers[options.normalizeHeaderKey(key)] = handler.event.headers[key]
+          headers[options.normalizeHeaderKey(key, options.camelCase)] = handler.event.headers[key]
         })
 
         handler.event.headers = headers

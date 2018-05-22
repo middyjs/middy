@@ -2,6 +2,7 @@ import middy from '../core'
 
 interface IHTTPHeaderNormalizerOptions {
   normalizeHeaderKey?: (key: string) => string;
+  camelCase?: Boolean;
 }
 
 declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
