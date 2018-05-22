@@ -21,7 +21,8 @@ module.exports = (opts) => {
     const plural = singular + 's'
     const resultsName = `preferred${plural}`
     const resultName = `preferred${singular}`
-    event[resultsName] = parseFn(event.headers[headerName], availableValues)
+    const headerValue = event.headers[headerName.toLowerCase()] || event.headers[headerName]
+    event[resultsName] = parseFn(headerValue, availableValues)
     event[resultName] = event[resultsName][0]
 
     if (typeof event[resultName] === 'undefined' && failOnMismatch) {

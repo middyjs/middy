@@ -7,8 +7,9 @@ const defaults = {
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
 
-  if (options.credentials && options.origin === '*' && handler.event.headers.hasOwnProperty('Origin')) {
-    return handler.event.headers.Origin
+  const origin = handler.event.headers['origin'] || handler.event.headers['Origin']
+  if (options.credentials && options.origin === '*' && origin) {
+    return origin
   }
   return options.origin
 }
