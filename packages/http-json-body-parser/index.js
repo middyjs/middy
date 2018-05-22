@@ -4,7 +4,7 @@ const contentType = require('content-type')
 module.exports = () => ({
   before: (handler, next) => {
     if (handler.event.headers) {
-      const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type'];
+      const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
       if (contentTypeHeader) {
         const { type } = contentType.parse(contentTypeHeader)
         if (type === 'application/json') {
