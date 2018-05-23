@@ -1,6 +1,6 @@
 {
   "name": "@middy/cors",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
