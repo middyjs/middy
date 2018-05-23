@@ -486,9 +486,9 @@ on how to write a middleware.
 Currently available middlewares:
 
  - [`cache`](/packages/cache): A simple but flexible caching layer
- - [`cors`](/packages/cors): Sets CORS headers on response
  - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+ - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
  - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
  - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format

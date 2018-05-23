@@ -28,7 +28,7 @@
 </p>
 </div>
 
-This middleware sets CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.
+This middleware sets HTTP CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.
 
 Sets headers in `after` and `onError` phases.
 
@@ -38,7 +38,7 @@ Sets headers in `after` and `onError` phases.
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/cors
+npm install --save @middy/http-cors
 ```
 
 
@@ -52,8 +52,8 @@ npm install --save @middy/cors
 ## Sample usage
 
 ```javascript
-const middy = require('middy')
-const { cors } = require('middy/middlewares')
+const middy = require('@middy/core')
+const { cors } = require('@middy/http-cors')
 
 const handler = middy((event, context, cb) => {
   cb(null, {})
