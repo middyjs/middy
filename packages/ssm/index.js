@@ -28,10 +28,7 @@ module.exports = opts => {
         const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
         return paths.reduce((subAggregator, path) => {
           subAggregator.push(
-            ssmInstance
-              .getParametersByPath({ Path: path, Recursive: true, WithDecryption: true })
-              .promise()
-              .then(handleInvalidParams)
+            getParamsByPathRecursively(path)
               .then(ssmResponse => getParamsToAssignByPath(path, ssmResponse, prefix, options.getParamNameFromPath))
           )
 
@@ -59,6 +56,20 @@ module.exports = opts => {
       })
     }
   }
+}
+
+const getParamsByPathRecursively = (path, nextToken) => {
+  return ssmInstance
+    .getParametersByPath({ Path: path, NextToken: nextToken, Recursive: true, WithDecryption: true })
+    .promise()
+    .then(paramsResponse => {
+      const additionalParamsPromise = paramsResponse.NextToken
+        ? getParamsByPathRecursively(path, paramsResponse.NextToken)
+        : Promise.resolve([])
+
+      return additionalParamsPromise
+        .then(additionalParams => [...paramsResponse.Parameters, ...additionalParams])
+    })
 }
 
 // returns full parameter name sans the path as specified, with slashes replaced with underscores and any prefix applied
