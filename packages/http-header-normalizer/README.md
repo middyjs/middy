@@ -53,6 +53,7 @@ npm install --save @middy/http-header-normalizer
 
  - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
   canonical representation.
+ - `canonical` (bool) (optional): if true, modifies the headers to canonical format, otherwise the headers are normalized to lowercase (default `false`)
 
 
 ## Sample usage

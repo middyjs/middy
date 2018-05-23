@@ -10,11 +10,14 @@ module.exports = (opts) => ({
 
     const parserFn = options.extended ? require('qs').parse : require('querystring').decode
 
-    if (handler.event.headers && handler.event.headers['Content-Type']) {
-      const { type } = contentType.parse(handler.event.headers['Content-Type'])
+    if (handler.event.headers) {
+      const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
+      if (contentTypeHeader) {
+        const { type } = contentType.parse(contentTypeHeader)
 
-      if (type === 'application/x-www-form-urlencoded') {
-        handler.event.body = parserFn(handler.event.body)
+        if (type === 'application/x-www-form-urlencoded') {
+          handler.event.body = parserFn(handler.event.body)
+        }
       }
     }
 

@@ -21,6 +21,25 @@ describe('📦  Middleware JSON Body Parser', () => {
     })
   })
 
+  test('It should parse a JSON request with lowercase header', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(jsonBodyParser())
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({foo: 'bar'})
+    }
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual({foo: 'bar'})
+    })
+  })
+
   test('It should handle invalid JSON as an UnprocessableEntity', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response

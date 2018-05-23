@@ -263,6 +263,34 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
+  test('It should use change credentials as specified in options (true) with lowercase header', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        credentials: true
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        origin: 'http://example-lowercase.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'http://example-lowercase.com'
+        }
+      })
+    })
+  })
+
   test('It should not change anything if HTTP method is not present in the request', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
