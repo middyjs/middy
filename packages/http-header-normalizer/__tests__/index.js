@@ -36,11 +36,11 @@ describe('👺 Middleware Http Header Normalizer', () => {
     })
   })
 
-  test('It should normalize (camelCase) all the headers and create a copy in rawHeaders', (endTest) => {
+  test('It should normalize (canonical) all the headers and create a copy in rawHeaders', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
     handler
-      .use(httpHeaderNormalizer({camelCase: true}))
+      .use(httpHeaderNormalizer({canonical: true}))
 
     const event = {
       headers: {
