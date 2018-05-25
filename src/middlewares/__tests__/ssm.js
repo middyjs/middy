@@ -91,7 +91,7 @@ describe('🔒 SSM Middleware', () => {
       },
       callbacks: [
         () => {
-          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/key_name'], 'WithDecryption': true})
+          expect(getParametersMock).toBeCalled()
           getParametersMock.mockReset()
         },
         () => {
@@ -291,7 +291,7 @@ describe('🔒 SSM Middleware', () => {
       callbacks: [
         () => {
           expect(process.env.KEY_NAME).toEqual('key-value')
-          expect(process.env.PREFIX_SERVICE_NAME_KEY_NAME).toEqual('key-value')        
+          expect(process.env.PREFIX_SERVICE_NAME_KEY_NAME).toEqual('key-value')
         }
       ],
       done
