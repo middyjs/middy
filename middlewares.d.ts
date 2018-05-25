@@ -2,7 +2,6 @@ import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
 import { HttpError } from 'http-errors'
 import middy from './'
-import { int } from 'aws-sdk/clients/datapipeline';
 
 interface ICorsOptions {
   origin: string;
@@ -48,7 +47,7 @@ interface IHTTPPartialResponseOptions {
 
 interface ISSMOptions {
   cache?: boolean;
-  cacheExpiryInMillis?: int;
+  cacheExpiryInMillis?: number;
   paths?: { [key: string]: string; };
   names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
