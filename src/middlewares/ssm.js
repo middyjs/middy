@@ -1,4 +1,3 @@
-let paramsLoaded = false
 let ssmInstance
 
 module.exports = opts => {
@@ -12,14 +11,16 @@ module.exports = opts => {
     getParamNameFromPath: getParamNameFromPathDefault,
     setToContext: false,
     cache: false,
-    paramsLoaded: paramsLoaded
+    cacheExpiryInMillis: undefined,
+    paramsLoaded: false,
+    paramsLoadedAt: new Date(0)
   }
 
   const options = Object.assign({}, defaults, opts)
 
   return {
     before: (handler, next) => {
-      if (options.cache && options.paramsLoaded) return next()
+      if (!shouldFetchFromParamStore(options)) return next()
 
       ssmInstance = ssmInstance || getSSMInstance(options.awsSdkOptions)
 
@@ -55,10 +56,28 @@ module.exports = opts => {
         objectsToMap.forEach(object => {
           Object.assign(targetParamsObject, object)
         })
-        paramsLoaded = true
+        options.paramsLoaded = true
+        options.paramsLoadedAt = new Date()
       })
     }
   }
+}
+
+const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheExpiryInMillis }) => {
+  // if caching is OFF, or we haven't loaded anything yet, then definitely load it from SSM
+  if (!cache || !paramsLoaded) {
+    return true
+  }
+
+  // if caching is ON, and cache expiration is ON, and enough time has passed, then also load it from SSM
+  const now = new Date()
+  const millisSinceLastLoad = now.getTime() - paramsLoadedAt.getTime()
+  if (cache && cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
+    return true
+  }
+
+  // otherwise, don't bother
+  return false
 }
 
 // returns full parameter name sans the path as specified, with slashes replaced with underscores and any prefix applied

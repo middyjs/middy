@@ -3,6 +3,7 @@ jest.mock('aws-sdk')
 const {SSM} = require('aws-sdk')
 const middy = require('../../middy')
 const ssm = require('../ssm')
+const Promise = require('bluebird')
 
 describe('🔒 SSM Middleware', () => {
   const getParametersMock = jest.fn()
@@ -20,7 +21,7 @@ describe('🔒 SSM Middleware', () => {
     delete process.env.SERVICE_NAME_MONGO_URL
   })
 
-  function testScenario ({ssmMockResponse, middlewareOptions, context = {}, cb}) {
+  const testScenario = ({ssmMockResponse, middlewareOptions, callbacks, done, delay = 0}) => {
     getParametersMock.mockReturnValueOnce({
       promise: () => Promise.resolve(ssmMockResponse)
     })
@@ -35,9 +36,27 @@ describe('🔒 SSM Middleware', () => {
     handler.use(ssm(middlewareOptions))
 
     const event = {}
-    handler(event, context, (error, response) => {
-      cb(error, {event, context, response})
+    let promise = Promise.resolve()
+    callbacks.forEach(cb => {
+      let context = {}
+      promise = promise.then(() => {
+        return new Promise((resolve, reject) => {
+          handler(event, context, (error, response) => {
+            try {
+              cb(error, {event, context, response})
+              resolve()
+            } catch (err) {
+              reject(err)
+            }
+          })
+        })
+      }).then(() => {
+        if (delay) {
+          return Promise.delay(delay)
+        }
+      })
     })
+    promise.then(done).catch(err => done(err))
   }
 
   test(`It should set SSM param value to environment variable by default`, (done) => {
@@ -50,17 +69,16 @@ describe('🔒 SSM Middleware', () => {
           MONGO_URL: '/dev/service_name/mongo_url'
         }
       },
-      cb () {
-        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+        }
+      ],
+      done
     })
   })
 
   test(`It should not call aws-sdk again if parameter is cached in env`, (done) => {
-    // simulate already cached value
-    process.env.MONGO_URL = 'some-value'
-
     testScenario({
       ssmMockResponse: {
         Parameters: [{Name: '/dev/service_name/mongo_url', Value: 'my-mongo-url'}]
@@ -71,10 +89,16 @@ describe('🔒 SSM Middleware', () => {
         },
         cache: true
       },
-      cb () {
-        expect(getParametersMock).not.toBeCalled()
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/mongo_url'], 'WithDecryption': true})
+          getParametersMock.mockReset()
+        },
+        () => {
+          expect(getParametersMock).not.toBeCalled()
+        }
+      ],
+      done
     })
   })
 
@@ -94,10 +118,16 @@ describe('🔒 SSM Middleware', () => {
         cache: true,
         setToContext: true
       },
-      cb () {
-        expect(getParametersMock).not.toBeCalled()
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+          getParametersMock.mockReset()
+        },
+        () => {
+          expect(getParametersMock).not.toBeCalled()
+        }
+      ],
+      done
     })
   })
 
@@ -114,10 +144,68 @@ describe('🔒 SSM Middleware', () => {
         setToContext: true,
         paramsLoaded: false
       },
-      cb () {
-        expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+        }
+      ],
+      done
+    })
+  })
+
+  test(`It should call aws-sdk if cache enabled but cached param has expired`, (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
+      },
+      middlewareOptions: {
+        names: {
+          secureValue: '/dev/service_name/secure_param'
+        },
+        cache: true,
+        cacheExpiryInMillis: 10,
+        setToContext: true,
+        paramsLoaded: false
+      },
+      callbacks: [
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+          getParametersMock.mockReset()
+        },
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+        }
+      ],
+      done,
+      delay: 20 // 20 > 10, so cache has expired
+    })
+  })
+
+  test(`It should not call aws-sdk if cache enabled and cached param has not expired`, (done) => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
+      },
+      middlewareOptions: {
+        names: {
+          secureValue: '/dev/service_name/secure_param'
+        },
+        cache: true,
+        cacheExpiryInMillis: 50,
+        setToContext: true,
+        paramsLoaded: false
+      },
+      callbacks: [
+        () => {
+          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
+          getParametersMock.mockReset()
+        },
+        () => {
+          expect(getParametersMock).not.toBeCalled()
+        }
+      ],
+      done,
+      delay: 20 // 20 < 50, so cache has not expired
     })
   })
 
@@ -132,10 +220,12 @@ describe('🔒 SSM Middleware', () => {
         },
         setToContext: true
       },
-      cb (_, {context}) {
-        expect(context.secureValue).toEqual('something-secure')
-        done()
-      }
+      callbacks: [
+        (_, {context}) => {
+          expect(context.secureValue).toEqual('something-secure')
+        }
+      ],
+      done
     })
   })
 
@@ -150,10 +240,12 @@ describe('🔒 SSM Middleware', () => {
           anotherInvalidParam: 'another-invalid-ssm-param'
         }
       },
-      cb (error) {
-        expect(error.message).toEqual('InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param')
-        done()
-      }
+      callbacks: [
+        (error) => {
+          expect(error.message).toEqual('InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param')
+        }
+      ],
+      done
     })
   })
 
@@ -161,10 +253,12 @@ describe('🔒 SSM Middleware', () => {
     testScenario({
       ssmMockResponse: {},
       middlewareOptions: {},
-      cb (error) {
-        expect(error).toBeFalsy()
-        done()
-      }
+      callbacks: [
+        (error) => {
+          expect(error).toBeFalsy()
+        }
+      ],
+      done
     })
   })
 
@@ -176,10 +270,12 @@ describe('🔒 SSM Middleware', () => {
       middlewareOptions: {
         paths: {'': '/dev/service_name'}
       },
-      cb () {
-        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+        }
+      ],
+      done
     })
   })
 
@@ -191,11 +287,13 @@ describe('🔒 SSM Middleware', () => {
       middlewareOptions: {
         paths: {'': ['/dev/service_name'], 'prefix': '/dev'}
       },
-      cb () {
-        expect(process.env.MONGO_URL).toEqual('my-mongo-url')
-        expect(process.env.PREFIX_SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
-        done()
-      }
+      callbacks: [
+        () => {
+          expect(process.env.MONGO_URL).toEqual('my-mongo-url')
+          expect(process.env.PREFIX_SERVICE_NAME_MONGO_URL).toEqual('my-mongo-url')
+        }
+      ],
+      done
     })
   })
 })
