@@ -47,7 +47,6 @@
     "aws-sdk": "2.221.1",
     "babel-jest": "^22.0.0",
     "babel-preset-env": "^1.6.1",
-    "bluebird": "^3.5.1",
     "codecov": "^3.0.1",
     "eslint": "^4.4.1",
     "eslint-config-standard": "^10.2.1",

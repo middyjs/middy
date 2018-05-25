@@ -3,7 +3,6 @@ jest.mock('aws-sdk')
 const {SSM} = require('aws-sdk')
 const middy = require('../../middy')
 const ssm = require('../ssm')
-const Promise = require('bluebird')
 
 describe('🔒 SSM Middleware', () => {
   const getParametersMock = jest.fn()
@@ -52,7 +51,9 @@ describe('🔒 SSM Middleware', () => {
         })
       }).then(() => {
         if (delay) {
-          return Promise.delay(delay)
+          return new Promise((resolve, reject) => {
+            setTimeout(resolve, delay)
+          })
         }
       })
     })
