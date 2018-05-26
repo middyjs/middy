@@ -450,6 +450,7 @@ For each parameter defined by name, you also provide the name under which its va
 ### Options
 
 - `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS SSM
+- `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached parameter values from SSM
 - `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where the key is the prefix for the destination name, and value is the SSM path. Example: `{paths: {DB_: '/dev/service/db'}}`
 - `names` (object) (optional*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`

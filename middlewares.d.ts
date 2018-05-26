@@ -47,6 +47,7 @@ interface IHTTPPartialResponseOptions {
 
 interface ISSMOptions {
   cache?: boolean;
+  cacheExpiryInMillis?: number;
   paths?: { [key: string]: string; };
   names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
