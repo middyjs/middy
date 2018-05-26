@@ -52,6 +52,7 @@ npm install --save @middy/ssm
 
 - `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS SSM
 - `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where the key is the prefix for the destination name, and value is the SSM path. Example: `{paths: {DB_: '/dev/service/db'}}`
+- `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached parameter values from SSM
 - `names` (object) (optional*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
