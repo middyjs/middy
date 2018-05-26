@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/node:6.10
+      - image: circleci/node:8.11
 
     working_directory: ~/middy
 
@@ -13,7 +13,7 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "package.json" }}
           - v1-dependencies-
-      
+
       - run:
           name: configure NPM registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
@@ -26,11 +26,11 @@ jobs:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
-        
+
       - run:
           name: unit tests
           command: npm test
-          
+
       - run:
           name: coverage reporting
           command: npm run coverage:submit

@@ -9,9 +9,9 @@ declare var middy: {
 declare namespace middy {
   interface IMiddy extends Handler {
     use: IMiddyUseFunction;
-    before: IMiddyMiddlewareFunction;
-    after: IMiddyMiddlewareFunction;
-    onError: IMiddyMiddlewareFunction;
+    before: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
+    after: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
+    onError: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
   }
 
   type IMiddyUseFunction = (config?: object) => IMiddy;
