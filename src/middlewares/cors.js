@@ -1,5 +1,5 @@
 const defaults = {
-  origin: '*',
+  origin: '*', // Can also be an array of whitelisted origins
   headers: null,
   credentials: false
 }
@@ -7,9 +7,20 @@ const defaults = {
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
 
-  if (options.credentials && options.origin === '*' && handler.event.headers.hasOwnProperty('Origin')) {
-    return handler.event.headers.Origin
+  if (handler.event.headers.hasOwnProperty('Origin')) {
+    if (options.credentials && options.origin === '*') {
+      return handler.event.headers.Origin
+    }
+
+    if (Array.isArray(options.origin)) {
+      if (options.origin.includes(handler.event.headers.Origin)) {
+        return handler.event.headers.Origin
+      } else {
+        return options.origin[0]
+      }
+    }
   }
+
   return options.origin
 }
 
