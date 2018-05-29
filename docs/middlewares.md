@@ -81,7 +81,7 @@ Sets headers in `after` and `onError` phases.
 
 ### Options
 
- - `origin` (string) (optional): origin to put in the header (default: "`*`")
+ - `origin` (string | array) (optional): origin to put in the header (default: "`*`"). If an array of strings is provided and the incoming origin is matched against the list it is returned. 
  - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
  - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
