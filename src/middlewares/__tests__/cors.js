@@ -84,7 +84,7 @@ describe('📦 Middleware CORS', () => {
 
     handler.use(
       cors({
-        origin: ['https://example.com', 'https://another-example.com']
+        origins: ['https://example.com', 'https://another-example.com']
       })
     )
 
@@ -109,7 +109,7 @@ describe('📦 Middleware CORS', () => {
 
     handler.use(
       cors({
-        origin: ['https://example.com', 'https://another-example.com']
+        origins: ['https://example.com', 'https://another-example.com']
       })
     )
 

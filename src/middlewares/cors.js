@@ -1,27 +1,24 @@
 const defaults = {
-  origin: '*', // Can also be an array of whitelisted origins
+  origin: '*',
+  origins: [],
   headers: null,
   credentials: false
 }
 
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
-
-  if (handler.event.headers.hasOwnProperty('Origin')) {
-    if (options.credentials && options.origin === '*') {
+  if (options.origins && options.origins.length > 0) {
+    if (handler.event.headers.hasOwnProperty('Origin') && options.origins.includes(handler.event.headers.Origin)) {
+      return handler.event.headers.Origin
+    } else {
+      return options.origins[0]
+    }
+  } else {
+    if (handler.event.headers.hasOwnProperty('Origin') && options.credentials && options.origin === '*') {
       return handler.event.headers.Origin
     }
-
-    if (Array.isArray(options.origin)) {
-      if (options.origin.includes(handler.event.headers.Origin)) {
-        return handler.event.headers.Origin
-      } else {
-        return options.origin[0]
-      }
-    }
+    return options.origin
   }
-
-  return options.origin
 }
 
 const addCorsHeaders = (opts, handler, next) => {
