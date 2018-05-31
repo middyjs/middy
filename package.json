@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
@@ -45,7 +45,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
     "aws-sdk": "2.221.1",
-    "babel-jest": "^22.0.0",
+    "babel-jest": "^23.0.1",
     "babel-preset-env": "^1.6.1",
     "codecov": "^3.0.1",
     "eslint": "^4.4.1",
@@ -55,7 +55,7 @@
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-standard": "^3.0.1",
     "husky": "^0.14.3",
-    "jest": "^22.4.3",
+    "jest": "^23.1.0",
     "jsdoc": "^3.5.5",
     "jsdoc-to-markdown": "^4.0.1",
     "marked": "^0.3.12",
