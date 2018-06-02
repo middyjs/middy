@@ -6,15 +6,16 @@ const defaults = {
 
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
+  const incomingOrigin = handler.event.headers['origin'] || handler.event.headers['Origin']
   if (options.origins && options.origins.length > 0) {
-    if (handler.event.headers.hasOwnProperty('Origin') && options.origins.includes(handler.event.headers.Origin)) {
-      return handler.event.headers.Origin
+    if (incomingOrigin && options.origins.includes(incomingOrigin)) {
+      return incomingOrigin
     } else {
       return options.origins[0]
     }
   } else {
-    if (handler.event.headers.hasOwnProperty('Origin') && options.credentials && options.origin === '*') {
-      return handler.event.headers.Origin
+    if (incomingOrigin && options.credentials && options.origin === '*') {
+      return incomingOrigin
     }
     return options.origin
   }
