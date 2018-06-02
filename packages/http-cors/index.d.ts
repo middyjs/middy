@@ -2,6 +2,7 @@ import middy from '../core'
 
 interface ICorsOptions {
   origin: string;
+  origins: string[];
   headers: string;
   credentials: boolean;
 }
