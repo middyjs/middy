@@ -4,9 +4,9 @@ import { HttpError } from 'http-errors'
 import middy from './'
 
 interface ICorsOptions {
-  origin: string;
-  headers: string;
-  credentials: boolean;
+  origin?: string;
+  headers?: string;
+  credentials?: boolean;
 }
 
 interface ICacheOptions {
