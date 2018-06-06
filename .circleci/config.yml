@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  build_node6:
     docker:
       - image: circleci/node:6.10
 
@@ -37,7 +37,7 @@ jobs:
           paths:
             - middy/*
 
-  build_next:
+  build_node8:
     docker:
       - image: circleci/node:8.10
 
@@ -94,13 +94,13 @@ workflows:
 
   build_test_deploy:
     jobs:
-        - build
-        - build_next
-        # we only deploy if build && build_next both succeed.
+        - build_node6
+        - build_node8
+        # we only deploy if build_node6 && build_node8 both succeed and if on master.
         - deploy:
             requires:
-                - build
-                - build_next
+                - build_node6
+                - build_node8
             filters:
                 branches:
                     only: master
