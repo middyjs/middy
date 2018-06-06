@@ -83,6 +83,10 @@ jobs:
             command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
 
         - run:
+            name: configure GitHub SSH
+            command: ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+        - run:
             working_directory: ~/middy
             name: publish
             command: |
