@@ -11,7 +11,7 @@
     "noEmitHelpers": true,
     "noEmitOnError": true,
     "noImplicitReturns": true,
-    "target": "es5",
+    "target": "es2015",
     "sourceMap": true,
     "strict": true,
   },
