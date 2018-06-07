@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.15.5",
+  "version": "0.15.6",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
@@ -14,10 +14,10 @@
   "types": "./index.d.ts",
   "scripts": {
     "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
-    "test:typings": "typings-tester --config tsconfig.json index.d.ts middlewares.d.ts",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts middlewares.d.ts src/__tests__/*.types.ts src/**/__tests__/*types.ts",
     "test:unit": "jest --verbose --coverage",
     "test:unit:watch": "jest --verbose --coverage --watch",
-    "test": "npm run test:lint && npm run test:unit",
+    "test": "npm run test:lint && npm run test:unit && npm run test:typings",
     "build:readme": "jsdoc2md --global-index-format grouped --template README.md.hb src/* > README.md",
     "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
@@ -44,6 +44,8 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
+    "@types/jest": "^23.0.0",
+    "@types/node": "^10.3.1",
     "aws-sdk": "^2.233.1",
     "babel-jest": "^23.0.1",
     "babel-preset-env": "^1.6.1",
@@ -60,7 +62,7 @@
     "jsdoc-to-markdown": "^4.0.1",
     "marked": "^0.3.12",
     "regenerator-runtime": "^0.11.0",
-    "typescript": "^2.8.1",
+    "typescript": "^2.8.3",
     "typings-tester": "^0.3.1"
   },
   "dependencies": {
