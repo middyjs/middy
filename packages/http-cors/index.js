@@ -6,12 +6,19 @@ const defaults = {
 
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
-
-  const origin = handler.event.headers['origin'] || handler.event.headers['Origin']
-  if (options.credentials && options.origin === '*' && origin) {
-    return origin
+  const incomingOrigin = handler.event.headers['origin'] || handler.event.headers['Origin']
+  if (options.origins && options.origins.length > 0) {
+    if (incomingOrigin && options.origins.includes(incomingOrigin)) {
+      return incomingOrigin
+    } else {
+      return options.origins[0]
+    }
+  } else {
+    if (incomingOrigin && options.credentials && options.origin === '*') {
+      return incomingOrigin
+    }
+    return options.origin
   }
-  return options.origin
 }
 
 const addCorsHeaders = (opts, handler, next) => {
