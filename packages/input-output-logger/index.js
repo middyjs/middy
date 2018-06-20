@@ -1,6 +1,6 @@
 module.exports = (opts) => {
   const defaults = {
-    logger: console.log
+    logger: data => console.log(JSON.stringify(data, null, 2))
   }
 
   const options = Object.assign({}, defaults, opts)
@@ -8,14 +8,14 @@ module.exports = (opts) => {
   return ({
     before: (handler, next) => {
       if (typeof options.logger === 'function') {
-        options.logger(handler.event)
+        options.logger({ event: handler.event })
       }
 
       return next()
     },
     after: (handler, next) => {
       if (typeof options.logger === 'function') {
-        options.logger(handler.response)
+        options.logger({ response: handler.response })
       }
 
       return next()
