@@ -5,6 +5,7 @@ import middy from './'
 
 interface ICorsOptions {
   origin?: string;
+  origins?: string[];
   headers?: string;
   credentials?: boolean;
 }

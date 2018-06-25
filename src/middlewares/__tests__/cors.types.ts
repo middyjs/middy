@@ -8,27 +8,31 @@ describe('📦 Middleware Types', () => {
       handler.use(cors());
     })
 
-    it ('has an optional origin field', () => {
+    it('can set the origin field', () => {
       const handler = middy(jest.fn());
       handler.use(cors({
-        headers: "test-case",
-        credentials: true,
+        origin: '*',
       }));
     })
 
-    it('has an optional headers field', () => {
+    it('can set the origins field', () => {
       const handler = middy(jest.fn());
       handler.use(cors({
-        origin: 'example.com',
-        credentials: true,
+        origins: ['example.com', 'example2.com'],
+      }))
+    })
+
+    it('can set the headers field', () => {
+      const handler = middy(jest.fn());
+      handler.use(cors({
+        headers: 'test-case',
       }));
     })
 
-    it('has an optional credentials field', () => {
+    it('can set the credentials field', () => {
       const handler = middy(jest.fn());
       handler.use(cors({
-        origin: 'example.com',
-        headers: "test-case",
+        credentials: true,
       }));
     })
   })
