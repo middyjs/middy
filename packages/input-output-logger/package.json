@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-urlencode-body-parser",
+  "name": "@middy/input-output-logger",
   "version": "1.0.0-alpha.11",
-  "description": "Urlencode body parser middleware for the middy framework",
+  "description": "Input and output logger middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
   },
@@ -23,10 +23,9 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "HTTP",
-    "API",
-    "Urlencode",
-    "Body Parser"
+    "Input",
+    "Output",
+    "Logger"
   ],
   "author": {
     "name": "Middy contributors",
@@ -41,12 +40,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
+    "@middy/core": ">=1.0.0-alpha",
+    "aws-sdk": ">=2.221.1"
   },
   "dependencies": {
-    "@types/http-errors": "^1.6.1",
-    "content-type": "^1.0.4",
-    "qs": "^6.5.2",
-    "querystring": "^0.2.0"
+    "@types/node": "^10.0.8"
   }
 }
