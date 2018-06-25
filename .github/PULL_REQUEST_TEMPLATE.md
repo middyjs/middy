@@ -24,3 +24,11 @@ Where has this been tested?
 **Middy Versions:** …
 
 **AWS SDK Versions:** …
+
+Todo list
+---------
+
+[ ] Feature/Fix fully implemented
+[ ] Added tests
+[ ] Updated relevant documentation
+[ ] Updated relevant examples
