@@ -1,4 +1,5 @@
 const isPromise = require('./isPromise')
+const once = require('once')
 
 /**
  * @typedef middy
@@ -162,19 +163,19 @@ const middy = (handler) => {
     runMiddlewares(beforeMiddlewares, instance, (err) => {
       if (err) return errorHandler(err)
 
-      const onHandlerError = (err) => {
+      const onHandlerError = once((err) => {
         instance.response = null
         return errorHandler(err)
-      }
+      })
 
-      const onHandlerSuccess = (response) => {
+      const onHandlerSuccess = once((response) => {
         instance.response = response
         runMiddlewares(afterMiddlewares, instance, (err) => {
           if (err) return errorHandler(err)
 
           return terminate()
         })
-      }
+      })
 
       const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
         if (err) return onHandlerError(err)
