@@ -61,7 +61,7 @@
     "jsdoc": "^3.5.5",
     "jsdoc-to-markdown": "^4.0.1",
     "marked": "^0.3.12",
-    "regenerator-runtime": "^0.11.0",
+    "regenerator-runtime": "^0.12.0",
     "typescript": "^2.8.3",
     "typings-tester": "^0.3.1"
   },
