@@ -6,7 +6,7 @@ module.exports = (opts) => {
   const options = Object.assign({}, defaults, opts)
 
   return ({
-    error: (handler, next) => {
+    onError: (handler, next) => {
       if (typeof options.logger === 'function') {
         options.logger(handler.error)
       }

@@ -436,7 +436,7 @@ describe('🛵  Middy test suite', () => {
       setTimeout(() => {
         expect(calls).toBe(1)
         endTest()
-      }, 100)
+      }, 200)
     }
 
     test('onSuccess', (endTest) => {

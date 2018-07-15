@@ -1,10 +1,10 @@
 const middy = require('../../core')
 const errorLogger = require('../')
 
-describe('📦 Middleware Error Logger', (endTest) => {
-  test('It should log errors and propagate the error', () => {
-    const logger = jest.fn()
+describe('📦 Middleware Error Logger', () => {
+  test('It should log errors and propagate the error', (endTest) => {
     const error = new Error('something bad happened')
+    const logger = jest.fn()
 
     const handler = middy((event, context, cb) => {
       cb(error)
@@ -17,7 +17,7 @@ describe('📦 Middleware Error Logger', (endTest) => {
     handler({}, {}, (err, response) => {
       expect(logger).toHaveBeenCalledWith(error)
       expect(err).toBe(error)
-      expect(response).toBe(null)
+      expect(response).toBeUndefined()
       endTest()
     })
   })
