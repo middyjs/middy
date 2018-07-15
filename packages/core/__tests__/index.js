@@ -429,6 +429,39 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
+  describe('A callback passed to an async handler should only be called once', () => {
+    const checkHandler = (handler, endTest) => {
+      let calls = 0
+      handler({}, {}, () => calls++)
+      setTimeout(() => {
+        expect(calls).toBe(1)
+        endTest()
+      }, 100)
+    }
+
+    test('onSuccess', (endTest) => {
+      const handler = middy((event, context, callback) => {
+        return new Promise(resolve => setTimeout(() => {
+          callback()
+          resolve()
+        }, 50))
+      })
+      checkHandler(handler, endTest)
+    })
+
+    test('onError', (endTest) => {
+      const handler = middy((event, context, callback) => {
+        return new Promise((resolve, reject) => setTimeout(() => {
+          const error = new Error('Async error')
+          callback(error)
+          reject(error)
+        }, 50))
+      })
+
+      checkHandler(handler, endTest)
+    })
+  })
+
   test('A handler that returns a rejected promise will behave as an errored execution', (endTest) => {
     const handler = middy((event, context) => {
       return Promise.reject(new Error('bad stuff happened'))

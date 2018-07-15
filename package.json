@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "1.0.0-alpha.11",
+  "version": "1.0.0-alpha.12",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "engines": {
     "node": ">=6.10"
@@ -48,5 +48,6 @@
     "regenerator-runtime": "^0.11.0",
     "typescript": "^2.8.1",
     "typings-tester": "^0.3.1"
-  }
+  },
+  "dependencies": {}
 }

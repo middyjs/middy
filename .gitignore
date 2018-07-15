@@ -64,3 +64,4 @@ docs/
 !docs/middlewares.md
 
 .idea/
+.vscode/
