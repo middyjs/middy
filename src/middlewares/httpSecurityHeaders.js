@@ -2,7 +2,7 @@
 
 const defaults = {
   dnsPrefetchControl: {
-    allow: true
+    allow: false
   },
   expectCT: {
     enforce: true,
@@ -114,20 +114,18 @@ helmet.xssFilter = (headers, options) => {
 const response = (opts, handler, next) => {
   opts = Object.assign({}, defaults, opts)
 
-  if (handler.event.hasOwnProperty('httpMethod')) {
-    handler.response = handler.response || {}
-    handler.response.headers = handler.response.headers || {}
+  handler.response = handler.response || {}
+  handler.response.headers = handler.response.headers || {}
 
-    Object.keys(helmet).forEach(key => {
-      const options = Object.assign({}, defaults[key], opts[key])
-      handler.response.headers = helmet[key](handler.response.headers, options)
-    })
-  }
+  Object.keys(helmet).forEach(key => {
+    const options = Object.assign({}, defaults[key], opts[key])
+    handler.response.headers = helmet[key](handler.response.headers, options)
+  })
 
   next()
 }
 
-module.exports = opts => ({
+module.exports = (opts = {}) => ({
   after: response.bind(null, opts),
   onError: response.bind(null, opts)
 })
