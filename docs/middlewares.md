@@ -10,6 +10,7 @@
  - [httpEventNormalizer](#httpeventnormalizer)
  - [httpHeaderNormalizer](#httpheadernormalizer)
  - [httpPartialResponse](#httppartialresponse)
+ - [httpSecurityHeaders](#httpsecurityheaders)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
  - [ssm](#ssm)
@@ -371,6 +372,35 @@ handler(event, {}, (_, response) => {
 })
 ```
 
+## [httpSecurityHeaders](/src/middlewares/httpSecurityHeaders.js)
+
+Applies best practice security headers to responses. It's a simplified port of [HelmetJS](https://helmetjs.github.io). See HelmetJS documentation of option details.
+
+### Options
+
+ - `dnsPrefetchControl` controls browser DNS prefetching
+ - `expectCt` for handling Certificate Transparency [Future Feature]
+ - `frameguard` to prevent clickjacking
+ - `hidePoweredBy` to remove the Server/X-Powered-By header
+ - `hsts` for HTTP Strict Transport Security
+ - `ieNoOpen` sets X-Download-Options for IE8+
+ - `noSniff` to keep clients from sniffing the MIME type
+ - `referrerPolicy` to hide the Referer header
+ - `xssFilter` adds some small XSS protections
+ 
+### Sample usage
+
+```javascript
+const middy = require('middy')
+const { httpSecurityHeaders } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler
+  .use(httpSecurityHeaders())
+```
 
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
 
