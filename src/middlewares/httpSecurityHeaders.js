@@ -35,6 +35,7 @@ const defaults = {
 }
 
 const helmet = {}
+const helmetHtmlOnly = {}
 
 // contentSecurityPolicy - N/A - no HTML
 // featurePolicy - N/A - no HTML
@@ -50,7 +51,7 @@ helmet.dnsPrefetchControl = (headers, options) => {
 // expectCt - in-progress spec
 
 // https://github.com/helmetjs/frameguard
-helmet.frameguard = (headers, options) => {
+helmetHtmlOnly.frameguard = (headers, options) => {
   headers['X-Frame-Options'] = options.action.toUpperCase()
   return headers
 }
@@ -102,7 +103,7 @@ helmet.referrerPolicy = (headers, options) => {
 }
 
 // https://github.com/helmetjs/x-xss-protection
-helmet.xssFilter = (headers, options) => {
+helmetHtmlOnly.xssFilter = (headers, options) => {
   let header = '1; mode=block'
   if (options.reportUri) {
     header += '; report=' + options.reportUri
@@ -121,6 +122,13 @@ const response = (opts, handler, next) => {
     const options = Object.assign({}, defaults[key], opts[key])
     handler.response.headers = helmet[key](handler.response.headers, options)
   })
+
+  if (handler.response.headers['Content-Type'] && handler.response.headers['Content-Type'].indexOf('text/html') !== -1) {
+    Object.keys(helmetHtmlOnly).forEach(key => {
+      const options = Object.assign({}, defaults[key], opts[key])
+      handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
+    })
+  }
 
   next()
 }

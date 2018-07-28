@@ -10,6 +10,19 @@ const createDefaultObjectResponse = () =>
     }
   )
 
+const createHtmlObjectResponse = () =>
+  Object.assign(
+    {},
+    {
+      statusCode: 200,
+      body: '<html></html>',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
+
+    }
+  )
+
 const createHeaderObjectResponse = () =>
   Object.assign(
     {},
@@ -36,14 +49,39 @@ describe('🔒 Middleware Http Security Headers', () => {
     }
 
     handler(event, {}, (_, response) => {
-      console.log(response)
       expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
-      expect(response.headers['X-Frame-Options']).toEqual('DENY')
       expect(response.headers['X-Powered-By']).toEqual(undefined)
       expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
       expect(response.headers['X-Download-Options']).toEqual('noopen')
       expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
       expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+
+      expect(response.headers['X-Frame-Options']).toEqual(undefined)
+      expect(response.headers['X-XSS-Protection']).toEqual(undefined)
+    })
+  })
+
+  test('It should modify default security headers when HTML', () => {
+    const handler = middy((event, context, cb) =>
+      cb(null, createHtmlObjectResponse())
+    )
+
+    handler.use(httpSecurityHeaders())
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      console.log(response)
+      expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
+      expect(response.headers['X-Powered-By']).toEqual(undefined)
+      expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
+      expect(response.headers['X-Download-Options']).toEqual('noopen')
+      expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
+      expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+
+      expect(response.headers['X-Frame-Options']).toEqual('DENY')
       expect(response.headers['X-XSS-Protection']).toEqual('1; mode=block')
     })
   })
@@ -60,7 +98,6 @@ describe('🔒 Middleware Http Security Headers', () => {
     }
 
     handler(event, {}, (_, response) => {
-      console.log(response)
       expect(response.headers['Server']).toEqual(undefined)
       expect(response.headers['X-Powered-By']).toEqual(undefined)
     })
@@ -68,7 +105,7 @@ describe('🔒 Middleware Http Security Headers', () => {
 
   test('It should modify default security headers', () => {
     const handler = middy((event, context, cb) =>
-      cb(null, createDefaultObjectResponse())
+      cb(null, createHtmlObjectResponse())
     )
 
     handler.use(httpSecurityHeaders({
