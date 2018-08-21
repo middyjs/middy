@@ -13,6 +13,7 @@ module.exports = opts => {
     cache: false,
     cacheExpiryInMillis: undefined,
     paramsLoaded: false,
+    paramsCache: undefined,
     paramsLoadedAt: new Date(0)
   }
 
@@ -20,7 +21,15 @@ module.exports = opts => {
 
   return {
     before: (handler, next) => {
-      if (!shouldFetchFromParamStore(options)) return next()
+      if (!shouldFetchFromParamStore(options)) {
+        if (options.paramsCache) {
+          const targetParamsObject = getTargetObjectToAssign(handler, options)
+          options.paramsCache.forEach(object => {
+            Object.assign(targetParamsObject, object)
+          })
+        }
+        return next()
+      }
 
       ssmInstance = ssmInstance || getSSMInstance(options.awsSdkOptions)
 
@@ -39,13 +48,13 @@ module.exports = opts => {
 
       const ssmParamNames = getSSMParamValues(options.names)
       if (ssmParamNames.length) {
-        ssmPromises.push(
+        const ssmPromise =
           ssmInstance
             .getParameters({ Names: ssmParamNames, WithDecryption: true })
             .promise()
             .then(handleInvalidParams)
             .then(ssmResponse => getParamsToAssignByName(options.names, ssmResponse))
-        )
+        ssmPromises.push(ssmPromise)
       }
 
       return Promise.all(ssmPromises).then(objectsToMap => {
@@ -54,6 +63,7 @@ module.exports = opts => {
           Object.assign(targetParamsObject, object)
         })
         options.paramsLoaded = true
+        options.paramsCache = objectsToMap
         options.paramsLoadedAt = new Date()
       })
     }
