@@ -49,7 +49,7 @@ module.exports = opts => {
 
       const ssmParamNames = getSSMParamValues(options.names)
       if (ssmParamNames.length) {
-        const ssmPromise = 
+        const ssmPromise =
           ssmInstance
             .getParameters({ Names: ssmParamNames, WithDecryption: true })
             .promise()
