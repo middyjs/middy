@@ -2,7 +2,7 @@ const createError = require('http-errors')
 const Ajv = require('ajv')
 const ajvKeywords = require('ajv-keywords')
 const ajvLocalize = require('ajv-i18n')
-const { deepEqual } = require('assert')
+const { deepStrictEqual } = require('assert')
 
 let ajv
 let previousConstructorOptions
@@ -98,7 +98,7 @@ function shouldInitAjv (options) {
 
 function areConstructorOptionsNew (options) {
   try {
-    deepEqual(options, previousConstructorOptions)
+    deepStrictEqual(options, previousConstructorOptions)
   } catch (e) {
     return true
   }
