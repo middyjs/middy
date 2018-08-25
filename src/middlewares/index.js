@@ -10,6 +10,7 @@ module.exports = {
   httpSecurityHeaders: require('./httpSecurityHeaders'),
   jsonBodyParser: require('./jsonBodyParser'),
   s3KeyNormalizer: require('./s3KeyNormalizer'),
+  secretsManager: require('./secretsManager'),
   ssm: require('./ssm'),
   urlEncodeBodyParser: require('./urlEncodeBodyParser'),
   validator: require('./validator'),

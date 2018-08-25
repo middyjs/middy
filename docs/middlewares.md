@@ -13,6 +13,7 @@
  - [httpSecurityHeaders](#httpsecurityheaders)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
+ - [secretsManager](#secretsManager)
  - [ssm](#ssm)
  - [validator](#validator)
  - [urlEncodeBodyParser](#urlencodebodyparser)
@@ -464,6 +465,58 @@ const handler = middy((event, context, cb) => {
 
 handler
   .use(s3KeyNormalizer())
+```
+
+
+## [secretsManager](/src/middlewares/secretsManager.js)
+
+Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
+
+Secrets to fetch can be defined by by name. See AWS docs [here](https://docs.aws.amazon.com/secretsmanager/latest/userguide/tutorials_basic.html).
+
+Secrets are assigned to the function handler's `context` object.
+
+The Middleware makes a single [API request](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html) for each secret as Secrets Manager does not support batch get.
+
+For each secret, you also provide the name under which its value should be added to `context`.  
+
+### Options
+
+- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS Secrets Manager
+- `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached secrets from Secrets Manager
+- `secrets` (object) : Map of secrets to fetch from Secrets Manager, where the key is the destination, and value is secret name in Secrets Manager.
+  Example: `{secrets: {RDS_LOGIN: 'dev/rds_login'}}`
+- `awsSdkOptions` (object) (optional): Options to pass to AWS.SecretsManager class constructor.
+
+NOTES:
+* Lambda is required to have IAM permission for `secretsmanager:GetSecretValue` action
+* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
+
+### Sample Usage
+
+Simplest usage, exports parameters as environment variables.
+
+```javascript
+const middy = require('middy')
+const { secretsManager } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(secretsManager({
+  cache: true,
+  secrets: {
+    RDS_LOGIN: 'dev/rds_login'
+  }
+}))
+
+// Before running the function handler, the middleware will fetch from Secrets Manager
+handler(event, context, (_, response) => {
+  // assuming the dev/rds_login has two keys, 'Username' and 'Password'
+  expect(context.RDS_LOGIN.Username).toEqual('username')
+  expect(context.RDS_LOGIN.Password).toEqual('password')
+})
 ```
 
 ## [ssm](/src/middlewares/ssm.js)
