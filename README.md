@@ -624,6 +624,8 @@ Middy factory function. Use it to wrap your existing handler to enable middlewar
 | after | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *after* middleware |
 | onError | [<code>middlewareFunction</code>](#middlewareFunction) | the middleware function to attach as *error* middleware |
 
+
+
 ## Typescript
 
 Middy exports Typescript compatible type information. To enable the use of Middy in your Typescript project please make sure `tsconfig.json` is configured as follows:
@@ -641,6 +643,7 @@ Middy exports Typescript compatible type information. To enable the use of Middy
 ```
 
 After that you can `import middy from 'middy';` in your http handler and use it as described above.
+
 
 ## Contributing
 

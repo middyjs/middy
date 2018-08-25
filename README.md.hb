@@ -44,6 +44,7 @@
  - [Writing a middleware](#writing-a-middleware)
  - [Available middlewares](#available-middlewares)
  - [API](#api)
+ - [Typescript](#typescript)
  - [Contributing](#contributing)
  - [License](#license)
 
@@ -526,6 +527,25 @@ documentation](/docs/middlewares.md)
 ## Api
 
 {{> main}}
+
+
+## Typescript
+
+Middy exports Typescript compatible type information. To enable the use of Middy in your Typescript project please make sure `tsconfig.json` is configured as follows:
+
+```
+{
+	"compilerOptions": {
+		...
+		/* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */
+		"esModuleInterop": true,
+		...
+	},
+}
+
+```
+
+After that you can `import middy from 'middy';` in your http handler and use it as described above.
 
 
 ## Contributing
