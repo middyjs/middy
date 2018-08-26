@@ -1,4 +1,4 @@
-# Middy ssm middleware
+# Middy secrets-manager middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
