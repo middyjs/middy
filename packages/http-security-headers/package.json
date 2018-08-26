@@ -1,7 +1,7 @@
 {
-  "name": "@middy/ssm",
+  "name": "@middy/http-security-header",
   "version": "1.0.0-alpha.15",
-  "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
+  "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
   "engines": {
     "node": ">=6.10"
   },
@@ -23,9 +23,12 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "SSM",
-    "EC2 Systems Manager",
-    "Parameters"
+    "HTTP",
+    "API",
+    "Header",
+    "Headers",
+    "Helmet",
+    "Security"
   ],
   "author": {
     "name": "Middy contributors",
@@ -40,10 +43,6 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha",
-    "aws-sdk": ">=2.221.1"
-  },
-  "dependencies": {
-    "@types/node": "^10.0.8"
+    "@middy/core": ">=1.0.0-alpha"
   }
 }
