@@ -66,7 +66,7 @@ describe('🥃 Warmup', () => {
     const handler = middy((event, context, cb) => {
       cb(null, 'handler executed')
     })
-    handler.use(lambdaIsWarmingUp({isWarmingUp: () => false}))
+    handler.use(lambdaIsWarmingUp({ isWarmingUp: () => false }))
 
     const event = {}
     const context = {}

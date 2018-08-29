@@ -1,6 +1,6 @@
 jest.mock('aws-sdk')
 
-const {SecretsManager} = require('aws-sdk')
+const { SecretsManager } = require('aws-sdk')
 const middy = require('../../core')
 const secretsManager = require('../index')
 
@@ -27,7 +27,7 @@ describe('🔒 SecretsManager Middleware', () => {
     expect(context.API_KEY.ApiKey).toEqual('apikey')
   }
 
-  function testScenario ({mockResponse, mockResponses, middlewareOptions, callbacks, done, delay = 0}) {
+  function testScenario ({ mockResponse, mockResponses, middlewareOptions, callbacks, done, delay = 0 }) {
     if (mockResponses) {
       mockResponses.forEach(resp => {
         getSecretValueMock.mockReturnValueOnce({
@@ -53,7 +53,7 @@ describe('🔒 SecretsManager Middleware', () => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
             try {
-              cb(error, {event, context, response})
+              cb(error, { event, context, response })
               resolve()
             } catch (err) {
               reject(err)
@@ -74,7 +74,7 @@ describe('🔒 SecretsManager Middleware', () => {
   test(`It should set secrets to context`, (done) => {
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -82,7 +82,7 @@ describe('🔒 SecretsManager Middleware', () => {
         }
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
         }
@@ -94,7 +94,7 @@ describe('🔒 SecretsManager Middleware', () => {
   test(`It should not call aws-sdk again if secret is cached`, (done) => {
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -103,12 +103,12 @@ describe('🔒 SecretsManager Middleware', () => {
         cache: true
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockClear()
         },
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).not.toBeCalled()
         }
@@ -120,7 +120,7 @@ describe('🔒 SecretsManager Middleware', () => {
   test(`It should call aws-sdk if cache enabled but cached secrets have expired`, (done) => {
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -130,12 +130,12 @@ describe('🔒 SecretsManager Middleware', () => {
         cacheExpiryInMillis: 10
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockClear()
         },
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
         }
@@ -148,7 +148,7 @@ describe('🔒 SecretsManager Middleware', () => {
   test(`It should not call aws-sdk if cache enabled and cached param has not expired`, (done) => {
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -158,12 +158,12 @@ describe('🔒 SecretsManager Middleware', () => {
         cacheExpiryInMillis: 50
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockClear()
         },
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).not.toBeCalled()
         }
@@ -190,7 +190,7 @@ describe('🔒 SecretsManager Middleware', () => {
   test(`It should use cache secrets if refresh fails`, (done) => {
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -200,14 +200,14 @@ describe('🔒 SecretsManager Middleware', () => {
         cacheExpiryInMillis: 10
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockReturnValueOnce({
             promise: () => Promise.reject(new Error('oops'))
           })
         },
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
         }
@@ -223,7 +223,7 @@ describe('🔒 SecretsManager Middleware', () => {
     // 0ms (fetch), 40ms (cached), 80ms (retry failed), 120ms (no retry), 160ms (retry)
     testScenario({
       mockResponse: {
-        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+        SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
       middlewareOptions: {
         secrets: {
@@ -234,7 +234,7 @@ describe('🔒 SecretsManager Middleware', () => {
       },
       callbacks: [
         // invocation 1: fetched
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
 
@@ -246,12 +246,12 @@ describe('🔒 SecretsManager Middleware', () => {
           })
         },
         // invocation 2: cache hasn't expired
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).not.toBeCalled()
         },
         // invocation 3: cache expired, retry failed, reusing cache
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
 
@@ -260,17 +260,17 @@ describe('🔒 SecretsManager Middleware', () => {
           // set up next attempt to succeed
           getSecretValueMock.mockReturnValueOnce({
             promise: () => Promise.resolve({
-              SecretString: JSON.stringify({Username: 'username', Password: 'new password'})
+              SecretString: JSON.stringify({ Username: 'username', Password: 'new password' })
             })
           })
         },
         // invocation 4: no retry, expiry hasn't passed since last retry
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           expect(getSecretValueMock).not.toBeCalled()
         },
         // invocation 5: expiry passed, retried and succeed, new password is used!
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context, 'new password')
           expect(getSecretValueMock).toBeCalled()
         }
@@ -283,8 +283,8 @@ describe('🔒 SecretsManager Middleware', () => {
   test('It should retrieve multiple secrets', (done) => {
     testScenario({
       mockResponses: [
-        {SecretString: JSON.stringify({Username: 'username', Password: 'password'})},
-        {SecretString: JSON.stringify({ApiKey: 'apikey'})}
+        { SecretString: JSON.stringify({ Username: 'username', Password: 'password' }) },
+        { SecretString: JSON.stringify({ ApiKey: 'apikey' }) }
       ],
       middlewareOptions: {
         secrets: {
@@ -293,7 +293,7 @@ describe('🔒 SecretsManager Middleware', () => {
         }
       },
       callbacks: [
-        (_, {context}) => {
+        (_, { context }) => {
           hasRDSLogin(context)
           hasAPIKey(context)
           expect(getSecretValueMock).toBeCalled()

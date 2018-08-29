@@ -14,10 +14,10 @@ describe('📦  Middleware JSON Body Parser', () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
-      expect(body).toEqual({foo: 'bar'})
+      expect(body).toEqual({ foo: 'bar' })
     })
   })
 
@@ -33,10 +33,10 @@ describe('📦  Middleware JSON Body Parser', () => {
       headers: {
         'content-type': 'application/json'
       },
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
-      expect(body).toEqual({foo: 'bar'})
+      expect(body).toEqual({ foo: 'bar' })
     })
   })
 
@@ -52,7 +52,7 @@ describe('📦  Middleware JSON Body Parser', () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: 'make it broken' + JSON.stringify({foo: 'bar'})
+      body: 'make it broken' + JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err) => {
       expect(err.message).toEqual('Content type defined as JSON but an invalid JSON was provided')
@@ -68,7 +68,7 @@ describe('📦  Middleware JSON Body Parser', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
       expect(body).toEqual('{"foo":"bar"}')

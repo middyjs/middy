@@ -40,7 +40,7 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const handler = middy((event, context, cb) => cb(null, event))
 
     handler
-      .use(httpHeaderNormalizer({canonical: true}))
+      .use(httpHeaderNormalizer({ canonical: true }))
 
     const event = {
       headers: {

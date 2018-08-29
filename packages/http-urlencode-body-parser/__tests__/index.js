@@ -7,7 +7,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlEncodeBodyParser({extended: false}))
+    handler.use(urlEncodeBodyParser({ extended: false }))
 
     // invokes the handler
     const event = {
@@ -31,7 +31,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlEncodeBodyParser({extended: false}))
+    handler.use(urlEncodeBodyParser({ extended: false }))
 
     // invokes the handler
     const event = {
@@ -55,7 +55,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
       cb(null, event.body) // propagates the body as response
     })
 
-    handler.use(urlEncodeBodyParser({extended: true}))
+    handler.use(urlEncodeBodyParser({ extended: true }))
 
     // invokes the handler
     const event = {
@@ -87,7 +87,7 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
       expect(body).toEqual('{"foo":"bar"}')
