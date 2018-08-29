@@ -22,7 +22,7 @@ describe('📦  Middleware Validator', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err, body) => {
       expect(err).toEqual(null)
@@ -55,11 +55,11 @@ describe('📦  Middleware Validator', () => {
 
     // invokes the handler, note that property foo is missing
     const event = {
-      body: JSON.stringify({something: 'somethingelse'})
+      body: JSON.stringify({ something: 'somethingelse' })
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'should have required property foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'should have required property foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
     })
   })
 
@@ -89,11 +89,11 @@ describe('📦  Middleware Validator', () => {
     // invokes the handler, note that property foo is missing
     const event = {
       preferredLanguage: 'fr',
-      body: JSON.stringify({something: 'somethingelse'})
+      body: JSON.stringify({ something: 'somethingelse' })
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'requiert la propriété foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'requiert la propriété foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
     })
   })
 
@@ -123,11 +123,11 @@ describe('📦  Middleware Validator', () => {
     // invokes the handler, note that property foo is missing
     const event = {
       preferredLanguage: 'pt',
-      body: JSON.stringify({something: 'somethingelse'})
+      body: JSON.stringify({ something: 'somethingelse' })
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{'dataPath': '', 'keyword': 'required', 'message': 'deve ter a propriedade requerida foo', 'params': {'missingProperty': 'foo'}, 'schemaPath': '#/required'}])
+      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'deve ter a propriedade requerida foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
     })
   })
 
@@ -153,7 +153,7 @@ describe('📦  Middleware Validator', () => {
       }
     }
 
-    handler.use(validator({outputSchema: schema}))
+    handler.use(validator({ outputSchema: schema }))
 
     handler({}, {}, (err, response) => {
       expect(err).toBe(null)
@@ -178,7 +178,7 @@ describe('📦  Middleware Validator', () => {
       }
     }
 
-    handler.use(validator({outputSchema: schema}))
+    handler.use(validator({ outputSchema: schema }))
 
     handler({}, {}, (err, response) => {
       expect(err).not.toBe(null)
@@ -188,17 +188,17 @@ describe('📦  Middleware Validator', () => {
   })
 
   describe('🏗 Ajv constructor options', () => {
-    const schema = {required: ['email'], properties: {email: {type: 'string', format: 'email'}}}
+    const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
 
     test('It should allow invalid email using default constructor options', () => {
       const handler = middy((event, context, cb) => {
         cb(null, {})
       })
 
-      handler.use(validator({inputSchema: schema}))
+      handler.use(validator({ inputSchema: schema }))
 
       // This email is considered as valid in 'fast' mode
-      handler({email: 'abc@abc'}, {}, (err) => {
+      handler({ email: 'abc@abc' }, {}, (err) => {
         expect(err).toEqual(null)
       })
     })
@@ -208,10 +208,10 @@ describe('📦  Middleware Validator', () => {
         cb(null, {})
       })
 
-      handler.use(validator({inputSchema: schema, ajvOptions: {format: 'full'}}))
+      handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
 
       // This same email is not a valid one in 'full' validation mode
-      handler({email: 'abc@abc'}, {}, (err) => {
+      handler({ email: 'abc@abc' }, {}, (err) => {
         expect(err.details[0].message).toEqual('should match format "email"')
       })
     })

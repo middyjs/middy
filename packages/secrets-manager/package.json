@@ -1,7 +1,7 @@
 {
-  "name": "@middy/core",
+  "name": "@middy/secrets-manager",
   "version": "1.0.0-alpha.16",
-  "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
+  "description": "Secrets Manager middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
   },
@@ -21,7 +21,9 @@
     "Serverless",
     "Framework",
     "AWS",
-    "AWS Lambda"
+    "AWS Lambda",
+    "Middy",
+    "Secrets Manager"
   ],
   "author": {
     "name": "Middy contributors",
@@ -35,8 +37,11 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha",
+    "aws-sdk": ">=2.221.1"
+  },
   "dependencies": {
-    "@types/aws-lambda": "^8.10.3",
-    "once": "^1.4.0"
+    "@types/node": "^10.0.8"
   }
 }

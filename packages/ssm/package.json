@@ -1,6 +1,6 @@
 {
   "name": "@middy/ssm",
-  "version": "1.0.0-alpha.15",
+  "version": "1.0.0-alpha.16",
   "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
   "engines": {
     "node": ">=6.10"

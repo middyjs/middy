@@ -14,8 +14,8 @@ describe('📦 Middleware Input Output Logger', () => {
 
     // run the handler
     handler({ foo: 'bar', fuu: 'baz' }, {}, (_, response) => {
-      expect(logger).toHaveBeenCalledWith({ event: {foo: 'bar', fuu: 'baz'} })
-      expect(logger).toHaveBeenCalledWith({ response: {message: 'hello world'} })
+      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
+      expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
     })
   })
 })

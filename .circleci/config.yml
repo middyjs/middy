@@ -20,8 +20,8 @@ jobs:
           command: sudo npm i -g lerna
 
       - run:
-          name: lerna bootstrap
-          command: lerna bootstrap
+          name: npm install
+          command: npm install
 
       - save_cache:
           paths:
@@ -62,8 +62,8 @@ jobs:
           command: sudo npm i -g lerna
 
       - run:
-          name: lerna bootstrap
-          command: lerna bootstrap
+          name: npm install 
+          command: npm install
 
       - save_cache:
           paths:
