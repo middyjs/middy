@@ -4,7 +4,7 @@ module.exports = opts => {
   const defaults = {
     awsSdkOptions: {},
     secrets: {}, // e.g. { RDS_SECRET: 'dev/rds_login', API_SECRET: '...' }
-    shouldFail: false,
+    throwOnFailedCall: false,
     cache: false,
     cacheExpiryInMillis: undefined,
     secretsLoaded: false,
@@ -58,7 +58,7 @@ module.exports = opts => {
           // if we already have a cached secrets, then reset the timestamp so we don't
           // keep retrying on every invocation which can cause performance problems
           // when there's temporary problems with Secrets Manager
-          if (options.shouldFail) {
+          if (options.throwOnFailedCall) {
             throw err
           }
           if (options.secretsCache) {

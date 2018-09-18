@@ -52,7 +52,7 @@ describe('🔒 SecretsManager Middleware', () => {
       promise = promise.then(() => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
-            if (error) reject(error)
+            if (error) return reject(error)
             try {
               cb(error, {event, context, response})
               resolve()
@@ -218,7 +218,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should fail if "shouldFail" flag provided and call failed`, (done) => {
+  test(`It should fail if "throwOnFailedCall" flag provided and call failed`, (done) => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
@@ -235,10 +235,10 @@ describe('🔒 SecretsManager Middleware', () => {
         secrets: {
           KEY_NAME: 'failed_call'
         },
-        shouldFail: true
+        throwOnFailedCall: true
       },
       callbacks: [
-        (_, {context}) => {
+        () => {
           throw new Error('Not supposed to be called')
         }
       ],
@@ -246,7 +246,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should resolve if "shouldFail" flag not provided and call failed`, (done) => {
+  test(`It should resolve if "throwOnFailedCall" flag not provided and call failed`, (done) => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
