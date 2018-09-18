@@ -268,6 +268,42 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
+  test(`It should resolve if "throwOnFailedCall" flag provided but item already cached`, (done) => {
+    const errorMessage = 'Internal Error / Secret doesn\'t exist'
+    return testScenario({
+      mockResponse: {
+        SecretString: JSON.stringify({Username: 'username', Password: 'password'})
+      },
+      middlewareOptions: {
+        secrets: {
+          KEY_NAME: 'rds_key'
+        },
+        throwOnFailedCall: true
+      },
+      callbacks: [
+        // invocation 1: fetched
+        (_, {context}) => {
+          hasRDSLogin(context)
+          expect(getSecretValueMock).toBeCalled()
+
+          getSecretValueMock.mockClear()
+
+          // set up next attempt to fail
+          getSecretValueMock.mockReturnValueOnce({
+            promise: () => Promise.reject(new Error(errorMessage))
+          })
+        },
+        // invocation 2: failed but content taken from cache
+        (_, {context}) => {
+          hasRDSLogin(context)
+          expect(getSecretValueMock).toBeCalled()
+          getSecretValueMock.mockClear()
+        }
+      ],
+      done
+    })
+  })
+
   test(`It should only refresh once per cache expiry window`, (done) => {
     // with cache expiry of 50ms, test what happens when one refresh fails, and
     // that the middleware doesn't retry for another 50ms

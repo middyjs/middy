@@ -58,9 +58,10 @@ module.exports = opts => {
           // if we already have a cached secrets, then reset the timestamp so we don't
           // keep retrying on every invocation which can cause performance problems
           // when there's temporary problems with Secrets Manager
-          if (options.throwOnFailedCall) {
+          if (options.throwOnFailedCall && !options.secretsCache) {
             throw err
           }
+
           if (options.secretsCache) {
             options.secretsLoadedAt = new Date()
           }
