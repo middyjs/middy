@@ -52,6 +52,7 @@ describe('🔒 SecretsManager Middleware', () => {
       promise = promise.then(() => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
+            if (error) reject(error)
             try {
               cb(error, {event, context, response})
               resolve()
@@ -68,7 +69,7 @@ describe('🔒 SecretsManager Middleware', () => {
         }
       })
     })
-    promise.then(done).catch(err => done(err))
+    promise.then(done).catch(done)
   }
 
   test(`It should set secrets to context`, (done) => {
@@ -214,6 +215,56 @@ describe('🔒 SecretsManager Middleware', () => {
       ],
       done,
       delay: 20 // 20 > 10, so cache has expired
+    })
+  })
+
+  test(`It should fail if "shouldFail" flag provided and call failed`, (done) => {
+    const errorMessage = 'Internal Error / Secret doesn\'t exist'
+    getSecretValueMock.mockReturnValueOnce({
+      promise: () => Promise.reject(new Error(errorMessage))
+    })
+
+    const errHandler = err => {
+      getSecretValueMock.mockClear()
+      expect(err.message).toEqual(errorMessage)
+      done()
+    }
+    return testScenario({
+      mockResponse: {},
+      middlewareOptions: {
+        secrets: {
+          KEY_NAME: 'failed_call'
+        },
+        shouldFail: true
+      },
+      callbacks: [
+        (_, {context}) => {
+          throw new Error('Not supposed to be called')
+        }
+      ],
+      done: errHandler
+    })
+  })
+
+  test(`It should resolve if "shouldFail" flag not provided and call failed`, (done) => {
+    const errorMessage = 'Internal Error / Secret doesn\'t exist'
+    getSecretValueMock.mockReturnValueOnce({
+      promise: () => Promise.reject(new Error(errorMessage))
+    })
+    return testScenario({
+      mockResponse: {},
+      middlewareOptions: {
+        secrets: {
+          KEY_NAME: 'failed_call'
+        }
+      },
+      callbacks: [
+        (_, {context}) => {
+          expect(getSecretValueMock).toBeCalled()
+          getSecretValueMock.mockClear()
+        }
+      ],
+      done
     })
   })
 
