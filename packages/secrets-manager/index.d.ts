@@ -6,6 +6,7 @@ interface ISecretsManagerOptions {
   cacheExpiryInMillis?: number;
   secrets?: { [key: string]: string; };
   awsSdkOptions?: Partial<SecretsManager.Types.ClientConfiguration>;
+  throwOnFailedCall?: boolean;
 }
 
 declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
