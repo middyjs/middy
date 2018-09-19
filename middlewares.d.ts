@@ -51,6 +51,7 @@ interface ISecretsManagerOptions {
   cacheExpiryInMillis?: number;
   secrets: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
+  throwOnFailedCall?: boolean;
 }
 
 interface ISSMOptions {
@@ -61,7 +62,6 @@ interface ISSMOptions {
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   setToContext?: boolean;
   getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
-  throwOnFailedCall?: boolean;
 }
 
 interface IValidatorOptions {
