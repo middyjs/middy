@@ -515,6 +515,7 @@ Currently available middlewares:
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHandler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
+ - [`Secrets Manager`](/docs/middlewares.md#secretsmanager): Fetches parameters from AWS Secrets Manager.
  - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
  - [`validator`](/docs/middlewares.md#validator): Automatically validates incoming events and outgoing responses against custom schemas
  - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
