@@ -13,7 +13,7 @@
  - [httpSecurityHeaders](#httpsecurityheaders)
  - [jsonBodyParser](#jsonbodyparser)
  - [s3KeyNormalizer](#s3keynormalizer)
- - [secretsManager](#secretsManager)
+ - [secretsManager](#secretsmanager)
  - [ssm](#ssm)
  - [validator](#validator)
  - [urlEncodeBodyParser](#urlencodebodyparser)
