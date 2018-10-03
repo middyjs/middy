@@ -2,23 +2,22 @@
 
 ## Available middlewares
 
- - [cache](#cache)
- - [cors](#cors)
- - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
- - [httpContentNegotiation](#httpcontentnegotiation)
- - [httpErrorHandler](#httperrorhandler)
- - [httpEventNormalizer](#httpeventnormalizer)
- - [httpHeaderNormalizer](#httpheadernormalizer)
- - [httpPartialResponse](#httppartialresponse)
- - [httpSecurityHeaders](#httpsecurityheaders)
- - [jsonBodyParser](#jsonbodyparser)
- - [s3KeyNormalizer](#s3keynormalizer)
- - [secretsManager](#secretsmanager)
- - [ssm](#ssm)
- - [validator](#validator)
- - [urlEncodeBodyParser](#urlencodebodyparser)
- - [warmup](#warmup)
-
+- [cache](#cache)
+- [cors](#cors)
+- [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
+- [httpContentNegotiation](#httpcontentnegotiation)
+- [httpErrorHandler](#httperrorhandler)
+- [httpEventNormalizer](#httpeventnormalizer)
+- [httpHeaderNormalizer](#httpheadernormalizer)
+- [httpPartialResponse](#httppartialresponse)
+- [httpSecurityHeaders](#httpsecurityheaders)
+- [jsonBodyParser](#jsonbodyparser)
+- [s3KeyNormalizer](#s3keynormalizer)
+- [secretsManager](#secretsmanager)
+- [ssm](#ssm)
+- [validator](#validator)
+- [urlEncodeBodyParser](#urlencodebodyparser)
+- [warmup](#warmup)
 
 ## [cache](/src/middlewares/cache.js)
 
@@ -32,48 +31,50 @@ layer to provide your own caching implementation.
 
 ### Options
 
- - `calculateCacheId` (function) (optional): a function that accepts the `event` object as a parameter
-   and returns a promise that resolves to a string which is the cache id for the
-   give request. By default the cache id is calculated as `md5(JSON.stringify(event))`.
- - `getValue` (function) (optional): a function that defines how to retrieve the value associated to a given
-   cache id from the cache storage. It accepts `key` (a string) and returns a promise
-   that resolves to the cached response (if any) or to `undefined` (if the given key
-   does not exists in the cache)
- - `setValue` (function) (optional): a function that defines how to set a value in the cache. It accepts
-   a `key` (string) and a `value` (response object). It must return a promise that
-   resolves when the value has been stored.
+- `calculateCacheId` (function) (optional): a function that accepts the `event` object as a parameter
+  and returns a promise that resolves to a string which is the cache id for the
+  give request. By default the cache id is calculated as `md5(JSON.stringify(event))`.
+- `getValue` (function) (optional): a function that defines how to retrieve the value associated to a given
+  cache id from the cache storage. It accepts `key` (a string) and returns a promise
+  that resolves to the cached response (if any) or to `undefined` (if the given key
+  does not exists in the cache)
+- `setValue` (function) (optional): a function that defines how to set a value in the cache. It accepts
+  a `key` (string) and a `value` (response object). It must return a promise that
+  resolves when the value has been stored.
 
 ### Sample usage
 
 ```javascript
 // assumes the event contains a unique event identifier
-const calculateCacheId = (event) => Promise.resolve(event.id)
+const calculateCacheId = event => Promise.resolve(event.id)
 // use in-memory storage as example
 const myStorage = {}
 // simulates a delay in retrieving the value from the caching storage
-const getValue = (key) => new Promise((resolve, reject) => {
-  setTimeout(() => resolve(myStorage[key]), 100)
-})
+const getValue = key =>
+  new Promise((resolve, reject) => {
+    setTimeout(() => resolve(myStorage[key]), 100)
+  })
 // simulates a delay in writing the value in the caching storage
-const setValue = (key, value) => new Promise((resolve, reject) => {
-  setTimeout(() => {
-    myStorage[key] = value
-    return resolve()
-  }, 100)
-})
+const setValue = (key, value) =>
+  new Promise((resolve, reject) => {
+    setTimeout(() => {
+      myStorage[key] = value
+      return resolve()
+    }, 100)
+  })
 
 const originalHandler = (event, context, cb) => {
   /* ... */
 }
 
-const handler = middy(originalHandler)
-  .use(cache({
+const handler = middy(originalHandler).use(
+  cache({
     calculateCacheId,
     getValue,
     setValue
-  }))
+  })
+)
 ```
-
 
 ## [cors](/src/middlewares/cors.js)
 
@@ -83,10 +84,10 @@ Sets headers in `after` and `onError` phases.
 
 ### Options
 
- - `origin` (string) (optional): origin to put in the header (default: "`*`"). 
- - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
- - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
- - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
+- `origin` (string) (optional): origin to put in the header (default: "`*`").
+- `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present.
+- `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
+- `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
 ### Sample usage
 
@@ -106,7 +107,6 @@ handler({}, {}, (_, response) => {
 })
 ```
 
-
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
 Sets `context.callbackWaitsForEmptyEventLoop` property to `false`.
@@ -118,7 +118,7 @@ By default the middleware sets the `callbackWaitsForEmptyEventLoop` property to 
 meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
 
 - `runOnBefore` (defaults to `true`) - sets property before running your handler
-- `runOnAfter`  (defaults  to `false`)
+- `runOnAfter` (defaults to `false`)
 - `runOnError` (defaults to `false`)
 
 ### Sample Usage
@@ -131,7 +131,7 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
+handler.use(doNotWaitForEmptyEventLoop({ runOnError: true }))
 
 // When Lambda runs the handler it gets context with callbackWaitsForEmptyEventLoop property set to false
 
@@ -139,7 +139,6 @@ handler(event, context, (_, response) => {
   expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
 })
 ```
-
 
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 
@@ -176,7 +175,11 @@ It also can throw an HTTP exception, so it can be convenient to use it in combin
 
 ```javascript
 const middy = require('middy')
-const { httpContentNegotiation, httpHeaderNormalizer, httpErrorHandler } = require('middy/middlewares')
+const {
+  httpContentNegotiation,
+  httpHeaderNormalizer,
+  httpErrorHandler
+} = require('middy/middlewares')
 
 const handler = middy((event, context, cb) => {
   let message, body
@@ -214,17 +217,23 @@ const handler = middy((event, context, cb) => {
 
 handler
   .use(httpHeaderNormalizer())
-  .use(httpContentNegotiation({
-    parseCharsets: false,
-    parseEncodings: false,
-    availableLanguages: ['it-it', 'fr-fr', 'en'],
-    availableMediaTypes: ['application/xml', 'application/yaml', 'application/json', 'text/plain']
-  }))
+  .use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['it-it', 'fr-fr', 'en'],
+      availableMediaTypes: [
+        'application/xml',
+        'application/yaml',
+        'application/json',
+        'text/plain'
+      ]
+    })
+  )
   .use(httpErrorHandler())
 
 module.exports = { handler }
 ```
-
 
 ## [httpErrorHandler](/src/middlewares/httpErrorHandler.js)
 
@@ -248,8 +257,7 @@ const handler = middy((event, context, cb) => {
   throw new createError.UnprocessableEntity()
 })
 
-handler
-  .use(httpErrorHandler())
+handler.use(httpErrorHandler())
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
@@ -259,7 +267,6 @@ handler({}, {}, (_, response) => {
   })
 })
 ```
-
 
 ## [httpEventNormalizer](/src/middlewares/httpEventNormalizer.js)
 
@@ -293,7 +300,6 @@ const handler = middy((event, context, cb) => {
 handler.use(httpEventNormalizer())
 ```
 
-
 ## [httpHeaderNormalizer](/src/middlewares/httpHeaderNormalizer.js)
 
 Normalizes HTTP header names to their canonical format. Very useful if clients are
@@ -310,14 +316,18 @@ This middleware will copy the original headers in `event.rawHeaders`.
 
 ### Options
 
- - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
-   canonical representation.
+- `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
+  canonical representation.
 
 ### Sample usage
 
 ```javascript
 const middy = require('middy')
-const { httpHeaderNormalizer, jsonBodyParser, urlEncodeBodyParser } = require('middy/middlewares')
+const {
+  httpHeaderNormalizer,
+  jsonBodyParser,
+  urlEncodeBodyParser
+} = require('middy/middlewares')
 
 const handler = middy((event, context, cb) => {
   cb(null, {})
@@ -379,16 +389,16 @@ Applies best practice security headers to responses. It's a simplified port of [
 
 ### Options
 
- - `dnsPrefetchControl` controls browser DNS prefetching
- - `expectCt` for handling Certificate Transparency [Future Feature]
- - `frameguard` to prevent clickjacking
- - `hidePoweredBy` to remove the Server/X-Powered-By header
- - `hsts` for HTTP Strict Transport Security
- - `ieNoOpen` sets X-Download-Options for IE8+
- - `noSniff` to keep clients from sniffing the MIME type
- - `referrerPolicy` to hide the Referer header
- - `xssFilter` adds some small XSS protections
- 
+- `dnsPrefetchControl` controls browser DNS prefetching
+- `expectCt` for handling Certificate Transparency [Future Feature]
+- `frameguard` to prevent clickjacking
+- `hidePoweredBy` to remove the Server/X-Powered-By header
+- `hsts` for HTTP Strict Transport Security
+- `ieNoOpen` sets X-Download-Options for IE8+
+- `noSniff` to keep clients from sniffing the MIME type
+- `referrerPolicy` to hide the Referer header
+- `xssFilter` adds some small XSS protections
+
 ### Sample usage
 
 ```javascript
@@ -399,8 +409,7 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler
-  .use(httpSecurityHeaders())
+handler.use(httpSecurityHeaders())
 ```
 
 ## [jsonBodyParser](/src/middlewares/jsonBodyParser.js)
@@ -411,6 +420,8 @@ if used in combination with `httpErrorHandler`.
 
 It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
+
+**Note**: by default this is going to parse only events that contain the header `Content-Type` (or `content-type`) set to `application/json`. If you want to support different casing for the header name (e.g. `Content-type`) then you should attache the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware before this middleware.
 
 ```javascript
 const middy = require('middy')
@@ -427,10 +438,10 @@ const event = {
   headers: {
     'Content-Type': 'application/json'
   },
-  body: JSON.stringify({foo: 'bar'})
+  body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  expect(body).toEqual({foo: 'bar'})
+  expect(body).toEqual({ foo: 'bar' })
 })
 ```
 
@@ -448,7 +459,6 @@ key directly to perform operations on the file using the AWS S3 SDK, in which ca
 This middleware, once attached, makes sure that every S3 event has the file keys
 properly normalized.
 
-
 ### Sample usage
 
 ```javascript
@@ -463,10 +473,8 @@ const handler = middy((event, context, cb) => {
   callback(null, event.Records.map(record => record.s3.object.key))
 })
 
-handler
-  .use(s3KeyNormalizer())
+handler.use(s3KeyNormalizer())
 ```
-
 
 ## [secretsManager](/src/middlewares/secretsManager.js)
 
@@ -478,7 +486,7 @@ Secrets are assigned to the function handler's `context` object.
 
 The Middleware makes a single [API request](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html) for each secret as Secrets Manager does not support batch get.
 
-For each secret, you also provide the name under which its value should be added to `context`.  
+For each secret, you also provide the name under which its value should be added to `context`.
 
 ### Options
 
@@ -490,8 +498,9 @@ For each secret, you also provide the name under which its value should be added
 - `throwOnFailedCall` (boolean) (optional): Defaults to `false`. Set it to `true` if you want your lambda to fail in case call to AWS Secrets Manager fails (secrets don't exist or internal error). It will only print error if secrets are already cached.
 
 NOTES:
-* Lambda is required to have IAM permission for `secretsmanager:GetSecretValue` action
-* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
+
+- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue` action
+- `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
 
 ### Sample Usage
 
@@ -505,12 +514,14 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler.use(secretsManager({
-  cache: true,
-  secrets: {
-    RDS_LOGIN: 'dev/rds_login'
-  }
-}))
+handler.use(
+  secretsManager({
+    cache: true,
+    secrets: {
+      RDS_LOGIN: 'dev/rds_login'
+    }
+  })
+)
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
@@ -530,14 +541,14 @@ By default parameters are assigned to the Node.js `process.env` object. They can
 
 The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
 
-For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.  
+For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
 
 ### Options
 
 - `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS SSM
 - `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached parameter values from SSM
-- `paths` (object) (optional*): Map of SSM paths to fetch parameters from, where the key is the prefix for the destination name, and value is the SSM path. Example: `{paths: {DB_: '/dev/service/db'}}`
-- `names` (object) (optional*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
+- `paths` (object) (optional\*): Map of SSM paths to fetch parameters from, where the key is the prefix for the destination name, and value is the SSM path. Example: `{paths: {DB_: '/dev/service/db'}}`
+- `names` (object) (optional\*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
@@ -545,9 +556,10 @@ For each parameter defined by name, you also provide the name under which its va
   of the function handler rather than to `process.env`. Defaults to `false`
 
 NOTES:
-* While you don't need _both_ `paths` and `names`, you do need at least one of them!
-* Lambda is required to have IAM permissions for `ssm:GetParameters*` actions
-* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
+
+- While you don't need _both_ `paths` and `names`, you do need at least one of them!
+- Lambda is required to have IAM permissions for `ssm:GetParameters*` actions
+- `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
 
 ### Sample Usage
 
@@ -561,19 +573,23 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler.use(ssm({
-  cache: true,
-  paths: {
-    SOME_PREFIX_: '/dev/db'
-  },
-  names: {
-    SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
-  }
-}))
+handler.use(
+  ssm({
+    cache: true,
+    paths: {
+      SOME_PREFIX_: '/dev/db'
+    },
+    names: {
+      SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+    }
+  })
+)
 
 // Before running the function handler, the middleware will fetch SSM params
 handler(event, context, (_, response) => {
-  expect(process.env.SOME_PREFIX_CONNECTION_STRING).toEqual('some-connection-string') // The '/dev/db' path contains the CONNECTION_STRING parameter
+  expect(process.env.SOME_PREFIX_CONNECTION_STRING).toEqual(
+    'some-connection-string'
+  ) // The '/dev/db' path contains the CONNECTION_STRING parameter
   expect(process.env.SOME_ACCESS_TOKEN).toEqual('some-access-token')
 })
 ```
@@ -588,14 +604,16 @@ const handler = middy((event, context, cb) => {
   cb(null, {})
 })
 
-handler.use(ssm({
-  cache: true,
-  names: {
-    SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
-  },
-  awsSdkOptions: {region: 'us-west-1'},
-  setToContext: true
-}))
+handler.use(
+  ssm({
+    cache: true,
+    names: {
+      SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+    },
+    awsSdkOptions: { region: 'us-west-1' },
+    setToContext: true
+  })
+)
 
 handler(event, context, (_, response) => {
   expect(context.SOME_ACCESS_TOKEN).toEqual('some-access-token')
@@ -619,12 +637,12 @@ It can also be used in combination with [`httpcontentnegotiation`](#httpContentN
 
 ### Options
 
- - `inputSchema` (object) (optional): The JSON schema object that will be used
-   to validate the input (`handler.event`) of the Lambda handler.
- - `outputSchema` (object) (optional): The JSON schema object that will be used
-   to validate the output (`handler.response`) of the Lambda handler.
- - `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
-    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en'}`  
+- `inputSchema` (object) (optional): The JSON schema object that will be used
+  to validate the input (`handler.event`) of the Lambda handler.
+- `outputSchema` (object) (optional): The JSON schema object that will be used
+  to validate the output (`handler.response`) of the Lambda handler.
+- `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
+  class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en'}`
 
 ### Sample Usage
 
@@ -652,13 +670,15 @@ const schema = {
   }
 }
 
-handler.use(validator({
-  inputSchema: schema
-}))
+handler.use(
+  validator({
+    inputSchema: schema
+  })
+)
 
 // invokes the handler, note that property foo is missing
 const event = {
-  body: JSON.stringify({something: 'somethingelse'})
+  body: JSON.stringify({ something: 'somethingelse' })
 }
 handler(event, {}, (err, res) => {
   expect(err.message).toEqual('Event object failed validation')
@@ -687,7 +707,7 @@ const schema = {
   }
 }
 
-handler.use(validator({outputSchema: schema}))
+handler.use(validator({ outputSchema: schema }))
 
 handler({}, {}, (err, response) => {
   expect(err).not.toBe(null)
@@ -703,7 +723,7 @@ of a form submit).
 
 ### Options
 
- - `extended` (boolean) (optional): if `true` will use [`qs`](https://npm.im/qs) to parse
+- `extended` (boolean) (optional): if `true` will use [`qs`](https://npm.im/qs) to parse
   the body of the request. By default is set to `false`
 
 ### Sample Usage
@@ -716,7 +736,7 @@ const handler = middy((event, context, cb) => {
   cb(null, event.body) // propagates the body as response
 })
 
-handler.use(urlEncodeBodyParser({extended: false}))
+handler.use(urlEncodeBodyParser({ extended: false }))
 
 // When Lambda runs the handler with a sample event...
 const event = {
@@ -735,7 +755,6 @@ handler(event, {}, (_, body) => {
 })
 ```
 
-
 ## [warmup](/src/middlewares/warmup.js)
 
 Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.
@@ -744,26 +763,26 @@ This middleware allows you to specify a schedule to keep Lambdas that always nee
 
 If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup) the scheduling part is done by the plugin and you just have to attach the middleware to your "middyfied" handler. If you don't want to use the plugin you have to create the schedule yourself and define the `isWarmingUp` function to define wether the current event is a warmup event or an actual business logic execution.
 
-
 ### Options
 
- - `isWarmingUp`: a function that accepts the `event` object as a parameter
-   and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
- - `onWarmup`: a function that gets executed before the handler exits in case of warmup. By default the function just prints: `Exiting early via warmup Middleware`.
+- `isWarmingUp`: a function that accepts the `event` object as a parameter
+  and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
+- `onWarmup`: a function that gets executed before the handler exits in case of warmup. By default the function just prints: `Exiting early via warmup Middleware`.
 
 ### Sample usage
 
 ```javascript
-const isWarmingUp = (event) => event.isWarmingUp === true
-const onWarmup = (event) => console.log('I am just warming up', event)
+const isWarmingUp = event => event.isWarmingUp === true
+const onWarmup = event => console.log('I am just warming up', event)
 
 const originalHandler = (event, context, cb) => {
   /* ... */
 }
 
-const handler = middy(originalHandler)
-  .use(warmup({
+const handler = middy(originalHandler).use(
+  warmup({
     isWarmingUp,
     onWarmup
-  }))
+  })
+)
 ```
