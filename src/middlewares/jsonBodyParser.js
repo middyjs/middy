@@ -1,13 +1,15 @@
 const createError = require('http-errors')
-const contentType = require('content-type')
+const contentTypeLib = require('content-type')
 
 module.exports = () => ({
   before: (handler, next) => {
     const { headers } = handler.event
-    // normalize header
-    const headerContentType = headers['Content-Type'] || headers['content-type']
-    if (headers && headerContentType) {
-      const { type } = contentType.parse(headerContentType)
+    if (!headers) {
+      return next()
+    }
+    const contentType = headers['Content-Type'] || headers['content-type']
+    if (contentType) {
+      const { type } = contentTypeLib.parse(contentType)
       if (type === 'application/json') {
         try {
           handler.event.body = JSON.parse(handler.event.body)
