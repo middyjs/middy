@@ -421,7 +421,7 @@ if used in combination with `httpErrorHandler`.
 It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
 
-**Note**: by default this is going to parse only events that contain the header `Content-Type` (or `content-type`) set to `application/json`. If you want to support different casing for the header name (e.g. `Content-type`) then you should attache the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware before this middleware.
+**Note**: by default this is going to parse only events that contain the header `Content-Type` (or `content-type`) set to `application/json`. If you want to support different casing for the header name (e.g. `Content-type`) then you should use the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware before this middleware.
 
 ```javascript
 const middy = require('middy')
