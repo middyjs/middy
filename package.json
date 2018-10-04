@@ -9,7 +9,7 @@
   "scripts": {
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
-    "test:lint": "eslint --ignore-pattern='node_modules/' --ignore-pattern='coverage/' --ignore-pattern='docs/' .",
+    "test:lint": "eslint .",
     "test:packages": "lerna run --parallel test",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:sync": "lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
@@ -43,11 +43,23 @@
     "eslint-plugin-node": "^6.0.0",
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-standard": "^4.0.0",
+    "husky": "^1.1.0",
     "jest": "^22.4.3",
     "lerna": "^2.11.0",
+    "lint-staged": "^7.3.0",
     "regenerator-runtime": "^0.11.0",
     "typescript": "^2.8.1",
     "typings-tester": "^0.3.1"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint"
+    ]
+  }
 }
