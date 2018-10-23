@@ -1,4 +1,4 @@
-const functionShield = require('@puresec/function-shield');
+const functionShield = require('@puresec/function-shield')
 
 module.exports = (opts) => ({
   before: (handler, next) => {
