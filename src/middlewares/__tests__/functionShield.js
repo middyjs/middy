@@ -4,7 +4,7 @@ const functionShield = require('../functionShield')
 describe('📦  Middleware FunctionShield', () => {
   test('Should not affect function execution', () => {
     const handler = middy((event, context, cb) => {
-      cb(null, event) // propagates the body as a response
+      cb(null, event)
     })
 
     handler.use(functionShield())
