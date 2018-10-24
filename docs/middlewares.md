@@ -144,10 +144,14 @@ handler(event, context, (_, response) => {
 ## [functionShield](/src/middlewares/functionShield.js)
 
 Hardens AWS Lambda execution environment:
-* By monitoring (or blocking) outbound network traffic from your function, you can be certain that your data is never leaked
-* By disabling read/write operations on the /tmp/ directory, you can make your function truly ephemeral
+* By monitoring (or blocking) outbound network traffic to public internet, you can be certain that your data is never leaked (traffic to AWS services is not affected)
+* By disabling read/write operations on the /tmp/ directory, you make sure that files are not persisted across invocations. Storing data in `/tmp` is a bad practice as it may be leaked in subsequent invocations
 * By disabling the ability to launch child processes, you can make sure that no rogue processes are spawned without your knowledge by potentially malicious packages
 * By disabling the ability to read the function's (handler) source code through the file system, you can prevent handler source code leakage, which is oftentimes the first step in a serverless attack 
+
+More info:
+* https://www.puresec.io/function-shield
+* https://www.jeremydaly.com/serverless-security-with-functionshield/
 
 ## Get a free token
 
@@ -175,48 +179,11 @@ Please visit: https://www.puresec.io/function-shield-token-form
 'use strict';
 
 const fs = require('fs');
-const child_process = require('child_process');
-const https = require('https');
 const middy = require('middy');
-const { ssm,  functionShield } = require('middy/middlewares');
+const {ssm, functionShield} = require('middy/middlewares');
 
 async function hello(event) {
-  try {
-    let fd = fs.openSync('/tmp/test', 'w');
-    fs.closeSync(fd);
-    console.log('successfully opened file in /tmp folder');
-  } catch (e) {
-    console.error('cannot open file in /tmp folder');
-  }
-  try {
-    child_process.execFileSync('/bin/uname');
-    console.log('successfully created child process');
-  } catch (e) {
-    console.error('cannot create child process');
-  }
-
-  let httpGet = (url) => {
-    return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
-        resolve();
-      }).on('error', (e) => {
-        reject();
-      });
-    });
-  };
-  try {
-    await httpGet('https://nodejs.org');
-    console.log('successfully created outbound connection');
-  } catch (e) {
-    console.error('cannot create outbound connection');
-  }
-  try {
-    let fd = fs.openSync('/var/task/handler.js', 'r');
-    fs.closeSync(fd);
-    console.log('successfully opened handler file');
-  } catch (e) {
-    console.error('cannot open handler file');
-  }
+  fs.openSync('/tmp/test', 'w');
 }
 
 
@@ -228,11 +195,13 @@ const handler = middy(hello)
       FUNCTION_SHIELD_TOKEN: 'function_shield_token'
     }
   }))
-  .use(functionShield({
-    policy: {
-      outbound_connectivity: 'alert'
+  .use(functionShield(
+    {
+      policy: {
+        outbound_connectivity: 'alert'
+      }
     }
-  }));
+  ));
 
 module.exports = {
   handler
@@ -240,21 +209,13 @@ module.exports = {
 ```
 
 ```
-START RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c Version: $LATEST
+START RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75 Version: $LATEST
 [TOKEN VERIFICATION] license is OK
 {"function_shield":true,"policy":"read_write_tmp","details":{"path":"/tmp/test"},"mode":"block"}
-2018-10-24 14:51:58.361 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot open file in /tmp folder
-{"function_shield":true,"policy":"create_child_process","details":{"path":"/bin/uname"},"mode":"block"}
-2018-10-24 14:51:58.366 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot create child process
-{"function_shield":true,"policy":"outbound_connectivity","details":{"host":"nodejs.org"},"mode":"alert"}
-{"function_shield":true,"policy":"outbound_connectivity","details":{"ip":"104.20.22.46"},"mode":"alert"}
-2018-10-24 14:51:58.416 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    successfully created outbound connection
-{"function_shield":true,"policy":"read_handler","details":{"path":"/var/task/handler.js"},"mode":"block"}
-2018-10-24 14:51:58.416 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot open handler file
-END RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c
-REPORT RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c  Duration: 611.64 ms     Billed Duration: 700 ms         Memory Size: 1024 MB    Max Memory Used: 73 MB  
+2018-10-24 15:11:45.427 (+03:00)        f7b7305d-d785-11e8-baf1-9136b5c7aa75    {"errorMessage":"Unknown system error -999: Unknown system error -999, open '/tmp/test'","errorType":"Error","stackTrace":["Object.fs.openSync (fs.js:646:18)","Function.hello (/var/task/handler.js:8:6)","runMiddlewares (/var/task/node_modules/middy/src/middy.js:180:42)","runNext (/var/task/node_modules/middy/src/middy.js:85:14)","before (/var/task/node_modules/middy/src/middlewares/functionShield.js:20:5)","runNext (/var/task/node_modules/middy/src/middy.js:70:24)","<anonymous>","process._tickDomainCallback (internal/process/next_tick.js:228:7)"]}
+END RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75
+REPORT RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75  Duration: 458.65 ms     Billed Duration: 500 ms         Memory Size: 1024 MB    Max Memory Used: 38 MB  
 ```
-
 
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 
