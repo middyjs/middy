@@ -239,6 +239,23 @@ module.exports = {
 };
 ```
 
+```
+START RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c Version: $LATEST
+[TOKEN VERIFICATION] license is OK
+{"function_shield":true,"policy":"read_write_tmp","details":{"path":"/tmp/test"},"mode":"block"}
+2018-10-24 14:51:58.361 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot open file in /tmp folder
+{"function_shield":true,"policy":"create_child_process","details":{"path":"/bin/uname"},"mode":"block"}
+2018-10-24 14:51:58.366 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot create child process
+{"function_shield":true,"policy":"outbound_connectivity","details":{"host":"nodejs.org"},"mode":"alert"}
+{"function_shield":true,"policy":"outbound_connectivity","details":{"ip":"104.20.22.46"},"mode":"alert"}
+2018-10-24 14:51:58.416 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    successfully created outbound connection
+{"function_shield":true,"policy":"read_handler","details":{"path":"/var/task/handler.js"},"mode":"block"}
+2018-10-24 14:51:58.416 (+03:00)        3523b3e7-d783-11e8-bf40-6d5f1256964c    cannot open handler file
+END RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c
+REPORT RequestId: 3523b3e7-d783-11e8-bf40-6d5f1256964c  Duration: 611.64 ms     Billed Duration: 700 ms         Memory Size: 1024 MB    Max Memory Used: 73 MB  
+```
+
+
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 
 Parses `Accept-*` headers and provides utilities for [HTTP content negotiation](https://tools.ietf.org/html/rfc7231#section-5.3) (charset, encoding, language and media type).
