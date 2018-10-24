@@ -1,7 +1,6 @@
 const functionShield = require('@puresec/function-shield')
-const merge = require('deepmerge')
 
-module.exports = (opts = {}) => ({
+module.exports = (opts = {policy: {}}) => ({
   before: (handler, next) => {
     const defaults = {
       policy: {
@@ -13,7 +12,8 @@ module.exports = (opts = {}) => ({
       disable_analytics: false,
       token: process.env.FUNCTION_SHIELD_TOKEN || handler.context.FUNCTION_SHIELD_TOKEN
     }
-    const options = merge(defaults, opts)
+    let options = Object.assign({}, defaults, opts)
+    options.policy = Object.assign({}, defaults.policy, opts.policy)
 
     functionShield.configure(options)
 

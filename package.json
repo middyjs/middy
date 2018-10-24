@@ -72,7 +72,6 @@
     "ajv-i18n": "^3.1.0",
     "ajv-keywords": "^3.0.0",
     "content-type": "^1.0.4",
-    "deepmerge": "^2.2.1",
     "http-errors": "^1.6.2",
     "json-mask": "^0.3.8",
     "negotiator": "^0.6.1",
