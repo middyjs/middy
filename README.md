@@ -487,6 +487,7 @@ Currently available middlewares:
 
  - [`cache`](/packages/cache): A simple but flexible caching layer
  - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+ - [`function-shield`](/packages/function-shield): Hardens AWS Lambda execution environment
  - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
  - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
