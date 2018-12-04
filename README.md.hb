@@ -496,7 +496,7 @@ methods to allow you to quickly hook-in simple inline middlewares.
 
 ### More details on creating middlewares
 
-Check the [code for existing middlewares](/src/middlewares) to see more examples
+Check the [code for existing middlewares](/docs/middlewares.md) to see more examples
 on how to write a middleware.
 
 
