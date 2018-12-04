@@ -62,7 +62,7 @@ Let's assume you are building a JSON API to process a payment:
 # handler.js
 
 const middy = require('middy')
-const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
+const { jsonBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
 
 // This is your common handler, in no way different than what you are used to doing every day
 // in AWS Lambda
@@ -98,7 +98,7 @@ const inputSchema = {
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
-  .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
