@@ -178,7 +178,7 @@ describe('🔒 SSM Middleware', () => {
       },
       callbacks: [
         (_, {context}) => {
-          expect(onChange).toBeCalled()
+          expect(onChange).toHaveBeenCalledTimes(1)
           expect(context.secureValue).toEqual('something-secure')
           expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
         }
@@ -234,13 +234,13 @@ describe('🔒 SSM Middleware', () => {
       },
       callbacks: [
         (_, {context}) => {
-          expect(onChange.mock.calls.length).toEqual(1)
+          expect(onChange).toHaveBeenCalledTimes(1)
           expect(context.secureValue).toEqual('something-secure')
           expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
           getParametersMock.mockClear()
         },
         (_, {context}) => {
-          expect(onChange.mock.calls.length).toEqual(2)
+          expect(onChange).toHaveBeenCalledTimes(2)
           expect(context.secureValue).toEqual('something-secure')
           expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
         }
