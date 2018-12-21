@@ -65,7 +65,7 @@
     "typings-tester": "^0.3.1"
   },
   "dependencies": {
-    "@puresec/function-shield": "^1.1.1",
+    "@puresec/function-shield": "^1.2.2",
     "@types/aws-lambda": "^8.10.1",
     "@types/http-errors": "^1.6.1",
     "ajv": "^6.0.0",
