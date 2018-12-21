@@ -2,6 +2,7 @@ module.exports = {
   cache: require('./cache'),
   cors: require('./cors'),
   doNotWaitForEmptyEventLoop: require('./doNotWaitForEmptyEventLoop'),
+  functionShield: require('./functionShield'),
   httpContentNegotiation: require('./httpContentNegotiation'),
   httpErrorHandler: require('./httpErrorHandler'),
   httpEventNormalizer: require('./httpEventNormalizer'),

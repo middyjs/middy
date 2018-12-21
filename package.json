@@ -1,6 +1,6 @@
 {
   "name": "middy",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "main": "./index.js",
   "files": [
@@ -22,8 +22,7 @@
     "build:docs": "jsdoc --readme README.md --package package.json --destination docs src",
     "build": "npm run build:docs && npm run build:readme",
     "release:tag": "git tag $npm_package_version && git push --tags",
-    "coverage:submit": "codecov",
-    "precommit": "npm run build"
+    "coverage:submit": "codecov"
   },
   "repository": {
     "type": "git",
@@ -56,7 +55,7 @@
     "eslint-plugin-node": "^7.0.1",
     "eslint-plugin-promise": "^4.0.0",
     "eslint-plugin-standard": "^3.0.1",
-    "husky": "^0.14.3",
+    "husky": "^1.1.0",
     "jest": "^23.1.0",
     "jsdoc": "^3.5.5",
     "jsdoc-to-markdown": "^4.0.1",
@@ -66,6 +65,7 @@
     "typings-tester": "^0.3.1"
   },
   "dependencies": {
+    "@puresec/function-shield": "^1.1.1",
     "@types/aws-lambda": "^8.10.1",
     "@types/http-errors": "^1.6.1",
     "ajv": "^6.0.0",
@@ -83,5 +83,10 @@
     "collectCoverageFrom": [
       "src/**/*.js"
     ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run build"
+    }
   }
 }

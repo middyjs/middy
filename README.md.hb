@@ -496,7 +496,7 @@ methods to allow you to quickly hook-in simple inline middlewares.
 
 ### More details on creating middlewares
 
-Check the [code for existing middlewares](/src/middlewares) to see more examples
+Check the [code for existing middlewares](/docs/middlewares.md) to see more examples
 on how to write a middleware.
 
 
@@ -506,6 +506,7 @@ Currently available middlewares:
 
  - [`cache`](/docs/middlewares.md#cache): A simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): Sets CORS headers on response
+ - [`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
@@ -515,6 +516,7 @@ Currently available middlewares:
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHandler`.
  - [`s3KeyNormalizer`](/docs/middlewares.md#s3keynormalizer): Normalizes key names in s3 events.
+ - [`secretsManager`](/docs/middlewares.md#secretsmanager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
  - [`ssm`](/docs/middlewares.md#ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
  - [`validator`](/docs/middlewares.md#validator): Automatically validates incoming events and outgoing responses against custom schemas
  - [`urlEncodeBodyParser`](/docs/middlewares.md#urlencodebodyparser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).

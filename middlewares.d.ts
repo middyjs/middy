@@ -46,6 +46,14 @@ interface IHTTPPartialResponseOptions {
   filteringKeyName?: string;
 }
 
+interface ISecretsManagerOptions {
+  cache?: boolean;
+  cacheExpiryInMillis?: number;
+  secrets: { [key: string]: string; };
+  awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
+  throwOnFailedCall?: boolean;
+}
+
 interface ISSMOptions {
   cache?: boolean;
   cacheExpiryInMillis?: number;
@@ -81,6 +89,7 @@ declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): midd
 declare function httpPartialResponse(opts?: IHTTPPartialResponseOptions): middy.IMiddyMiddlewareObject;
 declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
 declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
+declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
 declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
 declare function validator(opts?: IValidatorOptions): middy.IMiddyMiddlewareObject;
 declare function urlEncodeBodyParser(opts?: IURLEncodeBodyParserOptions): middy.IMiddyMiddlewareObject;
