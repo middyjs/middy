@@ -61,6 +61,10 @@ jobs:
           name: install dependencies
           command: npm install
 
+      - run:
+          name: audit packages
+          command: npm audit
+
       - save_cache:
           paths:
             - node_modules
