@@ -187,31 +187,6 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not call onChange handler on first run if onChange not a function`, (done) => {
-    testScenario({
-      ssmMockResponse: {
-        Parameters: [{Name: '/dev/service_name/secure_param', Value: 'something-secure'}]
-      },
-      middlewareOptions: {
-        names: {
-          secureValue: '/dev/service_name/secure_param'
-        },
-        cache: true,
-        onChange: () => {},
-        setToContext: true,
-        paramsLoaded: false
-      },
-      callbacks: [
-        (_, {context}) => {
-          expect(onChange.mock.calls.length).toEqual(0)
-          expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true})
-        }
-      ],
-      done
-    })
-  })
-
   test(`It should call aws-sdk if cache enabled but cached param has expired`, (done) => {
     testScenario({
       ssmMockResponse: {
