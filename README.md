@@ -62,7 +62,7 @@ Let's assume you are building a JSON API to process a payment:
 const middy = require('@middy/core')
 
 // import some middlewares
-const urlEncodeBodyParser = require('@middy/http-urlencode-body-parser')
+const jsonBodyParser = require('@middy/http-json-body-parser')
 const httpErrorHandler = require('@middy/http-error-handler')
 const validator = require('@middy/validator')
 
@@ -99,9 +99,9 @@ const inputSchema = {
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
- .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
- .use(validator({inputSchema})) // validates the input
- .use(httpErrorHandler()) // handles common http errors and returns proper responses
+  .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(validator({inputSchema})) // validates the input
+  .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
 module.exports = { handler }
 ```
