@@ -42,6 +42,6 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "dependencies": {
-    "@puresec/function-shield": "^1.1.6"
+    "@puresec/function-shield": "^1.2.2"
   }
 }
