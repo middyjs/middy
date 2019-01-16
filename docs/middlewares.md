@@ -632,6 +632,8 @@ For each parameter defined by name, you also provide the name under which its va
 - `onChange` (function) (optional): Callback triggered when call was made to SSM. Useful when you need to regenerate something with different data. Example: `{ onChange: () => { console.log('New data available')} }`
 - `setToContext` (boolean) (optional): This will assign parameters to the `context` object
   of the function handler rather than to `process.env`. Defaults to `false`
+- `stringTemplates`(boolean) (optional): This will allow to use ES6 style variables in the `name` and `path` values with access to all properties of the `handler` object. Do not use back-ticks - use normal strings. Caching is supported  for request with identical variable values.
+  Example: `{names: {DB_URL: '/dev/${event.body.service}/options'}}` or `{paths: {DB_: '/${context.stage}/service/db'}}`
 
 NOTES:
 
