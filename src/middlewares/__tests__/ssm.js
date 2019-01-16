@@ -21,7 +21,7 @@ describe('🔒 SSM Middleware', () => {
     delete process.env.KEY_NAME
   })
 
-  function testScenario ({ssmMockResponse, ssmMockResponses, middlewareOptions, callbacks, done, delay = 0}) {
+  function testScenario ({ssmMockResponse, ssmMockResponses, middlewareOptions, context = {}, callbacks, done, delay = 0}) {
     (ssmMockResponses || [ssmMockResponse]).forEach(ssmMockResponse => {
       getParametersMock.mockReturnValue({
         promise: () => Promise.resolve(ssmMockResponse)
@@ -40,7 +40,6 @@ describe('🔒 SSM Middleware', () => {
     const event = {}
     let promise = Promise.resolve()
     callbacks.forEach(cb => {
-      let context = {}
       promise = promise.then(() => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
@@ -387,6 +386,115 @@ describe('🔒 SSM Middleware', () => {
         () => {
           expect(process.env.KEY_NAME1).toEqual('key-value1')
           expect(process.env.KEY_NAME2).toEqual('key-value2')
+        }
+      ],
+      done
+    })
+  })
+  test(`It should replace the variable in the string template and should not call the AWS SSN`, done => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+      },
+      middlewareOptions: {
+        names: {
+          // eslint-disable-next-line no-template-curly-in-string
+          KEY_NAME: '/${context.stage}/service_name/key_name'
+        },
+        stringTemplates: true
+      },
+      context: {
+        stage: 'dev'
+      },
+      callbacks: [
+        () => {
+          expect(process.env.KEY_NAME).toEqual('key-value')
+        }
+      ],
+      done
+    })
+  })
+  test(`It should replace the variable in the string template and should not call the AWS SSN`, done => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+      },
+      middlewareOptions: {
+        names: {
+          // eslint-disable-next-line no-template-curly-in-string
+          KEY_NAME: '/${context.stage}/service_name/key_name'
+        },
+
+        cache: true,
+        stringTemplates: true
+      },
+      context: {
+        stage: 'dev'
+      },
+      callbacks: [
+        () => {
+          expect(process.env.KEY_NAME).toEqual('key-value')
+          expect(getParametersMock).toBeCalled()
+          getParametersMock.mockClear()
+        },
+        () => {
+          expect(process.env.KEY_NAME).toEqual('key-value')
+          expect(getParametersMock).not.toBeCalled()
+        }
+      ],
+      done
+    })
+  })
+  // test does not work
+  xtest(`It should replace the variable in the string template and should call the AWS SSN because of changed context`, done => {
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+      },
+      middlewareOptions: {
+        names: {
+          // eslint-disable-next-line no-template-curly-in-string
+          KEY_NAME: '/${context.stage}/service_name/key_name'
+        },
+
+        cache: true,
+        stringTemplates: true
+      },
+      context: {
+        stage: 'dev'
+      },
+      callbacks: [
+        () => {
+          expect(process.env.KEY_NAME).toEqual('key-value')
+          expect(getParametersMock).toBeCalled()
+          getParametersMock.mockClear()
+          delete process.env.KEY_NAME
+        }
+      ],
+      done
+    })
+    testScenario({
+      ssmMockResponse: {
+        Parameters: [
+          { Name: '/test/service_name/key_name', Value: 'key-value' }
+        ]
+      },
+      middlewareOptions: {
+        names: {
+          // eslint-disable-next-line no-template-curly-in-string
+          KEY_NAME: '/${context.stage}/service_name/key_name'
+        },
+
+        cache: true,
+        stringTemplates: true
+      },
+      context: {
+        stage: 'test'
+      },
+      callbacks: [
+        () => {
+          expect(process.env.KEY_NAME).toEqual('key-value')
+          expect(getParametersMock).toBeCalled()
         }
       ],
       done

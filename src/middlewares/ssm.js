@@ -1,3 +1,4 @@
+const {createHash} = require('crypto')
 let ssmInstance
 
 module.exports = opts => {
@@ -11,18 +12,28 @@ module.exports = opts => {
     names: {},
     getParamNameFromPath: getParamNameFromPathDefault,
     setToContext: false,
+    stringTemplates: false,
     cache: false,
     cacheExpiryInMillis: undefined,
     paramsLoaded: false,
     paramsCache: undefined,
-    paramsLoadedAt: new Date(0)
+    paramsLoadedAt: new Date(0),
+    paramsCacheOptionsHash: undefined
   }
 
-  const options = Object.assign({}, defaults, opts)
+  const newoptions = Object.assign({}, defaults, opts)
 
   return {
     before: (handler, next) => {
-      if (!shouldFetchFromParamStore(options)) {
+      const options = parseStringTemplates(newoptions, handler)
+      const optionsHash = createHash('sha1')
+        .update(
+          Object.keys(options.paths).join('|') +
+            '-' +
+            Object.keys(options.names).join('|')
+        )
+        .digest('base64')
+      if (!shouldFetchFromParamStore(options, optionsHash)) {
         if (options.paramsCache) {
           const targetParamsObject = getTargetObjectToAssign(handler, options)
           options.paramsCache.forEach(object => {
@@ -70,15 +81,21 @@ module.exports = opts => {
         }
         options.paramsLoaded = true
         options.paramsCache = objectsToMap
+        options.paramsCacheOptionsHash = optionsHash
         options.paramsLoadedAt = new Date()
       })
     }
   }
 }
 
-const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheExpiryInMillis }) => {
+const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheExpiryInMillis, paramsCacheOptionsHash }, optionsHash) => {
   // if caching is OFF, or we haven't loaded anything yet, then definitely load it from SSM
   if (!cache || !paramsLoaded) {
+    return true
+  }
+
+  // do not use cache if options have change - e.g. Template Strings
+  if (paramsCacheOptionsHash !== optionsHash) {
     return true
   }
 
@@ -192,3 +209,34 @@ const invertObject = obj =>
     aggregator[obj[key]] = key
     return aggregator
   }, {})
+
+/**
+ * Convert string to template string and replace variables in paths and name values
+ * @param {Object} Options provided to middleware
+ * @param {Object} Values to be used by the templates
+ */
+const parseStringTemplates = function (options, params) {
+  if (!options.stringTemplates) return options
+  options.paths = Object.keys(options.paths).reduce((result, key) => {
+    result[key] = StringTemplate(options.paths[key], params)
+    return result
+  }, {})
+  options.names = Object.keys(options.names).reduce((result, key) => {
+    result[key] = StringTemplate(options.names[key], params)
+    return result
+  }, {})
+
+  return options
+}
+
+/**
+ * Convert string to template string and replace variables
+ * @param {String} template Template string with variable placeholder allowed by ES6 Template Literals
+ * @param {Object} Values to be used by the template
+ */
+const StringTemplate = function (template, params) {
+  const names = Object.keys(params)
+  const vals = Object.values(params)
+  // eslint-disable-next-line no-new-func
+  return new Function(...names, `return \`${template}\`;`)(...vals)
+}
