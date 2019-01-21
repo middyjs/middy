@@ -69,6 +69,19 @@ module.exports = (opts) => {
         handler.event.rawHeaders = rawHeaders
       }
 
+      if (handler.event.multiValueHeaders) {
+        const rawHeaders = {}
+        const headers = {}
+
+        Object.keys(handler.event.multiValueHeaders).forEach((key) => {
+          rawHeaders[key] = handler.event.multiValueHeaders[key]
+          headers[options.normalizeHeaderKey(key)] = handler.event.multiValueHeaders[key]
+        })
+
+        handler.event.multiValueHeaders = headers
+        handler.event.rawMultiValueHeaders = rawHeaders
+      }
+
       next()
     }
   })
