@@ -90,7 +90,7 @@ describe('📦 Middleware normalize HTTP event', () => {
     }
 
     handler(event, {}, (_, event) => {
-      expect(event).toHaveProperty('multiValueQueryStringParameters',  { param: [ '123', '456', '789' ] })
+      expect(event).toHaveProperty('multiValueQueryStringParameters', { param: [ '123', '456', '789' ] })
       endTest()
     })
   })
