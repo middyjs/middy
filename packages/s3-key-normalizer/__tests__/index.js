@@ -6,7 +6,7 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     const event = {
       'Records': [
         {
-          'eventVersion': '2.0',
+          'eventVersion': '2.1',
           'eventTime': '1970-01-01T00:00:00.000Z',
           'requestParameters': {
             'sourceIPAddress': '127.0.0.1'
@@ -59,7 +59,58 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     const event = {
       'Records': [
         {
-          'eventVersion': '2.0',
+          'eventVersion': '2.1',
+          'eventTime': '1970-01-01T00:00:00.000Z',
+          'requestParameters': {
+            'sourceIPAddress': '127.0.0.1'
+          },
+          's3': {
+            'configurationId': 'testConfigRule',
+            'object': {
+              'sequencer': '0A1B2C3D4E5F678901',
+              'key': 'This+is+a+picture.jpg'
+            },
+            'bucket': {
+              'arn': 'arn:aws:s3:::mybucket',
+              'name': 'sourcebucket',
+              'ownerIdentity': {
+                'principalId': 'EXAMPLE'
+              }
+            },
+            's3SchemaVersion': '1.0'
+          },
+          'responseElements': {
+            'x-amz-id-2': 'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
+            'x-amz-request-id': 'EXAMPLE123456789'
+          },
+          'awsRegion': 'us-east-1',
+          'eventName': 'ObjectRemoved:Delete',
+          'userIdentity': {
+            'principalId': 'EXAMPLE'
+          },
+          'eventSource': 'aws:s3'
+        }
+      ]
+    }
+
+    const handler = middy((event, context, callback) => {
+      callback(null, event) // returns the event as response
+    })
+
+    handler
+      .use(s3KeyNormalizer())
+
+    // invokes the handler
+    handler(event, {}, (_, response) => {
+      expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
+    })
+  })
+
+  test('It should normalize the event if the event version is 2.x', () => {
+    const event = {
+      'Records': [
+        {
+          'eventVersion': '2.3',
           'eventTime': '1970-01-01T00:00:00.000Z',
           'requestParameters': {
             'sourceIPAddress': '127.0.0.1'
