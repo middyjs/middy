@@ -62,7 +62,7 @@ Let's assume you are building a JSON API to process a payment:
 # handler.js
 
 const middy = require('middy')
-const { jsonBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
+const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
 
 // This is your common handler, in no way different than what you are used to doing every day
 // in AWS Lambda
@@ -98,7 +98,7 @@ const inputSchema = {
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
-  .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
@@ -496,7 +496,7 @@ methods to allow you to quickly hook-in simple inline middlewares.
 
 ### More details on creating middlewares
 
-Check the [code for existing middlewares](/src/middlewares) to see more examples
+Check the [code for existing middlewares](/docs/middlewares.md) to see more examples
 on how to write a middleware.
 
 
@@ -506,8 +506,8 @@ Currently available middlewares:
 
  - [`cache`](/docs/middlewares.md#cache): A simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): Sets CORS headers on response
- - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment
+ - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
