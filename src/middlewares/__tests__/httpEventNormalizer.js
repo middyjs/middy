@@ -33,6 +33,21 @@ describe('📦 Middleware normalize HTTP event', () => {
     })
   })
 
+  test('It should default multiValueQueryStringParameters', (endTest) => {
+    const handler = middy((event, context, cb) => cb(null, event))
+
+    handler.use(httpEventNormalizer())
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, event) => {
+      expect(event).toHaveProperty('multiValueQueryStringParameters', {})
+      endTest()
+    })
+  })
+
   test('It should default pathParameters', (endTest) => {
     const handler = middy((event, context, cb) => cb(null, event))
 
@@ -60,6 +75,22 @@ describe('📦 Middleware normalize HTTP event', () => {
 
     handler(event, {}, (_, event) => {
       expect(event).toHaveProperty('queryStringParameters', { param: '123' })
+      endTest()
+    })
+  })
+
+  test('It should not overwrite multiValueQueryStringParameters', (endTest) => {
+    const handler = middy((event, context, cb) => cb(null, event))
+
+    handler.use(httpEventNormalizer())
+
+    const event = {
+      httpMethod: 'GET',
+      multiValueQueryStringParameters: { param: [ '123', '456', '789' ] }
+    }
+
+    handler(event, {}, (_, event) => {
+      expect(event).toHaveProperty('multiValueQueryStringParameters', { param: [ '123', '456', '789' ] })
       endTest()
     })
   })
