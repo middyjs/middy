@@ -45,6 +45,7 @@
  - [Available middlewares](#available-middlewares)
  - [API](#api)
  - [Typescript](#typescript)
+ - [3rd party middlewares](#3rd-party-middlewares)
  - [Contributing](#contributing)
  - [License](#license)
 
@@ -548,6 +549,25 @@ Middy exports Typescript compatible type information. To enable the use of Middy
 ```
 
 After that you can `import middy from 'middy';` in your http handler and use it as described above.
+
+
+## 3rd party middlewares
+
+Here's a collection of some 3rd party middlewares and libraries that you can use with Middy:
+
+ - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
+ - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
+ - [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
+ - [@keboola/middy-event-validator](https://www.npmjs.com/package/@keboola/middy-event-validator): Joi powered event validation middleware
+ - [middy-reroute](https://www.npmjs.com/package/middy-reroute): provides complex redirect, rewrite and proxying capabilities by simply placing a rules file into your S3 bucket
+ - [middytohof](https://www.npmjs.com/package/middytohof): Convert Middy middleware plugins to higher-order functions returning lambda handlers
+ - [wrap-ware](https://www.npmjs.com/package/wrap-ware): A middleware wrapper which works with promises / async
+ - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
+ - [middy-middleware-warmup](https://www.npmjs.com/package/middy-middleware-warmup): A middy plugin to help keep your Lambdas warm during Winter
+ - [@sharecover-co/middy-aws-xray-tracing](https://www.npmjs.com/package/@sharecover-co/middy-aws-xray-tracing): AWS X-Ray Tracing Middleware
+ - [@sharecover-co/middy-http-response-serializer](https://www.npmjs.com/package/@sharecover-co/middy-http-response-serializer):  This middleware serializes the response to JSON and wraps it in a 200 HTTP response
+ - [@seedrs/middyjs-middleware](https://www.npmjs.com/package/@seedrs/middyjs-middleware): Collection of useful middlewares
+ - [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
 
 
 ## Contributing
