@@ -91,6 +91,7 @@ declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
 declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
 declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
 declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
+declare function stringifyBody(): middy.IMiddyMiddlewareObject;
 declare function validator(opts?: IValidatorOptions): middy.IMiddyMiddlewareObject;
 declare function urlEncodeBodyParser(opts?: IURLEncodeBodyParserOptions): middy.IMiddyMiddlewareObject;
 declare function warmup(opts?: IWarmupOptions): middy.IMiddyMiddlewareObject;

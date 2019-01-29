@@ -13,6 +13,7 @@ module.exports = {
   s3KeyNormalizer: require('./s3KeyNormalizer'),
   secretsManager: require('./secretsManager'),
   ssm: require('./ssm'),
+  stringifyBody: require('./stringifyBody'),
   urlEncodeBodyParser: require('./urlEncodeBodyParser'),
   validator: require('./validator'),
   warmup: require('./warmup')
