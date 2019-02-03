@@ -79,20 +79,20 @@ interface IWarmupOptions {
   onWarmup?: (event: any) => void;
 }
 
-declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
-declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
-declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
-declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
-declare function httpErrorHandler(opts?: IHTTPErrorHandlerOptions): middy.IMiddyMiddlewareObject;
-declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
-declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
-declare function httpPartialResponse(opts?: IHTTPPartialResponseOptions): middy.IMiddyMiddlewareObject;
-declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
-declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
-declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
-declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
-declare function validator(opts?: IValidatorOptions): middy.IMiddyMiddlewareObject;
-declare function urlEncodeBodyParser(opts?: IURLEncodeBodyParserOptions): middy.IMiddyMiddlewareObject;
-declare function warmup(opts?: IWarmupOptions): middy.IMiddyMiddlewareObject;
+declare const cache: middy.Middleware<ICacheOptions>;
+declare const cors: middy.Middleware<ICorsOptions>;
+declare const doNotWaitForEmptyEventLoop: middy.Middleware<IDoNotWaitForEmtpyEventLoopOptions>;
+declare const httpContentNegotiation: middy.Middleware<IHTTPContentNegotiationOptions>;
+declare const httpErrorHandler: middy.Middleware<IHTTPErrorHandlerOptions>;
+declare const httpEventNormalizer: middy.Middleware<never>;
+declare const httpHeaderNormalizer: middy.Middleware<IHTTPHeaderNormalizerOptions>;
+declare const httpPartialResponse: middy.Middleware<IHTTPPartialResponseOptions>;
+declare const jsonBodyParser: middy.Middleware<never>;
+declare const s3KeyNormalizer: middy.Middleware<never>;
+declare const secretsManager: middy.Middleware<ISecretsManagerOptions>;
+declare const ssm: middy.Middleware<ISSMOptions>;
+declare const validator: middy.Middleware<IValidatorOptions>;
+declare const urlEncodeBodyParser: middy.Middleware<IURLEncodeBodyParserOptions>;
+declare const warmup: middy.Middleware<IWarmupOptions>;
 
 export as namespace middlewares;
