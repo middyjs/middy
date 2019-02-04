@@ -22,6 +22,9 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
+  </a>
   <a href="https://greenkeeper.io/">
     <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
@@ -31,7 +34,6 @@
 </p>
 </div>
 
-
 ## What is Middy
 
 Middy is a very simple middleware engine that allows to simplify your AWS Lambda code when using Node.js.
@@ -40,7 +42,6 @@ If you are used to web frameworks like Express, than you will be familiar with t
 
 A middleware engine allows you to focus on the strict business logic of your Lambda and then attach additional common elements like authentication, authorization, validation, serialization, etc. in a modular and reusable way by decorating the main business logic.
 
-
 ## Install
 
 To install middy you can use NPM:
@@ -48,7 +49,6 @@ To install middy you can use NPM:
 ```bash
 npm install --save @middy/core
 ```
-
 
 ## Quick example
 
@@ -123,49 +123,47 @@ In other contexts, like generic web frameworks ([express](http://expressjs.com/)
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into
-*"steps"* that *decorate* the main business logic code.
+_"steps"_ that _decorate_ the main business logic code.
 Middleware functions are generally written as independent modules and then plugged in into
 the application in a configuration step, thus not polluting the main business logic
 code that remains clean, readable and easy to maintain.
 
-
-Since  we couldn't find a similar approach for AWS Lambda handlers, we decided
+Since we couldn't find a similar approach for AWS Lambda handlers, we decided
 to create middy, our own middleware framework for serverless in AWS land.
-
 
 ## Usage
 
 As you might have already got from our first example here, using middy is very
 simple and requires just few steps:
 
- 1. Write your Lambda handlers as usual, focusing mostly on implementing the bare
+1.  Write your Lambda handlers as usual, focusing mostly on implementing the bare
     business logic for them.
- 2. Import `middy` and all the middlewares you want to use
- 3. Wrap your handler in the `middy()` factory function. This will return a new
+2.  Import `middy` and all the middlewares you want to use
+3.  Wrap your handler in the `middy()` factory function. This will return a new
     enhanced instance of your original handler, to which you will be able to attach
     the middlewares you need.
- 4. Attach all the middlewares you need using the function `.use(somemiddleware())`
+4.  Attach all the middlewares you need using the function `.use(somemiddleware())`
 
 Example:
 
 ```javascript
-const middy = require('@middy/core')
-const middleware1 = require('sample-middleware1')
-const middleware2 = require('sample-middleware2')
-const middleware3 = require('sample-middleware3')
+const middy = require("@middy/core");
+const middleware1 = require("sample-middleware1");
+const middleware2 = require("sample-middleware2");
+const middleware3 = require("sample-middleware3");
 
 const originalHandler = (event, context, callback) => {
   /* your business logic */
-}
+};
 
-const handler = middy(originalHandler)
+const handler = middy(originalHandler);
 
 handler
   .use(middleware1())
   .use(middleware2())
-  .use(middleware3())
+  .use(middleware3());
 
-module.exports = { handler }
+module.exports = { handler };
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
@@ -173,10 +171,9 @@ You can also attach [inline middlewares](#inline-middlewares) by using the funct
 
 For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware).
 
-
 ## How it works
 
-Middy implements the classic *onion-like* middleware pattern, with some peculiar details.
+Middy implements the classic _onion-like_ middleware pattern, with some peculiar details.
 
 ![Middy middleware engine diagram](/img/middy-middleware-engine.png)
 
@@ -185,39 +182,37 @@ in two separate steps.
 
 When another middleware is attached this will wrap the handler again and it will be wrapped by
 all the previously added middlewares in order, creating multiple layers for interacting with
-the *request* (event) and the *response*.
+the _request_ (event) and the _response_.
 
-This way the *request-response cycle* flows through all the middlewares, the
+This way the _request-response cycle_ flows through all the middlewares, the
 handler and all the middlewares again, giving the opportunity within every step to
 modify or enrich the current request, context or the response.
-
 
 ### Execution order
 
 Middlewares have two phases: `before` and `after`.
 
-The `before` phase, happens *before* the handler is executed. In this code the
+The `before` phase, happens _before_ the handler is executed. In this code the
 response is not created yet, so you will have access only to the request.
 
-The `after` phase, happens *after* the handler is executed. In this code you will
+The `after` phase, happens _after_ the handler is executed. In this code you will
 have access to both the request and the response.
 
 If you have three middlewares attached as in the image above this is the expected
 order of execution:
 
- - `middleware1` (before)
- - `middleware2` (before)
- - `middleware3` (before)
- - `handler`
- - `middleware3` (after)
- - `middleware2` (after)
- - `middleware1` (after)
+- `middleware1` (before)
+- `middleware2` (before)
+- `middleware3` (before)
+- `handler`
+- `middleware3` (after)
+- `middleware2` (after)
+- `middleware1` (after)
 
 Notice that in the `after` phase, middlewares are executed in inverted order,
 this way the first handler attached is the one with the highest priority as it will
 be the first able to change the request and last able to modify the response before
 it gets sent to the user.
-
 
 ### Interrupt middleware execution early
 
@@ -232,39 +227,43 @@ like output serialization or error handling, these won't be invoked in this case
 In this example we can use this capability for building a sample caching middleware:
 
 ```javascript
-
 // some function that calculates the cache id based on the current event
-const calculateCacheId = (event) => { /* ... */ }
-const storage = {}
+const calculateCacheId = event => {
+  /* ... */
+};
+const storage = {};
 
 // middleware
-const cacheMiddleware = (options) => {
-  let cacheKey
-  return ({
+const cacheMiddleware = options => {
+  let cacheKey;
+  return {
     before: (handler, next) => {
-      cacheKey = options.calculateCacheId(handler.event)
+      cacheKey = options.calculateCacheId(handler.event);
       if (options.storage.hasOwnProperty(cacheKey)) {
         // exits early and returns the value from the cache if it's already there
-        return handler.callback(null, options.storage[cacheKey])
+        return handler.callback(null, options.storage[cacheKey]);
       }
 
-      return next()
+      return next();
     },
     after: (handler, next) => {
       // stores the calculated response in the cache
-      options.storage[cacheKey] = handler.response
-      next()
+      options.storage[cacheKey] = handler.response;
+      next();
     }
-  })
-}
+  };
+};
 
 // sample usage
-const handler = middy((event, context, callback) => { /* ... */ })
-  .use(cacheMiddleware({
-    calculateCacheId, storage
-  }))
+const handler = middy((event, context, callback) => {
+  /* ... */
+}).use(
+  cacheMiddleware({
+    calculateCacheId,
+    storage
+  })
+);
 ```
-
 
 ### Handling errors
 
@@ -307,21 +306,19 @@ And here is an example of a middleware that returns a similar promise:
 
 ```javascript
 const asyncValidator = () => {
-  before: (handler) => {
+  before: handler => {
     if (handler.event.body) {
-      return someAsyncStuff(handler.event.body)
-        .then(() => {
-          return {foo: bar}
-        })
+      return someAsyncStuff(handler.event.body).then(() => {
+        return { foo: bar };
+      });
     }
 
-    return Promise.resolve()
-  }
-}
+    return Promise.resolve();
+  };
+};
 
-handler.use(asyncValidator())
+handler.use(asyncValidator());
 ```
-
 
 ### Using async/await
 
@@ -336,40 +333,38 @@ Take the following code as an example of a handler written with async/await:
 
 ```javascript
 middy(async (event, context) => {
-  await someAsyncStuff()
-  await someOtherAsyncStuff()
+  await someAsyncStuff();
+  await someOtherAsyncStuff();
 
-  return ({foo: bar})
-})
+  return { foo: bar };
+});
 ```
-
 
 And here is an example of a middleware written with async/await:
 
 ```javascript
 const asyncValidator = () => {
-  before: async (handler) => {
+  before: async handler => {
     if (handler.event.body) {
-      await asyncValidate(handler.event.body)
+      await asyncValidate(handler.event.body);
 
-      return {foo: bar}
+      return { foo: bar };
     }
 
-    return
-  }
-}
+    return;
+  };
+};
 
-handler.use(asyncValidator())
+handler.use(asyncValidator());
 ```
-
 
 ## Writing a middleware
 
 A middleware is an object that should contain at least 1 of 3 possible keys:
 
- 1. `before`: a function that is executed in the before phase
- 2. `after`: a function that is executed in the after phase
- 3. `onError`: a function that is executed in case of errors
+1.  `before`: a function that is executed in the before phase
+2.  `after`: a function that is executed in the after phase
+3.  `onError`: a function that is executed in case of errors
 
 `before`, `after` and `onError` functions need to have the following signature:
 
@@ -381,11 +376,11 @@ function (handler, next) {
 
 Where:
 
- - `handler`: is a reference to the current context and it allows access to (and modification of)
-   the current `event` (request), the `response` (in the *after* phase) and `error`
-   (in case of an error).
- - `next`: is a callback function that needs to be invoked when the middleware has finished
-   its job so that the next middleware can be invoked
+- `handler`: is a reference to the current context and it allows access to (and modification of)
+  the current `event` (request), the `response` (in the _after_ phase) and `error`
+  (in case of an error).
+- `next`: is a callback function that needs to be invoked when the middleware has finished
+  its job so that the next middleware can be invoked
 
 ### Configurable middlewares
 
@@ -419,21 +414,22 @@ module.exports = myMiddleware
 With this convention in mind, using a middleware will always look like the following example:
 
 ```javascript
-const middy = require('@middy/core')
-const myMiddleware = require('myMiddleware')
+const middy = require("@middy/core");
+const myMiddleware = require("myMiddleware");
 
 const handler = middy((event, context, callback) => {
   // do stuff
-})
+});
 
-handler.use(myMiddleware({
-  option1: 'foo',
-  option2: 'bar'
-}))
+handler.use(
+  myMiddleware({
+    option1: "foo",
+    option2: "bar"
+  })
+);
 
-module.exports = { handler }
+module.exports = { handler };
 ```
-
 
 ### Inline middlewares
 
@@ -447,68 +443,64 @@ logic into Middy's control flow.
 Let's see how inline middlewares work with a simple example:
 
 ```javascript
-const middy = require('@middy/core')
+const middy = require("@middy/core");
 
 const handler = middy((event, context, callback) => {
   // do stuff
-})
+});
 
 handler.before((handler, next) => {
   // do something in the before phase
-  next()
-})
+  next();
+});
 
 handler.after((handler, next) => {
   // do something in the after phase
-  next()
-})
+  next();
+});
 
 handler.onError((handler, next) => {
   // do something in the on error phase
-  next()
-})
+  next();
+});
 
-module.exports = { handler }
+module.exports = { handler };
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
 methods to allow you to quickly hook-in simple inline middlewares.
-
 
 ### More details on creating middlewares
 
 Check the [code for existing middlewares](/src/middlewares) to see more examples
 on how to write a middleware.
 
-
 ## Available middlewares
 
 Currently available middlewares:
 
- - [`cache`](/packages/cache): A simple but flexible caching layer
- - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
- - [`function-shield`](/packages/function-shield): Hardens AWS Lambda execution environment
- - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
- - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
- - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
- - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
- - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
- - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
- `httpErrorHandler`.
- - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
- - [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
- - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
- - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
- - [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
- - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
- - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
- - [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
-
+- [`cache`](/packages/cache): A simple but flexible caching layer
+- [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+- [`function-shield`](/packages/function-shield): Hardens AWS Lambda execution environment
+- [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+- [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
+- [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
+- [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
+- [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
+  `httpErrorHandler`.
+- [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
+- [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
+- [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+- [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
+- [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
+- [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
+- [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
+- [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
 
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

@@ -27,21 +27,21 @@ module.exports = opts => {
         return next()
       }
 
-      secretsManagerInstance = secretsManagerInstance || getSecretsManagerInstance(options.awsSdkOptions)
-      const secretsPromises =
-        Object.keys(options.secrets)
-          .map(key => {
-            const secretName = options.secrets[key]
-            return secretsManagerInstance
-              .getSecretValue({ SecretId: secretName })
-              .promise()
-              .then(resp => {
-                const secret = JSON.parse(resp.SecretString || '{}')
-                const object = {}
-                object[key] = secret
-                return object
-              })
+      secretsManagerInstance =
+        secretsManagerInstance ||
+        getSecretsManagerInstance(options.awsSdkOptions)
+      const secretsPromises = Object.keys(options.secrets).map(key => {
+        const secretName = options.secrets[key]
+        return secretsManagerInstance
+          .getSecretValue({ SecretId: secretName })
+          .promise()
+          .then(resp => {
+            const secret = JSON.parse(resp.SecretString || '{}')
+            const object = {}
+            object[key] = secret
+            return object
           })
+      })
 
       return Promise.all(secretsPromises)
         .then(objectsToMap => {
@@ -54,7 +54,10 @@ module.exports = opts => {
           options.secretsLoadedAt = new Date()
         })
         .catch(err => {
-          console.error('failed to refresh secrets from Secrets Manager:', err.message)
+          console.error(
+            'failed to refresh secrets from Secrets Manager:',
+            err.message
+          )
           // throw error if there is no secret in cache already and flag throwOnFailedCall provided
           if (options.throwOnFailedCall && !options.secretsCache) {
             throw err
@@ -70,7 +73,12 @@ module.exports = opts => {
   }
 }
 
-const shouldFetchFromSecretsManager = ({ secretsLoaded, secretsLoadedAt, cache, cacheExpiryInMillis }) => {
+const shouldFetchFromSecretsManager = ({
+  secretsLoaded,
+  secretsLoadedAt,
+  cache,
+  cacheExpiryInMillis
+}) => {
   // if caching is OFF, or we haven't loaded anything yet, then definitely load it from SecretsManager
   if (!cache || !secretsLoaded) {
     return true
@@ -79,7 +87,7 @@ const shouldFetchFromSecretsManager = ({ secretsLoaded, secretsLoadedAt, cache, 
   // if caching is ON, and cache expiration is ON, and enough time has passed, then also load it from SecretsManager
   const now = new Date()
   const millisSinceLastLoad = now.getTime() - secretsLoadedAt.getTime()
-  if (cache && cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
+  if (cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
     return true
   }
 

@@ -33,27 +33,37 @@ module.exports = opts => {
 
       ssmInstance = ssmInstance || getSSMInstance(options.awsSdkOptions)
 
-      const ssmPromises = Object.keys(options.paths).reduce((aggregator, prefix) => {
-        const pathsData = options.paths[prefix]
-        const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
-        return paths.reduce((subAggregator, path) => {
-          subAggregator.push(
-            getParamsByPathRecursively(path)
-              .then(ssmResponse => getParamsToAssignByPath(path, ssmResponse, prefix, options.getParamNameFromPath))
-          )
+      const ssmPromises = Object.keys(options.paths).reduce(
+        (aggregator, prefix) => {
+          const pathsData = options.paths[prefix]
+          const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
+          return paths.reduce((subAggregator, path) => {
+            subAggregator.push(
+              getParamsByPathRecursively(path).then(ssmResponse =>
+                getParamsToAssignByPath(
+                  path,
+                  ssmResponse,
+                  prefix,
+                  options.getParamNameFromPath
+                )
+              )
+            )
 
-          return subAggregator
-        }, aggregator)
-      }, [])
+            return subAggregator
+          }, aggregator)
+        },
+        []
+      )
 
       const ssmParamNames = getSSMParamValues(options.names)
       if (ssmParamNames.length) {
-        const ssmPromise =
-          ssmInstance
-            .getParameters({ Names: ssmParamNames, WithDecryption: true })
-            .promise()
-            .then(handleInvalidParams)
-            .then(ssmResponse => getParamsToAssignByName(options.names, ssmResponse))
+        const ssmPromise = ssmInstance
+          .getParameters({ Names: ssmParamNames, WithDecryption: true })
+          .promise()
+          .then(handleInvalidParams)
+          .then(ssmResponse =>
+            getParamsToAssignByName(options.names, ssmResponse)
+          )
         ssmPromises.push(ssmPromise)
       }
 
@@ -70,7 +80,12 @@ module.exports = opts => {
   }
 }
 
-const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheExpiryInMillis }) => {
+const shouldFetchFromParamStore = ({
+  paramsLoaded,
+  paramsLoadedAt,
+  cache,
+  cacheExpiryInMillis
+}) => {
   // if caching is OFF, or we haven't loaded anything yet, then definitely load it from SSM
   if (!cache || !paramsLoaded) {
     return true
@@ -79,7 +94,7 @@ const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheE
   // if caching is ON, and cache expiration is ON, and enough time has passed, then also load it from SSM
   const now = new Date()
   const millisSinceLastLoad = now.getTime() - paramsLoadedAt.getTime()
-  if (cache && cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
+  if (cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
     return true
   }
 
@@ -89,15 +104,22 @@ const shouldFetchFromParamStore = ({ paramsLoaded, paramsLoadedAt, cache, cacheE
 
 const getParamsByPathRecursively = (path, nextToken) => {
   return ssmInstance
-    .getParametersByPath({ Path: path, NextToken: nextToken, Recursive: true, WithDecryption: true })
+    .getParametersByPath({
+      Path: path,
+      NextToken: nextToken,
+      Recursive: true,
+      WithDecryption: true
+    })
     .promise()
     .then(paramsResponse => {
       const additionalParamsPromise = paramsResponse.NextToken
         ? getParamsByPathRecursively(path, paramsResponse.NextToken)
         : Promise.resolve([])
 
-      return additionalParamsPromise
-        .then(additionalParams => [...paramsResponse.Parameters, ...additionalParams])
+      return additionalParamsPromise.then(additionalParams => [
+        ...paramsResponse.Parameters,
+        ...additionalParams
+      ])
     })
 }
 
@@ -117,9 +139,11 @@ const getParamNameFromPathDefault = (path, name, prefix) => {
   return fullLocalName.toUpperCase()
 }
 
-const getTargetObjectToAssign = (handler, options) => (options.setToContext ? handler.context : process.env)
+const getTargetObjectToAssign = (handler, options) =>
+  options.setToContext ? handler.context : process.env
 
-const getSSMParamValues = userParamsMap => Object.keys(userParamsMap).map(key => userParamsMap[key])
+const getSSMParamValues = userParamsMap =>
+  Object.keys(userParamsMap).map(key => userParamsMap[key])
 
 /**
  * Lazily load aws-sdk and initialize SSM constructor
@@ -146,7 +170,9 @@ const getSSMInstance = awsSdkOptions => {
  */
 const handleInvalidParams = ({ Parameters, InvalidParameters }) => {
   if (InvalidParameters && InvalidParameters.length) {
-    throw new Error(`InvalidParameters present: ${InvalidParameters.join(', ')}`)
+    throw new Error(
+      `InvalidParameters present: ${InvalidParameters.join(', ')}`
+    )
   }
 
   return Parameters
@@ -175,9 +201,15 @@ const getParamsToAssignByName = (userParamsMap, ssmParams) => {
  * @param {Function} nameMapper function to build the local name for a param based on path, prefix, and name in SSM
  * @return {Object} Merged object for assignment to target object
  */
-const getParamsToAssignByPath = (userParamsPath, ssmParams, prefix, nameMapper) =>
+const getParamsToAssignByPath = (
+  userParamsPath,
+  ssmParams,
+  prefix,
+  nameMapper
+) =>
   ssmParams.reduce((aggregator, ssmParam) => {
-    aggregator[nameMapper(userParamsPath, ssmParam.Name, prefix)] = ssmParam.Value
+    aggregator[nameMapper(userParamsPath, ssmParam.Name, prefix)] =
+      ssmParam.Value
     return aggregator
   }, {})
 
