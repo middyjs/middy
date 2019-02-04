@@ -141,81 +141,11 @@ handler(event, context, (_, response) => {
 })
 ```
 
-## [functionShield](/src/middlewares/functionShield.js)
+## functionShield
 
-Hardens AWS Lambda execution environment:
-* By monitoring (or blocking) outbound network traffic to public internet, you can be certain that your data is never leaked (traffic to AWS services is not affected)
-* By disabling read/write operations on the /tmp/ directory, you make sure that files are not persisted across invocations. Storing data in `/tmp` is a bad practice as it may be leaked in subsequent invocations
-* By disabling the ability to launch child processes, you can make sure that no rogue processes are spawned without your knowledge by potentially malicious packages
-* By disabling the ability to read the function's (handler) source code through the file system, you can prevent handler source code leakage, which is oftentimes the first step in a serverless attack 
+Hardens AWS Lambda execution environment.
 
-More info:
-* https://www.puresec.io/function-shield
-* https://www.jeremydaly.com/serverless-security-with-functionshield/
-
-## Get a free token
-
-Please visit: https://www.puresec.io/function-shield-token-form
-
-### Modes
-
-- `'block'` - Block and log to Cloudwatch Logs
-- `'alert'` - Allow and log to Cloudwatch Logs
-- `'allow'` - Allow
-
-### Options
-
-
-- `policy.outbound_connectivity` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.read_write_tmp` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.create_child_process` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.read_handler` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `token` - By default looks for `FUNCTION_SHIELD_TOKEN` in `process.env` and `context`
-- `disable_analytics` - Periodically, during cold starts, FunctionShield sends basic analytics information to its backend. To disable analytics module set: `true`. (default: `false`)
-
-### Sample Usage
-
-```javascript
-'use strict';
-
-const fs = require('fs');
-const middy = require('middy');
-const {ssm, functionShield} = require('middy/middlewares');
-
-async function hello(event) {
-  fs.openSync('/tmp/test', 'w');
-}
-
-
-const handler = middy(hello)
-  .use(ssm({
-    cache: true,
-    setToContext: true,
-    names: {
-      FUNCTION_SHIELD_TOKEN: 'function_shield_token'
-    }
-  }))
-  .use(functionShield(
-    {
-      policy: {
-        outbound_connectivity: 'alert'
-      }
-    }
-  ));
-
-module.exports = {
-  handler
-};
-```
-
-```
-START RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75 Version: $LATEST
-[TOKEN VERIFICATION] license is OK
-{"function_shield":true,"policy":"read_write_tmp","details":{"path":"/tmp/test"},"mode":"block"}
-2018-10-24 15:11:45.427 (+03:00)        f7b7305d-d785-11e8-baf1-9136b5c7aa75    {"errorMessage":"Unknown system error -999: Unknown system error -999, open '/tmp/test'","errorType":"Error","stackTrace":["Object.fs.openSync (fs.js:646:18)","Function.hello (/var/task/handler.js:8:6)","runMiddlewares (/var/task/node_modules/middy/src/middy.js:180:42)","runNext (/var/task/node_modules/middy/src/middy.js:85:14)","before (/var/task/node_modules/middy/src/middlewares/functionShield.js:20:5)","runNext (/var/task/node_modules/middy/src/middy.js:70:24)","<anonymous>","process._tickDomainCallback (internal/process/next_tick.js:228:7)"]}
-END RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75
-REPORT RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75  Duration: 458.65 ms     Billed Duration: 500 ms         Memory Size: 1024 MB    Max Memory Used: 38 MB  
-```
+**Note**: functionShield has been removed from core since _0.22.0_. Use [`@middy/function-shield`](https://www.npmjs.com/package/@middy/function-shield) instead.
 
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 

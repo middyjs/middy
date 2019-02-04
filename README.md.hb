@@ -510,7 +510,7 @@ Currently available middlewares:
 
  - [`cache`](/docs/middlewares.md#cache): A simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): Sets CORS headers on response
- - [`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment
+ - ~~[`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment~~ **Note**: functionShield has been removed from core since *0.22.0*. Use [`@middy/function-shield`](https://www.npmjs.com/package/@middy/function-shield) instead.
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
