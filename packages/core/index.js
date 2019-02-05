@@ -7,7 +7,8 @@ const once = require('once')
  * @param {Object} event - the AWS Lambda event from the original handler
  * @param {Object} context - the AWS Lambda context from the original handler
  * @param {function} callback - the AWS Lambda callback from the original handler
- * @property {useFunction} use - attach a new middleware
+ * @property {useFunction} use - attach one or more new middlewares
+ * @property {applyMiddlewareFunction} applyMiddleware - attach a new middleware
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
  * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
  * @property {middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
@@ -18,6 +19,13 @@ const once = require('once')
 
 /**
  * @typedef useFunction
+ * @type {function}
+ * @param {middlewareObject|middlewareObject[]} - the middleware object or array of middleware objects to attach
+ * @return {middy}
+ */
+
+/**
+ * @typedef applyMiddlewareFunction
  * @type {function}
  * @param {middlewareObject} - the middleware object to attach
  * @return {middy}
@@ -195,7 +203,18 @@ const middy = (handler) => {
     })
   }
 
-  instance.use = (middleware) => {
+  instance.use = (input) => {
+    if (Array.isArray(input)) {
+      input.forEach(middleware => instance.applyMiddleware(middleware))
+      return instance
+    } else if (typeof input === 'object') {
+      return instance.applyMiddleware(input)
+    } else {
+      throw new Error('Middy.use() accepts an object or an array of objects')
+    }
+  }
+
+  instance.applyMiddleware = (middleware) => {
     if (typeof middleware !== 'object') {
       throw new Error('Middleware must be an object')
     }
