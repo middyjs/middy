@@ -12,3 +12,5 @@ interface ISSMOptions {
 }
 
 declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
+
+export default ssm
