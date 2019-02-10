@@ -10,3 +10,5 @@ interface ISecretsManagerOptions {
 }
 
 declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
+
+export default secretsManager
