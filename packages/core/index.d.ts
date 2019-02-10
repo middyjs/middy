@@ -18,7 +18,7 @@ declare namespace middy {
   }
 
   type IMiddyUseFunction = (
-    middlewares: IMiddyMiddlewareObject | IMiddyMiddlewareObject[]
+    middlewares?: IMiddyMiddlewareObject | IMiddyMiddlewareObject[]
   ) => IMiddy
 
   interface IMiddyMiddlewareObject {
