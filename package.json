@@ -44,7 +44,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
     "@types/jest": "^23.0.0",
-    "@types/node": "^10.3.1",
+    "@types/node": "^11.9.0",
     "aws-sdk": "^2.297.0",
     "babel-jest": "^23.0.1",
     "babel-preset-env": "^1.7.0",
