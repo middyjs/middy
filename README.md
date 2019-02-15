@@ -498,6 +498,12 @@ Currently available middlewares:
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 - [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
 
+## Community generated middleware
+
+The following middleware is created and maintained outside this project. We cannot guarantee for its functionality. If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
+
+- [`jwt-auth`](https://github.com/dbartholomae/middy-middleware-jwt-auth): JSON web token authorization middleware based on [express-jwt](https://github.com/auth0/express-jwt)
+
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
