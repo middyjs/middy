@@ -6,7 +6,7 @@ const createDefaultObjectResponse = () =>
     {},
     {
       statusCode: 200,
-      body: {firstname: 'john', lastname: 'doe'}
+      body: { firstname: 'john', lastname: 'doe' }
     }
   )
 
@@ -28,7 +28,7 @@ const createHeaderObjectResponse = () =>
     {},
     {
       statusCode: 200,
-      body: {firstname: 'john', lastname: 'doe'},
+      body: { firstname: 'john', lastname: 'doe' },
       headers: {
         'Server': 'AMZN',
         'X-Powered-By': 'MiddyJS'

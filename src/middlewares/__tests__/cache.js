@@ -10,7 +10,7 @@ describe('💽 Cache stuff', () => {
     const handler = middy(originalHandler)
       .use(cache())
 
-    const event = {a: 2, b: 3}
+    const event = { a: 2, b: 3 }
     const context = {}
     handler(event, context, (_, response) => {
       handler(event, context, (_, response2) => {
@@ -45,7 +45,7 @@ describe('💽 Cache stuff', () => {
         setValue
       }))
 
-    const event = {id: 'some_unique_id', a: 2, b: 3}
+    const event = { id: 'some_unique_id', a: 2, b: 3 }
     const context = {}
     handler(event, context, (_, response) => {
       handler(event, context, (_, response2) => {

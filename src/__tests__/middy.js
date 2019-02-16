@@ -8,7 +8,7 @@ describe('🛵  Middy test suite', () => {
 
   test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError"', () => {
     const handler = middy(jest.fn())
-    expect(() => { handler.use({foo: 'bar'}) }).toThrow('Middleware must contain at least one key among "before", "after", "onError"')
+    expect(() => { handler.use({ foo: 'bar' }) }).toThrow('Middleware must contain at least one key among "before", "after", "onError"')
   })
 
   test('"use" can add before middlewares', () => {
@@ -84,7 +84,7 @@ describe('🛵  Middy test suite', () => {
 
   test('It should execute before and after middlewares in the right order', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const m1 = () => ({
@@ -117,14 +117,14 @@ describe('🛵  Middy test suite', () => {
     handler({}, {}, (_, response) => {
       expect(handler.executedBefore).toEqual(['m1', 'm2'])
       expect(handler.executedAfter).toEqual(['m2', 'm1'])
-      expect(response).toEqual({foo: 'bar'})
+      expect(response).toEqual({ foo: 'bar' })
       endTest()
     })
   })
 
   test('"before" middlewares should be able to change event', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const changeEventMiddleware = (handler, next) => {
@@ -142,7 +142,7 @@ describe('🛵  Middy test suite', () => {
 
   test('"after" middlewares should be able to change response', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const changeResponseMiddleware = (handler, next) => {
@@ -162,7 +162,7 @@ describe('🛵  Middy test suite', () => {
     const context = {}
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const getLambdaContext = (handler, next) => {
@@ -180,7 +180,7 @@ describe('🛵  Middy test suite', () => {
   test('"before" middleware should be able to modify context', (endTest) => {
     const handler = middy((event, context, callback) => {
       expect(context.modified).toBeTruthy()
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const getLambdaContext = (handler, next) => {
@@ -407,24 +407,24 @@ describe('🛵  Middy test suite', () => {
 
   test('It should support handlers that return promises instead of using the callback', (endTest) => {
     const handler = middy((event, context) => {
-      return Promise.resolve({some: 'response'})
+      return Promise.resolve({ some: 'response' })
     })
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({some: 'response'})
+      expect(response).toEqual({ some: 'response' })
       endTest()
     })
   })
 
   test('It should support async handlers', (endTest) => {
     const handler = middy(async (event, context) => {
-      return {some: 'response'}
+      return { some: 'response' }
     })
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({some: 'response'})
+      expect(response).toEqual({ some: 'response' })
       endTest()
     })
   })
@@ -505,7 +505,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {some: 'response'})
+      return callback(null, { some: 'response' })
     })
 
     handler
@@ -525,7 +525,7 @@ describe('🛵  Middy test suite', () => {
 
     const asyncOnError = async (handler) => {
       handler.error = null
-      handler.response = {result: 'The error is handled'}
+      handler.response = { result: 'The error is handled' }
     }
 
     const handler = middy((event, context, callback) => {
@@ -537,7 +537,7 @@ describe('🛵  Middy test suite', () => {
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({result: 'The error is handled'})
+      expect(response).toEqual({ result: 'The error is handled' })
       endTest()
     })
   })
@@ -548,7 +548,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     handler
@@ -586,7 +586,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     handler
