@@ -147,23 +147,23 @@ simple and requires just few steps:
 Example:
 
 ```javascript
-const middy = require("@middy/core");
-const middleware1 = require("sample-middleware1");
-const middleware2 = require("sample-middleware2");
-const middleware3 = require("sample-middleware3");
+const middy = require('@middy/core')
+const middleware1 = require('sample-middleware1')
+const middleware2 = require('sample-middleware2')
+const middleware3 = require('sample-middleware3')
 
 const originalHandler = (event, context, callback) => {
   /* your business logic */
-};
+}
 
-const handler = middy(originalHandler);
+const handler = middy(originalHandler)
 
 handler
   .use(middleware1())
   .use(middleware2())
-  .use(middleware3());
+  .use(middleware3())
 
-module.exports = { handler };
+module.exports = { handler }
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
@@ -230,29 +230,29 @@ In this example we can use this capability for building a sample caching middlew
 // some function that calculates the cache id based on the current event
 const calculateCacheId = event => {
   /* ... */
-};
-const storage = {};
+}
+const storage = {}
 
 // middleware
 const cacheMiddleware = options => {
-  let cacheKey;
+  let cacheKey
   return {
     before: (handler, next) => {
-      cacheKey = options.calculateCacheId(handler.event);
+      cacheKey = options.calculateCacheId(handler.event)
       if (options.storage.hasOwnProperty(cacheKey)) {
         // exits early and returns the value from the cache if it's already there
-        return handler.callback(null, options.storage[cacheKey]);
+        return handler.callback(null, options.storage[cacheKey])
       }
 
-      return next();
+      return next()
     },
     after: (handler, next) => {
       // stores the calculated response in the cache
-      options.storage[cacheKey] = handler.response;
-      next();
+      options.storage[cacheKey] = handler.response
+      next()
     }
-  };
-};
+  }
+}
 
 // sample usage
 const handler = middy((event, context, callback) => {
@@ -262,7 +262,7 @@ const handler = middy((event, context, callback) => {
     calculateCacheId,
     storage
   })
-);
+)
 ```
 
 ### Handling errors
@@ -309,15 +309,15 @@ const asyncValidator = () => {
   before: handler => {
     if (handler.event.body) {
       return someAsyncStuff(handler.event.body).then(() => {
-        return { foo: bar };
-      });
+        return { foo: bar }
+      })
     }
 
-    return Promise.resolve();
-  };
-};
+    return Promise.resolve()
+  }
+}
 
-handler.use(asyncValidator());
+handler.use(asyncValidator())
 ```
 
 ### Using async/await
@@ -333,11 +333,11 @@ Take the following code as an example of a handler written with async/await:
 
 ```javascript
 middy(async (event, context) => {
-  await someAsyncStuff();
-  await someOtherAsyncStuff();
+  await someAsyncStuff()
+  await someOtherAsyncStuff()
 
-  return { foo: bar };
-});
+  return { foo: bar }
+})
 ```
 
 And here is an example of a middleware written with async/await:
@@ -346,16 +346,16 @@ And here is an example of a middleware written with async/await:
 const asyncValidator = () => {
   before: async handler => {
     if (handler.event.body) {
-      await asyncValidate(handler.event.body);
+      await asyncValidate(handler.event.body)
 
-      return { foo: bar };
+      return { foo: bar }
     }
 
-    return;
-  };
-};
+    return
+  }
+}
 
-handler.use(asyncValidator());
+handler.use(asyncValidator())
 ```
 
 ## Writing a middleware
@@ -414,21 +414,21 @@ module.exports = myMiddleware
 With this convention in mind, using a middleware will always look like the following example:
 
 ```javascript
-const middy = require("@middy/core");
-const myMiddleware = require("myMiddleware");
+const middy = require('@middy/core')
+const myMiddleware = require('myMiddleware')
 
 const handler = middy((event, context, callback) => {
   // do stuff
-});
+})
 
 handler.use(
   myMiddleware({
-    option1: "foo",
-    option2: "bar"
+    option1: 'foo',
+    option2: 'bar'
   })
-);
+)
 
-module.exports = { handler };
+module.exports = { handler }
 ```
 
 ### Inline middlewares
@@ -443,28 +443,28 @@ logic into Middy's control flow.
 Let's see how inline middlewares work with a simple example:
 
 ```javascript
-const middy = require("@middy/core");
+const middy = require('@middy/core')
 
 const handler = middy((event, context, callback) => {
   // do stuff
-});
+})
 
 handler.before((handler, next) => {
   // do something in the before phase
-  next();
-});
+  next()
+})
 
 handler.after((handler, next) => {
   // do something in the after phase
-  next();
-});
+  next()
+})
 
 handler.onError((handler, next) => {
   // do something in the on error phase
-  next();
-});
+  next()
+})
 
-module.exports = { handler };
+module.exports = { handler }
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
@@ -500,9 +500,22 @@ Currently available middlewares:
 
 ## Community generated middleware
 
-The following middleware is created and maintained outside this project. We cannot guarantee for its functionality. If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
+The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-- [`jwt-auth`](https://github.com/dbartholomae/middy-middleware-jwt-auth): JSON web token authorization middleware based on [express-jwt](https://github.com/auth0/express-jwt)
+- [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
+- [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
+- [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
+- [@keboola/middy-event-validator](https://www.npmjs.com/package/@keboola/middy-event-validator): Joi powered event validation middleware
+- [middy-reroute](https://www.npmjs.com/package/middy-reroute): provides complex redirect, rewrite and proxying capabilities by simply placing a rules file into your S3 bucket
+- [middytohof](https://www.npmjs.com/package/middytohof): Convert Middy middleware plugins to higher-order functions returning lambda handlers
+- [wrap-ware](https://www.npmjs.com/package/wrap-ware): A middleware wrapper which works with promises / async
+- [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
+- [middy-middleware-warmup](https://www.npmjs.com/package/middy-middleware-warmup): A middy plugin to help keep your Lambdas warm during Winter
+- [@sharecover-co/middy-aws-xray-tracing](https://www.npmjs.com/package/@sharecover-co/middy-aws-xray-tracing): AWS X-Ray Tracing Middleware
+- [@sharecover-co/middy-http-response-serializer](https://www.npmjs.com/package/@sharecover-co/middy-http-response-serializer): This middleware serializes the response to JSON and wraps it in a 200 HTTP response
+- [@seedrs/middyjs-middleware](https://www.npmjs.com/package/@seedrs/middyjs-middleware): Collection of useful middlewares
+- [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
+- [`jwt-auth`](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
 
 ## Contributing
 
