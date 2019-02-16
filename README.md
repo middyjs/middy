@@ -166,6 +166,26 @@ handler
 module.exports = { handler }
 ```
 
+`.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
+
+```
+const middy = require("@middy/core");
+const middleware1 = require("sample-middleware1");
+const middleware2 = require("sample-middleware2");
+const middleware3 = require("sample-middleware3");
+const middlewares = [middleware1(), middleware2(), middleware3()]
+
+const originalHandler = (event, context, callback) => {
+  /* your business logic */
+};
+
+const handler = middy(originalHandler);
+
+handler.use(middlewares)
+
+module.exports = { handler };
+```
+
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
 `.onError`.
 
