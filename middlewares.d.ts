@@ -79,6 +79,37 @@ interface IWarmupOptions {
   onWarmup?: (event: any) => void;
 }
 
+interface IHTTPSecurityHeadersOptions {
+  dnsPrefetchControl?: {
+    allow?: Boolean
+  },
+  expectCT?: {
+    enforce?: Boolean,
+    maxAge?: Number
+  },
+  frameguard?: {
+    action?: String
+  },
+  hidePoweredBy?: {
+    setTo: String
+  },
+  hsts?: {
+    maxAge?: Number,
+    includeSubDomains?: Boolean,
+    preload?: Boolean
+  },
+  ieNoOpen?: {
+    action?: String
+  },
+  noSniff?: {
+    action?: String
+  },
+  referrerPolicy?: {
+    policy?: String
+  },
+  xssFilter?: Object
+}
+
 declare const cache: middy.Middleware<ICacheOptions>;
 declare const cors: middy.Middleware<ICorsOptions>;
 declare const doNotWaitForEmptyEventLoop: middy.Middleware<IDoNotWaitForEmtpyEventLoopOptions>;
@@ -94,5 +125,6 @@ declare const ssm: middy.Middleware<ISSMOptions>;
 declare const validator: middy.Middleware<IValidatorOptions>;
 declare const urlEncodeBodyParser: middy.Middleware<IURLEncodeBodyParserOptions>;
 declare const warmup: middy.Middleware<IWarmupOptions>;
+declare const httpSecurityHeaders: middy.Middleware<IHTTPSecurityHeadersOptions>;
 
 export as namespace middlewares;
