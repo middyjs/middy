@@ -83,7 +83,7 @@ describe('📦 Middleware CORS', () => {
 
     const event = {
       httpMethod: 'GET',
-      headers: {Origin: 'https://another-example.com'}
+      headers: { Origin: 'https://another-example.com' }
     }
 
     handler(event, {}, (_, response) => {
@@ -108,7 +108,7 @@ describe('📦 Middleware CORS', () => {
 
     const event = {
       httpMethod: 'GET',
-      headers: {Origin: 'https://unknown.com'}
+      headers: { Origin: 'https://unknown.com' }
     }
 
     handler(event, {}, (_, response) => {
