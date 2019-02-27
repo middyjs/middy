@@ -22,6 +22,29 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
+  test('Access-Control-Allow-Origin header should default to origin header in request when options.origin is "*"', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors())
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        origin: 'http://example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'http://example.com'
+        }
+      })
+    })
+  })
+
   test('It should not override already declared Access-Control-Allow-Origin header', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {
@@ -46,7 +69,7 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
-  test('It should use origin specified in options', () => {
+  test('It should use origin specified in options when there is no Origin header in request', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -70,6 +93,61 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
+  test('It should use origin specified in options when it is not matched to options.origin', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        origin: 'https://example.com'
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        origin: 'https://origin-example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://example.com'
+        }
+      })
+    })
+  })
+
+  test('It should use origin specified in options.origins when it is not matched to options.origins', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        origin: 'https://example.com',
+        origins: ['https://second-example.com']
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        origin: 'https://origin-example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://second-example.com'
+        }
+      })
+    })
+  })
+
   test('It should return whitelisted origin', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
@@ -83,7 +161,9 @@ describe('📦 Middleware CORS', () => {
 
     const event = {
       httpMethod: 'GET',
-      headers: { Origin: 'https://another-example.com' }
+      headers: {
+        Origin: 'https://another-example.com'
+      }
     }
 
     handler(event, {}, (_, response) => {
@@ -108,7 +188,9 @@ describe('📦 Middleware CORS', () => {
 
     const event = {
       httpMethod: 'GET',
-      headers: { Origin: 'https://unknown.com' }
+      headers: {
+        Origin: 'https://unknown.com'
+      }
     }
 
     handler(event, {}, (_, response) => {
