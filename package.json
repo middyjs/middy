@@ -10,7 +10,7 @@
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
     "test:lint": "eslint .",
-    "test:packages": "lerna run --parallel test",
+    "test:packages": "lerna run test",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:sync": "lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
     "lerna:publish": "lerna publish --yes --skip-git --repo-version $npm_package_version"
@@ -48,10 +48,11 @@
     "lerna": "^3.13.1",
     "lint-staged": "^8.1.5",
     "regenerator-runtime": "^0.13.1",
-    "typescript": "3.3.3",
-    "typings-tester": "0.3.1"
+    "typings-tester": "^0.3.2"
   },
-  "dependencies": {},
+  "dependencies": {
+    "typescript": "^3.3.3"
+  },
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged"
