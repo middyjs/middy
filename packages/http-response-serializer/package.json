@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-partial-response",
+  "name": "@middy/http-response-serializer",
   "version": "1.0.0-alpha.25",
-  "description": "Http partial response middleware for the middy framework",
+  "description": "Http response serializer middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
   },
@@ -25,8 +25,8 @@
     "Middy",
     "HTTP",
     "API",
-    "Partial",
-    "Partial Response"
+    "Response",
+    "Serializer"
   ],
   "author": {
     "name": "Middy contributors",
@@ -44,6 +44,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "dependencies": {
-    "json-mask": "^0.3.8"
+    "accept": "^3.1.3",
+    "http-errors": "^1.7.2"
   }
 }

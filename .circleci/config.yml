@@ -17,7 +17,7 @@ jobs:
 
       - run:
           name: install lerna
-          command: sudo npm i -g lerna
+          command: sudo npm i -g lerna@^3.13.1
 
       - run:
           name: npm install
@@ -59,10 +59,10 @@ jobs:
 
       - run:
           name: install lerna
-          command: sudo npm i -g lerna
+          command: sudo npm i -g lerna@^3.13.1
 
       - run:
-          name: npm install 
+          name: npm install
           command: npm install
 
       - save_cache:

@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "1.0.0-alpha.24",
+  "version": "1.0.0-alpha.25",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "engines": {
     "node": ">=6.10"
@@ -10,7 +10,7 @@
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
     "test:lint": "eslint .",
-    "test:packages": "lerna run --parallel test",
+    "test:packages": "lerna exec --bail --concurrency 1 npm run test",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:sync": "lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
     "lerna:publish": "lerna publish --yes --skip-git --repo-version $npm_package_version"
@@ -34,24 +34,25 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "aws-sdk": "^2.233.1",
-    "babel-jest": "^22.0.0",
+    "aws-sdk": "^2.418.0",
+    "babel-jest": "^24.3.1",
     "babel-preset-env": "^1.6.1",
-    "eslint": "^5.4.0",
+    "eslint": "^5.15.1",
     "eslint-config-standard": "^12.0.0",
     "eslint-plugin-import": "^2.16.0",
     "eslint-plugin-node": "^8.0.1",
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
-    "husky": "^1.1.0",
-    "jest": "^22.4.3",
-    "lerna": "^2.11.0",
-    "lint-staged": "^7.3.0",
-    "regenerator-runtime": "^0.11.0",
-    "typescript": "^3.3.3",
-    "typings-tester": "^0.3.1"
+    "husky": "^1.3.1",
+    "jest": "^24.3.1",
+    "lerna": "^3.13.1",
+    "lint-staged": "^8.1.5",
+    "regenerator-runtime": "^0.13.1",
+    "typings-tester": "^0.3.2"
   },
-  "dependencies": {},
+  "dependencies": {
+    "typescript": "^3.3.3"
+  },
   "husky": {
     "hooks": {
       "pre-commit": "lint-staged"
