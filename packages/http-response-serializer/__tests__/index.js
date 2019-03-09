@@ -35,12 +35,11 @@ describe('📦  Middleware Http Response Serializer', () => {
     ])(
       '%s skips response serialization',
       (key) => {
-        const handlerResponse = {
-          ...createHttpResponse(),
+        const handlerResponse = Object.assign({}, createHttpResponse(), {
           headers: {
             [key]: 'text/plain'
           }
-        }
+        })
         const handler = middy((event, context, cb) => cb(null, handlerResponse))
 
         handler.use(httpResponseSerializer(standardConfiguration))
@@ -165,11 +164,10 @@ describe('📦  Middleware Http Response Serializer', () => {
       serializers: [
         {
           regex: /^text\/plain$/,
-          serializer: (response) => ({
-            ...response,
+          serializer: (response) => (Object.assign({}, response, {
             body: Buffer.from(response.body).toString('base64'),
             isBase64Encoded: true
-          })
+          }))
         }
       ],
       default: 'text/plain'
