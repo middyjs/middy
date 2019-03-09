@@ -48,7 +48,7 @@
     "lerna": "^3.13.1",
     "lint-staged": "^8.1.5",
     "regenerator-runtime": "^0.13.1",
-    "typescript": "^3.3.3333",
+    "typescript": "3.3.3",
     "typings-tester": "0.3.1"
   },
   "dependencies": {},
