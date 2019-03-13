@@ -94,7 +94,8 @@ const inputSchema = {
        amount: { type: 'number' }
      }
    }
- }
+ },
+ required: ['creditCardNumber'] // Insert here all required event properties
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
