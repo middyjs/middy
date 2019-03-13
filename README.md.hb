@@ -95,7 +95,8 @@ const inputSchema = {
         cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
         nameOnCard: { type: 'string' },
         amount: { type: 'number' }
-      }
+      },
+      required: ['creditCardNumber'] // Insert here all required event properties
     }
   }
 }
