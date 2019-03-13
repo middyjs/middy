@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "1.0.0-alpha.25",
+  "version": "1.0.0-alpha.26",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "engines": {
     "node": ">=6.10"
