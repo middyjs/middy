@@ -132,15 +132,17 @@ describe('📦 Middleware CORS', () => {
       throw new Error('')
     })
 
-    handler.use({
-      onError: (handler, next) => next()
-    })
-
     handler.use(
       cors({
         origin: 'https://example.com'
       })
     )
+
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -174,11 +176,6 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
-
-    handler.use({
-      onError: (handler, next) => next()
-    })
-
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -193,6 +190,11 @@ describe('📦 Middleware CORS', () => {
     handler.use(cors({
       headers: 'x-example-2'
     }))
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -237,10 +239,6 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
-
-    handler.use({
-      onError: (handler, next) => next()
-    })
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -257,6 +255,11 @@ describe('📦 Middleware CORS', () => {
         credentials: true
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -276,10 +279,6 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
-
-    handler.use({
-      onError: (handler, next) => next()
-    })
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -296,6 +295,11 @@ describe('📦 Middleware CORS', () => {
         credentials: false
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET',
