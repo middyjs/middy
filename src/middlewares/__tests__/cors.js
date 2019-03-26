@@ -132,6 +132,10 @@ describe('📦 Middleware CORS', () => {
       throw new Error('')
     })
 
+    handler.use({
+      onError: (handler, next) => next()
+    })
+
     handler.use(
       cors({
         origin: 'https://example.com'
@@ -151,9 +155,28 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
+  test('It should not swallow errors', () => {
+    const handler = middy((event, context, cb) => {
+      throw new Error('some-error')
+    })
+
+    handler.use(
+      cors()
+    )
+
+    handler({}, {}, (error, response) => {
+      expect(response).toBe(undefined)
+      expect(error.message).toEqual('some-error')
+    })
+  })
+
   test('It should not override already declared Access-Control-Allow-Headers header', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
+    })
+
+    handler.use({
+      onError: (handler, next) => next()
     })
 
     // other middleware that puts the cors header
@@ -215,6 +238,9 @@ describe('📦 Middleware CORS', () => {
       cb(null, {})
     })
 
+    handler.use({
+      onError: (handler, next) => next()
+    })
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -251,6 +277,9 @@ describe('📦 Middleware CORS', () => {
       cb(null, {})
     })
 
+    handler.use({
+      onError: (handler, next) => next()
+    })
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
