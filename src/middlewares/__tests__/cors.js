@@ -176,6 +176,7 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
+
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -239,6 +240,7 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
+
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
@@ -279,6 +281,7 @@ describe('📦 Middleware CORS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
+
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
