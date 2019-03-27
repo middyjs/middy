@@ -90,6 +90,11 @@ Sets headers in `after` and `onError` phases.
 - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
 - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
+NOTES:
+
+- When used with `httpErrorHandler` middleware, ensure to use the `httpErrorHandler` middleware before `cors` to avoid 
+the loss of CORS headers 
+
 ### Sample usage
 
 ```javascript
