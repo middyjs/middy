@@ -138,6 +138,12 @@ describe('📦 Middleware CORS', () => {
       })
     )
 
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
+
     const event = {
       httpMethod: 'GET'
     }
@@ -170,6 +176,11 @@ describe('📦 Middleware CORS', () => {
     handler.use(cors({
       headers: 'x-example-2'
     }))
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -231,6 +242,11 @@ describe('📦 Middleware CORS', () => {
         credentials: true
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -267,6 +283,11 @@ describe('📦 Middleware CORS', () => {
         credentials: false
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET',
