@@ -54,8 +54,10 @@ NOTES:
 and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
 
 ```javascript
-const middy = require('middy')
-const { httpErrorHandler, cors } = require('middy/middlewares')
+const middy = require('@middy/core')
+const httpErrorHandler = require('@middy/http-error-handler')
+const cors = require('@middy/http-cors')
+
 const handler = middy((event, context, cb) => {
   throw new createError.UnprocessableEntity()
 })
