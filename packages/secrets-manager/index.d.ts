@@ -1,5 +1,5 @@
 import { SecretsManager } from 'aws-sdk'
-import middy from '../core'
+import middy from '@middy/core'
 
 interface ISecretsManagerOptions {
   cache?: boolean;
