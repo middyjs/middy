@@ -519,6 +519,55 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
+  test('It should be possible to await a middyfied handler', async (endTest) => {
+    const originalHandler = async (event, context) => Promise.resolve({ some: 'response' })
+    const handler = middy(originalHandler)
+
+    const response = await handler({}, {})
+    expect(response).toEqual({ some: 'response' })
+    endTest()
+  })
+
+  test('It should be possible to catch a middyfied handler rejection', async (endTest) => {
+    const originalHandler = async (event, context) => Promise.reject(new Error('some error'))
+    const handler = middy(originalHandler)
+
+    try {
+      await handler({}, {})
+    } catch (e) {
+      expect(e.message).toEqual('some error')
+      endTest()
+    }
+  })
+
+  test('Error from async handler with no callback is thrown up', async (endTest) => {
+    const originalHandler = async (event, context) => { throw new Error('some error') }
+    const handler = middy(originalHandler)
+
+    try {
+      await handler({}, {})
+    } catch (e) {
+      expect(e.message).toEqual('some error')
+      endTest()
+    }
+  })
+
+  test('Error from async handler is consumed by onError middleware', async (endTest) => {
+    const handler = middy(async (event, context) => {
+      throw new Error('some error')
+    })
+    let onErrorWasCalled = false
+
+    handler.use({ onError: (handler, next) => {
+      onErrorWasCalled = true
+      next()
+    } })
+
+    await handler({}, {})
+    expect(onErrorWasCalled).toBe(true)
+    endTest()
+  })
+
   test('A handler that returns a rejected promise will behave as an errored execution', (endTest) => {
     const handler = middy((event, context) => {
       return Promise.reject(new Error('bad stuff happened'))
