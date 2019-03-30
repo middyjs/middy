@@ -138,6 +138,12 @@ describe('📦 Middleware CORS', () => {
       })
     )
 
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
+
     const event = {
       httpMethod: 'GET'
     }
@@ -148,6 +154,21 @@ describe('📦 Middleware CORS', () => {
           'Access-Control-Allow-Origin': 'https://example.com'
         }
       })
+    })
+  })
+
+  test('It should not swallow errors', () => {
+    const handler = middy((event, context, cb) => {
+      throw new Error('some-error')
+    })
+
+    handler.use(
+      cors()
+    )
+
+    handler({}, {}, (error, response) => {
+      expect(response).toBe(undefined)
+      expect(error.message).toEqual('some-error')
     })
   })
 
@@ -170,6 +191,11 @@ describe('📦 Middleware CORS', () => {
     handler.use(cors({
       headers: 'x-example-2'
     }))
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -231,6 +257,11 @@ describe('📦 Middleware CORS', () => {
         credentials: true
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET'
@@ -267,6 +298,11 @@ describe('📦 Middleware CORS', () => {
         credentials: false
       })
     )
+    handler.use({
+      onError: (handler, next) => {
+        next()
+      }
+    })
 
     const event = {
       httpMethod: 'GET',
