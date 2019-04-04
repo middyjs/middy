@@ -9,7 +9,7 @@ module.exports = () => ({
       return next()
     }
 
-    const contentType = headers['Content-Type'] || headers['content-type']
+    const contentType = headers['content-type']
     if (contentType) {
       const { type } = contentTypeLib.parse(contentType)
       if (type === 'multipart/form-data') {
@@ -25,7 +25,7 @@ module.exports = () => ({
 
 const parseMultipartData = async (event) => {
   let multipartData = {}
-  let bb = BusBoy({ headers: event.headers })
+  const bb = BusBoy({ headers: event.headers })
 
   return new Promise((resolve, reject) => {
     bb
@@ -39,10 +39,8 @@ const parseMultipartData = async (event) => {
         file.on('data', data => { attachment.content = data })
         file.on('end', () => { multipartData[fieldname] = attachment })
       })
-      .on('field', (fieldname, value) => {
-        multipartData[fieldname] = value
-      })
-      .on('finish', _ => resolve(multipartData))
+      .on('field', (fieldname, value) => { multipartData[fieldname] = value })
+      .on('finish', () => resolve(multipartData))
       .on('error', err => reject(err))
 
     bb.write(event.body, event.isBase64Encoded ? 'base64' : 'binary')
