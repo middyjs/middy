@@ -9,6 +9,7 @@ module.exports = {
   httpPartialResponse: require('./httpPartialResponse'),
   httpSecurityHeaders: require('./httpSecurityHeaders'),
   jsonBodyParser: require('./jsonBodyParser'),
+  multipartFormDataParser: require('./multipartFormDataParser'),
   s3KeyNormalizer: require('./s3KeyNormalizer'),
   secretsManager: require('./secretsManager'),
   ssm: require('./ssm'),
