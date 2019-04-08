@@ -1,10 +1,10 @@
 import middy from '../core'
 
 interface ICorsOptions {
-  origin: string;
+  origin?: string;
   origins?: string[];
-  headers: string;
-  credentials: boolean;
+  headers?: string;
+  credentials?: boolean;
 }
 
 declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
