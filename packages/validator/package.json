@@ -1,6 +1,6 @@
 {
   "name": "@middy/validator",
-  "version": "1.0.0-alpha.28",
+  "version": "1.0.0-alpha.29",
   "description": "Validator middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
