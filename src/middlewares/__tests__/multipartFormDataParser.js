@@ -1,5 +1,5 @@
 const middy = require('../../middy')
-const multipartFormDataParser = require('../multipartFormDataParser').default
+const multipartFormDataParser = require('../multipartFormDataParser').middleware
 const parseMultipartData = require('../multipartFormDataParser').parseMultipartData
 
 describe('📦  Middleware Multipart Form Data Body Parser', () => {

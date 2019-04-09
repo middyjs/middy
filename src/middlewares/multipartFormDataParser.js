@@ -61,5 +61,7 @@ const parseMultipartData = (event) => {
   })
 }
 
-export default middleware
-export { parseMultipartData }
+module.exports = {
+  middleware,
+  parseMultipartData
+}
