@@ -2,8 +2,8 @@ const BusBoy = require('busboy')
 const contentTypeLib = require('content-type')
 const createError = require('http-errors')
 
-module.exports = () => ({
-  before: async (handler, next) => {
+const middleware = () => ({
+  before: (handler, next) => {
     const { headers } = handler.event
     if (!headers) {
       return next()
@@ -12,18 +12,22 @@ module.exports = () => ({
     const contentType = headers['content-type']
     if (contentType) {
       const { type } = contentTypeLib.parse(contentType)
-      if (type === 'multipart/form-data') {
-        try {
-          handler.event.body = await parseMultipartData(handler.event)
-        } catch (err) {
-          throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided.')
-        }
+      if (type !== 'multipart/form-data') {
+        return next()
       }
+
+      return parseMultipartData(handler.event)
+        .then(multipartData => { handler.event.body = multipartData })
+        .catch(_ => {
+          throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided.')
+        })
+    } else {
+      return next()
     }
   }
 })
 
-const parseMultipartData = async (event) => {
+const parseMultipartData = (event) => {
   let multipartData = {}
   const bb = BusBoy({ headers: event.headers })
 
@@ -36,8 +40,17 @@ const parseMultipartData = async (event) => {
           encoding
         }
 
-        file.on('data', data => { attachment.content = data })
-        file.on('end', () => { multipartData[fieldname] = attachment })
+        const chunks = []
+        let chunklen = 0
+
+        file.on('data', data => {
+          chunks.push(data)
+          chunklen += data.length
+        })
+        file.on('end', () => {
+          attachment.content = Buffer.concat(chunks, chunklen)
+          multipartData[fieldname] = attachment
+        })
       })
       .on('field', (fieldname, value) => { multipartData[fieldname] = value })
       .on('finish', () => resolve(multipartData))
@@ -47,3 +60,6 @@ const parseMultipartData = async (event) => {
     bb.end()
   })
 }
+
+export default middleware
+export { parseMultipartData }

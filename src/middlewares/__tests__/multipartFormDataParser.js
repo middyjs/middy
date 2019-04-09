@@ -1,5 +1,6 @@
 const middy = require('../../middy')
-const multipartFormDataParser = require('../multipartFormDataParser')
+const multipartFormDataParser = require('../multipartFormDataParser').default
+const parseMultipartData = require('../multipartFormDataParser').parseMultipartData
 
 describe('📦  Middleware Multipart Form Data Body Parser', () => {
   test('It should parse a non-file field from a multipart/form-data request', async () => {
@@ -23,6 +24,18 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     })
   })
 
+  test('parseMultipartData should resolve with valid data', () => {
+    const event = {
+      headers: {
+        'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+      },
+      body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
+      isBase64Encoded: true
+    }
+
+    return expect(parseMultipartData(event)).resolves.toEqual({ foo: 'bar' })
+  })
+
   test('It should parse a file field from a multipart/form-data request', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
@@ -39,10 +52,11 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       isBase64Encoded: true
     }
     handler(event, {}, (_, body) => {
-      expect(body).toContain('attachment')
+      expect(Object.keys(body)).toContain('attachment')
+      expect(Object.keys(body.attachment)).toContain('content')
     })
   })
-
+  //
   test('It should handle invalid form data as an UnprocessableEntity', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
@@ -53,16 +67,30 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     // invokes the handler
     const event = {
       headers: {
-        'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+        'content-type': 'multipart/form-data; boundary=------WebKitFormBoundaryfdmza9FgfefwkQzA'
       },
-      body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
+      body: null,
+      isBase64Encoded: true
     }
     handler(event, {}, (err) => {
       expect(err.message).toEqual('Invalid or malformed multipart/form-data was provided.')
     })
   })
 
-  test('It shouldn\'t process the body if no header is passed', () => {
+  test('parseMultipartData should reject with invalid data', () => {
+    // Body contains LF instead of CRLF line endings, which cant be processed
+    const event = {
+      headers: {
+        'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+      },
+      body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=',
+      isBase64Encoded: true
+    }
+
+    return expect(parseMultipartData(event)).rejects.toThrow('Unexpected end of multipart data')
+  })
+
+  test('It shouldn\'t process the body if no headers are passed', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -71,6 +99,44 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
 
     // invokes the handler
     const event = {
+      body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
+    }
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual('LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=')
+    })
+  })
+
+  test('It shouldn\'t process the body if the content type is not multipart/form-data', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(multipartFormDataParser())
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
+    }
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual('LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=')
+    })
+  })
+
+  test('It shouldn\'t process the body if headers are passed without content type', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(multipartFormDataParser())
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'accept': 'application/json'
+      },
       body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
     }
     handler(event, {}, (_, body) => {
