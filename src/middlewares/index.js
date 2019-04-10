@@ -6,6 +6,7 @@ module.exports = {
   httpErrorHandler: require('./httpErrorHandler'),
   httpEventNormalizer: require('./httpEventNormalizer'),
   httpHeaderNormalizer: require('./httpHeaderNormalizer'),
+  httpMultipartBodyParser: require('./httpMultipartBodyParser'),
   httpPartialResponse: require('./httpPartialResponse'),
   httpSecurityHeaders: require('./httpSecurityHeaders'),
   jsonBodyParser: require('./jsonBodyParser'),

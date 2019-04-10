@@ -119,6 +119,7 @@ declare const httpEventNormalizer: middy.Middleware<never>;
 declare const httpHeaderNormalizer: middy.Middleware<IHTTPHeaderNormalizerOptions>;
 declare const httpPartialResponse: middy.Middleware<IHTTPPartialResponseOptions>;
 declare const jsonBodyParser: middy.Middleware<never>;
+declare const multipartFormDataParser: middy.Middleware<never>;
 declare const s3KeyNormalizer: middy.Middleware<never>;
 declare const secretsManager: middy.Middleware<ISecretsManagerOptions>;
 declare const ssm: middy.Middleware<ISSMOptions>;

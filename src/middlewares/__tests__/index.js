@@ -7,6 +7,5 @@ test('Middlewares is an object containing all the available middlewares', () => 
   const expectedMiddlewares = readdirSync(join(__dirname, '..'))
     .filter(name => name !== '__tests__' && name !== 'index.js')
     .map(name => name.replace(/.js$/, ''))
-
   expect(Object.keys(middlewares)).toEqual(expectedMiddlewares)
 })
