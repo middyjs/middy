@@ -1,6 +1,5 @@
 const middy = require('../../middy')
-const multipartFormDataParser = require('../multipartFormDataParser').middleware
-const parseMultipartData = require('../multipartFormDataParser').parseMultipartData
+const httpMultipartBodyParser = require('../httpMultipartBodyParser')
 
 describe('📦  Middleware Multipart Form Data Body Parser', () => {
   test('It should parse a non-file field from a multipart/form-data request', async () => {
@@ -8,7 +7,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // invokes the handler
     // Base64 encoded form data with field 'foo' of value 'bar'
@@ -24,7 +23,13 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     })
   })
 
-  test('parseMultipartData should resolve with valid data', () => {
+  test('parseMultipartData should resolve with valid data', (done) => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(httpMultipartBodyParser())
+
     const event = {
       headers: {
         'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
@@ -33,7 +38,10 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       isBase64Encoded: true
     }
 
-    return expect(parseMultipartData(event)).resolves.toEqual({ foo: 'bar' })
+    handler(event, {}, (_, body) => {
+      expect(body).toEqual({ foo: 'bar' })
+      done()
+    })
   })
 
   test('It should parse a file field from a multipart/form-data request', () => {
@@ -41,7 +49,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // Base64 encoded form data with a file with fieldname 'attachment', filename 'test.txt', and contents 'hello world!'
     const event = {
@@ -62,7 +70,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // invokes the handler
     const event = {
@@ -73,12 +81,18 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       isBase64Encoded: true
     }
     handler(event, {}, (err) => {
-      expect(err.message).toEqual('Invalid or malformed multipart/form-data was provided.')
+      expect(err.message).toEqual('Invalid or malformed multipart/form-data was provided')
     })
   })
 
-  test('parseMultipartData should reject with invalid data', () => {
+  test('It should handle more invalid form data as an UnprocessableEntity', (done) => {
     // Body contains LF instead of CRLF line endings, which cant be processed
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(httpMultipartBodyParser())
+
     const event = {
       headers: {
         'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
@@ -87,7 +101,11 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       isBase64Encoded: true
     }
 
-    return expect(parseMultipartData(event)).rejects.toThrow('Unexpected end of multipart data')
+    handler(event, {}, (err, body) => {
+      expect(body).toBe(undefined)
+      expect(err.message).toEqual('Invalid or malformed multipart/form-data was provided')
+      done()
+    })
   })
 
   test('It shouldn\'t process the body if no headers are passed', () => {
@@ -95,7 +113,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // invokes the handler
     const event = {
@@ -111,7 +129,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // invokes the handler
     const event = {
@@ -130,7 +148,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
 
-    handler.use(multipartFormDataParser())
+    handler.use(httpMultipartBodyParser())
 
     // invokes the handler
     const event = {

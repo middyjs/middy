@@ -10,6 +10,7 @@
 - [httpErrorHandler](#httperrorhandler)
 - [httpEventNormalizer](#httpeventnormalizer)
 - [httpHeaderNormalizer](#httpheadernormalizer)
+- [httpMultipartBodyParser](#httpmultipartbodyparser)
 - [httpPartialResponse](#httppartialresponse)
 - [httpSecurityHeaders](#httpsecurityheaders)
 - [jsonBodyParser](#jsonbodyparser)
@@ -91,7 +92,7 @@ Sets headers in `after` and `onError` phases.
 - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
 NOTES:
-- If another middleware does not handle and swallow errors, then it will bubble all the way up 
+- If another middleware does not handle and swallow errors, then it will bubble all the way up
 and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
 
 ```javascript
@@ -104,7 +105,7 @@ const handler = middy((event, context, cb) => {
 
 handler.use(httpErrorHandler())
        .use(cors())
-           
+
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
   expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
@@ -370,6 +371,46 @@ handler
   .use(jsonBodyParser())
   .use(urlEncodeBodyParser())
 ```
+
+## [httpMultipartBodyParser](/src/middlewares/httpMultipartBodyParser.js)
+
+Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an
+object. Also handles gracefully broken JSON as UnprocessableEntity (422 errors)
+if used in combination with `httpErrorHandler`.
+
+It can also be used in combination with validator so that the content can be validated.
+
+**Note**: by default this is going to parse only events that contain the header `Content-Type` (or `content-type`) set to `multipart/form-data`. If you want to support different casing for the header name (e.g. `Content-type`) then you should use the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware before this middleware.
+
+```javascript
+const middy = require('middy')
+const { httpMultipartBodyParser } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(httpMultipartBodyParser())
+
+// invokes the handler
+const event = {
+  headers: {
+    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+  },
+  body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
+  isBase64Encoded: true
+}
+handler(event, {}, (_, body) => {
+  expect(body).toEqual({ foo: 'bar' })
+})
+```
+
+### Options:
+
+- `busboy` (object) (optional): defaults to `{}` and it can be used to pass extraparameters to the internal `busboy` instance at creation time. Checkout [the official documentation](https://www.npmjs.com/package/busboy#busboy-methods) for more information on the supported options.
+
+**Note**: this middleware will buffer all the data as it is processed internally by `busboy`, so, if you are using this approach to parse significantly big volumes of data, keep in mind that all the data will be allocated in memory. This is somewhat inevitable with Lambdas (as the data is already encoded into the JSON in memory as Base64), but it's good to keep this in mind and evaluate the impact on you application.  
+If you really have to deal with big files, then you might also want to consider to allowing your users to [directly upload files to S3](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)
 
 ## [httpPartialResponse](/src/middlewares/httpPartialResponse.js)
 
