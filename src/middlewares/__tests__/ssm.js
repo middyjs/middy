@@ -392,4 +392,27 @@ describe('🔒 SSM Middleware', () => {
       done
     })
   })
+
+  test('It should allow multiple option names to point at the same SSM path', (done) => {
+    testScenario({
+      ssmMockResponses: [
+        {
+          Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+        }
+      ],
+      middlewareOptions: {
+        names: {
+          KEY_NAME_1: '/dev/service_name/key_name',
+          KEY_NAME_2: '/dev/service_name/key_name'
+        }
+      },
+      callbacks: [
+        () => {
+          expect(process.env.KEY_NAME_1).toEqual('key-value')
+          expect(process.env.KEY_NAME_2).toEqual('key-value')
+        }
+      ],
+      done
+    })
+  })
 })

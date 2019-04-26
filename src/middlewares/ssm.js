@@ -56,7 +56,6 @@ module.exports = opts => {
         },
         []
       )
-
       const ssmParamNames = getSSMParamValues(options.names)
       if (ssmParamNames.length) {
         const ssmPromise = ssmInstance
@@ -149,7 +148,7 @@ const getTargetObjectToAssign = (handler, options) =>
   options.setToContext ? handler.context : process.env
 
 const getSSMParamValues = userParamsMap =>
-  Object.keys(userParamsMap).map(key => userParamsMap[key])
+  [...new Set(Object.keys(userParamsMap).map(key => userParamsMap[key]))]
 
 /**
  * Lazily load aws-sdk and initialize SSM constructor
@@ -191,11 +190,9 @@ const handleInvalidParams = ({ Parameters, InvalidParameters }) => {
  * @return {Object} Merged object for assignment to target object
  */
 const getParamsToAssignByName = (userParamsMap, ssmParams) => {
-  const ssmToUserParamsMap = invertObject(userParamsMap)
-
-  return ssmParams.reduce((aggregator, ssmParam) => {
-    aggregator[ssmToUserParamsMap[ssmParam.Name]] = ssmParam.Value
-    return aggregator
+  return Object.keys(userParamsMap).reduce((acc, key) => {
+    acc[key] = ssmParams.find(param => param.Name === userParamsMap[key]).Value
+    return acc
   }, {})
 }
 
@@ -216,11 +213,5 @@ const getParamsToAssignByPath = (
   ssmParams.reduce((aggregator, ssmParam) => {
     aggregator[nameMapper(userParamsPath, ssmParam.Name, prefix)] =
       ssmParam.Value
-    return aggregator
-  }, {})
-
-const invertObject = obj =>
-  Object.keys(obj).reduce((aggregator, key) => {
-    aggregator[obj[key]] = key
     return aggregator
   }, {})
