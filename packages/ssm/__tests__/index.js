@@ -331,4 +331,29 @@ describe('🔒 SSM Middleware', () => {
       done
     })
   })
+
+  test('It should allow multiple environment variables to point at the same SSM path', (done) => {
+    testScenario({
+      ssmMockResponses: [
+        {
+          Parameters: [{ Name: '/dev/service_name/key_name1', Value: 'key-value1' }]
+        }
+      ],
+      middlewareOptions: {
+        names: {
+          KEY_NAME_1: '/dev/service_name/key_name1',
+          KEY_NAME_2: '/dev/service_name/key_name2'
+        }
+      },
+      callbacks: [
+        () => {
+          console.log('first one: ', process.env.KEY_NAME_1)
+          console.log('second one: ', process.env.KEY_NAME_2)
+          expect(process.env.KEY_NAME_1).toEqual('key-value1')
+          expect(process.env.KEY_NAME_2).toEqual('key-value2')
+        }
+      ],
+      done
+    })
+  })
 })
