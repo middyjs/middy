@@ -336,21 +336,21 @@ describe('🔒 SSM Middleware', () => {
     testScenario({
       ssmMockResponses: [
         {
-          Parameters: [{ Name: '/dev/service_name/key_name1', Value: 'key-value1' }]
+          Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
         }
       ],
       middlewareOptions: {
         names: {
-          KEY_NAME_1: '/dev/service_name/key_name1',
-          KEY_NAME_2: '/dev/service_name/key_name2'
+          KEY_NAME_1: '/dev/service_name/key_name',
+          KEY_NAME_2: '/dev/service_name/key_name'
         }
       },
       callbacks: [
         () => {
           console.log('first one: ', process.env.KEY_NAME_1)
           console.log('second one: ', process.env.KEY_NAME_2)
-          expect(process.env.KEY_NAME_1).toEqual('key-value1')
-          expect(process.env.KEY_NAME_2).toEqual('key-value2')
+          expect(process.env.KEY_NAME_1).toEqual('key-value')
+          expect(process.env.KEY_NAME_2).toEqual('key-value')
         }
       ],
       done
