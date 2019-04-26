@@ -191,11 +191,10 @@ const handleInvalidParams = ({ Parameters, InvalidParameters }) => {
  * @return {Object} Merged object for assignment to target object
  */
 const getParamsToAssignByName = (userParamsMap, ssmParams) => {
-  return Object.entries(userParamsMap).reduce((acc, [key, value]) => {
-    acc[key] = ssmParams.find(param => param.Name === value).Value
+  return Object.keys(userParamsMap).reduce((acc, key) => {
+    acc[key] = ssmParams.find(param => param.Name === userParamsMap[key]).Value
     return acc
   }, {})
-
 }
 
 /**
@@ -217,4 +216,3 @@ const getParamsToAssignByPath = (
       ssmParam.Value
     return aggregator
   }, {})
-
