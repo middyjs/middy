@@ -332,7 +332,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test('It should allow multiple environment variables to point at the same SSM path', (done) => {
+  test('It should allow multiple option names to point at the same SSM path', (done) => {
     testScenario({
       ssmMockResponses: [
         {
@@ -347,8 +347,6 @@ describe('🔒 SSM Middleware', () => {
       },
       callbacks: [
         () => {
-          console.log('first one: ', process.env.KEY_NAME_1)
-          console.log('second one: ', process.env.KEY_NAME_2)
           expect(process.env.KEY_NAME_1).toEqual('key-value')
           expect(process.env.KEY_NAME_2).toEqual('key-value')
         }
