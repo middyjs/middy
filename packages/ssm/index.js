@@ -54,7 +54,6 @@ module.exports = opts => {
         },
         []
       )
-
       const ssmParamNames = getSSMParamValues(options.names)
       if (ssmParamNames.length) {
         const ssmPromise = ssmInstance
@@ -143,7 +142,7 @@ const getTargetObjectToAssign = (handler, options) =>
   options.setToContext ? handler.context : process.env
 
 const getSSMParamValues = userParamsMap =>
-  Object.keys(userParamsMap).map(key => userParamsMap[key])
+  [...new Set(Object.keys(userParamsMap).map(key => userParamsMap[key]))]
 
 /**
  * Lazily load aws-sdk and initialize SSM constructor
