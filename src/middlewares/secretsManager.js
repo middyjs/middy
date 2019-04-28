@@ -36,7 +36,7 @@ module.exports = opts => {
           .getSecretValue({ SecretId: secretName })
           .promise()
           .then(resp => {
-            const secret = JSON.parse(resp.SecretString || '{}')
+            const secret = safeParse(resp.SecretString)
             const object = {}
             object[key] = secret
             return object
@@ -110,4 +110,14 @@ const getSecretsManagerInstance = awsSdkOptions => {
   // see https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
   const { SecretsManager } = require('aws-sdk')
   return new SecretsManager(awsSdkOptions)
+}
+
+function safeParse (secretString) {
+  try {
+    return JSON.parse(secretString || '{}')
+  } catch (err) {
+    console.info('plain string')
+  }
+
+  return secretString
 }
