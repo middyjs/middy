@@ -1,6 +1,6 @@
 {
   "name": "@middy/secrets-manager",
-  "version": "1.0.0-alpha.29",
+  "version": "1.0.0-alpha.30",
   "description": "Secrets Manager middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
