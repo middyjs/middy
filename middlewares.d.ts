@@ -46,6 +46,10 @@ interface IHTTPPartialResponseOptions {
   filteringKeyName?: string;
 }
 
+interface IJsonBodyParserOptions {
+  reviver?: (key: string, value: any) => any
+}
+
 interface ISecretsManagerOptions {
   cache?: boolean;
   cacheExpiryInMillis?: number;
@@ -118,7 +122,7 @@ declare const httpErrorHandler: middy.Middleware<IHTTPErrorHandlerOptions>;
 declare const httpEventNormalizer: middy.Middleware<never>;
 declare const httpHeaderNormalizer: middy.Middleware<IHTTPHeaderNormalizerOptions>;
 declare const httpPartialResponse: middy.Middleware<IHTTPPartialResponseOptions>;
-declare const jsonBodyParser: middy.Middleware<never>;
+declare const jsonBodyParser: middy.Middleware<IJsonBodyParserOptions>;
 declare const multipartFormDataParser: middy.Middleware<never>;
 declare const s3KeyNormalizer: middy.Middleware<never>;
 declare const secretsManager: middy.Middleware<ISecretsManagerOptions>;
