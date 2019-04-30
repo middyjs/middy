@@ -1,7 +1,7 @@
 const createError = require('http-errors')
 const contentTypeLib = require('content-type')
 
-module.exports = opts => ({
+module.exports = (opts) => ({
   before: (handler, next) => {
     opts = opts || {}
     const { headers } = handler.event
