@@ -26,7 +26,7 @@ describe('📦  Middleware JSON Body Parser', () => {
       cb(null, event.body) // propagates the body as a response
     })
     const reviver = _ => _
-    handler.use(jsonBodyParser({reviver}))
+    handler.use(jsonBodyParser({ reviver }))
 
     // invokes the handler
     const event = {
