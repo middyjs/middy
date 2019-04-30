@@ -21,6 +21,27 @@ describe('📦  Middleware JSON Body Parser', () => {
     })
   })
 
+  test('It should use a reviver when parsing a JSON request', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+    const reviver = _ => _
+    handler.use(jsonBodyParser(reviver))
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ foo: 'bar' })
+    }
+    const parse = jest.spyOn(JSON, 'parse')
+    handler(event, {}, (_, body) => {
+      expect(parse).toHaveBeenCalledWith(event.body, reviver)
+    })
+    parse.mockRestore()
+  })
+
   test('It should handle invalid JSON as an UnprocessableEntity', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response

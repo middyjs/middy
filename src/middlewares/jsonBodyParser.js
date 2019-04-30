@@ -1,7 +1,7 @@
 const createError = require('http-errors')
 const contentTypeLib = require('content-type')
 
-module.exports = () => ({
+module.exports = reviver => ({
   before: (handler, next) => {
     const { headers } = handler.event
     if (!headers) {
@@ -12,7 +12,7 @@ module.exports = () => ({
       const { type } = contentTypeLib.parse(contentType)
       if (type === 'application/json') {
         try {
-          handler.event.body = JSON.parse(handler.event.body)
+          handler.event.body = JSON.parse(handler.event.body, reviver)
         } catch (err) {
           throw new createError.UnprocessableEntity('Content type defined as JSON but an invalid JSON was provided')
         }
