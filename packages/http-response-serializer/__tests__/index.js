@@ -34,7 +34,7 @@ describe('📦  Middleware Http Response Serializer', () => {
       ['CONTENT-TYPE']
     ])(
       '%s skips response serialization',
-      (key) => {
+      (key, done) => {
         const handlerResponse = Object.assign({}, createHttpResponse(), {
           headers: {
             [key]: 'text/plain'
@@ -46,6 +46,7 @@ describe('📦  Middleware Http Response Serializer', () => {
 
         handler({}, {}, (_, response) => {
           expect(response).toEqual(handlerResponse)
+          done()
         })
       })
   })
@@ -57,7 +58,7 @@ describe('📦  Middleware Http Response Serializer', () => {
       ['text/plain, text/x-c', 'Hello World']
     ])(
       '%s returns %s',
-      (accept, result) => {
+      (accept, result, done) => {
         const handler = middy((event, context, cb) => cb(null, createHttpResponse()))
 
         handler.use(httpResponseSerializer(standardConfiguration))
@@ -70,11 +71,12 @@ describe('📦  Middleware Http Response Serializer', () => {
 
         handler(event, {}, (_, response) => {
           expect(response.body).toEqual(result)
+          done()
         })
       })
   })
 
-  test('It should use `event.requiredContentType` instead of accept headers', () => {
+  test('It should use `event.requiredContentType` instead of accept headers', done => {
     const handler = middy((event, context, cb) => {
       event.requiredContentType = 'text/plain'
 
@@ -97,10 +99,11 @@ describe('📦  Middleware Http Response Serializer', () => {
         },
         body: 'Hello World'
       })
+      done()
     })
   })
 
-  test('It should use the default when no accept preferences are given', () => {
+  test('It should use the default when no accept preferences are given', done => {
     const handler = middy((event, context, cb) =>
       cb(null, createHttpResponse())
     )
@@ -115,10 +118,11 @@ describe('📦  Middleware Http Response Serializer', () => {
         },
         body: '{"message":"Hello World"}'
       })
+      done()
     })
   })
 
-  test('It should use `event.preferredContentType` instead of the default', () => {
+  test('It should use `event.preferredContentType` instead of the default', done => {
     const handler = middy((event, context, cb) => {
       event.preferredContentType = 'text/plain'
 
@@ -135,10 +139,11 @@ describe('📦  Middleware Http Response Serializer', () => {
         },
         body: 'Hello World'
       })
+      done()
     })
   })
 
-  test('It should pass-through when no preference or default is found', () => {
+  test('It should pass-through when no preference or default is found', done => {
     const handler = middy((event, context, cb) =>
       cb(null, createHttpResponse())
     )
@@ -152,10 +157,11 @@ describe('📦  Middleware Http Response Serializer', () => {
         statusCode: 200,
         body: 'Hello World'
       })
+      done()
     })
   })
 
-  test('It should replace the response object when the serializer returns an object', () => {
+  test('It should replace the response object when the serializer returns an object', done => {
     const handler = middy((event, context, cb) =>
       cb(null, createHttpResponse())
     )
@@ -182,10 +188,11 @@ describe('📦  Middleware Http Response Serializer', () => {
         body: 'SGVsbG8gV29ybGQ=',
         isBase64Encoded: true
       })
+      done()
     })
   })
 
-  test('It should work with `http-error-handler` middleware', () => {
+  test('It should work with `http-error-handler` middleware', done => {
     const handler = middy((event, context, cb) => {
       throw new createError.UnprocessableEntity()
     })
@@ -202,6 +209,7 @@ describe('📦  Middleware Http Response Serializer', () => {
           'Content-Type': 'application/json'
         }
       })
+      done()
     })
   })
 })
