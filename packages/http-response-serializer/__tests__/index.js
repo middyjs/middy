@@ -161,6 +161,32 @@ describe('📦  Middleware Http Response Serializer', () => {
     })
   })
 
+  test('It should not pass-through when request content-type is set', done => {
+    const handler = middy((event, context, cb) =>
+      cb(null, createHttpResponse())
+    )
+
+    handler.use(httpResponseSerializer(standardConfiguration))
+
+    const event = {
+      headers: {
+        'Content-Type': 'application/xml'
+      }
+    }
+
+    handler(event, {}, (err, response) => {
+      if (err) throw err
+      expect(response).toEqual({
+        statusCode: 200,
+        headers: {
+          'Content-Type': standardConfiguration.default
+        },
+        body: '{"message":"Hello World"}'
+      })
+      done()
+    })
+  })
+
   test('It should replace the response object when the serializer returns an object', done => {
     const handler = middy((event, context, cb) =>
       cb(null, createHttpResponse())
