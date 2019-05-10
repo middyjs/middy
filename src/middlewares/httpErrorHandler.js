@@ -1,3 +1,5 @@
+const { HttpError } = require('http-errors')
+
 module.exports = (opts) => {
   const defaults = {
     logger: console.error
@@ -7,7 +9,7 @@ module.exports = (opts) => {
 
   return ({
     onError: (handler, next) => {
-      if (handler.error.constructor.super_ && handler.error.constructor.super_.name === 'HttpError') {
+      if (handler.error instanceof HttpError) {
         if (typeof options.logger === 'function') {
           options.logger(handler.error)
         }
