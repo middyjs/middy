@@ -58,7 +58,7 @@
     "husky": "^1.1.0",
     "jest": "^24.1.0",
     "jsdoc": "^3.5.5",
-    "jsdoc-to-markdown": "^4.0.1",
+    "jsdoc-to-markdown": "^5.0.0",
     "marked": "^0.6.0",
     "regenerator-runtime": "^0.13.1",
     "typescript": "^3.3.3",
