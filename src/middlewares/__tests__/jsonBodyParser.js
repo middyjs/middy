@@ -37,7 +37,7 @@ describe('📦  Middleware JSON Body Parser', () => {
     }
     const parse = jest.spyOn(JSON, 'parse')
     handler(event, {}, (_, body) => {
-      expect(parse).toHaveBeenCalledWith(event.body, reviver)
+      expect(parse).toHaveBeenCalledWith(expect.anything(), reviver)
     })
     parse.mockRestore()
   })
