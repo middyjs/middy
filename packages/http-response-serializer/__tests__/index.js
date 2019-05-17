@@ -238,4 +238,29 @@ describe('📦  Middleware Http Response Serializer', () => {
       done()
     })
   })
+
+  test('It should not crash if the response is undefined', done => {
+    const handler = middy((event, context, cb) =>
+      cb(null, undefined)
+    )
+
+    handler.use(httpResponseSerializer(standardConfiguration))
+
+    const event = {
+      headers: {
+        'Content-Type': 'application/xml'
+      }
+    }
+
+    handler(event, {}, (err, response) => {
+      if (err) throw err
+      expect(response).toEqual({
+        headers: {
+          'Content-Type': standardConfiguration.default
+        },
+        body: '{}'
+      })
+      done()
+    })
+  })
 })
