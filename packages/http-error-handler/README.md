@@ -28,11 +28,10 @@
 </p>
 </div>
 
-This middleware automatically handles uncaught errors that are created with
-[`http-errors`](https://npm.im/http-errors) and creates a proper HTTP response
-for them (using the message and the status code provided by the error object).
+Automatically handles uncaught errors that contain the properties `statusCode` (number) and `message` (string) and creates a proper HTTP response
+for them (using the message and the status code provided by the error object). We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors).
 
-It should be set as the last error handler.
+This middleware should be set as the last error handler.
 
 
 ## Install
