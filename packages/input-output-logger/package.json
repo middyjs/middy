@@ -1,6 +1,6 @@
 {
   "name": "@middy/input-output-logger",
-  "version": "1.0.0-alpha.31",
+  "version": "1.0.0-alpha.32",
   "description": "Input and output logger middleware for the middy framework",
   "engines": {
     "node": ">=6.10"

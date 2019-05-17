@@ -10,10 +10,11 @@ const getNormalisedHeaders = (source) => Object
 
 const middleware = (opts, handler, next) => {
   // normalise headers for internal use only
-  const headers = getNormalisedHeaders(handler.event.headers || {})
+  const requestHeaders = getNormalisedHeaders((handler.event && handler.event.headers) || {})
+  const responseHeaders = getNormalisedHeaders((handler.response && handler.response.headers) || {})
 
   // skip serialization when content-type is already set
-  if (headers['content-type']) {
+  if (responseHeaders['content-type']) {
     return next()
   }
 
@@ -24,7 +25,7 @@ const middleware = (opts, handler, next) => {
     types = [].concat(handler.event.requiredContentType)
   } else {
     types = [].concat(
-      (headers['accept'] && Accept.mediaTypes(headers['accept'])) || [],
+      (requestHeaders['accept'] && Accept.mediaTypes(requestHeaders['accept'])) || [],
       handler.event.preferredContentType || [],
       opts.default || []
     )
@@ -40,6 +41,9 @@ const middleware = (opts, handler, next) => {
     const test = s.regex.test(type)
 
     if (!test) { return false }
+
+    // if the response is null or undefined, normalizes it back to an object
+    handler.response = handler.response || {}
 
     // set header
     handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
