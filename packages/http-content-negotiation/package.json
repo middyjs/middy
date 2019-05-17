@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-negotiation",
-  "version": "1.0.0-alpha.32",
+  "version": "1.0.0-alpha.33",
   "description": "Http content negotiation middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
