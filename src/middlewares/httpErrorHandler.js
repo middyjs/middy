@@ -7,7 +7,9 @@ module.exports = (opts) => {
 
   return ({
     onError: (handler, next) => {
-      if (handler.error.statusCode) {
+      // if there are a `statusCode` and an `error` field
+      // this is a valid http error object
+      if (handler.error.statusCode && handler.error.message) {
         if (typeof options.logger === 'function') {
           options.logger(handler.error)
         }

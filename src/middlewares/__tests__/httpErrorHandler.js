@@ -20,6 +20,25 @@ describe('📦 Middleware Http Error Handler', () => {
     })
   })
 
+  test('It should create a response for HTTP errors created with a generic error', () => {
+    const handler = middy((event, context, cb) => {
+      const err = new Error('A server error')
+      err.statusCode = 500
+      throw err
+    })
+
+    handler
+      .use(httpErrorHandler({ logger: false }))
+
+    // run the handler
+    handler({}, {}, (_, response) => {
+      expect(response).toEqual({
+        statusCode: 500,
+        body: 'A server error'
+      })
+    })
+  })
+
   test('It should NOT handle non HTTP errors', () => {
     const handler = middy((event, context, cb) => {
       throw new Error('non-http error')
