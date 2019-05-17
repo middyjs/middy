@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "1.0.0-alpha.30",
+  "version": "1.0.0-alpha.31",
   "description": "Http response serializer middleware for the middy framework",
   "engines": {
     "node": ">=6.10"

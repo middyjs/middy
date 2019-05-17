@@ -1,5 +1,9 @@
 import middy from '../core'
 
-declare function jsonBodyParser(): middy.IMiddyMiddlewareObject;
+interface IJsonBodyParserOptions {
+  reviver?: (key: string, value: any) => any
+}
+
+declare function jsonBodyParser(opts: IJsonBodyParserOptions): middy.IMiddyMiddlewareObject;
 
 export default jsonBodyParser
