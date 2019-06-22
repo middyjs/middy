@@ -11,8 +11,8 @@ module.exports = (config) => {
     before: (handler, next) => {
       if (options.isWarmingUp(handler.event)) {
         options.onWarmup(handler.event)
-        if (waitForEmptyEventLoop !== null) {
-          handler.context.callbackWaitsForEmptyEventLoop = Boolean(options.waitForEmptyEventLoop);
+        if (options.waitForEmptyEventLoop !== null) {
+          handler.context.callbackWaitsForEmptyEventLoop = Boolean(options.waitForEmptyEventLoop)
         }
         return handler.callback(null, 'warmup')
       }

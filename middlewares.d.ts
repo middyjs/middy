@@ -81,6 +81,7 @@ interface IURLEncodeBodyParserOptions {
 interface IWarmupOptions {
   isWarmingUp?: (event: any) => boolean;
   onWarmup?: (event: any) => void;
+  waitForEmptyEventLoop?: boolean;
 }
 
 interface IHTTPSecurityHeadersOptions {
