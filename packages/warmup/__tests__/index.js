@@ -75,4 +75,69 @@ describe('🥃 Warmup', () => {
       endTest()
     })
   })
+
+  test(`Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop true`, (endTest) => {
+    console.log = jest.fn()
+
+    const handler = middy((event, context, cb) => {
+      cb()
+    })
+    handler.use(lambdaIsWarmingUp({
+      waitForEmptyEventLoop: true
+    }))
+
+    const event = {
+      source: 'serverless-plugin-warmup'
+    }
+    const context = {}
+    handler(event, context, (_, response) => {
+      expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
+      expect(response).toBe('warmup')
+      endTest()
+    })
+  })
+
+  test(`Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop false`, (endTest) => {
+    console.log = jest.fn()
+
+    const handler = middy((event, context, cb) => {
+      cb()
+    })
+    handler.use(lambdaIsWarmingUp({
+      waitForEmptyEventLoop: false
+    }))
+
+    const event = {
+      source: 'serverless-plugin-warmup'
+    }
+    const context = {
+      callbackWaitsForEmptyEventLoop: true
+    }
+    handler(event, context, (_, response) => {
+      expect(context.callbackWaitsForEmptyEventLoop).toBe(false)
+      expect(response).toBe('warmup')
+      endTest()
+    })
+  })
+
+  test(`Should execute handler with callbackWaitsForEmptyEventLoop unchanged if waitForEmptyEventLoop is not set`, (endTest) => {
+    console.log = jest.fn()
+
+    const handler = middy((event, context, cb) => {
+      cb()
+    })
+    handler.use(lambdaIsWarmingUp({}))
+
+    const event = {
+      source: 'serverless-plugin-warmup'
+    }
+    const context = {
+      callbackWaitsForEmptyEventLoop: true
+    }
+    handler(event, context, (_, response) => {
+      expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
+      expect(response).toBe('warmup')
+      endTest()
+    })
+  })
 })
