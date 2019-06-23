@@ -841,6 +841,7 @@ If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless
 - `isWarmingUp`: a function that accepts the `event` object as a parameter
   and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
 - `onWarmup`: a function that gets executed before the handler exits in case of warmup. By default the function just prints: `Exiting early via warmup Middleware`.
+- `waitForEmptyEventLoop`: a boolean value (`null` by default), that if set will change the current value for `context.callbackWaitsForEmptyEventLoop`. In some circumstances it might be useful to force this value to be `false` to make sure that the lambda quits as early as possible in case of warmup (for instance if you have created a database connection in a previous middleware, this might be hanging and keeping you lambda active until timeout).
 
 ### Sample usage
 
