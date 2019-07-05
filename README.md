@@ -48,6 +48,7 @@
  - [Available middlewares](#available-middlewares)
  - [API](#api)
  - [Typescript](#typescript)
+ - [FAQ](#faq)
  - [3rd party middlewares](#3rd-party-middlewares)
  - [Contributing](#contributing)
  - [License](#license)
@@ -652,6 +653,13 @@ Middy exports Typescript compatible type information. To enable the use of Middy
 
 After that you can `import middy from 'middy';` in your http handler and use it as described above.
 
+## FAQ
+
+### Q: Lambda timing out
+**A**: If Lambda is timing out even though you are invoking a callback, there may still be some events in an event loop that are
+preventing a Lambda to exit. This is common when using ORM to connect to the Database, which may keep connections to the database
+alive. To solve this issue, you can use `doNotWaitForEmptyEventLoop` middleware, which will force Lambda to exit when you invoke
+a callback.
 
 ## 3rd party middlewares
 
@@ -672,7 +680,6 @@ Here's a collection of some 3rd party middlewares and libraries that you can use
  - [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
  - [`jwt-auth`](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
  - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
-
 
 ## Contributing
 
