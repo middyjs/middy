@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "aws-sdk": "^2.418.0",
+    "aws-sdk": "2.437.0",
     "babel-jest": "^24.3.1",
     "babel-preset-env": "^1.6.1",
     "eslint": "^5.15.1",
@@ -61,6 +61,11 @@
   "lint-staged": {
     "*.js": [
       "eslint"
+    ]
+  },
+  "greenkeeper": {
+    "ignore": [
+      "aws-sdk"
     ]
   }
 }
