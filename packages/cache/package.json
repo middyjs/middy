@@ -1,6 +1,6 @@
 {
   "name": "@middy/cache",
-  "version": "1.0.0-alpha.34",
+  "version": "1.0.0-alpha.35",
   "description": "Cache middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
