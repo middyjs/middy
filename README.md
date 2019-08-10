@@ -44,6 +44,7 @@
  - [Why?](#why)
  - [Usage](#usage)
  - [How it works](#how-it-works)
+ - [Promises and error handling](#promises-and-error-handling)
  - [Writing a middleware](#writing-a-middleware)
  - [Available middlewares](#available-middlewares)
  - [API](#api)
