@@ -44,10 +44,12 @@
  - [Why?](#why)
  - [Usage](#usage)
  - [How it works](#how-it-works)
+ - [Promises and error handling](#promises-and-error-handling)
  - [Writing a middleware](#writing-a-middleware)
  - [Available middlewares](#available-middlewares)
  - [API](#api)
  - [Typescript](#typescript)
+ - [FAQ](#faq)
  - [3rd party middlewares](#3rd-party-middlewares)
  - [Contributing](#contributing)
  - [License](#license)
@@ -345,6 +347,70 @@ const asyncValidator = () => {
 
 handler.use(asyncValidator())
 ```
+
+### Promises and error handling
+
+`onError` middlewares can return promises as well.
+Here's how Middy handles return values from promise-enabled error handlers:
+* If `onError` promise resolves to a *truthy* value, this value is treated as an error and passed further down the pipeline.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    Logger.debug("middleware1");
+    return Promise.resolve(handler.error)
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    Logger.debug("middleware2");
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, first `middleware1.onError` then `middleware2.onError` will be called.
+
+  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an un-mamaged error
+  In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
+  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    handler.response = { error: handler.error };
+    return Promise.resolve();
+    // Resolves to a falsy value
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
+
+  - If `onError` promise rejects, the error handling pipeline exists early and the lambda execution fails.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    return Promise.reject(handler.error);
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called, and the lambda will fail early, reporting an error. `middleware2.onError` will not be called.
 
 
 ### Using async/await
@@ -652,6 +718,13 @@ Middy exports Typescript compatible type information. To enable the use of Middy
 
 After that you can `import middy from 'middy';` in your http handler and use it as described above.
 
+## FAQ
+
+### Q: Lambda timing out
+**A**: If Lambda is timing out even though you are invoking a callback, there may still be some events in an event loop that are
+preventing a Lambda to exit. This is common when using ORM to connect to the Database, which may keep connections to the database
+alive. To solve this issue, you can use `doNotWaitForEmptyEventLoop` middleware, which will force Lambda to exit when you invoke
+a callback.
 
 ## 3rd party middlewares
 
@@ -672,7 +745,6 @@ Here's a collection of some 3rd party middlewares and libraries that you can use
  - [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
  - [`jwt-auth`](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
  - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
-
 
 ## Contributing
 
