@@ -32,7 +32,8 @@ module.exports = (opts) => {
     after: (handler, next) => {
       // stores the calculated response in the cache
       options.setValue(currentCacheKey, handler.response)
-        .then(next)
+        .then(() => next())
+        .catch(err => next(err))
     }
   })
 }
