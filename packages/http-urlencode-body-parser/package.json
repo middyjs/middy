@@ -48,5 +48,8 @@
     "content-type": "^1.0.4",
     "qs": "^6.5.2",
     "querystring": "^0.2.0"
+  },
+  "devDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
   }
 }

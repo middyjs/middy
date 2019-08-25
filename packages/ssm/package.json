@@ -45,5 +45,8 @@
   },
   "dependencies": {
     "@types/node": "^10.0.8"
+  },
+  "devDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
   }
 }

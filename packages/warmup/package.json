@@ -41,5 +41,8 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
     "@middy/core": ">=1.0.0-alpha"
+  },
+  "devDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
   }
 }

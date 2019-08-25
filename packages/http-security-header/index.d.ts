@@ -1,4 +1,4 @@
-import middy from '../core'
+import middy from '@middy/core'
 
 interface IHTTPSecurityHeadersOptions {
   dnsPrefetchControl?: {

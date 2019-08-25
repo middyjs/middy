@@ -43,5 +43,8 @@
   },
   "dependencies": {
     "@puresec/function-shield": "^1.2.2"
+  },
+  "devDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
   }
 }

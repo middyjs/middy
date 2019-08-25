@@ -1,5 +1,5 @@
 import { HttpError } from 'http-errors'
-import middy from '../core'
+import middy from '@middy/core'
 
 interface IHTTPErrorHandlerOptions {
   logger?: (error: HttpError) => void;

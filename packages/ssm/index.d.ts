@@ -1,5 +1,5 @@
 import { SSM } from 'aws-sdk'
-import middy from '../core'
+import middy from '@middy/core'
 
 interface ISSMOptions {
   cache?: boolean;
