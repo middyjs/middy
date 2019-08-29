@@ -1,12 +1,4 @@
-const defaults = {
-  origin: '*',
-  headers: null,
-  credentials: false
-}
-
-const getOrigin = (options, handler) => {
-  handler.event.headers = handler.event.headers || {}
-  const incomingOrigin = handler.event.headers['origin'] || handler.event.headers['Origin']
+const getOrigin = (incomingOrigin, options) => {
   if (options.origins && options.origins.length > 0) {
     if (incomingOrigin && options.origins.includes(incomingOrigin)) {
       return incomingOrigin
@@ -19,6 +11,13 @@ const getOrigin = (options, handler) => {
     }
     return options.origin
   }
+}
+
+const defaults = {
+  getOrigin,
+  origin: '*',
+  headers: null,
+  credentials: false
 }
 
 const addCorsHeaders = (opts, handler, next) => {
@@ -43,7 +42,9 @@ const addCorsHeaders = (opts, handler, next) => {
     }
     // Check if already setup the header Access-Control-Allow-Origin
     if (!handler.response.headers.hasOwnProperty('Access-Control-Allow-Origin')) {
-      handler.response.headers['Access-Control-Allow-Origin'] = getOrigin(options, handler)
+      const headers = handler.event.headers || {}
+      const incomingOrigin = headers['origin'] || headers['Origin']
+      handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
     }
   }
 
