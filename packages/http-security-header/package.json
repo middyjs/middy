@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-security-header",
-  "version": "1.0.0-alpha.38",
+  "version": "1.0.0-alpha.39",
   "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
   "engines": {
     "node": ">=6.10"
