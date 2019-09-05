@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const jsonBodyParser = require('../')
 
 describe('📦  Middleware JSON Body Parser', () => {
-  test('It should parse a JSON request', () => {
+  test('It should parse a JSON request', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -16,12 +17,13 @@ describe('📦  Middleware JSON Body Parser', () => {
       },
       body: JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (_, body) => {
-      expect(body).toEqual({ foo: 'bar' })
-    })
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual({ foo: 'bar' })
   })
 
-  test('It should use a reviver when parsing a JSON request', () => {
+  test('It should use a reviver when parsing a JSON request', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -35,14 +37,16 @@ describe('📦  Middleware JSON Body Parser', () => {
       },
       body: JSON.stringify({ foo: 'bar' })
     }
-    const parse = jest.spyOn(JSON, 'parse')
-    handler(event, {}, (_, body) => {
-      expect(parse).toHaveBeenCalledWith(event.body, reviver)
-    })
-    parse.mockRestore()
+    const JSONparseSpy = jest.spyOn(JSON, 'parse')
+
+    await invoke(handler, event)
+
+    expect(JSONparseSpy).toHaveBeenCalledWith(JSON.stringify({ foo: 'bar' }), reviver)
+
+    JSONparseSpy.mockRestore()
   })
 
-  test('It should parse a JSON request with lowercase header', () => {
+  test('It should parse a JSON request with lowercase header', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -56,12 +60,15 @@ describe('📦  Middleware JSON Body Parser', () => {
       },
       body: JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (_, body) => {
-      expect(body).toEqual({ foo: 'bar' })
-    })
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual({ foo: 'bar' })
   })
 
-  test('It should handle invalid JSON as an UnprocessableEntity', () => {
+  test('It should handle invalid JSON as an UnprocessableEntity', async () => {
+    expect.assertions(1)
+
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -75,12 +82,15 @@ describe('📦  Middleware JSON Body Parser', () => {
       },
       body: 'make it broken' + JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (err) => {
+
+    try {
+      await invoke(handler, event)
+    } catch (err) {
       expect(err.message).toEqual('Content type defined as JSON but an invalid JSON was provided')
-    })
+    }
   })
 
-  test('It shouldn\'t process the body if no header is passed', () => {
+  test('It shouldn\'t process the body if no header is passed', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -91,8 +101,9 @@ describe('📦  Middleware JSON Body Parser', () => {
     const event = {
       body: JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (_, body) => {
-      expect(body).toEqual('{"foo":"bar"}')
-    })
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual('{"foo":"bar"}')
   })
 })
