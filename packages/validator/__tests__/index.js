@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const validator = require('../')
 
 describe('📦  Middleware Validator', () => {
-  test('It should validate an incoming object', () => {
+  test('It should validate an incoming object', async () => {
     const handler = middy((event, context, cb) => {
       return cb(null, event.body) // propagates the body as a response
     })
@@ -24,13 +25,15 @@ describe('📦  Middleware Validator', () => {
     const event = {
       body: JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (err, body) => {
-      expect(err).toEqual(null)
-      expect(body).toEqual('{"foo":"bar"}')
-    })
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual('{"foo":"bar"}')
   })
 
-  test('It should handle invalid schema as a BadRequest', () => {
+  test('It should handle invalid schema as a BadRequest', async () => {
+    expect.assertions(2)
+
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -57,13 +60,18 @@ describe('📦  Middleware Validator', () => {
     const event = {
       body: JSON.stringify({ something: 'somethingelse' })
     }
-    handler(event, {}, (err, res) => {
+
+    try {
+      await invoke(handler, event)
+    } catch (err) {
       expect(err.message).toEqual('Event object failed validation')
       expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'should have required property foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    })
+    }
   })
 
-  test('It should handle invalid schema as a BadRequest in a different language', () => {
+  test('It should handle invalid schema as a BadRequest in a different language', async () => {
+    expect.assertions(2)
+
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -91,13 +99,18 @@ describe('📦  Middleware Validator', () => {
       preferredLanguage: 'fr',
       body: JSON.stringify({ something: 'somethingelse' })
     }
-    handler(event, {}, (err, res) => {
+
+    try {
+      await invoke(handler, event)
+    } catch (err) {
       expect(err.message).toEqual('Event object failed validation')
       expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'requiert la propriété foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    })
+    }
   })
 
-  test('It should handle invalid schema as a BadRequest in a different language (with normalization)', () => {
+  test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async () => {
+    expect.assertions(2)
+
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
     })
@@ -125,13 +138,16 @@ describe('📦  Middleware Validator', () => {
       preferredLanguage: 'pt',
       body: JSON.stringify({ something: 'somethingelse' })
     }
-    handler(event, {}, (err, res) => {
+
+    try {
+      await invoke(handler, event)
+    } catch (err) {
       expect(err.message).toEqual('Event object failed validation')
       expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'deve ter a propriedade requerida foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    })
+    }
   })
 
-  test('It should validate response', () => {
+  test('It should validate response', async () => {
     const expectedResponse = {
       body: 'Hello world',
       statusCode: 200
@@ -155,13 +171,14 @@ describe('📦  Middleware Validator', () => {
 
     handler.use(validator({ outputSchema: schema }))
 
-    handler({}, {}, (err, response) => {
-      expect(err).toBe(null)
-      expect(response).toBe(expectedResponse)
-    })
+    const response = await invoke(handler)
+
+    expect(response).toBe(expectedResponse)
   })
 
-  test('It should make requests with invalid responses fail with an Internal Server Error', () => {
+  test('It should make requests with invalid responses fail with an Internal Server Error', async () => {
+    expect.assertions(3)
+
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -180,17 +197,21 @@ describe('📦  Middleware Validator', () => {
 
     handler.use(validator({ outputSchema: schema }))
 
-    handler({}, {}, (err, response) => {
+    let response
+
+    try {
+      response = await invoke(handler)
+    } catch (err) {
       expect(err).not.toBe(null)
       expect(err.message).toEqual('Response object failed validation')
       expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
-    })
+    }
   })
 
   describe('🏗 Ajv constructor options', () => {
     const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
 
-    test('It should allow invalid email using default constructor options', () => {
+    test('It should allow invalid email using default constructor options', async () => {
       const handler = middy((event, context, cb) => {
         cb(null, {})
       })
@@ -198,22 +219,26 @@ describe('📦  Middleware Validator', () => {
       handler.use(validator({ inputSchema: schema }))
 
       // This email is considered as valid in 'fast' mode
-      handler({ email: 'abc@abc' }, {}, (err) => {
-        expect(err).toEqual(null)
-      })
+      const resp = await invoke(handler, { email: 'abc@abc' })
+
+      expect(resp).toEqual({})
     })
 
-    test('It should not allow bad email format using custom ajv constructor options', () => {
+    test('It should not allow bad email format using custom ajv constructor options', async () => {
+      expect.assertions(1)
+
       const handler = middy((event, context, cb) => {
         cb(null, {})
       })
 
       handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
 
+      try {
       // This same email is not a valid one in 'full' validation mode
-      handler({ email: 'abc@abc' }, {}, (err) => {
+        await invoke(handler, { email: 'abc@abc' })
+      } catch (err) {
         expect(err.details[0].message).toEqual('should match format "email"')
-      })
+      }
     })
   })
 })
