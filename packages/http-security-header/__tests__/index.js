@@ -1,3 +1,4 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const httpSecurityHeaders = require('../')
 
@@ -37,7 +38,7 @@ const createHeaderObjectResponse = () =>
   )
 
 describe('🔒 Middleware Http Security Headers', () => {
-  test('It should modify default security headers', () => {
+  test('It should modify default security headers', async () => {
     const handler = middy((event, context, cb) =>
       cb(null, createDefaultObjectResponse())
     )
@@ -48,20 +49,20 @@ describe('🔒 Middleware Http Security Headers', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
-      expect(response.headers['X-Powered-By']).toEqual(undefined)
-      expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
-      expect(response.headers['X-Download-Options']).toEqual('noopen')
-      expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
-      expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+    const response = await invoke(handler, event)
 
-      expect(response.headers['X-Frame-Options']).toEqual(undefined)
-      expect(response.headers['X-XSS-Protection']).toEqual(undefined)
-    })
+    expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
+    expect(response.headers['X-Powered-By']).toEqual(undefined)
+    expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
+    expect(response.headers['X-Download-Options']).toEqual('noopen')
+    expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
+    expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+
+    expect(response.headers['X-Frame-Options']).toEqual(undefined)
+    expect(response.headers['X-XSS-Protection']).toEqual(undefined)
   })
 
-  test('It should modify default security headers when HTML', () => {
+  test('It should modify default security headers when HTML', async () => {
     const handler = middy((event, context, cb) =>
       cb(null, createHtmlObjectResponse())
     )
@@ -72,20 +73,20 @@ describe('🔒 Middleware Http Security Headers', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
-      expect(response.headers['X-Powered-By']).toEqual(undefined)
-      expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
-      expect(response.headers['X-Download-Options']).toEqual('noopen')
-      expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
-      expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+    const response = await invoke(handler, event)
 
-      expect(response.headers['X-Frame-Options']).toEqual('DENY')
-      expect(response.headers['X-XSS-Protection']).toEqual('1; mode=block')
-    })
+    expect(response.headers['X-DNS-Prefetch-Control']).toEqual('off')
+    expect(response.headers['X-Powered-By']).toEqual(undefined)
+    expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000; includeSubDomains; preload')
+    expect(response.headers['X-Download-Options']).toEqual('noopen')
+    expect(response.headers['X-Content-Type-Options']).toEqual('nosniff')
+    expect(response.headers['Referrer-Policy']).toEqual('no-referrer')
+
+    expect(response.headers['X-Frame-Options']).toEqual('DENY')
+    expect(response.headers['X-XSS-Protection']).toEqual('1; mode=block')
   })
 
-  test('It should modify default security headers', () => {
+  test('It should modify default security headers', async () => {
     const handler = middy((event, context, cb) =>
       cb(null, createHeaderObjectResponse())
     )
@@ -96,13 +97,13 @@ describe('🔒 Middleware Http Security Headers', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response.headers.Server).toEqual(undefined)
-      expect(response.headers['X-Powered-By']).toEqual(undefined)
-    })
+    const response = await invoke(handler, event)
+
+    expect(response.headers.Server).toEqual(undefined)
+    expect(response.headers['X-Powered-By']).toEqual(undefined)
   })
 
-  test('It should modify default security headers', () => {
+  test('It should modify default security headers', async () => {
     const handler = middy((event, context, cb) =>
       cb(null, createHtmlObjectResponse())
     )
@@ -127,11 +128,11 @@ describe('🔒 Middleware Http Security Headers', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response.headers['X-DNS-Prefetch-Control']).toEqual('on')
-      expect(response.headers['X-Powered-By']).toEqual('Other')
-      expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000')
-      expect(response.headers['X-XSS-Protection']).toEqual('1; mode=block; report=https://example.com/report')
-    })
+    const response = await invoke(handler, event)
+
+    expect(response.headers['X-DNS-Prefetch-Control']).toEqual('on')
+    expect(response.headers['X-Powered-By']).toEqual('Other')
+    expect(response.headers['Strict-Transport-Security']).toEqual('max-age=15552000')
+    expect(response.headers['X-XSS-Protection']).toEqual('1; mode=block; report=https://example.com/report')
   })
 })
