@@ -1,8 +1,8 @@
+jest.mock('aws-sdk')
+
 const { SSM } = require('aws-sdk')
 const middy = require('../../core')
 const ssm = require('../')
-
-jest.mock('aws-sdk')
 
 describe('🔒 SSM Middleware', () => {
   const getParametersMock = jest.fn()
