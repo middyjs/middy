@@ -15,10 +15,6 @@ jobs:
           - node6-deps-v1-
 
       - run:
-          name: install lerna
-          command: sudo npm i -g lerna@^3.13.1
-
-      - run:
           name: npm install
           command: npm install
 
@@ -56,10 +52,6 @@ jobs:
           - node8-deps-v1-
 
       - run:
-          name: install lerna
-          command: sudo npm i -g lerna@^3.13.1
-
-      - run:
           name: npm install
           command: npm install
 
@@ -85,10 +77,6 @@ jobs:
           keys:
           - node10-deps-v1-{{ checksum "package.json" }}
           - node10-deps-v1-
-
-      - run:
-          name: install lerna
-          command: sudo npm i -g lerna@^3.13.1
 
       - run:
           name: npm install
