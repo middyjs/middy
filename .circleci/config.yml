@@ -9,23 +9,12 @@ jobs:
     steps:
       - checkout
 
-      - restore_cache:
-          keys:
-          - node6-deps-v1-{{ checksum "package.json" }}
-          - node6-deps-v1-
-
-      - run:
-          name: npm install
-          command: npm install
-
-      - save_cache:
-          paths:
-            - node_modules
-          key: node6-deps-v1-{{ checksum "package.json" }}
+      - attach_workspace:
+          at: ~/
 
       - run:
           name: unit tests
-          command: npm test
+          command: test:packages
 
       - persist_to_workspace:
           root: ~/
@@ -46,25 +35,30 @@ jobs:
     steps:
       - checkout
 
-      - restore_cache:
-          keys:
-          - node8-deps-v1-{{ checksum "package.json" }}
-          - node8-deps-v1-
-
-      - run:
-          name: npm install
-          command: npm install
-
-      - save_cache:
-          paths:
-            - node_modules
-          key: node8-deps-v1-{{ checksum "package.json" }}
+      - attach_workspace:
+          at: ~/
 
       - run:
           name: unit tests
-          command: npm test
+          command: test:packages
 
   build_node10:
+    docker:
+      - image: circleci/node:10
+
+    working_directory: ~/middy
+
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: unit tests
+          command: test:packages
+
+  lint:
     docker:
       - image: circleci/node:10
 
@@ -88,8 +82,14 @@ jobs:
           key: node10-deps-v1-{{ checksum "package.json" }}
 
       - run:
-          name: unit tests
-          command: npm test
+          name: lint code
+          command: npm run test:lint:ci
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - middy
+            - node_modules
 
   deploy:
     docker:
@@ -113,15 +113,21 @@ jobs:
             command: |
               npm run lerna:publish && npm run release:tag;
 
-
 workflows:
   version: 2
 
   build_test_deploy:
     jobs:
-        - build_node6
-        - build_node8
-        - build_node10
+        - lint
+        - build_node6:
+            requires:
+              - lint
+        - build_node8:
+            requires:
+              - lint
+        - build_node10:
+            requires:
+              - lint
 
         # we only deploy if build_node6, build_node8 & build_node10 succeed and if on master
         - deploy:
