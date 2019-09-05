@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const inputOutputLogger = require('../')
 
 describe('📦 Middleware Input Output Logger', () => {
-  test('It should log event and response', () => {
+  test('It should log event and response', async () => {
     const logger = jest.fn()
 
     const handler = middy((event, context, cb) => {
@@ -12,10 +13,9 @@ describe('📦 Middleware Input Output Logger', () => {
     handler
       .use(inputOutputLogger({ logger }))
 
-    // run the handler
-    handler({ foo: 'bar', fuu: 'baz' }, {}, (_, response) => {
-      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
-      expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
-    })
+    await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+    expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
+    expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
   })
 })
