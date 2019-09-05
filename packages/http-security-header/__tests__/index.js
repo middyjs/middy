@@ -30,7 +30,7 @@ const createHeaderObjectResponse = () =>
       statusCode: 200,
       body: { firstname: 'john', lastname: 'doe' },
       headers: {
-        'Server': 'AMZN',
+        Server: 'AMZN',
         'X-Powered-By': 'MiddyJS'
       }
     }
@@ -97,7 +97,7 @@ describe('🔒 Middleware Http Security Headers', () => {
     }
 
     handler(event, {}, (_, response) => {
-      expect(response.headers['Server']).toEqual(undefined)
+      expect(response.headers.Server).toEqual(undefined)
       expect(response.headers['X-Powered-By']).toEqual(undefined)
     })
   })

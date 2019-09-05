@@ -11,19 +11,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       headers: {
         'x-aPi-key': '123456',
-        'tcn': 'abc',
-        'te': 'cde',
-        'DNS': 'd',
-        'FOO': 'bar'
+        tcn: 'abc',
+        te: 'cde',
+        DNS: 'd',
+        FOO: 'bar'
       }
     }
 
     const expectedHeaders = {
       'x-api-key': '123456',
-      'TCN': 'abc',
-      'TE': 'cde',
-      'dns': 'd',
-      'foo': 'bar'
+      TCN: 'abc',
+      TE: 'cde',
+      dns: 'd',
+      foo: 'bar'
     }
 
     const originalHeaders = Object.assign({}, event.headers)
@@ -45,19 +45,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       headers: {
         'x-api-key': '123456',
-        'tcn': 'abc',
-        'te': 'cde',
-        'DNS': 'd',
-        'FOO': 'bar'
+        tcn: 'abc',
+        te: 'cde',
+        DNS: 'd',
+        FOO: 'bar'
       }
     }
 
     const expectedHeaders = {
       'X-Api-Key': '123456',
-      'TCN': 'abc',
-      'TE': 'cde',
-      'Dns': 'd',
-      'Foo': 'bar'
+      TCN: 'abc',
+      TE: 'cde',
+      Dns: 'd',
+      Foo: 'bar'
     }
 
     const originalHeaders = Object.assign({}, event.headers)
@@ -83,19 +83,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       headers: {
         'x-api-key': '123456',
-        'tcn': 'abc',
-        'te': 'cde',
-        'DNS': 'd',
-        'FOO': 'bar'
+        tcn: 'abc',
+        te: 'cde',
+        DNS: 'd',
+        FOO: 'bar'
       }
     }
 
     const expectedHeaders = {
       'X-API-KEY': '123456',
-      'TCN': 'abc',
-      'TE': 'cde',
-      'DNS': 'd',
-      'FOO': 'bar'
+      TCN: 'abc',
+      TE: 'cde',
+      DNS: 'd',
+      FOO: 'bar'
     }
 
     const originalHeaders = Object.assign({}, event.headers)

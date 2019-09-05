@@ -129,9 +129,9 @@ const getParamsByPathRecursively = (path, nextToken) => {
 const getParamNameFromPathDefault = (path, name, prefix) => {
   const localName = name
     .split(`${path}/`)
-    .join(``) // replace path
-    .split(`/`)
-    .join(`_`) // replace remaining slashes with underscores
+    .join('') // replace path
+    .split('/')
+    .join('_') // replace remaining slashes with underscores
 
   const fullLocalName = prefix ? `${prefix}_${localName}` : localName
 
