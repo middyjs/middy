@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const httpContentNegotiation = require('../')
 
 describe('🤑  Middleware HTTP Content Negotiation', () => {
-  test('It should parse charset, encoding, language and media type', (endTest) => {
+  test('It should parse charset, encoding, language and media type', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-8'],
@@ -20,21 +21,28 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toEqual(['utf-8'])
-      expect(resultingEvent.preferredCharset).toEqual('utf-8')
-      expect(resultingEvent.preferredEncodings).toEqual(['*/*', 'identity'])
-      expect(resultingEvent.preferredEncoding).toEqual('*/*')
-      expect(resultingEvent.preferredLanguages).toEqual(['en-gb'])
-      expect(resultingEvent.preferredLanguage).toEqual('en-gb')
-      expect(resultingEvent.preferredMediaTypes).toEqual(['text/x-dvi', 'text/plain'])
-      expect(resultingEvent.preferredMediaType).toEqual('text/x-dvi')
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
+          'Accept-Encoding': '*/*',
+          'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+          Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredCharsets: ['utf-8'],
+      preferredCharset: 'utf-8',
+      preferredEncodings: ['*/*', 'identity'],
+      preferredEncoding: '*/*',
+      preferredLanguages: ['en-gb'],
+      preferredLanguage: 'en-gb',
+      preferredMediaTypes: ['text/x-dvi', 'text/plain'],
+      preferredMediaType: 'text/x-dvi'
     })
   })
 
-  test('It should parse charset, encoding, language and media type with lowercase headers', (endTest) => {
+  test('It should parse charset, encoding, language and media type with lowercase headers', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-16'],
@@ -52,21 +60,28 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toEqual(['utf-16'])
-      expect(resultingEvent.preferredCharset).toEqual('utf-16')
-      expect(resultingEvent.preferredEncodings).toEqual(['*/*', 'identity'])
-      expect(resultingEvent.preferredEncoding).toEqual('*/*')
-      expect(resultingEvent.preferredLanguages).toEqual(['en-gb'])
-      expect(resultingEvent.preferredLanguage).toEqual('en-gb')
-      expect(resultingEvent.preferredMediaTypes).toEqual(['text/x-dvi', 'text/plain'])
-      expect(resultingEvent.preferredMediaType).toEqual('text/x-dvi')
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'accept-charset': 'utf-16, iso-8859-5, unicode-1-1;q=0.8',
+          'accept-encoding': '*/*',
+          'accept-language': 'da, en-gb;q=0.8, en;q=0.7',
+          accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredCharsets: ['utf-16'],
+      preferredCharset: 'utf-16',
+      preferredEncodings: ['*/*', 'identity'],
+      preferredEncoding: '*/*',
+      preferredLanguages: ['en-gb'],
+      preferredLanguage: 'en-gb',
+      preferredMediaTypes: ['text/x-dvi', 'text/plain'],
+      preferredMediaType: 'text/x-dvi'
     })
   })
 
-  test('It should skip the middleware if no headers are sent', (endTest) => {
+  test('It should skip the middleware if no headers are sent', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-8'],
@@ -79,13 +94,12 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       foo: 'bar'
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent).toEqual({ foo: 'bar' })
-      endTest()
-    })
+    const resultingEvent = await invoke(handler, event)
+
+    expect(resultingEvent).toStrictEqual({ foo: 'bar' })
   })
 
-  test('It should not parse charset if disabled', (endTest) => {
+  test('It should not parse charset if disabled', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       parseCharsets: false,
@@ -103,21 +117,26 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toBeUndefined()
-      expect(resultingEvent.preferredCharset).toBeUndefined()
-      expect(resultingEvent.preferredEncodings).toEqual(['*/*', 'identity'])
-      expect(resultingEvent.preferredEncoding).toEqual('*/*')
-      expect(resultingEvent.preferredLanguages).toEqual(['en-gb'])
-      expect(resultingEvent.preferredLanguage).toEqual('en-gb')
-      expect(resultingEvent.preferredMediaTypes).toEqual(['text/x-dvi', 'text/plain'])
-      expect(resultingEvent.preferredMediaType).toEqual('text/x-dvi')
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
+          'Accept-Encoding': '*/*',
+          'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+          Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredEncodings: ['*/*', 'identity'],
+      preferredEncoding: '*/*',
+      preferredLanguages: ['en-gb'],
+      preferredLanguage: 'en-gb',
+      preferredMediaTypes: ['text/x-dvi', 'text/plain'],
+      preferredMediaType: 'text/x-dvi'
     })
   })
 
-  test('It should not parse encoding if disabled', (endTest) => {
+  test('It should not parse encoding if disabled', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-8'],
@@ -135,21 +154,26 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toEqual(['utf-8'])
-      expect(resultingEvent.preferredCharset).toEqual('utf-8')
-      expect(resultingEvent.preferredEncodings).toBeUndefined()
-      expect(resultingEvent.preferredEncoding).toBeUndefined()
-      expect(resultingEvent.preferredLanguages).toEqual(['en-gb'])
-      expect(resultingEvent.preferredLanguage).toEqual('en-gb')
-      expect(resultingEvent.preferredMediaTypes).toEqual(['text/x-dvi', 'text/plain'])
-      expect(resultingEvent.preferredMediaType).toEqual('text/x-dvi')
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
+          'Accept-Encoding': '*/*',
+          'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+          Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredCharsets: ['utf-8'],
+      preferredCharset: 'utf-8',
+      preferredLanguages: ['en-gb'],
+      preferredLanguage: 'en-gb',
+      preferredMediaTypes: ['text/x-dvi', 'text/plain'],
+      preferredMediaType: 'text/x-dvi'
     })
   })
 
-  test('It should not parse language if disabled', (endTest) => {
+  test('It should not parse language if disabled', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-8'],
@@ -167,21 +191,26 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toEqual(['utf-8'])
-      expect(resultingEvent.preferredCharset).toEqual('utf-8')
-      expect(resultingEvent.preferredEncodings).toEqual(['*/*', 'identity'])
-      expect(resultingEvent.preferredEncoding).toEqual('*/*')
-      expect(resultingEvent.preferredLanguages).toBeUndefined()
-      expect(resultingEvent.preferredLanguage).toBeUndefined()
-      expect(resultingEvent.preferredMediaTypes).toEqual(['text/x-dvi', 'text/plain'])
-      expect(resultingEvent.preferredMediaType).toEqual('text/x-dvi')
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
+          'Accept-Encoding': '*/*',
+          'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+          Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredCharsets: ['utf-8'],
+      preferredCharset: 'utf-8',
+      preferredEncodings: ['*/*', 'identity'],
+      preferredEncoding: '*/*',
+      preferredMediaTypes: ['text/x-dvi', 'text/plain'],
+      preferredMediaType: 'text/x-dvi'
     })
   })
 
-  test('It should not parse media types if disabled', (endTest) => {
+  test('It should not parse media types if disabled', async () => {
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableCharsets: ['utf-8'],
@@ -199,21 +228,28 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (_, resultingEvent) => {
-      expect(resultingEvent.preferredCharsets).toEqual(['utf-8'])
-      expect(resultingEvent.preferredCharset).toEqual('utf-8')
-      expect(resultingEvent.preferredEncodings).toEqual(['*/*', 'identity'])
-      expect(resultingEvent.preferredEncoding).toEqual('*/*')
-      expect(resultingEvent.preferredLanguages).toEqual(['en-gb'])
-      expect(resultingEvent.preferredLanguage).toEqual('en-gb')
-      expect(resultingEvent.preferredMediaTypes).toBeUndefined()
-      expect(resultingEvent.preferredMediaType).toBeUndefined()
+    const resultingEvent = await invoke(handler, event)
 
-      endTest()
+    expect(resultingEvent).toStrictEqual({
+      headers:
+        {
+          'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
+          'Accept-Encoding': '*/*',
+          'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+          Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        },
+      preferredCharsets: ['utf-8'],
+      preferredCharset: 'utf-8',
+      preferredEncodings: ['*/*', 'identity'],
+      preferredEncoding: '*/*',
+      preferredLanguages: ['en-gb'],
+      preferredLanguage: 'en-gb'
     })
   })
 
-  test('It should fail when mismatching', (endTest) => {
+  test('It should fail when mismatching', async () => {
+    expect.assertions(1)
+
     const handler = middy((event, context, callback) => callback(null, event))
     handler.use(httpContentNegotiation({
       availableMediaTypes: ['text/plain', 'text/x-dvi']
@@ -225,9 +261,10 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
       }
     }
 
-    handler(event, {}, (err, resultingEvent) => {
-      expect(err.message).toEqual('Unsupported mediaType. Acceptable values: text/plain, text/x-dvi')
-      endTest()
-    })
+    try {
+      await invoke(handler, event)
+    } catch (err) {
+      expect(err.message).toStrictEqual('Unsupported mediaType. Acceptable values: text/plain, text/x-dvi')
+    }
   })
 })
