@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const cors = require('../')
 
-describe('📦 Middleware CORS', () => {
-  test('Access-Control-Allow-Origin header should default to "*"', () => {
+describe('📦 Middleware CORS', async () => {
+  test('Access-Control-Allow-Origin header should default to "*"', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -13,16 +14,16 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': '*'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      }
     })
   })
 
-  test('It should not override already declared Access-Control-Allow-Origin header', () => {
+  test('It should not override already declared Access-Control-Allow-Origin header', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -44,16 +45,16 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://example.com'
+      }
     })
   })
 
-  test('It should use custom getOrigin', () => {
+  test('It should use custom getOrigin', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -68,16 +69,16 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://species.com'
+      }
     })
   })
 
-  test('It should use pass incoming origin to custom getOrigin', () => {
+  test('It should use pass incoming origin to custom getOrigin', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -93,16 +94,16 @@ describe('📦 Middleware CORS', () => {
       headers: { Origin: 'https://incoming.com' }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://incoming.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://incoming.com'
+      }
     })
   })
 
-  test('It should use origin specified in options', () => {
+  test('It should use origin specified in options', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -117,16 +118,16 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://example.com'
+      }
     })
   })
 
-  test('It should return whitelisted origin', () => {
+  test('It should return whitelisted origin', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -142,16 +143,16 @@ describe('📦 Middleware CORS', () => {
       headers: { Origin: 'https://another-example.com' }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://another-example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://another-example.com'
+      }
     })
   })
 
-  test('It should return first origin as default if no match', () => {
+  test('It should return first origin as default if no match', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -167,16 +168,16 @@ describe('📦 Middleware CORS', () => {
       headers: { Origin: 'https://unknown.com' }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://example.com'
+      }
     })
   })
 
-  test('It should add headers even onError', () => {
+  test('It should add headers even onError', async () => {
     const handler = middy((event, context, cb) => {
       throw new Error('')
     })
@@ -197,17 +198,19 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': 'https://example.com'
+      }
     })
   })
 
-  test('It should not swallow errors', () => {
-    const handler = middy((event, context, cb) => {
+  test('It should not swallow errors', async () => {
+    expect.assertions(1)
+
+    const handler = middy(() => {
       throw new Error('some-error')
     })
 
@@ -215,13 +218,14 @@ describe('📦 Middleware CORS', () => {
       cors()
     )
 
-    handler({}, {}, (error, response) => {
-      expect(response).toBe(undefined)
+    try {
+      await invoke(handler)
+    } catch (error) {
       expect(error.message).toEqual('some-error')
-    })
+    }
   })
 
-  test('It should not override already declared Access-Control-Allow-Headers header', () => {
+  test('It should not override already declared Access-Control-Allow-Headers header', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -229,11 +233,7 @@ describe('📦 Middleware CORS', () => {
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
-        handler.response = {
-          headers: {
-            'Access-Control-Allow-Headers': 'x-example'
-          }
-        }
+        handler.response.headers['Access-Control-Allow-Headers'] = 'x-example'
         next()
       }
     })
@@ -250,17 +250,17 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'x-example'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toStrictEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'x-example'
+      }
     })
   })
 
-  test('It should use allowed headers specified in options', () => {
+  test('It should use allowed headers specified in options', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -275,17 +275,17 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'x-example'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'x-example'
+      }
     })
   })
 
-  test('It should not override already declared Access-Control-Allow-Credentials header as false', () => {
+  test('It should not override already declared Access-Control-Allow-Credentials header as false', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -293,11 +293,7 @@ describe('📦 Middleware CORS', () => {
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
-        handler.response = {
-          headers: {
-            'Access-Control-Allow-Credentials': 'false'
-          }
-        }
+        handler.response.headers['Access-Control-Allow-Credentials'] = 'false'
         next()
       }
     })
@@ -316,17 +312,17 @@ describe('📦 Middleware CORS', () => {
       httpMethod: 'GET'
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Credentials': 'false',
-          'Access-Control-Allow-Origin': '*'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Credentials': 'false',
+        'Access-Control-Allow-Origin': '*'
+      }
     })
   })
 
-  test('It should not override already declared Access-Control-Allow-Credentials header as true', () => {
+  test('It should not override already declared Access-Control-Allow-Credentials header as true', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -334,11 +330,7 @@ describe('📦 Middleware CORS', () => {
     // other middleware that puts the cors header
     handler.use({
       after: (handler, next) => {
-        handler.response = {
-          headers: {
-            'Access-Control-Allow-Credentials': 'true'
-          }
-        }
+        handler.response.headers['Access-Control-Allow-Credentials'] = 'true'
         next()
       }
     })
@@ -360,17 +352,18 @@ describe('📦 Middleware CORS', () => {
       }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'http://example.com'
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers:
+        {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true'
         }
-      })
     })
   })
 
-  test('It should use change credentials as specified in options (true)', () => {
+  test('It should use change credentials as specified in options (true)', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -388,17 +381,17 @@ describe('📦 Middleware CORS', () => {
       }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'http://example.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': 'http://example.com'
+      }
     })
   })
 
-  test('It should use change credentials as specified in options (true) with lowercase header', () => {
+  test('It should use change credentials as specified in options (true) with lowercase header', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -416,17 +409,17 @@ describe('📦 Middleware CORS', () => {
       }
     }
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({
-        headers: {
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'http://example-lowercase.com'
-        }
-      })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': 'http://example-lowercase.com'
+      }
     })
   })
 
-  test('It should not change anything if HTTP method is not present in the request', () => {
+  test('It should not change anything if HTTP method is not present in the request', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -435,8 +428,8 @@ describe('📦 Middleware CORS', () => {
 
     const event = {}
 
-    handler(event, {}, (_, response) => {
-      expect(response).toEqual({})
-    })
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({})
   })
 })
