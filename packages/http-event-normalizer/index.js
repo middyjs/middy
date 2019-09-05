@@ -4,6 +4,7 @@ module.exports = () => ({
 
     if (event.hasOwnProperty('httpMethod')) {
       event.queryStringParameters = event.queryStringParameters || {}
+      event.multiValueQueryStringParameters = event.multiValueQueryStringParameters || {}
       event.pathParameters = event.pathParameters || {}
     }
 
