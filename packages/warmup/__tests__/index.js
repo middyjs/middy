@@ -8,7 +8,7 @@ beforeEach(() => {
 })
 
 describe('🥃 Warmup', () => {
-  test(`Should exit with 'warmup' if provided warmup check function is provide and returns true`, (endTest) => {
+  test('Should exit with \'warmup\' if provided warmup check function is provide and returns true', (endTest) => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -25,7 +25,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should exit with 'warmup' if event.source === 'serverless-plugin-warmup' if no warmup check function provided`, (endTest) => {
+  test('Should exit with \'warmup\' if event.source === \'serverless-plugin-warmup\' if no warmup check function provided', (endTest) => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -43,7 +43,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`It should print in the console when exiting because of warmup and the onWarmup function is not redefined`, (endTest) => {
+  test('It should print in the console when exiting because of warmup and the onWarmup function is not redefined', (endTest) => {
     console.log = jest.fn()
 
     const handler = middy((event, context, cb) => {
@@ -62,7 +62,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should execute handler if provided warmup check function returns false`, (endTest) => {
+  test('Should execute handler if provided warmup check function returns false', (endTest) => {
     const handler = middy((event, context, cb) => {
       cb(null, 'handler executed')
     })
@@ -76,7 +76,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop true`, (endTest) => {
+  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop true', (endTest) => {
     console.log = jest.fn()
 
     const handler = middy((event, context, cb) => {
@@ -97,7 +97,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop false`, (endTest) => {
+  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop false', (endTest) => {
     console.log = jest.fn()
 
     const handler = middy((event, context, cb) => {
@@ -120,7 +120,7 @@ describe('🥃 Warmup', () => {
     })
   })
 
-  test(`Should execute handler with callbackWaitsForEmptyEventLoop unchanged if waitForEmptyEventLoop is not set`, (endTest) => {
+  test('Should execute handler with callbackWaitsForEmptyEventLoop unchanged if waitForEmptyEventLoop is not set', (endTest) => {
     console.log = jest.fn()
 
     const handler = middy((event, context, cb) => {

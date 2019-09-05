@@ -19,10 +19,10 @@ const availableLanguages = Object.keys(ajvLocalize)
 
 /* in ajv-i18n Portuguese is represented as pt-BR */
 const languageNormalizationMap = {
-  'pt': 'pt-BR',
+  pt: 'pt-BR',
   'pt-br': 'pt-BR',
-  'pt_BR': 'pt-BR',
-  'pt_br': 'pt-BR'
+  pt_BR: 'pt-BR',
+  pt_br: 'pt-BR'
 }
 
 const normalizePreferredLanguage = (lang) => languageNormalizationMap[lang] || lang

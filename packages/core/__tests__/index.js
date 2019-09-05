@@ -558,10 +558,12 @@ describe('🛵  Middy test suite', () => {
     })
     let onErrorWasCalled = false
 
-    handler.use({ onError: (handler, next) => {
-      onErrorWasCalled = true
-      next()
-    } })
+    handler.use({
+      onError: (handler, next) => {
+        onErrorWasCalled = true
+        next()
+      }
+    })
 
     await handler({}, {})
     expect(onErrorWasCalled).toBe(true)
