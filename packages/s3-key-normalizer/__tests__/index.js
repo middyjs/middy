@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const s3KeyNormalizer = require('../')
 
 describe('📦  Middleware s3KeyNormalizer', () => {
-  test('It normalizes keys in a s3 PUT event', () => {
+  test('It normalizes keys in a s3 PUT event', async () => {
     const event = {
       Records: [
         {
@@ -49,13 +50,12 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     handler
       .use(s3KeyNormalizer())
 
-    // invokes the handler
-    handler(event, {}, (_, response) => {
-      expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
-    })
+    const response = await invoke(handler, event)
+
+    expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
   })
 
-  test('It normalizes keys in a s3 DELETE event', () => {
+  test('It normalizes keys in a s3 DELETE event', async () => {
     const event = {
       Records: [
         {
@@ -100,13 +100,12 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     handler
       .use(s3KeyNormalizer())
 
-    // invokes the handler
-    handler(event, {}, (_, response) => {
-      expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
-    })
+    const response = await invoke(handler, event)
+
+    expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
   })
 
-  test('It should normalize the event if the event version is 2.x', () => {
+  test('It should normalize the event if the event version is 2.x', async () => {
     const event = {
       Records: [
         {
@@ -151,13 +150,12 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     handler
       .use(s3KeyNormalizer())
 
-    // invokes the handler
-    handler(event, {}, (_, response) => {
-      expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
-    })
+    const response = await invoke(handler, event)
+
+    expect(response.Records[0].s3.object.key).toEqual('This is a picture.jpg')
   })
 
-  test('It should not normalize the event if it doesn\'t look like an S3 event', () => {
+  test('It should not normalize the event if it doesn\'t look like an S3 event', async () => {
     const alexaEvent = {
       header: {
         payloadVersion: '2',
@@ -179,14 +177,13 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     handler
       .use(s3KeyNormalizer())
 
-    // invokes the handler
-    handler(alexaEvent, {}, (_, response) => {
-      // checks if the event is still equal to its original copy
-      expect(response).toEqual(eventOriginalCopy)
-    })
+    const response = await invoke(handler, alexaEvent)
+
+    // checks if the event is still equal to its original copy
+    expect(response).toEqual(eventOriginalCopy)
   })
 
-  test('It should not normalize the event if the S3 event doesn\'t match the expected format', () => {
+  test('It should not normalize the event if the S3 event doesn\'t match the expected format', async () => {
     const event = {
       Records: [
         {
@@ -235,10 +232,9 @@ describe('📦  Middleware s3KeyNormalizer', () => {
     handler
       .use(s3KeyNormalizer())
 
-    // invokes the handler
-    handler(event, {}, (_, response) => {
-      // checks if the event is still equal to its original copy
-      expect(response).toEqual(eventOriginalCopy)
-    })
+    const response = await invoke(handler, event)
+
+    // checks if the event is still equal to its original copy
+    expect(response).toEqual(eventOriginalCopy)
   })
 })

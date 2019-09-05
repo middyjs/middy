@@ -28,7 +28,7 @@ const createHttpResponse = () => ({
 })
 
 describe('📦  Middleware Http Response Serializer', () => {
-  describe('It should pass-through when `content-type` header is already set', async () => {
+  describe('It should pass-through when `content-type` header is already set', () => {
     test.each([
       ['Content-Type'],
       ['content-type'],
@@ -51,7 +51,7 @@ describe('📦  Middleware Http Response Serializer', () => {
       })
   })
 
-  describe('It should find the correct serializer from the request accept header', async () => {
+  describe('It should find the correct serializer from the request accept header', () => {
     test.each([
       ['application/xml, text/x-dvi; q=0.8, text/x-c', '<message>Hello World</message>'],
       ['application/json, text/plain, */*', '{"message":"Hello World"}'],

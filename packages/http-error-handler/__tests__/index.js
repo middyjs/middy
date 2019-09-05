@@ -3,7 +3,7 @@ const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const httpErrorHandler = require('../')
 
-describe('📦 Middleware Http Error Handler', async () => {
+describe('📦 Middleware Http Error Handler', () => {
   test('It should create a response for HTTP errors', async () => {
     const handler = middy(() => {
       throw new createError.UnprocessableEntity()

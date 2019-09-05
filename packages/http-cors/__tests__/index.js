@@ -2,7 +2,7 @@ const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const cors = require('../')
 
-describe('📦 Middleware CORS', async () => {
+describe('📦 Middleware CORS', () => {
   test('Access-Control-Allow-Origin header should default to "*"', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
