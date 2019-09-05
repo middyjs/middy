@@ -14,7 +14,7 @@ jobs:
 
       - run:
           name: unit tests
-          command: npm run test:packages
+          command: npm run test:packages:unit
 
       - persist_to_workspace:
           root: ~/
@@ -40,7 +40,7 @@ jobs:
 
       - run:
           name: unit tests
-          command: npm run test:packages
+          command: npm run test:packages:unit
 
   build_node10:
     docker:
@@ -56,7 +56,7 @@ jobs:
 
       - run:
           name: unit tests
-          command: npm run test:packages
+          command: npm run test:packages:unit
 
   lint:
     docker:
@@ -84,6 +84,10 @@ jobs:
       - run:
           name: lint code
           command: npm run test:lint:ci
+
+      - run:
+          name: test typings
+          command: npm run test:packages:typings
 
       - persist_to_workspace:
           root: ~/
