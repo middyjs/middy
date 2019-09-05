@@ -11,13 +11,8 @@ jobs:
 
       - restore_cache:
           keys:
-          - v1-dependencies-v6-{{ checksum "package.json" }}
-          - v1-dependencies-v6-
-          - v1-dependencies-
-
-      - run:
-          name: install lerna
-          command: sudo npm i -g lerna@^3.13.1
+          - node6-deps-v1-{{ checksum "package.json" }}
+          - node6-deps-v1-
 
       - run:
           name: npm install
@@ -26,7 +21,7 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-v6-{{ checksum "package.json" }}
+          key: node6-deps-v1-{{ checksum "package.json" }}
 
       - run:
           name: unit tests
@@ -53,13 +48,8 @@ jobs:
 
       - restore_cache:
           keys:
-          - v1-dependencies-v8-{{ checksum "package.json" }}
-          - v1-dependencies-v8-
-          - v1-dependencies-
-
-      - run:
-          name: install lerna
-          command: sudo npm i -g lerna@^3.13.1
+          - node8-deps-v1-{{ checksum "package.json" }}
+          - node8-deps-v1-
 
       - run:
           name: npm install
@@ -68,7 +58,34 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-v8-{{ checksum "package.json" }}
+          key: node8-deps-v1-{{ checksum "package.json" }}
+
+      - run:
+          name: unit tests
+          command: npm test
+
+  build_node10:
+    docker:
+      - image: circleci/node:10
+
+    working_directory: ~/middy
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+          - node10-deps-v1-{{ checksum "package.json" }}
+          - node10-deps-v1-
+
+      - run:
+          name: npm install
+          command: npm install
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: node10-deps-v1-{{ checksum "package.json" }}
 
       - run:
           name: unit tests
@@ -104,11 +121,14 @@ workflows:
     jobs:
         - build_node6
         - build_node8
-        # we only deploy if build_node6 && build_node8 both succeed and if on master.
+        - build_node10
+
+        # we only deploy if build_node6, build_node8 & build_node10 succeed and if on master
         - deploy:
             requires:
                 - build_node6
                 - build_node8
+                - build_node10
             filters:
                 branches:
                     only: 1.0.0-alpha

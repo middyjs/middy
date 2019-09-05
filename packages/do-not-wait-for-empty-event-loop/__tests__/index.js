@@ -99,6 +99,25 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
+    test(`thrown error should be propagated when it occurs & runOnError is true`, (done) => {
+      const handler = middy((event, context, cb) => {
+        context.callbackWaitsForEmptyEventLoop = true
+        cb(new Error('!'))
+      })
+
+      handler.use(doNotWaitForEmptyEventLoop({
+        runOnAfter: true,
+        runOnError: true
+      }))
+
+      const event = {}
+      const context = {}
+      handler(event, context, (error) => {
+        expect(error.message).toEqual('!')
+        done()
+      })
+    })
+
     test(`callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options`, () => {
       expect.assertions(2)
 

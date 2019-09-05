@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "1.0.0-alpha.37",
+  "version": "1.0.0-alpha.39",
   "description": "Http error handler middleware for the middy framework",
   "engines": {
     "node": ">=6.10"

@@ -1,6 +1,6 @@
 {
   "name": "@middy/function-shield",
-  "version": "1.0.0-alpha.37",
+  "version": "1.0.0-alpha.39",
   "description": "Hardens AWS Lambda execution environment",
   "engines": {
     "node": ">=6.10"
