@@ -16,7 +16,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
         'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
-        'Accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -48,7 +48,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'accept-charset': 'utf-16, iso-8859-5, unicode-1-1;q=0.8',
         'accept-encoding': '*/*',
         'accept-language': 'da, en-gb;q=0.8, en;q=0.7',
-        'accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -99,7 +99,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
         'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
-        'Accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -131,7 +131,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
         'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
-        'Accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -163,7 +163,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
         'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
-        'Accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -195,7 +195,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
         'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
-        'Accept': 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
 
@@ -221,7 +221,7 @@ describe('🤑  Middleware HTTP Content Negotiation', () => {
 
     const event = {
       headers: {
-        'Accept': 'application/json'
+        Accept: 'application/json'
       }
     }
 

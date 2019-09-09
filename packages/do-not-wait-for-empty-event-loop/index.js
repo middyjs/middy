@@ -9,7 +9,7 @@ module.exports = (opts) => {
 
   const disableEmptyEventLoopWait = (handler, next) => {
     handler.context.callbackWaitsForEmptyEventLoop = false
-    next()
+    next(handler.error)
   }
 
   return ({

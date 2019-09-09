@@ -1,6 +1,6 @@
 {
   "name": "@middy/error-logger",
-  "version": "1.0.0-alpha.36",
+  "version": "1.0.0-alpha.41",
   "description": "Input and output logger middleware for the middy framework",
   "engines": {
     "node": ">=6.10"

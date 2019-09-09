@@ -3,7 +3,7 @@ const doNotWaitForEmptyEventLoop = require('../')
 
 describe('🥃 Do Not Wait For Empty Event Loop', () => {
   describe('👌 With Default Options', () => {
-    test(`It should set callbackWaitsForEmptyEventLoop to false by default`, () => {
+    test('It should set callbackWaitsForEmptyEventLoop to false by default', () => {
       const handler = middy((event, context, cb) => {
         cb()
       })
@@ -16,7 +16,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
-    test(`callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler`, () => {
+    test('callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler', () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb()
@@ -31,7 +31,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
-    test(`callbackWaitsForEmptyEventLoop should stay false if handler has error`, () => {
+    test('callbackWaitsForEmptyEventLoop should stay false if handler has error', () => {
       const handler = middy((event, context, cb) => {
         cb(new Error('!'))
       })
@@ -47,7 +47,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
   })
 
   describe('✍️ With Overridden Options', () => {
-    test(`callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options`, () => {
+    test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options', () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb()
@@ -64,7 +64,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
-    test(`callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true`, () => {
+    test('callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true', () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb(new Error('!'))
@@ -81,7 +81,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
-    test(`callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true`, () => {
+    test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true', () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb(new Error('!'))
@@ -99,7 +99,26 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
       })
     })
 
-    test(`callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options`, () => {
+    test('thrown error should be propagated when it occurs & runOnError is true', (done) => {
+      const handler = middy((event, context, cb) => {
+        context.callbackWaitsForEmptyEventLoop = true
+        cb(new Error('!'))
+      })
+
+      handler.use(doNotWaitForEmptyEventLoop({
+        runOnAfter: true,
+        runOnError: true
+      }))
+
+      const event = {}
+      const context = {}
+      handler(event, context, (error) => {
+        expect(error.message).toEqual('!')
+        done()
+      })
+    })
+
+    test('callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options', () => {
       expect.assertions(2)
 
       const handler = middy((event, context, cb) => {

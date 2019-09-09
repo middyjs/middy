@@ -53,6 +53,55 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
+  test('It should use custom getOrigin', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        getOrigin: () => 'https://species.com'
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://example.com'
+        }
+      })
+    })
+  })
+
+  test('It should use pass incoming origin to custom getOrigin', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(
+      cors({
+        getOrigin: (incomingOrigin, options) => incomingOrigin
+      })
+    )
+
+    const event = {
+      httpMethod: 'GET',
+      headers: { Origin: 'https://incoming.com' }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://incoming.com'
+        }
+      })
+    })
+  })
+
   test('It should use origin specified in options', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})

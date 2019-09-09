@@ -65,7 +65,7 @@ describe('📦  Middleware Http Response Serializer', () => {
 
         const event = {
           headers: {
-            'Accept': accept
+            Accept: accept
           }
         }
 
@@ -87,7 +87,7 @@ describe('📦  Middleware Http Response Serializer', () => {
 
     const event = {
       headers: {
-        'Accept': 'application/xml, text/x-dvi; q=0.8, text/x-c'
+        Accept: 'application/xml, text/x-dvi; q=0.8, text/x-c'
       }
     }
 

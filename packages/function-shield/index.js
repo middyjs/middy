@@ -13,7 +13,7 @@ module.exports = (opts = { policy: { } }) => ({
         disable_analytics: false,
         token: process.env.FUNCTION_SHIELD_TOKEN || handler.context.FUNCTION_SHIELD_TOKEN
       }
-      let options = Object.assign({}, defaults, opts)
+      const options = Object.assign({}, defaults, opts)
       options.policy = Object.assign({}, defaults.policy, opts.policy)
 
       functionShield.configure(options)

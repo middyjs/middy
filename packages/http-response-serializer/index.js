@@ -25,7 +25,7 @@ const middleware = (opts, handler, next) => {
     types = [].concat(handler.event.requiredContentType)
   } else {
     types = [].concat(
-      (requestHeaders['accept'] && Accept.mediaTypes(requestHeaders['accept'])) || [],
+      (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) || [],
       handler.event.preferredContentType || [],
       opts.default || []
     )

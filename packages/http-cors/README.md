@@ -44,6 +44,7 @@ npm install --save @middy/http-cors
 
 ## Options
 
+ - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
  - `origin` (string) (optional): origin to put in the header (default: "`*`")
  - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
  - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
