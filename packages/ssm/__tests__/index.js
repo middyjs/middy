@@ -18,7 +18,7 @@ describe('🔒 SSM Middleware', () => {
     delete process.env.KEY_NAME
   })
 
-  function testScenario ({ ssmMockResponse, ssmMockResponses, middlewareOptions, callbacks, done, delay = 0 }) {
+  async function testScenario ({ ssmMockResponse, ssmMockResponses, middlewareOptions, callbacks, delay = 0 }) {
     (ssmMockResponses || [ssmMockResponse]).forEach(ssmMockResponse => {
       getParametersMock.mockReturnValue({
         promise: () => Promise.resolve(ssmMockResponse)
@@ -51,17 +51,18 @@ describe('🔒 SSM Middleware', () => {
         })
       }).then(() => {
         if (delay) {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve) => {
             setTimeout(resolve, delay)
           })
         }
       })
     })
-    promise.then(done).catch(err => done(err))
+
+    await promise
   }
 
-  test('It should set SSM param value to environment variable by default', (done) => {
-    testScenario({
+  test('It should set SSM param value to environment variable by default', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
       },
@@ -74,13 +75,12 @@ describe('🔒 SSM Middleware', () => {
         () => {
           expect(process.env.KEY_NAME).toEqual('key-value')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should not call aws-sdk again if parameter is cached in env', (done) => {
-    testScenario({
+  test('It should not call aws-sdk again if parameter is cached in env', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
       },
@@ -100,13 +100,12 @@ describe('🔒 SSM Middleware', () => {
           expect(process.env.KEY_NAME).toEqual('key-value')
           expect(getParametersMock).not.toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should not call aws-sdk again if parameter is cached in context', (done) => {
-    testScenario({
+  test('It should not call aws-sdk again if parameter is cached in context', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
       },
@@ -131,13 +130,12 @@ describe('🔒 SSM Middleware', () => {
           expect(context.secureValue).toEqual('something-secure')
           expect(getParametersMock).not.toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should call aws-sdk if cache enabled but param not cached', (done) => {
-    testScenario({
+  test('It should call aws-sdk if cache enabled but param not cached', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
       },
@@ -154,13 +152,12 @@ describe('🔒 SSM Middleware', () => {
           expect(context.secureValue).toEqual('something-secure')
           expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should call aws-sdk if cache enabled but cached param has expired', (done) => {
-    testScenario({
+  test('It should call aws-sdk if cache enabled but cached param has expired', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
       },
@@ -184,13 +181,12 @@ describe('🔒 SSM Middleware', () => {
           expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
       ],
-      done,
       delay: 20 // 20 > 10, so cache has expired
     })
   })
 
-  test('It should not call aws-sdk if cache enabled and cached param has not expired', (done) => {
-    testScenario({
+  test('It should not call aws-sdk if cache enabled and cached param has not expired', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
       },
@@ -214,13 +210,12 @@ describe('🔒 SSM Middleware', () => {
           expect(getParametersMock).not.toBeCalled()
         }
       ],
-      done,
       delay: 20 // 20 < 50, so cache has not expired
     })
   })
 
-  test('It should set SSM param value to context if set in options', (done) => {
-    testScenario({
+  test('It should set SSM param value to context if set in options', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
       },
@@ -234,13 +229,12 @@ describe('🔒 SSM Middleware', () => {
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should throw error when some SSM params are invalid', (done) => {
-    testScenario({
+  test('It should throw error when some SSM params are invalid', async () => {
+    await testScenario({
       ssmMockResponse: {
         InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
       },
@@ -254,26 +248,24 @@ describe('🔒 SSM Middleware', () => {
         (error) => {
           expect(error.message).toEqual('InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should not throw error when empty middleware params passed', (done) => {
-    testScenario({
+  test('It should not throw error when empty middleware params passed', async () => {
+    await testScenario({
       ssmMockResponse: {},
       middlewareOptions: {},
       callbacks: [
         (error) => {
           expect(error).toBeFalsy()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should set properties on target with names equal to full parameter name sans specified path', (done) => {
-    testScenario({
+  test('It should set properties on target with names equal to full parameter name sans specified path', async () => {
+    await testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
       },
@@ -284,16 +276,15 @@ describe('🔒 SSM Middleware', () => {
         () => {
           expect(process.env.KEY_NAME).toEqual('key-value')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should retrieve params from multiple paths', (done) => {
+  test('It should retrieve params from multiple paths', async () => {
     const ssmMockResponse = {
       Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
     }
-    testScenario({
+    await testScenario({
       ssmMockResponses: [ssmMockResponse, ssmMockResponse],
       middlewareOptions: {
         paths: { '': ['/dev/service_name'], prefix: '/dev' }
@@ -303,13 +294,12 @@ describe('🔒 SSM Middleware', () => {
           expect(process.env.KEY_NAME).toEqual('key-value')
           expect(process.env.PREFIX_SERVICE_NAME_KEY_NAME).toEqual('key-value')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should make multiple API calls for a single path if the response contains a token for additional params', (done) => {
-    testScenario({
+  test('It should make multiple API calls for a single path if the response contains a token for additional params', async () => {
+    await testScenario({
       ssmMockResponses: [
         {
           Parameters: [{ Name: '/dev/service_name/key_name1', Value: 'key-value1' }],
@@ -327,13 +317,12 @@ describe('🔒 SSM Middleware', () => {
           expect(process.env.KEY_NAME1).toEqual('key-value1')
           expect(process.env.KEY_NAME2).toEqual('key-value2')
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should allow multiple option names to point at the same SSM path', (done) => {
-    testScenario({
+  test('It should allow multiple option names to point at the same SSM path', async () => {
+    await testScenario({
       ssmMockResponses: [
         {
           Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
@@ -350,8 +339,7 @@ describe('🔒 SSM Middleware', () => {
           expect(process.env.KEY_NAME_1).toEqual('key-value')
           expect(process.env.KEY_NAME_2).toEqual('key-value')
         }
-      ],
-      done
+      ]
     })
   })
 })

@@ -1,8 +1,9 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const cache = require('../')
 
 describe('💽 Cache stuff', () => {
-  test('It should cache things using the default settings', (endTest) => {
+  test('It should cache things using the default settings', async () => {
     const originalHandler = jest.fn((event, context, cb) => {
       cb(null, event.a + event.b)
     })
@@ -11,17 +12,15 @@ describe('💽 Cache stuff', () => {
       .use(cache())
 
     const event = { a: 2, b: 3 }
-    const context = {}
-    handler(event, context, (_, response) => {
-      handler(event, context, (_, response2) => {
-        expect(response).toEqual(response2)
-        expect(originalHandler.mock.calls.length).toBe(1)
-        endTest()
-      })
-    })
+
+    const response = await invoke(handler, event)
+    const response2 = await invoke(handler, event)
+
+    expect(response).toEqual(response2)
+    expect(originalHandler.mock.calls.length).toBe(1)
   })
 
-  test('It should cache things using custom cache settings', (endTest) => {
+  test('It should cache things using custom cache settings', async () => {
     const calculateCacheId = (event) => Promise.resolve(event.id)
     const myStorage = {}
     const getValue = (key) => new Promise((resolve, reject) => {
@@ -46,13 +45,11 @@ describe('💽 Cache stuff', () => {
       }))
 
     const event = { id: 'some_unique_id', a: 2, b: 3 }
-    const context = {}
-    handler(event, context, (_, response) => {
-      handler(event, context, (_, response2) => {
-        expect(response).toEqual(response2)
-        expect(originalHandler.mock.calls.length).toBe(1)
-        endTest()
-      })
-    })
+
+    const response = await invoke(handler, event)
+    const response2 = await invoke(handler, event)
+
+    expect(response).toEqual(response2)
+    expect(originalHandler.mock.calls.length).toBe(1)
   })
 })

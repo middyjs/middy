@@ -1,3 +1,4 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const lambdaIsWarmingUp = require('../')
 
@@ -8,7 +9,7 @@ beforeEach(() => {
 })
 
 describe('🥃 Warmup', () => {
-  test('Should exit with \'warmup\' if provided warmup check function is provide and returns true', (endTest) => {
+  test('Should exit with \'warmup\' if provided warmup check function is provide and returns true', async () => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -19,13 +20,13 @@ describe('🥃 Warmup', () => {
 
     const event = {}
     const context = {}
-    handler(event, context, (_, response) => {
-      expect(response).toBe('warmup')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(response).toBe('warmup')
   })
 
-  test('Should exit with \'warmup\' if event.source === \'serverless-plugin-warmup\' if no warmup check function provided', (endTest) => {
+  test('Should exit with \'warmup\' if event.source === \'serverless-plugin-warmup\' if no warmup check function provided', async () => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -37,14 +38,14 @@ describe('🥃 Warmup', () => {
       source: 'serverless-plugin-warmup'
     }
     const context = {}
-    handler(event, context, (_, response) => {
-      expect(response).toBe('warmup')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(response).toBe('warmup')
   })
 
-  test('It should print in the console when exiting because of warmup and the onWarmup function is not redefined', (endTest) => {
-    console.log = jest.fn()
+  test('It should print in the console when exiting because of warmup and the onWarmup function is not redefined', async () => {
+    const logSpy = jest.spyOn(console, 'log')
 
     const handler = middy((event, context, cb) => {
       cb()
@@ -55,14 +56,14 @@ describe('🥃 Warmup', () => {
       source: 'serverless-plugin-warmup'
     }
     const context = {}
-    handler(event, context, (_, response) => {
-      expect(response).toBe('warmup')
-      expect(console.log).toHaveBeenCalled()
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(response).toBe('warmup')
+    expect(logSpy).toHaveBeenCalled()
   })
 
-  test('Should execute handler if provided warmup check function returns false', (endTest) => {
+  test('Should execute handler if provided warmup check function returns false', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, 'handler executed')
     })
@@ -70,15 +71,13 @@ describe('🥃 Warmup', () => {
 
     const event = {}
     const context = {}
-    handler(event, context, (_, response) => {
-      expect(response).toBe('handler executed')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(response).toBe('handler executed')
   })
 
-  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop true', (endTest) => {
-    console.log = jest.fn()
-
+  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop true', async () => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -90,16 +89,14 @@ describe('🥃 Warmup', () => {
       source: 'serverless-plugin-warmup'
     }
     const context = {}
-    handler(event, context, (_, response) => {
-      expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
-      expect(response).toBe('warmup')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
+    expect(response).toBe('warmup')
   })
 
-  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop false', (endTest) => {
-    console.log = jest.fn()
-
+  test('Should execute handler with callbackWaitsForEmptyEventLoop if waitForEmptyEventLoop false', async () => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -113,16 +110,14 @@ describe('🥃 Warmup', () => {
     const context = {
       callbackWaitsForEmptyEventLoop: true
     }
-    handler(event, context, (_, response) => {
-      expect(context.callbackWaitsForEmptyEventLoop).toBe(false)
-      expect(response).toBe('warmup')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(context.callbackWaitsForEmptyEventLoop).toBe(false)
+    expect(response).toBe('warmup')
   })
 
-  test('Should execute handler with callbackWaitsForEmptyEventLoop unchanged if waitForEmptyEventLoop is not set', (endTest) => {
-    console.log = jest.fn()
-
+  test('Should execute handler with callbackWaitsForEmptyEventLoop unchanged if waitForEmptyEventLoop is not set', async () => {
     const handler = middy((event, context, cb) => {
       cb()
     })
@@ -134,10 +129,10 @@ describe('🥃 Warmup', () => {
     const context = {
       callbackWaitsForEmptyEventLoop: true
     }
-    handler(event, context, (_, response) => {
-      expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
-      expect(response).toBe('warmup')
-      endTest()
-    })
+
+    const response = await invoke(handler, event, context)
+
+    expect(context.callbackWaitsForEmptyEventLoop).toBe(true)
+    expect(response).toBe('warmup')
   })
 })

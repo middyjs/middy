@@ -27,7 +27,7 @@ describe('🔒 SecretsManager Middleware', () => {
     expect(context.API_KEY.ApiKey).toEqual('apikey')
   }
 
-  function testScenario ({ mockResponse, mockResponses, middlewareOptions, callbacks, done, delay = 0 }) {
+  async function testScenario ({ mockResponse, mockResponses, middlewareOptions, callbacks, delay = 0 }) {
     if (mockResponses) {
       mockResponses.forEach(resp => {
         getSecretValueMock.mockReturnValueOnce({
@@ -63,17 +63,18 @@ describe('🔒 SecretsManager Middleware', () => {
         })
       }).then(() => {
         if (delay) {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve) => {
             setTimeout(resolve, delay)
           })
         }
       })
     })
-    promise.then(done).catch(done)
+
+    await promise
   }
 
-  test('It should set secrets to context', (done) => {
-    testScenario({
+  test('It should set secrets to context', async () => {
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -87,13 +88,12 @@ describe('🔒 SecretsManager Middleware', () => {
           hasRDSLogin(context)
           expect(getSecretValueMock).toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should not call aws-sdk again if secret is cached', (done) => {
-    testScenario({
+  test('It should not call aws-sdk again if secret is cached', async () => {
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -113,13 +113,12 @@ describe('🔒 SecretsManager Middleware', () => {
           hasRDSLogin(context)
           expect(getSecretValueMock).not.toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should call aws-sdk if cache enabled but cached secrets have expired', (done) => {
-    testScenario({
+  test('It should call aws-sdk if cache enabled but cached secrets have expired', async () => {
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -141,13 +140,12 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).toBeCalled()
         }
       ],
-      done,
       delay: 20 // 20 > 10, so cache has expired
     })
   })
 
-  test('It should not call aws-sdk if cache enabled and cached param has not expired', (done) => {
-    testScenario({
+  test('It should not call aws-sdk if cache enabled and cached param has not expired', async () => {
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -169,13 +167,12 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).not.toBeCalled()
         }
       ],
-      done,
       delay: 20 // 20 < 50, so cache has not expired
     })
   })
 
-  test('It should not throw error when empty middleware params passed', (done) => {
-    testScenario({
+  test('It should not throw error when empty middleware params passed', async () => {
+    await testScenario({
       mockResponse: {},
       middlewareOptions: {},
       callbacks: [
@@ -183,13 +180,12 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(error).toBeFalsy()
           expect(getSecretValueMock).not.toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should use cache secrets if refresh fails', (done) => {
-    testScenario({
+  test('It should use cache secrets if refresh fails', async () => {
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -213,45 +209,45 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).toBeCalled()
         }
       ],
-      done,
       delay: 20 // 20 > 10, so cache has expired
     })
   })
 
-  test('It should fail if "throwOnFailedCall" flag provided and call failed', (done) => {
+  test('It should fail if "throwOnFailedCall" flag provided and call failed', async () => {
+    expect.assertions(1)
+
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
     })
 
-    const errHandler = err => {
+    try {
+      await testScenario({
+        mockResponse: {},
+        middlewareOptions: {
+          secrets: {
+            KEY_NAME: 'failed_call'
+          },
+          throwOnFailedCall: true
+        },
+        callbacks: [
+          () => {
+            throw new Error('Not supposed to be called')
+          }
+        ]
+      })
+    } catch (err) {
       getSecretValueMock.mockClear()
       expect(err.message).toEqual(errorMessage)
-      done()
     }
-    return testScenario({
-      mockResponse: {},
-      middlewareOptions: {
-        secrets: {
-          KEY_NAME: 'failed_call'
-        },
-        throwOnFailedCall: true
-      },
-      callbacks: [
-        () => {
-          throw new Error('Not supposed to be called')
-        }
-      ],
-      done: errHandler
-    })
   })
 
-  test('It should resolve if "throwOnFailedCall" flag not provided and call failed', (done) => {
+  test('It should resolve if "throwOnFailedCall" flag not provided and call failed', async () => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
     })
-    return testScenario({
+    await testScenario({
       mockResponse: {},
       middlewareOptions: {
         secrets: {
@@ -263,14 +259,14 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockClear()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should resolve if "throwOnFailedCall" flag provided but item already cached', (done) => {
+  test('It should resolve if "throwOnFailedCall" flag provided but item already cached', async () => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
-    return testScenario({
+
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -299,16 +295,15 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).toBeCalled()
           getSecretValueMock.mockClear()
         }
-      ],
-      done
+      ]
     })
   })
 
-  test('It should only refresh once per cache expiry window', (done) => {
+  test('It should only refresh once per cache expiry window', async () => {
     // with cache expiry of 50ms, test what happens when one refresh fails, and
     // that the middleware doesn't retry for another 50ms
     // 0ms (fetch), 40ms (cached), 80ms (retry failed), 120ms (no retry), 160ms (retry)
-    testScenario({
+    await testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
       },
@@ -362,13 +357,12 @@ describe('🔒 SecretsManager Middleware', () => {
           expect(getSecretValueMock).toBeCalled()
         }
       ],
-      done,
       delay: 40
     })
   })
 
-  test('It should retrieve multiple secrets', (done) => {
-    testScenario({
+  test('It should retrieve multiple secrets', async () => {
+    await testScenario({
       mockResponses: [
         { SecretString: JSON.stringify({ Username: 'username', Password: 'password' }) },
         { SecretString: JSON.stringify({ ApiKey: 'apikey' }) }
@@ -385,8 +379,7 @@ describe('🔒 SecretsManager Middleware', () => {
           hasAPIKey(context)
           expect(getSecretValueMock).toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 })

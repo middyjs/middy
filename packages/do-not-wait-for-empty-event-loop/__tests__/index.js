@@ -1,53 +1,53 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const doNotWaitForEmptyEventLoop = require('../')
 
 describe('🥃 Do Not Wait For Empty Event Loop', () => {
   describe('👌 With Default Options', () => {
-    test('It should set callbackWaitsForEmptyEventLoop to false by default', () => {
+    test('It should set callbackWaitsForEmptyEventLoop to false by default', async () => {
       const handler = middy((event, context, cb) => {
         cb()
-      })
-      handler.use(doNotWaitForEmptyEventLoop())
+      }).use(doNotWaitForEmptyEventLoop())
 
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
-      })
+
+      await invoke(handler, {}, context)
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
 
-    test('callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler', () => {
+    test('callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler', async () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb()
-      })
+      }).use(doNotWaitForEmptyEventLoop())
 
-      handler.use(doNotWaitForEmptyEventLoop())
-
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(true)
-      })
+
+      await invoke(handler, {}, context)
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(true)
     })
 
-    test('callbackWaitsForEmptyEventLoop should stay false if handler has error', () => {
+    test('callbackWaitsForEmptyEventLoop should stay false if handler has error', async () => {
       const handler = middy((event, context, cb) => {
         cb(new Error('!'))
       })
 
       handler.use(doNotWaitForEmptyEventLoop())
 
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
-      })
+
+      try {
+        await invoke(handler, {}, context)
+      } catch (e) {}
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
   })
 
   describe('✍️ With Overridden Options', () => {
-    test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options', () => {
+    test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options', async () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb()
@@ -57,14 +57,14 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
         runOnAfter: true
       }))
 
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
-      })
+
+      await invoke(handler, {}, context)
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
 
-    test('callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true', () => {
+    test('callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true', async () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb(new Error('!'))
@@ -74,14 +74,16 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
         runOnAfter: true
       }))
 
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(true)
-      })
+
+      try {
+        await invoke(handler, {}, context)
+      } catch (e) {}
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(true)
     })
 
-    test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true', () => {
+    test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true', async () => {
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb(new Error('!'))
@@ -92,14 +94,18 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
         runOnError: true
       }))
 
-      const event = {}
       const context = {}
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
-      })
+
+      try {
+        await invoke(handler, {}, context)
+      } catch (e) {}
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
 
-    test('thrown error should be propagated when it occurs & runOnError is true', (done) => {
+    test('thrown error should be propagated when it occurs & runOnError is true', async () => {
+      expect.assertions(1)
+
       const handler = middy((event, context, cb) => {
         context.callbackWaitsForEmptyEventLoop = true
         cb(new Error('!'))
@@ -110,15 +116,16 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
         runOnError: true
       }))
 
-      const event = {}
       const context = {}
-      handler(event, context, (error) => {
+
+      try {
+        await invoke(handler, {}, context)
+      } catch (error) {
         expect(error.message).toEqual('!')
-        done()
-      })
+      }
     })
 
-    test('callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options', () => {
+    test('callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options', async () => {
       expect.assertions(2)
 
       const handler = middy((event, context, cb) => {
@@ -131,13 +138,13 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
         runOnAfter: true
       }))
 
-      const event = {}
       const context = {
         callbackWaitsForEmptyEventLoop: true
       }
-      handler(event, context, () => {
-        expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
-      })
+
+      await invoke(handler, {}, context)
+
+      expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
   })
 })
