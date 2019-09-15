@@ -40,7 +40,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
 
       try {
         await invoke(handler, {}, context)
-      } catch {}
+      } catch (e) {}
 
       expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
@@ -78,7 +78,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
 
       try {
         await invoke(handler, {}, context)
-      } catch {}
+      } catch (e) {}
 
       expect(context.callbackWaitsForEmptyEventLoop).toEqual(true)
     })
@@ -98,7 +98,7 @@ describe('🥃 Do Not Wait For Empty Event Loop', () => {
 
       try {
         await invoke(handler, {}, context)
-      } catch {}
+      } catch (e) {}
 
       expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
     })
