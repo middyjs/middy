@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-security-header",
-  "version": "1.0.0-alpha.41",
+  "version": "1.0.0-alpha.42",
   "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
   "engines": {
     "node": ">=6.10"
@@ -44,5 +44,8 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
     "@middy/core": ">=1.0.0-alpha"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-alpha.42"
   }
 }
