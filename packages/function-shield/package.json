@@ -45,6 +45,7 @@
     "@puresec/function-shield": "^1.2.2"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.42"
+    "@middy/core": "^1.0.0-alpha.42",
+    "es6-promisify": "^6.0.2"
   }
 }
