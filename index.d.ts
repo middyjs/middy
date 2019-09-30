@@ -43,12 +43,12 @@ declare namespace middy {
 
   type NextFunction = (error?: any) => void;
 
-  interface HandlerLambda<T = any, V = {}> {
+  interface HandlerLambda<T = any, V = any> {
     event: T;
     context: Context;
     response: V;
     error: Error;
-    callback: Callback<T>;
+    callback: Callback<V>;
   }
 }
 
