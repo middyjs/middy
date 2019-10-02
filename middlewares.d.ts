@@ -1,6 +1,7 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
 import { HttpError } from 'http-errors'
+import Knex from 'knex'
 import middy from './'
 
 interface ICorsOptions {
@@ -79,9 +80,18 @@ interface IWarmupOptions {
   onWarmup?: (event: any) => void;
 }
 
+interface IDbManagerOptions {
+  client?: Knex | Function,
+  config: Knex.Config | Object,
+  forceNewConnection?: boolean,
+  secretsPath?: string,
+  removeSecrets?: boolean
+}
+
 declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
 declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
 declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
+declare function dbManager(opts: IDbManagerOptions): middy.IMiddyMiddlewareObject;
 declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
 declare function httpErrorHandler(opts?: IHTTPErrorHandlerOptions): middy.IMiddyMiddlewareObject;
 declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;

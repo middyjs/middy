@@ -1,6 +1,7 @@
 module.exports = {
   cache: require('./cache'),
   cors: require('./cors'),
+  dbManager: require('./dbManager'),
   doNotWaitForEmptyEventLoop: require('./doNotWaitForEmptyEventLoop'),
   functionShield: require('./functionShield'),
   httpContentNegotiation: require('./httpContentNegotiation'),
