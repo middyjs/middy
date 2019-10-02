@@ -156,7 +156,7 @@ npm install pg
 ### Options
 
 - `config`: configuration object passed as is to client (knex.js by default), for more details check [knex documentation](http://knexjs.org/#Installation-client)
-- `client` (optional): client that you want to use when connecting to database of your choice. By default knex.js is used but as long as your client is run as `client(config)` or you create wrapper to conform, you can use other tools
+- `client` (optional): client that you want to use when connecting to database of your choice. By default knex.js is used but as long as your client is run as `client(config)` or you create wrapper to conform, you can use other tools. Due to node6 support in middy, knex is capped at version `0.17.3`. If you wish to use newer features, provide your own knex client here.
 - `secretsPath` (optional): if for any reason you want to pass credentials using context, pass path to secrets laying in context object  - good example is combining this middleware with [ssm](#ssm)
 - `removeSecrets` (optional): By default is true. Works only in combination with `secretsPath`. Removes sensitive data from context once client is initialized.
 - `forceNewConnection` (optional): Creates new connection on every run and destroys it after. Database client needs to have `destroy` function in order to properly clean up connections.
