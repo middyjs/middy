@@ -63,6 +63,34 @@ describe('📦  Middleware Validator', () => {
     })
   })
 
+  test('It should handle numbers as strings as a BadRequest', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    const schema = {
+      required: ['foo'],
+      properties: {
+        foo: {
+          type: 'string'
+        }
+      }
+    }
+
+    handler.use(validator({
+      inputSchema: schema
+    }))
+
+    // invokes the handler, note that property foo is not a string
+    const event = {
+      foo: 123
+    }
+    handler(event, {}, (err, res) => {
+      expect(err.message).toEqual('Event object failed validation')
+      expect(err.details).toEqual([{ 'dataPath': '.foo', 'keyword': 'type', 'message': 'should be string', 'params': { 'type': 'string' }, 'schemaPath': '#/properties/foo/type' }])
+    })
+  })
+
   test('It should handle invalid schema as a BadRequest in a different language', () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
