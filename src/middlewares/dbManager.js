@@ -15,7 +15,7 @@ module.exports = (opts) => {
   const options = Object.assign({}, defaults, opts)
 
   function cleanup (handler, next) {
-    if (options.forceNewConnection && { ...dbInstance }.destroy instanceof Function) {
+    if (options.forceNewConnection && (dbInstance && dbInstance.destroy instanceof Function)) {
       dbInstance.destroy((err, data) => {
         dbInstance = null
         next(err || handler.error, data)
