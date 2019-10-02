@@ -23,6 +23,9 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
+  </a>
   <a href="https://greenkeeper.io/">
     <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
@@ -35,18 +38,31 @@
 
 ## TOC
 
- - [A little appetizer](#a-little-appetizer)
- - [Install](#install)
- - [Requirements](#requirements)
- - [Why?](#why)
- - [Usage](#usage)
- - [How it works](#how-it-works)
- - [Writing a middleware](#writing-a-middleware)
- - [Available middlewares](#available-middlewares)
- - [API](#api)
- - [Typescript](#typescript)
- - [Contributing](#contributing)
- - [License](#license)
+- [TOC](#toc)
+- [A little appetizer](#a-little-appetizer)
+- [Install](#install)
+- [Requirements](#requirements)
+- [Why?](#why-)
+- [Usage](#usage)
+- [How it works](#how-it-works)
+  * [Execution order](#execution-order)
+  * [Interrupt middleware execution early](#interrupt-middleware-execution-early)
+  * [Handling errors](#handling-errors)
+  * [Promise support](#promise-support)
+  * [Promises and error handling](#promises-and-error-handling)
+  * [Using async/await](#using-async-await)
+- [Writing a middleware](#writing-a-middleware)
+  * [Configurable middlewares](#configurable-middlewares)
+  * [Inline middlewares](#inline-middlewares)
+  * [More details on creating middlewares](#more-details-on-creating-middlewares)
+- [Available middlewares](#available-middlewares)
+- [Api](#api)
+- [Typescript](#typescript)
+- [FAQ](#faq)
+  * [Q: Lambda timing out](#q--lambda-timing-out)
+- [3rd party middlewares](#3rd-party-middlewares)
+- [Contributing](#contributing)
+- [License](#license)
 
 
 ## A little appetizer
@@ -62,7 +78,7 @@ Let's assume you are building a JSON API to process a payment:
 # handler.js
 
 const middy = require('middy')
-const { urlEncodeBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
+const { jsonBodyParser, validator, httpErrorHandler } = require('middy/middlewares')
 
 // This is your common handler, in no way different than what you are used to doing every day
 // in AWS Lambda
@@ -91,14 +107,15 @@ const inputSchema = {
         cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
         nameOnCard: { type: 'string' },
         amount: { type: 'number' }
-      }
+      },
+      required: ['creditCardNumber'] // Insert here all required event properties
     }
   }
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
-  .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
@@ -341,6 +358,70 @@ const asyncValidator = () => {
 handler.use(asyncValidator())
 ```
 
+### Promises and error handling
+
+`onError` middlewares can return promises as well.
+Here's how Middy handles return values from promise-enabled error handlers:
+* If `onError` promise resolves to a *truthy* value, this value is treated as an error and passed further down the pipeline.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    Logger.debug("middleware1");
+    return Promise.resolve(handler.error)
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    Logger.debug("middleware2");
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, first `middleware1.onError` then `middleware2.onError` will be called.
+
+  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an un-mamaged error
+  In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
+  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    handler.response = { error: handler.error };
+    return Promise.resolve();
+    // Resolves to a falsy value
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
+
+  - If `onError` promise rejects, the error handling pipeline exists early and the lambda execution fails.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    return Promise.reject(handler.error);
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called, and the lambda will fail early, reporting an error. `middleware2.onError` will not be called.
+
 
 ### Using async/await
 
@@ -506,12 +587,13 @@ Currently available middlewares:
 
  - [`cache`](/docs/middlewares.md#cache): A simple but flexible caching layer
  - [`cors`](/docs/middlewares.md#cors): Sets CORS headers on response
- - [`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment
+ - ~~[`functionShield`](/docs/middlewares.md#functionshield): Hardens AWS Lambda execution environment~~ **Note**: functionShield has been removed from core since *0.22.0*. Use [`@middy/function-shield`](https://www.npmjs.com/package/@middy/function-shield) instead.
  - [`doNotWaitForEmptyEventLoop`](/docs/middlewares.md#donotwaitforemptyeventloop): Sets callbackWaitsForEmptyEventLoop property to false
  - [`httpContentNegotiation`](/docs/middlewares.md#httpcontentnegotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
  - [`httpErrorHandler`](/docs/middlewares.md#httperrorhandler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
  - [`httpEventNormalizer`](/docs/middlewares.md#httpEventNormalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters` and `pathParameters` if they are missing.
- - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format
+ - [`httpHeaderNormalizer`](/docs/middlewares.md#httpheadernormalizer): Normalizes HTTP header names to their canonical format.
+ - [`httpMultipartBodyParser`](/docs/middlewares.md#multipartbodyparser): Automatically parses HTTP requests with content type `multipart/form-data`.
  - [`httpPartialResponse`](/docs/middlewares.md#httppartialresponse): Filter response objects attributes based on query string parameters.
  - [`jsonBodyParser`](/docs/middlewares.md#jsonbodyparser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
  `httpErrorHandler`.
@@ -549,6 +631,33 @@ Middy exports Typescript compatible type information. To enable the use of Middy
 
 After that you can `import middy from 'middy';` in your http handler and use it as described above.
 
+## FAQ
+
+### Q: Lambda timing out
+**A**: If Lambda is timing out even though you are invoking a callback, there may still be some events in an event loop that are
+preventing a Lambda to exit. This is common when using ORM to connect to the Database, which may keep connections to the database
+alive. To solve this issue, you can use `doNotWaitForEmptyEventLoop` middleware, which will force Lambda to exit when you invoke
+a callback.
+
+## 3rd party middlewares
+
+Here's a collection of some 3rd party middlewares and libraries that you can use with Middy:
+
+ - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
+ - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
+ - [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
+ - [@keboola/middy-event-validator](https://www.npmjs.com/package/@keboola/middy-event-validator): Joi powered event validation middleware
+ - [middy-reroute](https://www.npmjs.com/package/middy-reroute): provides complex redirect, rewrite and proxying capabilities by simply placing a rules file into your S3 bucket
+ - [middytohof](https://www.npmjs.com/package/middytohof): Convert Middy middleware plugins to higher-order functions returning lambda handlers
+ - [wrap-ware](https://www.npmjs.com/package/wrap-ware): A middleware wrapper which works with promises / async
+ - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
+ - [middy-middleware-warmup](https://www.npmjs.com/package/middy-middleware-warmup): A middy plugin to help keep your Lambdas warm during Winter
+ - [@sharecover-co/middy-aws-xray-tracing](https://www.npmjs.com/package/@sharecover-co/middy-aws-xray-tracing): AWS X-Ray Tracing Middleware
+ - [@sharecover-co/middy-http-response-serializer](https://www.npmjs.com/package/@sharecover-co/middy-http-response-serializer):  This middleware serializes the response to JSON and wraps it in a 200 HTTP response
+ - [@seedrs/middyjs-middleware](https://www.npmjs.com/package/@seedrs/middyjs-middleware): Collection of useful middlewares
+ - [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
+ - [`jwt-auth`](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
+ - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
 
 ## Contributing
 

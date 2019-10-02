@@ -39,7 +39,7 @@ describe('🛵  Middy types test suite', () => {
     const handler = middy(jest.fn());
 
      handler
-      .use(middleware)
+      .use(middleware())
       .after(after)
       .before(before)
       .onError(onError);

@@ -10,7 +10,7 @@ describe('💽 Cache stuff', () => {
     const handler = middy(originalHandler)
       .use(cache())
 
-    const event = {a: 2, b: 3}
+    const event = { a: 2, b: 3 }
     const context = {}
     handler(event, context, (_, response) => {
       handler(event, context, (_, response2) => {
@@ -45,7 +45,7 @@ describe('💽 Cache stuff', () => {
         setValue
       }))
 
-    const event = {id: 'some_unique_id', a: 2, b: 3}
+    const event = { id: 'some_unique_id', a: 2, b: 3 }
     const context = {}
     handler(event, context, (_, response) => {
       handler(event, context, (_, response2) => {
@@ -53,6 +53,75 @@ describe('💽 Cache stuff', () => {
         expect(originalHandler.mock.calls.length).toBe(1)
         endTest()
       })
+    })
+  })
+
+  test('It should cache things using custom cache settings and discard result of a resolve promised with setValue', (endTest) => {
+    const calculateCacheId = (event) => Promise.resolve(event.id)
+    const myStorage = {}
+    const getValue = (key) => new Promise((resolve, reject) => {
+      setTimeout(() => resolve(myStorage[key]), 50)
+    })
+    const setValue = (key, value) => new Promise((resolve, reject) => {
+      setTimeout(() => {
+        myStorage[key] = value
+        return resolve('Value to discard')
+      }, 50)
+    })
+
+    const originalHandler = jest.fn((event, context, cb) => {
+      cb(null, event.a + event.b)
+    })
+
+    const handler = middy(originalHandler)
+      .use(cache({
+        calculateCacheId,
+        getValue,
+        setValue
+      }))
+
+    const event = { id: 'some_unique_id', a: 2, b: 3 }
+    const context = {}
+    handler(event, context, (_, response) => {
+      handler(event, context, (_, response2) => {
+        expect(response).toEqual(response2)
+        expect(originalHandler.mock.calls.length).toBe(1)
+        endTest()
+      })
+    })
+  })
+
+  test('It should throw en error if setValue return a rejected promise', (endTest) => {
+    const errMessage = 'Something bad happened'
+    const calculateCacheId = (event) => Promise.resolve(event.id)
+    const myStorage = {}
+    const getValue = (key) => new Promise((resolve, reject) => {
+      setTimeout(() => resolve(myStorage[key]), 50)
+    })
+    const setValue = (key, value) => new Promise((resolve, reject) => {
+      setTimeout(() => {
+        myStorage[key] = value
+        return reject(new Error(errMessage))
+      }, 50)
+    })
+
+    const originalHandler = jest.fn((event, context, cb) => {
+      cb(null, event.a + event.b)
+    })
+
+    const handler = middy(originalHandler)
+      .use(cache({
+        calculateCacheId,
+        getValue,
+        setValue
+      }))
+
+    const event = { id: 'some_unique_id', a: 2, b: 3 }
+    const context = {}
+    handler(event, context, (err, _) => {
+      expect(err.message).toEqual(errMessage)
+      expect(originalHandler.mock.calls.length).toBe(1)
+      endTest()
     })
   })
 })

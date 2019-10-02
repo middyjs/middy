@@ -1,41 +1,56 @@
-import { Callback, Context, Handler, ProxyResult } from 'aws-lambda';
+import {
+  Callback,
+  Context,
+  Handler
+} from 'aws-lambda';
 
-type AsyncHandler = (event: any, context: Context) => Promise<ProxyResult | object>;
+declare type EventType<T> =
+  T extends (event: infer EventArgType, context: Context, callback: Callback<any>) => void ? EventArgType :
+  T extends (event: infer EventArgType, context: Context) => Promise<any> ? EventArgType :
+  never;
 
-declare var middy: {
-  (handler: Handler | AsyncHandler): middy.IMiddy;
-};
+declare type HandlerReturnType<T> =
+  T extends (event: any, context: Context) => Promise<infer RetType> ? RetType :
+  T extends (event: any, context: Context, callback: Callback<infer RetType>) => void ? RetType :
+  never;
+
+declare type AsyncHandler<C extends Context> =
+  ((event: any, context: C, callback: Callback<any>) => void) |
+  ((event: any, context: C) => Promise<any>);
+
+declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(handler: H) => middy.Middy<
+  EventType<H>,
+  HandlerReturnType<H>
+>;
 
 declare namespace middy {
-  interface IMiddy extends Handler {
-    use: IMiddyUseFunction;
-    before: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
-    after: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
-    onError: (callbackFn: IMiddyMiddlewareFunction) => IMiddy;
+  interface Middy<T, R> extends Handler<T, R> {
+    use: <C extends MiddlewareObject<T, R>>(middleware: C) => Middy<T, R>;
+    before: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
+    after: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
+    onError: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
   }
 
-  type IMiddyUseFunction = (config?: object) => IMiddy;
+  type Middleware<C extends any, T = any, R = any> = (config?: C) => MiddlewareObject<T, R>;
 
-  interface IMiddyMiddlewareObject {
-    before?: IMiddyMiddlewareFunction;
-    after?: IMiddyMiddlewareFunction;
-    onError?: IMiddyMiddlewareFunction;
+  interface MiddlewareObject<T, R> {
+    before?: MiddlewareFunction<T, R>;
+    after?: MiddlewareFunction<T, R>;
+    onError?: MiddlewareFunction<T, R>;
   }
 
-  type IMiddyMiddlewareFunction = (
-    handler: IHandlerLambda,
-    next: IMiddyNextFunction
-  ) => void | Promise<any>;
+  type MiddlewareFunction<T, R> = (handler: HandlerLambda<T, R>, next: NextFunction) => void | Promise<any>;
 
-  type IMiddyNextFunction = (error?: any) => void;
+  type NextFunction = (error?: any) => void;
 
-  interface IHandlerLambda<T = any, V = object> {
+  interface HandlerLambda<T = any, V = {}> {
     event: T;
     context: Context;
     response: V;
     error: Error;
-    callback: Callback;
+    callback: Callback<T>;
   }
 }
 
 export = middy;
+export as namespace middy;

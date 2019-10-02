@@ -14,11 +14,32 @@ describe('📦  Middleware JSON Body Parser', () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
-      expect(body).toEqual({foo: 'bar'})
+      expect(body).toEqual({ foo: 'bar' })
     })
+  })
+
+  test('It should use a reviver when parsing a JSON request', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+    const reviver = _ => _
+    handler.use(jsonBodyParser({ reviver }))
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ foo: 'bar' })
+    }
+    const parse = jest.spyOn(JSON, 'parse')
+    handler(event, {}, (_, body) => {
+      expect(parse).toHaveBeenCalledWith(expect.anything(), reviver)
+    })
+    parse.mockRestore()
   })
 
   test('It should handle invalid JSON as an UnprocessableEntity', () => {
@@ -33,7 +54,7 @@ describe('📦  Middleware JSON Body Parser', () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: 'make it broken' + JSON.stringify({foo: 'bar'})
+      body: 'make it broken' + JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err) => {
       expect(err.message).toEqual('Content type defined as JSON but an invalid JSON was provided')
@@ -49,7 +70,7 @@ describe('📦  Middleware JSON Body Parser', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (_, body) => {
       expect(body).toEqual('{"foo":"bar"}')

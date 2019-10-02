@@ -47,7 +47,7 @@ const addCorsHeaders = (opts, handler, next) => {
     }
   }
 
-  next()
+  next(handler.error)
 }
 
 module.exports = (opts) => ({

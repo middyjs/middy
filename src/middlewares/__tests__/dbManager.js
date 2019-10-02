@@ -24,7 +24,7 @@ describe('💾  Database manager', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err, body) => {
       expect(err).toEqual(null)
@@ -47,7 +47,7 @@ describe('💾  Database manager', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err) => {
       expect(err).toBeTruthy()
@@ -81,7 +81,7 @@ describe('💾  Database manager', () => {
 
     // invokes the handler
     const event = {
-      body: JSON.stringify({foo: 'bar'})
+      body: JSON.stringify({ foo: 'bar' })
     }
     handler(event, {}, (err, body) => {
       expect(err).toEqual(null)

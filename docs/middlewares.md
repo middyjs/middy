@@ -11,6 +11,7 @@
 - [httpErrorHandler](#httperrorhandler)
 - [httpEventNormalizer](#httpeventnormalizer)
 - [httpHeaderNormalizer](#httpheadernormalizer)
+- [httpMultipartBodyParser](#httpmultipartbodyparser)
 - [httpPartialResponse](#httppartialresponse)
 - [httpSecurityHeaders](#httpsecurityheaders)
 - [jsonBodyParser](#jsonbodyparser)
@@ -90,6 +91,31 @@ Sets headers in `after` and `onError` phases.
 - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present.
 - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
 - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
+
+NOTES:
+- If another middleware does not handle and swallow errors, then it will bubble all the way up
+and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
+
+```javascript
+const middy = require('middy')
+const { httpErrorHandler, cors } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  throw new createError.UnprocessableEntity()
+})
+
+handler.use(httpErrorHandler())
+       .use(cors())
+
+// when Lambda runs the handler...
+handler({}, {}, (_, response) => {
+  expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
+  expect(response).toEqual({
+      statusCode: 422,
+      body: 'Unprocessable Entity'
+    })
+})
+```
 
 ### Sample usage
 
@@ -221,81 +247,11 @@ handler(event, context, (_, response) => {
 })
 ```
 
-## [functionShield](/src/middlewares/functionShield.js)
+## functionShield
 
-Hardens AWS Lambda execution environment:
-* By monitoring (or blocking) outbound network traffic to public internet, you can be certain that your data is never leaked (traffic to AWS services is not affected)
-* By disabling read/write operations on the /tmp/ directory, you make sure that files are not persisted across invocations. Storing data in `/tmp` is a bad practice as it may be leaked in subsequent invocations
-* By disabling the ability to launch child processes, you can make sure that no rogue processes are spawned without your knowledge by potentially malicious packages
-* By disabling the ability to read the function's (handler) source code through the file system, you can prevent handler source code leakage, which is oftentimes the first step in a serverless attack 
+Hardens AWS Lambda execution environment.
 
-More info:
-* https://www.puresec.io/function-shield
-* https://www.jeremydaly.com/serverless-security-with-functionshield/
-
-## Get a free token
-
-Please visit: https://www.puresec.io/function-shield-token-form
-
-### Modes
-
-- `'block'` - Block and log to Cloudwatch Logs
-- `'alert'` - Allow and log to Cloudwatch Logs
-- `'allow'` - Allow
-
-### Options
-
-
-- `policy.outbound_connectivity` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.read_write_tmp` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.create_child_process` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `policy.read_handler` - `'block'/'alert'/'allow'` (default: `'block'`)
-- `token` - By default looks for `FUNCTION_SHIELD_TOKEN` in `process.env` and `context`
-- `disable_analytics` - Periodically, during cold starts, FunctionShield sends basic analytics information to its backend. To disable analytics module set: `true`. (default: `false`)
-
-### Sample Usage
-
-```javascript
-'use strict';
-
-const fs = require('fs');
-const middy = require('middy');
-const {ssm, functionShield} = require('middy/middlewares');
-
-async function hello(event) {
-  fs.openSync('/tmp/test', 'w');
-}
-
-
-const handler = middy(hello)
-  .use(ssm({
-    cache: true,
-    setToContext: true,
-    names: {
-      FUNCTION_SHIELD_TOKEN: 'function_shield_token'
-    }
-  }))
-  .use(functionShield(
-    {
-      policy: {
-        outbound_connectivity: 'alert'
-      }
-    }
-  ));
-
-module.exports = {
-  handler
-};
-```
-
-```
-START RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75 Version: $LATEST
-[TOKEN VERIFICATION] license is OK
-{"function_shield":true,"policy":"read_write_tmp","details":{"path":"/tmp/test"},"mode":"block"}
-2018-10-24 15:11:45.427 (+03:00)        f7b7305d-d785-11e8-baf1-9136b5c7aa75    {"errorMessage":"Unknown system error -999: Unknown system error -999, open '/tmp/test'","errorType":"Error","stackTrace":["Object.fs.openSync (fs.js:646:18)","Function.hello (/var/task/handler.js:8:6)","runMiddlewares (/var/task/node_modules/middy/src/middy.js:180:42)","runNext (/var/task/node_modules/middy/src/middy.js:85:14)","before (/var/task/node_modules/middy/src/middlewares/functionShield.js:20:5)","runNext (/var/task/node_modules/middy/src/middy.js:70:24)","<anonymous>","process._tickDomainCallback (internal/process/next_tick.js:228:7)"]}
-END RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75
-REPORT RequestId: f7b7305d-d785-11e8-baf1-9136b5c7aa75  Duration: 458.65 ms     Billed Duration: 500 ms         Memory Size: 1024 MB    Max Memory Used: 38 MB  
-```
+**Note**: functionShield has been removed from core since _0.22.0_. Use [`@middy/function-shield`](https://www.npmjs.com/package/@middy/function-shield) instead.
 
 ## [httpContentNegotiation](/src/middlewares/httpContentNegotiation.js)
 
@@ -394,11 +350,10 @@ module.exports = { handler }
 
 ## [httpErrorHandler](/src/middlewares/httpErrorHandler.js)
 
-Automatically handles uncaught errors that are created with
-[`http-errors`](https://npm.im/http-errors) and creates a proper HTTP response
-for them (using the message and the status code provided by the error object).
+Automatically handles uncaught errors that contain the properties `statusCode` (number) and `message` (string) and creates a proper HTTP response
+for them (using the message and the status code provided by the error object). We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors).
 
-It should be set as the last error handler.
+This middleware should be set as the last error handler.
 
 ### Options
 
@@ -495,6 +450,46 @@ handler
   .use(jsonBodyParser())
   .use(urlEncodeBodyParser())
 ```
+
+## [httpMultipartBodyParser](/src/middlewares/httpMultipartBodyParser.js)
+
+Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an
+object. Also handles gracefully broken JSON as UnprocessableEntity (422 errors)
+if used in combination with `httpErrorHandler`.
+
+It can also be used in combination with validator so that the content can be validated.
+
+**Note**: by default this is going to parse only events that contain the header `Content-Type` (or `content-type`) set to `multipart/form-data`. If you want to support different casing for the header name (e.g. `Content-type`) then you should use the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware before this middleware.
+
+```javascript
+const middy = require('middy')
+const { httpMultipartBodyParser } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(httpMultipartBodyParser())
+
+// invokes the handler
+const event = {
+  headers: {
+    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+  },
+  body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
+  isBase64Encoded: true
+}
+handler(event, {}, (_, body) => {
+  expect(body).toEqual({ foo: 'bar' })
+})
+```
+
+### Options:
+
+- `busboy` (object) (optional): defaults to `{}` and it can be used to pass extraparameters to the internal `busboy` instance at creation time. Checkout [the official documentation](https://www.npmjs.com/package/busboy#busboy-methods) for more information on the supported options.
+
+**Note**: this middleware will buffer all the data as it is processed internally by `busboy`, so, if you are using this approach to parse significantly big volumes of data, keep in mind that all the data will be allocated in memory. This is somewhat inevitable with Lambdas (as the data is already encoded into the JSON in memory as Base64), but it's good to keep this in mind and evaluate the impact on you application.  
+If you really have to deal with big files, then you might also want to consider to allowing your users to [directly upload files to S3](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)
 
 ## [httpPartialResponse](/src/middlewares/httpPartialResponse.js)
 
@@ -926,6 +921,7 @@ If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless
 - `isWarmingUp`: a function that accepts the `event` object as a parameter
   and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
 - `onWarmup`: a function that gets executed before the handler exits in case of warmup. By default the function just prints: `Exiting early via warmup Middleware`.
+- `waitForEmptyEventLoop`: a boolean value (`null` by default), that if set will change the current value for `context.callbackWaitsForEmptyEventLoop`. In some circumstances it might be useful to force this value to be `false` to make sure that the lambda quits as early as possible in case of warmup (for instance if you have created a database connection in a previous middleware, this might be hanging and keeping you lambda active until timeout).
 
 ### Sample usage
 
