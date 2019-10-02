@@ -8,7 +8,6 @@ let ajv
 let previousConstructorOptions
 const defaults = {
   v5: true,
-  coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: true,
   $data: true, // required for ajv-keywords
