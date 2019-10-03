@@ -91,7 +91,6 @@ describe('💾  Database manager', () => {
   })
 
   test('it should initialize custom client', (done) => {
-    const res = clientMock
     const newClient = jest.fn().mockReturnValue(clientMock)
     const config = {
       connection: {
@@ -124,7 +123,6 @@ describe('💾  Database manager', () => {
   })
 
   test('it should grab connection details from context', (done) => {
-    const res = clientMock
     const newClient = jest.fn().mockReturnValue(clientMock)
     const secretsPath = 'secret_location'
     const connection = {
@@ -177,7 +175,6 @@ describe('💾  Database manager', () => {
   })
 
   test('it should grab connection details from context even if connection object doesn\'t exist', (done) => {
-    const res = clientMock
     const newClient = jest.fn().mockReturnValue(clientMock)
     const secretsPath = 'secret_location'
     const connection = {
@@ -228,7 +225,6 @@ describe('💾  Database manager', () => {
   })
 
   test('it should grab connection details and not delete details from context if removeSecrets = false', (done) => {
-    const res = clientMock
     const newClient = jest.fn().mockReturnValue(clientMock)
     const secretsPath = 'secret_location'
     const connection = {
