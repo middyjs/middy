@@ -7,6 +7,6 @@ interface ICorsOptions {
   credentials?: boolean;
 }
 
-declare function cors(opts?: ICorsOptions): middy.IMiddyMiddlewareObject;
+declare const cors : middy.Middleware<ICorsOptions, any, any>
 
 export default cors

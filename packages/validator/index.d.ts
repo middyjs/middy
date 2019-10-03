@@ -8,6 +8,6 @@ interface IValidatorOptions {
   ajvOptions?: Partial<AjvOptions>;
 }
 
-declare function validator(opts?: IValidatorOptions): middy.IMiddyMiddlewareObject;
+declare const validator : middy.Middleware<IValidatorOptions, any, any>
 
 export default validator

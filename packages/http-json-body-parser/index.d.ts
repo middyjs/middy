@@ -4,6 +4,6 @@ interface IJsonBodyParserOptions {
   reviver?: (key: string, value: any) => any
 }
 
-declare function jsonBodyParser(opts: IJsonBodyParserOptions): middy.IMiddyMiddlewareObject;
+declare const jsonBodyParser : middy.Middleware<IJsonBodyParserOptions, any, any>
 
 export default jsonBodyParser

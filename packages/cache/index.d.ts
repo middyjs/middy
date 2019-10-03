@@ -6,6 +6,6 @@ interface ICacheOptions {
   setValue?: (key: string) => Promise<void>;
 }
 
-declare function cache(opts?: ICacheOptions): middy.IMiddyMiddlewareObject;
+declare const cache : middy.Middleware<ICacheOptions, any, any>
 
 export default cache

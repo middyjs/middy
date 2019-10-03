@@ -12,6 +12,6 @@ interface IHTTPContentNegotiationOptions {
   failOnMismatch?: boolean;
 }
 
-declare function httpContentNegotiation(opts?: IHTTPContentNegotiationOptions): middy.IMiddyMiddlewareObject;
+declare const httpContentNegotiation : middy.Middleware<IHTTPContentNegotiationOptions, any, any>
 
 export default httpContentNegotiation

@@ -6,6 +6,6 @@ interface IWarmupOptions {
   waitForEmptyEventLoop?: boolean;
 }
 
-declare function warmup(opts?: IWarmupOptions): middy.IMiddyMiddlewareObject;
+declare const warmup : middy.Middleware<IWarmupOptions, any, any>
 
 export default warmup

@@ -5,6 +5,6 @@ interface IHTTPHeaderNormalizerOptions {
   canonical?: Boolean;
 }
 
-declare function httpHeaderNormalizer(opts?: IHTTPHeaderNormalizerOptions): middy.IMiddyMiddlewareObject;
+declare const httpHeaderNormalizer : middy.Middleware<IHTTPHeaderNormalizerOptions, any, any>
 
 export default httpHeaderNormalizer

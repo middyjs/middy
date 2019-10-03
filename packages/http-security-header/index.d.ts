@@ -31,6 +31,6 @@ interface IHTTPSecurityHeadersOptions {
   xssFilter?: Object
 }
 
-declare function httpSecurityHeaders(opts?: IHTTPSecurityHeadersOptions): middy.IMiddyMiddlewareObject;
+declare const httpSecurityHeaders : middy.Middleware<IHTTPSecurityHeadersOptions, any, any>
 
 export default httpSecurityHeaders

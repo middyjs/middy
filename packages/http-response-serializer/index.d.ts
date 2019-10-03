@@ -10,6 +10,6 @@ interface IhttpResponseSerializerOptions {
   default?: string;
 }
 
-declare function httpResponseSerializer(opts?: IhttpResponseSerializerOptions): middy.IMiddyMiddlewareObject;
+declare const httpResponseSerializer : middy.Middleware<IhttpResponseSerializerOptions, any, any>
 
 export default httpResponseSerializer

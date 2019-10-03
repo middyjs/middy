@@ -1,5 +1,5 @@
 import middy from '@middy/core'
 
-declare function httpEventNormalizer(): middy.IMiddyMiddlewareObject;
+declare const httpEventNormalizer : middy.Middleware<any, any, any>
 
 export default httpEventNormalizer

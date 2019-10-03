@@ -4,8 +4,6 @@ interface IErrorLoggerOptions {
   logger?: (message: any) => void;
 }
 
-declare function errorLogger(
-  opts?: IErrorLoggerOptions
-): middy.IMiddyMiddlewareObject;
+declare const errorLogger: middy.Middleware<IErrorLoggerOptions, any, any>
 
 export default errorLogger;

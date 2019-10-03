@@ -1,5 +1,5 @@
 import middy from '@middy/core'
 
-declare function functionShield(): middy.IMiddyMiddlewareObject;
+declare const functionShield: middy.Middleware<any, any, any>;
 
 export default functionShield

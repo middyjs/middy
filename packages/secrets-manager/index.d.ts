@@ -9,6 +9,6 @@ interface ISecretsManagerOptions {
   throwOnFailedCall?: boolean;
 }
 
-declare function secretsManager(opts?: ISecretsManagerOptions): middy.IMiddyMiddlewareObject;
+declare const secretsManager : middy.Middleware<ISecretsManagerOptions, any, any>
 
 export default secretsManager
