@@ -24,28 +24,28 @@ declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(ha
 >;
 
 declare namespace middy {
-  interface Middy<T, R> extends Handler<T, R> {
-    use: <C extends MiddlewareObject<T, R>>(middleware: C) => Middy<T, R>;
-    before: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
-    after: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
-    onError: (callbackFn: MiddlewareFunction<T, R>) => Middy<T, R>;
+  interface Middy<T, R, C extends Context = Context> extends Handler<T, R> {
+    use: <M extends MiddlewareObject<T, R, C>>(middleware: M) => Middy<T, R, C>;
+    before: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
+    after: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
+    onError: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
   }
 
   type Middleware<C extends any, T = any, R = any> = (config?: C) => MiddlewareObject<T, R>;
 
-  interface MiddlewareObject<T, R> {
-    before?: MiddlewareFunction<T, R>;
-    after?: MiddlewareFunction<T, R>;
-    onError?: MiddlewareFunction<T, R>;
+  interface MiddlewareObject<T, R, C extends Context = Context> {
+    before?: MiddlewareFunction<T, R, C>;
+    after?: MiddlewareFunction<T, R, C>;
+    onError?: MiddlewareFunction<T, R, C>;
   }
 
-  type MiddlewareFunction<T, R> = (handler: HandlerLambda<T, R>, next: NextFunction) => void | Promise<any>;
+  type MiddlewareFunction<T, R, C extends Context = Context> = (handler: HandlerLambda<T, R, C>, next: NextFunction) => void | Promise<any>;
 
   type NextFunction = (error?: any) => void;
 
-  interface HandlerLambda<T = any, V = any> {
+  interface HandlerLambda<T = any, V = any, C extends Context = Context> {
     event: T;
-    context: Context;
+    context: C;
     response: V;
     error: Error;
     callback: Callback<V>;
