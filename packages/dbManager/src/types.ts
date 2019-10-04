@@ -14,11 +14,9 @@ interface DbManagerContext extends Context {
   [key: string]: Object;
 }
 
-
 export interface MiddyHandler extends middy.HandlerLambda {
   context: DbManagerContext
 }
-
 
 export type DbManagerClient = Knex | any
 
