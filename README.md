@@ -50,6 +50,12 @@ To install middy you can use NPM:
 npm install --save @middy/core
 ```
 
+If you are using TypeScript, you will also want to make sure that you have installed the @types/aws-lambda peer-dependency
+
+```bash
+npm install --save-dev @types/aws-lambda
+```
+
 ## Quick example
 
 code is better than 10,000 words, so let's jump into an example.
