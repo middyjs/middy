@@ -59,7 +59,7 @@
 - [Api](#api)
 - [Typescript](#typescript)
 - [FAQ](#faq)
-  * [Q: Lambda timing out](#q--lambda-timing-out)
+  * [Q: Lambda timing out](#q-lambda-timing-out)
 - [3rd party middlewares](#3rd-party-middlewares)
 - [Contributing](#contributing)
 - [License](#license)
