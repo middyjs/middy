@@ -25,7 +25,7 @@ declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(ha
 
 declare namespace middy {
   interface Middy<T, R, C extends Context = Context> extends Handler<T, R> {
-    use: <M extends MiddlewareObject<T, R, C>>(middleware: M) => Middy<T, R, C>;
+    use: <M extends MiddlewareObject<T, R, C>>(middlewares: M | M[]) => Middy<T, R, C>;
     before: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
     after: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
     onError: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
@@ -52,5 +52,5 @@ declare namespace middy {
   }
 }
 
-export default middy;
+export default middy
 export as namespace middy;
