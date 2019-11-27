@@ -20,7 +20,8 @@ declare type AsyncHandler<C extends Context> =
 
 declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(handler: H) => middy.Middy<
   EventType<H>,
-  HandlerReturnType<H>
+  HandlerReturnType<H>,
+  C
 >
 
 declare namespace middy {
