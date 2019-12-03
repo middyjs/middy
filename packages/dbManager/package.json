@@ -10,20 +10,11 @@
     "access": "public"
   },
   "scripts": {
-    "pretest": "npm run lint",
-    "lint": "eslint --fix --ext '.ts' src/",
-    "precompile": "rm -rf dist",
-    "compile": "tsc",
-    "posttest": "npm run compile",
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "jest",
-    "test:typings": "npm run compile && typings-tester --config tsconfig.json dist/index.d.ts"
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
-  "main": "dist/index.js",
   "types": "dist/types.d.ts",
-  "files": [
-    "dist/**/*"
-  ],
   "license": "MIT",
   "keywords": [
     "Lambda",
@@ -49,8 +40,6 @@
     "knex": "^0.17.3"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.45",
-    "@types/aws-lambda": "^8.10.33",
-    "ts-jest": "^24.1.0"
+    "@middy/core": "^1.0.0-alpha.45"
   }
 }

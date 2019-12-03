@@ -1,10 +1,10 @@
 // tslint-disable
 jest.mock('knex')
 
-import knex from 'knex'
+const knex = require('knex')
 
-import middy from '@middy/core'
-import dbManager from '../'
+const middy = require('@middy/core')
+const dbManager = require('../')
 
 describe('💾  Database manager', () => {
   let destroyFn

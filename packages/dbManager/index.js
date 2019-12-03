@@ -1,10 +1,9 @@
-import { MiddyHandler, NextFunction, DbManagerOptions, DbManagerClient } from './types';
-import knex from 'knex';
+const knex = require('knex')
 
-let dbInstance: DbManagerClient
+let dbInstance
 
-export default (opts: DbManagerOptions) => {
-  const defaults: DbManagerOptions = {
+module.exports = (opts) => {
+  const defaults = {
     client: knex,
     config: null,
     forceNewConnection: false,
@@ -14,15 +13,15 @@ export default (opts: DbManagerOptions) => {
 
   const options = Object.assign({}, defaults, opts)
 
-  function cleanup (handler: MiddyHandler, next: NextFunction) {
+  function cleanup (handler, next) {
     if (options.forceNewConnection && (dbInstance && typeof dbInstance.destroy === 'function')) {
-      dbInstance.destroy((err: any) => next(err || handler.error))
+      dbInstance.destroy((err) => next(err || handler.error))
     }
     next(handler.error)
   }
 
   return {
-    before: (handler: MiddyHandler, next: NextFunction) => {
+    before: (handler, next) => {
       const {
         client,
         config,

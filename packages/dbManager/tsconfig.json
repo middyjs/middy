@@ -1,26 +1,11 @@
 {
   "compilerOptions": {
-      "baseUrl": ".",
-      "declaration": true,
-      "esModuleInterop": true,
-      "lib": ["es6", "es2017"],
-      "module": "commonjs",
-      "moduleResolution": "node",
-      "noImplicitAny": true,
-      "outDir": "dist",
-      "sourceMap": true,
-      "target": "es6",
-      "paths": {
-          "*": [
-              "node_modules/*"
-          ]
-      }
+    "module": "commonjs",
+    "lib": ["es2015"],
+    "target": "es2015",
+    "esModuleInterop": true
   },
-  "include": [
-      "src/**/*",
-      "src/index.d.ts"
-  ],
-  "exclude": [
-    "src/__tests__/*"
+  "files": [
+    "index.d.ts"
   ]
 }
