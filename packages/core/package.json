@@ -1,6 +1,6 @@
 {
   "name": "@middy/core",
-  "version": "1.0.0-alpha.45",
+  "version": "1.0.0-alpha.49",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "engines": {
     "node": ">=6.10"
@@ -35,11 +35,14 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
+  "peerDependencies": {
+    "@types/aws-lambda": "^8.10.3"
+  },
   "dependencies": {
-    "@types/aws-lambda": "^8.10.3",
     "once": "^1.4.0"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.3",
     "es6-promisify": "^6.0.2"
   }
 }

@@ -206,12 +206,12 @@ const middy = (handler) => {
     if (!instance.callback) return middyPromise
   }
 
-  instance.use = (input) => {
-    if (Array.isArray(input)) {
-      input.forEach(middleware => instance.applyMiddleware(middleware))
+  instance.use = (middlewares) => {
+    if (Array.isArray(middlewares)) {
+      middlewares.forEach(middleware => instance.applyMiddleware(middleware))
       return instance
-    } else if (typeof input === 'object') {
-      return instance.applyMiddleware(input)
+    } else if (typeof middlewares === 'object') {
+      return instance.applyMiddleware(middlewares)
     } else {
       throw new Error('Middy.use() accepts an object or an array of objects')
     }

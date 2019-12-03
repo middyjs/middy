@@ -36,23 +36,29 @@
 
 ## What is Middy
 
-Middy is a very simple middleware engine that allows to simplify your AWS Lambda code when using Node.js.
+Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
 
-If you are used to web frameworks like Express, than you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
+If you are used to web frameworks like Express, then you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
 
 A middleware engine allows you to focus on the strict business logic of your Lambda and then attach additional common elements like authentication, authorization, validation, serialization, etc. in a modular and reusable way by decorating the main business logic.
 
 ## Install
 
-To install middy you can use NPM:
+To install middy, you can use NPM:
 
 ```bash
 npm install --save @middy/core
 ```
 
+If you are using TypeScript, you will also want to make sure that you have installed the @types/aws-lambda peer-dependency:
+
+```bash
+npm install --save-dev @types/aws-lambda
+```
+
 ## Quick example
 
-code is better than 10,000 words, so let's jump into an example.
+Code is better than 10,000 words, so let's jump into an example.
 Let's assume you are building a JSON API to process a payment:
 
 ```javascript
@@ -125,9 +131,9 @@ problem has been solved using the [middleware pattern](https://www.packtpub.com/
 
 This pattern allows developers to isolate these common technical concerns into
 _"steps"_ that _decorate_ the main business logic code.
-Middleware functions are generally written as independent modules and then plugged in into
+Middleware functions are generally written as independent modules and then plugged into
 the application in a configuration step, thus not polluting the main business logic
-code that remains clean, readable and easy to maintain.
+code that remains clean, readable, and easy to maintain.
 
 Since we couldn't find a similar approach for AWS Lambda handlers, we decided
 to create middy, our own middleware framework for serverless in AWS land.
@@ -139,7 +145,7 @@ simple and requires just few steps:
 
 1.  Write your Lambda handlers as usual, focusing mostly on implementing the bare
     business logic for them.
-2.  Import `middy` and all the middlewares you want to use
+2.  Import `middy` and all the middlewares you want to use.
 3.  Wrap your handler in the `middy()` factory function. This will return a new
     enhanced instance of your original handler, to which you will be able to attach
     the middlewares you need.
@@ -207,7 +213,7 @@ the _request_ (event) and the _response_.
 
 This way the _request-response cycle_ flows through all the middlewares, the
 handler and all the middlewares again, giving the opportunity within every step to
-modify or enrich the current request, context or the response.
+modify or enrich the current request, context, or the response.
 
 ### Execution order
 
@@ -219,7 +225,7 @@ response is not created yet, so you will have access only to the request.
 The `after` phase, happens _after_ the handler is executed. In this code you will
 have access to both the request and the response.
 
-If you have three middlewares attached as in the image above this is the expected
+If you have three middlewares attached (as in the image above), this is the expected
 order of execution:
 
 - `middleware1` (before)
@@ -245,7 +251,7 @@ If you want to do this you can invoke `handler.callback` in your middleware and 
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
 like output serialization or error handling, these won't be invoked in this case.
 
-In this example we can use this capability for building a sample caching middleware:
+In this example, we can use this capability for building a sample caching middleware:
 
 ```javascript
 // some function that calculates the cache id based on the current event
@@ -291,7 +297,7 @@ const handler = middy((event, context, callback) => {
 But what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
-moved back to all the middlewares that implements a special phase called `onError`, following
+moved back to all the middlewares that implemented a special phase called `onError`, following
 the order they have been attached.
 
 Every `onError` middleware can decide to handle the error and create a proper response or
@@ -306,7 +312,7 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ### Promise support
 
-Middy allows you to return promises (or throw errors) from your handlers (instead of calling `callback()`) and middlewares
+Middy allows you to return promises or throw errors from your handlers (instead of calling `callback()`) and middlewares
 (instead of calling `next()`).
 
 Here is an example of a handler that returns a promise:
@@ -404,9 +410,9 @@ handler.use(middleware1).use(middleware2);
 
 Here, first `middleware1.onError` then `middleware2.onError` will be called.
 
-  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an un-mamaged error
+  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an unmanaged error
   In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
-  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error
+  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error.
 
 ```javascript
 middleware1 = {
@@ -426,7 +432,7 @@ handler.use(middleware1).use(middleware2);
 
 Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
 
-  - If `onError` promise rejects, the error handling pipeline exists early and the lambda execution fails.
+  - If `onError` promise rejects, the error handling pipeline exits early and the lambda execution fails.
 
 ```javascript
 middleware1 = {
@@ -463,17 +469,17 @@ function (handler, next) {
 
 Where:
 
-- `handler`: is a reference to the current context and it allows access to (and modification of)
-  the current `event` (request), the `response` (in the _after_ phase) and `error`
+- `handler`: is a reference to the current context and allows access to (and modification of)
+  the current `event` (request), the `response` (in the _after_ phase), and `error`
   (in case of an error).
 - `next`: is a callback function that needs to be invoked when the middleware has finished
-  its job so that the next middleware can be invoked
+  its job so that the next middleware can be invoked.
 
 ### Configurable middlewares
 
-In order to make middlewares configurable they are generally exported as a function that accepts
+In order to make middlewares configurable, they are generally exported as a function that accepts
 a configuration object. This function should then return the middleware object with `before`,
-`after` and `onError` as keys.
+`after`, and `onError` as keys.
 
 E.g.
 
@@ -521,7 +527,7 @@ module.exports = { handler }
 ### Inline middlewares
 
 Sometimes you want to create handlers that serve a very small need and that are not
-necessarily re-usable. In such cases you probably will need to hook only into one of
+necessarily re-usable. In such cases, you probably will need to hook only into one of
 the different phases (`before`, `after` or `onError`).
 
 In these cases you can use **inline middlewares** which are shortcut functions to hook
@@ -555,7 +561,7 @@ module.exports = { handler }
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
-methods to allow you to quickly hook-in simple inline middlewares.
+methods to allow you to quickly hook in simple inline middlewares.
 
 ### More details on creating middlewares
 
