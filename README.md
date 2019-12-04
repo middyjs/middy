@@ -573,6 +573,7 @@ on how to write a middleware.
 Currently available middlewares:
 
 - [`cache`](/packages/cache): A simple but flexible caching layer
+- [`db-manager`](/packages/db-manager): Provides seamless connection with database of your choice
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`function-shield`](/packages/function-shield): Hardens AWS Lambda execution environment
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
