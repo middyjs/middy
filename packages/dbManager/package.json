@@ -1,7 +1,7 @@
 {
-  "name": "@middy/warmup",
+  "name": "@middy/db-manager",
   "version": "1.0.0-alpha.50",
-  "description": "Warmup (cold start mitigation) middleware for the middy framework",
+  "description": "Simple database manager for the middy framework",
   "engines": {
     "node": ">=6.10"
   },
@@ -14,6 +14,7 @@
     "test:unit": "jest",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
+  "types": "dist/types.d.ts",
   "license": "MIT",
   "keywords": [
     "Lambda",
@@ -21,11 +22,7 @@
     "Serverless",
     "Framework",
     "AWS",
-    "AWS Lambda",
-    "Middy",
-    "Warmup",
-    "Heart beat",
-    "Cold start"
+    "AWS Lambda"
   ],
   "author": {
     "name": "Middy contributors",
@@ -39,11 +36,10 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
+  "dependencies": {
+    "knex": "^0.17.3"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.50",
-    "es6-promisify": "^6.0.2"
+    "@middy/core": "^1.0.0-alpha.50"
   }
 }
