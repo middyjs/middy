@@ -382,7 +382,7 @@ handler.use(middleware1).use(middleware2);
 
 Here, first `middleware1.onError` then `middleware2.onError` will be called.
 
-  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an unmanaged error
+  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an un-mamaged error
   In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
   - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error
 
@@ -404,7 +404,7 @@ handler.use(middleware1).use(middleware2);
 
 Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
 
-  - If `onError` promise rejects, the error handling pipeline exits early and the lambda execution fails.
+  - If `onError` promise rejects, the error handling pipeline exists early and the lambda execution fails.
 
 ```javascript
 middleware1 = {
@@ -489,7 +489,7 @@ Where:
 
 ### Configurable middlewares
 
-In order to make middlewares configurable, they are generally exported as a function that accepts
+In order to make middlewares configurable they are generally exported as a function that accepts
 a configuration object. This function should then return the middleware object with `before`,
 `after` and `onError` as keys.
 

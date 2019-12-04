@@ -4,6 +4,7 @@
 
 - [cache](#cache)
 - [cors](#cors)
+- [dbManager](#dbManager)
 - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
 - [functionShield](#functionshield)
 - [httpContentNegotiation](#httpcontentnegotiation)
@@ -133,6 +134,85 @@ handler({}, {}, (_, response) => {
   expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
 })
 ```
+
+## [dbManager](/src/middlewares/dbManager.js)
+
+dbManager provides seamless connection with database of your choice. By default it uses knex.js but you can use any tool that you want.
+
+After initialization your database connection is accessible under:
+```javascript
+middy((event, context) => {
+  const { db } = context;
+});
+```
+
+Mind that if you use knex you will also need driver of your choice ([check docs](http://knexjs.org/#Installation-node)), for PostgreSQL that would be:
+```
+yarn add pg
+// or
+npm install pg
+```
+
+### Options
+
+- `config`: configuration object passed as is to client (knex.js by default), for more details check [knex documentation](http://knexjs.org/#Installation-client)
+- `client` (optional): client that you want to use when connecting to database of your choice. By default knex.js is used but as long as your client is run as `client(config)` or you create wrapper to conform, you can use other tools. Due to node6 support in middy, knex is capped at version `0.17.3`. If you wish to use newer features, provide your own knex client here.
+- `secretsPath` (optional): if for any reason you want to pass credentials using context, pass path to secrets laying in context object  - good example is combining this middleware with [ssm](#ssm)
+- `removeSecrets` (optional): By default is true. Works only in combination with `secretsPath`. Removes sensitive data from context once client is initialized.
+- `forceNewConnection` (optional): Creates new connection on every run and destroys it after. Database client needs to have `destroy` function in order to properly clean up connections.
+
+### Sample usage
+
+Minimal configuration
+
+```javascript
+const handler = middy(async (event, context) => {
+  const { db } = context;
+  const records = await db.select('*').from('my_table');
+  console.log(records);
+});
+
+handler.use(dbManager({
+  config: {
+    client: 'pg',
+    connection: {
+      host: '127.0.0.1',
+      user: 'your_database_user',
+      password: 'your_database_password',
+      database: 'myapp_test'
+    }
+  },
+}));
+```
+
+Credentials as secrets object
+
+```javascript
+const handler = middy(async (event, context) => {
+  const { db } = context;
+  const records = await db.select('*').from('my_table');
+  console.log(records);
+});
+
+handler.use(secretsManager({
+    secrets: {
+        [secretsField]: 'my_db_credentials' // { user: 'your_database_user', password: 'your_database_password' }
+    },
+    throwOnFailedCall: true
+}));
+
+handler.use(dbManager({
+  config: {
+    client: 'pg',
+    connection: {
+      host : '127.0.0.1',
+      database : 'myapp_test'
+    }
+  },
+  secretsPath: secretsField
+}));
+```
+
 
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
