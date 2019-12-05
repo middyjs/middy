@@ -50,7 +50,7 @@
   * [Handling errors](#handling-errors)
   * [Promise support](#promise-support)
   * [Promises and error handling](#promises-and-error-handling)
-  * [Using async/await](#using-async-await)
+  * [Using async/await](#using-asyncawait)
 - [Writing a middleware](#writing-a-middleware)
   * [Configurable middlewares](#configurable-middlewares)
   * [Inline middlewares](#inline-middlewares)
