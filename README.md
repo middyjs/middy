@@ -496,6 +496,7 @@ Currently available middlewares:
  `httpErrorHandler`.
  - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
  - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
+ - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
  - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
  - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
  - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
