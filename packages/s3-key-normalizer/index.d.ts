@@ -1,5 +1,5 @@
-import middy from '../core'
+import middy from '@middy/core'
 
-declare function s3KeyNormalizer(): middy.IMiddyMiddlewareObject;
+declare const s3KeyNormalizer : middy.Middleware<any, any, any>
 
 export default s3KeyNormalizer

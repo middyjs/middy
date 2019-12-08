@@ -1,4 +1,4 @@
-import middy from '../core'
+import middy from '@middy/core'
 
 interface IDoNotWaitForEmtpyEventLoopOptions {
   runOnBefore?: boolean;
@@ -6,6 +6,6 @@ interface IDoNotWaitForEmtpyEventLoopOptions {
   runOnError?: boolean;
 }
 
-declare function doNotWaitForEmptyEventLoop(opts?: IDoNotWaitForEmtpyEventLoopOptions): middy.IMiddyMiddlewareObject;
+declare const doNotWaitForEmptyEventLoop : middy.Middleware<IDoNotWaitForEmtpyEventLoopOptions, any, any>
 
 export default doNotWaitForEmptyEventLoop

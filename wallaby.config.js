@@ -3,7 +3,7 @@ module.exports = () => {
 
   return {
     testFramework: 'jest',
-    files: ['package.json', 'packages/**/*.js', '!packages/**/__tests__/*.js'],
+    files: ['package.json', 'packages/**/*.js', 'packages/**/*.json', '!packages/**/__tests__/*.js', 'jest-setup.js'],
     tests: ['packages/**/__tests__/*.js'],
     env: {
       type: 'node',

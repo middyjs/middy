@@ -2,7 +2,7 @@ const createError = require('http-errors')
 const Ajv = require('ajv')
 const ajvKeywords = require('ajv-keywords')
 const ajvLocalize = require('ajv-i18n')
-const { deepEqual } = require('assert')
+const { deepStrictEqual } = require('assert')
 
 let ajv
 let previousConstructorOptions
@@ -19,10 +19,10 @@ const availableLanguages = Object.keys(ajvLocalize)
 
 /* in ajv-i18n Portuguese is represented as pt-BR */
 const languageNormalizationMap = {
-  'pt': 'pt-BR',
+  pt: 'pt-BR',
   'pt-br': 'pt-BR',
-  'pt_BR': 'pt-BR',
-  'pt_br': 'pt-BR'
+  pt_BR: 'pt-BR',
+  pt_br: 'pt-BR'
 }
 
 const normalizePreferredLanguage = (lang) => languageNormalizationMap[lang] || lang
@@ -98,7 +98,7 @@ function shouldInitAjv (options) {
 
 function areConstructorOptionsNew (options) {
   try {
-    deepEqual(options, previousConstructorOptions)
+    deepStrictEqual(options, previousConstructorOptions)
   } catch (e) {
     return true
   }

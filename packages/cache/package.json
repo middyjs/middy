@@ -1,6 +1,6 @@
 {
   "name": "@middy/cache",
-  "version": "1.0.0-alpha.13",
+  "version": "1.0.0-alpha.53",
   "description": "Cache middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -39,5 +39,9 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
     "@middy/core": ">=1.0.0-alpha"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-alpha.53",
+    "es6-promisify": "^6.0.2"
   }
 }

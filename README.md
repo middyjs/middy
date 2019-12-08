@@ -22,6 +22,9 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
+  </a>
   <a href="https://greenkeeper.io/">
     <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
@@ -31,28 +34,31 @@
 </p>
 </div>
 
-
 ## What is Middy
 
-Middy is a very simple middleware engine that allows to simplify your AWS Lambda code when using Node.js.
+Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
 
-If you are used to web frameworks like Express, than you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
+If you are used to web frameworks like Express, then you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
 
 A middleware engine allows you to focus on the strict business logic of your Lambda and then attach additional common elements like authentication, authorization, validation, serialization, etc. in a modular and reusable way by decorating the main business logic.
 
-
 ## Install
 
-To install middy you can use NPM:
+To install middy, you can use NPM:
 
 ```bash
 npm install --save @middy/core
 ```
 
+If you are using TypeScript, you will also want to make sure that you have installed the @types/aws-lambda peer-dependency:
+
+```bash
+npm install --save-dev @types/aws-lambda
+```
 
 ## Quick example
 
-code is better than 10,000 words, so let's jump into an example.
+Code is better than 10,000 words, so let's jump into an example.
 Let's assume you are building a JSON API to process a payment:
 
 ```javascript
@@ -62,7 +68,7 @@ Let's assume you are building a JSON API to process a payment:
 const middy = require('@middy/core')
 
 // import some middlewares
-const urlEncodeBodyParser = require('@middy/http-urlencode-body-parser')
+const jsonBodyParser = require('@middy/http-json-body-parser')
 const httpErrorHandler = require('@middy/http-error-handler')
 const validator = require('@middy/validator')
 
@@ -94,14 +100,15 @@ const inputSchema = {
        amount: { type: 'number' }
      }
    }
- }
+ },
+ required: ['creditCardNumber'] // Insert here all required event properties
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy(processPayment)
- .use(urlEncodeBodyParser()) // parses the request body when it's a JSON and converts it to an object
- .use(validator({inputSchema})) // validates the input
- .use(httpErrorHandler()) // handles common http errors and returns proper responses
+  .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
+  .use(validator({inputSchema})) // validates the input
+  .use(httpErrorHandler()) // handles common http errors and returns proper responses
 
 module.exports = { handler }
 ```
@@ -123,28 +130,26 @@ In other contexts, like generic web frameworks ([express](http://expressjs.com/)
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into
-*"steps"* that *decorate* the main business logic code.
-Middleware functions are generally written as independent modules and then plugged in into
+_"steps"_ that _decorate_ the main business logic code.
+Middleware functions are generally written as independent modules and then plugged into
 the application in a configuration step, thus not polluting the main business logic
-code that remains clean, readable and easy to maintain.
+code that remains clean, readable, and easy to maintain.
 
-
-Since  we couldn't find a similar approach for AWS Lambda handlers, we decided
+Since we couldn't find a similar approach for AWS Lambda handlers, we decided
 to create middy, our own middleware framework for serverless in AWS land.
-
 
 ## Usage
 
 As you might have already got from our first example here, using middy is very
 simple and requires just few steps:
 
- 1. Write your Lambda handlers as usual, focusing mostly on implementing the bare
+1.  Write your Lambda handlers as usual, focusing mostly on implementing the bare
     business logic for them.
- 2. Import `middy` and all the middlewares you want to use
- 3. Wrap your handler in the `middy()` factory function. This will return a new
+2.  Import `middy` and all the middlewares you want to use.
+3.  Wrap your handler in the `middy()` factory function. This will return a new
     enhanced instance of your original handler, to which you will be able to attach
     the middlewares you need.
- 4. Attach all the middlewares you need using the function `.use(somemiddleware())`
+4.  Attach all the middlewares you need using the function `.use(somemiddleware())`
 
 Example:
 
@@ -168,15 +173,34 @@ handler
 module.exports = { handler }
 ```
 
+`.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
+
+```
+const middy = require("@middy/core");
+const middleware1 = require("sample-middleware1");
+const middleware2 = require("sample-middleware2");
+const middleware3 = require("sample-middleware3");
+const middlewares = [middleware1(), middleware2(), middleware3()]
+
+const originalHandler = (event, context, callback) => {
+  /* your business logic */
+};
+
+const handler = middy(originalHandler);
+
+handler.use(middlewares)
+
+module.exports = { handler };
+```
+
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and
 `.onError`.
 
 For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware).
 
-
 ## How it works
 
-Middy implements the classic *onion-like* middleware pattern, with some peculiar details.
+Middy implements the classic _onion-like_ middleware pattern, with some peculiar details.
 
 ![Middy middleware engine diagram](/img/middy-middleware-engine.png)
 
@@ -185,39 +209,37 @@ in two separate steps.
 
 When another middleware is attached this will wrap the handler again and it will be wrapped by
 all the previously added middlewares in order, creating multiple layers for interacting with
-the *request* (event) and the *response*.
+the _request_ (event) and the _response_.
 
-This way the *request-response cycle* flows through all the middlewares, the
+This way the _request-response cycle_ flows through all the middlewares, the
 handler and all the middlewares again, giving the opportunity within every step to
-modify or enrich the current request, context or the response.
-
+modify or enrich the current request, context, or the response.
 
 ### Execution order
 
 Middlewares have two phases: `before` and `after`.
 
-The `before` phase, happens *before* the handler is executed. In this code the
+The `before` phase, happens _before_ the handler is executed. In this code the
 response is not created yet, so you will have access only to the request.
 
-The `after` phase, happens *after* the handler is executed. In this code you will
+The `after` phase, happens _after_ the handler is executed. In this code you will
 have access to both the request and the response.
 
-If you have three middlewares attached as in the image above this is the expected
+If you have three middlewares attached (as in the image above), this is the expected
 order of execution:
 
- - `middleware1` (before)
- - `middleware2` (before)
- - `middleware3` (before)
- - `handler`
- - `middleware3` (after)
- - `middleware2` (after)
- - `middleware1` (after)
+- `middleware1` (before)
+- `middleware2` (before)
+- `middleware3` (before)
+- `handler`
+- `middleware3` (after)
+- `middleware2` (after)
+- `middleware1` (after)
 
 Notice that in the `after` phase, middlewares are executed in inverted order,
 this way the first handler attached is the one with the highest priority as it will
 be the first able to change the request and last able to modify the response before
 it gets sent to the user.
-
 
 ### Interrupt middleware execution early
 
@@ -229,18 +251,19 @@ If you want to do this you can invoke `handler.callback` in your middleware and 
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
 like output serialization or error handling, these won't be invoked in this case.
 
-In this example we can use this capability for building a sample caching middleware:
+In this example, we can use this capability for building a sample caching middleware:
 
 ```javascript
-
 // some function that calculates the cache id based on the current event
-const calculateCacheId = (event) => { /* ... */ }
+const calculateCacheId = event => {
+  /* ... */
+}
 const storage = {}
 
 // middleware
-const cacheMiddleware = (options) => {
+const cacheMiddleware = options => {
   let cacheKey
-  return ({
+  return {
     before: (handler, next) => {
       cacheKey = options.calculateCacheId(handler.event)
       if (options.storage.hasOwnProperty(cacheKey)) {
@@ -255,23 +278,26 @@ const cacheMiddleware = (options) => {
       options.storage[cacheKey] = handler.response
       next()
     }
-  })
+  }
 }
 
 // sample usage
-const handler = middy((event, context, callback) => { /* ... */ })
-  .use(cacheMiddleware({
-    calculateCacheId, storage
-  }))
+const handler = middy((event, context, callback) => {
+  /* ... */
+}).use(
+  cacheMiddleware({
+    calculateCacheId,
+    storage
+  })
+)
 ```
-
 
 ### Handling errors
 
 But what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
-moved back to all the middlewares that implements a special phase called `onError`, following
+moved back to all the middlewares that implemented a special phase called `onError`, following
 the order they have been attached.
 
 Every `onError` middleware can decide to handle the error and create a proper response or
@@ -286,7 +312,7 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ### Promise support
 
-Middy allows you to return promises (or throw errors) from your handlers (instead of calling `callback()`) and middlewares
+Middy allows you to return promises or throw errors from your handlers (instead of calling `callback()`) and middlewares
 (instead of calling `next()`).
 
 Here is an example of a handler that returns a promise:
@@ -307,12 +333,11 @@ And here is an example of a middleware that returns a similar promise:
 
 ```javascript
 const asyncValidator = () => {
-  before: (handler) => {
+  before: handler => {
     if (handler.event.body) {
-      return someAsyncStuff(handler.event.body)
-        .then(() => {
-          return {foo: bar}
-        })
+      return someAsyncStuff(handler.event.body).then(() => {
+        return { foo: bar }
+      })
     }
 
     return Promise.resolve()
@@ -321,7 +346,6 @@ const asyncValidator = () => {
 
 handler.use(asyncValidator())
 ```
-
 
 ### Using async/await
 
@@ -339,20 +363,19 @@ middy(async (event, context) => {
   await someAsyncStuff()
   await someOtherAsyncStuff()
 
-  return ({foo: bar})
+  return { foo: bar }
 })
 ```
-
 
 And here is an example of a middleware written with async/await:
 
 ```javascript
 const asyncValidator = () => {
-  before: async (handler) => {
+  before: async handler => {
     if (handler.event.body) {
       await asyncValidate(handler.event.body)
 
-      return {foo: bar}
+      return { foo: bar }
     }
 
     return
@@ -363,13 +386,78 @@ handler.use(asyncValidator())
 ```
 
 
+## Promises and error handling
+
+`onError` middlewares can return promises as well.
+Here's how Middy handles return values from promise-enabled error handlers:
+* If `onError` promise resolves to a *truthy* value, this value is treated as an error and passed further down the pipeline.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    Logger.debug("middleware1");
+    return Promise.resolve(handler.error)
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    Logger.debug("middleware2");
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, first `middleware1.onError` then `middleware2.onError` will be called.
+
+  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an unmanaged error
+  In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
+  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    handler.response = { error: handler.error };
+    return Promise.resolve();
+    // Resolves to a falsy value
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
+
+  - If `onError` promise rejects, the error handling pipeline exits early and the lambda execution fails.
+
+```javascript
+middleware1 = {
+  onError: (handler) => {
+    return Promise.reject(handler.error);
+  }
+}
+middleware2 = {
+  onError: (handler) => {
+    return Promise.resolve(handler.error)
+  }
+}
+handler.use(middleware1).use(middleware2);
+```
+
+Here, only `middleware1.onError` will be called, and the lambda will fail early, reporting an error. `middleware2.onError` will not be called.
+
+
 ## Writing a middleware
 
 A middleware is an object that should contain at least 1 of 3 possible keys:
 
- 1. `before`: a function that is executed in the before phase
- 2. `after`: a function that is executed in the after phase
- 3. `onError`: a function that is executed in case of errors
+1.  `before`: a function that is executed in the before phase
+2.  `after`: a function that is executed in the after phase
+3.  `onError`: a function that is executed in case of errors
 
 `before`, `after` and `onError` functions need to have the following signature:
 
@@ -381,17 +469,17 @@ function (handler, next) {
 
 Where:
 
- - `handler`: is a reference to the current context and it allows access to (and modification of)
-   the current `event` (request), the `response` (in the *after* phase) and `error`
-   (in case of an error).
- - `next`: is a callback function that needs to be invoked when the middleware has finished
-   its job so that the next middleware can be invoked
+- `handler`: is a reference to the current context and allows access to (and modification of)
+  the current `event` (request), the `response` (in the _after_ phase), and `error`
+  (in case of an error).
+- `next`: is a callback function that needs to be invoked when the middleware has finished
+  its job so that the next middleware can be invoked.
 
 ### Configurable middlewares
 
-In order to make middlewares configurable they are generally exported as a function that accepts
+In order to make middlewares configurable, they are generally exported as a function that accepts
 a configuration object. This function should then return the middleware object with `before`,
-`after` and `onError` as keys.
+`after`, and `onError` as keys.
 
 E.g.
 
@@ -426,19 +514,20 @@ const handler = middy((event, context, callback) => {
   // do stuff
 })
 
-handler.use(myMiddleware({
-  option1: 'foo',
-  option2: 'bar'
-}))
+handler.use(
+  myMiddleware({
+    option1: 'foo',
+    option2: 'bar'
+  })
+)
 
 module.exports = { handler }
 ```
 
-
 ### Inline middlewares
 
 Sometimes you want to create handlers that serve a very small need and that are not
-necessarily re-usable. In such cases you probably will need to hook only into one of
+necessarily re-usable. In such cases, you probably will need to hook only into one of
 the different phases (`before`, `after` or `onError`).
 
 In these cases you can use **inline middlewares** which are shortcut functions to hook
@@ -472,14 +561,12 @@ module.exports = { handler }
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
-methods to allow you to quickly hook-in simple inline middlewares.
-
+methods to allow you to quickly hook in simple inline middlewares.
 
 ### More details on creating middlewares
 
 Check the [code for existing middlewares](/src/middlewares) to see more examples
 on how to write a middleware.
-
 
 ## Available middlewares
 
@@ -528,7 +615,6 @@ The following middlewares are created and maintained outside this project. We ca
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-json-body-parser",
-  "version": "1.0.0-alpha.13",
+  "version": "1.0.0-alpha.53",
   "description": "Http JSON body parser middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -48,5 +48,9 @@
     "@types/http-errors": "^1.6.1",
     "content-type": "^1.0.4",
     "http-errors": "^1.6.3"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-alpha.53",
+    "es6-promisify": "^6.0.2"
   }
 }

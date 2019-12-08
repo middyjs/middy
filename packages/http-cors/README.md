@@ -44,11 +44,36 @@ npm install --save @middy/http-cors
 
 ## Options
 
+ - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
  - `origin` (string) (optional): origin to put in the header (default: "`*`")
  - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
  - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
  - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 
+NOTES:
+- If another middleware does not handle and swallow errors, then it will bubble all the way up 
+and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
+
+```javascript
+const middy = require('@middy/core')
+const httpErrorHandler = require('@middy/http-error-handler')
+const cors = require('@middy/http-cors')
+
+const handler = middy((event, context, cb) => {
+  throw new createError.UnprocessableEntity()
+})
+handler.use(httpErrorHandler())
+       .use(cors())
+           
+// when Lambda runs the handler...
+handler({}, {}, (_, response) => {
+  expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
+  expect(response).toEqual({
+      statusCode: 422,
+      body: 'Unprocessable Entity'
+    })
+})
+```
 
 ## Sample usage
 

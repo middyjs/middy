@@ -1,5 +1,5 @@
 import { SSM } from 'aws-sdk'
-import middy from '../core'
+import middy from '@middy/core'
 
 interface ISSMOptions {
   cache?: boolean;
@@ -11,4 +11,6 @@ interface ISSMOptions {
   getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
 }
 
-declare function ssm(opts?: ISSMOptions): middy.IMiddyMiddlewareObject;
+declare const ssm : middy.Middleware<ISSMOptions, any, any>
+
+export default ssm
