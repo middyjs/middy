@@ -1,17 +1,17 @@
 const middy = require('../')
 
 describe('🛵  Middy test suite', () => {
-  test('Middleware attached with "use" must be an object', () => {
+  test('Middleware attached with "use" must be an object or array', () => {
     const handler = middy(jest.fn())
-    expect(() => { handler.use(() => {}) }).toThrow('Middleware must be an object')
+    expect(() => { handler.use(() => {}) }).toThrow('Middy.use() accepts an object or an array of objects')
   })
 
   test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError"', () => {
     const handler = middy(jest.fn())
-    expect(() => { handler.use({foo: 'bar'}) }).toThrow('Middleware must contain at least one key among "before", "after", "onError"')
+    expect(() => { handler.use({ foo: 'bar' }) }).toThrow('Middleware must contain at least one key among "before", "after", "onError"')
   })
 
-  test('"use" can add before middlewares', () => {
+  test('"use" can add single before middleware', () => {
     const before = jest.fn()
     const middleware = () => ({ before })
     const handler = middy(jest.fn())
@@ -19,7 +19,7 @@ describe('🛵  Middy test suite', () => {
     expect(handler.__middlewares.before[0]).toBe(before)
   })
 
-  test('"use" can add after middlewares', () => {
+  test('"use" can add single after middleware', () => {
     const after = jest.fn()
     const middleware = () => ({ after })
     const handler = middy(jest.fn())
@@ -27,7 +27,7 @@ describe('🛵  Middy test suite', () => {
     expect(handler.__middlewares.after[0]).toBe(after)
   })
 
-  test('"use" can add error middlewares', () => {
+  test('"use" can add single error middleware', () => {
     const onError = jest.fn()
     const middleware = () => ({ onError })
     const handler = middy(jest.fn())
@@ -35,7 +35,64 @@ describe('🛵  Middy test suite', () => {
     expect(handler.__middlewares.onError[0]).toBe(onError)
   })
 
-  test('"use" can add all types of middlewares', () => {
+  test('"use" can add single object with all types of middlewares', () => {
+    const before = jest.fn()
+    const after = jest.fn()
+    const onError = jest.fn()
+
+    const middleware = () => ({
+      before,
+      after,
+      onError
+    })
+
+    const handler = middy(jest.fn())
+
+    handler.use(middleware())
+
+    expect(handler.__middlewares.before[0]).toBe(before)
+    expect(handler.__middlewares.after[0]).toBe(after)
+    expect(handler.__middlewares.onError[0]).toBe(onError)
+  })
+
+  test('"use" can add multiple before middleware', () => {
+    const firstBefore = jest.fn()
+    const firstMiddleware = () => ({ before: firstBefore })
+    const secondBefore = jest.fn()
+    const secondMiddleware = () => ({ before: secondBefore })
+    const middlewares = [firstMiddleware(), secondMiddleware()]
+    const handler = middy(jest.fn())
+    handler.use(middlewares)
+    expect(handler.__middlewares.before[0]).toBe(firstBefore)
+    expect(handler.__middlewares.before[1]).toBe(secondBefore)
+  })
+
+  test('"use" can add multiple after middleware', () => {
+    const firstAfter = jest.fn()
+    const firstMiddleware = () => ({ after: firstAfter })
+    const secondAfter = jest.fn()
+    const secondMiddleware = () => ({ after: secondAfter })
+    const middlewares = [firstMiddleware(), secondMiddleware()]
+    const handler = middy(jest.fn())
+    handler.use(middlewares)
+    // After middleware is in reverse order of being added
+    expect(handler.__middlewares.after[1]).toBe(firstAfter)
+    expect(handler.__middlewares.after[0]).toBe(secondAfter)
+  })
+
+  test('"use" can add multiple error middleware', () => {
+    const firstError = jest.fn()
+    const firstMiddleware = () => ({ onError: firstError })
+    const secondError = jest.fn()
+    const secondMiddleware = () => ({ onError: secondError })
+    const middlewares = [firstMiddleware(), secondMiddleware()]
+    const handler = middy(jest.fn())
+    handler.use(middlewares)
+    expect(handler.__middlewares.onError[0]).toBe(firstError)
+    expect(handler.__middlewares.onError[1]).toBe(secondError)
+  })
+
+  test('"use" can add single object with all types of middlewares', () => {
     const before = jest.fn()
     const after = jest.fn()
     const onError = jest.fn()
@@ -84,7 +141,7 @@ describe('🛵  Middy test suite', () => {
 
   test('It should execute before and after middlewares in the right order', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const m1 = () => ({
@@ -117,14 +174,14 @@ describe('🛵  Middy test suite', () => {
     handler({}, {}, (_, response) => {
       expect(handler.executedBefore).toEqual(['m1', 'm2'])
       expect(handler.executedAfter).toEqual(['m2', 'm1'])
-      expect(response).toEqual({foo: 'bar'})
+      expect(response).toEqual({ foo: 'bar' })
       endTest()
     })
   })
 
   test('"before" middlewares should be able to change event', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const changeEventMiddleware = (handler, next) => {
@@ -142,7 +199,7 @@ describe('🛵  Middy test suite', () => {
 
   test('"after" middlewares should be able to change response', (endTest) => {
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const changeResponseMiddleware = (handler, next) => {
@@ -162,7 +219,7 @@ describe('🛵  Middy test suite', () => {
     const context = {}
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const getLambdaContext = (handler, next) => {
@@ -180,7 +237,7 @@ describe('🛵  Middy test suite', () => {
   test('"before" middleware should be able to modify context', (endTest) => {
     const handler = middy((event, context, callback) => {
       expect(context.modified).toBeTruthy()
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     const getLambdaContext = (handler, next) => {
@@ -407,24 +464,24 @@ describe('🛵  Middy test suite', () => {
 
   test('It should support handlers that return promises instead of using the callback', (endTest) => {
     const handler = middy((event, context) => {
-      return Promise.resolve({some: 'response'})
+      return Promise.resolve({ some: 'response' })
     })
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({some: 'response'})
+      expect(response).toEqual({ some: 'response' })
       endTest()
     })
   })
 
   test('It should support async handlers', (endTest) => {
     const handler = middy(async (event, context) => {
-      return {some: 'response'}
+      return { some: 'response' }
     })
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({some: 'response'})
+      expect(response).toEqual({ some: 'response' })
       endTest()
     })
   })
@@ -460,6 +517,57 @@ describe('🛵  Middy test suite', () => {
 
       checkHandler(handler, endTest)
     })
+  })
+
+  test('It should be possible to await a middyfied handler', async (endTest) => {
+    const originalHandler = async (event, context) => Promise.resolve({ some: 'response' })
+    const handler = middy(originalHandler)
+
+    const response = await handler({}, {})
+    expect(response).toEqual({ some: 'response' })
+    endTest()
+  })
+
+  test('It should be possible to catch a middyfied handler rejection', async (endTest) => {
+    const originalHandler = async (event, context) => Promise.reject(new Error('some error'))
+    const handler = middy(originalHandler)
+
+    try {
+      await handler({}, {})
+    } catch (e) {
+      expect(e.message).toEqual('some error')
+      endTest()
+    }
+  })
+
+  test('Error from async handler with no callback is thrown up', async (endTest) => {
+    const originalHandler = async (event, context) => { throw new Error('some error') }
+    const handler = middy(originalHandler)
+
+    try {
+      await handler({}, {})
+    } catch (e) {
+      expect(e.message).toEqual('some error')
+      endTest()
+    }
+  })
+
+  test('Error from async handler is consumed by onError middleware', async (endTest) => {
+    const handler = middy(async (event, context) => {
+      throw new Error('some error')
+    })
+    let onErrorWasCalled = false
+
+    handler.use({
+      onError: (handler, next) => {
+        onErrorWasCalled = true
+        next()
+      }
+    })
+
+    await handler({}, {})
+    expect(onErrorWasCalled).toBe(true)
+    endTest()
   })
 
   test('A handler that returns a rejected promise will behave as an errored execution', (endTest) => {
@@ -505,7 +613,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {some: 'response'})
+      return callback(null, { some: 'response' })
     })
 
     handler
@@ -525,7 +633,7 @@ describe('🛵  Middy test suite', () => {
 
     const asyncOnError = async (handler) => {
       handler.error = null
-      handler.response = {result: 'The error is handled'}
+      handler.response = { result: 'The error is handled' }
     }
 
     const handler = middy((event, context, callback) => {
@@ -537,7 +645,7 @@ describe('🛵  Middy test suite', () => {
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(response).toEqual({result: 'The error is handled'})
+      expect(response).toEqual({ result: 'The error is handled' })
       endTest()
     })
   })
@@ -548,7 +656,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     handler
@@ -586,7 +694,7 @@ describe('🛵  Middy test suite', () => {
     }
 
     const handler = middy((event, context, callback) => {
-      return callback(null, {foo: 'bar'})
+      return callback(null, { foo: 'bar' })
     })
 
     handler

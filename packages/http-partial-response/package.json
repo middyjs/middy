@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-partial-response",
-  "version": "1.0.0-alpha.13",
+  "version": "1.0.0-alpha.52",
   "description": "Http partial response middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -45,5 +45,9 @@
   },
   "dependencies": {
     "json-mask": "^0.3.8"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-alpha.52",
+    "es6-promisify": "^6.0.2"
   }
 }

@@ -7,7 +7,8 @@ const once = require('once')
  * @param {Object} event - the AWS Lambda event from the original handler
  * @param {Object} context - the AWS Lambda context from the original handler
  * @param {function} callback - the AWS Lambda callback from the original handler
- * @property {useFunction} use - attach a new middleware
+ * @property {useFunction} use - attach one or more new middlewares
+ * @property {applyMiddlewareFunction} applyMiddleware - attach a new middleware
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
  * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
  * @property {middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
@@ -18,6 +19,13 @@ const once = require('once')
 
 /**
  * @typedef useFunction
+ * @type {function}
+ * @param {middlewareObject|middlewareObject[]} - the middleware object or array of middleware objects to attach
+ * @return {middy}
+ */
+
+/**
+ * @typedef applyMiddlewareFunction
  * @type {function}
  * @param {middlewareObject} - the middleware object to attach
  * @return {middy}
@@ -147,55 +155,69 @@ const middy = (handler) => {
     instance.response = null
     instance.error = null
 
-    const terminate = (err) => {
-      if (err) {
-        return callback(err)
-      }
-
-      return callback(null, instance.response)
-    }
-
-    const errorHandler = err => {
-      instance.error = err
-      return runErrorMiddlewares(errorMiddlewares, instance, terminate)
-    }
-
-    runMiddlewares(beforeMiddlewares, instance, (err) => {
-      if (err) return errorHandler(err)
-
-      const onHandlerError = once((err) => {
-        instance.response = null
-        return errorHandler(err)
-      })
-
-      const onHandlerSuccess = once((response) => {
-        instance.response = response
-        runMiddlewares(afterMiddlewares, instance, (err) => {
-          if (err) return errorHandler(err)
-
-          return terminate()
-        })
-      })
-
-      const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
-        if (err) return onHandlerError(err)
-        onHandlerSuccess(response)
-      })
-
-      // support for async/await promise return in handler
-      if (handlerReturnValue) {
-        if (!isPromise(handlerReturnValue)) {
-          throw new Error('Unexpected return value in handler')
+    const middyPromise = new Promise((resolve, reject) => {
+      const terminate = (err) => {
+        if (err) {
+          return callback ? callback(err) : reject(err)
         }
 
-        handlerReturnValue
-          .then(onHandlerSuccess)
-          .catch(onHandlerError)
+        return callback ? callback(null, instance.response) : resolve(instance.response)
       }
+
+      const errorHandler = err => {
+        instance.error = err
+        return runErrorMiddlewares(errorMiddlewares, instance, terminate)
+      }
+
+      runMiddlewares(beforeMiddlewares, instance, (err) => {
+        if (err) return errorHandler(err)
+
+        const onHandlerError = once((err) => {
+          instance.response = null
+          errorHandler(err)
+        })
+
+        const onHandlerSuccess = once((response) => {
+          instance.response = response
+          runMiddlewares(afterMiddlewares, instance, (err) => {
+            if (err) return errorHandler(err)
+
+            terminate()
+          })
+        })
+
+        const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
+          if (err) return onHandlerError(err)
+          onHandlerSuccess(response)
+        })
+
+        // support for async/await promise return in handler
+        if (handlerReturnValue) {
+          if (!isPromise(handlerReturnValue)) {
+            throw new Error('Unexpected return value in handler')
+          }
+
+          handlerReturnValue
+            .then(onHandlerSuccess)
+            .catch(onHandlerError)
+        }
+      })
     })
+    if (!instance.callback) return middyPromise
   }
 
-  instance.use = (middleware) => {
+  instance.use = (middlewares) => {
+    if (Array.isArray(middlewares)) {
+      middlewares.forEach(middleware => instance.applyMiddleware(middleware))
+      return instance
+    } else if (typeof middlewares === 'object') {
+      return instance.applyMiddleware(middlewares)
+    } else {
+      throw new Error('Middy.use() accepts an object or an array of objects')
+    }
+  }
+
+  instance.applyMiddleware = (middleware) => {
     if (typeof middleware !== 'object') {
       throw new Error('Middleware must be an object')
     }

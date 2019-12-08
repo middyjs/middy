@@ -1,8 +1,11 @@
+const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const errorLogger = require('../')
 
 describe('📦 Middleware Error Logger', () => {
-  test('It should log errors and propagate the error', (endTest) => {
+  test('It should log errors and propagate the error', async () => {
+    expect.assertions(3)
+
     const error = new Error('something bad happened')
     const logger = jest.fn()
 
@@ -13,12 +16,14 @@ describe('📦 Middleware Error Logger', () => {
     handler
       .use(errorLogger({ logger }))
 
-    // run the handler
-    handler({}, {}, (err, response) => {
+    let response
+
+    try {
+      response = await invoke(handler)
+    } catch (err) {
       expect(logger).toHaveBeenCalledWith(error)
-      expect(err).toBe(error)
       expect(response).toBeUndefined()
-      endTest()
-    })
+      expect(err).toBe(error)
+    }
   })
 })

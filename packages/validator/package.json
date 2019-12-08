@@ -1,6 +1,6 @@
 {
   "name": "@middy/validator",
-  "version": "1.0.0-alpha.13",
+  "version": "1.0.0-alpha.52",
   "description": "Validator middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -47,5 +47,9 @@
     "ajv-i18n": "^3.3.0",
     "ajv-keywords": "^3.2.0",
     "http-errors": "^1.6.3"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-alpha.52",
+    "es6-promisify": "^6.0.2"
   }
 }

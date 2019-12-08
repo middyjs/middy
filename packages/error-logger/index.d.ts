@@ -1,11 +1,9 @@
-import middy from '../core';
+import middy from '@middy/core';
 
 interface IErrorLoggerOptions {
   logger?: (message: any) => void;
 }
 
-declare function errorLogger(
-  opts?: IErrorLoggerOptions
-): middy.IMiddyMiddlewareObject;
+declare const errorLogger: middy.Middleware<IErrorLoggerOptions, any, any>
 
 export default errorLogger;

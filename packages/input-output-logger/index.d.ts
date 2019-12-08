@@ -1,11 +1,9 @@
-import middy from '../core';
+import middy from '@middy/core';
 
 interface IInputOutputLoggerOptions {
   logger?: (message: any) => void;
 }
 
-declare function inputOutputLogger(
-  opts?: IInputOutputLoggerOptions
-): middy.IMiddyMiddlewareObject;
+declare const inputOutputLogger : middy.Middleware<IInputOutputLoggerOptions, any, any>
 
 export default inputOutputLogger;
