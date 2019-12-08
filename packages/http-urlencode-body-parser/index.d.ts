@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 interface IURLEncodeBodyParserOptions {
-  extended?: false;
+  extended?: boolean;
 }
 
 declare const urlEncodeBodyParser : middy.Middleware<IURLEncodeBodyParserOptions, any, any>

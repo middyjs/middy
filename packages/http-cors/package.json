@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-cors",
-  "version": "1.0.0-alpha.52",
+  "version": "1.0.0-alpha.53",
   "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -42,7 +42,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.52",
+    "@middy/core": "^1.0.0-alpha.53",
     "es6-promisify": "^6.0.2"
   }
 }
