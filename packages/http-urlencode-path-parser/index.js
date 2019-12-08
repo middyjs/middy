@@ -5,7 +5,7 @@ module.exports = () => ({
         try {
           handler.event.pathParameters[key] = decodeURIComponent(handler.event.pathParameters[key])
         } catch (e) {
-          console.error(e)
+          throw new Error(e.message)
         }
       }
     }

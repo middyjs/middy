@@ -22,4 +22,23 @@ describe('📦 Middleware URL Encoded Path Parser', () => {
       })
     })
   })
+
+  test('It should throw error', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.pathParameters) // propagates the body as response
+    })
+
+    handler.use(urlEncodePathParser())
+
+    const event = {
+      pathParameters: {
+        char: '%E0%A4%A'
+      }
+    }
+
+    handler(event, {}, (err, body) => {
+      expect(err.message).toEqual('URI malformed')
+      expect(body).toEqual(undefined)
+    })
+  })
 })

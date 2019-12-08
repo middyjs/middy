@@ -55,7 +55,7 @@ const handler = middy((event, context, cb) => {
   cb(null, event.body) // propagates the body as response
 })
 
-handler.use(httpUrlEncodePathParser({extended: false}))
+handler.use(httpUrlEncodePathParser())
 
 // When Lambda runs the handler with a sample event...
 const event = {
