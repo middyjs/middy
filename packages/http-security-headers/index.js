@@ -26,6 +26,9 @@ const defaults = {
   noSniff: {
     action: 'nosniff'
   },
+  permittedCrossDomainPolicies: {
+    policy: 'none' // none, master-only, by-content-type, by-ftp-filename, all
+  },
   referrerPolicy: {
     policy: 'no-referrer'
   },
@@ -102,6 +105,12 @@ helmet.referrerPolicy = (headers, options) => {
   return headers
 }
 
+// https://github.com/helmetjs/crossdomain
+helmet.permittedCrossDomainPolicies = (headers, options) => {
+  headers['X-Permitted-Cross-Domain-Policies'] = options.policy
+  return headers
+}
+
 // https://github.com/helmetjs/x-xss-protection
 helmetHtmlOnly.xssFilter = (headers, options) => {
   let header = '1; mode=block'
@@ -112,28 +121,30 @@ helmetHtmlOnly.xssFilter = (headers, options) => {
   return headers
 }
 
-const response = (opts, handler, next) => {
+module.exports = (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
-  handler.response = handler.response || {}
-  handler.response.headers = handler.response.headers || {}
+  const response = (handler, next) => {
+    handler.response = handler.response || { statusCode: 500 } // catch thrown errors, prevent default statusCode
+    handler.response.headers = handler.response.headers || {}
 
-  Object.keys(helmet).forEach(key => {
-    const options = Object.assign({}, defaults[key], opts[key])
-    handler.response.headers = helmet[key](handler.response.headers, options)
-  })
-
-  if (handler.response.headers['Content-Type'] && handler.response.headers['Content-Type'].indexOf('text/html') !== -1) {
-    Object.keys(helmetHtmlOnly).forEach(key => {
+    Object.keys(helmet).forEach(key => {
       const options = Object.assign({}, defaults[key], opts[key])
-      handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
+      handler.response.headers = helmet[key](handler.response.headers, options)
     })
+
+    if (handler.response.headers['Content-Type'] && handler.response.headers['Content-Type'].indexOf('text/html') !== -1) {
+      Object.keys(helmetHtmlOnly).forEach(key => {
+        const options = Object.assign({}, defaults[key], opts[key])
+        handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
+      })
+    }
+
+    next()
   }
 
-  next()
+  return {
+    after: response,
+    onError: response
+  }
 }
-
-module.exports = (opts = {}) => ({
-  after: response.bind(null, opts),
-  onError: response.bind(null, opts)
-})
