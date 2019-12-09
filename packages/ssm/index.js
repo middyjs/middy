@@ -1,3 +1,4 @@
+const { SSM } = require('aws-sdk')
 let ssmInstance
 
 module.exports = opts => {
@@ -31,7 +32,7 @@ module.exports = opts => {
         return next()
       }
 
-      ssmInstance = ssmInstance || getSSMInstance(options.awsSdkOptions)
+      ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
 
       const ssmPromises = Object.keys(options.paths).reduce(
         (aggregator, prefix) => {
@@ -143,23 +144,6 @@ const getTargetObjectToAssign = (handler, options) =>
 
 const getSSMParamValues = userParamsMap =>
   [...new Set(Object.keys(userParamsMap).map(key => userParamsMap[key]))]
-
-/**
- * Lazily load aws-sdk and initialize SSM constructor
- * to avoid performance penalties for those who doesn't use
- * this middleware. Sets ssmInstance var at the top of the module
- * or returns if it's already initialized
- * @param {Object} awsSdkOptions Options to use to initialize aws sdk constructor
- */
-const getSSMInstance = awsSdkOptions => {
-  // lazy load aws-sdk and SSM constructor to avoid performance
-  // penalties if you don't use this middleware
-
-  // AWS Lambda has aws-sdk included version 2.176.0
-  // see https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
-  const { SSM } = require('aws-sdk')
-  return new SSM(awsSdkOptions)
-}
 
 /**
  * Throw error if SSM returns an error because we asked for params that don't exist

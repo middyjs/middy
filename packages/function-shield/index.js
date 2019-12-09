@@ -1,8 +1,9 @@
+const functionShield = require('@puresec/function-shield')
 let coldStart = true
+
 module.exports = (opts = { policy: { } }) => ({
   before: (handler, next) => {
     if (coldStart) {
-      const functionShield = require('@puresec/function-shield')
       const defaults = {
         policy: {
           outbound_connectivity: 'block',
