@@ -1,50 +1,24 @@
 version: 2
 jobs:
-  build_node6:
-    docker:
-      - image: circleci/node:6.10
-
-    working_directory: ~/middy
-
-    steps:
-      - checkout
-
-      - attach_workspace:
-          at: ~/
-
-      - run:
-          name: unit tests
-          command: npm run test:packages:unit
-
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - middy/*
-
-  build_node8:
-    docker:
-      - image: circleci/node:8.10
-
-    working_directory: ~/middy
-
-    # These are almost the same set of steps as above.
-    # Yaml doesn't allow you to concatenate lists: https://github.com/yaml/yaml/issues/35
-    # Not in these steps:
-    #  - uploading code coverage
-    #  - saving workspace for the deploy job
-    steps:
-      - checkout
-
-      - attach_workspace:
-          at: ~/
-
-      - run:
-          name: unit tests
-          command: npm run test:packages:unit
-
   build_node10:
     docker:
       - image: circleci/node:10
+
+    working_directory: ~/middy
+
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: unit tests
+          command: npm run test:packages:unit
+
+  build_node12:
+    docker:
+      - image: circleci/node:12
 
     working_directory: ~/middy
 
@@ -123,22 +97,18 @@ workflows:
   build_test_deploy:
     jobs:
         - lint
-        - build_node6:
-            requires:
-              - lint
-        - build_node8:
-            requires:
-              - lint
         - build_node10:
+            requires:
+              - lint
+        - build_node12:
             requires:
               - lint
 
         # we only deploy if build_node6, build_node8 & build_node10 succeed and if on master
         - deploy:
             requires:
-                - build_node6
-                - build_node8
                 - build_node10
+                - build_node12
             filters:
                 branches:
                     only: 1.0.0-alpha
