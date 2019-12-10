@@ -1,4 +1,4 @@
-const { SecretsManager } = require('aws-sdk')
+const SecretsManager = require('aws-sdk/clients/secretsmanager')
 let secretsManagerInstance
 
 module.exports = opts => {

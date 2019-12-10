@@ -1,4 +1,4 @@
-const { SSM } = require('aws-sdk')
+const SSM = require('aws-sdk/clients/ssm')
 let ssmInstance
 
 module.exports = opts => {

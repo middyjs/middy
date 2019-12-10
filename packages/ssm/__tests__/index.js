@@ -1,6 +1,6 @@
 jest.mock('aws-sdk')
 
-const { SSM } = require('aws-sdk')
+const SSM = require('aws-sdk/clients/ssm')
 const middy = require('../../core')
 const ssm = require('../')
 
