@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-cors",
+  "name": "@middy/http-response-serializer",
   "version": "1.0.0-alpha.62",
-  "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
+  "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "engines": {
     "node": ">=10"
   },
@@ -23,8 +23,12 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "CORS",
-    "Cross-Origin Resource Sharing"
+    "HTTP",
+    "API",
+    "Header",
+    "Headers",
+    "Helmet",
+    "Security"
   ],
   "author": {
     "name": "Middy contributors",
@@ -38,6 +42,10 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "accept": "^3.1.3",
+    "http-errors": "^1.7.3"
+  },
   "peerDependencies": {
     "@middy/core": ">=1.0.0-alpha"
   },

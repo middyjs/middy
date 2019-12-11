@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-cors",
+  "name": "@middy/http-multipart-body-parser",
   "version": "1.0.0-alpha.62",
-  "description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
+  "description": "Http event normalizer middleware for the middy framework",
   "engines": {
     "node": ">=10"
   },
@@ -23,8 +23,9 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "CORS",
-    "Cross-Origin Resource Sharing"
+    "HTTP",
+    "API",
+    "Multipart Body"
   ],
   "author": {
     "name": "Middy contributors",
@@ -40,6 +41,11 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "peerDependencies": {
     "@middy/core": ">=1.0.0-alpha"
+  },
+  "dependencies": {
+    "busboy": "0.3.1",
+    "content-type": "1.0.4",
+    "http-errors": "^1.7.3"
   },
   "devDependencies": {
     "@middy/core": "^1.0.0-alpha.62",
