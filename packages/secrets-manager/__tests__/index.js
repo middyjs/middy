@@ -1,6 +1,6 @@
 jest.mock('aws-sdk')
 
-const { SecretsManager } = require('aws-sdk')
+const SecretsManager = require('aws-sdk/clients/secretsmanager')
 const middy = require('../../core')
 const secretsManager = require('../index')
 

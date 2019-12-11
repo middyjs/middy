@@ -1,3 +1,4 @@
+const SecretsManager = require('aws-sdk/clients/secretsmanager')
 let secretsManagerInstance
 
 module.exports = opts => {
@@ -27,9 +28,7 @@ module.exports = opts => {
         return next()
       }
 
-      secretsManagerInstance =
-        secretsManagerInstance ||
-        getSecretsManagerInstance(options.awsSdkOptions)
+      secretsManagerInstance = secretsManagerInstance || new SecretsManager(options.awsSdkOptions)
       const secretsPromises = Object.keys(options.secrets).map(key => {
         const secretName = options.secrets[key]
         return secretsManagerInstance
@@ -93,21 +92,4 @@ const shouldFetchFromSecretsManager = ({
 
   // otherwise, don't bother
   return false
-}
-
-/**
- * Lazily load aws-sdk and initialize SecretsManager constructor
- * to avoid performance penalties for those who doesn't use
- * this middleware. Sets secretsManagerInstance var at the top of the module
- * or returns if it's already initialized
- * @param {Object} awsSdkOptions Options to use to initialize aws sdk constructor
- */
-const getSecretsManagerInstance = awsSdkOptions => {
-  // lazy load aws-sdk and SecretsManager constructor to avoid performance
-  // penalties if you don't use this middleware
-
-  // AWS Lambda has aws-sdk included version 2.176.0
-  // see https://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
-  const { SecretsManager } = require('aws-sdk')
-  return new SecretsManager(awsSdkOptions)
 }

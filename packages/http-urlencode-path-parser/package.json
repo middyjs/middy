@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-path-parser",
-  "version": "1.0.0-alpha.54",
+  "version": "1.0.0-alpha.60",
   "description": "Urlencode path parser middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -47,6 +47,6 @@
     "@types/http-errors": "^1.6.1"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.54"
+    "@middy/core": "^1.0.0-alpha.60"
   }
 }
