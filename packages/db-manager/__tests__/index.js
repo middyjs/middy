@@ -275,4 +275,44 @@ describe('💾  Database manager', () => {
       done()
     })
   })
+
+  test('it should create an authToken to be used as the password', (done) => {
+    const newClient = jest.fn().mockReturnValue(clientMock)
+    const secretsPath = 'secret_location'
+    const config = {
+      connection: {
+        host: '127.0.0.1',
+        user: '1234',
+        port: '5432'
+      }
+    }
+    const handler = middy((event, context, cb) => {
+      expect(context.db.toString()).toEqual(clientMock.toString()) // compare invocations, not functions
+      expect(newClient).toHaveBeenCalledTimes(1)
+      expect(newClient).toHaveBeenCalledWith(config)
+      return cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(dbManager({
+      client: newClient,
+      rdsSigner: {
+        region: 'us-east-1',
+        hostname: '127.0.0.1',
+        username: '1234',
+        port: '5432'
+      },
+      secretsPath,
+      config
+    }))
+
+    // invokes the handler
+    const event = {
+      body: JSON.stringify({ foo: 'bar' })
+    }
+    handler(event, {}, (err, body) => {
+      expect(err).toEqual(null)
+      expect(body).toEqual('{"foo":"bar"}')
+      done()
+    })
+  })
 })

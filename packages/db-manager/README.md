@@ -128,7 +128,7 @@ handler.use(secretsManager({
     throwOnFailedCall: true
 }));
 handler.use(dbManager({
-  client: knex
+  client: knex,
   config: {
     client: 'pg',
     connection: {
@@ -140,6 +140,49 @@ handler.use(dbManager({
 }));
 ```
 
+Connect to RDS using IAM Auth Tokens and TLS
+
+```javascript
+const tls = require('tls')
+const ca = require('fs').readFileSync(`${__dirname}/rds-ca-2019-root.pem`)  // Download from https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html
+
+const handler = middy(async (event, context) => {
+  const { db } = context;
+  const records = await db.select('*').from('my_table');
+  console.log(records);
+});
+handler.use(dbManager({
+  rdsSigner:{
+    region: 'us-east-1',
+    hostname: '*****.******.{region}.rds.amazonaws.com',
+    username: 'iam_user',
+    database: 'myapp_test',
+    port: '5432'
+  },
+  secretsPath: 'password',
+  config: {
+    client: 'pg',
+    connection: {
+      host: '*****.******.{region}.rds.amazonaws.com',
+      user: 'your_database_user',
+      database: 'myapp_test',
+      port: '5432',
+      ssl: {
+        rejectUnauthorized: true,
+        ca,
+        checkServerIdentity: (host, cert) => {
+          const error = tls.checkServerIdentity(host, cert)
+          if (error && !cert.subject.CN.endsWith('.rds.amazonaws.com')) {
+            return error
+          }
+        }
+      }
+    }
+  }
+}));
+```
+
+See AWS Docs [Rotating Your SSL/TLS Certificate](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html) to ensure you're using the right certificate.
 
 ## Middy documentation and examples
 
