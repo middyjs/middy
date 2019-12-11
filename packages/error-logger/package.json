@@ -1,6 +1,6 @@
 {
   "name": "@middy/error-logger",
-  "version": "1.0.0-alpha.59",
+  "version": "1.0.0-alpha.60",
   "description": "Input and output logger middleware for the middy framework",
   "engines": {
     "node": ">=6.10"
@@ -47,7 +47,7 @@
     "@types/node": "^10.0.8"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.59",
+    "@middy/core": "^1.0.0-alpha.60",
     "es6-promisify": "^6.0.2"
   }
 }
