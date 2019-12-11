@@ -1,9 +1,9 @@
 {
   "name": "@middy/s3-key-normalizer",
-  "version": "1.0.0-alpha.60",
+  "version": "1.0.0-alpha.61",
   "description": "S3 key normalizer middleware for the middy framework",
   "engines": {
-    "node": ">=6.10"
+    "node": ">=10"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -43,7 +43,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.60",
+    "@middy/core": "^1.0.0-alpha.61",
     "es6-promisify": "^6.0.2"
   }
 }

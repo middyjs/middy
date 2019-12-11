@@ -1,9 +1,9 @@
 {
   "name": "@middy/http-multipart-body-parser",
-  "version": "1.0.0-alpha.54",
+  "version": "1.0.0-alpha.61",
   "description": "Http event normalizer middleware for the middy framework",
   "engines": {
-    "node": ">=6.10"
+    "node": ">=10"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -45,10 +45,10 @@
   "dependencies": {
     "busboy": "0.3.1",
     "content-type": "1.0.4",
-    "http-errors": "1.7.3"
+    "http-errors": "^1.7.3"
   },
   "devDependencies": {
-    "@middy/core": "1.0.0-alpha.54",
+    "@middy/core": "^1.0.0-alpha.61",
     "es6-promisify": "^6.0.2"
   }
 }
