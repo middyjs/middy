@@ -1,6 +1,6 @@
 {
   "name": "@middy/do-not-wait-for-empty-event-loop",
-  "version": "1.0.0-alpha.54",
+  "version": "1.0.0-alpha.58",
   "description": "Middleware for the middy framework that allows to easily disable the wait for empty event loop in a Lambda function",
   "engines": {
     "node": ">=6.10"
@@ -41,7 +41,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.54",
+    "@middy/core": "^1.0.0-alpha.58",
     "es6-promisify": "^6.0.2"
   }
 }

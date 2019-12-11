@@ -1,5 +1,10 @@
 const createError = require('http-errors')
-
+const parseFn = {
+  charset: require('negotiator/lib/charset'),
+  encoding: require('negotiator/lib/encoding'),
+  language: require('negotiator/lib/language'),
+  mediaType: require('negotiator/lib/mediaType')
+}
 module.exports = (opts) => {
   const defaults = {
     parseCharsets: true,
@@ -16,13 +21,12 @@ module.exports = (opts) => {
   const options = Object.assign({}, defaults, opts)
 
   const parseHeader = (headerName, type, availableValues, failOnMismatch, event) => {
-    const parseFn = require(`negotiator/lib/${type}`)
     const singular = type.charAt(0).toUpperCase() + type.slice(1)
     const plural = singular + 's'
     const resultsName = `preferred${plural}`
     const resultName = `preferred${singular}`
     const headerValue = event.headers[headerName.toLowerCase()] || event.headers[headerName]
-    event[resultsName] = parseFn(headerValue, availableValues)
+    event[resultsName] = parseFn[type](headerValue, availableValues)
     event[resultName] = event[resultsName][0]
 
     if (typeof event[resultName] === 'undefined' && failOnMismatch) {

@@ -3,7 +3,7 @@ jest.mock('knex')
 
 const knex = require('knex')
 
-const middy = require('@middy/core')
+const middy = require('../../core')
 const dbManager = require('../')
 
 describe('💾  Database manager', () => {
