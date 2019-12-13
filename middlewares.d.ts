@@ -1,7 +1,6 @@
 import { SSM } from 'aws-sdk'
 import { Options as AjvOptions } from 'ajv'
 import { HttpError } from 'http-errors'
-import Knex from 'knex'
 import middy from './'
 
 interface ICorsOptions {
@@ -116,17 +115,8 @@ interface IHTTPSecurityHeadersOptions {
   xssFilter?: Object
 }
 
-interface IDbManagerOptions {
-  client?: Knex | Function,
-  config: Knex.Config | Object,
-  forceNewConnection?: boolean,
-  secretsPath?: string,
-  removeSecrets?: boolean
-}
-
 declare const cache: middy.Middleware<ICacheOptions>;
 declare const cors: middy.Middleware<ICorsOptions>;
-declare const dbManager: middy.Middleware<IDbManagerOptions>;
 declare const doNotWaitForEmptyEventLoop: middy.Middleware<IDoNotWaitForEmtpyEventLoopOptions>;
 declare const httpContentNegotiation: middy.Middleware<IHTTPContentNegotiationOptions>;
 declare const httpErrorHandler: middy.Middleware<IHTTPErrorHandlerOptions>;
