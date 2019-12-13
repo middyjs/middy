@@ -4,6 +4,7 @@
 
 - [cache](#cache)
 - [cors](#cors)
+- [dbManager](#dbManager)
 - [doNotWaitForEmptyEventLoop](#donotwaitforemptyeventloop)
 - [functionShield](#functionshield)
 - [httpContentNegotiation](#httpcontentnegotiation)
@@ -133,6 +134,12 @@ handler({}, {}, (_, response) => {
   expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
 })
 ```
+
+## dbManager
+
+Database connection management.
+
+**Note**: dbManager has been removed from core since 0.33.0. Use @middy/db-manager instead. The only caveat to be aware of is that you will need to use >= Node.js 10.x Lambda runtime due to security vulnerabilities in knex on older versions of NodeJS.
 
 ## [doNotWaitForEmptyEventLoop](/src/middlewares/doNotWaitForEmptyEventLoop.js)
 
