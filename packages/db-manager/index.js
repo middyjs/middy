@@ -7,7 +7,7 @@ module.exports = (opts) => {
   const defaults = {
     client: knex,
     config: null,
-    rdsSigner: null,
+    awsSdkOptions: null,
     forceNewConnection: false,
     secretsPath: null, // provide path where credentials lay in context
     removeSecrets: true
@@ -15,14 +15,8 @@ module.exports = (opts) => {
 
   const options = Object.assign({}, defaults, opts)
 
-  function cleanup (handler, next) {
-    if (options.forceNewConnection && (dbInstance && typeof dbInstance.destroy === 'function')) {
-      dbInstance.destroy((err) => next(err || handler.error))
-    }
-    next(handler.error)
-  }
-
   const signer = (config) => {
+    if (!config.region && config.hostname) config.region = config.hostname.split('.')[2]
     if (typeof config.port === 'string') config.port = Number.parseInt(config.port)
     const signer = new RDS.Signer(config)
     return new Promise((resolve, reject) => {
@@ -33,6 +27,13 @@ module.exports = (opts) => {
         resolve(token)
       })
     })
+  }
+
+  const cleanup = (handler, next) => {
+    if (options.forceNewConnection && (dbInstance && typeof dbInstance.destroy === 'function')) {
+      dbInstance.destroy((err) => next(err || handler.error))
+    }
+    next(handler.error)
   }
 
   return {
@@ -48,10 +49,11 @@ module.exports = (opts) => {
       if (!config) {
         throw new Error('Config is required in dbManager')
       }
+
       if (!dbInstance || forceNewConnection) {
         const secrets = {}
-        if (options.rdsSigner !== null && secretsPath) {
-          secrets[secretsPath] = await signer(options.rdsSigner)
+        if (options.awsSdkOptions !== null && secretsPath) {
+          secrets[secretsPath] = await signer(options.awsSdkOptions)
         } else if (secretsPath) {
           secrets[secretsPath] = handler.context[secretsPath]
         }
@@ -64,6 +66,7 @@ module.exports = (opts) => {
       if (secretsPath && removeSecrets) {
         delete handler.context[secretsPath]
       }
+
       next()
     },
 

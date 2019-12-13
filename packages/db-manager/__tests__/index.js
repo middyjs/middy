@@ -2,6 +2,7 @@
 jest.mock('knex')
 
 const knex = require('knex')
+const RDS = require('aws-sdk/clients/rds')
 
 const middy = require('../../core')
 const dbManager = require('../')
@@ -9,7 +10,16 @@ const dbManager = require('../')
 describe('💾  Database manager', () => {
   let destroyFn
   let clientMock
+
+  let getAuthTokenMock
+  let SignerMock
+
   beforeEach(() => {
+    getAuthTokenMock = jest.fn()
+    SignerMock = jest.fn(() => ({
+      getAuthToken: getAuthTokenMock
+    }))
+    RDS.prototype.Signer = SignerMock
     destroyFn = jest.fn()
     clientMock = jest.fn(() => ({
       destroy: destroyFn
@@ -44,6 +54,7 @@ describe('💾  Database manager', () => {
     })
   })
 
+  // TODO async before causing quite error w/r toHaveBeenCalledTimes
   test('it should destroy instance if forceNewConnection flag provided', (done) => {
     knex.mockReturnValue(clientMock())
     const handler = middy((event, context, cb) => {
@@ -233,8 +244,7 @@ describe('💾  Database manager', () => {
       user: '1234',
       password: '56678'
     }
-    const config = {
-    }
+    const config = { connection }
     const handler = middy((event, context, cb) => {
       expect(context.db.toString()).toEqual(clientMock.toString()) // compare invocations, not functions
       expect(newClient).toHaveBeenCalledTimes(1)
@@ -276,9 +286,11 @@ describe('💾  Database manager', () => {
     })
   })
 
-  test('it should create an authToken to be used as the password', (done) => {
+  // TODO async before causing quite error w/r toHaveBeenCalledTimes, running test by itself passes.
+  test('it should create an authToken to be used as the password', async () => {
     const newClient = jest.fn().mockReturnValue(clientMock)
     const secretsPath = 'secret_location'
+    const secretsValue = 'secret_token'
     const config = {
       connection: {
         host: '127.0.0.1',
@@ -286,9 +298,13 @@ describe('💾  Database manager', () => {
         port: '5432'
       }
     }
+    getAuthTokenMock.mockReturnValue({
+      promise: () => Promise.resolve(secretsValue)
+    })
     const handler = middy((event, context, cb) => {
       expect(context.db.toString()).toEqual(clientMock.toString()) // compare invocations, not functions
       expect(newClient).toHaveBeenCalledTimes(1)
+      config.connection[secretsPath] = secretsValue
       expect(newClient).toHaveBeenCalledWith(config)
       return cb(null, event.body) // propagates the body as a response
     })
@@ -309,10 +325,9 @@ describe('💾  Database manager', () => {
     const event = {
       body: JSON.stringify({ foo: 'bar' })
     }
-    handler(event, {}, (err, body) => {
+    await handler(event, {}, (err, body) => {
       expect(err).toEqual(null)
       expect(body).toEqual('{"foo":"bar"}')
-      done()
     })
   })
 })
