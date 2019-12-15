@@ -116,7 +116,6 @@ function safeParse (secretString) {
   try {
     return JSON.parse(secretString || '{}')
   } catch (err) {
-    console.info('plain string')
   }
 
   return secretString

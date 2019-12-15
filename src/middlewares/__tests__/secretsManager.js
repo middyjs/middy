@@ -27,6 +27,11 @@ describe('🔒 SecretsManager Middleware', () => {
     expect(context.API_KEY.ApiKey).toEqual('apikey')
   }
 
+  const hasStringKey = context => {
+    expect(typeof context.API_KEY).toEqual('string')
+    expect(context.API_KEY).toEqual('secret-api-key')
+  }
+
   function testScenario ({ mockResponse, mockResponses, middlewareOptions, callbacks, done, delay = 0 }) {
     if (mockResponses) {
       mockResponses.forEach(resp => {
@@ -85,6 +90,26 @@ describe('🔒 SecretsManager Middleware', () => {
       callbacks: [
         (_, { context }) => {
           hasRDSLogin(context)
+          expect(getSecretValueMock).toBeCalled()
+        }
+      ],
+      done
+    })
+  })
+
+  test(`It should set string secrets to context`, (done) => {
+    testScenario({
+      mockResponse: {
+        SecretString: 'secret-api-key'
+      },
+      middlewareOptions: {
+        secrets: {
+          API_KEY: 'api_key'
+        }
+      },
+      callbacks: [
+        (_, { context }) => {
+          hasStringKey(context)
           expect(getSecretValueMock).toBeCalled()
         }
       ],
