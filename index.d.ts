@@ -4,14 +4,14 @@ import {
   Handler
 } from 'aws-lambda';
 
-declare type EventType<T> =
-  T extends (event: infer EventArgType, context: Context, callback: Callback<any>) => void ? EventArgType :
-  T extends (event: infer EventArgType, context: Context) => Promise<any> ? EventArgType :
+declare type EventType<T, C> =
+  T extends (event: infer EventArgType, context: C, callback: Callback<any>) => void ? EventArgType :
+  T extends (event: infer EventArgType, context: C) => Promise<any> ? EventArgType :
   never;
 
-declare type HandlerReturnType<T> =
-  T extends (event: any, context: Context) => Promise<infer RetType> ? RetType :
-  T extends (event: any, context: Context, callback: Callback<infer RetType>) => void ? RetType :
+declare type HandlerReturnType<T, C> =
+  T extends (event: any, context: C) => Promise<infer RetType> ? RetType :
+  T extends (event: any, context: C, callback: Callback<infer RetType>) => void ? RetType :
   never;
 
 declare type AsyncHandler<C extends Context> =
@@ -19,8 +19,8 @@ declare type AsyncHandler<C extends Context> =
   ((event: any, context: C) => Promise<any>);
 
 declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(handler: H) => middy.Middy<
-  EventType<H>,
-  HandlerReturnType<H>,
+  EventType<H, C>,
+  HandlerReturnType<H, C>,
   C
 >;
 
