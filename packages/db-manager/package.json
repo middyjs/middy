@@ -1,6 +1,6 @@
 {
   "name": "@middy/db-manager",
-  "version": "1.0.0-alpha.62",
+  "version": "1.0.0-alpha.63",
   "description": "Simple database manager for the middy framework",
   "engines": {
     "node": ">=10"
@@ -40,7 +40,7 @@
     "knex": "^0.17.3"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.62"
+    "@middy/core": "^1.0.0-alpha.63"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
