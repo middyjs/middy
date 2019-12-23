@@ -1,6 +1,6 @@
 {
   "name": "@middy/ssm",
-  "version": "1.0.0-alpha.62",
+  "version": "1.0.0-alpha.63",
   "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -47,7 +47,7 @@
     "@types/node": "^10.0.8"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.62",
+    "@middy/core": "^1.0.0-alpha.63",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
