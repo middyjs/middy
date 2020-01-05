@@ -36,7 +36,7 @@ module.exports = (opts) => {
   }
 
   return {
-    before: async (handler, next) => {
+    before: async (handler) => {
       const {
         client,
         config,
