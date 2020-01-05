@@ -1,4 +1,4 @@
-# 0.x -> 1.x
+# Upgrade 0.x -> 1.x
 
 ## Independent packages structure
 
