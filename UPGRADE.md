@@ -2,7 +2,7 @@
 
 ## Independent packages structure
 
-Version 1.0 of Middy features decoupled independent packages published on npm under the `@middy` namespace. The core middleware engine has been moved to [`@middy/core`](https://www.npmjs.com/package/@middy/core) and all the other middlewares are moved into their own packages as well. This allows to only install the features that are needed and to keep your Lambda dependencies small. See the list below to check which packages you need based on the middlewares you use:
+Version 1.x of Middy features decoupled independent packages published on npm under the `@middy` namespace. The core middleware engine has been moved to [`@middy/core`](https://www.npmjs.com/package/@middy/core) and all the other middlewares are moved into their own packages as well. This allows to only install the features that are needed and to keep your Lambda dependencies small. See the list below to check which packages you need based on the middlewares you use:
 
   - Core middleware functionality -> [`@middy/core`](https://www.npmjs.com/package/@middy/core)
   - `cache` -> [`@middy/cache`](https://www.npmjs.com/package/@middy/cache)
@@ -25,11 +25,11 @@ Version 1.0 of Middy features decoupled independent packages published on npm un
 
 ## Header normalization in `http-header-normalizer`
 
-In Middy 0.x the `httpHeaderNormalizer` middleware normalizes HTTP header names into their own canonical format, for instance `Sec-WebSocket-Key` (notice the casing). In Middy 1.0 this behavior has been changed to provide header names in lowercase format (e.g. `sec-webSocket-key`). This new behavior is more consistent with what Node.js core `http` package does and what other famous http frameworks like Express or Fastify do, so this is considered a more intuitive approach.
-When updating to Middy 1.0, make sure you double check all your references to HTTP headers and switch to the lowercase version to read them.
+In Middy 0.x the `httpHeaderNormalizer` middleware normalizes HTTP header names into their own canonical format, for instance `Sec-WebSocket-Key` (notice the casing). In Middy 1.x this behavior has been changed to provide header names in lowercase format (e.g. `sec-webSocket-key`). This new behavior is more consistent with what Node.js core `http` package does and what other famous http frameworks like Express or Fastify do, so this is considered a more intuitive approach.
+When updating to Middy 1.x, make sure you double check all your references to HTTP headers and switch to the lowercase version to read them.
 All the middy core modules have been already updated to support the new format, so you should worry only about your userland code.
 
 
 ## Node.js 10 and 12 now supported / Node.js 6 and 8 now dropped
 
-Version 1.0 of Middy no longer supports Node.js versions 6.x and 8.x as these versions have been dropped by the AWS Lambda runtime itself and not supported anymore by the Node.js community. You are highly encouraged to move to Node.js 12 or 10, which are the new supported versions in Middy 1.0.
+Version 1.x of Middy no longer supports Node.js versions 6.x and 8.x as these versions have been dropped by the AWS Lambda runtime itself and not supported anymore by the Node.js community. You are highly encouraged to move to Node.js 12 or 10, which are the new supported versions in Middy 1.x.
