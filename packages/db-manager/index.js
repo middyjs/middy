@@ -36,7 +36,7 @@ module.exports = (opts) => {
   }
 
   return {
-    before: (handler, next) => {
+    before: async (handler, next) => {
       const {
         client,
         config,
@@ -49,32 +49,23 @@ module.exports = (opts) => {
         throw new Error('Config is required in dbManager')
       }
 
-      let secretPromise = Promise.resolve()
       if (!dbInstance || forceNewConnection) {
         const secrets = {}
 
         if (options.rdsSigner && secretsPath) {
-          // secrets[secretsPath] = await signer(options.rdsSigner)
-          secretPromise = signer(options.rdsSigner)
+          secrets[secretsPath] = await signer(options.rdsSigner)
         } else if (secretsPath) {
-          // secrets[secretsPath] = handler.context[secretsPath]
-          secretPromise = Promise.resolve(handler.context[secretsPath])
+          secrets[secretsPath] = handler.context[secretsPath]
         }
-        secretPromise.then((secret) => {
-          secrets[secretsPath] = secret
-          config.connection = Object.assign({}, config.connection || {}, secrets)
+        config.connection = Object.assign({}, config.connection || {}, secrets)
 
-          dbInstance = client(config)
-        })
+        dbInstance = client(config)
       }
 
-      secretPromise.then(() => {
-        Object.assign(handler.context, { db: dbInstance })
-        if (secretsPath && removeSecrets) {
-          delete handler.context[secretsPath]
-        }
-        next()
-      })
+      Object.assign(handler.context, { db: dbInstance })
+      if (secretsPath && removeSecrets) {
+        delete handler.context[secretsPath]
+      }
     },
 
     after: cleanup,
