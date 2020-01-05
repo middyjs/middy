@@ -35,6 +35,23 @@
 </p>
 </div>
 
+---
+
+⚠️ **Warining: Middy 0.x is being deprecated** ⚠️
+
+Middy 1.x, with support for Node.js 10 & 12 will soon replace Middy 0.x.
+
+You can already use Middy 1.x, check out [branch `1.0.0-beta`](https://github.com/middyjs/middy/tree/1.0.0-beta) for documentation and source code. If you have a project running on Middy 0.x that you need to port to Middy 1.x, you can also check out the [upgrade guide](https://github.com/middyjs/middy/blob/1.0.0-beta/UPGRADE.md).
+
+This is the expected timeline for the future releases:
+
+| -         | January 2020       | March 2020 | August 2020  |
+| --------- | ------------------ | ---------- | ------------ |
+| Middy 0.x | Active             | Supported  | Discontinued |
+| Middy 1.0 | Beta (recommended) | Active     | Active       |
+
+---
+
 
 ## TOC
 
