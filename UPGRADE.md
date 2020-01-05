@@ -1,8 +1,8 @@
-# 0.x -> 1.0
+# 0.x -> 1.x
 
 ## Independent packages structure
 
-Version 1.0 of Middy features decoupled independent packages published on npm under the `@middy` namespace. The core middleware engine has been modev to [`@middy/core`](https://www.npmjs.com/package/@middy/core) and all the other middlewares are moved into their own paclages as well. This allows to only install the features that are needed and to keep your Lambda dependencies small. See the list below to check which packages you need based on the middlewares you use:
+Version 1.0 of Middy features decoupled independent packages published on npm under the `@middy` namespace. The core middleware engine has been moved to [`@middy/core`](https://www.npmjs.com/package/@middy/core) and all the other middlewares are moved into their own packages as well. This allows to only install the features that are needed and to keep your Lambda dependencies small. See the list below to check which packages you need based on the middlewares you use:
 
   - Core middleware functionality -> [`@middy/core`](https://www.npmjs.com/package/@middy/core)
   - `cache` -> [`@middy/cache`](https://www.npmjs.com/package/@middy/cache)
@@ -32,4 +32,4 @@ All the middy core modules have been already updated to support the new format, 
 
 ## Node.js 10 and 12 now supported / Node.js 6 and 8 now dropped
 
-Version 1.0 of Middy does not support Node.js versions 6.x and 8.x. These versions are now out of support, so you are highly encourage to move to Node.js 12 or 10, which are the new supported versions in Middy 1.0.
+Version 1.0 of Middy no longer supports Node.js versions 6.x and 8.x as these versions have been dropped by the AWS Lambda runtime itself and not supported anymore by the Node.js community. You are highly encouraged to move to Node.js 12 or 10, which are the new supported versions in Middy 1.0.
