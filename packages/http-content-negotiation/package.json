@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-negotiation",
-  "version": "1.0.0-alpha.64",
+  "version": "1.0.0-alpha.65",
   "description": "Http content negotiation middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -47,7 +47,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-alpha.64",
+    "@middy/core": "^1.0.0-alpha.65",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
