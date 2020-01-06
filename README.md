@@ -177,7 +177,7 @@ module.exports = { handler }
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
-```
+```javascript
 const middy = require("@middy/core");
 const middleware1 = require("sample-middleware1");
 const middleware2 = require("sample-middleware2");
