@@ -34,6 +34,8 @@
 </p>
 </div>
 
+**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [upgrade instructions](UPGRADE.md)!**
+
 ## What is Middy
 
 Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.

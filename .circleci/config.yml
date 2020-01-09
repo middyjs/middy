@@ -111,4 +111,4 @@ workflows:
                 - build_node12
             filters:
                 branches:
-                    only: 1.0.0-alpha
+                    only: 1.0.0-beta
