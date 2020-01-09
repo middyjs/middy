@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Http error handler middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -47,7 +47,7 @@
     "http-errors": "^1.6.3"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.1",
+    "@middy/core": "^1.0.0-beta.2",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
