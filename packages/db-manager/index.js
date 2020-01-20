@@ -10,6 +10,7 @@ module.exports = (opts) => {
     rdsSigner: null,
     forceNewConnection: false,
     secretsPath: null, // provide path where credentials lay in context, default to try to get RDS authToken
+    secretsParam: 'password', // if `secretsPath` returns an object, ignore value
     removeSecrets: true
   }
 
@@ -42,6 +43,7 @@ module.exports = (opts) => {
         config,
         forceNewConnection,
         secretsPath,
+        secretsParam,
         removeSecrets
       } = options
 
@@ -50,12 +52,17 @@ module.exports = (opts) => {
       }
 
       if (!dbInstance || forceNewConnection) {
-        const secrets = {}
+        let secrets = {}
 
         if (options.rdsSigner && secretsPath) {
-          secrets[secretsPath] = await signer(options.rdsSigner)
+          secrets[secretsParam] = await signer(options.rdsSigner)
         } else if (secretsPath) {
-          secrets[secretsPath] = handler.context[secretsPath]
+          // catch Secrets Manager response
+          if (typeof handler.context[secretsPath] === 'object') {
+            secrets = handler.context[secretsPath]
+          } else {
+            secrets[secretsParam] = handler.context[secretsPath]
+          }
         }
         config.connection = Object.assign({}, config.connection || {}, secrets)
 
