@@ -34,6 +34,8 @@
 </p>
 </div>
 
+**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [upgrade instructions](UPGRADE.md)!**
+
 ## What is Middy
 
 Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
@@ -175,7 +177,7 @@ module.exports = { handler }
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
-```
+```javascript
 const middy = require("@middy/core");
 const middleware1 = require("sample-middleware1");
 const middleware2 = require("sample-middleware2");
