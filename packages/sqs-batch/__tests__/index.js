@@ -1,3 +1,4 @@
+require('promise.allsettled').shim()
 const SQS = require('aws-sdk/clients/sqs')
 const eventMocks = require('@serverless/event-mocks').default
 const middy = require('../../core')
