@@ -71,6 +71,12 @@ Your Lambda function requires permission to delete the message from the queue.
 }
 ```
 
+### Usage with Node.js <= 10
+
+This middleware expects a `Promise.allSettled` resolved value to be returned by the Lambda handler, which is only available in Node.js 12+.
+
+To use this middleware with earlier versions of Node.js, use a polyfill. We recommend installing [promise.allsettled](https://www.npmjs.com/package/promise.allsettled) and adding `require('promise.allsettled').shim()` to your handler.
+
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
