@@ -1,7 +1,7 @@
 {
   "name": "@middy/sqs-batch",
   "version": "1.0.0-beta",
-  "description": "SQs batch error handler middleware for the middy framework",
+  "description": "SQS partial batch failure middleware for the middy framework",
   "engines": {
     "node": ">=10"
   },
