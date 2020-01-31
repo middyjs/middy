@@ -362,4 +362,88 @@ describe('📦 Middleware CORS', () => {
       expect(response).toEqual({})
     })
   })
+
+  test('it should set Cache-Control header if present in config', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
+        }
+      })
+    })
+  })
+
+  test('it should overwrite Cache-Control header if already set', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, { headers: { 'Cache-Control': 'max-age=1200' } })
+    })
+
+    handler.use(cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'max-age=1200'
+        }
+      })
+    })
+  })
+
+  test('it should set Access-Control-Max-Age header if present in config', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors({ maxAge: '3600' }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Max-Age': '3600'
+        }
+      })
+    })
+  })
+
+  test('it should overwrite Access-Control-Max-Age header if already set', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, { headers: { 'Access-Control-Max-Age': '-1' } })
+    })
+
+    handler.use(cors({ maxAge: '3600' }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Max-Age': '-1'
+        }
+      })
+    })
+  })
 })

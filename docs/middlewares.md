@@ -91,6 +91,8 @@ Sets headers in `after` and `onError` phases.
 - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present.
 - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
 - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
+- `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
+- `cacheControl` (string) (optional): value to put in Cache-Control header (default: `null`)
 
 NOTES:
 - If another middleware does not handle and swallow errors, then it will bubble all the way up
