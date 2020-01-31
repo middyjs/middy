@@ -363,7 +363,7 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
-  test('it should set Cache-Control header if present in config', () => {
+  test('it should set Cache-Control header if present in config and http method OPTIONS', () => {
     const handler = middy((event, context, cb) => {
       cb(null, {})
     })
@@ -371,7 +371,7 @@ describe('📦 Middleware CORS', () => {
     handler.use(cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' }))
 
     const event = {
-      httpMethod: 'GET'
+      httpMethod: 'OPTIONS'
     }
 
     handler(event, {}, (_, response) => {
@@ -379,6 +379,23 @@ describe('📦 Middleware CORS', () => {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
+        }
+      })
+    })
+  })
+
+  test.each(['GET', 'POST', 'PUT', 'PATCH'])('it should not set Cache-Control header on %s', (httpMethod) => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' }))
+
+    const event = { httpMethod }
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': '*'
         }
       })
     })
@@ -392,7 +409,7 @@ describe('📦 Middleware CORS', () => {
     handler.use(cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' }))
 
     const event = {
-      httpMethod: 'GET'
+      httpMethod: 'OPTIONS'
     }
 
     handler(event, {}, (_, response) => {

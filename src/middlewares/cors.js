@@ -52,8 +52,10 @@ const addCorsHeaders = (opts, handler, next) => {
       handler.response.headers['Access-Control-Max-Age'] = String(options.maxAge)
     }
 
-    if (options.cacheControl && !handler.response.headers.hasOwnProperty('Cache-Control')) {
-      handler.response.headers['Cache-Control'] = String(options.cacheControl)
+    if (handler.event.httpMethod === 'OPTIONS') {
+      if (options.cacheControl && !handler.response.headers.hasOwnProperty('Cache-Control')) {
+        handler.response.headers['Cache-Control'] = String(options.cacheControl)
+      }
     }
   }
 

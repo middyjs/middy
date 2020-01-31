@@ -92,7 +92,7 @@ Sets headers in `after` and `onError` phases.
 - `headers` (string) (optional): value to put in Access-Control-Allow-Headers (default: `null`)
 - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
 - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
-- `cacheControl` (string) (optional): value to put in Cache-Control header (default: `null`)
+- `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
 
 NOTES:
 - If another middleware does not handle and swallow errors, then it will bubble all the way up
