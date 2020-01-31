@@ -384,7 +384,7 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
-  test('it should overwrite Cache-Control header if already set', () => {
+  test('it should not overwrite Cache-Control header if already set', () => {
     const handler = middy((event, context, cb) => {
       cb(null, { headers: { 'Cache-Control': 'max-age=1200' } })
     })
@@ -426,7 +426,7 @@ describe('📦 Middleware CORS', () => {
     })
   })
 
-  test('it should overwrite Access-Control-Max-Age header if already set', () => {
+  test('it should not overwrite Access-Control-Max-Age header if already set', () => {
     const handler = middy((event, context, cb) => {
       cb(null, { headers: { 'Access-Control-Max-Age': '-1' } })
     })
