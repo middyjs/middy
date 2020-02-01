@@ -51,8 +51,7 @@ const sqsBatch = require('@middy/sqs-partial-batch-failure')
 
 const originalHandler = (event, context, cb) => {
   const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
-  const settledRecords = await Promise.allSettled(recordPromises)
-  return settledRecords
+  return Promise.allSettled(recordPromises)
 }
 
 const handler = middy(originalHandler)
