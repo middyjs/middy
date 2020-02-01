@@ -10,8 +10,8 @@
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsqs-batch">
-    <img src="https://badge.fury.io/js/%40middy%2Fsqs-batch.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fsqs-partial-batch-failure">
+    <img src="https://badge.fury.io/js/%40middy%2Fsqs-partial-batch-failure.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -35,7 +35,7 @@ Middleware for handling partially failed SQS batches.
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/sqs-batch
+npm install --save @middy/sqs-partial-batch-failure
 ```
 
 ## Options
@@ -47,10 +47,10 @@ npm install --save @middy/sqs-batch
 
 ```javascript
 const middy = require('@middy/core')
-const sqsBatch = require('@middy/sqs-batch')
+const sqsBatch = require('@middy/sqs-partial-batch-failure')
 
 const originalHandler = (event, context, cb) => {
-  const recordPromises = Records.map(async (record, index) => { /* Custom message processing logic */ })
+  const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
   const settledRecords = await Promise.allSettled(recordPromises)
   return settledRecords
 }
