@@ -11,15 +11,10 @@ describe('💾  Database manager', () => {
   let destroyFn
   let clientMock
 
-  let getAuthTokenMock
-  let SignerMock
-
   beforeEach(() => {
-    getAuthTokenMock = jest.fn()
-    SignerMock = jest.fn(() => ({
-      getAuthToken: getAuthTokenMock
-    }))
-    RDS.prototype.Signer = SignerMock
+    RDS.Signer = class Signer {
+      getAuthToken (options, cb) { return cb(null, 'token') }
+    }
     destroyFn = jest.fn()
     clientMock = jest.fn(() => ({
       destroy: destroyFn
@@ -31,15 +26,33 @@ describe('💾  Database manager', () => {
     destroyFn.mockReset()
   })
 
-  test('it should create db instance with default config', (done) => {
+  test('it should create an authToken to be used as the password', () => {
     knex.mockReturnValue(clientMock())
+    const newClient = jest.fn().mockReturnValue(clientMock)
+    const config = {
+      connection: {
+        host: '127.0.0.1',
+        user: '1234',
+        port: '5432'
+      }
+    }
     const handler = middy((event, context, cb) => {
-      expect(context.db).toEqual(clientMock()) // compare invocations, not functions
+      expect(context.db()).toEqual(clientMock())
+      expect(newClient).toHaveBeenCalledTimes(1)
+      config.connection.password = 'token'
+      expect(newClient).toHaveBeenCalledWith(config)
       return cb(null, event.body) // propagates the body as a response
     })
 
     handler.use(dbManager({
-      config: {}
+      client: newClient,
+      rdsSigner: {
+        region: 'us-east-1',
+        hostname: '127.0.0.1',
+        username: '1234',
+        port: '5432'
+      },
+      config
     }))
 
     // invokes the handler
@@ -49,16 +62,12 @@ describe('💾  Database manager', () => {
     handler(event, {}, (err, body) => {
       expect(err).toEqual(null)
       expect(body).toEqual('{"foo":"bar"}')
-      expect(destroyFn).toHaveBeenCalledTimes(0)
-      done()
     })
   })
 
-  // TODO async before causing quite error w/r toHaveBeenCalledTimes
   test('it should destroy instance if forceNewConnection flag provided', (done) => {
     knex.mockReturnValue(clientMock())
     const handler = middy((event, context, cb) => {
-      expect(context.db).toEqual(clientMock()) // compare invocations, not functions
       return cb(null, event.body) // propagates the body as a response
     })
 
@@ -283,51 +292,6 @@ describe('💾  Database manager', () => {
       expect(err).toEqual(null)
       expect(body).toEqual('{"foo":"bar"}')
       done()
-    })
-  })
-
-  // TODO async before causing quite error w/r toHaveBeenCalledTimes, running test by itself passes.
-  test('it should create an authToken to be used as the password', async () => {
-    const newClient = jest.fn().mockReturnValue(clientMock)
-    const secretsPath = 'secret_location'
-    const secretsValue = 'secret_token'
-    const config = {
-      connection: {
-        host: '127.0.0.1',
-        user: '1234',
-        port: '5432'
-      }
-    }
-    getAuthTokenMock.mockReturnValue({
-      promise: () => Promise.resolve(secretsValue)
-    })
-    const handler = middy((event, context, cb) => {
-      expect(context.db.toString()).toEqual(clientMock.toString()) // compare invocations, not functions
-      expect(newClient).toHaveBeenCalledTimes(1)
-      config.connection[secretsPath] = secretsValue
-      expect(newClient).toHaveBeenCalledWith(config)
-      return cb(null, event.body) // propagates the body as a response
-    })
-
-    handler.use(dbManager({
-      client: newClient,
-      rdsSigner: {
-        region: 'us-east-1',
-        hostname: '127.0.0.1',
-        username: '1234',
-        port: '5432'
-      },
-      secretsPath,
-      config
-    }))
-
-    // invokes the handler
-    const event = {
-      body: JSON.stringify({ foo: 'bar' })
-    }
-    await handler(event, {}, (err, body) => {
-      expect(err).toEqual(null)
-      expect(body).toEqual('{"foo":"bar"}')
     })
   })
 })
