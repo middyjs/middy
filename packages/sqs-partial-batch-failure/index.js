@@ -1,7 +1,6 @@
-/* eslint no-underscore-dangle:0 */
 const SQS = require('aws-sdk/clients/sqs')
 
-async function _deleteSqsMessages ({ sqs, fulfilledRecords }) {
+async function defaultDeleteSqsMessages ({ sqs, fulfilledRecords }) {
   if (!fulfilledRecords || !fulfilledRecords.length) return null
 
   const Entries = getEntries({ fulfilledRecords })
@@ -15,9 +14,9 @@ async function _deleteSqsMessages ({ sqs, fulfilledRecords }) {
 }
 
 function getEntries ({ fulfilledRecords }) {
-  const entries = fulfilledRecords.map((rejectedRecord, key) => ({
+  const entries = fulfilledRecords.map((fulfilledRecord, key) => ({
     Id: key.toString(),
-    ReceiptHandle: rejectedRecord.receiptHandle
+    ReceiptHandle: fulfilledRecord.receiptHandle
   }))
 
   return entries
@@ -28,14 +27,14 @@ function getQueueUrl ({ sqs, eventSourceARN }) {
   return `${sqs.endpoint.href}${accountId}/${queueName}`
 }
 
-function _getRejectedReasons ({ response }) {
+function defaultGetRejectedReasons ({ response }) {
   const rejected = response.filter((r) => r.status === 'rejected')
   const rejectedReasons = rejected.map((r) => r.reason && r.reason.message)
 
   return rejectedReasons
 }
 
-function _getFulfilledRecords ({ Records, response }) {
+function defaultGetFulfilledRecords ({ Records, response }) {
   const fulfilledRecords = Records.filter((r, index) => response[index].status === 'fulfilled')
 
   return fulfilledRecords
@@ -76,9 +75,9 @@ function sqsMiddlewareAfter ({
 
 const sqsMiddleware = ({
   sqs = new SQS(),
-  deleteSqsMessages = _deleteSqsMessages,
-  getFulfilledRecords = _getFulfilledRecords,
-  getRejectedReasons = _getRejectedReasons
+  deleteSqsMessages = defaultDeleteSqsMessages,
+  getFulfilledRecords = defaultGetFulfilledRecords,
+  getRejectedReasons = defaultGetRejectedReasons
 } = {}) => ({
   after: sqsMiddlewareAfter({
     sqs,
