@@ -1,6 +1,6 @@
 {
   "name": "@middy/function-shield",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "Hardens AWS Lambda execution environment",
   "engines": {
     "node": ">=10"
@@ -45,7 +45,7 @@
     "@puresec/function-shield": "^2.0.16"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.3",
+    "@middy/core": "^1.0.0-beta.4",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
