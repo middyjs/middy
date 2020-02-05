@@ -100,10 +100,10 @@ const inputSchema = {
        cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
        nameOnCard: { type: 'string' },
        amount: { type: 'number' }
-     }
+     },
+     required: ['creditCardNumber'] // Insert here all required event properties
    }
- },
- required: ['creditCardNumber'] // Insert here all required event properties
+ }
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
@@ -177,7 +177,7 @@ module.exports = { handler }
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
-```
+```javascript
 const middy = require("@middy/core");
 const middleware1 = require("sample-middleware1");
 const middleware2 = require("sample-middleware2");

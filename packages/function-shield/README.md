@@ -28,6 +28,8 @@
 </p>
 </div>
 
+⚠️ **Warning: FunctionShield is no longer actively maintained and will unlikely be updated to have Node.js v12 support. [See #460](https://github.com/middyjs/middy/issues/460)** ⚠️
+
 Hardens AWS Lambda execution environment:
 * By monitoring (or blocking) outbound network traffic to public internet, you can be certain that your data is never leaked (traffic to AWS services is not affected)
 * By disabling read/write operations on the /tmp/ directory, you make sure that files are not persisted across invocations. Storing data in `/tmp` is a bad practice as it may be leaked in subsequent invocations
