@@ -7,10 +7,11 @@ module.exports = (opts) => {
   const defaults = {
     client: knex,
     config: null,
-    rdsSigner: null,
     forceNewConnection: false,
-    secretsPath: null, // provide path where credentials lay in context, default to try to get RDS authToken
-    removeSecrets: true
+    rdsSigner: null,
+    removeSecrets: true,
+    secretsParam: 'password', // if `secretsPath` returns an object, ignore value
+    secretsPath: null // provide path where credentials lay in context, default to try to get RDS authToken
   }
 
   const options = Object.assign({}, defaults, opts)
@@ -41,8 +42,10 @@ module.exports = (opts) => {
         client,
         config,
         forceNewConnection,
-        secretsPath,
-        removeSecrets
+        rdsSigner,
+        removeSecrets,
+        secretsParam,
+        secretsPath
       } = options
 
       if (!config) {
@@ -50,12 +53,17 @@ module.exports = (opts) => {
       }
 
       if (!dbInstance || forceNewConnection) {
-        const secrets = {}
+        let secrets = {}
 
-        if (options.rdsSigner && secretsPath) {
-          secrets[secretsPath] = await signer(options.rdsSigner)
+        if (rdsSigner) {
+          secrets[secretsParam] = await signer(rdsSigner)
         } else if (secretsPath) {
-          secrets[secretsPath] = handler.context[secretsPath]
+          // catch Secrets Manager response
+          if (typeof handler.context[secretsPath] === 'object') {
+            secrets = handler.context[secretsPath]
+          } else {
+            secrets[secretsParam] = handler.context[secretsPath]
+          }
         }
         config.connection = Object.assign({}, config.connection || {}, secrets)
 

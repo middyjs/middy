@@ -1,7 +1,7 @@
 {
-  "name": "@middy/db-manager",
+  "name": "@middy/sqs-partial-batch-failure",
   "version": "1.0.0-beta.4",
-  "description": "Simple database manager for the middy framework",
+  "description": "SQS partial batch failure middleware for the middy framework",
   "engines": {
     "node": ">=10"
   },
@@ -14,7 +14,6 @@
     "test:unit": "jest",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
-  "types": "dist/types.d.ts",
   "license": "MIT",
   "keywords": [
     "Lambda",
@@ -22,7 +21,11 @@
     "Serverless",
     "Framework",
     "AWS",
-    "AWS Lambda"
+    "AWS Lambda",
+    "Middy",
+    "SQS",
+    "Batch",
+    "Error"
   ],
   "author": {
     "name": "Middy contributors",
@@ -36,11 +39,14 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "dependencies": {
-    "knex": "^0.17.3"
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha",
+    "aws-sdk": ">=2.221.1"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.4"
+    "@middy/core": "^1.0.0-beta.4",
+    "@serverless/event-mocks": "^1.1.1",
+    "promise.allsettled": "^1.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
