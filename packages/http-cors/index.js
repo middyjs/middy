@@ -17,7 +17,9 @@ const defaults = {
   getOrigin,
   origin: '*',
   headers: null,
-  credentials: false
+  credentials: false,
+  maxAge: null,
+  cacheControl: null
 }
 
 const addCorsHeaders = (opts, handler, next) => {
@@ -46,6 +48,16 @@ const addCorsHeaders = (opts, handler, next) => {
       const headers = handler.event.headers || {}
       const incomingOrigin = headers.origin || headers.Origin
       handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
+    }
+
+    if (options.maxAge && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Max-Age')) {
+      handler.response.headers['Access-Control-Max-Age'] = String(options.maxAge)
+    }
+
+    if (handler.event.httpMethod === 'OPTIONS') {
+      if (options.cacheControl && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Cache-Control')) {
+        handler.response.headers['Cache-Control'] = String(options.cacheControl)
+      }
     }
   }
 
