@@ -252,4 +252,26 @@ describe('📦  Middleware Http Response Serializer', () => {
       body: '{}'
     })
   })
+
+  test('It should return false when response body is falsey', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, { statusCode: 200, body: false })
+    })
+
+    const event = {
+      headers: {
+        Accept: 'text/plain'
+      }
+    }
+    handler.use(httpResponseSerializer(standardConfiguration))
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/plain'
+      },
+      body: false
+    })
+  })
 })
