@@ -42,8 +42,8 @@ const middleware = (opts, handler, next) => {
 
     if (!test) { return false }
 
-    // if the response is null or undefined, normalizes it back to an object
-    handler.response = (handler.response !== null && typeof handler.response !== 'undefined') ? handler.response : {}
+    // if the response is not an object, assign it to body. { body: undefined } is not serelized
+    handler.response = typeof handler.response === 'object' ? handler.response : { body: handler.response }
 
     // set header
     handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
