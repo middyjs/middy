@@ -1,6 +1,6 @@
 {
   "name": "@middy/warmup",
-  "version": "1.0.0-beta.5",
+  "version": "1.0.0-beta.6",
   "description": "Warmup (cold start mitigation) middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -43,7 +43,7 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.5",
+    "@middy/core": "^1.0.0-beta.6",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
