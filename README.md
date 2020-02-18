@@ -570,6 +570,13 @@ methods to allow you to quickly hook in simple inline middlewares.
 Check the [code for existing middlewares](/src/middlewares) to see more examples
 on how to write a middleware.
 
+## FAQ
+
+### Q: `context.done called twice within handler` warning
+**A**: You're probably trying to use `callback()` inside an async handler, or `next()` inside an async middleware. Async
+handlers and middlewares should return a promise, so calling those functions is not needed.
+See [Promise support](https://github.com/middyjs/middy#promise-support) for examples.
+
 ## Available middlewares
 
 Currently available middlewares:
