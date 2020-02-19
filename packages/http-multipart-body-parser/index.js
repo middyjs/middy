@@ -2,6 +2,16 @@ const BusBoy = require('busboy')
 const contentTypeLib = require('content-type')
 const createError = require('http-errors')
 
+const sanitizeHeaders = (headers) => {
+  // Sanitize content type, see https://github.com/middyjs/middy/issues/474
+  if (headers && headers['Content-Type']) {
+    headers['content-type'] = headers['Content-Type']
+    delete headers['Content-Type']
+  }
+
+  return headers
+}
+
 module.exports = opts => {
   const defaults = {
     // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
@@ -12,12 +22,14 @@ module.exports = opts => {
 
   return {
     before: (handler, next) => {
-      const { headers } = handler.event
+      const headers = sanitizeHeaders(handler.event.headers)
+
       if (!headers) {
         return next()
       }
 
-      const contentType = headers['Content-Type'] || headers['content-type']
+      const contentType = headers['content-type']
+
       if (contentType) {
         const { type } = contentTypeLib.parse(contentType)
         if (type !== 'multipart/form-data') {

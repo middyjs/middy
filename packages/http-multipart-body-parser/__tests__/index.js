@@ -164,4 +164,26 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     const response = await invoke(handler, event)
     expect(response).toEqual('LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=')
   })
+
+  test('It should process the request if the content type header name has uppercase initials', async () => {
+    const handler = middy((event, _context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(httpMultipartBodyParser())
+
+    // Base64 encoded form data with a file with fieldname 'attachment', filename 'test.txt', and contents 'hello world!'
+    const event = {
+      headers: {
+        'Content-Type': 'multipart/form-data; boundary=------------------------4f0e69e6c2513684'
+      },
+      body: 'LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImF0dGFjaG1lbnQiOyBmaWxlbmFtZT0idGVzdC50eHQiDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KaGVsbG8gd29ybGQhCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0LS0NCg==',
+      isBase64Encoded: true
+    }
+
+    const response = await invoke(handler, event)
+
+    expect(Object.keys(response)).toContain('attachment')
+    expect(Object.keys(response.attachment)).toContain('content')
+  })
 })
