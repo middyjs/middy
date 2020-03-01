@@ -37,13 +37,13 @@ module.exports = opts => {
 }
 
 const parseMultipartData = (event, options) => {
-  let multipartData = {}
+  const multipartData = {}
   const bb = BusBoy(Object.assign({}, options, { headers: event.headers }))
 
   return new Promise((resolve, reject) => {
     bb
       .on('file', (fieldname, file, filename, encoding, mimetype) => {
-        let attachment = {
+        const attachment = {
           filename,
           mimetype,
           encoding

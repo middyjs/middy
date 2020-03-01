@@ -11,19 +11,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       headers: {
         'x-api-key': '123456',
-        'tcn': 'abc',
-        'te': 'cde',
-        'DNS': 'd',
-        'FOO': 'bar'
+        tcn: 'abc',
+        te: 'cde',
+        DNS: 'd',
+        FOO: 'bar'
       }
     }
 
     const expectedHeaders = {
       'X-Api-Key': '123456',
-      'TCN': 'abc',
-      'TE': 'cde',
-      'Dns': 'd',
-      'Foo': 'bar'
+      TCN: 'abc',
+      TE: 'cde',
+      Dns: 'd',
+      Foo: 'bar'
     }
 
     const originalHeaders = Object.assign({}, event.headers)
@@ -49,19 +49,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       headers: {
         'x-api-key': '123456',
-        'tcn': 'abc',
-        'te': 'cde',
-        'DNS': 'd',
-        'FOO': 'bar'
+        tcn: 'abc',
+        te: 'cde',
+        DNS: 'd',
+        FOO: 'bar'
       }
     }
 
     const expectedHeaders = {
       'X-API-KEY': '123456',
-      'TCN': 'abc',
-      'TE': 'cde',
-      'DNS': 'd',
-      'FOO': 'bar'
+      TCN: 'abc',
+      TE: 'cde',
+      DNS: 'd',
+      FOO: 'bar'
     }
 
     const originalHeaders = Object.assign({}, event.headers)
@@ -105,19 +105,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       multiValueHeaders: {
         'x-api-key': ['123456', '7890'],
-        'tcn': ['abc', 'def'],
-        'te': ['cde'],
-        'DNS': ['d'],
-        'FOO': ['bar']
+        tcn: ['abc', 'def'],
+        te: ['cde'],
+        DNS: ['d'],
+        FOO: ['bar']
       }
     }
 
     const expectedHeaders = {
       'X-Api-Key': ['123456', '7890'],
-      'TCN': ['abc', 'def'],
-      'TE': ['cde'],
-      'Dns': ['d'],
-      'Foo': ['bar']
+      TCN: ['abc', 'def'],
+      TE: ['cde'],
+      Dns: ['d'],
+      Foo: ['bar']
     }
 
     const originalHeaders = Object.assign({}, event.multiValueHeaders)
@@ -143,19 +143,19 @@ describe('👺 Middleware Http Header Normalizer', () => {
     const event = {
       multiValueHeaders: {
         'x-api-key': ['123456', '7890'],
-        'tcn': ['abc', 'def'],
-        'te': ['cde'],
-        'DNS': ['d'],
-        'FOO': ['bar']
+        tcn: ['abc', 'def'],
+        te: ['cde'],
+        DNS: ['d'],
+        FOO: ['bar']
       }
     }
 
     const expectedHeaders = {
       'X-API-KEY': ['123456', '7890'],
-      'TCN': ['abc', 'def'],
-      'TE': ['cde'],
-      'DNS': ['d'],
-      'FOO': ['bar']
+      TCN: ['abc', 'def'],
+      TE: ['cde'],
+      DNS: ['d'],
+      FOO: ['bar']
     }
 
     const originalHeaders = Object.assign({}, event.multiValueHeaders)

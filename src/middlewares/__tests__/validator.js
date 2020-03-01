@@ -59,7 +59,7 @@ describe('📦  Middleware Validator', () => {
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'should have required property foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
+      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'should have required property foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
     })
   })
 
@@ -93,7 +93,7 @@ describe('📦  Middleware Validator', () => {
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'requiert la propriété foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
+      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'requiert la propriété foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
     })
   })
 
@@ -127,7 +127,7 @@ describe('📦  Middleware Validator', () => {
     }
     handler(event, {}, (err, res) => {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ 'dataPath': '', 'keyword': 'required', 'message': 'deve ter a propriedade requerida foo', 'params': { 'missingProperty': 'foo' }, 'schemaPath': '#/required' }])
+      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'deve ter a propriedade requerida foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
     })
   })
 
