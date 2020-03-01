@@ -37,7 +37,7 @@
 
 ---
 
-⚠️ **Warning: Middy 0.x is being deprecated** ⚠️
+⚠️ **Warining: Middy 0.x is being deprecated** ⚠️
 
 Middy 1.x, with support for Node.js 10 & 12 will soon replace Middy 0.x.
 
