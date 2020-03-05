@@ -1,5 +1,5 @@
 {
-  "name": "@middy/sqs-partial-batch-failure",
+  "name": "@middy/sqs-json-body-parser",
   "version": "1.0.0-beta.6",
   "description": "SQS batch json body parser middleware for the middy framework",
   "engines": {
