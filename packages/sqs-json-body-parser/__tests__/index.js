@@ -1,218 +1,189 @@
-// const createEvent = require('@serverless/event-mocks').default
-// const middy = require('../../core')
-// const sqsJsonBodyParser = require('../')
+const createEvent = require('@serverless/event-mocks').default
+const middy = require('../../core')
+const sqsJsonBodyParser = require('../')
 
-// describe('middleware/sqsJsonBodyParser >', function () {
-//   let opts
-//   let bodyParser
-//   let nextStub
-//   let event
+describe('middleware/sqsJsonBodyParser >', () => {
+  let opts
+  let bodyParser
+  let next
+  let event
 
-//   beforeEach(function () {
-//     opts = undefined
-//     bodyParser = sqsJsonBodyParser(opts)
-//     nextStub = jest.fn()
-//     event = createEvent('aws:sqs')
-//   })
+  beforeEach(() => {
+    opts = undefined
+    bodyParser = sqsJsonBodyParser(opts)
+    next = jest.fn()
+    event = createEvent('aws:sqs')
+  })
 
-//   describe('as function >', function () {
-//     let handler
+  describe('as function >', () => {
+    let handler
 
-//     beforeEach(function () {
-//       jest.spyOn(JSON, 'parse')
+    beforeEach(() => {
+      jest.spyOn(JSON, 'parse')
 
-//       handler = { event }
-//     })
+      handler = { event }
+    })
 
-//     it('handles empty event object', function () {
-//       handler = {}
-//       bodyParser.before(handler, nextStub)
+    afterEach(() => {
+      JSON.parse.mockRestore()
+    })
 
-//       sinon.assert.notCalled(JSON.parse)
-//       sinon.assert.calledOnce(nextStub)
-//     })
+    test('handles empty event object', () => {
+      handler = {}
+      bodyParser.before(handler, next)
 
-//     it('handles empty Records array', function () {
-//       handler = { event: {} }
-//       bodyParser.before(handler, nextStub)
+      expect(JSON.parse).not.toHaveBeenCalled()
+      expect(next).toHaveBeenCalledTimes(1)
+    })
 
-//       sinon.assert.notCalled(JSON.parse)
-//       sinon.assert.calledOnce(nextStub)
-//     })
+    test('handles empty Records array', function () {
+      handler = { event: {} }
+      bodyParser.before(handler, next)
 
-//     it('parses each body payload', function () {
-//       const body = '{}'
-//       handler.event.Records[0].body = body
-//       bodyParser.before(handler, nextStub)
+      expect(JSON.parse).not.toHaveBeenCalled()
+      expect(next).toHaveBeenCalledTimes(1)
+    })
 
-//       sinon.assert.calledOnce(JSON.parse)
-//       sinon.assert.calledWith(JSON.parse, body, undefined)
-//       expect(handler.event.Records[0].body).to.be.an('object')
-//       sinon.assert.calledOnce(nextStub)
-//     })
+    test('parses each body payload', function () {
+      const bodys = [{ one: 1 }, { two: 2 }, { three: 3 }]
+      event.Records.push({ ...event.Records[0] })
+      event.Records.push({ ...event.Records[0] })
 
-//     it('calls reviver when provided', function () {
-//       const body = '{}'
-//       handler.event.Records[0].body = body
-//       const reviver = sinon.stub()
-//       opts = { reviver }
-//       bodyParser = sqsJsonBodyParser(opts)
+      bodys.forEach((body, idx) => {
+        event.Records[idx].body = JSON.stringify(body)
+      })
 
-//       bodyParser.before(handler, nextStub)
+      bodyParser.before(handler, next)
 
-//       sinon.assert.calledOnce(JSON.parse)
-//       sinon.assert.calledWith(JSON.parse, body, reviver)
-//       sinon.assert.calledOnce(reviver)
-//     })
+      expect(JSON.parse).toHaveBeenCalledTimes(3)
+      event.Records.forEach((rcd, idx) => {
+        expect(JSON.parse).toHaveBeenNthCalledWith((idx + 1), JSON.stringify(bodys[idx]), undefined)
+        expect(rcd.body).toStrictEqual(bodys[idx])
+      })
+      expect(next).toHaveBeenCalledTimes(1)
+    })
 
-//     it('calls handleError when parse error', function () {
-//       const { body } = handler.event.Records[0]
-//       const str = 'jibberish'
-//       const handleError = sinon.stub().returns(str)
-//       opts = { handleError }
-//       bodyParser = sqsJsonBodyParser(opts)
+    test('returns original body when parse error', function () {
+      const body = 'bad json'
+      handler.event.Records[0].body = body
+      bodyParser.before(handler, next)
 
-//       bodyParser.before(handler, nextStub)
+      expect(JSON.parse).toHaveBeenCalledTimes(1)
+      expect(JSON.parse).toHaveBeenCalledWith(body, undefined)
+      expect(handler.event.Records[0].body).toBe(body)
+      expect(next).toHaveBeenCalledTimes(1)
+    })
 
-//       sinon.assert.threw(JSON.parse)
-//       sinon.assert.calledOnce(handleError)
-//       sinon.assert.calledWith(handleError, sinon.match.instanceOf(Error), body)
-//       sinon.assert.calledOnce(nextStub)
-//       expect(handler.event.Records[0].body).to.equal(str)
-//     })
+    test('calls reviver when provided', function () {
+      const body = '{}'
+      handler.event.Records[0].body = body
+      const reviver = jest.fn()
+      opts = { reviver }
+      bodyParser = sqsJsonBodyParser(opts)
 
-//     it('breaks and throws when handleError does', function () {
-//       const { body } = handler.event.Records[0]
-//       const handleError = sinon.stub().throws()
-//       opts = { handleError }
-//       bodyParser = sqsJsonBodyParser(opts)
+      bodyParser.before(handler, next)
 
-//       try {
-//         bodyParser.before(handler, nextStub)
-//       } catch (err) {}
+      expect(JSON.parse).toHaveBeenCalledTimes(1)
+      expect(JSON.parse).toHaveBeenCalledWith(body, reviver)
+      expect(reviver).toHaveBeenCalled()
+      expect(next).toHaveBeenCalledTimes(1)
+    })
 
-//       sinon.assert.threw(JSON.parse)
-//       sinon.assert.calledOnce(handleError)
-//       sinon.assert.calledWith(handleError, sinon.match.instanceOf(Error), body)
-//       sinon.assert.notCalled(nextStub)
-//     })
+    test('calls safeParse when provided', function () {
+      const { body } = handler.event.Records[0]
+      const safeParseRet = 'jibberish'
+      const reviver = jest.fn()
+      const safeParse = jest.fn().mockReturnValue(safeParseRet)
+      opts = { reviver, safeParse }
+      bodyParser = sqsJsonBodyParser(opts)
 
-//     it('handleError is not a function', function () {
-//       const { body } = handler.event.Records[0]
-//       const handleError = 'zig zap zip zoom'
-//       opts = { handleError }
-//       bodyParser = sqsJsonBodyParser(opts)
+      bodyParser.before(handler, next)
 
-//       bodyParser.before(handler, nextStub)
+      expect(safeParse).toHaveBeenCalledTimes(1)
+      expect(safeParse).toHaveBeenCalledWith(body, reviver)
+      expect(handler.event.Records[0].body).toBe(safeParseRet)
+      expect(next).toHaveBeenCalledTimes(1)
+    })
+  })
 
-//       sinon.assert.threw(JSON.parse)
-//       expect(handler.event.Records[0].body)
-//         .to.be.a('string')
-//         .that.equals(body)
-//       sinon.assert.calledOnce(nextStub)
-//     })
-//   })
+  describe('as middleware > ', function () {
+    let originalHandler
+    let handler
 
-//   describe('as middleware > ', function () {
-//     let callbackStub
-//     let originalHanldlerStub
-//     let handler
+    beforeEach(function () {
+      originalHandler = jest.fn()
+      handler = middy(originalHandler)
 
-//     beforeEach(function () {
-//       callbackStub = sinon.stub()
-//       originalHanldlerStub = sinon.stub()
-//       handler = middy(originalHanldlerStub)
+      handler.use(bodyParser)
+    })
 
-//       sinon.spy(bodyParser, 'before')
+    test('parses the body', function () {
+      const body = '{}'
+      event.Records[0].body = body
 
-//       handler.use(bodyParser)
-//     })
+      handler(event, {})
 
-//     it('parses the body', function () {
-//       const body = '{}'
-//       event.Records[0].body = body
+      expect(event.Records[0].body).toStrictEqual({})
+    })
 
-//       handler(event, {}, callbackStub)
+    test('parses all bodys', function () {
+      const bodys = [{ one: 1 }, { two: 2 }]
+      event.Records.push({ ...event.Records[0] })
 
-//       sinon.assert.calledOnce(bodyParser.before)
+      bodys.forEach((body, idx) => {
+        event.Records[idx].body = JSON.stringify(body)
+      })
 
-//       expect(event.Records[0].body)
-//         .to.be.an('object')
-//         .and.to.eql({})
-//     })
+      handler(event, {})
 
-//     it('parses all bodys', function () {
-//       const bodys = ['{}', '{}']
-//       const record = { ...event.Records[0] }
-//       event.Records.push(record)
+      event.Records.forEach((rcd, idx) => {
+        expect(rcd.body).toStrictEqual(bodys[idx])
+      })
+    })
 
-//       bodys.forEach((body, idx) => {
-//         event.Records[idx].body = body
-//       })
+    test('returns original body when parse error', function () {
+      const body = 'bad json'
+      event.Records[0].body = body
 
-//       handler(event, {}, callbackStub)
+      handler(event, {})
 
-//       sinon.assert.calledOnce(bodyParser.before)
+      expect(event.Records[0].body).toBe(body)
+    })
 
-//       event.Records.forEach(rcd => {
-//         expect(rcd.body)
-//           .to.be.an('object')
-//           .and.to.eql({})
-//       })
-//     })
+    test('calls reviver when provided', function () {
+      const body = '{}'
+      event.Records[0].body = body
+      const revivereRet = 'jibberish'
+      const reviver = jest.fn().mockReturnValue(revivereRet)
+      opts = { reviver }
+      bodyParser = sqsJsonBodyParser(opts)
 
-//     it('keeps body unmodified when not handleError option', function () {
-//       const { body } = event.Records[0]
+      handler = middy(originalHandler)
 
-//       handler(event, {}, callbackStub)
+      handler.use(bodyParser)
 
-//       sinon.assert.calledOnce(bodyParser.before)
+      handler(event, {})
 
-//       expect(event.Records[0].body)
-//         .to.be.a('string')
-//         .and.to.equal(body)
-//     })
+      expect(reviver).toHaveBeenCalled()
+      expect(event.Records[0].body).toBe(revivereRet)
+    })
 
-//     it('keeps body unmodified when handleError throws', function () {
-//       const { body } = event.Records[0]
+    test('calls safeParse when provided', function () {
+      const { body } = event.Records[0]
+      const safeParseRet = 'jibberish'
+      const safeParse = jest.fn().mockReturnValue(safeParseRet)
+      opts = { safeParse }
+      bodyParser = sqsJsonBodyParser(opts)
 
-//       opts = { handleError: sinon.stub().throws() }
-//       bodyParser = sqsJsonBodyParser(opts)
+      handler = middy(originalHandler)
 
-//       sinon.spy(bodyParser, 'before')
+      handler.use(bodyParser)
 
-//       handler = middy(originalHanldlerStub)
+      handler(event, {})
 
-//       handler.use(bodyParser)
-
-//       handler(event, {}, callbackStub)
-
-//       sinon.assert.calledOnce(bodyParser.before)
-
-//       expect(event.Records[0].body)
-//         .to.be.a('string')
-//         .and.to.equal(body)
-//     })
-
-//     it('sets body to whatever handleError returns', function () {
-//       const newBody = Math.random()
-
-//       opts = { handleError: sinon.stub().returns(newBody) }
-//       bodyParser = sqsJsonBodyParser(opts)
-
-//       sinon.spy(bodyParser, 'before')
-
-//       handler = middy(originalHanldlerStub)
-
-//       handler.use(bodyParser)
-
-//       handler(event, {}, callbackStub)
-
-//       sinon.assert.calledOnce(bodyParser.before)
-
-//       expect(event.Records[0].body)
-//         .to.be.a('number')
-//         .and.to.equal(newBody)
-//     })
-//   })
-// })
+      expect(safeParse).toHaveBeenCalledTimes(1)
+      expect(safeParse).toHaveBeenCalledWith(body, undefined)
+      expect(event.Records[0].body).toBe(safeParseRet)
+    })
+  })
+})
