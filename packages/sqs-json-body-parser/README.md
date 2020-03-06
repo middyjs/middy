@@ -1,11 +1,11 @@
-# Middy sqs partial batch failure middleware
+# Middy sqs json body parsing middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>SQS batch middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>SQS batch json body parsing middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
@@ -28,53 +28,43 @@
 </p>
 </div>
 
-Middleware for handling partially failed SQS batches.
+Middleware for iterating through a SQS batch of records and parsing the string body to a JSON body.
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/sqs-partial-batch-failure
+npm install --save @middy/sqs-json-body-parser
 ```
 
 ## Options
 
- - `sqs`: an `AWS.SQS` instance for deleting successfully processed messages from the queue.
-
+ - `reviver` (function) (optional): A function to be passed as the reviver for [JSON.parse(text[, reviver])](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON). If safeParse is provided then reviver will be passed to it and it is up the provided safeParse function to use it or ignore it.
+ - `safeParse` (function) (optional): A provided function to be used inplace of the default safeParse function for custom parsing logic on each record body in the batch. As an example the following represents the default safeParse function:
+ ```javascript
+const safeParse = (body, reviver) => {
+  try {
+    return JSON.parse(body, reviver)
+  } catch (err) {
+    return body
+  }
+}
+ ```
 
 ## Sample usage
 
 ```javascript
 const middy = require('@middy/core')
-const sqsBatch = require('@middy/sqs-partial-batch-failure')
+const sqsJsonBodyParser = require('@middy/sqs-json-body-parser')
 
-const originalHandler = (event, context, cb) => {
-  const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
-  return Promise.allSettled(recordPromises)
+const yourHandler = (event, context, cb) => {
+  const { Records } = event
+  return Promise.all(Records.map(async (record, index) => { /* your message processing logic */ }))
 }
 
-const handler = middy(originalHandler)
-  .use(sqsBatch())
+const handler = middy(yourHandler).use(sqsJsonBodyParser())
 ```
-
-Your Lambda function requires permission to delete the message from the queue.
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "sqs:DeleteMessage"
-  ],
-  "Resource": "arn:aws:sqs..."
-}
-```
-
-### Usage with Node.js <= 10
-
-This middleware expects a `Promise.allSettled` resolved value to be returned by the Lambda handler, which is only available in Node.js 12+.
-
-To use this middleware with earlier versions of Node.js, use a polyfill. We recommend installing [promise.allsettled](https://www.npmjs.com/package/promise.allsettled) and adding `require('promise.allsettled').shim()` to your handler.
 
 ## Middy documentation and examples
 
