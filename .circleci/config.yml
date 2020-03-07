@@ -11,8 +11,8 @@ jobs:
 
       - restore_cache:
           keys:
-          - v1-dependencies-v6-{{ checksum "package.json" }}
-          - v1-dependencies-v6-
+          - v1-dependencies-v12-{{ checksum "package.json" }}
+          - v1-dependencies-v12-
           - v1-dependencies-
 
       - run:
@@ -22,7 +22,7 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-v6-{{ checksum "package.json" }}
+          key: v1-dependencies-v12-{{ checksum "package.json" }}
 
       - run:
           name: unit tests
@@ -48,8 +48,8 @@ jobs:
 
       - restore_cache:
           keys:
-          - v1-dependencies-v6-{{ checksum "package.json" }}
-          - v1-dependencies-v6-
+          - v1-dependencies-v10-{{ checksum "package.json" }}
+          - v1-dependencies-v10-
           - v1-dependencies-
 
       - run:
@@ -59,7 +59,7 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-v6-{{ checksum "package.json" }}
+          key: v1-dependencies-v10-{{ checksum "package.json" }}
 
       - run:
           name: unit tests
@@ -68,11 +68,6 @@ jobs:
       - run:
           name: coverage reporting
           command: npm run coverage:submit
-
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - middy/*
 
   build_node8:
     docker:
@@ -109,7 +104,7 @@ jobs:
 
   deploy:
     docker:
-      - image: circleci/node:6.10
+      - image: circleci/node:12
 
     steps:
         - attach_workspace:
