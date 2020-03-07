@@ -8,6 +8,7 @@ interface ISSMOptions {
   names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   setToContext?: boolean;
+  paramsLoaded?: Boolean;
   getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
 }
 
