@@ -48,7 +48,7 @@ describe('🔒 SecretsManager Middleware', () => {
     const event = {}
     let promise = Promise.resolve()
     callbacks.forEach(cb => {
-      let context = {}
+      const context = {}
       promise = promise.then(() => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
@@ -72,7 +72,7 @@ describe('🔒 SecretsManager Middleware', () => {
     promise.then(done).catch(done)
   }
 
-  test(`It should set secrets to context`, (done) => {
+  test('It should set secrets to context', (done) => {
     testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
@@ -92,7 +92,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should not call aws-sdk again if secret is cached`, (done) => {
+  test('It should not call aws-sdk again if secret is cached', (done) => {
     testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
@@ -118,7 +118,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should call aws-sdk if cache enabled but cached secrets have expired`, (done) => {
+  test('It should call aws-sdk if cache enabled but cached secrets have expired', (done) => {
     testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
@@ -146,7 +146,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should not call aws-sdk if cache enabled and cached param has not expired`, (done) => {
+  test('It should not call aws-sdk if cache enabled and cached param has not expired', (done) => {
     testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
@@ -174,7 +174,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should not throw error when empty middleware params passed`, (done) => {
+  test('It should not throw error when empty middleware params passed', (done) => {
     testScenario({
       mockResponse: {},
       middlewareOptions: {},
@@ -188,7 +188,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should use cache secrets if refresh fails`, (done) => {
+  test('It should use cache secrets if refresh fails', (done) => {
     testScenario({
       mockResponse: {
         SecretString: JSON.stringify({ Username: 'username', Password: 'password' })
@@ -218,7 +218,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should fail if "throwOnFailedCall" flag provided and call failed`, (done) => {
+  test('It should fail if "throwOnFailedCall" flag provided and call failed', (done) => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
@@ -246,7 +246,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should resolve if "throwOnFailedCall" flag not provided and call failed`, (done) => {
+  test('It should resolve if "throwOnFailedCall" flag not provided and call failed', (done) => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     getSecretValueMock.mockReturnValueOnce({
       promise: () => Promise.reject(new Error(errorMessage))
@@ -268,7 +268,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should resolve if "throwOnFailedCall" flag provided but item already cached`, (done) => {
+  test('It should resolve if "throwOnFailedCall" flag provided but item already cached', (done) => {
     const errorMessage = 'Internal Error / Secret doesn\'t exist'
     return testScenario({
       mockResponse: {
@@ -304,7 +304,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should only refresh once per cache expiry window`, (done) => {
+  test('It should only refresh once per cache expiry window', (done) => {
     // with cache expiry of 50ms, test what happens when one refresh fails, and
     // that the middleware doesn't retry for another 50ms
     // 0ms (fetch), 40ms (cached), 80ms (retry failed), 120ms (no retry), 160ms (retry)

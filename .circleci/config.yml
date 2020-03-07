@@ -1,8 +1,45 @@
 version: 2
 jobs:
-  build_node6:
+  build_node12:
     docker:
-      - image: circleci/node:6.10
+      - image: circleci/node:12
+
+    working_directory: ~/middy
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+          - v1-dependencies-v6-{{ checksum "package.json" }}
+          - v1-dependencies-v6-
+          - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: npm install
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-v6-{{ checksum "package.json" }}
+
+      - run:
+          name: unit tests
+          command: npm test
+
+      - run:
+          name: coverage reporting
+          command: npm run coverage:submit
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - middy/*
+
+  build_node10:
+    docker:
+      - image: circleci/node:10
 
     working_directory: ~/middy
 
@@ -98,12 +135,14 @@ workflows:
 
   build_test_deploy:
     jobs:
-        - build_node6
+        - build_node12
+        - build_node10
         - build_node8
-        # we only deploy if build_node6 && build_node8 both succeed and if on master.
+        # we only deploy if build_node12, build_node10 && build_node8 both succeed and if on master.
         - deploy:
             requires:
-                - build_node6
+                - build_node12
+                - build_node10
                 - build_node8
             filters:
                 branches:

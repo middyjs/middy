@@ -153,7 +153,7 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     // invokes the handler
     const event = {
       headers: {
-        'accept': 'application/json'
+        accept: 'application/json'
       },
       body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
     }

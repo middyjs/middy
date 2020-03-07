@@ -86,11 +86,11 @@ describe('📦 Middleware normalize HTTP event', () => {
 
     const event = {
       httpMethod: 'GET',
-      multiValueQueryStringParameters: { param: [ '123', '456', '789' ] }
+      multiValueQueryStringParameters: { param: ['123', '456', '789'] }
     }
 
     handler(event, {}, (_, event) => {
-      expect(event).toHaveProperty('multiValueQueryStringParameters', { param: [ '123', '456', '789' ] })
+      expect(event).toHaveProperty('multiValueQueryStringParameters', { param: ['123', '456', '789'] })
       endTest()
     })
   })

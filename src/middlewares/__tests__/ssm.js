@@ -40,7 +40,7 @@ describe('🔒 SSM Middleware', () => {
     const event = {}
     let promise = Promise.resolve()
     callbacks.forEach(cb => {
-      let context = {}
+      const context = {}
       promise = promise.then(() => {
         return new Promise((resolve, reject) => {
           handler(event, context, (error, response) => {
@@ -63,7 +63,7 @@ describe('🔒 SSM Middleware', () => {
     promise.then(done).catch(err => done(err))
   }
 
-  test(`It should set SSM param value to environment variable by default`, (done) => {
+  test('It should set SSM param value to environment variable by default', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
@@ -82,7 +82,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not call aws-sdk again if parameter is cached in env`, (done) => {
+  test('It should not call aws-sdk again if parameter is cached in env', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
@@ -108,7 +108,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not call aws-sdk again if parameter is cached in context`, (done) => {
+  test('It should not call aws-sdk again if parameter is cached in context', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -127,7 +127,7 @@ describe('🔒 SSM Middleware', () => {
       callbacks: [
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
           getParametersMock.mockClear()
         },
         (_, { context }) => {
@@ -139,7 +139,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should call aws-sdk if cache enabled but param not cached`, (done) => {
+  test('It should call aws-sdk if cache enabled but param not cached', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -155,14 +155,14 @@ describe('🔒 SSM Middleware', () => {
       callbacks: [
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
       ],
       done
     })
   })
 
-  test(`It should call onChange handler on first run`, (done) => {
+  test('It should call onChange handler on first run', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -180,14 +180,14 @@ describe('🔒 SSM Middleware', () => {
         (_, { context }) => {
           expect(onChange).toHaveBeenCalledTimes(1)
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
       ],
       done
     })
   })
 
-  test(`It should call aws-sdk if cache enabled but cached param has expired`, (done) => {
+  test('It should call aws-sdk if cache enabled but cached param has expired', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -204,12 +204,12 @@ describe('🔒 SSM Middleware', () => {
       callbacks: [
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
           getParametersMock.mockClear()
         },
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
       ],
       done,
@@ -217,7 +217,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should call onChange along with aws-sdk if cache enabled but cached param has expired`, (done) => {
+  test('It should call onChange along with aws-sdk if cache enabled but cached param has expired', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -236,13 +236,13 @@ describe('🔒 SSM Middleware', () => {
         (_, { context }) => {
           expect(onChange).toHaveBeenCalledTimes(1)
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
           getParametersMock.mockClear()
         },
         (_, { context }) => {
           expect(onChange).toHaveBeenCalledTimes(2)
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
         }
       ],
       done,
@@ -250,7 +250,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not call aws-sdk if cache enabled and cached param has not expired`, (done) => {
+  test('It should not call aws-sdk if cache enabled and cached param has not expired', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -267,7 +267,7 @@ describe('🔒 SSM Middleware', () => {
       callbacks: [
         (_, { context }) => {
           expect(context.secureValue).toEqual('something-secure')
-          expect(getParametersMock).toBeCalledWith({ 'Names': ['/dev/service_name/secure_param'], 'WithDecryption': true })
+          expect(getParametersMock).toBeCalledWith({ Names: ['/dev/service_name/secure_param'], WithDecryption: true })
           getParametersMock.mockClear()
         },
         (_, { context }) => {
@@ -280,7 +280,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should set SSM param value to context if set in options`, (done) => {
+  test('It should set SSM param value to context if set in options', (done) => {
     testScenario({
       ssmMockResponse: {
         Parameters: [{ Name: '/dev/service_name/secure_param', Value: 'something-secure' }]
@@ -300,7 +300,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should throw error when some SSM params are invalid`, (done) => {
+  test('It should throw error when some SSM params are invalid', (done) => {
     testScenario({
       ssmMockResponse: {
         InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
@@ -320,7 +320,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test(`It should not throw error when empty middleware params passed`, (done) => {
+  test('It should not throw error when empty middleware params passed', (done) => {
     testScenario({
       ssmMockResponse: {},
       middlewareOptions: {},
@@ -357,7 +357,7 @@ describe('🔒 SSM Middleware', () => {
     testScenario({
       ssmMockResponses: [ssmMockResponse, ssmMockResponse],
       middlewareOptions: {
-        paths: { '': ['/dev/service_name'], 'prefix': '/dev' }
+        paths: { '': ['/dev/service_name'], prefix: '/dev' }
       },
       callbacks: [
         () => {
