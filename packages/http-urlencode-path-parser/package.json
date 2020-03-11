@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-path-parser",
-  "version": "1.0.0-beta.7",
+  "version": "1.0.0-beta.8",
   "description": "Urlencode path parser middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -47,7 +47,7 @@
     "@types/http-errors": "^1.6.1"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.7"
+    "@middy/core": "^1.0.0-beta.8"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
