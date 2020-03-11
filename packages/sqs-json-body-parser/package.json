@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-security-headers",
-  "version": "1.0.0-beta.8",
-  "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
+  "name": "@middy/sqs-json-body-parser",
+  "version": "1.0.0-beta.6",
+  "description": "SQS batch json body parser middleware for the middy framework",
   "engines": {
     "node": ">=10"
   },
@@ -23,12 +23,9 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "HTTP",
-    "API",
-    "Header",
-    "Headers",
-    "Helmet",
-    "Security"
+    "SQS",
+    "Batch",
+    "Error"
   ],
   "author": {
     "name": "Middy contributors",
@@ -46,8 +43,8 @@
     "@middy/core": ">=1.0.0-alpha"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.8",
-    "es6-promisify": "^6.0.2"
+    "@middy/core": "^1.0.0-beta.6",
+    "@serverless/event-mocks": "^1.1.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
