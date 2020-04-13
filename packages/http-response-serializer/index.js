@@ -1,4 +1,4 @@
-const Accept = require('accept')
+const Accept = require('@hapi/accept')
 
 const getNormalisedHeaders = (source) => Object
   .keys(source)
