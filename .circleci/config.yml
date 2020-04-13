@@ -13,4 +13,4 @@ workflows:
       - build:
           filters:
             branches:
-              ignore: *
+              ignore: /.*/
