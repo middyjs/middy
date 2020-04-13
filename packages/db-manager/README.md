@@ -59,8 +59,10 @@ npm install --save @middy/db-manager
 - `config`: configuration object passed as is to client (knex.js by default), for more details check [knex documentation](http://knexjs.org/#Installation-client)
 - `client` (optional): client that you want to use when connecting to database of your choice. By default knex.js is used but as long as your client is run as `client(config)` or you create wrapper to conform, you can use other tools. Due to node6 support in middy, knex is capped at version `0.17.3`. If you wish to use newer features, provide your own knex client here.
 - `secretsPath` (optional): if for any reason you want to pass credentials using context, pass path to secrets laying in context object  - good example is combining this middleware with [ssm](#ssm)
+- `secretsParam` (optional): override the connection parameter when setting the password directly from ssm using `secretsPath` or with `rdsSigner`. This is ignored when passing an object in. Default: `password`.
 - `removeSecrets` (optional): By default is true. Works only in combination with `secretsPath`. Removes sensitive data from context once client is initialized.
 - `forceNewConnection` (optional): Creates new connection on every run and destroys it after. Database client needs to have `destroy` function in order to properly clean up connections.
+- `rdsSigner` (optional): Will use to create an IAM RDS Auth Token for the database connection using `[RDS.Signer](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/RDS/Signer.html)`. See AWs docs for required params, `region` is automatically pulled from the `hostname` unless overridden.
 
 ## Sample usage
 
@@ -128,7 +130,7 @@ handler.use(secretsManager({
     throwOnFailedCall: true
 }));
 handler.use(dbManager({
-  client: knex
+  client: knex,
   config: {
     client: 'pg',
     connection: {
@@ -140,6 +142,51 @@ handler.use(dbManager({
 }));
 ```
 
+Connect to RDS using IAM Auth Tokens and TLS
+
+```javascript
+const tls = require('tls')
+const ca = require('fs').readFileSync(`${__dirname}/rds-ca-2019-root.pem`)  // Download from https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html
+
+const handler = middy(async (event, context) => {
+  const { db } = context;
+  const records = await db.select('*').from('my_table');
+  console.log(records);
+});
+handler.use(dbManager({
+  rdsSigner:{
+    region: 'us-east-1',
+    hostname: '*****.******.{region}.rds.amazonaws.com',
+    username: 'iam_user',
+    database: 'myapp_test',
+    port: '5432'
+  },
+  secretsPath: 'password',
+  config: {
+    client: 'pg',
+    connection: {
+      host: '*****.******.{region}.rds.amazonaws.com',
+      user: 'your_database_user',
+      database: 'myapp_test',
+      port: '5432',
+      ssl: {
+        rejectUnauthorized: true,
+        ca,
+        checkServerIdentity: (host, cert) => {
+          const error = tls.checkServerIdentity(host, cert)
+          if (error && !cert.subject.CN.endsWith('.rds.amazonaws.com')) {
+            return error
+          }
+        }
+      }
+    }
+  }
+}));
+```
+
+**Note:** If you see an error 
+
+See AWS Docs [Rotating Your SSL/TLS Certificate](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html) to ensure you're using the right certificate.
 
 ## Middy documentation and examples
 

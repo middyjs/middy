@@ -34,7 +34,7 @@
 </p>
 </div>
 
-**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [update instructions](UPDATE.md)!**
+**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [upgrade instructions](UPGRADE.md)!**
 
 ## What is Middy
 
@@ -100,10 +100,10 @@ const inputSchema = {
        cvc: { type: 'string', minLength: 3, maxLength: 4, pattern: '\d+' },
        nameOnCard: { type: 'string' },
        amount: { type: 'number' }
-     }
+     },
+     required: ['creditCardNumber'] // Insert here all required event properties
    }
- },
- required: ['creditCardNumber'] // Insert here all required event properties
+ }
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
@@ -177,7 +177,7 @@ module.exports = { handler }
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
-```
+```javascript
 const middy = require("@middy/core");
 const middleware1 = require("sample-middleware1");
 const middleware2 = require("sample-middleware2");
@@ -570,6 +570,13 @@ methods to allow you to quickly hook in simple inline middlewares.
 Check the [code for existing middlewares](/src/middlewares) to see more examples
 on how to write a middleware.
 
+## FAQ
+
+### Q: `context.done called twice within handler` warning
+**A**: You're probably trying to use `callback()` inside an async handler, or `next()` inside an async middleware. Async
+handlers and middlewares should return a promise, so calling those functions is not needed.
+See [Promise support](https://github.com/middyjs/middy#promise-support) for examples.
+
 ## Available middlewares
 
 Currently available middlewares:
@@ -592,6 +599,7 @@ Currently available middlewares:
 - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
 - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
 - [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
+- [`sqs-partial-batch-failure`](/packages/sqs-partial-batch-failure): handles partially failed SQS batches.
 - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 - [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
