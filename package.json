@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "1.0.0-beta.8",
+  "version": "1.0.0-beta.9",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "engines": {
     "node": ">=10"
@@ -37,23 +37,23 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^2.22.0",
-    "@typescript-eslint/parser": "^2.22.0",
-    "aws-sdk": "^2.635.0",
-    "babel-jest": "^25.1.0",
+    "@typescript-eslint/eslint-plugin": "^2.28.0",
+    "@typescript-eslint/parser": "^2.28.0",
+    "aws-sdk": "^2.656.0",
+    "babel-jest": "^25.3.0",
     "babel-preset-env": "^1.6.1",
-    "es6-promisify": "^6.0.2",
+    "es6-promisify": "^6.1.0",
     "eslint": "^6.8.0",
-    "eslint-config-standard": "^14.1.0",
-    "eslint-plugin-import": "^2.20.1",
-    "eslint-plugin-node": "^11.0.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.20.2",
+    "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
-    "husky": "^4.2.3",
-    "jest": "^25.1.0",
+    "husky": "^4.2.5",
+    "jest": "^25.3.0",
     "lerna": "^3.20.2",
-    "lint-staged": "^10.0.8",
-    "regenerator-runtime": "^0.13.3",
+    "lint-staged": "^10.1.3",
+    "regenerator-runtime": "^0.13.5",
     "typings-tester": "^0.3.2"
   },
   "dependencies": {
