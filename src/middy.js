@@ -102,14 +102,8 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
 
       const nextMiddleware = stack.shift()
 
-      if (nextMiddleware && !instance.__handledError) {
-        const retVal = nextMiddleware(instance, (retCallBackError) => {
-          if (!retCallBackError) {
-            done()
-          } else {
-            runNext(retCallBackError)
-          }
-        })
+      if (nextMiddleware) {
+        const retVal = nextMiddleware(instance, runNext)
 
         if (retVal) {
           if (!isPromise(retVal)) {

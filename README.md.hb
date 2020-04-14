@@ -401,17 +401,17 @@ Here, first `middleware1.onError` then `middleware2.onError` will be called.
 
   - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an unmanaged error
   In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
-  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline exits early and the response is returned without an error
+  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline continues and eventually the response is returned without an error.
 
 ```javascript
-middleware1 = {
+const middleware1 = {
   onError: (handler) => {
     handler.response = { error: handler.error };
     return Promise.resolve();
     // Resolves to a falsy value
   }
 }
-middleware2 = {
+const middleware2 = {
   onError: (handler) => {
     return Promise.resolve(handler.error)
   }
@@ -424,12 +424,12 @@ Here, only `middleware1.onError` will be called. The rest of the error handlers 
   - If `onError` promise rejects, the error handling pipeline exits early and the lambda execution fails.
 
 ```javascript
-middleware1 = {
+const middleware1 = {
   onError: (handler) => {
     return Promise.reject(handler.error);
   }
 }
-middleware2 = {
+const middleware2 = {
   onError: (handler) => {
     return Promise.resolve(handler.error)
   }

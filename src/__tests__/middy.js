@@ -276,7 +276,7 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
-  test('If there is an error and one error middleware handles the error, the next error middlewares should not be executed', (endTest) => {
+  test('If there is an error and one error middleware handles the error, the next error middlewares is executed', (endTest) => {
     const expectedResponse = { message: 'error handled' }
 
     const onErrorMiddleware1 = jest.fn((handler, next) => {
@@ -297,7 +297,7 @@ describe('🛵  Middy test suite', () => {
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
       expect(onErrorMiddleware1).toBeCalled()
-      expect(onErrorMiddleware2).not.toHaveBeenCalled()
+      expect(onErrorMiddleware2).toBeCalled()
       expect(response).toBe(expectedResponse)
 
       endTest()
@@ -594,6 +594,67 @@ describe('🛵  Middy test suite', () => {
 
     handler({}, {}, (err, response) => {
       expect(err.message).toBe('I am throwing in an async func')
+      endTest()
+    })
+  })
+
+  // see issue #485 https://github.com/middyjs/middy/issues/485
+  test('It will keep invoking all the onError handlers if one of them resolves to a falsy value', (endTest) => {
+    const handler = middy((event, context) => {
+      throw new Error('something bad happened')
+    })
+
+    const middleware1 = {
+      onError: (handler) => {
+        handler.response = { error: handler.error }
+        return Promise.resolve()
+      }
+    }
+    const middleware2 = {
+      onError: (handler) => {
+        handler.response.middleware2_called = true
+        return Promise.resolve(handler.error)
+      }
+    }
+
+    handler
+      .use(middleware1)
+      .use(middleware2)
+
+    handler({}, {}, (err, response) => {
+      expect(err).toBeNull()
+      expect(response.middleware2_called).toBeTruthy()
+      endTest()
+    })
+  })
+
+  // see issue #485 https://github.com/middyjs/middy/issues/485
+  test('It will stop invoking all the onError handlers if one of them returns a promise that rejects', (endTest) => {
+    const handler = middy((event, context) => {
+      throw new Error('something bad happened')
+    })
+
+    const middleware1 = {
+      onError: (handler) => {
+        handler.response = { error: handler.error }
+        return Promise.reject(handler.error)
+      }
+    }
+    const middleware2 = {
+      onError: (handler) => {
+        handler.middleware2_called = true
+        return Promise.resolve(handler.error)
+      }
+    }
+
+    handler
+      .use(middleware1)
+      .use(middleware2)
+
+    handler({}, {}, (err, response) => {
+      expect(err.message).toBe('something bad happened')
+      expect(response).not.toBeDefined()
+      expect(handler.middleware2_called).not.toBeDefined()
       endTest()
     })
   })
