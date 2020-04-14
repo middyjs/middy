@@ -737,7 +737,7 @@ describe('🛵  Middy test suite', () => {
   })
 
   // see issue #485 https://github.com/middyjs/middy/issues/485
-  test('It will keep invoking all the onError handlers if one of them resolves to a falsy value', (endTest) => {
+  test('It will stop invoking all the onError handlers if one of them returns a promise that rejects', (endTest) => {
     const handler = middy((event, context) => {
       throw new Error('something bad happened')
     })
