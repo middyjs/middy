@@ -1,12 +1,11 @@
-name: Tests
+name: Release
 
 on:
   release:
     types:
-      - published
+      - created
 
 jobs:
-
   release:
     name: release
     runs-on: ubuntu-latest
