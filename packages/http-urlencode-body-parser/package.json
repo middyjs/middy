@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-body-parser",
-  "version": "1.0.0-beta.9",
+  "version": "1.0.0-beta.10",
   "description": "Urlencode body parser middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -50,7 +50,7 @@
     "querystring": "^0.2.0"
   },
   "devDependencies": {
-    "@middy/core": "^1.0.0-beta.9",
+    "@middy/core": "^1.0.0-beta.10",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
