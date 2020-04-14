@@ -706,6 +706,67 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
+  // see issue #485 https://github.com/middyjs/middy/issues/485
+  test('It will keep invoking all the onError handlers if one of them resolves to a falsy value', (endTest) => {
+    const handler = middy((event, context) => {
+      throw new Error('something bad happened')
+    })
+
+    const middleware1 = {
+      onError: (handler) => {
+        handler.response = { error: handler.error }
+        return Promise.resolve()
+      }
+    }
+    const middleware2 = {
+      onError: (handler) => {
+        handler.response.middleware2_called = true
+        return Promise.resolve(handler.error)
+      }
+    }
+
+    handler
+      .use(middleware1)
+      .use(middleware2)
+
+    handler({}, {}, (err, response) => {
+      expect(err).toBeNull()
+      expect(response.middleware2_called).toBeTruthy()
+      endTest()
+    })
+  })
+
+  // see issue #485 https://github.com/middyjs/middy/issues/485
+  test('It will keep invoking all the onError handlers if one of them resolves to a falsy value', (endTest) => {
+    const handler = middy((event, context) => {
+      throw new Error('something bad happened')
+    })
+
+    const middleware1 = {
+      onError: (handler) => {
+        handler.response = { error: handler.error }
+        return Promise.reject(handler.error)
+      }
+    }
+    const middleware2 = {
+      onError: (handler) => {
+        handler.middleware2_called = true
+        return Promise.resolve(handler.error)
+      }
+    }
+
+    handler
+      .use(middleware1)
+      .use(middleware2)
+
+    handler({}, {}, (err, response) => {
+      expect(err.message).toBe('something bad happened')
+      expect(response).not.toBeDefined()
+      expect(handler.middleware2_called).not.toBeDefined()
+      endTest()
+    })
+  })
+
   test('Middlewares can be stopped by calling the callback from the context', (endTest) => {
     const beforeMiddleware = (handler, next) => {
       // calling the handler.callback directly and not calling next()
