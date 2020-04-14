@@ -21,6 +21,9 @@ jobs:
         echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
       env:
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Install dependencies
+      run: |
+        npm install
     - name: Release
       run: |
         npm run lerna:publish
