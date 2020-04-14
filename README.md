@@ -13,8 +13,8 @@
   <a href="http://badge.fury.io/js/%40middy%2Fcore">
     <img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;">
   </a>
-  <a href="https://circleci.com/gh/middyjs/middy">
-    <img src="https://circleci.com/gh/middyjs/middy.svg?style=shield" alt="CircleCI" style="max-width:100%;">
+  <a href="https://github.com/middyjs/middy/actions">
+    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -626,6 +626,8 @@ The following middlewares are created and maintained outside this project. We ca
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
+If you are a maintainer and want to release a new version of Middy, consult the dedicated [RELEASE manual](/RELEASE.md).
 
 ## License
 

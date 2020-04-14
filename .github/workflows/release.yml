@@ -1,0 +1,29 @@
+name: Tests
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+
+  release:
+    needs:
+      - build
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@master
+    - name: Set up Node.js
+      uses: actions/setup-node@master
+      with:
+        node-version: 12.0.0
+    - name: Create .npmrc
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Release
+      run: |
+        npm run lerna:publish
