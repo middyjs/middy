@@ -276,7 +276,7 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
-  test('If theres is an error and one error middleware handles the error, the next error middlewares should not be executed', (endTest) => {
+  test('If there is an error and one error middleware handles the error, the next error middlewares should not be executed', (endTest) => {
     const expectedResponse = { message: 'error handled' }
 
     const onErrorMiddleware1 = jest.fn((handler, next) => {
