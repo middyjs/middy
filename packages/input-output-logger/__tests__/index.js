@@ -18,4 +18,19 @@ describe('📦 Middleware Input Output Logger', () => {
     expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
     expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
   })
+  test('It should exclude paths', async () => {
+    const logger = jest.fn()
+
+    const handler = middy((event, context, cb) => {
+      cb(null, { message: 'hello world', bar: 'bi' })
+    })
+
+    handler
+      .use(inputOutputLogger({ logger, exclude: ['event.foo', 'response.bar'] }))
+
+    await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+    expect(logger).toHaveBeenCalledWith({ event: { fuu: 'baz' } })
+    expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
+  })
 })
