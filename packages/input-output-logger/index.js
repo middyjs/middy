@@ -1,4 +1,4 @@
-import omit from 'lodash/omit'
+const omit = require('lodash/omit')
 
 module.exports = (opts) => {
   const defaults = {
