@@ -18,19 +18,36 @@ describe('📦 Middleware Input Output Logger', () => {
     expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
     expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
   })
-  test('It should omit paths', async () => {
-    const logger = jest.fn()
+  describe('omitPaths', () => {
+    test('It should omit paths', async () => {
+      const logger = jest.fn()
 
-    const handler = middy((event, context, cb) => {
-      cb(null, { message: 'hello world', bar: 'bi' })
+      const handler = middy((event, context, cb) => {
+        cb(null, { message: 'hello world', bar: 'bi' })
+      })
+
+      handler
+        .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
+
+      await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+      expect(logger).toHaveBeenCalledWith({ event: { fuu: 'baz' } })
+      expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
     })
+    test('It should skip paths that do not exist', async () => {
+      const logger = jest.fn()
 
-    handler
-      .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
+      const handler = middy((event, context, cb) => {
+        cb(null, 'yo')
+      })
 
-    await invoke(handler, { foo: 'bar', fuu: 'baz' })
+      handler
+        .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.bar'] }))
 
-    expect(logger).toHaveBeenCalledWith({ event: { fuu: 'baz' } })
-    expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
+      await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
+      expect(logger).toHaveBeenCalledWith({ response: 'yo' })
+    })
   })
 })
