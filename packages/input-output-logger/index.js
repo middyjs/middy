@@ -6,11 +6,11 @@ module.exports = (opts) => {
     exclude: []
   }
 
-  const { logger, exclude } = Object.assign({}, defaults, opts)
+  const { logger, omitPaths } = Object.assign({}, defaults, opts)
 
-  const omitAndLog = data => {
-    const message = omit(data, exclude)
-    logger(message)
+  const omitAndLog = message => {
+    const redactedMessage = omit(message, omitPaths)
+    logger(redactedMessage)
   }
 
   return ({

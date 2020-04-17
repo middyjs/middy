@@ -2,7 +2,7 @@ import middy from '@middy/core';
 
 interface IInputOutputLoggerOptions {
   logger?: (message: any) => void;
-  exclude?: string[];
+  omitPaths?: string[];
 }
 
 declare const inputOutputLogger : middy.Middleware<IInputOutputLoggerOptions, any, any>

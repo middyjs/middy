@@ -45,7 +45,7 @@ npm install --save @middy/input-output-logger
 ## Options
 
 `logger` property accept a function (default `console.log`)
-`exclude` property accept an array of paths to exclude from the log (default `[]`)
+`omitPaths` property accept an array of paths to omitPaths from the log (default `[]`)
 
 
 ## Sample usage
