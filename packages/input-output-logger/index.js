@@ -3,7 +3,7 @@ const omit = require('lodash/omit')
 module.exports = (opts) => {
   const defaults = {
     logger: data => console.log(JSON.stringify(data, null, 2)),
-    exclude: []
+    omitPaths: []
   }
 
   const { logger, omitPaths } = Object.assign({}, defaults, opts)
