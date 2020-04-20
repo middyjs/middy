@@ -60,14 +60,15 @@ const parseMultipartData = (event, options) => {
         })
       })
       .on('field', (fieldname, value) => {
-        const matches = fieldname.match(/(.+)\[(.*)]$/);
+        const matches = fieldname.match(/(.+)\[(.*)]$/)
         if (!matches) {
-          return multipartData[fieldname] = value;
+          multipartData[fieldname] = value
+        } else {
+          if (!multipartData[matches[1]]) {
+            multipartData[matches[1]] = []
+          }
+          multipartData[matches[1]].push(value)
         }
-        if (!multipartData[matches[1]]) {
-          multipartData[matches[1]] = [];
-        }
-        multipartData[matches[1]].push(value);
       })
       .on('finish', () => resolve(multipartData))
       .on('error', err => reject(err))
