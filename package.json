@@ -59,7 +59,7 @@
     "jest": "^25.1.0",
     "jsdoc": "^3.6.3",
     "jsdoc-to-markdown": "^5.0.3",
-    "marked": "^0.8.0",
+    "marked": "^1.0.0",
     "regenerator-runtime": "^0.13.3",
     "typescript": "^3.8.3",
     "typings-tester": "^0.3.2"
