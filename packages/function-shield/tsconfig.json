@@ -1,9 +1,23 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "lib": ["es2015"],
-    "target": "es2015"
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "lib": [
+      "es2018",
+    ],
+    "moduleResolution": "node",
+    "noEmitHelpers": true,
+    "noEmitOnError": true,
+    "noImplicitReturns": true,
+    "target": "es2015",
+    "sourceMap": true,
+    "strict": true,
   },
+  "exclude": [
+    "node_modules",
+  ],
   "files": [
     "index.d.ts"
   ]
