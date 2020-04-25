@@ -1,0 +1,57 @@
+{
+  "name": "@middy/http-response-serializer",
+  "version": "1.0.0-beta.11",
+  "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
+  "engines": {
+    "node": ">=10"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "npm run test:typings && npm run test:unit",
+    "test:unit": "jest",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "HTTP",
+    "API",
+    "Header",
+    "Headers",
+    "Helmet",
+    "Security"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "@hapi/accept": "^5.0.1",
+    "http-errors": "^1.7.3"
+  },
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0-beta.11",
+    "es6-promisify": "^6.0.2"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
