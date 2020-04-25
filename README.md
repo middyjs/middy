@@ -1,5 +1,3 @@
-# Middy
-
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
 </div>
@@ -34,7 +32,7 @@
 </p>
 </div>
 
-**⚠️ UPGRADE NOTICE: if you are updating from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x), check out the [upgrade instructions](UPGRADE.md)! ⚠️**
+**⚠️ NOTE: if you are upgrading from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x), check out the [upgrade instructions](UPGRADE.md)!**
 
 ## What is Middy
 
