@@ -34,7 +34,7 @@
 </p>
 </div>
 
-**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [upgrade instructions](UPGRADE.md)!**
+**⚠️ UPGRADE NOTICE: if you are updating from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x), check out the [upgrade instructions](UPGRADE.md)! ⚠️**
 
 ## What is Middy
 
