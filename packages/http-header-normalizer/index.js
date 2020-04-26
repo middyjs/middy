@@ -80,7 +80,7 @@ module.exports = (opts) => {
 
         Object.keys(handler.event.multiValueHeaders).forEach((key) => {
           rawHeaders[key] = handler.event.multiValueHeaders[key]
-          headers[options.normalizeHeaderKey(key)] = handler.event.multiValueHeaders[key]
+          headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.multiValueHeaders[key]
         })
 
         handler.event.multiValueHeaders = headers
