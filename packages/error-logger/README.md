@@ -55,7 +55,7 @@ npm install --save @middy/error-logger
 
 ```javascript
 const middy = require('@middy/core')
-const inputOutputLogger = require('@middy/error-logger')
+const errorLogger = require('@middy/error-logger')
 
 const handler = middy((event, context, cb) => {
   // your handler logic

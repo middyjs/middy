@@ -25,16 +25,13 @@
   <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
     <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
   </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
-  </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
 </p>
 </div>
 
-**⚠️ UPGRADE NOTICE: if you are updating from Middy 0.x, check out the [upgrade instructions](UPGRADE.md)!**
+**⚠️ NOTE: if you are upgrading from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x), check out the [upgrade instructions](UPGRADE.md)!**
 
 ## What is Middy
 
@@ -626,7 +623,9 @@ The following middlewares are created and maintained outside this project. We ca
 
 ## Contributing
 
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+In the spirit of Open Source Software, everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
+Before contributing to the project, make sure to have a look at our [Code of Conduct](/CODE_OF_CONDUCT.md).
 
 If you are a maintainer and want to release a new version of Middy, consult the dedicated [RELEASE manual](/RELEASE.md).
 
