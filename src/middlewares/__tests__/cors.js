@@ -362,4 +362,40 @@ describe('📦 Middleware CORS', () => {
       expect(response).toEqual({})
     })
   })
+
+  test('It should understand both capitalized and lowercase header', () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors({
+      origins: ['https://first.example.com', 'https://second.example.com']
+    }))
+
+    const event = {
+      httpMethod: 'GET',
+      headers: {
+        origin: 'https://second.example.com'
+      }
+    }
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://second.example.com'
+        }
+      })
+    })
+
+    event.headers.Origin = event.headers.origin
+    delete event.headers.origin
+
+    handler(event, {}, (_, response) => {
+      expect(response).toEqual({
+        headers: {
+          'Access-Control-Allow-Origin': 'https://second.example.com'
+        }
+      })
+    })
+  })
 })

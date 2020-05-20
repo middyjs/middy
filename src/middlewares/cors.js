@@ -7,7 +7,7 @@ const defaults = {
 
 const getOrigin = (options, handler) => {
   handler.event.headers = handler.event.headers || {}
-  const originHeader = handler.event.headers.Origin || handler.event.headers.origin
+  const originHeader = handler.event.headers.origin || handler.event.headers.Origin
   if (options.origins && options.origins.length > 0) {
     if (originHeader && options.origins.includes(originHeader)) {
       return originHeader
