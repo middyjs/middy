@@ -62,7 +62,7 @@ npm install --save @middy/db-manager
 - `secretsParam` (optional): override the connection parameter when setting the password directly from ssm using `secretsPath` or with `rdsSigner`. This is ignored when passing an object in. Default: `password`.
 - `removeSecrets` (optional): By default is true. Works only in combination with `secretsPath`. Removes sensitive data from context once client is initialized.
 - `forceNewConnection` (optional): Creates new connection on every run and destroys it after. Database client needs to have `destroy` function in order to properly clean up connections.
-- `rdsSigner` (optional): Will use to create an IAM RDS Auth Token for the database connection using `[RDS.Signer](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/RDS/Signer.html)`. See AWs docs for required params, `region` is automatically pulled from the `hostname` unless overridden.
+- `rdsSigner` (optional): Will use to create an IAM RDS Auth Token for the database connection using [RDS.Signer](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/RDS/Signer.html). See AWs docs for required params, `region` is automatically pulled from the `hostname` unless overridden.
 
 ## Sample usage
 
