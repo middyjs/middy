@@ -80,7 +80,7 @@ const processPayment = (event, context, callback) => {
  return callback(null, { result: 'success', message: 'payment processed correctly'})
 }
 
-// Notice that in the handler you only added base business logic (no deserilization,
+// Notice that in the handler you only added base business logic (no deserialization,
 // validation or error handler), we will add the rest with middlewares
 
 const inputSchema = {
@@ -137,7 +137,7 @@ to create middy, our own middleware framework for serverless in AWS land.
 
 ## Usage
 
-As you might have already got from our first example here, using middy is very
+As you might have already seen from our first example here, using middy is very
 simple and requires just few steps:
 
 1.  Write your Lambda handlers as usual, focusing mostly on implementing the bare
