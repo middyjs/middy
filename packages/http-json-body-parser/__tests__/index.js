@@ -106,4 +106,56 @@ describe('📦  Middleware JSON Body Parser', () => {
 
     expect(body).toEqual('{"foo":"bar"}')
   })
+
+  test('It should handle a base64 body', async () => {
+    expect.assertions(1)
+
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(jsonBodyParser())
+
+    // invokes the handler
+    const data = JSON.stringify({ foo: 'bar' })
+    const base64Data = Buffer.from(data).toString('base64')
+    const event = {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      isBase64Encoded: true,
+      body: base64Data
+    }
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual({ foo: 'bar' })
+  })
+
+  test('It should handle invalid base64 JSON as an UnprocessableEntity', async () => {
+    expect.assertions(1)
+
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(jsonBodyParser())
+
+    // invokes the handler
+    const data = 'make it broken' + JSON.stringify({ foo: 'bar' })
+    const base64Data = Buffer.from(data).toString('base64')
+    const event = {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      isBase64Encoded: true,
+      body: base64Data
+    }
+
+    try {
+      await invoke(handler, event)
+    } catch (err) {
+      expect(err.message).toEqual('Content type defined as JSON but an invalid JSON was provided')
+    }
+  })
 })
