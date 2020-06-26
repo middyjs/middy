@@ -53,7 +53,7 @@ npm install --save @middy/secrets-manager
 - `secrets` (object) : Map of secrets to fetch from Secrets Manager, where the key is the destination, and value is secret name in Secrets Manager.
   Example: `{secrets: {RDS_LOGIN: 'dev/rds_login'}}`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SecretsManager class constructor.
-- `throwOnFailedCall` (boolean) (optional): Defaults to `false`. Set it to `true` if you want your lambda to fail in case call to AWS Secrets Manager fails (secrets don't exist or internal error). It will only print error if secrets are already cached.
+- `throwOnFailedCall` (boolean) (optional): Defaults to `false`. Set it to `true` if you want your lambda to fail in case call to AWS Secrets Manager fails (secrets don't exist or internal error). It will only print error if secrets are not already cached.
 
 NOTES:
 * Lambda is required to have IAM permission for `secretsmanager:GetSecretValue` action
