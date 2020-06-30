@@ -27,9 +27,9 @@ describe('🔒 SecretsManager Middleware', () => {
     expect(context.API_KEY.ApiKey).toEqual('apikey')
   }
 
-  const hasStringKey = context => {
+  const hasStringKey = (context, value) => {
     expect(typeof context.API_KEY).toEqual('string')
-    expect(context.API_KEY).toEqual('secret-api-key')
+    expect(context.API_KEY).toEqual(value)
   }
 
   async function testScenario ({ mockResponse, mockResponses, middlewareOptions, callbacks, delay = 0 }) {
@@ -98,7 +98,7 @@ describe('🔒 SecretsManager Middleware', () => {
   })
 
   test('It should set string secrets to context', async () => {
-    testScenario({
+    await testScenario({
       mockResponse: {
         SecretString: 'secret-api-key'
       },
@@ -109,7 +109,26 @@ describe('🔒 SecretsManager Middleware', () => {
       },
       callbacks: [
         (_, { context }) => {
-          hasStringKey(context)
+          hasStringKey(context, 'secret-api-key')
+          expect(getSecretValueMock).toBeCalled()
+        }
+      ]
+    })
+  })
+
+  test('It should set string secrets to context when it is invalid JSON', async () => {
+    await testScenario({
+      mockResponse: {
+        SecretString: '["test" : 123]'
+      },
+      middlewareOptions: {
+        secrets: {
+          API_KEY: 'api_key'
+        }
+      },
+      callbacks: [
+        (_, { context }) => {
+          hasStringKey(context, '["test" : 123]')
           expect(getSecretValueMock).toBeCalled()
         }
       ]
