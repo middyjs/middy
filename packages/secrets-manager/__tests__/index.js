@@ -97,7 +97,7 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
-  test(`It should set string secrets to context`, async () => {
+  test('It should set string secrets to context', async () => {
     testScenario({
       mockResponse: {
         SecretString: 'secret-api-key'
@@ -112,8 +112,7 @@ describe('🔒 SecretsManager Middleware', () => {
           hasStringKey(context)
           expect(getSecretValueMock).toBeCalled()
         }
-      ],
-      done
+      ]
     })
   })
 
