@@ -1,3 +1,4 @@
+import middy from '@middy/core';
 import Knex from 'knex';
 
 export interface DbManagerOptions {
@@ -9,3 +10,7 @@ export interface DbManagerOptions {
   secretsParam?: string,
   secretsPath?: string
 }
+
+declare const dbManager: middy.Middleware<DbManagerOptions, any, any>
+
+export default dbManager
