@@ -1,0 +1,56 @@
+{
+  "name": "@middy/validator",
+  "version": "1.0.0",
+  "description": "Validator middleware for the middy framework",
+  "engines": {
+    "node": ">=10"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "npm run test:typings && npm run test:unit",
+    "test:unit": "jest",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "Validator",
+    "JSON Schema"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha"
+  },
+  "dependencies": {
+    "@types/http-errors": "^1.6.1",
+    "ajv": "^6.5.0",
+    "ajv-i18n": "^3.3.0",
+    "ajv-keywords": "^3.2.0",
+    "http-errors": "^1.6.3"
+  },
+  "devDependencies": {
+    "@middy/core": "^1.0.0",
+    "es6-promisify": "^6.0.2"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}

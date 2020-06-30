@@ -1,110 +1,16 @@
 version: 2
 jobs:
-  build_node6:
+  build_node12:
     docker:
-      - image: circleci/node:6.10
-
-    working_directory: ~/middy
-
+      - image: circleci/node:12
     steps:
-      - checkout
-
-      - restore_cache:
-          keys:
-          - v1-dependencies-v6-{{ checksum "package.json" }}
-          - v1-dependencies-v6-
-          - v1-dependencies-
-
-      - run:
-          name: install dependencies
-          command: npm install
-
-      - save_cache:
-          paths:
-            - node_modules
-          key: v1-dependencies-v6-{{ checksum "package.json" }}
-
-      - run:
-          name: unit tests
-          command: npm test
-
-      - run:
-          name: coverage reporting
-          command: npm run coverage:submit
-
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - middy/*
-
-  build_node8:
-    docker:
-      - image: circleci/node:8.10
-
-    working_directory: ~/middy
-
-    # These are almost the same set of steps as above.
-    # Yaml doesn't allow you to concatenate lists: https://github.com/yaml/yaml/issues/35
-    # Not in these steps:
-    #  - uploading code coverage
-    #  - saving workspace for the deploy job
-    steps:
-      - checkout
-
-      - restore_cache:
-          keys:
-          - v1-dependencies-v8-{{ checksum "package.json" }}
-          - v1-dependencies-v8-
-          - v1-dependencies-
-
-      - run:
-          name: install dependencies
-          command: npm install
-
-      - save_cache:
-          paths:
-            - node_modules
-          key: v1-dependencies-v8-{{ checksum "package.json" }}
-
-      - run:
-          name: unit tests
-          command: npm test
-
-  deploy:
-    docker:
-      - image: circleci/node:6.10
-
-    steps:
-        - attach_workspace:
-            at: ~/
-
-        - run:
-            name: configure NPM registry
-            command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-
-        - run:
-            name: configure GitHub SSH
-            command: mkdir -p ~/.ssh && ssh-keyscan -H github.com > ~/.ssh/known_hosts
-
-        - run:
-            working_directory: ~/middy
-            name: publish
-            command: |
-              npm publish && npm run release:tag;
-
+      - run: echo "Now running on GitHub actions"
 
 workflows:
   version: 2
-
-  build_test_deploy:
+  build:
     jobs:
-        - build_node6
-        - build_node8
-        # we only deploy if build_node6 && build_node8 both succeed and if on master.
-        - deploy:
-            requires:
-                - build_node6
-                - build_node8
-            filters:
-                branches:
-                    only: master
+      - build:
+          filters:
+            branches:
+              ignore: /.*/

@@ -1,0 +1,45 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - "**"
+    tags-ignore:
+      - '*.*.*'
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - '*.*.*'
+
+jobs:
+  
+  tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Install dependencies
+      run: npm install
+      env:
+        CI: true
+    - name: Linting
+      run: npm run test:lint:ci
+      env:
+        CI: true
+    - name: Check typings
+      run: npm run test:packages:typings
+      env:
+        CI: true
+    - name: Unit tests
+      run: npm run test:packages:unit
+      env:
+        CI: true
