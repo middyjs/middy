@@ -37,7 +37,7 @@ const middleware = (opts, handler, next) => {
   }
 
   // find in order of first preferred type that has a matching serializer
-  types.find(type => opts.serializers.map(s => {
+  types.find(type => opts.serializers.find(s => {
     const test = s.regex.test(type)
 
     if (!test) { return false }
