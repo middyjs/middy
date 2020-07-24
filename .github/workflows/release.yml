@@ -3,7 +3,7 @@ name: Release
 on:
   release:
     types:
-      - created
+      - published
 
 jobs:
   release:
