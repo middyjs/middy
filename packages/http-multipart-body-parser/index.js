@@ -59,7 +59,17 @@ const parseMultipartData = (event, options) => {
           multipartData[fieldname] = attachment
         })
       })
-      .on('field', (fieldname, value) => { multipartData[fieldname] = value })
+      .on('field', (fieldname, value) => {
+        const matches = fieldname.match(/(.+)\[(.*)]$/)
+        if (!matches) {
+          multipartData[fieldname] = value
+        } else {
+          if (!multipartData[matches[1]]) {
+            multipartData[matches[1]] = []
+          }
+          multipartData[matches[1]].push(value)
+        }
+      })
       .on('finish', () => resolve(multipartData))
       .on('error', err => reject(err))
 
