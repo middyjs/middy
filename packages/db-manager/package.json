@@ -37,7 +37,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "knex": "^0.17.3"
+    "knex": "^0.21.2"
   },
   "devDependencies": {
     "@middy/core": "^1.0.0"
