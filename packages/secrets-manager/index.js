@@ -35,7 +35,7 @@ module.exports = opts => {
           .getSecretValue({ SecretId: secretName })
           .promise()
           .then(resp => {
-            const secret = JSON.parse(resp.SecretString || '{}')
+            const secret = safeParse(resp.SecretString)
             const object = {}
             object[key] = secret
             return object
@@ -92,4 +92,13 @@ const shouldFetchFromSecretsManager = ({
 
   // otherwise, don't bother
   return false
+}
+
+function safeParse (secretString) {
+  try {
+    return JSON.parse(secretString || '{}')
+  } catch (err) {
+  }
+
+  return secretString
 }
