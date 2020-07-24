@@ -10,7 +10,11 @@ module.exports = (opts) => ({
         const { type } = contentType.parse(contentTypeHeader)
         if (type === 'application/json') {
           try {
-            handler.event.body = JSON.parse(handler.event.body, opts.reviver)
+            const data = handler.event.isBase64Encoded
+              ? Buffer.from(handler.event.body, 'base64').toString()
+              : handler.event.body
+
+            handler.event.body = JSON.parse(data, opts.reviver)
           } catch (err) {
             throw new createError.UnprocessableEntity('Content type defined as JSON but an invalid JSON was provided')
           }
