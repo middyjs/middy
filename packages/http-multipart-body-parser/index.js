@@ -55,6 +55,7 @@ const parseMultipartData = (event, options) => {
           chunks.push(data)
         })
         file.on('end', () => {
+          attachment.truncated = file.truncated
           attachment.content = Buffer.concat(chunks)
           multipartData[fieldname] = attachment
         })
