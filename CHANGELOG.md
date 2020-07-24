@@ -1,3 +1,21 @@
+# 1.1.0
+
+## Features
+- #545 Add Support for API Gateway HTTP API (v2) by @fredericbarthelet
+- #537 Handling base64 event bodies by @caiokf
+- #528Add the boolean check for a truncated file upload by @tyvdh
+
+## Bug Fixes
+- #521 Parse array from multipart form data by @benjifs
+- #512 Respect canonical normalization parameter for multiValueHeaders by @getkey
+- #544 The `httpResponseSerializer` needs to find a serializer for a `type` by searching all the `types` by @randytarampi
+- #543 fix(db-manager): improve type definition by @munierujp
+- #542 Safely parse secretString by @chris-heathwood-uoy
+
+## Chores
+- Small documentation updates
+- dependency updates
+
 # 1.0.0
 
 Checkout [`UPGRADE.md`](/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `0.x`.
