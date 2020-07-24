@@ -119,6 +119,32 @@ describe('📦  Middleware Http Response Serializer', () => {
     })
   })
 
+  test('It should use the default when no matching accept preferences are found', async () => {
+    const handler = middy((event, context, cb) => {
+      event.preferredContentType = 'text/java'
+
+      cb(null, createHttpResponse())
+    })
+
+    handler.use(httpResponseSerializer(standardConfiguration))
+
+    const event = {
+      headers: {
+        Accept: 'application/java, text/x-dvi; q=0.8, text/x-c'
+      }
+    }
+
+    const response = await invoke(handler, event)
+
+    expect(response).toEqual({
+      statusCode: 200,
+      headers: {
+        'Content-Type': standardConfiguration.default
+      },
+      body: '{"message":"Hello World"}'
+    })
+  })
+
   test('It should use `event.preferredContentType` instead of the default', async () => {
     const handler = middy((event, context, cb) => {
       event.preferredContentType = 'text/plain'
