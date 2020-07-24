@@ -184,7 +184,9 @@ handler.use(dbManager({
 }));
 ```
 
-**Note:** If you see an error 
+**Note:**
+
+If you're lambda is timing out, likely your database connections are keeping the event loop open. Check out [do-not-wait-for-empty-event-loop](https://github.com/middyjs/middy/tree/master/packages/do-not-wait-for-empty-event-loop) middleware to resolve this.
 
 See AWS Docs [Rotating Your SSL/TLS Certificate](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html) to ensure you're using the right certificate.
 
