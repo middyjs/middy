@@ -7,6 +7,7 @@ module.exports = opts => {
       maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
       retryDelayOptions: { base: 200 }
     },
+    onChange: undefined,
     paths: {},
     names: {},
     getParamNameFromPath: getParamNameFromPathDefault,
@@ -72,6 +73,10 @@ module.exports = opts => {
         objectsToMap.forEach(object => {
           Object.assign(targetParamsObject, object)
         })
+
+        if (typeof options.onChange === 'function') {
+          options.onChange()
+        }
         options.paramsLoaded = true
         options.paramsCache = objectsToMap
         options.paramsLoadedAt = new Date()

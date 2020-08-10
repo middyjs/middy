@@ -2,6 +2,7 @@ import { SSM } from 'aws-sdk'
 import middy from '@middy/core'
 
 interface ISSMOptions {
+  onChange?: () => void;
   cache?: boolean;
   cacheExpiryInMillis?: number;
   paths?: { [key: string]: string; };
