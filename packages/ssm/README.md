@@ -55,6 +55,7 @@ npm install --save @middy/ssm
 - `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached parameter values from SSM
 - `names` (object) (optional*): Map of parameters to fetch from SSM, where the key is the destination, and value is param name in SSM.
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`
+- `onChange` (function) (optional): Callback triggered when call was made to SSM. Useful when you need to regenerate something with different data. Example: `{ onChange: () => { console.log('New data available')} }`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to the `context` object
@@ -93,6 +94,31 @@ handler(event, context, (_, response) => {
 })
 ```
 
+Export parameters to context object, override AWS region.
+
+```javascript
+const middy = require('middy')
+const { ssm } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(
+  ssm({
+    cache: true,
+    names: {
+      SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+    },
+    awsSdkOptions: { region: 'us-west-1' },
+    setToContext: true
+  })
+)
+
+handler(event, context, (_, response) => {
+  expect(context.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+})
+```
 
 ## Middy documentation and examples
 
