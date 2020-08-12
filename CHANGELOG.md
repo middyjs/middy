@@ -1,3 +1,12 @@
+# 1.2.0
+
+## Features
+
+- #546 Documented order with http-response-serializer by @k-nut
+- #548 add ssm.onChange support back to 1.x by @theburningmonk
+- #549 Added middy-env to 3rd party middleware list by @chrisandrews7
+
+
 # 1.1.0
 
 ## Features
