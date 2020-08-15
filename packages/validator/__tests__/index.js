@@ -250,7 +250,7 @@ describe('📦  Middleware Validator', () => {
     test('It should apply given plugins', async () => {
       expect.assertions(2)
 
-      var schema = {
+      const schema = {
         type: 'object',
         required: ['foo'],
         properties: {
