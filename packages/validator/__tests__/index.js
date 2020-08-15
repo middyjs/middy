@@ -241,4 +241,42 @@ describe('📦  Middleware Validator', () => {
       }
     })
   })
+
+  describe('🔌 Ajv plugins setup', () => {
+    beforeEach(() => {
+      jest.resetModules()
+    })
+
+    test('It should apply given plugins', async () => {
+      expect.assertions(2)
+
+      var schema = {
+        type: 'object',
+        required: ['foo'],
+        properties: {
+          foo: { type: 'integer' }
+        },
+        errorMessage: 'should be an object with an integer property foo only'
+      }
+
+      const validator = require('../')
+
+      const handler = middy((event, context, cb) => {
+        cb(null, {})
+      })
+
+      handler.use(validator({ inputSchema: schema, plugins: [require('ajv-errors')] }))
+
+      try {
+        await invoke(handler, { foo: 'a' })
+      } catch (err) {
+        expect(err.message).toEqual('Event object failed validation')
+        expect(err.details).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ message: 'should be an object with an integer property foo only' })
+          ])
+        )
+      }
+    })
+  })
 })

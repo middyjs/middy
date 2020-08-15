@@ -38,9 +38,9 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   return defaultLanguage
 }
 
-module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
+module.exports = ({ inputSchema, outputSchema, ajvOptions, plugins }) => {
   const options = Object.assign({}, defaults, ajvOptions)
-  lazyLoadAjv(options)
+  lazyLoadAjv(options, plugins)
 
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
@@ -84,9 +84,9 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
   }
 }
 
-function lazyLoadAjv (options) {
+function lazyLoadAjv (options, plugins) {
   if (shouldInitAjv(options)) {
-    initAjv(options)
+    initAjv(options, plugins)
   }
 
   return ajv
@@ -106,9 +106,11 @@ function areConstructorOptionsNew (options) {
   return false
 }
 
-function initAjv (options) {
+function initAjv (options, plugins) {
   ajv = new Ajv(options)
+  console.log({ plugins })
   ajvKeywords(ajv)
+  plugins && plugins.forEach(p => p(ajv))
 
   previousConstructorOptions = options
 }
