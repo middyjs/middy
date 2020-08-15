@@ -41,6 +41,7 @@ response to the user.
 
 It can also be used in combination with [`httpcontentnegotiation`](#httpContentNegotiation) to load localised translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-i18n`](http://npm.im/ajv-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
 
+Also, this middleware accepts an array of plugins to be applied, such as `ajv-errors` to customize the internal `ajv` instance.
 
 ## Install
 
@@ -57,8 +58,9 @@ npm install --save @middy/validator
    to validate the input (`handler.event`) of the Lambda handler.
  - `outputSchema` (object) (optional): The JSON schema object that will be used
    to validate the output (`handler.response`) of the Lambda handler.
- - `ajvOptions` (object) (optional): Options to pass to [ajv](https://epoberezkin.github.io/ajv/)
+ - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org)
     class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en'}`
+ - `plugins` (array) (optional): Plugin functions to apply to [ajv](https://ajv.js.org) once intantiated. Defaults to empty array.
 
 
 ## Sample usage
@@ -131,6 +133,35 @@ handler({}, {}, (err, response) => {
 })
 ```
 
+Example for plugins applied:
+
+```javascript
+const middy = require('@middy/core')
+const validator = require('@middy/validator')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+const schema = {
+  type: 'object',
+  required: ['foo'],
+  properties: {
+    foo: { type: 'integer' }
+  },
+  errorMessage: 'should be an object with an integer property foo'
+}
+
+handler.use(validator({inputSchema: schema, plugins: [require('ajv-errors')]}))
+
+// invokes the handler, note that property foo is string and should be integer
+const event = {
+  body: JSON.stringify({ foo: 'a' })
+}
+handler(event, {}, (err, response) => {
+  expect(err.details[0].message).toEqual('should be an object with an integer property foo')
+})
+```
 
 ## Middy documentation and examples
 

@@ -6,7 +6,7 @@ interface IValidatorOptions {
   inputSchema?: any;
   outputSchema?: any;
   ajvOptions?: Partial<AjvOptions>;
-  plugins?: any[];
+  plugins?: Function[];
 }
 
 declare const validator : middy.Middleware<IValidatorOptions, any, any>

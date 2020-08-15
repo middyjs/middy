@@ -108,7 +108,6 @@ function areConstructorOptionsNew (options) {
 
 function initAjv (options, plugins) {
   ajv = new Ajv(options)
-  console.log({ plugins })
   ajvKeywords(ajv)
   plugins && plugins.forEach(p => p(ajv))
 
