@@ -41,7 +41,7 @@ response to the user.
 
 It can also be used in combination with [`httpcontentnegotiation`](#httpContentNegotiation) to load localised translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-i18n`](http://npm.im/ajv-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
 
-Also, this middleware accepts an array of plugins to be applied, such as `ajv-errors` to customize the internal `ajv` instance.
+Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance. Out-of-the-box, `ajv-i18n`, `ajv-errors` and `ajv-keywords` are being used.
 
 ## Install
 
@@ -59,8 +59,8 @@ npm install --save @middy/validator
  - `outputSchema` (object) (optional): The JSON schema object that will be used
    to validate the output (`handler.response`) of the Lambda handler.
  - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org)
-    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en'}`
- - `plugins` (array) (optional): Plugin functions to apply to [ajv](https://ajv.js.org) once intantiated. Defaults to empty array.
+    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en', jsonPointers: true}`. Note that `jsonPointers` is needed by `ajv-errors`.
+ - `ajvPlugins` (object) (optional): Plugin names (without `ajv-` preffix) as key and its options for the value, to apply to [ajv](https://ajv.js.org) once intantiated. Defaults are `{keywords: null, errors: null, i18n: null}`. Note that for no options `null` is used as value.
 
 
 ## Sample usage
@@ -133,7 +133,7 @@ handler({}, {}, (err, response) => {
 })
 ```
 
-Example for plugins applied:
+Example for plugins applied with `ajv-bsontype`:
 
 ```javascript
 const middy = require('@middy/core')
@@ -144,22 +144,25 @@ const handler = middy((event, context, cb) => {
 })
 
 const schema = {
-  type: 'object',
-  required: ['foo'],
+  required: ["name", "gpa"],
   properties: {
-    foo: { type: 'integer' }
-  },
-  errorMessage: 'should be an object with an integer property foo'
+    name: {
+      bsonType: "string"
+    },
+    gpa: {
+      bsonType: [ "double" ]
+    }
+  }
 }
 
-handler.use(validator({inputSchema: schema, plugins: [require('ajv-errors')]}))
+handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
 
 // invokes the handler, note that property foo is string and should be integer
 const event = {
-  body: JSON.stringify({ foo: 'a' })
+  body: JSON.stringify({ name: "Leo", gpa: "4" })
 }
 handler(event, {}, (err, response) => {
-  expect(err.details[0].message).toEqual('should be an object with an integer property foo')
+  expect(err.details[0].message).toEqual('should be double got 4')
 })
 ```
 

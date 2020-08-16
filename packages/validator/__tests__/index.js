@@ -247,7 +247,7 @@ describe('📦  Middleware Validator', () => {
       jest.resetModules()
     })
 
-    test('It should apply given plugins', async () => {
+    test('It should use out-of-the-box ajv-errors plugin', async () => {
       expect.assertions(2)
 
       const schema = {
@@ -265,7 +265,7 @@ describe('📦  Middleware Validator', () => {
         cb(null, {})
       })
 
-      handler.use(validator({ inputSchema: schema, plugins: [require('ajv-errors')] }))
+      handler.use(validator({ inputSchema: schema }))
 
       try {
         await invoke(handler, { foo: 'a' })
@@ -274,6 +274,38 @@ describe('📦  Middleware Validator', () => {
         expect(err.details).toEqual(
           expect.arrayContaining([
             expect.objectContaining({ message: 'should be an object with an integer property foo only' })
+          ])
+        )
+      }
+    })
+
+    test('It should apply added plugin bsontype', async () => {
+      expect.assertions(2)
+      const schema = {
+        required: ['name', 'gpa'],
+        properties: {
+          name: {
+            bsonType: 'string'
+          },
+          gpa: {
+            bsonType: ['double']
+          }
+        }
+      }
+
+      const handler = middy((event, context, cb) => {
+        cb(null, {})
+      })
+
+      handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
+
+      try {
+        await invoke(handler, { name: 'Leo', gpa: '4' })
+      } catch (err) {
+        expect(err.message).toEqual('Event object failed validation')
+        expect(err.details).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ message: 'should be double got 4' })
           ])
         )
       }
