@@ -144,24 +144,26 @@ describe('🛵  Middy test suite', () => {
       return callback(null, { foo: 'bar' })
     })
 
+    const executedBefore = []
+    const executedAfter = []
     const m1 = () => ({
       before: (handler, next) => {
-        handler.executedBefore = ['m1']
+        executedBefore.push('m1')
         next()
       },
       after: (handler, next) => {
-        handler.executedAfter.push('m1')
+        executedAfter.push('m1')
         next()
       }
     })
 
     const m2 = () => ({
       before: (handler, next) => {
-        handler.executedBefore.push('m2')
+        executedBefore.push('m2')
         next()
       },
       after: (handler, next) => {
-        handler.executedAfter = ['m2']
+        executedAfter.push('m2')
         next()
       }
     })
@@ -172,15 +174,17 @@ describe('🛵  Middy test suite', () => {
 
     // executes the handler
     handler({}, {}, (_, response) => {
-      expect(handler.executedBefore).toEqual(['m1', 'm2'])
-      expect(handler.executedAfter).toEqual(['m2', 'm1'])
+      expect(executedBefore).toEqual(['m1', 'm2'])
+      expect(executedAfter).toEqual(['m2', 'm1'])
       expect(response).toEqual({ foo: 'bar' })
       endTest()
     })
   })
 
   test('"before" middlewares should be able to change event', (endTest) => {
+    let handlerEvent
     const handler = middy((event, context, callback) => {
+      handlerEvent = event
       return callback(null, { foo: 'bar' })
     })
 
@@ -192,7 +196,7 @@ describe('🛵  Middy test suite', () => {
     handler.before(changeEventMiddleware)
 
     handler({}, {}, () => {
-      expect(handler.event.modified).toBe(true)
+      expect(handlerEvent.modified).toBe(true)
       endTest()
     })
   })
@@ -209,8 +213,9 @@ describe('🛵  Middy test suite', () => {
 
     handler.after(changeResponseMiddleware)
 
-    handler({}, {}, () => {
-      expect(handler.response.modified).toBe(true)
+    handler({}, {}, (err, response) => {
+      expect(err).toBeNull()
+      expect(response.modified).toBe(true)
       endTest()
     })
   })
@@ -604,13 +609,8 @@ describe('🛵  Middy test suite', () => {
   })
 
   test('It should handle async middlewares', (endTest) => {
-    const asyncBefore = async (handler) => {
-      handler.event.asyncBefore = true
-    }
-
-    const asyncAfter = async (handler) => {
-      handler.event.asyncAfter = true
-    }
+    const asyncBefore = jest.fn(async () => {})
+    const asyncAfter = jest.fn(async () => {})
 
     const handler = middy((event, context, callback) => {
       return callback(null, { some: 'response' })
@@ -622,8 +622,8 @@ describe('🛵  Middy test suite', () => {
 
     handler({}, {}, (err, response) => {
       expect(err).toBeNull()
-      expect(handler.event.asyncBefore).toBeTruthy()
-      expect(handler.event.asyncAfter).toBeTruthy()
+      expect(asyncBefore).toHaveBeenCalled()
+      expect(asyncAfter).toHaveBeenCalled()
       endTest()
     })
   })
