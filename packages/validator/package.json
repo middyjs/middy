@@ -44,12 +44,14 @@
   "dependencies": {
     "@types/http-errors": "^1.6.1",
     "ajv": "^6.5.0",
+    "ajv-errors": "^1.0.1",
     "ajv-i18n": "^3.3.0",
     "ajv-keywords": "^3.2.0",
     "http-errors": "^1.6.3"
   },
   "devDependencies": {
     "@middy/core": "^1.2.0",
+    "ajv-bsontype": "^1.0.7",
     "es6-promisify": "^6.0.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
