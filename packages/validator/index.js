@@ -1,21 +1,26 @@
 const createError = require('http-errors')
 const Ajv = require('ajv')
-const ajvKeywords = require('ajv-keywords')
-const ajvLocalize = require('ajv-i18n')
 const { deepStrictEqual } = require('assert')
 
 let ajv
 let previousConstructorOptions
-const defaults = {
+const optionsDefault = {
   v5: true,
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: true,
   $data: true, // required for ajv-keywords
-  defaultLanguage: 'en'
+  defaultLanguage: 'en',
+  jsonPointers: true
+}
+const pluginsInstances = {}
+const pluginsDefault = {
+  keywords: null,
+  errors: null,
+  i18n: null
 }
 
-const availableLanguages = Object.keys(ajvLocalize)
+let availableLanguages
 
 /* in ajv-i18n Portuguese is represented as pt-BR */
 const languageNormalizationMap = {
@@ -38,9 +43,10 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   return defaultLanguage
 }
 
-module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
-  const options = Object.assign({}, defaults, ajvOptions)
-  lazyLoadAjv(options)
+module.exports = ({ inputSchema, outputSchema, ajvOptions, ajvPlugins }) => {
+  const options = Object.assign({}, optionsDefault, ajvOptions)
+  const pluginsOptions = Object.assign({}, pluginsDefault, ajvPlugins)
+  lazyLoadAjv(options, pluginsOptions)
 
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
@@ -57,7 +63,7 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
         const error = new createError.BadRequest('Event object failed validation')
         handler.event.headers = Object.assign({}, handler.event.headers)
         const language = chooseLanguage(handler.event, options.defaultLanguage)
-        ajvLocalize[language](validateInput.errors)
+        pluginsInstances.i18n[language](validateInput.errors)
 
         error.details = validateInput.errors
         throw error
@@ -84,9 +90,9 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions }) => {
   }
 }
 
-function lazyLoadAjv (options) {
+function lazyLoadAjv (options, plugins) {
   if (shouldInitAjv(options)) {
-    initAjv(options)
+    initAjv(options, plugins)
   }
 
   return ajv
@@ -106,9 +112,17 @@ function areConstructorOptionsNew (options) {
   return false
 }
 
-function initAjv (options) {
+function initAjv (options, pluginsOptions) {
   ajv = new Ajv(options)
-  ajvKeywords(ajv)
+
+  Object.keys(pluginsOptions).forEach(p => {
+    pluginsInstances[p] = require(`ajv-${p}`)
+    if (typeof pluginsInstances[p] === 'function') {
+      pluginsInstances[p](ajv, pluginsOptions[p])
+    }
+  })
+
+  availableLanguages = Object.keys(pluginsInstances.i18n)
 
   previousConstructorOptions = options
 }

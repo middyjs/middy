@@ -201,6 +201,27 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
+  test('"before" middlewares should be able to change context', (endTest) => {
+    const handler = middy((event, context, callback) => {
+      return callback(null, { foo: 'bar' })
+    })
+
+    const changeEventMiddleware = (handler, next) => {
+      handler.context = {
+        ...handler.context,
+        modified: true
+      }
+      next()
+    }
+
+    handler.before(changeEventMiddleware)
+
+    handler({}, {}, () => {
+      expect(handler.context.modified).toBe(true)
+      endTest()
+    })
+  })
+
   test('"after" middlewares should be able to change response', (endTest) => {
     const handler = middy((event, context, callback) => {
       return callback(null, { foo: 'bar' })

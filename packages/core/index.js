@@ -187,7 +187,7 @@ const middy = (handler) => {
           })
         })
 
-        const handlerReturnValue = handler.call(request, request.event, context, (err, response) => {
+        const handlerReturnValue = handler.call(request, request.event, request.context, (err, response) => {
           if (err) return onHandlerError(err)
           onHandlerSuccess(response)
         })
