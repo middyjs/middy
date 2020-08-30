@@ -1,5 +1,4 @@
 const omit = require('lodash/omit')
-const cloneDeep = require('lodash/cloneDeep')
 
 module.exports = (opts) => {
   const defaults = {
@@ -9,8 +8,10 @@ module.exports = (opts) => {
 
   const { logger, omitPaths } = Object.assign({}, defaults, opts)
 
+  const cloneMessage = message => JSON.parse(JSON.stringify(message))
+
   const omitAndLog = message => {
-    const messageClone = cloneDeep(message)
+    const messageClone = cloneMessage(message)
     const redactedMessage = omit(messageClone, omitPaths)
     logger(redactedMessage)
   }
