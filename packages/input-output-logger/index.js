@@ -8,8 +8,11 @@ module.exports = (opts) => {
 
   const { logger, omitPaths } = Object.assign({}, defaults, opts)
 
+  const cloneMessage = message => JSON.parse(JSON.stringify(message))
+
   const omitAndLog = message => {
-    const redactedMessage = omit(message, omitPaths)
+    const messageClone = cloneMessage(message)
+    const redactedMessage = omit(messageClone, omitPaths)
     logger(redactedMessage)
   }
 
