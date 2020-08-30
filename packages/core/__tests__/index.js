@@ -201,12 +201,13 @@ describe('🛵  Middy test suite', () => {
     })
   })
 
-  test('"before" middlewares should be able to change context', (endTest) => {
+  test('"before" middleware should be able to modify context', (endTest) => {
     const handler = middy((event, context, callback) => {
+      expect(context.modified).toBeTruthy()
       return callback(null, { foo: 'bar' })
     })
 
-    const changeEventMiddleware = (handler, next) => {
+    const getLambdaContext = (handler, next) => {
       handler.context = {
         ...handler.context,
         modified: true
@@ -214,10 +215,9 @@ describe('🛵  Middy test suite', () => {
       next()
     }
 
-    handler.before(changeEventMiddleware)
+    handler.before(getLambdaContext)
 
     handler({}, {}, () => {
-      expect(handler.context.modified).toBe(true)
       endTest()
     })
   })
@@ -256,24 +256,6 @@ describe('🛵  Middy test suite', () => {
     handler.before(getLambdaContext)
 
     handler({}, context, () => {
-      endTest()
-    })
-  })
-
-  test('"before" middleware should be able to modify context', (endTest) => {
-    const handler = middy((event, context, callback) => {
-      expect(context.modified).toBeTruthy()
-      return callback(null, { foo: 'bar' })
-    })
-
-    const getLambdaContext = (handler, next) => {
-      handler.context.modified = true
-      next()
-    }
-
-    handler.before(getLambdaContext)
-
-    handler({}, {}, () => {
       endTest()
     })
   })
