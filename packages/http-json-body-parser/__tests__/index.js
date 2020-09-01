@@ -23,6 +23,26 @@ describe('📦  Middleware JSON Body Parser', () => {
     expect(body).toEqual({ foo: 'bar' })
   })
 
+  test('It should parse a JSON with a suffix MediaType request', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(jsonBodyParser())
+
+    // invokes the handler
+    const event = {
+      headers: {
+        'Content-Type': 'application/vnd+json'
+      },
+      body: JSON.stringify({ foo: 'bar' })
+    }
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual({ foo: 'bar' })
+  })
+
   test('It should use a reviver when parsing a JSON request', async () => {
     const handler = middy((event, context, cb) => {
       cb(null, event.body) // propagates the body as a response
