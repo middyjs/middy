@@ -43,10 +43,9 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   return defaultLanguage
 }
 
-module.exports = ({ inputSchema, outputSchema, ajvOptions, ajvPlugins }) => {
+module.exports = ({ inputSchema, outputSchema, ajvOptions, ajvPlugins = pluginsDefault }) => {
   const options = Object.assign({}, optionsDefault, ajvOptions)
-  const pluginsOptions = Object.assign({}, pluginsDefault, ajvPlugins)
-  lazyLoadAjv(options, pluginsOptions)
+  lazyLoadAjv(options, ajvPlugins)
 
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
@@ -62,8 +61,10 @@ module.exports = ({ inputSchema, outputSchema, ajvOptions, ajvPlugins }) => {
       if (!valid) {
         const error = new createError.BadRequest('Event object failed validation')
         handler.event.headers = Object.assign({}, handler.event.headers)
-        const language = chooseLanguage(handler.event, options.defaultLanguage)
-        pluginsInstances.i18n[language](validateInput.errors)
+        if (pluginsInstances.i18n) {
+          const language = chooseLanguage(handler.event, options.defaultLanguage)
+          pluginsInstances.i18n[language](validateInput.errors)
+        }
 
         error.details = validateInput.errors
         throw error
@@ -122,7 +123,7 @@ function initAjv (options, pluginsOptions) {
     }
   })
 
-  availableLanguages = Object.keys(pluginsInstances.i18n)
+  availableLanguages = Object.keys(pluginsInstances.i18n || {})
 
   previousConstructorOptions = options
 }

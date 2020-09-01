@@ -1,3 +1,8 @@
+# 1.3.1
+
+## Features
+- #522 Added in an option to remove ajv plugins from `validator` @willfarrell
+
 # 1.3.0
 
 ## Features
