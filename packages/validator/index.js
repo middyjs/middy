@@ -117,7 +117,14 @@ function initAjv (options, pluginsOptions) {
   ajv = new Ajv(options)
 
   Object.keys(pluginsOptions).forEach(p => {
-    pluginsInstances[p] = require(`ajv-${p}`)
+    try {
+      pluginsInstances[p] = require(`ajv-${p}`)
+    } catch (e) {
+      /* Fixes #560: Webpack needs explicit paths for dynamic imports */
+      const pckJson = require(`../../ajv-${p}/package.json`)
+      pluginsInstances[p] = require(`../../ajv-${p}/${pckJson.main}`)
+    }
+
     if (typeof pluginsInstances[p] === 'function') {
       pluginsInstances[p](ajv, pluginsOptions[p])
     }
