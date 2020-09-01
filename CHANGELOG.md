@@ -1,7 +1,12 @@
+# 1.4.0
+
+## Features
+- #562 Allow http-json-body-parser to accept `application/vnd.api+json` @rob0t7
+
 # 1.3.2
 
 ## Features
-- #561 Add in a fix for dynamic require with webpack @loeg 
+- #561 Add in a fix for dynamic require with webpack @leog 
 
 # 1.3.1
 
@@ -11,7 +16,7 @@
 # 1.3.0
 
 ## Features
-- #552 Validator extend for better avj plugin support @loeg 
+- #552 Validator extend for better avj plugin support @leog 
 - #559 Scope requests individually to allow batch requests @thetrevdev
 
 ## Bug Fixes

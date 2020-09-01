@@ -1,6 +1,6 @@
 {
   "name": "@middy/validator",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Validator middleware for the middy framework",
   "engines": {
     "node": ">=10"
@@ -50,7 +50,7 @@
     "http-errors": "^1.6.3"
   },
   "devDependencies": {
-    "@middy/core": "^1.3.2",
+    "@middy/core": "^1.4.0",
     "ajv-bsontype": "^1.0.7",
     "es6-promisify": "^6.0.2"
   },
