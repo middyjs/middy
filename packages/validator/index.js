@@ -120,6 +120,7 @@ function initAjv (options, pluginsOptions) {
     try {
       pluginsInstances[p] = require(`ajv-${p}`)
     } catch (e) {
+      /* Fixes #560: Webpack needs explicit paths for dynamic imports */
       const pckJson = require(`../../ajv-${p}/package.json`)
       pluginsInstances[p] = require(`../../ajv-${p}/${pckJson.main}`)
     }
