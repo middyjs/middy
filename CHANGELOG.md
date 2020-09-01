@@ -1,3 +1,8 @@
+# 1.3.2
+
+## Features
+- #561 Add in a fix for dynamic require with webpack @loeg 
+
 # 1.3.1
 
 ## Features

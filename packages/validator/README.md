@@ -62,9 +62,6 @@ npm install --save @middy/validator
     class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en', jsonPointers: true}`. Note that `jsonPointers` is needed by `ajv-errors`.
  - `ajvPlugins` (object) (optional): Plugin names (without `ajv-` prefix) as key and its options for the value, to apply to [ajv](https://ajv.js.org) once instantiated. You can pass in `{}` to not include the modules. Defaults are `{keywords: null, errors: null, i18n: null}`. Note that for no options `null` / `{}` is used as value.
 
-## Warning
-If you use `serverless` with `serverless-bundle` you will run into a build issue (`Module not found 'ajv-keywords'`) with the default configuration. See #560 for details. You can use `v1.2.0` or set `ajvPlugins` to `{}` to remove all plugins and work around this issue.
-
 ## Sample usage
 
 Example for input validation:
