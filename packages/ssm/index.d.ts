@@ -1,4 +1,4 @@
-import { SSM } from 'aws-sdk'
+import { SSM, STS } from 'aws-sdk'
 import middy from '@middy/core'
 
 interface ISSMOptions {
@@ -11,6 +11,12 @@ interface ISSMOptions {
   setToContext?: boolean;
   paramsLoaded?: Boolean;
   getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
+  stsOptions?: ISTSOptions
+}
+
+interface ISTSOptions {
+  assumeRoleOptions: Partial<STS.Types.AssumeRoleRequest>;
+  awsSdkOptions?: Partial<STS.Types.ClientConfiguration>
 }
 
 declare const ssm : middy.Middleware<ISSMOptions, any, any>

@@ -1,6 +1,8 @@
 jest.mock('aws-sdk')
 
 const SSM = require('aws-sdk/clients/ssm')
+const STS = require('aws-sdk/clients/sts')
+
 const middy = require('../../core')
 const ssm = require('../')
 
@@ -9,6 +11,10 @@ describe('🔒 SSM Middleware', () => {
   SSM.prototype.getParameters = getParametersMock
   const getParametersByPathMock = jest.fn()
   SSM.prototype.getParametersByPath = getParametersByPathMock
+
+  const assumeRoleMock = jest.fn()
+  STS.prototype.assumeRole = assumeRoleMock
+
   const onChange = jest.fn()
 
   beforeEach(() => {
@@ -16,6 +22,8 @@ describe('🔒 SSM Middleware', () => {
     getParametersMock.mockClear()
     getParametersByPathMock.mockReset()
     getParametersByPathMock.mockClear()
+    assumeRoleMock.mockReset()
+    assumeRoleMock.mockClear()
     onChange.mockReset()
     onChange.mockClear()
     delete process.env.KEY_NAME
@@ -397,6 +405,103 @@ describe('🔒 SSM Middleware', () => {
         () => {
           expect(process.env.KEY_NAME_1).toEqual('key-value')
           expect(process.env.KEY_NAME_2).toEqual('key-value')
+        }
+      ]
+    })
+  })
+
+  test('It should assume IAM role with the session name provided', async () => {
+    const middlewareOptions = {
+      stsOptions: {
+        assumeRoleOptions: {
+          RoleArn: 'arn::role-to-assume',
+          RoleSessionName: 'middy-ssm-session-' + new Date().getTime()
+        },
+        awsSdkOptions: { region: 'us-west-2' }
+      }
+    }
+    await testScenario({
+      middlewareOptions,
+      callbacks: [
+        () => {
+          expect(assumeRoleMock).toBeCalledWith(middlewareOptions.stsOptions.assumeRoleOptions)
+          expect(assumeRoleMock).toBeCalledTimes(1)
+        }
+      ]
+    })
+  })
+
+  test('It should not assume IAM role with wrong config', async () => {
+    const middlewareOptions = {
+      stsOptions: {
+        awsSdkOptions: { region: 'us-west-2' }
+      }
+    }
+    await testScenario({
+      middlewareOptions,
+      callbacks: [
+        () => {
+          expect(assumeRoleMock).toBeCalledTimes(0)
+        }
+      ]
+    })
+  })
+
+  test('It should not assume IAM role with no config', async () => {
+    const middlewareOptions = {
+      awsSdkOptions: { region: 'us-west-2' }
+    }
+    await testScenario({
+      middlewareOptions,
+      callbacks: [
+        () => {
+          expect(assumeRoleMock).toBeCalledTimes(0)
+        }
+      ]
+    })
+  })
+
+  test('It should assume IAM role and generate session name', async () => {
+    const middlewareOptions = {
+      stsOptions: {
+        assumeRoleOptions: {
+          RoleArn: 'arn::role-to-assume'
+        }
+      }
+    }
+    await testScenario({
+      middlewareOptions,
+      callbacks: [
+        () => {
+          expect(assumeRoleMock).toBeCalledWith(expect.objectContaining({
+            ...middlewareOptions.stsOptions.assumeRoleOptions,
+            RoleSessionName: expect.stringContaining('middy-ssm-session-')
+          }))
+          expect(assumeRoleMock).toBeCalledTimes(1)
+        }
+      ]
+    })
+  })
+
+  test('It should assume IAM role with provided sdk config', async () => {
+    const middlewareOptions = {
+      stsOptions: {
+        assumeRoleOptions: {
+          RoleArn: 'arn::role-to-assume',
+          RoleSessionName: 'middy-ssm-session-' + new Date().getTime()
+        },
+        awsSdkOptions: {
+          credentials: {
+            accessKeyId: 'aws-access-key'
+          }
+        }
+      }
+    }
+    await testScenario({
+      middlewareOptions,
+      callbacks: [
+        () => {
+          expect(assumeRoleMock).toBeCalledTimes(1)
         }
       ]
     })

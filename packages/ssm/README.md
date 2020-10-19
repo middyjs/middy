@@ -28,13 +28,14 @@
 </p>
 </div>
 
-This middleware fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
+This middleware fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) from the current account, or from another by assuming an IAM role.
 
 Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/).
 
 By default parameters are assigned to the Node.js `process.env` object. They can instead be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
 
 The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
+If the `stsOptions` is used, the Middleware will make an extra API call to STS.
 
 For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value from each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
 
@@ -60,12 +61,15 @@ npm install --save @middy/ssm
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to the `context` object
   of the function handler rather than to `process.env`. Defaults to `false`
+- `stsOptions` (object) (optional) : Options to pass to STS `assumeRole` call, and the `awsSdkOptions` for the STS client. The returned credentials will be passed to the `AWS.SSM` class constructor. If not provided, a session name will be generated. 
+Example: ```stsOptions: { assumeRoleOptions: { RoleArn: 'arn::role-to-assume' } }```
+  
 
 NOTES:
 * While you don't need _both_ `paths` and `names`, you do need at least one of them!
 * Lambda is required to have IAM permissions for `ssm:GetParameters*` actions
-* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
-
+* `aws-sdk` version of `2.221.1` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
+* Lambda is required to have IAM permissions for `sts:AssumeRole` if the `assumeRoleOptions` is used. While using this option, the SSM client is not cached! 
 
 ## Sample usage
 
@@ -112,6 +116,76 @@ handler.use(
     },
     awsSdkOptions: { region: 'us-west-1' },
     setToContext: true
+  })
+)
+
+handler(event, context, (_, response) => {
+  expect(context.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+})
+```
+
+Fetch parameters from a different AWS account.
+
+```javascript
+const middy = require('middy')
+const { ssm } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(
+  ssm({
+    cache: true,
+    names: {
+      SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+    },
+    awsSdkOptions: { 
+        region: 'us-west-1' 
+    },
+    setToContext: true,
+    stsOptions: {
+        assumeRoleOptions: {
+            RoleArn: 'arn:aws:iam::1234567890:role/the_role_to_assume'
+        }  
+    } 
+  })
+)
+
+handler(event, context, (_, response) => {
+  expect(context.SOME_ACCESS_TOKEN).toEqual('some-access-token')
+})
+```
+
+Fetch parameters from a different AWS account using a different set of credentials, and a session name.
+
+```javascript
+const middy = require('middy')
+const { ssm } = require('middy/middlewares')
+
+const handler = middy((event, context, cb) => {
+  cb(null, {})
+})
+
+handler.use(
+  ssm({
+    cache: true,
+    names: {
+      SOME_ACCESS_TOKEN: '/dev/service_name/access_token'
+    },
+    awsSdkOptions: { 
+        region: 'us-west-1' 
+    },
+    setToContext: true,
+    stsOptions: {
+        assumeRoleOptions: {
+            RoleArn: 'arn:aws:iam::1234567890:role/the_role_to_assume',
+            RoleSessionName: 'overwriting-the-default-session-name'
+        },
+        awsSdkOptions: {
+            region: 'us-west-2'
+        }         
+    } 
   })
 )
 

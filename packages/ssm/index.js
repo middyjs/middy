@@ -1,5 +1,8 @@
 const SSM = require('aws-sdk/clients/ssm')
+const STS = require('aws-sdk/clients/sts')
+const SESSION_NAME_PREFIX = 'middy-ssm-session-'
 let ssmInstance
+let stsInstance
 
 module.exports = opts => {
   const defaults = {
@@ -19,10 +22,14 @@ module.exports = opts => {
     paramsLoadedAt: new Date(0)
   }
 
+  const assumeRoleOptionsDefaults = {
+    RoleSessionName: SESSION_NAME_PREFIX + new Date().getTime()
+  }
+
   const options = Object.assign({}, defaults, opts)
 
   return {
-    before: (handler, next) => {
+    before: async (handler, next) => {
       if (!shouldFetchFromParamStore(options)) {
         if (options.paramsCache) {
           const targetParamsObject = getTargetObjectToAssign(handler, options)
@@ -33,40 +40,28 @@ module.exports = opts => {
         return next()
       }
 
-      ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
+      if (shouldAssumeRole(options)) {
+        stsInstance = stsInstance || new STS(options.stsOptions.awsSdkOptions)
+        const assumedRole = await stsInstance.assumeRole(
+          {
+            ...assumeRoleOptionsDefaults,
+            ...options.stsOptions.assumeRoleOptions
+          }).promise()
 
-      const ssmPromises = Object.keys(options.paths).reduce(
-        (aggregator, prefix) => {
-          const pathsData = options.paths[prefix]
-          const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
-          return paths.reduce((subAggregator, path) => {
-            subAggregator.push(
-              getParamsByPathRecursively(path).then(ssmResponse =>
-                getParamsToAssignByPath(
-                  path,
-                  ssmResponse,
-                  prefix,
-                  options.getParamNameFromPath
-                )
-              )
-            )
-
-            return subAggregator
-          }, aggregator)
-        },
-        []
-      )
-      const ssmParamNames = getSSMParamValues(options.names)
-      if (ssmParamNames.length) {
-        const ssmPromise = ssmInstance
-          .getParameters({ Names: ssmParamNames, WithDecryption: true })
-          .promise()
-          .then(handleInvalidParams)
-          .then(ssmResponse =>
-            getParamsToAssignByName(options.names, ssmResponse)
-          )
-        ssmPromises.push(ssmPromise)
+        ssmInstance = new SSM(
+          {
+            credentials: {
+              accessKeyId: assumedRole.Credentials.AccessKeyId,
+              secretAccessKey: assumedRole.Credentials.SecretAccessKey,
+              sessionToken: assumedRole.Credentials.SessionToken
+            },
+            ...options.awsSdkOptions
+          })
+      } else {
+        ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
       }
+
+      const ssmPromises = fetchFromParamStore(ssmInstance, options)
 
       return Promise.all(ssmPromises).then(objectsToMap => {
         const targetParamsObject = getTargetObjectToAssign(handler, options)
@@ -83,6 +78,47 @@ module.exports = opts => {
       })
     }
   }
+}
+
+const fetchFromParamStore = (ssm, options) => {
+  const ssmPromises = Object.keys(options.paths).reduce(
+    (aggregator, prefix) => {
+      const pathsData = options.paths[prefix]
+      const paths = Array.isArray(pathsData) ? pathsData : [pathsData]
+      return paths.reduce((subAggregator, path) => {
+        subAggregator.push(
+          getParamsByPathRecursively(path).then(ssmResponse =>
+            getParamsToAssignByPath(
+              path,
+              ssmResponse,
+              prefix,
+              options.getParamNameFromPath
+            )
+          )
+        )
+
+        return subAggregator
+      }, aggregator)
+    },
+    []
+  )
+  const ssmParamNames = getSSMParamValues(options.names)
+  if (ssmParamNames.length) {
+    const ssmPromise = ssm
+      .getParameters({ Names: ssmParamNames, WithDecryption: true })
+      .promise()
+      .then(handleInvalidParams)
+      .then(ssmResponse =>
+        getParamsToAssignByName(options.names, ssmResponse)
+      )
+    ssmPromises.push(ssmPromise)
+  }
+
+  return ssmPromises
+}
+
+const shouldAssumeRole = ({ stsOptions }) => {
+  return stsOptions && stsOptions.assumeRoleOptions
 }
 
 const shouldFetchFromParamStore = ({
