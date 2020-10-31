@@ -60,6 +60,7 @@ npm install --save @middy/ssm
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to the `context` object
   of the function handler rather than to `process.env`. Defaults to `false`
+- `throwOnFailedCall` (boolean) (optional): Defaults to `false`. Set it to `true` if you want your lambda to fail in case call to AWS SSM fails (parameters don't exist or internal error). It will only print error if parameters are not already cached.
 
 NOTES:
 * While you don't need _both_ `paths` and `names`, you do need at least one of them!
