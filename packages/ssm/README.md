@@ -57,6 +57,7 @@ npm install --save @middy/ssm
   Example: `{names: {DB_URL: '/dev/service/db_url'}}`
 - `onChange` (function) (optional): Callback triggered when call was made to SSM. Useful when you need to regenerate something with different data. Example: `{ onChange: () => { console.log('New data available')} }`
 - `awsSdkOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
+- `awsSdkInstance` (object) (optional): an alternative instance of AWS.SSM to use (e.g. that has been instrumented with AWS XRay)
   Defaults to `{ maxRetries: 6, retryDelayOptions: {base: 200} }`
 - `setToContext` (boolean) (optional): This will assign parameters to the `context` object
   of the function handler rather than to `process.env`. Defaults to `false`

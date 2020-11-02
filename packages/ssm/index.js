@@ -8,6 +8,7 @@ module.exports = opts => {
       retryDelayOptions: { base: 200 }
     },
     throwOnFailedCall: false,
+    awsSdkInstance: undefined,
     onChange: undefined,
     paths: {},
     names: {},
@@ -34,7 +35,7 @@ module.exports = opts => {
         return next()
       }
 
-      ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
+      ssmInstance = options.awsSdkInstance || ssmInstance || new SSM(options.awsSdkOptions)
 
       const ssmPromises = Object.keys(options.paths).reduce(
         (aggregator, prefix) => {
