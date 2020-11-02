@@ -8,6 +8,7 @@ interface ISSMOptions {
   paths?: { [key: string]: string; };
   names?: { [key: string]: string; };
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
+  throwOnFailedCall?: boolean;
   awsSdkInstance?: SSM;
   setToContext?: boolean;
   paramsLoaded?: Boolean;
