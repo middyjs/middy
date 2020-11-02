@@ -7,6 +7,7 @@ module.exports = opts => {
       maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
       retryDelayOptions: { base: 200 }
     },
+    awsSdkInstance: undefined,
     onChange: undefined,
     paths: {},
     names: {},
@@ -33,7 +34,7 @@ module.exports = opts => {
         return next()
       }
 
-      ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
+      ssmInstance = options.awsSdkInstance || ssmInstance || new SSM(options.awsSdkOptions)
 
       const ssmPromises = Object.keys(options.paths).reduce(
         (aggregator, prefix) => {
