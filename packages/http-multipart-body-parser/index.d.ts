@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 interface IMultipartBodyParserOptions {
-  busyboy?: any
+  busboy?: any
 }
 
 declare const multipartBodyParser : middy.Middleware<IMultipartBodyParserOptions, any, any>
