@@ -10,7 +10,8 @@ module.exports = opts => {
     cacheExpiryInMillis: undefined,
     secretsLoaded: false,
     secretsCache: undefined,
-    secretsLoadedAt: new Date(0)
+    secretsLoadedAt: new Date(0),
+    setEnvironment: false
   }
 
   const options = Object.assign({}, defaults, opts)
@@ -20,7 +21,7 @@ module.exports = opts => {
       // if there're cached secrets already, then use it in case refresh fails
       if (options.secretsCache) {
         options.secretsCache.forEach(object => {
-          Object.assign(handler.context, object)
+          setSecret(handler, object, options)
         })
       }
 
@@ -45,7 +46,7 @@ module.exports = opts => {
       return Promise.all(secretsPromises)
         .then(objectsToMap => {
           objectsToMap.forEach(object => {
-            Object.assign(handler.context, object)
+            setSecret(handler, object, options)
           })
 
           options.secretsLoaded = true
@@ -92,6 +93,11 @@ const shouldFetchFromSecretsManager = ({
 
   // otherwise, don't bother
   return false
+}
+
+function setSecret ({ context }, object, { setEnvironment }) {
+  Object.assign(context, object)
+  if (setEnvironment) Object.entries(object).forEach(([key, value]) => { process.env[key] = String(value) })
 }
 
 function safeParse (secretString) {

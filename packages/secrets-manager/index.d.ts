@@ -7,6 +7,7 @@ interface ISecretsManagerOptions {
   secrets?: { [key: string]: string; };
   awsSdkOptions?: Partial<SecretsManager.Types.ClientConfiguration>;
   throwOnFailedCall?: boolean;
+  setEnvironment?: boolean
 }
 
 declare const secretsManager : middy.Middleware<ISecretsManagerOptions, any, any>

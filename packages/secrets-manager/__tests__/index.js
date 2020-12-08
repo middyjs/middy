@@ -116,6 +116,26 @@ describe('🔒 SecretsManager Middleware', () => {
     })
   })
 
+  test('It should set string secrets to process.env when setEnvironment is true', async () => {
+    await testScenario({
+      mockResponse: {
+        SecretString: 'secret-api-key'
+      },
+      middlewareOptions: {
+        secrets: {
+          API_KEY: 'api_key'
+        },
+        setEnvironment: true
+      },
+      callbacks: [
+        (_, __) => {
+          hasStringKey(process.env, 'secret-api-key')
+          expect(getSecretValueMock).toBeCalled()
+        }
+      ]
+    })
+  })
+
   test('It should set string secrets to context when it is invalid JSON', async () => {
     await testScenario({
       mockResponse: {
