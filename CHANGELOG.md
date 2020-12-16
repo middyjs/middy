@@ -1,3 +1,15 @@
+# 1.5.0
+
+This release includes multiple improvements to `@middy/ssm`
+- #571 X-Ray support @chris-armstrong
+- #572 Error edge case catch @bokjo
+
+## Bug Fixes
+- #574 TypeScript Typo @bhamon-dot
+
+## Misc
+- #566 Remove @types/aws-lambda as peerDep
+
 # 1.4.0
 
 ## Features
