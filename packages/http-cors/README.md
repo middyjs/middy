@@ -81,7 +81,7 @@ handler({}, {}, (_, response) => {
 
 ```javascript
 const middy = require('@middy/core')
-const { cors } = require('@middy/http-cors')
+const cors = require('@middy/http-cors')
 
 const handler = middy((event, context, cb) => {
   cb(null, {})
