@@ -35,9 +35,6 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "peerDependencies": {
-    "@types/aws-lambda": "^8.10.3"
-  },
   "dependencies": {
     "once": "^1.4.0"
   },
