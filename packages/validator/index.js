@@ -18,7 +18,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
 
-  const before = !validateInput ? null : async (handler) => {
+  const validateMiddlewareBefore = async (handler) => {
     const valid = validateInput(handler.event)
 
     if (!valid) {
@@ -32,7 +32,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
     }
   }
 
-  const after = !validateOutput ? null : async (handler) => {
+  const validateMiddlewareAfter = async (handler) => {
     const valid = validateOutput(handler.response)
 
     if (!valid) {
@@ -42,5 +42,8 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
       throw error
     }
   }
-  return { before, after }
+  return {
+    before: !validateInput ? null : validateMiddlewareBefore,
+    after: !validateOutput ? null : validateMiddlewareAfter
+  }
 }

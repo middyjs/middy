@@ -1,5 +1,70 @@
 const Accept = require('@hapi/accept')
 
+const defaults = {}
+
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+  const httpResponseSerializerMiddlewareAfter = async (handler) => {
+    // normalise headers for internal use only
+    const requestHeaders = getNormalisedHeaders((handler.event && handler.event.headers) || {})
+    const responseHeaders = getNormalisedHeaders((handler.response && handler.response.headers) || {})
+
+    // skip serialization when content-type is already set
+    if (responseHeaders['content-type']) {
+      return
+    }
+
+    // find accept value(s)
+    let types
+
+    if (handler.event.requiredContentType) {
+      types = [].concat(handler.event.requiredContentType)
+    } else {
+      types = [].concat(
+        (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) || [],
+        handler.event.preferredContentType || [],
+        options.default || []
+      )
+    }
+
+    // dont bother finding a serializer if no types are given
+    if (!types.length) {
+      return
+    }
+
+    // find in order of first preferred type that has a matching serializer
+    types.find(type => options.serializers.find(s => {
+      const test = s.regex.test(type)
+
+      if (!test) { return false }
+
+      // if the response is not an object, assign it to body. { body: undefined } is not serialized
+      handler.response = typeof handler.response === 'object' ? handler.response : { body: handler.response }
+
+      // set header
+      handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
+
+      // run serializer
+      const result = s.serializer(handler.response)
+
+      if (typeof result === 'object') {
+        // replace response object if result is object
+        handler.response = result
+      } else {
+        // otherwise only replace the body attribute
+        handler.response.body = result
+      }
+
+      return true
+    }))
+  }
+  const httpResponseSerializerMiddlewareOnError = httpResponseSerializerMiddlewareAfter
+  return {
+    after: httpResponseSerializerMiddlewareAfter,
+    onError: httpResponseSerializerMiddlewareOnError
+  }
+}
+
 const getNormalisedHeaders = (source) => Object
   .keys(source)
   .reduce((destination, key) => {
@@ -7,65 +72,3 @@ const getNormalisedHeaders = (source) => Object
 
     return destination
   }, {})
-
-const middleware = (opts, handler) => {
-  // normalise headers for internal use only
-  const requestHeaders = getNormalisedHeaders((handler.event && handler.event.headers) || {})
-  const responseHeaders = getNormalisedHeaders((handler.response && handler.response.headers) || {})
-
-  // skip serialization when content-type is already set
-  if (responseHeaders['content-type']) {
-    return
-  }
-
-  // find accept value(s)
-  let types
-
-  if (handler.event.requiredContentType) {
-    types = [].concat(handler.event.requiredContentType)
-  } else {
-    types = [].concat(
-      (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) || [],
-      handler.event.preferredContentType || [],
-      opts.default || []
-    )
-  }
-
-  // dont bother finding a serializer if no types are given
-  if (!types.length) {
-    return
-  }
-
-  // find in order of first preferred type that has a matching serializer
-  types.find(type => opts.serializers.find(s => {
-    const test = s.regex.test(type)
-
-    if (!test) { return false }
-
-    // if the response is not an object, assign it to body. { body: undefined } is not serialized
-    handler.response = typeof handler.response === 'object' ? handler.response : { body: handler.response }
-
-    // set header
-    handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
-
-    // run serializer
-    const result = s.serializer(handler.response)
-
-    if (typeof result === 'object') {
-      // replace response object if result is object
-      handler.response = result
-    } else {
-      // otherwise only replace the body attribute
-      handler.response.body = result
-    }
-
-    return true
-  }))
-}
-
-export default (opts = {}) => {
-  return {
-    after: middleware.bind(null, opts),
-    onError: middleware.bind(null, opts)
-  }
-}

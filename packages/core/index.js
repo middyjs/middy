@@ -65,9 +65,9 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
-  profiler?.before(middlewares.length)
+  profiler?.before(middlewares.length + '-' + nextMiddleware?.name)
   await nextMiddleware?.(request)
-  profiler?.after(middlewares.length)
+  profiler?.after(middlewares.length + '-' + nextMiddleware?.name)
   return runMiddlewares(stack, request, profiler)
 }
 
@@ -80,7 +80,7 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
 const middy = (handler, profiler = null) => {
   const beforeMiddlewares = []
   const afterMiddlewares = []
-  const errorMiddlewares = []
+  const onErrorMiddlewares = []
 
   const instance = (event, context, callback) => {
     const request = {
@@ -91,15 +91,10 @@ const middy = (handler, profiler = null) => {
       error: null
     }
 
-    console.log('beforeMiddlewares',beforeMiddlewares)
-    console.log('afterMiddlewares',afterMiddlewares)
-    console.log('errorMiddlewares',errorMiddlewares)
-
     const catchError = async (err) => {
-      console.log('catchError')
       request.response = null
       request.error = err
-      await runMiddlewares(errorMiddlewares, request, profiler)
+      await runMiddlewares(onErrorMiddlewares, request, profiler)
       if (request.response) return callback(null, request.response)
       return callback(err)
     }
@@ -111,10 +106,10 @@ const middy = (handler, profiler = null) => {
         return catchError(err)
       }
       try {
-        profiler?.before('handler')
+        profiler?.before('0-handler')
         request.response = await handler(request.event, request.context)
-        profiler?.after('handler')
-        await runMiddlewares(beforeMiddlewares, request, profiler)
+        profiler?.after('0-handler')
+        await runMiddlewares(afterMiddlewares, request, profiler)
         return callback(null, request.response)
       } catch (err) {
         return catchError(err)
@@ -145,17 +140,28 @@ const middy = (handler, profiler = null) => {
       throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
-    beforeMiddlewares.push(before)
-    afterMiddlewares.unshift(after)
-    errorMiddlewares.unshift(onError)
+    if (before) instance.before(before)
+    if (after) instance.after(after)
+    if (onError) instance.onError(onError)
 
     return instance
+  }
+
+  // Inline Middlewares
+  instance.before = (beforeMiddleware) => {
+    beforeMiddlewares.push(beforeMiddleware)
+  }
+  instance.after = (afterMiddleware) => {
+    afterMiddlewares.unshift(afterMiddleware)
+  }
+  instance.onError = (onErrorMiddleware) => {
+    onErrorMiddlewares.unshift(onErrorMiddleware)
   }
 
   instance.__middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
-    onError: errorMiddlewares
+    onError: onErrorMiddlewares
   }
 
   return instance

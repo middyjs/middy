@@ -124,7 +124,7 @@ helmetHtmlOnly.xssFilter = (headers, options) => {
 export default (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
-  const response = async (handler) => {
+  const httpSecurityHeadersMiddlewareAfter = async (handler) => {
     handler.response = handler.response || { statusCode: 500 } // catch thrown errors, prevent default statusCode
     handler.response.headers = handler.response.headers || {}
 
@@ -141,8 +141,10 @@ export default (opts = {}) => {
     }
   }
 
+  const httpSecurityHeadersMiddlewareOnError = httpSecurityHeadersMiddlewareAfter
+
   return {
-    after: response,
-    onError: response
+    after: httpSecurityHeadersMiddlewareAfter,
+    onError: httpSecurityHeadersMiddlewareOnError
   }
 }

@@ -27,13 +27,13 @@ export default () => {
     if (desc) descriptions[id] = desc
   }
 
-  const before = async (handler) => {
+  const httpServerTimingsMiddlewareBefore = async (handler) => {
     init()
     start('total')
     handler.context.serverTiming = { tag, start, stop }
   }
 
-  const after = async (handler) => {
+  const httpServerTimingsMiddlewareAfter = async (handler) => {
     stop('total')
     handler.response = handler.response || {}
     handler.response.headers = handler.response.headers || {}
@@ -52,5 +52,8 @@ export default () => {
         .join(', ')
   }
 
-  return { before, after }
+  return {
+    before: httpServerTimingsMiddlewareBefore,
+    after: httpServerTimingsMiddlewareAfter
+  }
 }

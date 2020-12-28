@@ -1,24 +1,24 @@
 import { canPreFetch, createClient, processCache } from '../core/util.js'
-import {RDS} from '@aws-sdk/client-rds'
+import { RDS } from '@aws-sdk/client-rds'
+
+const defaults = {
+  awsClientConstructor: RDS, // Allow for XRay
+  //awsClientOptions: {}, // Not used
+  fetchData: {},  // { contextKey: {region, hostname, username, database, port} }
+  cacheKey: 'rds-signer',
+  cacheExpiry: 0,
+}
 
 export default (opts = {}) => {
-  const defaults = {
-    awsClientConstructor: RDS, // Allow for XRay
-    //awsClientOptions: {}, // Not used
-    fetchKeys: {},  // { contextKey: {region, hostname, username, database, port} }
-    cacheKey: 'rds-signer',
-    cacheExpiry: 0,
-  }
-
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchKeys).map((contextKey) => {
+    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
       return client
-        .Signer(options.fetchKeys[contextKey])
+        .Signer(options.fetchData[contextKey])
         .getAuthToken()
         .then(resp => {
-          return {[contextKey]: resp}
+          return { [contextKey]: resp }
         })
     }))
 
@@ -31,17 +31,19 @@ export default (opts = {}) => {
     preFetch = processCache(options, fetch)
   }
 
-  const before = async (handler) => {
+  const rdsSignerMiddlewareBefore = async (handler) => {
     if (canPreFetch(options)) {
       await preFetch
     } else if (!client) {
       client = createClient(options, handler)
     }
 
-    const cached = await processCache( options, fetch)
+    const cached = await processCache(options, fetch)
 
     Object.assign(handler.context, cached)
   }
 
-  return { before }
+  return {
+    before: rdsSignerMiddlewareBefore
+  }
 }

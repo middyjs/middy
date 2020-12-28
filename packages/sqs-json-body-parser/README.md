@@ -41,16 +41,6 @@ npm install --save @middy/sqs-json-body-parser
 ## Options
 
  - `reviver` (function) (optional): A function to be passed as the reviver for [JSON.parse(text[, reviver])](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON). If safeParse is provided then reviver will be passed to it and it is up the provided safeParse function to use it or ignore it.
- - `safeParse` (function) (optional): A provided function to be used inplace of the default safeParse function for custom parsing logic on each record body in the batch. As an example the following represents the default safeParse function:
- ```javascript
-const safeParse = (body, reviver) => {
-  try {
-    return JSON.parse(body, reviver)
-  } catch (err) {
-    return body
-  }
-}
- ```
 
 ## Sample usage
 

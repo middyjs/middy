@@ -73,7 +73,11 @@ function sqsMiddlewareAfter ({
   }
 }
 
-const sqsMiddleware = ({
+const defaults = {
+
+}
+
+export default  ({
   sqs = new SQS(),
   deleteSqsMessages = defaultDeleteSqsMessages,
   getFulfilledRecords = defaultGetFulfilledRecords,
@@ -86,5 +90,3 @@ const sqsMiddleware = ({
     getRejectedReasons
   })
 })
-
-export default sqsMiddleware

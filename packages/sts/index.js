@@ -1,22 +1,24 @@
 import { canPreFetch, createClient, processCache } from '../core/util.js'
 import {STS} from '@aws-sdk/client-sts'
 
-export default (opts = {}) => {
-  const defaults = {
-    awsClientConstructor: STS, // Allow for XRay
-    awsClientOptions: {},
-    //awsClientAssumeRole: undefined, // NA
-    fetchKeys: {},  // { contextKey: {RoleArn, RoleSessionName} }
-    cacheKey: 'sts',
-    cacheExpiry: 0,
-  }
+const defaults = {
+  awsClientConstructor: STS, // Allow for XRay
+  awsClientOptions: {},
+  //awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
+  fetchData: {},  // { contextKey: {RoleArn, RoleSessionName} }
+  cacheKey: 'sts',
+  cacheExpiry: 0,
+}
 
+export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchKeys).map((contextKey) => {
+    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
+      const assumeRoleOptions = options.fetchData[contextKey]
+      if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-ssm-session-' + Math.random()*1000|0 // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
       return client
-        .assumeRole(options.fetchKeys[contextKey])
+        .assumeRole(assumeRoleOptions)
         .then(resp => {
           return {[contextKey]: {
               accessKeyId: resp.Credentials.AccessKeyId,
@@ -35,7 +37,7 @@ export default (opts = {}) => {
     preFetch = processCache(options, fetch)
   }
 
-  const before = async (handler) => {
+  const stsMiddlewareBefore = async (handler) => {
     if (canPreFetch(options)) {
       await preFetch
     } else if (!client) {
@@ -46,5 +48,7 @@ export default (opts = {}) => {
     Object.assign(handler.context, cached)
   }
 
-  return { before }
+  return {
+    before:stsMiddlewareBefore
+  }
 }

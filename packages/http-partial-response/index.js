@@ -6,6 +6,31 @@ const defaults = {
   filteringKeyName: 'fields'
 }
 
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+  const { filteringKeyName } = options
+
+  const httpPartialResponseMiddlewareAfter = async (handler) => {
+    const params = getFilterParams(handler, filteringKeyName)
+
+    if (!isResponseFilterable(params)) return
+
+    let { body, fields } = params
+    const isBodyStringified = isJson(body)
+
+    body = isBodyStringified ? JSON.parse(body) : body
+
+    const filteredBody = filter(body, compile(fields))
+
+    handler.response.body = isBodyStringified
+      ? JSON.stringify(filteredBody)
+      : filteredBody
+  }
+  return {
+    after: httpPartialResponseMiddlewareAfter
+  }
+}
+
 const getFilterParams = (handler, filteringKeyName) => {
   const { body } = handler.response
   const { queryStringParameters } = handler.event
@@ -35,28 +60,4 @@ const isResponseFilterable = params => {
   if (!fields) return false
 
   return true
-}
-
-export default (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
-  const { filteringKeyName } = options
-
-  return {
-    after: async (handler) => {
-      const params = getFilterParams(handler, filteringKeyName)
-
-      if (!isResponseFilterable(params)) return
-
-      let { body, fields } = params
-      const isBodyStringified = isJson(body)
-
-      body = isBodyStringified ? JSON.parse(body) : body
-
-      const filteredBody = filter(body, compile(fields))
-
-      handler.response.body = isBodyStringified
-        ? JSON.stringify(filteredBody)
-        : filteredBody
-    }
-  }
 }

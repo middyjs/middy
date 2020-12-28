@@ -29,8 +29,12 @@
 </p>
 </div>
 
-**⚠️ NOTE: if you are upgrading from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x), check out the [upgrade instructions](UPGRADE.md)!**
+<div align="center">
 
+<p><strong>⚠️ NOTE: if you are using Node.js v12, use [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), Middy 2.x requires Node.js v14</strong></p>
+<p><strong>⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](UPGRADE.md)!</strong></p>
+
+</div>
 ## What is Middy
 
 Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
@@ -291,7 +295,7 @@ const handler = middy((event, context, callback) => {
 
 ### Handling errors
 
-But what happens when there is an error?
+But, what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
 moved back to all the middlewares that implemented a special phase called `onError`, following
@@ -307,51 +311,11 @@ to the user.
 
 If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
-### Promise support
-
-Middy allows you to return promises or throw errors from your handlers (instead of calling `callback()`) and middlewares
-(instead of calling `next()`).
-
-Here is an example of a handler that returns a promise:
-
-```javascript
-middy((event, context, callback) => {
-  return someAsyncStuff()
-    .then(() => {
-      return someOtherAsyncStuff()
-    })
-    .then(() => {
-      return {foo: bar}
-    }
-})
-```
-
-And here is an example of a middleware that returns a similar promise:
-
-```javascript
-const asyncValidator = () => {
-  before: handler => {
-    if (handler.event.body) {
-      return someAsyncStuff(handler.event.body).then(() => {
-        return { foo: bar }
-      })
-    }
-
-    return Promise.resolve()
-  }
-}
-
-handler.use(asyncValidator())
-```
-
 ### Using async/await
 
 Node.js 8.10 supports [async/await](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function),
 allowing you to work with promises in a way that makes handling asynchronous logic easier to reason about and
 asynchronous code easier to read.
-
-You can still use async/await if you're running AWS Lambda on Node.js 6.10, but you will need to transpile your
-`async/await` code (e.g. using [babel](https://babeljs.io/)).
 
 Take the following code as an example of a handler written with async/await:
 
@@ -383,71 +347,6 @@ handler.use(asyncValidator())
 ```
 
 
-## Promises and error handling
-
-`onError` middlewares can return promises as well.
-Here's how Middy handles return values from promise-enabled error handlers:
-* If `onError` promise resolves to a *truthy* value, this value is treated as an error and passed further down the pipeline.
-
-```javascript
-middleware1 = {
-  onError: (handler) => {
-    Logger.debug("middleware1");
-    return Promise.resolve(handler.error)
-  }
-}
-middleware2 = {
-  onError: (handler) => {
-    Logger.debug("middleware2");
-    return Promise.resolve(handler.error)
-  }
-}
-handler.use(middleware1).use(middleware2);
-```
-
-Here, first `middleware1.onError` then `middleware2.onError` will be called.
-
-  - If the last `onError` in the chain returns a promise which resolves to a value, the lambda fails and reports an unmanaged error
-  In the example above, the lambda will fail and report the error returned by `middleware2.onError`.
-  - If `onError` promise resolves to a *falsy* value (`null`, `undefined`, `false` etc.), the error handling pipeline continues and eventually the response is returned without an error.
-
-```javascript
-const middleware1 = {
-  onError: (handler) => {
-    handler.response = { error: handler.error };
-    return Promise.resolve();
-    // Resolves to a falsy value
-  }
-}
-const middleware2 = {
-  onError: (handler) => {
-    return Promise.resolve(handler.error)
-  }
-}
-handler.use(middleware1).use(middleware2);
-```
-
-Here, only `middleware1.onError` will be called. The rest of the error handlers will be skipped, and the lambda will finish normally and return the response. `middleware2.onError` will not be called.
-
-  - If `onError` promise rejects, the error handling pipeline exits early and the lambda execution fails.
-
-```javascript
-const middleware1 = {
-  onError: (handler) => {
-    return Promise.reject(handler.error);
-  }
-}
-const middleware2 = {
-  onError: (handler) => {
-    return Promise.resolve(handler.error)
-  }
-}
-handler.use(middleware1).use(middleware2);
-```
-
-Here, only `middleware1.onError` will be called, and the lambda will fail early, reporting an error. `middleware2.onError` will not be called.
-
-
 ## Writing a middleware
 
 A middleware is an object that should contain at least 1 of 3 possible keys:
@@ -459,7 +358,7 @@ A middleware is an object that should contain at least 1 of 3 possible keys:
 `before`, `after` and `onError` functions need to have the following signature:
 
 ```javascript
-function (handler, next) {
+async (handler) => {
   // ...
 }
 ```
@@ -469,8 +368,6 @@ Where:
 - `handler`: is a reference to the current context and allows access to (and modification of)
   the current `event` (request), the `response` (in the _after_ phase), and `error`
   (in case of an error).
-- `next`: is a callback function that needs to be invoked when the middleware has finished
-  its job so that the next middleware can be invoked.
 
 ### Configurable middlewares
 
@@ -481,34 +378,36 @@ a configuration object. This function should then return the middleware object w
 E.g.
 
 ```javascript
-# myMiddleware.js
+// myMiddleware.js
 
-const myMiddleware = (config) => {
+const defaults = {}
+
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
   // might set default options in config
   return ({
-    before: (handler, next) => {
+    before: async (handler) => {
       // might read options from `config`
     },
-    after: (handler, next) => {
+    after: async (handler) => {
       // might read options from `config`
     },
-    onError: (handler, next) => {
+    onError: async (handler) => {
       // might read options from `config`
     }
   })
 }
-
-module.exports = myMiddleware
 ```
 
 With this convention in mind, using a middleware will always look like the following example:
 
 ```javascript
-const middy = require('@middy/core')
-const myMiddleware = require('myMiddleware')
+import middy  from '@middy/core'
+import myMiddleware from 'myMiddleware.js'
 
-const handler = middy((event, context, callback) => {
+const handler = middy(async (event, context) => {
   // do stuff
+  return {}
 })
 
 handler.use(
@@ -567,37 +466,39 @@ on how to write a middleware.
 
 ## FAQ
 
-### Q: `context.done called twice within handler` warning
-**A**: You're probably trying to use `callback()` inside an async handler, or `next()` inside an async middleware. Async
-handlers and middlewares should return a promise, so calling those functions is not needed.
-See [Promise support](https://github.com/middyjs/middy#promise-support) for examples.
+
 
 ## Available middlewares
 
-Currently available middlewares:
-
-- [`cache`](/packages/cache): A simple but flexible caching layer
-- [`db-manager`](/packages/db-manager): Provides seamless connection with database of your choice
+### Misc
+- [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
-- [`function-shield`](/packages/function-shield): Hardens AWS Lambda execution environment
+
+### Request Transformation 
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
-- [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
+
 - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
 - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
 - [`http-multipart-body-parser`](/packages/http-multipart-body-parser): Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an object.
-- [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
-- [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
 - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
+- [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
+
+### Response Transformation
+- [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
+- [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
+- [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
+- [`http-response-serializer`](/packages/http-response-serializer): TODO
+
+### Fetch Data
 - [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
 - [`sqs-partial-batch-failure`](/packages/sqs-partial-batch-failure): handles partially failed SQS batches.
 - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
-- [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
-- [`warmup`](/packages/warmup): Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/)
+
 
 ## Community generated middleware
 
@@ -632,7 +533,7 @@ If you are a maintainer and want to release a new version of Middy, consult the 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

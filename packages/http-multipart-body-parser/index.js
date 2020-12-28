@@ -10,27 +10,29 @@ export default (opts = {}) => {
 
   const options = Object.assign({}, defaults, opts)
 
-  return {
-    before: async (handler) => {
-      const { headers } = handler.event
-      if (!headers) {
+  const httpMultipartBodyParserBefore = async (handler) => {
+    const { headers } = handler.event
+    if (!headers) {
+      return
+    }
+
+    const contentType = headers['Content-Type'] || headers['content-type']
+    if (contentType) {
+      const { type } = contentTypeLib.parse(contentType)
+      if (type !== 'multipart/form-data') {
         return
       }
 
-      const contentType = headers['Content-Type'] || headers['content-type']
-      if (contentType) {
-        const { type } = contentTypeLib.parse(contentType)
-        if (type !== 'multipart/form-data') {
-          return
-        }
-
-        return parseMultipartData(handler.event, options.busboy)
-          .then(multipartData => { handler.event.body = multipartData })
-          .catch(_ => {
-            throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided')
-          })
-      }
+      return parseMultipartData(handler.event, options.busboy)
+        .then(multipartData => { handler.event.body = multipartData })
+        .catch(_ => {
+          throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided')
+        })
     }
+  }
+
+  return {
+    before: httpMultipartBodyParserBefore
   }
 }
 

@@ -1,3 +1,8 @@
+
+let defaults = {
+  canonical: false
+}
+
 export default (opts = {}) => {
   const exceptionsList = [
     'ALPN',
@@ -52,41 +57,39 @@ export default (opts = {}) => {
       .join('-')
   }
 
-  const defaults = {
-    normalizeHeaderKey,
-    canonical: false
-  }
+  defaults.normalizeHeaderKey = normalizeHeaderKey
 
   const options = Object.assign({}, defaults, opts)
 
-  return ({
-    before: async (handler) => {
-      if (handler.event.headers) {
-        const rawHeaders = {}
-        const headers = {}
+  const httpHeaderNormalizerMiddlewareBefore = async (handler) => {
+    if (handler.event.headers) {
+      const rawHeaders = {}
+      const headers = {}
 
-        Object.keys(handler.event.headers).forEach((key) => {
-          rawHeaders[key] = handler.event.headers[key]
-          headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.headers[key]
-        })
+      Object.keys(handler.event.headers).forEach((key) => {
+        rawHeaders[key] = handler.event.headers[key]
+        headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.headers[key]
+      })
 
-        handler.event.headers = headers
-        handler.event.rawHeaders = rawHeaders
-      }
-
-      if (handler.event.multiValueHeaders) {
-        const rawHeaders = {}
-        const headers = {}
-
-        Object.keys(handler.event.multiValueHeaders).forEach((key) => {
-          rawHeaders[key] = handler.event.multiValueHeaders[key]
-          headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.multiValueHeaders[key]
-        })
-
-        handler.event.multiValueHeaders = headers
-        handler.event.rawMultiValueHeaders = rawHeaders
-      }
-
+      handler.event.headers = headers
+      handler.event.rawHeaders = rawHeaders
     }
-  })
+
+    if (handler.event.multiValueHeaders) {
+      const rawHeaders = {}
+      const headers = {}
+
+      Object.keys(handler.event.multiValueHeaders).forEach((key) => {
+        rawHeaders[key] = handler.event.multiValueHeaders[key]
+        headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.multiValueHeaders[key]
+      })
+
+      handler.event.multiValueHeaders = headers
+      handler.event.rawMultiValueHeaders = rawHeaders
+    }
+  }
+
+  return {
+    before: httpHeaderNormalizerMiddlewareBefore
+  }
 }

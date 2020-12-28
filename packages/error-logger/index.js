@@ -1,11 +1,13 @@
-export default (opts = {}) => {
-  const defaults = {
-    logger: console.error
-  }
+const defaults = {
+  logger: console.error
+}
 
-  let {logger} = Object.assign({}, defaults, opts)
-  if (typeof logger !== 'function') logger = ()=>{}
-  return ({
-    onError: async (handler) => logger(handler.error)
-  })
+export default (opts = {}) => {
+  let options = Object.assign({}, defaults, opts)
+  if (typeof options.logger !== 'function') options.logger = ()=>{}
+
+  const errorLoggerMiddlewareOnError = async (handler) => options.logger(handler.error)
+  return {
+    onError: errorLoggerMiddlewareOnError
+  }
 }

@@ -5,7 +5,7 @@ interface ISSMOptions {
   awsClientConstructor?: SSM,
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   awsClientAssumeRole?: string,
-  fetchKeys?: { [key: string]: string; },
+  fetchData?: { [key: string]: string; },
   cacheExpiry: number,
 }
 

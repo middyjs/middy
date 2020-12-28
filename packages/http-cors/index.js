@@ -24,7 +24,7 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
-  const after = async (handler) => {
+  const httpCorsMiddlewareAfter = async (handler) => {
 
     if (Object.prototype.hasOwnProperty.call(handler.event, 'httpMethod')) {
       handler.response = handler.response || {}
@@ -62,5 +62,9 @@ export default (opts = {}) => {
       }
     }
   }
-  return { after, onError:after }
+  const httpCorsMiddlewareOnError = httpCorsMiddlewareAfter
+  return {
+    after: httpCorsMiddlewareAfter,
+    onError: httpCorsMiddlewareOnError
+  }
 }

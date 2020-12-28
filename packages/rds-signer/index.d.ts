@@ -5,7 +5,7 @@ interface IRDSSignerOptions {
   awsClientConstructor?: RDS,
   awsSdkOptions?: Partial<RDS.Types.ClientConfiguration>;
   awsClientAssumeRole?: string,
-  fetchKeys?: {
+  fetchData?: {
     [key: string]: {
       [key: string]: string;
     };

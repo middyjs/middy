@@ -18,9 +18,12 @@ export default (opts = {}) => {
 
   if (typeof logger !== 'function') logger = ()=>{}
 
+  const inputOutputLoggerMiddlewareBefore = async (handler) => omitAndLog({ event: handler.event })
+  const inputOutputLoggerMiddlewareAfter = async (handler) => omitAndLog({ response: handler.response })
+  const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return ({
-    before: async (handler) => omitAndLog({ event: handler.event }),
-    after: async (handler) => omitAndLog({ response: handler.response }),
-    onError: async (handler) => omitAndLog({ response: handler.response })
+    before: inputOutputLoggerMiddlewareBefore,
+    after: inputOutputLoggerMiddlewareAfter,
+    onError: inputOutputLoggerMiddlewareOnError
   })
 }

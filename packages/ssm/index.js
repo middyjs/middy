@@ -1,24 +1,24 @@
 import { canPreFetch, createClient, processCache, safeParseJSON } from '../core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
-export default (opts = {}) => {
-  const defaults = {
-    awsClientConstructor: SSM, // Allow for XRay
-    awsClientOptions: {
-      maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
-      retryDelayOptions: { base: 200 }
-    },
-    awsClientAssumeRole: undefined,
-    fetchKeys: {},  // { contextKey: fetchKey, contextPrefix: fetchPath/ }
-    cacheKey: 'secrets-manager',
-    cacheExpiry: 0,
-  }
+const defaults = {
+  awsClientConstructor: SSM, // Allow for XRay
+  awsClientOptions: {
+    maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
+    retryDelayOptions: { base: 200 }
+  },
+  awsClientAssumeRole: undefined,
+  fetchData: {},  // { contextKey: fetchKey, contextPrefix: fetchPath/ }
+  cacheKey: 'secrets-manager',
+  cacheExpiry: 0,
+}
 
+export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchKeys).map((contextKey) => {
-      const path = options.fetchKeys[contextKey]
+    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
+      const path = options.fetchData[contextKey]
       if (path.substr(-1) === '/') {
         return fetchPath(contextKey, path.substr(0, -1))
       } else {
@@ -31,7 +31,7 @@ export default (opts = {}) => {
 
   const fetchSingle = async (contextKey, path) => {
     return client
-      .getParameters({ Names: options.fetchKeys[contextKey], WithDecryption: true })
+      .getParameters({ Names: options.fetchData[contextKey], WithDecryption: true })
       .then(resp => {
         if (resp.InvalidParameters?.length) {
           throw new Error(
@@ -73,7 +73,7 @@ export default (opts = {}) => {
     preFetch = processCache(options, fetch)
   }
 
-  const before = async (handler) => {
+  const ssmMiddlewareBefore = async (handler) => {
     if (canPreFetch(options)) {
       await preFetch
     } else if (!client) {
@@ -85,5 +85,7 @@ export default (opts = {}) => {
     Object.assign(handler.context, cached)
   }
 
-  return { before }
+  return {
+    before:ssmMiddlewareBefore
+  }
 }
