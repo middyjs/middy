@@ -1,3 +1,29 @@
+# Upgrade 1.x -> 2.x
+
+- Smaller codebase
+- Updated `aws-sdk` v3
+- Added in new middlewares (`sts`, `rds-signer`, `http-server-timing`)
+- Added new profiler mode for `core` to allow easier find bottleneck middlewares
+  
+## Breaking Changes
+- Updated all modules to be ES6 modules
+- Error handling has been a common pain point for some, it's been reworked.
+- All middleware now use `async/await` and have deprecated `next()`. If you have custom middleware, you may need to update.
+- `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
+- Middlewares that reach out to 3rd party API have been completely refactored to have unifying options.
+  - `ssm`
+  - `secrets-manager`
+  - `db-manager`
+- Deprecated middlewares:
+  - `cache`: little usage, makes more sense to be pulled out of core
+  - `db-manager`: little usage, makes more sense to be pulled out of core
+  - `function-shield`: Only supported up to Node v10
+  - `warmup`: AWS now supported reserved concurrency for Lambda
+  
+## Node.js 14 now supported / Node.js 10 and 12 now dropped
+
+Version 2.x of Middy no longer supports Node.js versions 10.x and 12.x. You are highly encouraged to move to Node.js 14, which is the latest supported version in Middy 2.x.
+
 # Upgrade 0.x -> 1.x
 
 ## Independent packages structure

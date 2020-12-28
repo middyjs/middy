@@ -8,14 +8,14 @@ const getNormalisedHeaders = (source) => Object
     return destination
   }, {})
 
-const middleware = (opts, handler, next) => {
+const middleware = (opts, handler) => {
   // normalise headers for internal use only
   const requestHeaders = getNormalisedHeaders((handler.event && handler.event.headers) || {})
   const responseHeaders = getNormalisedHeaders((handler.response && handler.response.headers) || {})
 
   // skip serialization when content-type is already set
   if (responseHeaders['content-type']) {
-    return next()
+    return
   }
 
   // find accept value(s)
@@ -33,7 +33,7 @@ const middleware = (opts, handler, next) => {
 
   // dont bother finding a serializer if no types are given
   if (!types.length) {
-    return next()
+    return
   }
 
   // find in order of first preferred type that has a matching serializer
@@ -61,13 +61,11 @@ const middleware = (opts, handler, next) => {
 
     return true
   }))
-
-  next()
 }
 
-module.exports = opts => {
+export default (opts = {}) => {
   return {
-    after: (handler, next) => middleware(opts, handler, next),
-    onError: (handler, next) => middleware(opts, handler, next)
+    after: middleware.bind(null, opts),
+    onError: middleware.bind(null, opts)
   }
 }

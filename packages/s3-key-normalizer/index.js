@@ -1,7 +1,7 @@
 const normalizeKey = (key) => decodeURIComponent(key.replace(/\+/g, ' '))
 
-module.exports = () => ({
-  before: (handler, next) => {
+export default () => ({
+  before: async (handler) => {
     if (handler.event.Records && Array.isArray(handler.event.Records)) {
       handler.event.Records = handler.event.Records.map((record) => {
         const eventVersion = parseFloat(record.eventVersion)
@@ -11,6 +11,5 @@ module.exports = () => ({
         return record
       })
     }
-    next()
   }
 })

@@ -1,12 +1,12 @@
-const omit = require('lodash/omit')
+import omit from 'lodash.omit'
 
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     logger: data => console.log(JSON.stringify(data, null, 2)),
     omitPaths: []
   }
 
-  const { logger, omitPaths } = Object.assign({}, defaults, opts)
+  let { logger, omitPaths } = Object.assign({}, defaults, opts)
 
   const cloneMessage = message => JSON.parse(JSON.stringify(message))
 
@@ -16,20 +16,11 @@ module.exports = (opts) => {
     logger(redactedMessage)
   }
 
+  if (typeof logger !== 'function') logger = ()=>{}
+
   return ({
-    before: (handler, next) => {
-      if (typeof logger === 'function') {
-        omitAndLog({ event: handler.event })
-      }
-
-      return next()
-    },
-    after: (handler, next) => {
-      if (typeof logger === 'function') {
-        omitAndLog({ response: handler.response })
-      }
-
-      return next()
-    }
+    before: async (handler) => omitAndLog({ event: handler.event }),
+    after: async (handler) => omitAndLog({ response: handler.response }),
+    onError: async (handler) => omitAndLog({ response: handler.response })
   })
 }

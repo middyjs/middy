@@ -22,49 +22,45 @@ const defaults = {
   cacheControl: null
 }
 
-const addCorsHeaders = (opts, handler, next) => {
+export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
+  const after = async (handler) => {
 
-  if (Object.prototype.hasOwnProperty.call(handler.event, 'httpMethod')) {
-    handler.response = handler.response || {}
-    handler.response.headers = handler.response.headers || {}
+    if (Object.prototype.hasOwnProperty.call(handler.event, 'httpMethod')) {
+      handler.response = handler.response || {}
+      handler.response.headers = handler.response.headers || {}
 
-    // Check if already setup Access-Control-Allow-Headers
-    if (options.headers !== null && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Headers')) {
-      handler.response.headers['Access-Control-Allow-Headers'] = options.headers
-    }
+      // Check if already setup Access-Control-Allow-Headers
+      if (options.headers !== null && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Headers')) {
+        handler.response.headers['Access-Control-Allow-Headers'] = options.headers
+      }
 
-    // Check if already setup the header Access-Control-Allow-Credentials
-    if (Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Credentials')) {
-      options.credentials = JSON.parse(handler.response.headers['Access-Control-Allow-Credentials'])
-    }
+      // Check if already setup the header Access-Control-Allow-Credentials
+      if (Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Credentials')) {
+        options.credentials = JSON.parse(handler.response.headers['Access-Control-Allow-Credentials'])
+      }
 
-    if (options.credentials) {
-      handler.response.headers['Access-Control-Allow-Credentials'] = String(options.credentials)
-    }
+      if (options.credentials) {
+        handler.response.headers['Access-Control-Allow-Credentials'] = String(options.credentials)
+      }
 
-    // Check if already setup the header Access-Control-Allow-Origin
-    if (!Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Origin')) {
-      const headers = handler.event.headers || {}
-      const incomingOrigin = headers.origin || headers.Origin
-      handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
-    }
+      // Check if already setup the header Access-Control-Allow-Origin
+      if (!Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Origin')) {
+        const headers = handler.event.headers || {}
+        const incomingOrigin = headers.origin || headers.Origin
+        handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
+      }
 
-    if (options.maxAge && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Max-Age')) {
-      handler.response.headers['Access-Control-Max-Age'] = String(options.maxAge)
-    }
+      if (options.maxAge && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Max-Age')) {
+        handler.response.headers['Access-Control-Max-Age'] = String(options.maxAge)
+      }
 
-    if (handler.event.httpMethod === 'OPTIONS') {
-      if (options.cacheControl && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Cache-Control')) {
-        handler.response.headers['Cache-Control'] = String(options.cacheControl)
+      if (handler.event.httpMethod === 'OPTIONS') {
+        if (options.cacheControl && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Cache-Control')) {
+          handler.response.headers['Cache-Control'] = String(options.cacheControl)
+        }
       }
     }
   }
-
-  next(handler.error)
+  return { after, onError:after }
 }
-
-module.exports = (opts) => ({
-  after: addCorsHeaders.bind(null, opts),
-  onError: addCorsHeaders.bind(null, opts)
-})

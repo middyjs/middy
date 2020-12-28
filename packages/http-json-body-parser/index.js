@@ -1,9 +1,8 @@
-const createError = require('http-errors')
-const contentType = require('content-type')
+import createError from 'http-errors'
+import contentType from 'content-type'
 
-module.exports = (opts) => ({
-  before: (handler, next) => {
-    opts = opts || {}
+export default (opts = {}) => ({
+  before: async (handler) => {
     if (handler.event.headers) {
       const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
       if (contentTypeHeader) {
@@ -21,6 +20,5 @@ module.exports = (opts) => ({
         }
       }
     }
-    next()
   }
 })

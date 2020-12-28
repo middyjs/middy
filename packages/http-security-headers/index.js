@@ -121,10 +121,10 @@ helmetHtmlOnly.xssFilter = (headers, options) => {
   return headers
 }
 
-module.exports = (opts = {}) => {
+export default (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
-  const response = (handler, next) => {
+  const response = async (handler) => {
     handler.response = handler.response || { statusCode: 500 } // catch thrown errors, prevent default statusCode
     handler.response.headers = handler.response.headers || {}
 
@@ -139,8 +139,6 @@ module.exports = (opts = {}) => {
         handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
       })
     }
-
-    next()
   }
 
   return {

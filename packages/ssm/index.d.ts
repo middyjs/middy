@@ -1,18 +1,12 @@
-import { SSM } from 'aws-sdk'
+import { SSM } from '@aws-sdk/client-ssm'
 import middy from '@middy/core'
 
 interface ISSMOptions {
-  onChange?: () => void;
-  cache?: boolean;
-  cacheExpiryInMillis?: number;
-  paths?: { [key: string]: string; };
-  names?: { [key: string]: string; };
+  awsClientConstructor?: SSM,
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
-  throwOnFailedCall?: boolean;
-  awsSdkInstance?: SSM;
-  setToContext?: boolean;
-  paramsLoaded?: Boolean;
-  getParamNameFromPath?: (path: string, name: string, prefix: string) => string;
+  awsClientAssumeRole?: string,
+  fetchKeys?: { [key: string]: string; },
+  cacheExpiry: number,
 }
 
 declare const ssm : middy.Middleware<ISSMOptions, any, any>

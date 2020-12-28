@@ -43,9 +43,6 @@ npm install --save @middy/http-urlencode-body-parser
 
 ## Options
 
-- `extended` (boolean) (optional): if `true` will use [`qs`](https://npm.im/qs) to parse
-  the body of the request. By default is set to `false`
-
 
 ## Sample usage
 

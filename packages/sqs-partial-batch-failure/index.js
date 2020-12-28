@@ -87,4 +87,4 @@ const sqsMiddleware = ({
   })
 })
 
-module.exports = sqsMiddleware
+export default sqsMiddleware

@@ -1,4 +1,4 @@
-module.exports = (opts) => {
+export default (opts = {}) => {
   const exceptionsList = [
     'ALPN',
     'C-PEP',
@@ -60,7 +60,7 @@ module.exports = (opts) => {
   const options = Object.assign({}, defaults, opts)
 
   return ({
-    before: (handler, next) => {
+    before: async (handler) => {
       if (handler.event.headers) {
         const rawHeaders = {}
         const headers = {}
@@ -87,7 +87,6 @@ module.exports = (opts) => {
         handler.event.rawMultiValueHeaders = rawHeaders
       }
 
-      next()
     }
   })
 }

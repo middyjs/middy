@@ -1,18 +1,11 @@
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     logger: console.error
   }
 
-  const options = Object.assign({}, defaults, opts)
-
+  let {logger} = Object.assign({}, defaults, opts)
+  if (typeof logger !== 'function') logger = ()=>{}
   return ({
-    onError: (handler, next) => {
-      if (typeof options.logger === 'function') {
-        options.logger(handler.error)
-      }
-
-      // does not handle the error (keeps propagating it)
-      return next(handler.error)
-    }
+    onError: async (handler) => logger(handler.error)
   })
 }

@@ -1,9 +1,10 @@
 {
-  "name": "@middy/cache",
-  "version": "1.5.0",
-  "description": "Cache middleware for the middy framework",
+  "name": "@middy/rds-signer",
+  "version": "2.0.0-alpha.0",
+  "description": "RDS (Relational Database Service) credentials middleware for the middy framework",
+  "type": "module",
   "engines": {
-    "node": ">=10"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -23,7 +24,9 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "Cache"
+    "RDS",
+    "Relational Database Service",
+    "Credentials"
   ],
   "author": {
     "name": "Middy contributors",
@@ -37,12 +40,13 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
+  "dependencies": {
+    "@middy/core": "^1.5.0"
   },
   "devDependencies": {
-    "@middy/core": "^1.5.0",
-    "es6-promisify": "^6.0.2"
+    "@aws-sdk/client-rds": ">=3.0.0",
+    "@types/node": "^10.0.8"
+
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

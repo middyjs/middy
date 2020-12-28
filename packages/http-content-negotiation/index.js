@@ -1,11 +1,12 @@
-const createError = require('http-errors')
-const parseFn = {
-  charset: require('negotiator/lib/charset'),
-  encoding: require('negotiator/lib/encoding'),
-  language: require('negotiator/lib/language'),
-  mediaType: require('negotiator/lib/mediaType')
-}
-module.exports = (opts) => {
+import createError from 'http-errors'
+import charset from 'negotiator/lib/charset.js'
+import encoding from 'negotiator/lib/encoding.js'
+import language from 'negotiator/lib/language.js'
+import mediaType from 'negotiator/lib/mediaType.js'
+
+const parseFn = { charset, encoding, language, mediaType }
+
+export default (opts = {}) => {
   const defaults = {
     parseCharsets: true,
     availableCharsets: undefined,
@@ -35,7 +36,7 @@ module.exports = (opts) => {
   }
 
   return ({
-    before: (handler, next) => {
+    before: async (handler) => {
       const { event } = handler
       if (event.headers) {
         if (options.parseCharsets) {
@@ -54,8 +55,6 @@ module.exports = (opts) => {
           parseHeader('Accept', 'mediaType', options.availableMediaTypes, options.failOnMismatch, event)
         }
       }
-
-      return next()
     }
   })
 }

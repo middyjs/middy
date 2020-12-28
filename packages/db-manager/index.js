@@ -3,7 +3,7 @@ const RDS = require('aws-sdk/clients/rds')
 
 let dbInstance
 
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     client: knex,
     config: null,

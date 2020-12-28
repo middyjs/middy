@@ -1,4 +1,4 @@
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     logger: console.error
   }
@@ -6,7 +6,7 @@ module.exports = (opts) => {
   const options = Object.assign({}, defaults, opts)
 
   return ({
-    onError: (handler, next) => {
+    onError: async (handler) => {
       // if there are a `statusCode` and an `error` field
       // this is a valid http error object
       if (handler.error.statusCode && handler.error.message) {
@@ -18,11 +18,7 @@ module.exports = (opts) => {
           statusCode: handler.error.statusCode,
           body: handler.error.message
         }
-
-        return next()
       }
-
-      return next(handler.error)
     }
   })
 }

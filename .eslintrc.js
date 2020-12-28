@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   env: {
     commonjs: true,
     es6: true,

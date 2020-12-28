@@ -1,5 +1,4 @@
-const util = require('util')
-const promisify = util.promisify || require('es6-promisify').promisify
+const promisify = require('util').promisify
 
 function invoke (handler, event = {}, context = {}) {
   return promisify(handler)(event, context)

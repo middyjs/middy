@@ -1,5 +1,5 @@
-module.exports = () => ({
-  before: (handler, next) => {
+export default () => ({
+  before: async (handler) => {
     if (handler.event.pathParameters) {
       for (const key in handler.event.pathParameters) {
         try {
@@ -9,7 +9,5 @@ module.exports = () => ({
         }
       }
     }
-
-    next()
   }
 })

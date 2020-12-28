@@ -1,9 +1,10 @@
 {
   "name": "@middy/http-content-negotiation",
-  "version": "1.5.0",
+  "version": "2.0.0-alpha.0",
   "description": "Http content negotiation middleware for the middy framework",
+  "type": "module",
   "engines": {
-    "node": ">=10"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -43,12 +44,9 @@
     "http-errors": "^1.6.3",
     "negotiator": "^0.6.1"
   },
-  "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
-  },
   "devDependencies": {
-    "@middy/core": "^1.5.0",
-    "es6-promisify": "^6.0.2"
+    "@middy/core": "^1.5.0"
+
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

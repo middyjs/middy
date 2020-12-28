@@ -37,15 +37,15 @@ const isResponseFilterable = params => {
   return true
 }
 
-module.exports = opts => {
+export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const { filteringKeyName } = options
 
   return {
-    after: (handler, next) => {
+    after: async (handler) => {
       const params = getFilterParams(handler, filteringKeyName)
 
-      if (!isResponseFilterable(params)) return next()
+      if (!isResponseFilterable(params)) return
 
       let { body, fields } = params
       const isBodyStringified = isJson(body)
@@ -57,8 +57,6 @@ module.exports = opts => {
       handler.response.body = isBodyStringified
         ? JSON.stringify(filteredBody)
         : filteredBody
-
-      next()
     }
   }
 }

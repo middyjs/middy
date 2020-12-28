@@ -1,4 +1,4 @@
-module.exports = opts => {
+export default (opts = {}) => {
   const defaults = {
     payloadFormatVersion: 1
   }
@@ -6,7 +6,7 @@ module.exports = opts => {
   const options = Object.assign({}, defaults, opts)
 
   return {
-    before: (handler, next) => {
+    before: async (handler) => {
       const { event } = handler
       let isHttpEvent = false
 
@@ -20,7 +20,7 @@ module.exports = opts => {
             Object.prototype.hasOwnProperty.call(event.requestContext.http, 'method')
           break
         default:
-          throw new Error('Unknow API Gateway Payload format. Please use value 1 or 2.')
+          throw new Error('Unknown API Gateway Payload format. Please use value 1 or 2.')
       }
 
       if (isHttpEvent) {
@@ -30,8 +30,6 @@ module.exports = opts => {
           event.multiValueQueryStringParameters = event.multiValueQueryStringParameters || {}
         }
       }
-
-      return next()
     }
   }
 }
