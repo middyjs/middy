@@ -49,8 +49,15 @@ const outputSchema = {
   type:"object"
 }
 
-const runExport = middy(handler, middyProfiler())
-  .use(httpServerTiming())
+const httpServerTimer = httpServerTiming()
+
+const runExport = middy(handler, middyProfiler(/*{
+  logger: (id, dur, unit) => {
+    if (dur >= 1) httpServerTimer.dur(id, Math.floor(dur))
+    console.log(id, dur, unit)
+  }
+}*/))
+  .use(httpServerTimer)
   .use(eventLogger())
   .use(errorLogger())
   .use(doNotWaitForEmptyEventLoop())

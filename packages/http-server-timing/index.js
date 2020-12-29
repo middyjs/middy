@@ -17,14 +17,18 @@ export default () => {
   }
 
   const start = (id) => {
-    starts[id] = new Date()
+    starts[id] = Date.now()
   }
 
   const stop = (id, desc = null) => {
-    if (!durations[id]) durations[id] = 0
-    const end = new Date()
-    durations[id] += end - starts[id]
+    if (!durations[id]) dur(id,0)
+    const end = Date.now()
+    dur(id, durations[id] + end - starts[id])
     if (desc) descriptions[id] = desc
+  }
+
+  const dur = (id, ms) => {
+    durations[id] = ms
   }
 
   const httpServerTimingsMiddlewareBefore = async (handler) => {
@@ -54,6 +58,10 @@ export default () => {
 
   return {
     before: httpServerTimingsMiddlewareBefore,
-    after: httpServerTimingsMiddlewareAfter
+    after: httpServerTimingsMiddlewareAfter,
+    // Allow hooks outside of context (ie profiler)
+    start,
+    stop,
+    dur
   }
 }
