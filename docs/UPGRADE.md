@@ -11,9 +11,8 @@
 - All middleware now use `async/await` and have deprecated `next()`
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
 - Middlewares that reach out to 3rd party API have been completely refactored to have unifying options. Applies to:
-  - `ssm`
   - `secrets-manager`
-  - `db-manager`
+  - `ssm`
 - Deprecated middlewares:
   - `cache`: little usage, makes more sense to be pulled out of core
   - `db-manager`: little usage, makes more sense to be pulled out of core
