@@ -1,4 +1,4 @@
-import { canPreFetch, createClient, processCache, safeParseJSON } from '../core/util.js'
+import { canPreFetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
 import { SecretsManager } from '@aws-sdk/client-secrets-manager'
 
 const defaults = {
@@ -18,7 +18,7 @@ export default (opts = {}) => {
       return client
         .getSecretValue({ SecretId: options.fetchData[contextKey] })
         .then(resp => {
-          return { [contextKey]: safeParseJSON(resp) }
+          return { [contextKey]: jsonSafeParse(resp) }
         })
     }))
 

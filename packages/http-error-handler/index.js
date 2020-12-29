@@ -1,3 +1,4 @@
+import { jsonSafeParse } from '../core/util.js'
 
 const defaults = {
   logger: console.error
@@ -16,8 +17,11 @@ export default (opts = {}) => {
 
       handler.response = {
         statusCode: handler.error.statusCode,
-        body: handler.error.message
+        body: jsonSafeParse(handler.error.message)
       }
+      handler.response.headers['Content-Type'] = typeof handler.response.body === 'string'
+        ? 'plain/text'
+        : 'application/json'
     }
   }
 

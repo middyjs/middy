@@ -1,5 +1,5 @@
 const getOrigin = (incomingOrigin, options) => {
-  if (options.origins && options.origins.length > 0) {
+  if (options?.origins.length > 0) {
     if (incomingOrigin && options.origins.includes(incomingOrigin)) {
       return incomingOrigin
     } else {
@@ -25,7 +25,8 @@ const defaults = {
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const httpCorsMiddlewareAfter = async (handler) => {
-
+    // TODO update to use optional chaining
+    // TODO add in Access-Control-Allow-Methods, check fo other headers
     if (Object.prototype.hasOwnProperty.call(handler.event, 'httpMethod')) {
       handler.response = handler.response || {}
       handler.response.headers = handler.response.headers || {}

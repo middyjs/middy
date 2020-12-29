@@ -1,4 +1,4 @@
-import { safeParseJSON } from '../core/util.js'
+import { jsonSafeParse } from '../core/util.js'
 
 const defaults = {}
 
@@ -9,7 +9,7 @@ export default (opts = {}) => {
     const { event: { Records = [] } = { Records: [] } } = handler
 
     Records.forEach(record => {
-      record.body = safeParseJSON(record.body, options.reviver)
+      record.body = jsonSafeParse(record.body, options.reviver)
     })
   }
   return {

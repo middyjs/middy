@@ -1,4 +1,4 @@
-import { canPreFetch, createClient, processCache, safeParseJSON } from '../core/util.js'
+import { canPreFetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
 const defaults = {
@@ -38,7 +38,7 @@ export default (opts = {}) => {
             `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
           )
         }
-        return { [contextKey]: safeParseJSON(resp.Value) }
+        return { [contextKey]: jsonSafeParse(resp.Value) }
       })
   }
 
@@ -62,7 +62,7 @@ export default (opts = {}) => {
           .join('') // replace path
           .split('/')
           .join('_') // replace remaining slashes with underscores
-        return { [contextKey]: safeParseJSON(resp.Parameters[param].Value) }
+        return { [contextKey]: jsonSafeParse(resp.Parameters[param].Value) }
       })
     ]
   }

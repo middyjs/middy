@@ -8,7 +8,7 @@
 ## Breaking Changes
 - Updated all packages to be ES6 modules
 - Error handling has been a common pain point for some, it's been reworked
-- All middleware now use `async/await` and have deprecated `next()`
+- All middleware now use `async/await` and have deprecated `next()` and `callback()`
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
 - Middlewares that reach out to 3rd party API have been completely refactored to have unifying options. Applies to:
   - `secrets-manager`

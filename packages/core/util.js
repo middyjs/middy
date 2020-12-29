@@ -57,7 +57,7 @@ export const processCache = async (options, fetch = () => undefined) => {
   return value
 }
 
-export const safeParseJSON = (string, reviver) => {
+export const jsonSafeParse = (string, reviver) => {
   try {
     return JSON.parse(string || '{}', reviver)
   } catch (err) {

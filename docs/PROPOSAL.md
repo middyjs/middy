@@ -70,6 +70,7 @@ module.exports = handler
 - [ ] allow ssm to pull > 10 keys (if possible)
 - [ ] update avj to support draft-2019-09
 - [ ] Native router?
+- [ ] get headers using caseless https://www.npmjs.com/package/caseless
 - [ ] Documentation
   - [ ] Example using AWS X-Ray
   - [ ] Example using fips 140-2
@@ -77,6 +78,10 @@ module.exports = handler
   - [ ] Performance best practice
   - [ ] Security best practice
   
+### 3rd party
+- db-manager
+- sentry
+
 ## Middleware (Grouped by type)
 
 ### Misc
