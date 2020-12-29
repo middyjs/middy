@@ -27,10 +27,15 @@ export const canPrefetch = (options) => {
 }
 
 // Context
-export const getContext = (mapping = {}, handler) => {
-  return { ...Object.keys(mapping).map((configKey) => {
-    return { [configKey]: handler.context[mapping[configKey]] }
-  }).flat() }
+export const getContext = async (mapping = {}, handler) => {
+  const values = {}
+  for(const optionKey of mapping) {
+    // ensure promise has resolved by the time it's needed
+    const value = await handler.context[mapping[optionKey]]
+    handler.context[mapping[optionKey]] = value
+    values[optionKey] = value
+  }
+  return values
 }
 
 // Option Cache

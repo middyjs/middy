@@ -71,6 +71,8 @@ module.exports = handler
 - [ ] update avj to support draft-2019-09
 - [ ] Native router?
 - [ ] get headers using caseless https://www.npmjs.com/package/caseless
+- [ ] Update linting
+- [x] possible to 3rd party api pass a promise to save to context
 - [ ] Documentation
   - [ ] Example using AWS X-Ray
   - [ ] Example using fips 140-2
@@ -123,7 +125,7 @@ module.exports = handler
 - [ ] `sqs-partial-batch-failure` (AWS)
 
 ### Database
-- [ ] `db-manager` [deprecate, due to low usage]
+- [-] `db-manager` [deprecate, due to low usage]
 
 ### Error Handling
 - [x] `http-error-handler`

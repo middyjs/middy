@@ -1,4 +1,4 @@
-import {promisify} from 'util'
+import { promisify } from 'util'
 import { canPrefetch, getContext, processCache } from '../core/util.js'
 
 const knex = require('knex')
@@ -7,7 +7,7 @@ const defaults = {
   config: {},
   fetchData: {}, // grab from context
   cacheKey: 'db',
-  cacheExpiry: 0,
+  cacheExpiry: -1,
 }
 
 export default (opts = {}) => {
@@ -15,7 +15,7 @@ export default (opts = {}) => {
   options.disablePrefetch = 0 < Object.keys(options.fetchData).length
 
   const fetch = async (handler) => {
-    const values = getContext(options.fetchData, handler)
+    const values = await getContext(options.fetchData, handler)
     options.config.connection = Object.assign({}, options.config.connection, values)
     const db = knex(options.config)
     db.raw('SELECT 1')  // don't await, used to force open connection

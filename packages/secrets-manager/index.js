@@ -7,22 +7,22 @@ const defaults = {
   awsClientAssumeRole: undefined,
   fetchData: {},
   cacheKey: 'secrets-manager',
-  cacheExpiry: 0,
+  cacheExpiry: -1,
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
-      return client
-        .getSecretValue({ SecretId: options.fetchData[contextKey] })
-        .then(resp => {
-          return { [contextKey]: jsonSafeParse(resp) }
-        })
-    }))
+    let values = {}
 
-    return Object.assign({}, ...values)
+    for(const contextKey of options.fetchData) {
+      values[contextKey] = client
+        .getSecretValue({ SecretId: options.fetchData[contextKey] })
+        .then(resp => jsonSafeParse(resp))
+    }
+
+    return values
   }
 
   let prefetch, client

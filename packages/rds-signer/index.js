@@ -1,4 +1,4 @@
-import { canPrefetch, createClient, processCache } from '../core/util.js'
+import { canPrefetch, createClient, jsonSafeParse, processCache } from '../core/util.js'
 import { RDS } from '@aws-sdk/client-rds'
 
 const defaults = {
@@ -6,23 +6,23 @@ const defaults = {
   //awsClientOptions: {}, // Not used
   fetchData: {},  // { contextKey: {region, hostname, username, database, port} }
   cacheKey: 'rds-signer',
-  cacheExpiry: 0,
+  cacheExpiry: -1,
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
-      return client
+    let values = {}
+
+    for(const contextKey of options.fetchData) {
+      values[contextKey] = client
         .Signer(options.fetchData[contextKey])
         .getAuthToken()
-        .then(resp => {
-          return { [contextKey]: resp }
-        })
-    }))
+        //.then(resp => resp)
+    }
 
-    return Object.assign({}, ...values)
+    return values
   }
 
   let prefetch, client

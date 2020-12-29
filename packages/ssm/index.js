@@ -10,23 +10,27 @@ const defaults = {
   awsClientAssumeRole: undefined,
   fetchData: {},  // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   cacheKey: 'secrets-manager',
-  cacheExpiry: 0,
+  cacheExpiry: -1,
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = async () => {
-    let values = await Promise.all(Object.keys(options.fetchData).map((contextKey) => {
+    let values = {}
+
+    for(const contextKey of options.fetchData) {
       const path = options.fetchData[contextKey]
       if (path.substr(-1) === '/') {
-        return fetchPath(contextKey, path.substr(0, -1))
+        // Not be able to pass promise per key due to recursive and batch nature of the request
+        const pathValues = await fetchPath(contextKey, path.substr(0, -1))
+        values = { ...values, ...pathValues.flat() }
       } else {
-        return fetchSingle(contextKey, path)
+        values[contextKey] = fetchSingle(contextKey, path)
       }
+    }
 
-    }))
-    return Object.assign({}, ...values.flat())
+    return values
   }
 
   const fetchSingle = async (contextKey, path) => {
@@ -38,7 +42,7 @@ export default (opts = {}) => {
             `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
           )
         }
-        return { [contextKey]: jsonSafeParse(resp.Value) }
+        return jsonSafeParse(resp.Value)
       })
   }
 
