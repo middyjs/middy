@@ -13,7 +13,6 @@ export const awsClientDefaultOptions = {
 }
 
 export const createClient = (options, handler) => {
-
   let awsClientCredentials = {}
   if (options.awsClientAssumeRole) {
     if (!handler) return
@@ -23,31 +22,27 @@ export const createClient = (options, handler) => {
   return new options.awsClientConstructor(options.awsClientOptions)
 }
 
-export const canPreFetch = (options) => {
-  return (!options.awsClientAssumeRole)
+export const canPrefetch = (options) => {
+  return (!options.awsClientAssumeRole || !options.disablePrefetch)
 }
 
 // Context
-export const getContext = (handler, mappings, options) => {
-  for(const key in mappings) {
-    options[key] = handler.context[mappings[key]]
-  }
-}
-
-export const setContext = (handler, mappings) => {
-  Object.assign(handler.context, mappings)
+export const getContext = (mapping = {}, handler) => {
+  return { ...Object.keys(mapping).map((configKey) => {
+    return { [configKey]: handler.context[mapping[configKey]] }
+  }).flat() }
 }
 
 // Option Cache
 const cache = {}  // key: { value, expiry }
-export const processCache = async (options, fetch = () => undefined) => {
+export const processCache = async (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
     const cached = cache[options.cacheKey]
     if (cached?.expiry > Date.now() || options.cacheExpiry < 0) {
       return cached.value
     }
   }
-  const value = await fetch()
+  const value = await fetch(handler)
   if (options.cacheExpiry) {
     cache[options.cacheKey] = {
       value,

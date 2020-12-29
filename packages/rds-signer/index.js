@@ -1,4 +1,4 @@
-import { canPreFetch, createClient, processCache } from '../core/util.js'
+import { canPrefetch, createClient, processCache } from '../core/util.js'
 import { RDS } from '@aws-sdk/client-rds'
 
 const defaults = {
@@ -25,15 +25,15 @@ export default (opts = {}) => {
     return Object.assign({}, ...values)
   }
 
-  let preFetch, client
-  if (canPreFetch(options)) {
+  let prefetch, client
+  if (canPrefetch(options)) {
     client = createClient(options)
-    preFetch = processCache(options, fetch)
+    prefetch = processCache(options, fetch)
   }
 
   const rdsSignerMiddlewareBefore = async (handler) => {
-    if (canPreFetch(options)) {
-      await preFetch
+    if (canPrefetch(options)) {
+      await prefetch
     } else if (!client) {
       client = createClient(options, handler)
     }

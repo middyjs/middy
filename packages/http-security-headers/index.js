@@ -45,7 +45,7 @@ const helmetHtmlOnly = {}
 
 // crossdomain - N/A - For Adobe products
 
-// https://github.com/helmetjs/dns-prefetch-control
+// https://github.com/helmetjs/dns-Prefetch-control
 helmet.dnsPrefetchControl = (headers, options) => {
   headers['X-DNS-Prefetch-Control'] = options.allow ? 'on' : 'off'
   return headers

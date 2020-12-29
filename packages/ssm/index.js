@@ -1,4 +1,4 @@
-import { canPreFetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
+import { canPrefetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
 const defaults = {
@@ -67,20 +67,20 @@ export default (opts = {}) => {
     ]
   }
 
-  let preFetch, client
-  if (canPreFetch(options)) {
+  let prefetch, client
+  if (canPrefetch(options)) {
     client = createClient(options)
-    preFetch = processCache(options, fetch)
+    prefetch = processCache(options, fetch)
   }
 
   const ssmMiddlewareBefore = async (handler) => {
-    if (canPreFetch(options)) {
-      await preFetch
+    if (canPrefetch(options)) {
+      await prefetch
     } else if (!client) {
       client = createClient(options, handler)
     }
 
-    const cached = await processCache(options, fetch)
+    const cached = await processCache(options, fetch, handler)
 
     Object.assign(handler.context, cached)
   }
