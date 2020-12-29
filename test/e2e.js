@@ -3,6 +3,7 @@
 
 import middy from '../packages/core/index.js'
 import middyProfiler from '../packages/core/profiler.js'
+import {getInternal} from '../packages/core/util.js'
 
 import httpServerTiming from '../packages/http-server-timing/index.js'
 import eventLogger from '../packages/input-output-logger/index.js'
@@ -50,6 +51,16 @@ const outputSchema = {
 }
 
 const httpServerTimer = httpServerTiming()
+const setEnv = async (handler) => {
+  Object.assign(handler.internal, {
+    environment: process.env.NODE_ENV
+  })
+}
+const setContext = async (handler) => {
+  // copies over values to context for use
+  const values = await getInternal({'a':'a'}, handler)
+  Object.assign(handler.context, values)
+}
 
 const runExport = middy(handler, middyProfiler(/*{
   logger: (id, dur, unit) => {
@@ -58,6 +69,7 @@ const runExport = middy(handler, middyProfiler(/*{
   }
 }*/))
   .use(httpServerTimer)
+  .before(setEnv)
   .use(eventLogger())
   .use(errorLogger())
   .use(doNotWaitForEmptyEventLoop())
@@ -70,7 +82,7 @@ const runExport = middy(handler, middyProfiler(/*{
 
   .use(httpCors())
   .use(httpSecurityHeaders())
-
+  .before(setContext)
   .use(
     httpContentNegotiation({
       availableLanguages: ['en-CA', 'fr-CA']

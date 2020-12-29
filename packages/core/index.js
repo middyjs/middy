@@ -71,13 +71,24 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
   return runMiddlewares(stack, request, profiler)
 }
 
+const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
+  const stack = Array.from(middlewares)
+  if (!stack.length || request.response) return
+  const nextMiddleware = stack.shift()
+  profiler?.before(middlewares.length + '-' + nextMiddleware?.name)
+  await nextMiddleware?.(request)
+  profiler?.after(middlewares.length + '-' + nextMiddleware?.name)
+  return runErrorMiddlewares(stack, request, profiler)
+}
+
+
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param  {function} handler - your original AWS Lambda function
  * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-const middy = (handler, profiler = null) => {
+const middy = (handler, profiler) => {
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
@@ -88,31 +99,24 @@ const middy = (handler, profiler = null) => {
       context,
       callback,
       response: null,
-      error: null
-    }
-
-    const catchError = async (err) => {
-      request.response = null
-      request.error = err
-      await runMiddlewares(onErrorMiddlewares, request, profiler)
-      if (request.response) return callback(null, request.response)
-      return callback(err)
+      error: null,
+      internal: {}
     }
 
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
-      } catch (err) {
-        return catchError(err)
-      }
-      try {
         profiler?.before('0-handler')
         request.response = await handler(request.event, request.context)
         profiler?.after('0-handler')
         await runMiddlewares(afterMiddlewares, request, profiler)
         return callback(null, request.response)
       } catch (err) {
-        return catchError(err)
+        request.response = null
+        request.error = err
+        await runErrorMiddlewares(onErrorMiddlewares, request, profiler)
+        if (request.response) return callback(null, request.response)
+        return callback(err)
       }
     }
     return middyPromise()
@@ -150,12 +154,15 @@ const middy = (handler, profiler = null) => {
   // Inline Middlewares
   instance.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
+    return instance
   }
   instance.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware)
+    return instance
   }
   instance.onError = (onErrorMiddleware) => {
-    onErrorMiddlewares.unshift(onErrorMiddleware)
+    onErrorMiddlewares.push(onErrorMiddleware)
+    return instance
   }
 
   instance.__middlewares = {

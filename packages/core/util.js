@@ -27,9 +27,9 @@ export const canPrefetch = (options) => {
 }
 
 // Context
-export const getContext = async (mapping = {}, handler) => {
+export const getInternal = async (mapping = {}, handler) => {
   const values = {}
-  for(const optionKey of mapping) {
+  for(const optionKey in mapping) {
     // ensure promise has resolved by the time it's needed
     const value = await handler.context[mapping[optionKey]]
     handler.context[mapping[optionKey]] = value
@@ -40,14 +40,14 @@ export const getContext = async (mapping = {}, handler) => {
 
 // Option Cache
 const cache = {}  // key: { value, expiry }
-export const processCache = async (options, fetch = () => undefined, handler) => {
+export const processCache = (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
     const cached = cache[options.cacheKey]
     if (cached?.expiry > Date.now() || options.cacheExpiry < 0) {
       return cached.value
     }
   }
-  const value = await fetch(handler)
+  const value = fetch(handler)
   if (options.cacheExpiry) {
     cache[options.cacheKey] = {
       value,

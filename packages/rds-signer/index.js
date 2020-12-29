@@ -12,7 +12,7 @@ const defaults = {
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  const fetch = async () => {
+  const fetch = () => {
     let values = {}
 
     for(const contextKey of options.fetchData) {
@@ -40,7 +40,7 @@ export default (opts = {}) => {
 
     const cached = await processCache(options, fetch)
 
-    Object.assign(handler.context, cached)
+    Object.assign(handler.internal, cached)
   }
 
   return {

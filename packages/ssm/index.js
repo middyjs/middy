@@ -16,59 +16,24 @@ const defaults = {
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  const fetch = async () => {
+  const fetch = () => {
     let values = {}
 
-    for(const contextKey of options.fetchData) {
-      const path = options.fetchData[contextKey]
-      if (path.substr(-1) === '/') {
-        // Not be able to pass promise per key due to recursive and batch nature of the request
-        const pathValues = await fetchPath(contextKey, path.substr(0, -1))
-        values = { ...values, ...pathValues.flat() }
-      } else {
-        values[contextKey] = fetchSingle(contextKey, path)
-      }
-    }
-
-    return values
-  }
-
-  const fetchSingle = async (contextKey, path) => {
-    return client
-      .getParameters({ Names: options.fetchData[contextKey], WithDecryption: true })
+    const request = client
+      .getParameters({ Names: Object.values(options.fetchData), WithDecryption: true })
       .then(resp => {
         if (resp.InvalidParameters?.length) {
           throw new Error(
             `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
           )
         }
-        return jsonSafeParse(resp.Value)
-      })
-  }
-
-  const fetchPath = async (contextKeyPrefix, path, nextToken) => {
-    const resp = await client
-      .getParametersByPath({
-        Path: path,
-        NextToken: nextToken,
-        Recursive: true,
-        WithDecryption: true
+        return resp.Parameters.map(param => ({[param.Name]: jsonSafeParse(param.Value)})).flat()  // TODO if type StringList, auto parse?
       })
 
-    const additionalParams = resp.NextToken
-      ? await fetchPath(path, resp.NextToken)
-      : []
-
-    return [
-      ...additionalParams,
-      ...Object.keys(resp.Parameters).map(param => {
-        const contextKey = contextKeyPrefix + param.split(`${path}/`)
-          .join('') // replace path
-          .split('/')
-          .join('_') // replace remaining slashes with underscores
-        return { [contextKey]: jsonSafeParse(resp.Parameters[param].Value) }
-      })
-    ]
+    for (const contextKey of options.fetchData) {
+      values[contextKey] = request.then(params => params[options.fetchData[contextKey]])
+    }
+    return values
   }
 
   let prefetch, client
@@ -84,12 +49,12 @@ export default (opts = {}) => {
       client = createClient(options, handler)
     }
 
-    const cached = await processCache(options, fetch, handler)
+    const cached = processCache(options, fetch, handler)
 
     Object.assign(handler.context, cached)
   }
 
   return {
-    before:ssmMiddlewareBefore
+    before: ssmMiddlewareBefore
   }
 }

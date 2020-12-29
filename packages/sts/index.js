@@ -13,7 +13,7 @@ const defaults = {
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  const fetch = async () => {
+  const fetch = () => {
     let values = {}
 
     for (const contextKey of options.fetchData) {
@@ -43,9 +43,9 @@ export default (opts = {}) => {
     } else if (!client) {
       client = createClient(options, handler)
     }
-    const cached = await processCache(options, fetch)
+    const cached = processCache(options, fetch)
 
-    Object.assign(handler.context, cached)
+    Object.assign(handler.internal, cached)
   }
 
   return {
