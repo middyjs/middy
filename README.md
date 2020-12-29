@@ -621,6 +621,7 @@ The following middlewares are created and maintained outside this project. We ca
 - [@ematipico/middy-request-response](https://www.npmjs.com/package/@ematipico/middy-request-response): a middleware that creates a pair of request/response objects
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
+- [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
 
 ## Contributing
 
