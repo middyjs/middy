@@ -1,6 +1,7 @@
 import { canPrefetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
+const awsSsmRequestLimit = 10
 const defaults = {
   awsClientConstructor: SSM, // Allow for XRay
   awsClientOptions: {
@@ -18,19 +19,31 @@ export default (opts = {}) => {
 
   const fetch = () => {
     let values = {}
+    let request = null
+    let batch = []
+    for (const [contextKey, idx] of Object.keys(options.fetchData).entries()) {
+      if (idx % awsSsmRequestLimit) {
+        batch = []
+        request = null
+      }
+      batch.push(options.fetchData[contextKey])
+      if (!request) {
+        request = client
+          .getParameters({ Names: batch, WithDecryption: true })
+          .then(resp => {
+            if (resp.InvalidParameters?.length) {
+              throw new Error(
+                `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
+              )
+            }
+            return resp.Parameters
+              .map(param => {
+                return { [param.Name]: jsonSafeParse(param.Value) }
+              })
+              .flat()
+          })
+      }
 
-    const request = client
-      .getParameters({ Names: Object.values(options.fetchData), WithDecryption: true })
-      .then(resp => {
-        if (resp.InvalidParameters?.length) {
-          throw new Error(
-            `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
-          )
-        }
-        return resp.Parameters.map(param => ({[param.Name]: jsonSafeParse(param.Value)})).flat()  // TODO if type StringList, auto parse?
-      })
-
-    for (const contextKey of options.fetchData) {
       values[contextKey] = request.then(params => params[options.fetchData[contextKey]])
     }
     return values
@@ -51,7 +64,7 @@ export default (opts = {}) => {
 
     const cached = processCache(options, fetch, handler)
 
-    Object.assign(handler.context, cached)
+    Object.assign(handler.internal, cached)
   }
 
   return {

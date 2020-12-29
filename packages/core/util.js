@@ -1,5 +1,5 @@
 import https from 'https'
-import {NodeHttpHandler} from '@aws-sdk/node-http-handler'
+import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
 export const awsClientDefaultOptions = {
@@ -16,7 +16,7 @@ export const createClient = (options, handler) => {
   let awsClientCredentials = {}
   if (options.awsClientAssumeRole) {
     if (!handler) return
-    awsClientCredentials = {credentials: handler.context[options.awsClientAssumeRole]}
+    awsClientCredentials = { credentials: handler.context[options.awsClientAssumeRole] }
   }
   Object.assign(options.awsClientOptions, awsClientDefaultOptions, awsClientCredentials)
   return new options.awsClientConstructor(options.awsClientOptions)
@@ -26,14 +26,29 @@ export const canPrefetch = (options) => {
   return (!options.awsClientAssumeRole || !options.disablePrefetch)
 }
 
-// Context
-export const getInternal = async (mapping = {}, handler) => {
+// Internal Context
+export const getInternal = async (variables, handler) => {
   const values = {}
-  for(const optionKey in mapping) {
-    // ensure promise has resolved by the time it's needed
-    const value = await handler.context[mapping[optionKey]]
-    handler.context[mapping[optionKey]] = value
-    values[optionKey] = value
+  if (!variables) {
+    variables = Object.keys(handler.internal)
+  }
+  if (typeof variables === 'string') {
+    variables = [variables]
+  }
+  if (Array.isArray(variables)) {
+    for (const optionKey of variables) {
+      // ensure promise has resolved by the time it's needed
+      const value = await handler.internal[optionKey]
+      handler.internal[optionKey] = value
+      values[optionKey] = value
+    }
+  } else if (typeof variables === 'object') {
+    for (const optionKey in variables) {
+      // ensure promise has resolved by the time it's needed
+      const value = await handler.internal[variables[optionKey]]
+      handler.internal[variables[optionKey]] = value
+      values[optionKey] = value
+    }
   }
   return values
 }
@@ -60,8 +75,7 @@ export const processCache = (options, fetch = () => undefined, handler) => {
 export const jsonSafeParse = (string, reviver) => {
   try {
     return JSON.parse(string || '{}', reviver)
-  } catch (err) {
-  }
+  } catch (e) {}
 
   return string
 }
