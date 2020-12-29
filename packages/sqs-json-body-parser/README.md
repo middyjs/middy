@@ -1,7 +1,7 @@
 # Middy sqs json body parsing middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">

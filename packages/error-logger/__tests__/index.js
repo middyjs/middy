@@ -2,6 +2,9 @@ const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const errorLogger = require('../')
 
+// Silence logging
+console.error = () => {}
+
 describe('📦 Middleware Error Logger', () => {
   test('It should log errors and propagate the error', async () => {
     expect.assertions(3)

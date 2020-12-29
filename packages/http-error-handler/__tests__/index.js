@@ -3,6 +3,9 @@ const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const httpErrorHandler = require('../')
 
+// Silence logging
+console.error = () => {}
+
 describe('📦 Middleware Http Error Handler', () => {
   test('It should create a response for HTTP errors', async () => {
     const handler = middy(() => {

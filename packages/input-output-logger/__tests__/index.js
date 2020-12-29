@@ -2,6 +2,9 @@ const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
 const inputOutputLogger = require('../')
 
+// Silence logging
+console.log = () => {}
+
 describe('📦 Middleware Input Output Logger', () => {
   test('It should log event and response', async () => {
     const logger = jest.fn()
