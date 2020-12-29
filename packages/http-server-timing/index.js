@@ -21,7 +21,7 @@ export default () => {
   }
 
   const stop = (id, desc = null) => {
-    if (!durations[id]) dur(id,0)
+    if (!durations[id]) dur(id, 0)
     const end = Date.now()
     dur(id, durations[id] + end - starts[id])
     if (desc) descriptions[id] = desc

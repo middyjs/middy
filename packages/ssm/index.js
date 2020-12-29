@@ -9,16 +9,16 @@ const defaults = {
     retryDelayOptions: { base: 200 }
   },
   awsClientAssumeRole: undefined,
-  fetchData: {},  // { contextKey: fetchKey, contextPrefix: fetchPath/ }
+  fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   cacheKey: 'secrets-manager',
-  cacheExpiry: -1,
+  cacheExpiry: -1
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
-    let values = {}
+    const values = {}
     let request = null
     let batch = []
     for (const [contextKey, idx] of Object.keys(options.fetchData).entries()) {

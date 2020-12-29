@@ -54,7 +54,7 @@ export const getInternal = async (variables, handler) => {
 }
 
 // Option Cache
-const cache = {}  // key: { value, expiry }
+const cache = {} // key: { value, expiry }
 export const processCache = (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
     const cached = cache[options.cacheKey]

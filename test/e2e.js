@@ -1,9 +1,9 @@
 
-//const httpError = require('http-error')
+// const httpError = require('http-error')
 
 import middy from '../packages/core/index.js'
 import middyProfiler from '../packages/core/profiler.js'
-import {getInternal} from '../packages/core/util.js'
+import { getInternal } from '../packages/core/util.js'
 
 import httpServerTiming from '../packages/http-server-timing/index.js'
 import eventLogger from '../packages/input-output-logger/index.js'
@@ -29,7 +29,7 @@ import fetchRdsSigner from '../packages/rds-signer/index.js'
 import httpErrorHandler from '../packages/http-error-handler/index.js'
 
 const handler = async (event, context) => {
-  //throw { statusCode: 500, message: 'test' }
+  // throw { statusCode: 500, message: 'test' }
 
   return {
     statusCode: 200,
@@ -43,11 +43,11 @@ const handler = async (event, context) => {
 }
 
 const inputSchema = {
-  type:"object"
+  type: 'object'
 }
 
 const outputSchema = {
-  type:"object"
+  type: 'object'
 }
 
 const httpServerTimer = httpServerTiming()
@@ -58,16 +58,16 @@ const setEnv = async (handler) => {
 }
 const setContext = async (handler) => {
   // copies over values to context for use
-  const values = await getInternal({'a':'a'}, handler)
+  const values = await getInternal({ a: 'a' }, handler)
   Object.assign(handler.context, values)
 }
 
-const runExport = middy(handler, middyProfiler(/*{
+const runExport = middy(handler, middyProfiler(/* {
   logger: (id, dur, unit) => {
     if (dur >= 1) httpServerTimer.dur(id, Math.floor(dur))
     console.log(id, dur, unit)
   }
-}*/))
+} */))
   .use(httpServerTimer)
   .before(setEnv)
   .use(eventLogger())
@@ -90,7 +90,6 @@ const runExport = middy(handler, middyProfiler(/*{
   )
 
   .use(validator({ inputSchema, outputSchema }))
-
 
   .use(httpErrorHandler())
 

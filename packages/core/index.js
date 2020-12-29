@@ -81,7 +81,6 @@ const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
   return runErrorMiddlewares(stack, request, profiler)
 }
 
-
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param  {function} handler - your original AWS Lambda function

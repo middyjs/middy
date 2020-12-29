@@ -4,17 +4,17 @@ import { STS } from '@aws-sdk/client-sts'
 const defaults = {
   awsClientConstructor: STS, // Allow for XRay
   awsClientOptions: {},
-  //awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
-  fetchData: {},  // { contextKey: {RoleArn, RoleSessionName} }
+  // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
+  fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   cacheKey: 'sts',
-  cacheExpiry: 0,
+  cacheExpiry: 0
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
-    let values = {}
+    const values = {}
 
     for (const contextKey of options.fetchData) {
       const assumeRoleOptions = options.fetchData[contextKey]

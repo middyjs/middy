@@ -1,5 +1,5 @@
 
-let defaults = {
+const defaults = {
   canonical: false
 }
 

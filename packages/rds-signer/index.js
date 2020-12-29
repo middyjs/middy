@@ -3,23 +3,23 @@ import { RDS } from '@aws-sdk/client-rds'
 
 const defaults = {
   awsClientConstructor: RDS, // Allow for XRay
-  //awsClientOptions: {}, // Not used
-  fetchData: {},  // { contextKey: {region, hostname, username, database, port} }
+  // awsClientOptions: {}, // Not used
+  fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   cacheKey: 'rds-signer',
-  cacheExpiry: -1,
+  cacheExpiry: -1
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
-    let values = {}
+    const values = {}
 
-    for(const contextKey of options.fetchData) {
+    for (const contextKey of options.fetchData) {
       values[contextKey] = client
         .Signer(options.fetchData[contextKey])
         .getAuthToken()
-        //.then(resp => resp)
+        // .then(resp => resp)
     }
 
     return values

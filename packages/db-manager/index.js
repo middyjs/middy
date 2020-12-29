@@ -7,18 +7,18 @@ const defaults = {
   config: {},
   fetchData: {}, // grab from context
   cacheKey: 'db',
-  cacheExpiry: -1,
+  cacheExpiry: -1
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
-  options.disablePrefetch = 0 < Object.keys(options.fetchData).length
+  options.disablePrefetch = Object.keys(options.fetchData).length > 0
 
   const fetch = async (handler) => {
     const values = await getInternal(options.fetchData, handler)
     options.config.connection = Object.assign({}, options.config.connection, values)
     const db = knex(options.config)
-    db.raw('SELECT 1')  // don't await, used to force open connection
+    db.raw('SELECT 1') // don't await, used to force open connection
 
     // cache the connection, not the credentials as they may change over time
     return db

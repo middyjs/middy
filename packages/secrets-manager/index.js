@@ -7,16 +7,16 @@ const defaults = {
   awsClientAssumeRole: undefined,
   fetchData: {},
   cacheKey: 'secrets-manager',
-  cacheExpiry: -1,
+  cacheExpiry: -1
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
-    let values = {}
+    const values = {}
 
-    for(const contextKey of options.fetchData) {
+    for (const contextKey of options.fetchData) {
       values[contextKey] = client
         .getSecretValue({ SecretId: options.fetchData[contextKey] })
         .then(resp => jsonSafeParse(resp))

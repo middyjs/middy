@@ -13,6 +13,6 @@ export default (opts = {}) => {
     })
   }
   return {
-      before: sqsJsonBodyParserMiddlewareBefore
+    before: sqsJsonBodyParserMiddlewareBefore
   }
 }

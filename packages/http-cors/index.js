@@ -32,7 +32,6 @@ export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpCorsMiddlewareAfter = async (handler) => {
-
     if (!Object.keys(handler.event).includes('httpMethod')) return
 
     handler.response = handler.response || {}
@@ -86,7 +85,6 @@ export default (opts = {}) => {
         handler.response.headers['Cache-Control'] = String(options.cacheControl)
       }
     }
-
   }
   const httpCorsMiddlewareOnError = httpCorsMiddlewareAfter
   return {

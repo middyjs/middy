@@ -8,12 +8,12 @@ const defaults = {
   allErrors: true,
   useDefaults: 'empty',
   messages: false // i18n
-  //defaultLanguage: 'en'
+  // defaultLanguage: 'en'
 }
 
 export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
   const options = Object.assign({}, defaults, ajvOptions)
-  ajv = ajvInstance ? ajvInstance : new Ajv.default(options)
+  ajv = ajvInstance || new Ajv.default(options)
 
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null

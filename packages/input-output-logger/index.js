@@ -16,7 +16,7 @@ export default (opts = {}) => {
     logger(redactedMessage)
   }
 
-  if (typeof logger !== 'function') logger = ()=>{}
+  if (typeof logger !== 'function') logger = () => {}
 
   const inputOutputLoggerMiddlewareBefore = async (handler) => omitAndLog({ event: handler.event })
   const inputOutputLoggerMiddlewareAfter = async (handler) => omitAndLog({ response: handler.response })

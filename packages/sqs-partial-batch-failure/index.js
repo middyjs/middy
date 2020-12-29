@@ -77,7 +77,7 @@ const defaults = {
 
 }
 
-export default  ({
+export default ({
   sqs = new SQS(),
   deleteSqsMessages = defaultDeleteSqsMessages,
   getFulfilledRecords = defaultGetFulfilledRecords,
