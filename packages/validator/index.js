@@ -13,7 +13,7 @@ const defaults = {
 
 export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
   const options = Object.assign({}, defaults, ajvOptions)
-  ajv = ajvInstance || new Ajv.default(options)
+  ajv = ajvInstance || new Ajv(options)
 
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null
   const validateOutput = outputSchema ? ajv.compile(outputSchema) : null

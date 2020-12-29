@@ -19,7 +19,8 @@ export const createClient = (options, handler) => {
     awsClientCredentials = { credentials: handler.context[options.awsClientAssumeRole] }
   }
   Object.assign(options.awsClientOptions, awsClientDefaultOptions, awsClientCredentials)
-  return new options.awsClientConstructor(options.awsClientOptions)
+  const ClientConstructor = options.awsClientConstructor
+  return new ClientConstructor(options.awsClientOptions)
 }
 
 export const canPrefetch = (options) => {
