@@ -622,6 +622,7 @@ The following middlewares are created and maintained outside this project. We ca
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
 - [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
+- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 
 ## Contributing
 
