@@ -42,9 +42,8 @@ export default (opts = {}) => {
 
     // Check if already setup the header Access-Control-Allow-Credentials
     if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
-      options.credentials = jsonSafeParse(handler.response.headers['Access-Control-Allow-Credentials'])
+      options.credentials = handler.response.headers['Access-Control-Allow-Credentials'] === 'true'
     }
-
     if (options.credentials) {
       handler.response.headers['Access-Control-Allow-Credentials'] = String(options.credentials)
     }

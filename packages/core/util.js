@@ -12,22 +12,29 @@ export const awsClientDefaultOptions = {
   })
 }
 
-export const createClient = (options, handler) => {
-  const awsClientConnectionOptions = {}
-
-  // Role Credentials
-  if (options.awsClientAssumeRole) {
-    if (!handler) return
-    awsClientConnectionOptions.credentials = handler.context[options.awsClientAssumeRole]
-  }
+export const createPrefetchClient = (options, handler) => {
+  let awsClientEndpoint = {}
 
   // Secure Endpoint (FIPS 140-2)
   if (options.awsClientFipsEndpoint) {
-    awsClientConnectionOptions.endpoint = `${options.awsClientFipsEndpoint}.${process.ENV.AWS_REGION}.amazonaws.com`
+    awsClientEndpoint.endpoint = `${options.awsClientFipsEndpoint}.${process.env.AWS_REGION}.amazonaws.com`
   }
 
-  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, awsClientConnectionOptions, options.awsClientOptions)
+  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, awsClientEndpoint, options.awsClientOptions)
   return new options.AwsClient(awsClientOptions)
+}
+export const createClient = async (options, handler) => {
+  let awsClientCredentials = {}
+
+  // Role Credentials
+  if (options.awsClientAssumeRole) {
+    if (!handler) throw new Error('Handler required when assuming role')
+    awsClientCredentials = await getInternal({credentials:options.awsClientAssumeRole}, handler)
+  }
+
+  awsClientCredentials = Object.assign({}, awsClientCredentials, options.awsClientOptions)
+
+  return createPrefetchClient(Object.assign({}, options, {awsClientOptions: awsClientCredentials}), handler)
 }
 
 export const canPrefetch = (options) => {
@@ -69,6 +76,7 @@ export const getInternal = async (variables, handler) => {
 }
 export const sanitizeKey = (key) => {
   return key
+    .replace(/^([0-9])/, '_$1')
     .replace(/[^a-zA-Z0-9]+/g, '_')
 }
 
@@ -76,8 +84,8 @@ export const sanitizeKey = (key) => {
 const cache = {} // key: { value, expiry }
 export const processCache = (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
-    const cached = cache[options.cacheKey]
-    if (cached && (cache.expiry > Date.now() || options.cacheExpiry < 0)) {
+    const cached = getCache(options.cacheKey)
+    if (cached && (cache.expiry >= Date.now() || options.cacheExpiry < 0)) {
       return cached.value
     }
   }
@@ -91,8 +99,13 @@ export const processCache = (options, fetch = () => undefined, handler) => {
   return value
 }
 
+export const getCache = (key) => {
+  return cache[key]
+}
+
 export const clearCache = (keys = null) => {
   if (!keys) keys = Object.keys(cache)
+  if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
     delete cache[cacheKey]
   }
@@ -100,7 +113,7 @@ export const clearCache = (keys = null) => {
 
 export const jsonSafeParse = (string, reviver) => {
   try {
-    return JSON.parse(string || '{}', reviver)
+    return JSON.parse(string, reviver)
   } catch (e) {}
 
   return string

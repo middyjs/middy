@@ -1,5 +1,5 @@
 import { SecretsManager } from '@aws-sdk/client-secrets-manager'
-import { canPrefetch, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
 
 const defaults = {
   AwsClient: SecretsManager, // Allow for XRay
@@ -37,13 +37,13 @@ export default (opts = {}) => {
   let prefetch, client, init
   if (canPrefetch(options)) {
     init = true
-    client = createClient(options)
+    client = createPrefetchClient(options)
     prefetch = processCache(options, fetch)
   }
 
   const secretsManagerMiddlewareBefore = async (handler) => {
     if (!client) {
-      client = createClient(options, handler)
+      client = await createClient(options, handler)
     }
     let cached
     if (init) {

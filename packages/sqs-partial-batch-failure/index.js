@@ -1,5 +1,5 @@
 import { SQS } from '@aws-sdk/client-sqs'
-import { canPrefetch, createClient } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient } from '../core/util.js'
 
 const defaults = {
   AwsClient: SQS, // Allow for XRay
@@ -30,12 +30,12 @@ export default (opts = {}) => {
 
   let client
   if (canPrefetch(options)) {
-    client = createClient(options)
+    client = createPrefetchClient(options)
   }
 
   const sqsPartialBatchFailureAfter = async (handler) => {
     if (!client) {
-      client = createClient(options, handler)
+      client = await createClient(options, handler)
     }
 
     const { event: { Records }, response } = handler

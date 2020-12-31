@@ -11,7 +11,7 @@ export default (opts = {}) => {
     const { event: { Records = [] } = { Records: [] } } = handler
 
     Records.forEach(record => {
-      record.body = jsonSafeParse(record.body, options.reviver)
+      record.body = jsonSafeParse(record.body || '{}', options.reviver)
     })
   }
   return {

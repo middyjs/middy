@@ -4,6 +4,19 @@ import httpEventNormalizer from '../index.js'
 
 const handlerRestApi = middy((event, context) => event).use(httpEventNormalizer())
 const handlerHttpApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 2 }))
+const handlerNextGenApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 3 }))
+
+test('It should throw error when invalid version', async (t) => {
+  const nonEvent = {
+    source: 's3'
+  }
+
+  try {
+    await handlerNextGenApi(nonEvent)
+  } catch(e) {
+    t.is(e.message, 'Unknown API Gateway Payload format. Please use value 1 or 2.')
+  }
+})
 
 test('It should do nothing if not HTTP event', async (t) => {
   const nonEvent = {

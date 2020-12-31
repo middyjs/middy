@@ -37,7 +37,7 @@ export default (opts = {}) => {
 
   const rdsSignerMiddlewareBefore = async (handler) => {
     if (!client) {
-      client = createClient(options, handler)
+      client = await createClient(options, handler)
     }
     let cached
     if (init) {
