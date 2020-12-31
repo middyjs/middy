@@ -106,11 +106,12 @@ test.serial('Should throw with failure reasons', async (t) => {
   const sqs = sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
-      awsClientConstructor: SQS,
+      awsClientConstructor: SQS
     }))
   try {
     await handler(event)
   } catch (e) {
+    console.log(e)
     t.is(e.message, 'Error message...')
     t.is(sqs.callCount, 1)
     /*t.true(sqs.calledWith({
