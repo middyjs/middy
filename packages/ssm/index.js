@@ -14,7 +14,7 @@ const defaults = {
   cacheKey: 'ssm',
   cacheExpiry: -1,
   setProcessEnv: false,
-  setContext: false,
+  setContext: false
 }
 
 export default (opts = {}) => {

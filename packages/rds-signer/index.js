@@ -9,7 +9,7 @@ const defaults = {
   cacheKey: 'rds-signer',
   cacheExpiry: -1,
   setProcessEnv: false,
-  setContext: false,
+  setContext: false
 }
 
 export default (opts = {}) => {
@@ -20,7 +20,7 @@ export default (opts = {}) => {
 
     for (const contextKey of Object.keys(options.fetchData)) {
       values[contextKey] = client
-        .Signer({...options.awsClientOptions, ...options.fetchData[contextKey]})
+        .Signer({ ...options.awsClientOptions, ...options.fetchData[contextKey] })
         .getAuthToken()
         // .then(resp => resp)
     }

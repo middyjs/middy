@@ -41,9 +41,9 @@ export default (opts = {}) => {
     init()
     start('total')
     const serverTiming = { tag, start, stop }
-    Object.assign(handler.internal,{serverTiming})
-    if (options.setProcessEnv) Object.assign(process.env, {serverTiming})
-    if (options.setContext) Object.assign(handler.context, {serverTiming})
+    Object.assign(handler.internal, { serverTiming })
+    if (options.setProcessEnv) Object.assign(process.env, { serverTiming })
+    if (options.setContext) Object.assign(handler.context, { serverTiming })
   }
 
   const httpServerTimingsMiddlewareAfter = async (handler) => {

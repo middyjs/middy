@@ -10,7 +10,6 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (handler) => {
   if (type === 'application/x-www-form-urlencoded') {
     handler.event.body = parse(handler.event.body)
   }
-
 }
 
 export default () => ({

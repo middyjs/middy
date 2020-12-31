@@ -93,13 +93,13 @@ const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
  * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-export default (handler = () => {}, profiler= null) => {
+export default (handler = () => {}, profiler = null) => {
   profiler?.start()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const defaultCallback = (e,r) => {
+  const defaultCallback = (e, r) => {
     if (e) throw e
     return r
   }

@@ -1,9 +1,11 @@
 import createError from 'http-errors'
-import Ajv from 'ajv/dist/2019.js'
+import _ajv from 'ajv/dist/2019.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
-//import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
+// import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
 import errors from 'ajv-errors'
+
+const Ajv = _ajv.default // esm workaround linting
 
 let ajv
 const defaults = {
@@ -17,14 +19,14 @@ const defaults = {
 
 export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
   const options = Object.assign({}, defaults, ajvOptions)
-  ajv = ajvInstance || new Ajv.default(options)
+  ajv = ajvInstance || new Ajv(options)
   formats(ajv)
-  //formatsDraft2019(ajv)
+  // formatsDraft2019(ajv)
   if (options.allErrors) errors(ajv)
 
   // TODO refactor, not pretty enough - invalid schema can throw errors outside of middy, this resolves that
-  let validateInput = null,
-    validateOutput = null
+  let validateInput = null
+  let validateOutput = null
   if (inputSchema) {
     try {
       validateInput = ajv.compile(inputSchema)

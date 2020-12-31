@@ -5,12 +5,12 @@ const defaults = {
   awsClientConstructor: SecretsManager, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  fetchData: {},  // If more than 2, consider writing own using ListSecrets
+  fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
   cacheExpiry: -1,
   setProcessEnv: false, // can return object when requesting db credentials, cannot set to process.env
-  setContext: false,
+  setContext: false
 }
 
 export default (opts = {}) => {

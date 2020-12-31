@@ -9,8 +9,8 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'sts',
   cacheExpiry: -1,
-  //setProcessEnv: false, // returns object, cannot set to process.env
-  setContext: false,
+  // setProcessEnv: false, // returns object, cannot set to process.env
+  setContext: false
 }
 
 export default (opts = {}) => {

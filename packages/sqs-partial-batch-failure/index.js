@@ -5,11 +5,11 @@ const defaults = {
   awsClientConstructor: SQS, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  disablePrefetch: false,
+  disablePrefetch: false
 }
 
 export default (opts = {}) => {
-  let options = Object.assign({}, defaults, opts)
+  const options = Object.assign({}, defaults, opts)
 
   const getQueueUrl = async (eventSourceARN) => {
     const [, , , , accountId, queueName] = eventSourceARN.split(':')
@@ -20,7 +20,7 @@ export default (opts = {}) => {
   const deleteSqsMessages = async (fulfilledRecords) => {
     if (!fulfilledRecords || !fulfilledRecords.length) return null
 
-    const Entries = getEntries( fulfilledRecords)
+    const Entries = getEntries(fulfilledRecords)
     const { eventSourceARN } = fulfilledRecords[0]
     const QueueUrl = await getQueueUrl(eventSourceARN)
     return client.deleteMessageBatch({ Entries, QueueUrl })
@@ -37,7 +37,7 @@ export default (opts = {}) => {
     }
 
     const { event: { Records }, response } = handler
-    const rejectedReasons = getRejectedReasons( response )
+    const rejectedReasons = getRejectedReasons(response)
 
     // If all messages were processed successfully, continue and let the messages be deleted by Lambda's native functionality
     if (!rejectedReasons.length) return
@@ -80,6 +80,6 @@ const getEntries = (fulfilledRecords) => {
   }))
 }
 
-const getErrorMessage = (rejectedReasons) =>  {
+const getErrorMessage = (rejectedReasons) => {
   return rejectedReasons.join('\n')
 }

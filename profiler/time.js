@@ -17,6 +17,5 @@ export default (opts = {}) => {
   const afterHandler = () => before('handler')
   const end = () => after('lambda')
 
-
   return { start, before, beforeHandler, afterHandler, after, end }
 }

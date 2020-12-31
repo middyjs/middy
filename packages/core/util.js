@@ -1,4 +1,4 @@
-import https from 'https'
+import * as https from 'https'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
@@ -30,7 +30,7 @@ export const canPrefetch = (options) => {
 // Internal Context
 export const getInternal = async (variables, handler) => {
   if (!variables) return {}
-  let keys = [], values = []
+  let keys = []; let values = []
   if (variables === true) {
     keys = values = Object.keys(handler.internal)
   } else if (typeof variables === 'string') {
@@ -46,7 +46,7 @@ export const getInternal = async (variables, handler) => {
     // 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
-    let valuePromise =  handler.internal[rootOptionKey]
+    let valuePromise = handler.internal[rootOptionKey]
     if (typeof valuePromise?.then !== 'function') {
       valuePromise = Promise.resolve(valuePromise)
     }
@@ -57,7 +57,7 @@ export const getInternal = async (variables, handler) => {
   // ensure promise has resolved by the time it's needed
   values = await Promise.all(promises)
 
-  return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {});
+  return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {})
 }
 export const sanitizeKey = (key) => {
   return key
