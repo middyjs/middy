@@ -6,6 +6,8 @@ import middy from '../../core/index.js'
 import sqsPartialBatchFailure from '../index.js'
 import { clearCache } from '../../core/util.js'
 
+process.env.AWS_REGION = 'ca-central-1'
+
 let sandbox
 test.beforeEach(t => {
   sandbox = sinon.createSandbox()
@@ -104,12 +106,6 @@ test.serial('Should throw with failure reasons', async (t) => {
     }
   )
   const sqs = sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
-  // TODO stub out config.endpoint()
-  // sandbox.stub(SQS.prototype.config, 'endpoint').resolves({
-  //   protocol: 'https:',
-  //   hostname: 'sqs.us-east-2.amazonaws.com',
-  //   path:'/'
-  // })
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
       AwsClient: SQS
@@ -117,13 +113,12 @@ test.serial('Should throw with failure reasons', async (t) => {
   try {
     await handler(event)
   } catch (e) {
-    console.log(e)
     t.is(e.message, 'Error message...')
     t.is(sqs.callCount, 1)
-    /*t.true(sqs.calledWith({
+    t.true(sqs.calledWith({
       Entries: [{ Id: '0', ReceiptHandle: 'successfulMessageReceiptHandle' }],
-      QueueUrl: 'https://sqs.us-east-2.amazonaws.com/123456789012/my-queue'
-    }))*/
+      QueueUrl: 'https://sqs.ca-central-1.amazonaws.com/123456789012/my-queue'
+    }))
   }
 })
 
