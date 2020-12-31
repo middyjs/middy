@@ -28,7 +28,7 @@ test('It should return default header with extra timing', async (t) => {
   t.is(response.headers['Server-Timing'].substr(0,6),'a;dur=')
 })
 
-test('It should return default header with extra timing and descriptions', async (t) => {
+test('It should return default header with tags', async (t) => {
   const handler = middy((event, context) => {
     context.serverTiming.start('a')
     context.serverTiming.stop('a', 'desc')
@@ -42,4 +42,21 @@ test('It should return default header with extra timing and descriptions', async
   const response = await handler()
 
   t.is(response.headers['Server-Timing'].substr(0,18),'a;desc="desc";dur=')
+})
+
+test('It should return default header with extra timing and descriptions', async (t) => {
+  const handler = middy((event, context) => ({}))
+
+  handler
+    .use(serverTiming({
+      setContext: true
+    }))
+    .before((handler) => {
+      handler.context.serverTiming.tag('a')
+      handler.context.serverTiming.tag('b')
+    })
+
+  const response = await handler()
+
+  t.is(response.headers['Server-Timing'].substr(0,5),'a, b,')
 })

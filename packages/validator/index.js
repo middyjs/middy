@@ -30,20 +30,16 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   if (inputSchema) {
     try {
       validateInput = ajv.compile(inputSchema)
-    } catch (e) {
-      validateInput = new Error('Input Schema Error')
-    }
+    } catch (e) {}
   }
   if (outputSchema) {
     try {
       validateOutput = ajv.compile(outputSchema)
-    } catch (e) {
-      validateInput = new Error('Output Schema Error')
-    }
+    } catch (e) {}
   }
 
   const validateMiddlewareBefore = async (handler) => {
-    if (validateInput instanceof Error) throw validateInput
+    if (!validateInput) throw new Error('Input Schema Error')
     const valid = validateInput(handler.event)
 
     if (!valid) {
@@ -59,7 +55,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   }
 
   const validateMiddlewareAfter = async (handler) => {
-    if (validateOutput instanceof Error) throw validateOutput
+    if (!validateOutput) throw new Error('Output Schema Error')
     const valid = validateOutput(handler.response)
 
     if (!valid) {

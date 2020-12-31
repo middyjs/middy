@@ -1,5 +1,4 @@
 const defaults = {
-  setProcessEnv: false,
   setContext: false
 }
 export default (opts = {}) => {
@@ -41,7 +40,6 @@ export default (opts = {}) => {
     start('total')
     const serverTiming = { tag, start, stop }
     Object.assign(handler.internal, { serverTiming })
-    if (options.setProcessEnv) Object.assign(process.env, { serverTiming })
     if (options.setContext) Object.assign(handler.context, { serverTiming })
   }
 

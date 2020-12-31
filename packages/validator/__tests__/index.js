@@ -245,7 +245,7 @@ test('It should not allow bad email format', async (t) => {
   }
 })
 
-test('It should error when unsupported keywords used', async (t) => {
+test('It should error when unsupported keywords used (input)', async (t) => {
   const schema = {
     type: 'object',
     somethingnew: 'should be an object with an integer property foo only'
@@ -260,6 +260,25 @@ test('It should error when unsupported keywords used', async (t) => {
     await handler({ foo: 'a' })
   } catch (err) {
     t.is(err.message, 'Input Schema Error')
+  }
+})
+
+
+test('It should error when unsupported keywords used (output)', async (t) => {
+  const schema = {
+    type: 'object',
+    somethingnew: 'should be an object with an integer property foo only'
+  }
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ outputSchema: schema }))
+  try {
+    await handler({ foo: 'a' })
+  } catch (err) {
+    t.is(err.message, 'Output Schema Error')
   }
 })
 
