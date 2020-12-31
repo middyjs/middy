@@ -24,7 +24,7 @@ export const createClient = (options, handler) => {
 }
 
 export const canPrefetch = (options) => {
-  return (!options.awsClientAssumeRole && !options.disablePrefetch)
+  return (!options?.awsClientAssumeRole && !options?.disablePrefetch)
 }
 
 // Internal Context

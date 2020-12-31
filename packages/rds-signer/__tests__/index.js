@@ -2,6 +2,7 @@ import test from 'ava'
 import sinon from 'sinon'
 
 import {RDS} from '@aws-sdk/client-rds'
+import {Signer} from '@aws-sdk/client-signer'
 
 import middy from '../../core/index.js'
 import rdsSigner from '../index.js'
@@ -18,16 +19,39 @@ test.afterEach((t) => {
   clearCache()
 })
 
-test('It should an authToken', async (t) => {
-  sandbox.stub(RDS.prototype, 'Signer').returns({ getAuthToken: async ()=> 'token'})
+const makeRdsSpy = (resp) => {
+  // return sandbox.stub().returns(
+  //   sinon.spy().returns({
+  //     Signer: sinon.spy().returns({
+  //       getAuthToken: sinon.spy().resolves(resp)
+  //     })
+  //   })
+  // )
+  return
+}
+
+test.serial('It should an authToken', async (t) => {
+  const client = new RDS()
+  console.log(RDS, client)
+  console.log(RDS.Signer)
+  console.log(client.Signer)
+
+  const clientS =  new Signer()
+  console.log(Signer, clientS)
+  console.log(Signer.getAuthToken)
+  console.log(clientS.getAuthToken)
+
+  const rdsSpy = sandbox.stub(RDS.prototype, 'Signer').returns({ getAuthToken: async ()=> 'token'})
 
   const handler = middy((event, context) => {})
   const middleware = async (handler) => {
     const values = await getInternal(true, handler)
     t.is(values.key, 'token')
   }
+  //const rdsSpy = makeRdsSpy('token')
   handler
     .use(rdsSigner({
+      awsClientConstructor: rdsSpy,
       fetchData:{
         token: {
           region:'us-east-1', hostname:'hostname', username:'username', database:'database', port:5432

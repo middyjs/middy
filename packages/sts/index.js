@@ -8,8 +8,8 @@ const defaults = {
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',
-  cacheExpiry: 0,
-  setProcessEnv: false,
+  cacheExpiry: -1,
+  //setProcessEnv: false, // returns object, cannot set to process.env
   setContext: false,
 }
 
@@ -21,7 +21,8 @@ export default (opts = {}) => {
 
     for (const contextKey of Object.keys(options.fetchData)) {
       const assumeRoleOptions = options.fetchData[contextKey]
-      if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-ssm-session-' + Math.random() * 1000 | 0 // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
+      // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
+      if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-ssm-session-' + Math.random() * 99999 | 0
       values[contextKey] = client
         .assumeRole(assumeRoleOptions)
         .then(resp => ({
@@ -54,7 +55,6 @@ export default (opts = {}) => {
     }
 
     Object.assign(handler.internal, cached)
-    if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
     if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
   }
 

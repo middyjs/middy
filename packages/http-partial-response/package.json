@@ -42,11 +42,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "json-mask": "^0.3.8"
+    "json-mask": "1.0.4"
   },
   "devDependencies": {
     "@middy/core": "^1.5.0"
-
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

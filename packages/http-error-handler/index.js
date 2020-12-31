@@ -20,14 +20,18 @@ export default (opts = {}) => {
       }
     }
 
-    handler.response.statusCode = handler.error.statusCode
-    handler.response.body = jsonSafeParse(handler.error.message)
-    handler.response.headers['Content-Type'] = typeof handler.response.body === 'string'
-      ? 'plain/text'
-      : 'application/json'
+    if (handler.error.statusCode) {
+      handler.response = handler.response || {}
+      handler.response.headers = handler.response.headers || {}
+      handler.response.statusCode = handler.error?.statusCode
+      handler.response.body = jsonSafeParse(handler.error?.message)
+      handler.response.headers['Content-Type'] = typeof handler.response?.body === 'string'
+        ? 'plain/text'
+        : 'application/json'
 
-    // Send signal that error has been handled
-    handler.error = null
+      // Send signal that error has been handled
+      handler.error = null
+    }
   }
 
   return {

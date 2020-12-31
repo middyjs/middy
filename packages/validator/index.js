@@ -1,5 +1,9 @@
 import createError from 'http-errors'
 import Ajv from 'ajv'
+import localize from 'ajv-i18n'
+import formats from 'ajv-formats'
+//import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
+import errors from 'ajv-errors'
 
 let ajv
 const defaults = {
@@ -7,25 +11,45 @@ const defaults = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: 'empty',
-  messages: false // i18n
-  // defaultLanguage: 'en'
+  messages: false, // allow i18n
+  defaultLanguage: 'en'
 }
 
 export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
   const options = Object.assign({}, defaults, ajvOptions)
-  ajv = ajvInstance || new Ajv(options)
+  ajv = ajvInstance || new Ajv.default(options)
+  formats(ajv)
+  //formatsDraft2019(ajv)
+  if (options.allErrors) errors(ajv)
 
-  const validateInput = inputSchema ? ajv.compile(inputSchema) : null
-  const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
+  // TODO refactor, not pretty enough - invalid schema can throw errors outside of middy, this resolves that
+  let validateInput = null,
+    validateOutput = null
+  if (inputSchema) {
+    try {
+      validateInput = ajv.compile(inputSchema)
+    } catch (e) {
+      validateInput = new Error('Input Schema Error')
+    }
+  }
+  if (outputSchema) {
+    try {
+      validateOutput = ajv.compile(outputSchema)
+    } catch (e) {
+      validateInput = new Error('Output Schema Error')
+    }
+  }
 
   const validateMiddlewareBefore = async (handler) => {
+    if (validateInput instanceof Error) throw validateInput
     const valid = validateInput(handler.event)
 
     if (!valid) {
       const error = new createError.BadRequest('Event object failed validation')
       handler.event.headers = Object.assign({}, handler.event.headers)
 
-      // TODO revisit i18n after https://github.com/ajv-validator/ajv-i18n has been updated
+      const language = chooseLanguage(handler.event, options.defaultLanguage)
+      localize[language](validateInput.errors)
 
       error.details = validateInput.errors
       throw error
@@ -33,6 +57,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   }
 
   const validateMiddlewareAfter = async (handler) => {
+    if (validateOutput instanceof Error) throw validateOutput
     const valid = validateOutput(handler.response)
 
     if (!valid) {
@@ -43,7 +68,33 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
     }
   }
   return {
-    before: !validateInput ? null : validateMiddlewareBefore,
-    after: !validateOutput ? null : validateMiddlewareAfter
+    before: inputSchema ? validateMiddlewareBefore : null,
+    after: outputSchema ? validateMiddlewareAfter : null
   }
+}
+
+/* in ajv-i18n Portuguese is represented as pt-BR */
+const languageNormalizationMap = {
+  pt: 'pt-BR',
+  'pt-br': 'pt-BR',
+  pt_BR: 'pt-BR',
+  pt_br: 'pt-BR',
+  zh: 'zh-TW',
+  'zh-tw': 'zh-TW',
+  zh_TW: 'zh-TW',
+  zh_tw: 'zh-TW'
+}
+
+const normalizePreferredLanguage = (lang) => languageNormalizationMap[lang] || lang
+
+const availableLanguages = Object.keys(localize)
+const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
+  if (preferredLanguage) {
+    const lang = normalizePreferredLanguage(preferredLanguage)
+    if (availableLanguages.includes(lang)) {
+      return lang
+    }
+  }
+
+  return defaultLanguage
 }

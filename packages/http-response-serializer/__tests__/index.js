@@ -1,7 +1,7 @@
-import createError from 'http-errors'
 import test from 'ava'
 import sinon from 'sinon'
 import middy from '../../core/index.js'
+import createError from 'http-errors'
 
 import httpErrorHandler from '../../http-error-handler/index.js'
 import httpResponseSerializer from '../index.js'
@@ -237,16 +237,16 @@ test('It should work with `http-error-handler` middleware', async (t) => {
   })
 
   handler
-    .use(httpErrorHandler())
     .use(httpResponseSerializer(standardConfiguration))
+    .use(httpErrorHandler({logger:false}))
 
   const response = await handler()
 
   t.deepEqual(response, {
     statusCode: 422,
-    body: '{"message":"Unprocessable Entity"}',
+    body: 'Unprocessable Entity',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'plain/text'
     }
   })
 })

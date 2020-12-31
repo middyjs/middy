@@ -77,8 +77,6 @@ module.exports = handler
   - [ ] Performance best practice
   - [ ] Security best practice
   
-### 3rd party
-- db-manager
 
 ## Middleware (Grouped by type)
 
@@ -113,15 +111,14 @@ module.exports = handler
   - update doc to show how to use extra formats / keywords
   
 ### Fetch Keys
-- [-] `sts` (AWS) [new]
-- [-] `ssm` (AWS)
-- [ ] `ssm-path` (AWS) [new] pull path fetch recursion out due to perf hit
-- [-] `secrets-manager` (AWS)
+- [x] `sts` (AWS) [new]
+- [x] `ssm` (AWS)
+- [x] `secrets-manager` (AWS)
 - [-] `rds-signer` (AWS) [new]
-- [ ] `sqs-partial-batch-failure` (AWS)
+- [x] `sqs-partial-batch-failure` (AWS)
 
 ### Database
-- [-] `db-manager` [deprecate, due to low usage]
+- [x] `db-manager` [deprecate, due to low usage]
 
 ### Error Handling
 - [x] `http-error-handler`

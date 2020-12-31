@@ -31,7 +31,7 @@ import httpErrorHandler from '../packages/http-error-handler/index.js'
 const handler = async (event, context) => {
  /// throw { statusCode: 500, message: 'test' }
 
-  throw new httpError.UnprocessableEntity()
+  //throw new httpError.UnprocessableEntity()
 
   return {
     statusCode: 200,
@@ -91,7 +91,7 @@ const runExport = middy(handler, middyProfiler(/* {
     })
   )
 
-  //.use(validator({ inputSchema, outputSchema }))
+  .use(validator({ inputSchema, outputSchema }))
 
   .use(httpErrorHandler())
 

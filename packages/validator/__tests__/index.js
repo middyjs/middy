@@ -1,4 +1,5 @@
 import test from 'ava'
+import sinon from 'sinon'
 import middy from '../../core/index.js'
 import validator from '../index.js'
 
@@ -8,6 +9,7 @@ test('It should validate an incoming object', async (t) => {
   })
 
   const schema = {
+    type: 'object',
     required: ['body'],
     properties: {
       body: {
@@ -16,9 +18,10 @@ test('It should validate an incoming object', async (t) => {
     }
   }
 
-  handler.use(validator({
-    inputSchema: schema
-  }))
+  handler
+    .use(validator({
+      inputSchema: schema
+    }))
 
   // invokes the handler
   const event = {
@@ -32,12 +35,12 @@ test('It should validate an incoming object', async (t) => {
 
 test('It should handle invalid schema as a BadRequest', async (t) => {
 
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
 
   const schema = {
+    type: 'object',
     required: ['body', 'foo'],
     properties: {
       // this will pass validation
@@ -64,7 +67,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.is(err.details, [{
+    t.deepEqual(err.details, [{
       dataPath: '',
       keyword: 'required',
       message: 'should have required property foo',
@@ -76,12 +79,12 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
 test('It should handle invalid schema as a BadRequest in a different language', async (t) => {
 
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
 
   const schema = {
+    type: 'object',
     required: ['body', 'foo'],
     properties: {
       // this will pass validation
@@ -109,7 +112,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.is(err.details, [{
+    t.deepEqual(err.details, [{
       dataPath: '',
       keyword: 'required',
       message: 'requiert la propriété foo',
@@ -121,12 +124,12 @@ test('It should handle invalid schema as a BadRequest in a different language', 
 
 test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async (t) => {
 
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
 
   const schema = {
+    type: 'object',
     required: ['body', 'foo'],
     properties: {
       // this will pass validation
@@ -154,10 +157,10 @@ test('It should handle invalid schema as a BadRequest in a different language (w
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.is(err.details, [{
+    t.deepEqual(err.details, [{
       dataPath: '',
       keyword: 'required',
-      message: 'deve ter a propriedade requerida foo',
+      message: 'deve ter a propriedade obrigatória foo',
       params: { missingProperty: 'foo' },
       schemaPath: '#/required'
     }])
@@ -175,6 +178,7 @@ test('It should validate response', async (t) => {
   })
 
   const schema = {
+    type: 'object',
     required: ['body', 'statusCode'],
     properties: {
       body: {
@@ -190,17 +194,17 @@ test('It should validate response', async (t) => {
 
   const response = await handler()
 
-  t.is(response,expectedResponse)
+  t.deepEqual(response, expectedResponse)
 })
 
 test('It should make requests with invalid responses fail with an Internal Server Error', async (t) => {
-
 
   const handler = middy((event, context) => {
     return {}
   })
 
   const schema = {
+    type: 'object',
     required: ['body', 'statusCode'],
     properties: {
       body: {
@@ -219,35 +223,19 @@ test('It should make requests with invalid responses fail with an Internal Serve
   try {
     response = await handler()
   } catch (err) {
-    t.not(err,null)
+    t.not(err, null)
     t.is(err.message, 'Response object failed validation')
-    expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
+    t.not(response, null) // it doesn't destroy the response so it gets logged
   }
 })
 
-const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
-
-test('It should allow invalid email using default constructor options', async (t) => {
+test('It should not allow bad email format', async (t) => {
+  const schema = { type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
   const handler = middy((event, context) => {
     return {}
   })
 
   handler.use(validator({ inputSchema: schema }))
-
-  // This email is considered as valid in 'fast' mode
-  const resp = await handler({ email: 'abc@abc' })
-
-  t.is(resp, {})
-})
-
-test('It should not allow bad email format using custom ajv constructor options', async (t) => {
-
-
-  const handler = middy((event, context) => {
-    return {}
-  })
-
-  handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
 
   try {
     // This same email is not a valid one in 'full' validation mode
@@ -257,13 +245,26 @@ test('It should not allow bad email format using custom ajv constructor options'
   }
 })
 
-beforeEach(() => {
-  jest.resetModules()
+test('It should error when unsupported keywords used', async (t) => {
+  const schema = {
+    type: 'object',
+    somethingnew: 'should be an object with an integer property foo only'
+  }
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ inputSchema: schema }))
+  try {
+    await handler({ foo: 'a' })
+  } catch (err) {
+    t.is(err.message, 'Input Schema Error')
+  }
 })
 
-test('It should use out-of-the-box ajv-errors plugin', async (t) => {
-
-
+// TODO Not support yet / bug with ajv v7
+/*test('It should use out-of-the-box ajv-errors plugin', async (t) => {
   const schema = {
     type: 'object',
     required: ['foo'],
@@ -272,8 +273,6 @@ test('It should use out-of-the-box ajv-errors plugin', async (t) => {
     },
     errorMessage: 'should be an object with an integer property foo only'
   }
-
-  import validator from '../index.js'
 
   const handler = middy((event, context) => {
     return {}
@@ -285,44 +284,22 @@ test('It should use out-of-the-box ajv-errors plugin', async (t) => {
     await handler({ foo: 'a' })
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    expect(err.details).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ message: 'should be an object with an integer property foo only' })
-      ])
-    )
-  }
-})
-
-test('It should apply added plugin bsontype', async (t) => {
-
-  const schema = {
-    required: ['name', 'gpa'],
-    properties: {
-      name: {
-        bsonType: 'string'
+    t.deepEqual(err.details, [{
+      dataPath: '',
+      keyword: 'errorMessage',
+      params: {
+        errors: [{
+          dataPath: '/foo',
+          emUsed: true,
+          keyword: 'type',
+          params: {
+            type: 'integer',
+          },
+          schemaPath: '#/properties/foo/type'
+        }]
       },
-      gpa: {
-        bsonType: ['double']
-      }
-    }
+      schemaPath: '#/errorMessage',
+      message: 'should be an object with an integer property foo only'
+    }])
   }
-
-  const handler = middy((event, context) => {
-    return {}
-  })
-
-  handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
-
-  try {
-    await handler({ name: 'Leo', gpa: '4' })
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    expect(err.details).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ message: 'should be double got 4' })
-      ])
-    )
-  }
-})
-
-
+})*/

@@ -40,7 +40,7 @@ export default (opts = {}) => {
       if (!test) { return false }
 
       // if the response is not an object, assign it to body. { body: undefined } is not serialized
-      handler.response = typeof handler.response === 'object' ? handler.response : { body: handler.response }
+      handler.response = handler.response !== null && typeof handler.response === 'object' ? handler.response : { body: handler.response }
 
       // set header
       handler.response.headers = handler.response.headers || {}

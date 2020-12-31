@@ -9,7 +9,7 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
   cacheExpiry: -1,
-  setProcessEnv: false,
+  setProcessEnv: false, // can return object when requesting db credentials, cannot set to process.env
   setContext: false,
 }
 
