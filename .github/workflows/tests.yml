@@ -35,11 +35,11 @@ jobs:
       run: npm run test:lint:ci
       env:
         CI: true
-    - name: Check typings
-      run: npm run test:packages:typings
-      env:
-        CI: true
     - name: Unit tests
       run: npm run test:packages:unit
+      env:
+        CI: true
+    - name: Check typings
+      run: npm run test:packages:typings
       env:
         CI: true

@@ -1,4 +1,3 @@
-
 const defaults = {
   setProcessEnv: false,
   setContext: false
@@ -30,7 +29,7 @@ export default (opts = {}) => {
     if (!durations[id]) dur(id, 0)
     const end = Date.now()
     dur(id, durations[id] + end - starts[id])
-    if (desc) descriptions[id] = desc
+    if (desc) descriptions[id] = desc.replace('"', '')
   }
 
   const dur = (id, ms) => {
@@ -54,14 +53,10 @@ export default (opts = {}) => {
       tags.join(', ') +
       (tags.length ? ', ' : '') +
       Object.keys(durations)
-        .map(
-          (id) =>
-            `${id};${
-              descriptions[id]
-                ? `desc="${descriptions[id].replace('"', '')}";`
-                : ''
-            }dur=${durations[id]}`
-        )
+        .map((id) => {
+          const desc = descriptions[id] ? `desc="${descriptions[id]}";` : ''
+          return `${id};${desc}dur=${durations[id]}`
+        })
         .join(', ')
   }
 
