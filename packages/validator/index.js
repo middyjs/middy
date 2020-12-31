@@ -1,5 +1,5 @@
 import createError from 'http-errors'
-import Ajv from 'ajv'
+import Ajv from 'ajv/dist/2019.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 //import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
