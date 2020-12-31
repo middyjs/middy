@@ -54,7 +54,11 @@ for (const [key] of [
 
 for (const [accept, result] of [
   ['application/xml, text/x-dvi; q=0.8, text/x-c', '<message>Hello World</message>'],
+  ['text/x-dvi; q=0.8, application/xml, text/x-c', '<message>Hello World</message>'],
+  ['text/x-dvi, application/xml, text/x-c', '<message>Hello World</message>'],
   ['application/json, text/plain, */*', '{"message":"Hello World"}'],
+  ['*/*', '{"message":"Hello World"}'],
+  ['text/x-dvi, */*', '{"message":"Hello World"}'],
   ['text/plain, text/x-c', 'Hello World']
 ]) {
   test(`${accept} returns ${result}`, async (t) => {
