@@ -11,7 +11,8 @@ const defaults = {
   cacheKey: 'sts',
   cacheExpiry: -1,
   // setProcessEnv: false, // returns object, cannot set to process.env
-  setContext: false
+  setContext: false,
+  onChange: undefined
 }
 
 export default (opts = {}) => {
@@ -51,10 +52,11 @@ export default (opts = {}) => {
     let cached
     if (init) {
       cached = prefetch
-      init = false
     } else {
       cached = processCache(options, fetch, handler)
     }
+    if (!init) options?.onChange()
+    init = false
 
     Object.assign(handler.internal, cached)
     if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
