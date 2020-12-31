@@ -1,10 +1,10 @@
-import * as https from 'https'
+import { Agent } from 'https'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
 export const awsClientDefaultOptions = {
   requestHandler: new NodeHttpHandler({
-    httpsAgent: new https.Agent(
+    httpsAgent: new Agent(
       {
         secureProtocol: 'TLSv1_2_method'
       }
@@ -13,14 +13,21 @@ export const awsClientDefaultOptions = {
 }
 
 export const createClient = (options, handler) => {
-  let awsClientCredentials = {}
+  const awsClientConnectionOptions = {}
+
+  // Role Credentials
   if (options.awsClientAssumeRole) {
     if (!handler) return
-    awsClientCredentials = { credentials: handler.context[options.awsClientAssumeRole] }
+    awsClientConnectionOptions.credentials = handler.context[options.awsClientAssumeRole]
   }
-  Object.assign(options.awsClientOptions, awsClientDefaultOptions, awsClientCredentials)
-  const ClientConstructor = options.awsClientConstructor
-  return new ClientConstructor(options.awsClientOptions)
+
+  // Secure Endpoint (FIPS 140-2)
+  if (options.awsClientFipsEndpoint) {
+    awsClientConnectionOptions.endpoint = `${options.awsClientFipsEndpoint}.${process.ENV.AWS_REGION}.amazonaws.com`
+  }
+
+  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, awsClientConnectionOptions, options.awsClientOptions)
+  return new options.AwsClient(awsClientOptions)
 }
 
 export const canPrefetch = (options) => {
@@ -30,7 +37,8 @@ export const canPrefetch = (options) => {
 // Internal Context
 export const getInternal = async (variables, handler) => {
   if (!variables) return {}
-  let keys = []; let values = []
+  let keys = []
+  let values = []
   if (variables === true) {
     keys = values = Object.keys(handler.internal)
   } else if (typeof variables === 'string') {

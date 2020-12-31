@@ -8,7 +8,7 @@
   },
   "engineStrict": true,
   "scripts": {
-    "test:package": "c8 ava packages/validator/__tests__/index.js",
+    "test:package": "c8 ava packages/core/__tests__/index.js",
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
     "test:lint": "standard --fix",

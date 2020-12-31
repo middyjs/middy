@@ -2,7 +2,7 @@ import { SSM } from '@aws-sdk/client-ssm'
 import middy from '@middy/core'
 
 interface ISSMOptions {
-  awsClientConstructor?: SSM,
+  AwsClient?: SSM,
   awsSdkOptions?: Partial<SSM.Types.ClientConfiguration>;
   awsClientAssumeRole?: string,
   fetchData?: { [key: string]: string; },

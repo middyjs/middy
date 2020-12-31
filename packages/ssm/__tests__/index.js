@@ -29,7 +29,7 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       }
@@ -54,7 +54,7 @@ test.serial('It should set SSM param value to internal storage without prefetch'
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       },
@@ -79,7 +79,7 @@ test.serial('It should set SSM param value to context', async (t) => {
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       },
@@ -103,7 +103,7 @@ test.serial('It should set SSM param value to process.env', async (t) => {
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       },
@@ -154,7 +154,7 @@ test.serial('It should set SSM param value to internal storage when request > 10
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key0: '/dev/service_name/key_name0',
         key1: '/dev/service_name/key_name1',
@@ -192,7 +192,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       }
@@ -219,7 +219,7 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       },
@@ -242,7 +242,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
 
   handler
     .use(ssm({
-      awsClientConstructor: SSM,
+      AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
       },

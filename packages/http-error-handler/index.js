@@ -30,7 +30,7 @@ export default (opts = {}) => {
         : 'application/json'
 
       // Send signal that error has been handled
-      handler.error = null
+      return handler.response
     }
   }
 

@@ -68,23 +68,11 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
   profiler?.before(nextMiddleware?.name)
   const res = await nextMiddleware?.(request)
   profiler?.after(nextMiddleware?.name)
-  if (res) {
-    throw new Error('Unexpected return value in middleware')
-  }
+  if (res !== undefined) {
+    request.response = res
+    return
+  } // short circuit chaining and respond early
   return runMiddlewares(stack, request, profiler)
-}
-
-const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
-  const stack = Array.from(middlewares)
-  if (!stack.length || !request.error) return
-  const nextMiddleware = stack.shift()
-  profiler?.before(nextMiddleware?.name)
-  const res = await nextMiddleware?.(request)
-  profiler?.after(nextMiddleware?.name)
-  if (res) {
-    throw new Error('Unexpected return value in onError middleware')
-  }
-  return runErrorMiddlewares(stack, request, profiler)
 }
 
 /**
@@ -119,6 +107,7 @@ export default (handler = () => {}, profiler = null) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
+        if (request.response) return request.callback(null, request.response) // catch short circuit
         profiler?.beforeHandler()
         request.response = await handler(request.event, request.context)
         profiler?.afterHandler()
@@ -128,7 +117,7 @@ export default (handler = () => {}, profiler = null) => {
         request.response = null
         request.error = e
         try {
-          await runErrorMiddlewares(onErrorMiddlewares, request, profiler)
+          await runMiddlewares(onErrorMiddlewares, request, profiler)
           if (request.response) return request.callback(null, request.response)
         } catch (e) {
           e.originalError = request.error

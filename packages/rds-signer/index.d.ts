@@ -2,7 +2,7 @@ import { RDS } from '@aws-sdk/client-rds'
 import middy from '@middy/core'
 
 interface IRDSSignerOptions {
-  awsClientConstructor?: RDS,
+  AwsClient?: RDS,
   awsSdkOptions?: Partial<RDS.Types.ClientConfiguration>;
   awsClientAssumeRole?: string,
   fetchData?: {

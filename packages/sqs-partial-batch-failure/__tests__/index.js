@@ -41,7 +41,7 @@ test.serial('Should resolve when there are no failed messages', async (t) => {
   sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
-      awsClientConstructor: SQS,
+      AwsClient: SQS,
     }))
 
   const res = await handler(event)
@@ -70,7 +70,7 @@ test.serial('Should resolve when there are no failed messages, prefetch disabled
   sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
-      awsClientConstructor: SQS,
+      AwsClient: SQS,
       disablePrefetch: true
     }))
 
@@ -104,9 +104,15 @@ test.serial('Should throw with failure reasons', async (t) => {
     }
   )
   const sqs = sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  // TODO stub out config.endpoint()
+  // sandbox.stub(SQS.prototype.config, 'endpoint').resolves({
+  //   protocol: 'https:',
+  //   hostname: 'sqs.us-east-2.amazonaws.com',
+  //   path:'/'
+  // })
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
-      awsClientConstructor: SQS
+      AwsClient: SQS
     }))
   try {
     await handler(event)

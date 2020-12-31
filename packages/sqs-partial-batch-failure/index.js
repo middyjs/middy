@@ -2,14 +2,16 @@ import { SQS } from '@aws-sdk/client-sqs'
 import { canPrefetch, createClient } from '../core/util.js'
 
 const defaults = {
-  awsClientConstructor: SQS, // Allow for XRay
+  AwsClient: SQS, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientFipsEndpoint: false,
   disablePrefetch: false
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
+  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'sqs-fips'
 
   const getQueueUrl = async (eventSourceARN) => {
     const [, , , , accountId, queueName] = eventSourceARN.split(':')

@@ -2,9 +2,10 @@ import { SecretsManager } from '@aws-sdk/client-secrets-manager'
 import { canPrefetch, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
 
 const defaults = {
-  awsClientConstructor: SecretsManager, // Allow for XRay
+  AwsClient: SecretsManager, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientFipsEndpoint: false,
   fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
@@ -15,6 +16,7 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
+  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'secretsmanager-fips'
 
   const fetch = () => {
     const values = {}

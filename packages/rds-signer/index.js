@@ -2,7 +2,7 @@ import { canPrefetch, createClient, getInternal, processCache } from '../core/ut
 import { RDS } from '@aws-sdk/client-rds'
 
 const defaults = {
-  awsClientConstructor: RDS.Signer, // Allow for XRay
+  AwsClient: RDS.Signer, // Allow for XRay
   awsClientOptions: {},
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,

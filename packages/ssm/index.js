@@ -3,12 +3,13 @@ import { SSM } from '@aws-sdk/client-ssm'
 
 const awsRequestLimit = 10
 const defaults = {
-  awsClientConstructor: SSM, // Allow for XRay
+  AwsClient: SSM, // Allow for XRay
   awsClientOptions: {
     maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
     retryDelayOptions: { base: 200 }
   },
   awsClientAssumeRole: undefined,
+  awsClientFipsEndpoint: false,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',
@@ -19,6 +20,7 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
+  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'ssm-fips'
 
   const fetch = () => {
     const values = {}

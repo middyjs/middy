@@ -51,7 +51,7 @@ test.serial('It should an authToken', async (t) => {
   //const rdsSpy = makeRdsSpy('token')
   handler
     .use(rdsSigner({
-      awsClientConstructor: rdsSpy,
+      AwsClient: rdsSpy,
       fetchData:{
         token: {
           region:'us-east-1', hostname:'hostname', username:'username', database:'database', port:5432

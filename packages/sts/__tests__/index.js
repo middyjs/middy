@@ -37,7 +37,7 @@ test.serial('It should set credential to internal storage', async (t) => {
 
   handler
     .use(sts({
-      awsClientConstructor: STS,
+      AwsClient: STS,
       fetchData: {
         role: {
           RoleArn: '.../role'
@@ -71,7 +71,7 @@ test.serial('It should set STS secret to internal storage without prefetch', asy
 
   handler
     .use(sts({
-      awsClientConstructor: STS,
+      AwsClient: STS,
       fetchData: {
         role: {
           RoleArn: '.../role'
@@ -106,7 +106,7 @@ test.serial('It should set STS secret to context', async (t) => {
 
   handler
     .use(sts({
-      awsClientConstructor: STS,
+      AwsClient: STS,
       fetchData: {
         role: {
           RoleArn: '.../role'
@@ -141,7 +141,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 
   handler
     .use(sts({
-      awsClientConstructor: STS,
+      AwsClient: STS,
       fetchData: {
         role: {
           RoleArn: '.../role'
@@ -178,7 +178,7 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
 
   handler
     .use(sts({
-      awsClientConstructor: STS,
+      AwsClient: STS,
       fetchData: {
         role: {
           RoleArn: '.../role'

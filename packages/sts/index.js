@@ -2,9 +2,10 @@ import { canPrefetch, createClient, getInternal, processCache } from '../core/ut
 import { STS } from '@aws-sdk/client-sts'
 
 const defaults = {
-  awsClientConstructor: STS, // Allow for XRay
+  AwsClient: STS, // Allow for XRay
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
+  awsClientFipsEndpoint: false,
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',
@@ -15,6 +16,7 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
+  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'sts-fips'
 
   const fetch = () => {
     const values = {}

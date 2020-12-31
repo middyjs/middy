@@ -29,7 +29,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       }
@@ -58,7 +58,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token1: 'api_key1',
         token2: 'api_key2'
@@ -84,7 +84,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         credentials: 'rds_login'
       }
@@ -108,7 +108,7 @@ test.serial('It should set SecretsManager secret to internal storage without pre
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       },
@@ -133,7 +133,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       },
@@ -157,7 +157,7 @@ test.serial('It should set SecretsManager secret to process.env', async (t) => {
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       },
@@ -182,7 +182,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       }
@@ -209,7 +209,7 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
 
   handler
     .use(secretsManager({
-      awsClientConstructor: SecretsManager,
+      AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       },
