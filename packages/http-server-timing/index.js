@@ -29,7 +29,7 @@ export default (opts = {}) => {
     if (!durations[id]) dur(id, 0)
     const end = Date.now()
     dur(id, durations[id] + end - starts[id])
-    if (desc) descriptions[id] = desc.replace('"', '')
+    descriptions[id] = desc ? `desc="${desc.replace(/"/g, '')}";` : ''
   }
 
   const dur = (id, ms) => {
@@ -54,8 +54,7 @@ export default (opts = {}) => {
       (tags.length ? ', ' : '') +
       Object.keys(durations)
         .map((id) => {
-          const desc = descriptions[id] ? `desc="${descriptions[id]}";` : ''
-          return `${id};${desc}dur=${durations[id]}`
+          return `${id};${descriptions[id]}dur=${durations[id]}`
         })
         .join(', ')
   }

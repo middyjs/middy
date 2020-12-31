@@ -66,8 +66,6 @@ module.exports = handler
 
 # TODO
 - [ ] Get svg of current logo
-- [-] Update testing
-- [ ] update avj to support draft-2019-09
 - [ ] Native router?
 - [ ] Documentation
   - example how to have middleware exit out early before:error, onerror: catch flag, respond
@@ -106,9 +104,7 @@ module.exports = handler
 - [x] `http-response-serializer`
 
 ### Request/Response Transformation
-- [-] `validator`
-  - include i18n
-  - update doc to show how to use extra formats / keywords
+- [x] `validator`
   
 ### Fetch Keys
 - [x] `sts` (AWS) [new]
