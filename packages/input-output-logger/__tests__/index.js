@@ -22,6 +22,22 @@ test('It should log event and response', async (t) => {
   t.true(logger.calledWith({ response: { message: 'hello world' } }))
 })
 
+test('It should throw error when invalid logger', async (t) => {
+  const logger = false
+
+  const handler = middy((event, context) => {
+    return { message: 'hello world' }
+  })
+
+  try {
+    handler
+      .use(inputOutputLogger({ logger }))
+
+  } catch (e) {
+    t.is(e.message,'Middleware must contain at least one key among "before", "after", "onError"')
+  }
+})
+
 test('It should omit paths', async (t) => {
   const logger = sinon.spy()
 

@@ -255,11 +255,11 @@ test('It should error when unsupported keywords used (input)', async (t) => {
     return {}
   })
 
-  handler.use(validator({ inputSchema: schema }))
   try {
+    handler.use(validator({ inputSchema: schema }))
     await handler({ foo: 'a' })
   } catch (err) {
-    t.is(err.message, 'Input Schema Error')
+    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -274,15 +274,15 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     return {}
   })
 
-  handler.use(validator({ outputSchema: schema }))
   try {
+    handler.use(validator({ outputSchema: schema }))
     await handler({ foo: 'a' })
   } catch (err) {
-    t.is(err.message, 'Output Schema Error')
+    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
-// TODO Not support yet / bug with ajv v7
+// TODO Not support yet with ajv v7
 /*test('It should use out-of-the-box ajv-errors plugin', async (t) => {
   const schema = {
     type: 'object',

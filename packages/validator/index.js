@@ -24,22 +24,11 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   // formatsDraft2019(ajv)
   if (options.allErrors) errors(ajv)
 
-  // TODO refactor, not pretty enough - invalid schema can throw errors outside of middy, this resolves that
-  let validateInput = null
-  let validateOutput = null
-  if (inputSchema) {
-    try {
-      validateInput = ajv.compile(inputSchema)
-    } catch (e) {}
-  }
-  if (outputSchema) {
-    try {
-      validateOutput = ajv.compile(outputSchema)
-    } catch (e) {}
-  }
+  // Note: Can throw errors if schema is invalid
+  let validateInput = inputSchema ? ajv.compile(inputSchema) : null
+  let validateOutput = outputSchema ? ajv.compile(outputSchema) : null
 
-  const validateMiddlewareBefore = async (handler) => {
-    if (!validateInput) throw new Error('Input Schema Error')
+  const validatorMiddlewareBefore = async (handler) => {
     const valid = validateInput(handler.event)
 
     if (!valid) {
@@ -54,8 +43,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
     }
   }
 
-  const validateMiddlewareAfter = async (handler) => {
-    if (!validateOutput) throw new Error('Output Schema Error')
+  const validatorMiddlewareAfter = async (handler) => {
     const valid = validateOutput(handler.response)
 
     if (!valid) {
@@ -66,8 +54,8 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
     }
   }
   return {
-    before: inputSchema ? validateMiddlewareBefore : null,
-    after: outputSchema ? validateMiddlewareAfter : null
+    before: validateInput ? validatorMiddlewareBefore : null,
+    after: validateOutput ? validatorMiddlewareAfter : null
   }
 }
 

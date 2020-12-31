@@ -7,6 +7,7 @@ export default (opts = {}) => {
   }
 
   let { logger, omitPaths } = Object.assign({}, defaults, opts)
+  if (typeof logger !== 'function') logger = null
 
   const cloneMessage = message => JSON.parse(JSON.stringify(message))
 
@@ -16,14 +17,12 @@ export default (opts = {}) => {
     logger(redactedMessage)
   }
 
-  if (typeof logger !== 'function') logger = () => {}
-
   const inputOutputLoggerMiddlewareBefore = async (handler) => omitAndLog({ event: handler.event })
   const inputOutputLoggerMiddlewareAfter = async (handler) => omitAndLog({ response: handler.response })
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return ({
-    before: inputOutputLoggerMiddlewareBefore,
-    after: inputOutputLoggerMiddlewareAfter,
-    onError: inputOutputLoggerMiddlewareOnError
+    before: logger ? inputOutputLoggerMiddlewareBefore : null,
+    after: logger ? inputOutputLoggerMiddlewareAfter : null,
+    onError: logger ? inputOutputLoggerMiddlewareOnError : null
   })
 }

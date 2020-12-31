@@ -26,7 +26,7 @@ test('It should log errors and propagate the error', async (t) => {
   }
 })
 
-test('It should not log errors and propagate the error', async (t) => {
+test('It should throw error when invalid logger', async (t) => {
 
   const error = new Error('something bad happened')
   const logger = false
@@ -35,15 +35,14 @@ test('It should not log errors and propagate the error', async (t) => {
     throw error
   })
 
-  handler
-    .use(errorLogger({ logger }))
-
   let response
 
   try {
+    handler
+      .use(errorLogger({ logger }))
     response = await handler()
   } catch (err) {
     t.is(response, undefined)
-    t.deepEqual(err, error)
+    t.is(err.message, 'Middleware must contain at least one key among "before", "after", "onError"')
   }
 })
