@@ -1,6 +1,6 @@
-const { invoke } = require('../../test-helpers')
-const middy = require('../../core')
-const httpPartialResponse = require('../')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpPartialResponse from '../index.js'
 
 const createDefaultObjectResponse = () =>
   Object.assign(
@@ -23,95 +23,87 @@ const createDefaultStringifiedResponse = () =>
     }
   )
 
-describe('📦  Middleware Http Partial Response', () => {
-  test('It should filter a response with default opts', async () => {
-    const handler = middy((event, context, cb) =>
-      cb(null, createDefaultObjectResponse())
-    )
+test('It should filter a response with default opts', async (t) => {
+  const handler = middy((event, context) => createDefaultObjectResponse()
+  )
 
-    handler.use(httpPartialResponse())
+  handler.use(httpPartialResponse())
 
-    const event = {
-      queryStringParameters: {
-        fields: 'firstname'
-      }
+  const event = {
+    queryStringParameters: {
+      fields: 'firstname'
     }
+  }
 
-    const response = await invoke(handler, event)
+  const response = await handler(event)
 
-    expect(response.body).toEqual({ firstname: 'john' })
-  })
+  t.deepEqual(response.body, { firstname: 'john' })
+})
 
-  test('It should filter a response with defined filter key name in opts', async () => {
-    const handler = middy((event, context, cb) =>
-      cb(null, createDefaultObjectResponse())
-    )
+test('It should filter a response with defined filter key name in opts', async (t) => {
+  const handler = middy((event, context) => createDefaultObjectResponse()
+  )
 
-    handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
+  handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
 
-    const event = {
-      queryStringParameters: {
-        filter: 'lastname'
-      }
+  const event = {
+    queryStringParameters: {
+      filter: 'lastname'
     }
+  }
 
-    const response = await invoke(handler, event)
+  const response = await handler(event)
 
-    expect(response.body).toEqual({ lastname: 'doe' })
-  })
+  t.deepEqual(response.body, { lastname: 'doe' })
+})
 
-  test('It should filter a stringified response with default opts', async () => {
-    const handler = middy((event, context, cb) =>
-      cb(null, createDefaultStringifiedResponse())
-    )
+test('It should filter a stringified response with default opts', async (t) => {
+  const handler = middy((event, context) => createDefaultStringifiedResponse())
 
-    handler.use(httpPartialResponse())
+  handler.use(httpPartialResponse())
 
-    const event = {
-      queryStringParameters: {
-        fields: 'firstname'
-      }
+  const event = {
+    queryStringParameters: {
+      fields: 'firstname'
     }
+  }
 
-    const response = await invoke(handler, event)
+  const response = await handler(event)
 
-    expect(response.body).toEqual(JSON.stringify({ firstname: 'john' }))
-  })
+  t.is(response.body, JSON.stringify({ firstname: 'john' }))
+})
 
-  test('It should return the initial response if response body is empty', async () => {
-    const handler = middy((event, context, cb) => cb(null, ''))
+test('It should return the initial response if response body is empty', async (t) => {
+  const handler = middy((event, context) => '')
 
-    handler.use(httpPartialResponse())
+  handler.use(httpPartialResponse())
 
-    const response = await invoke(handler)
+  const response = await handler()
 
-    expect(response).toEqual('')
-  })
+  t.is(response, '')
+})
 
-  test('It should return the initial response if response body is not an object neither a json string', async () => {
-    const handler = middy((event, context, cb) =>
-      cb(null, { statusCode: 200, body: 'success response' })
-    )
+test('It should return the initial response if response body is not an object neither a json string', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200, body: 'success response' })
+  )
 
-    handler.use(httpPartialResponse())
+  handler.use(httpPartialResponse())
 
-    const response = await invoke(handler)
+  const response = await handler()
 
-    expect(response.body).toEqual('success response')
-  })
+  t.is(response.body, 'success response')
+})
 
-  test('It should return the initial response if there is no queryStringParameters filtering key', async () => {
-    const handler = middy((event, context, cb) => {
-      cb(null, createDefaultObjectResponse())
-    })
+test('It should return the initial response if there is no queryStringParameters filtering key', async (t) => {
+  const handler = middy((event, context) => createDefaultObjectResponse())
 
-    handler.use(httpPartialResponse())
+  handler.use(httpPartialResponse())
 
-    const response = await invoke(handler)
+  const response = await handler()
 
-    expect(response.body).toEqual({
-      firstname: 'john',
-      lastname: 'doe'
-    })
+  t.deepEqual(response.body,{
+    firstname: 'john',
+    lastname: 'doe'
   })
 })
+

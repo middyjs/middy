@@ -66,14 +66,11 @@ module.exports = handler
 
 # TODO
 - [ ] Get svg of current logo
-- [ ] Update testing - https://github.com/aws/aws-sdk-js-v3/issues/1156
-- [ ] allow ssm to pull > 10 keys (if possible)
+- [-] Update testing
 - [ ] update avj to support draft-2019-09
 - [ ] Native router?
-- [ ] get headers using caseless https://www.npmjs.com/package/caseless
-- [ ] Update linting
-- [x] possible to 3rd party api pass a promise to save to context
 - [ ] Documentation
+  - example how to have middleware exit out early before:error, onerror: catch flag, respond
   - [ ] Example using AWS X-Ray
   - [ ] Example using fips 140-2
   - [ ] Examples showing middleware ordering (apigw, s3, sqs, sns, edge)
@@ -82,7 +79,6 @@ module.exports = handler
   
 ### 3rd party
 - db-manager
-- sentry
 
 ## Middleware (Grouped by type)
 
@@ -104,7 +100,6 @@ module.exports = handler
 - [x] `http-urlencode-body-parser`
 - [x] `http-content-negotiation`
 
-  
 ### Response Transformation
 - [x] `http-server-timing` [new]
 - [x] `http-cors`
@@ -120,6 +115,7 @@ module.exports = handler
 ### Fetch Keys
 - [-] `sts` (AWS) [new]
 - [-] `ssm` (AWS)
+- [ ] `ssm-path` (AWS) [new] pull path fetch recursion out due to perf hit
 - [-] `secrets-manager` (AWS)
 - [-] `rds-signer` (AWS) [new]
 - [ ] `sqs-partial-batch-failure` (AWS)

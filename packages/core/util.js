@@ -24,42 +24,52 @@ export const createClient = (options, handler) => {
 }
 
 export const canPrefetch = (options) => {
-  return (!options.awsClientAssumeRole || !options.disablePrefetch)
+  return (!options.awsClientAssumeRole && !options.disablePrefetch)
 }
 
 // Internal Context
 export const getInternal = async (variables, handler) => {
-  const values = {}
-  if (!variables) {
-    variables = Object.keys(handler.internal)
-  }
-  if (typeof variables === 'string') {
-    variables = [variables]
-  }
-  if (Array.isArray(variables)) {
-    for (const optionKey of variables) {
-      // ensure promise has resolved by the time it's needed
-      const value = await handler.internal[optionKey]
-      handler.internal[optionKey] = value
-      values[optionKey] = value
-    }
+  if (!variables) return {}
+  let keys = [], values = []
+  if (variables === true) {
+    keys = values = Object.keys(handler.internal)
+  } else if (typeof variables === 'string') {
+    keys = values = [variables]
+  } else if (Array.isArray(variables)) {
+    keys = values = variables
   } else if (typeof variables === 'object') {
-    for (const optionKey in variables) {
-      // ensure promise has resolved by the time it's needed
-      const value = await handler.internal[variables[optionKey]]
-      handler.internal[variables[optionKey]] = value
-      values[optionKey] = value
-    }
+    keys = Object.keys(variables)
+    values = Object.values(variables)
   }
-  return values
+  const promises = []
+  for (const internalKey of values) {
+    // 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
+    const pathOptionKey = internalKey.split('.')
+    const rootOptionKey = pathOptionKey.shift()
+    let valuePromise =  handler.internal[rootOptionKey]
+    if (typeof valuePromise?.then !== 'function') {
+      valuePromise = Promise.resolve(valuePromise)
+    }
+    promises.push(
+      valuePromise.then(value => pathOptionKey.reduce((p, c) => p?.[c], value))
+    )
+  }
+  // ensure promise has resolved by the time it's needed
+  values = await Promise.all(promises)
+
+  return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {});
+}
+export const sanitizeKey = (key) => {
+  return key
+    .replace(/[^a-zA-Z0-9]+/g, '_')
 }
 
-// Option Cache
+// fetch Cache
 const cache = {} // key: { value, expiry }
 export const processCache = (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
     const cached = cache[options.cacheKey]
-    if (cached?.expiry > Date.now() || options.cacheExpiry < 0) {
+    if (cached && (cache.expiry > Date.now() || options.cacheExpiry < 0)) {
       return cached.value
     }
   }
@@ -71,6 +81,13 @@ export const processCache = (options, fetch = () => undefined, handler) => {
     }
   }
   return value
+}
+
+export const clearCache = (keys = null) => {
+  if (!keys) keys = Object.keys(cache)
+  for (const cacheKey of keys) {
+    delete cache[cacheKey]
+  }
 }
 
 export const jsonSafeParse = (string, reviver) => {

@@ -1,7 +1,7 @@
-import { canPrefetch, createClient, processCache, jsonSafeParse } from '../core/util.js'
+import { canPrefetch, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
-const awsSsmRequestLimit = 10
+const awsRequestLimit = 10
 const defaults = {
   awsClientConstructor: SSM, // Allow for XRay
   awsClientOptions: {
@@ -10,8 +10,11 @@ const defaults = {
   },
   awsClientAssumeRole: undefined,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
-  cacheKey: 'secrets-manager',
-  cacheExpiry: -1
+  disablePrefetch: false,
+  cacheKey: 'ssm',
+  cacheExpiry: -1,
+  setProcessEnv: false,
+  setContext: false,
 }
 
 export default (opts = {}) => {
@@ -21,8 +24,8 @@ export default (opts = {}) => {
     const values = {}
     let request = null
     let batch = []
-    for (const [contextKey, idx] of Object.keys(options.fetchData).entries()) {
-      if (idx % awsSsmRequestLimit) {
+    for (const [idx, contextKey] of Object.keys(options.fetchData).entries()) {
+      if (idx % awsRequestLimit === 0) {
         batch = []
         request = null
       }
@@ -40,31 +43,39 @@ export default (opts = {}) => {
               .map(param => {
                 return { [param.Name]: jsonSafeParse(param.Value) }
               })
-              .flat()
           })
       }
 
-      values[contextKey] = request.then(params => params[options.fetchData[contextKey]])
+      values[contextKey] = request.then(params => {
+        params = Object.assign(...params)
+        return params[options.fetchData[contextKey]]
+      })
     }
     return values
   }
 
-  let prefetch, client
+  let prefetch, client, init
   if (canPrefetch(options)) {
+    init = true
     client = createClient(options)
     prefetch = processCache(options, fetch)
   }
 
   const ssmMiddlewareBefore = async (handler) => {
-    if (canPrefetch(options)) {
-      await prefetch
-    } else if (!client) {
+    if (!client) {
       client = createClient(options, handler)
     }
-
-    const cached = processCache(options, fetch, handler)
+    let cached
+    if (init) {
+      cached = prefetch
+      init = false
+    } else {
+      cached = processCache(options, fetch, handler)
+    }
 
     Object.assign(handler.internal, cached)
+    if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
   }
 
   return {

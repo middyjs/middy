@@ -1,6 +1,6 @@
-const BusBoy = require('busboy')
-const contentTypeLib = require('content-type')
-const createError = require('http-errors')
+import BusBoy from 'busboy'
+import contentTypeLib from 'content-type'
+import createError from 'http-errors'
 
 export default (opts = {}) => {
   const defaults = {

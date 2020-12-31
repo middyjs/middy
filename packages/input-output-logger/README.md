@@ -45,16 +45,16 @@ npm install --save @middy/input-output-logger
 ## Options
 
 `logger` property accept a function (default `console.log`)
-`omitPaths` property accepts an array of paths that will be used to remove particular fields from the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
+`omitPaths` property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
 
 
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const inputOutputLogger = require('@middy/input-output-logger')
+import middy from '@middy/core'
+import inputOutputLogger from '@middy/input-output-logger'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   const response = {
     statusCode: 200,
     headers: {},

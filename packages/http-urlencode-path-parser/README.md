@@ -48,11 +48,11 @@ None
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpUrlEncodePathParser = require('@middy/http-urlencode-path-parser')
+import middy from '@middy/core'
+import httpUrlEncodePathParser from '@middy/http-urlencode-path-parser'
 
-const handler = middy((event, context, cb) => {
-  cb(null, event.body) // propagates the body as response
+const handler = middy((event, context) => {
+  return event.body // propagates the body as response
 })
 
 handler.use(httpUrlEncodePathParser())
@@ -66,7 +66,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  expect(body).toEqual({
+  t.deepEqual(body, {
     name: 'Mîddy'
   })
 })

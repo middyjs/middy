@@ -66,12 +66,12 @@ Let's assume you are building a JSON API to process a payment:
 # handler.js
 
 // import core
-const middy = require('@middy/core')
+import middy from '@middy/core'
 
 // import some middlewares
-const jsonBodyParser = require('@middy/http-json-body-parser')
-const httpErrorHandler = require('@middy/http-error-handler')
-const validator = require('@middy/validator')
+import jsonBodyParser from '@middy/http-json-body-parser'
+import httpErrorHandler from '@middy/http-error-handler'
+import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
 const processPayment = (event, context, callback) => {
@@ -154,10 +154,10 @@ simple and requires just few steps:
 Example:
 
 ```javascript
-const middy = require('@middy/core')
-const middleware1 = require('sample-middleware1')
-const middleware2 = require('sample-middleware2')
-const middleware3 = require('sample-middleware3')
+import middy from '@middy/core'
+import middleware1 from 'sample-middleware1'
+import middleware2 from 'sample-middleware2'
+import middleware3 from 'sample-middleware3'
 
 const originalHandler = (event, context, callback) => {
   /* your business logic */
@@ -176,10 +176,10 @@ module.exports = { handler }
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
 ```javascript
-const middy = require("@middy/core");
-const middleware1 = require("sample-middleware1");
-const middleware2 = require("sample-middleware2");
-const middleware3 = require("sample-middleware3");
+import middy from "@middy/core";
+import middleware1 from "sample-middleware1";
+import middleware2 from "sample-middleware2";
+import middleware3 from "sample-middleware3";
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
 const originalHandler = (event, context, callback) => {
@@ -263,7 +263,7 @@ const storage = {}
 const cacheMiddleware = options => {
   let cacheKey
   return {
-    before: (handler, next) => {
+    before: (handler) => {
       cacheKey = options.calculateCacheId(handler.event)
       if (options.storage.hasOwnProperty(cacheKey)) {
         // exits early and returns the value from the cache if it's already there
@@ -272,10 +272,9 @@ const cacheMiddleware = options => {
 
       return next()
     },
-    after: (handler, next) => {
+    after: (handler) => {
       // stores the calculated response in the cache
       options.storage[cacheKey] = handler.response
-      next()
     }
   }
 }
@@ -435,23 +434,23 @@ logic into Middy's control flow.
 Let's see how inline middlewares work with a simple example:
 
 ```javascript
-const middy = require('@middy/core')
+import middy from '@middy/core'
 
 const handler = middy((event, context, callback) => {
   // do stuff
 })
 
-handler.before((handler, next) => {
+handler.before((handler) => {
   // do something in the before phase
   next()
 })
 
-handler.after((handler, next) => {
+handler.after((handler) => {
   // do something in the after phase
   next()
 })
 
-handler.onError((handler, next) => {
+handler.onError((handler) => {
   // do something in the on error phase
   next()
 })

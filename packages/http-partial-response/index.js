@@ -1,4 +1,4 @@
-const jsonMask = require('json-mask')
+import jsonMask from 'json-mask'
 const compile = jsonMask.compile
 const filter = jsonMask.filter
 
@@ -32,8 +32,8 @@ export default (opts = {}) => {
 }
 
 const getFilterParams = (handler, filteringKeyName) => {
-  const { body } = handler.response
-  const { queryStringParameters } = handler.event
+  const { body } = handler.response || {}
+  const { queryStringParameters } = handler.event || {}
   const fields = queryStringParameters
     ? queryStringParameters[filteringKeyName]
     : undefined

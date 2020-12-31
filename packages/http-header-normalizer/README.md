@@ -59,11 +59,11 @@ npm install --save @middy/http-header-normalizer
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpHeaderNormalizer = require('@middy/http-header-normalizer')
+import middy from '@middy/core'
+import httpHeaderNormalizer from '@middy/http-header-normalizer'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 handler

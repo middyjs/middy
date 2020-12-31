@@ -67,11 +67,11 @@ npm install --save @middy/validator
 Example for input validation:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -97,18 +97,18 @@ const event = {
   body: JSON.stringify({something: 'somethingelse'})
 }
 handler(event, {}, (err, res) => {
-  expect(err.message).toEqual('Event object failed validation')
+  t.is(err.message,'Event object failed validation')
 })
 ```
 
 Example for output validation:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -126,8 +126,8 @@ const schema = {
 handler.use(validator({outputSchema: schema}))
 
 handler({}, {}, (err, response) => {
-  expect(err).not.toBe(null)
-  expect(err.message).toEqual('Response object failed validation')
+  t.not(err, null)
+  t.is(err.message,'Response object failed validation')
   expect(response).not.toBe(null) // it doesn't destroy the response so it can be used by other middlewares
 })
 ```
@@ -135,11 +135,11 @@ handler({}, {}, (err, response) => {
 Example for plugins applied with `ajv-bsontype`:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -161,7 +161,7 @@ const event = {
   body: JSON.stringify({ name: "Leo", gpa: "4" })
 }
 handler(event, {}, (err, response) => {
-  expect(err.details[0].message).toEqual('should be double got 4')
+  t.is(err.details[0].message,'should be double got 4')
 })
 ```
 

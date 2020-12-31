@@ -56,11 +56,11 @@ npm install --save @middy/http-security-headers
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpSecurityHeaders = require('@middy/http-security-headers')
+import middy from '@middy/core'
+import httpSecurityHeaders from '@middy/http-security-headers'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 handler

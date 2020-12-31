@@ -50,10 +50,10 @@ This middleware does not have any option
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpPartialResponse = require('@middy/http-partial-response')
+import middy from '@middy/core'
+import httpPartialResponse from '@middy/http-partial-response'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   const response = {
     statusCode: 200,
     body: {
@@ -68,7 +68,7 @@ const handler = middy((event, context, cb) => {
     }
   }
 
-  cb(null, response)
+  return response
 })
 
 handler.use(httpPartialResponse())

@@ -105,10 +105,10 @@ Thie middleware does not rely on any other middlewares.
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpResponseSerializer = require('@middy/http-response-serializer')
+import middy from '@middy/core'
+import httpResponseSerializer from '@middy/http-response-serializer'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   const body = 'Hello World'
 
   return cb(null, {
@@ -143,7 +143,7 @@ const event = {
 }
 
 handler(event, {}, (_, response) => {
-  expect(response.body).toEqual('<message>Hello World</message>')
+  t.is(response.body,'<message>Hello World</message>')
 })
 ```
 

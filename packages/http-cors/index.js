@@ -1,3 +1,4 @@
+import {jsonSafeParse} from '../core/util.js'
 
 const getOrigin = (incomingOrigin, options) => {
   if (options?.origins.length > 0) {
@@ -32,7 +33,7 @@ export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpCorsMiddlewareAfter = async (handler) => {
-    if (!Object.keys(handler.event).includes('httpMethod')) return
+    if (!handler.event?.httpMethod) return
 
     handler.response = handler.response || {}
     handler.response.headers = handler.response.headers || {}
@@ -40,8 +41,12 @@ export default (opts = {}) => {
     const existingHeaders = Object.keys(handler.response.headers)
 
     // Check if already setup the header Access-Control-Allow-Credentials
-    if (options.credentials && !existingHeaders.includes('Access-Control-Allow-Credentials')) {
-      options.credentials = String(options.credentials)
+    if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
+      options.credentials = jsonSafeParse(handler.response.headers['Access-Control-Allow-Credentials'])
+    }
+
+    if (options.credentials) {
+      handler.response.headers['Access-Control-Allow-Credentials'] = String(options.credentials)
     }
 
     // Check if already setup Access-Control-Allow-Headers
@@ -55,9 +60,9 @@ export default (opts = {}) => {
     }
 
     // Check if already setup the header Access-Control-Allow-Origin
-    if (options.origin && !existingHeaders.includes('Access-Control-Allow-Origin')) {
-      const headers = handler.event.headers || {}
-      const incomingOrigin = headers.origin || headers.Origin
+    if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
+      const eventHeaders = handler.event.headers || {}
+      const incomingOrigin = eventHeaders.origin || eventHeaders.Origin
       handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
     }
 

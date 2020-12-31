@@ -1,314 +1,328 @@
-const { invoke } = require('../../test-helpers')
-const middy = require('../../core')
-const validator = require('../')
+import test from 'ava'
+import middy from '../../core/index.js'
+import validator from '../index.js'
 
-describe('📦  Middleware Validator', () => {
-  test('It should validate an incoming object', async () => {
-    const handler = middy((event, context, cb) => {
-      return cb(null, event.body) // propagates the body as a response
-    })
-
-    const schema = {
-      required: ['body'],
-      properties: {
-        body: {
-          type: 'string'
-        }
-      }
-    }
-
-    handler.use(validator({
-      inputSchema: schema
-    }))
-
-    // invokes the handler
-    const event = {
-      body: JSON.stringify({ foo: 'bar' })
-    }
-
-    const body = await invoke(handler, event)
-
-    expect(body).toEqual('{"foo":"bar"}')
+test('It should validate an incoming object', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
   })
 
-  test('It should handle invalid schema as a BadRequest', async () => {
-    expect.assertions(2)
-
-    const handler = middy((event, context, cb) => {
-      cb(null, event.body) // propagates the body as a response
-    })
-
-    const schema = {
-      required: ['body', 'foo'],
-      properties: {
-        // this will pass validation
-        body: {
-          type: 'string'
-        },
-        // this won't as it won't be in the event
-        foo: {
-          type: 'string'
-        }
+  const schema = {
+    required: ['body'],
+    properties: {
+      body: {
+        type: 'string'
       }
     }
+  }
 
-    handler.use(validator({
-      inputSchema: schema
-    }))
+  handler.use(validator({
+    inputSchema: schema
+  }))
 
-    // invokes the handler, note that property foo is missing
-    const event = {
-      body: JSON.stringify({ something: 'somethingelse' })
-    }
+  // invokes the handler
+  const event = {
+    body: JSON.stringify({ foo: 'bar' })
+  }
 
-    try {
-      await invoke(handler, event)
-    } catch (err) {
-      expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'should have required property foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    }
-  })
+  const body = await handler(event)
 
-  test('It should handle invalid schema as a BadRequest in a different language', async () => {
-    expect.assertions(2)
-
-    const handler = middy((event, context, cb) => {
-      cb(null, event.body) // propagates the body as a response
-    })
-
-    const schema = {
-      required: ['body', 'foo'],
-      properties: {
-        // this will pass validation
-        body: {
-          type: 'string'
-        },
-        // this won't as it won't be in the event
-        foo: {
-          type: 'string'
-        }
-      }
-    }
-
-    handler.use(validator({
-      inputSchema: schema
-    }))
-
-    // invokes the handler, note that property foo is missing
-    const event = {
-      preferredLanguage: 'fr',
-      body: JSON.stringify({ something: 'somethingelse' })
-    }
-
-    try {
-      await invoke(handler, event)
-    } catch (err) {
-      expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'requiert la propriété foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    }
-  })
-
-  test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async () => {
-    expect.assertions(2)
-
-    const handler = middy((event, context, cb) => {
-      cb(null, event.body) // propagates the body as a response
-    })
-
-    const schema = {
-      required: ['body', 'foo'],
-      properties: {
-        // this will pass validation
-        body: {
-          type: 'string'
-        },
-        // this won't as it won't be in the event
-        foo: {
-          type: 'string'
-        }
-      }
-    }
-
-    handler.use(validator({
-      inputSchema: schema
-    }))
-
-    // invokes the handler, note that property foo is missing
-    const event = {
-      preferredLanguage: 'pt',
-      body: JSON.stringify({ something: 'somethingelse' })
-    }
-
-    try {
-      await invoke(handler, event)
-    } catch (err) {
-      expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'deve ter a propriedade requerida foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
-    }
-  })
-
-  test('It should validate response', async () => {
-    const expectedResponse = {
-      body: 'Hello world',
-      statusCode: 200
-    }
-
-    const handler = middy((event, context, cb) => {
-      cb(null, expectedResponse)
-    })
-
-    const schema = {
-      required: ['body', 'statusCode'],
-      properties: {
-        body: {
-          type: 'string'
-        },
-        statusCode: {
-          type: 'number'
-        }
-      }
-    }
-
-    handler.use(validator({ outputSchema: schema }))
-
-    const response = await invoke(handler)
-
-    expect(response).toBe(expectedResponse)
-  })
-
-  test('It should make requests with invalid responses fail with an Internal Server Error', async () => {
-    expect.assertions(3)
-
-    const handler = middy((event, context, cb) => {
-      cb(null, {})
-    })
-
-    const schema = {
-      required: ['body', 'statusCode'],
-      properties: {
-        body: {
-          type: 'object'
-        },
-        statusCode: {
-          type: 'number'
-        }
-      }
-    }
-
-    handler.use(validator({ outputSchema: schema }))
-
-    let response
-
-    try {
-      response = await invoke(handler)
-    } catch (err) {
-      expect(err).not.toBe(null)
-      expect(err.message).toEqual('Response object failed validation')
-      expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
-    }
-  })
-
-  describe('🏗 Ajv constructor options', () => {
-    const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
-
-    test('It should allow invalid email using default constructor options', async () => {
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema }))
-
-      // This email is considered as valid in 'fast' mode
-      const resp = await invoke(handler, { email: 'abc@abc' })
-
-      expect(resp).toEqual({})
-    })
-
-    test('It should not allow bad email format using custom ajv constructor options', async () => {
-      expect.assertions(1)
-
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
-
-      try {
-      // This same email is not a valid one in 'full' validation mode
-        await invoke(handler, { email: 'abc@abc' })
-      } catch (err) {
-        expect(err.details[0].message).toEqual('should match format "email"')
-      }
-    })
-  })
-
-  describe('🔌 Ajv plugins setup', () => {
-    beforeEach(() => {
-      jest.resetModules()
-    })
-
-    test('It should use out-of-the-box ajv-errors plugin', async () => {
-      expect.assertions(2)
-
-      const schema = {
-        type: 'object',
-        required: ['foo'],
-        properties: {
-          foo: { type: 'integer' }
-        },
-        errorMessage: 'should be an object with an integer property foo only'
-      }
-
-      const validator = require('../')
-
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema }))
-
-      try {
-        await invoke(handler, { foo: 'a' })
-      } catch (err) {
-        expect(err.message).toEqual('Event object failed validation')
-        expect(err.details).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ message: 'should be an object with an integer property foo only' })
-          ])
-        )
-      }
-    })
-
-    test('It should apply added plugin bsontype', async () => {
-      expect.assertions(2)
-      const schema = {
-        required: ['name', 'gpa'],
-        properties: {
-          name: {
-            bsonType: 'string'
-          },
-          gpa: {
-            bsonType: ['double']
-          }
-        }
-      }
-
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
-
-      try {
-        await invoke(handler, { name: 'Leo', gpa: '4' })
-      } catch (err) {
-        expect(err.message).toEqual('Event object failed validation')
-        expect(err.details).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ message: 'should be double got 4' })
-          ])
-        )
-      }
-    })
-  })
+  t.is(body, '{"foo":"bar"}')
 })
+
+test('It should handle invalid schema as a BadRequest', async (t) => {
+
+
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  const schema = {
+    required: ['body', 'foo'],
+    properties: {
+      // this will pass validation
+      body: {
+        type: 'string'
+      },
+      // this won't as it won't be in the event
+      foo: {
+        type: 'string'
+      }
+    }
+  }
+
+  handler.use(validator({
+    inputSchema: schema
+  }))
+
+  // invokes the handler, note that property foo is missing
+  const event = {
+    body: JSON.stringify({ something: 'somethingelse' })
+  }
+
+  try {
+    await handler(event)
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    t.is(err.details, [{
+      dataPath: '',
+      keyword: 'required',
+      message: 'should have required property foo',
+      params: { missingProperty: 'foo' },
+      schemaPath: '#/required'
+    }])
+  }
+})
+
+test('It should handle invalid schema as a BadRequest in a different language', async (t) => {
+
+
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  const schema = {
+    required: ['body', 'foo'],
+    properties: {
+      // this will pass validation
+      body: {
+        type: 'string'
+      },
+      // this won't as it won't be in the event
+      foo: {
+        type: 'string'
+      }
+    }
+  }
+
+  handler.use(validator({
+    inputSchema: schema
+  }))
+
+  // invokes the handler, note that property foo is missing
+  const event = {
+    preferredLanguage: 'fr',
+    body: JSON.stringify({ something: 'somethingelse' })
+  }
+
+  try {
+    await handler(event)
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    t.is(err.details, [{
+      dataPath: '',
+      keyword: 'required',
+      message: 'requiert la propriété foo',
+      params: { missingProperty: 'foo' },
+      schemaPath: '#/required'
+    }])
+  }
+})
+
+test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async (t) => {
+
+
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  const schema = {
+    required: ['body', 'foo'],
+    properties: {
+      // this will pass validation
+      body: {
+        type: 'string'
+      },
+      // this won't as it won't be in the event
+      foo: {
+        type: 'string'
+      }
+    }
+  }
+
+  handler.use(validator({
+    inputSchema: schema
+  }))
+
+  // invokes the handler, note that property foo is missing
+  const event = {
+    preferredLanguage: 'pt',
+    body: JSON.stringify({ something: 'somethingelse' })
+  }
+
+  try {
+    await handler(event)
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    t.is(err.details, [{
+      dataPath: '',
+      keyword: 'required',
+      message: 'deve ter a propriedade requerida foo',
+      params: { missingProperty: 'foo' },
+      schemaPath: '#/required'
+    }])
+  }
+})
+
+test('It should validate response', async (t) => {
+  const expectedResponse = {
+    body: 'Hello world',
+    statusCode: 200
+  }
+
+  const handler = middy((event, context) => {
+    return expectedResponse
+  })
+
+  const schema = {
+    required: ['body', 'statusCode'],
+    properties: {
+      body: {
+        type: 'string'
+      },
+      statusCode: {
+        type: 'number'
+      }
+    }
+  }
+
+  handler.use(validator({ outputSchema: schema }))
+
+  const response = await handler()
+
+  t.is(response,expectedResponse)
+})
+
+test('It should make requests with invalid responses fail with an Internal Server Error', async (t) => {
+
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  const schema = {
+    required: ['body', 'statusCode'],
+    properties: {
+      body: {
+        type: 'object'
+      },
+      statusCode: {
+        type: 'number'
+      }
+    }
+  }
+
+  handler.use(validator({ outputSchema: schema }))
+
+  let response
+
+  try {
+    response = await handler()
+  } catch (err) {
+    t.not(err,null)
+    t.is(err.message, 'Response object failed validation')
+    expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
+  }
+})
+
+const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
+
+test('It should allow invalid email using default constructor options', async (t) => {
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ inputSchema: schema }))
+
+  // This email is considered as valid in 'fast' mode
+  const resp = await handler({ email: 'abc@abc' })
+
+  t.is(resp, {})
+})
+
+test('It should not allow bad email format using custom ajv constructor options', async (t) => {
+
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
+
+  try {
+    // This same email is not a valid one in 'full' validation mode
+    await handler({ email: 'abc@abc' })
+  } catch (err) {
+    t.is(err.details[0].message, 'should match format "email"')
+  }
+})
+
+beforeEach(() => {
+  jest.resetModules()
+})
+
+test('It should use out-of-the-box ajv-errors plugin', async (t) => {
+
+
+  const schema = {
+    type: 'object',
+    required: ['foo'],
+    properties: {
+      foo: { type: 'integer' }
+    },
+    errorMessage: 'should be an object with an integer property foo only'
+  }
+
+  import validator from '../index.js'
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ inputSchema: schema }))
+
+  try {
+    await handler({ foo: 'a' })
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    expect(err.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'should be an object with an integer property foo only' })
+      ])
+    )
+  }
+})
+
+test('It should apply added plugin bsontype', async (t) => {
+
+  const schema = {
+    required: ['name', 'gpa'],
+    properties: {
+      name: {
+        bsonType: 'string'
+      },
+      gpa: {
+        bsonType: ['double']
+      }
+    }
+  }
+
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
+
+  try {
+    await handler({ name: 'Leo', gpa: '4' })
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    expect(err.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'should be double got 4' })
+      ])
+    )
+  }
+})
+
+

@@ -1,4 +1,4 @@
-import { canPrefetch, createClient, processCache } from '../core/util.js'
+import { canPrefetch, createClient, getInternal, processCache } from '../core/util.js'
 import { STS } from '@aws-sdk/client-sts'
 
 const defaults = {
@@ -6,8 +6,11 @@ const defaults = {
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
+  disablePrefetch: false,
   cacheKey: 'sts',
-  cacheExpiry: 0
+  cacheExpiry: 0,
+  setProcessEnv: false,
+  setContext: false,
 }
 
 export default (opts = {}) => {
@@ -16,7 +19,7 @@ export default (opts = {}) => {
   const fetch = () => {
     const values = {}
 
-    for (const contextKey of options.fetchData) {
+    for (const contextKey of Object.keys(options.fetchData)) {
       const assumeRoleOptions = options.fetchData[contextKey]
       if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-ssm-session-' + Math.random() * 1000 | 0 // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
       values[contextKey] = client
@@ -31,21 +34,28 @@ export default (opts = {}) => {
     return values
   }
 
-  let prefetch, client
+  let prefetch, client, init
   if (canPrefetch(options)) {
+    init = true
     client = createClient(options)
     prefetch = processCache(options, fetch)
   }
 
   const stsMiddlewareBefore = async (handler) => {
-    if (canPrefetch(options)) {
-      await prefetch
-    } else if (!client) {
+    if (!client) {
       client = createClient(options, handler)
     }
-    const cached = processCache(options, fetch)
+    let cached
+    if (init) {
+      cached = prefetch
+      init = false
+    } else {
+      cached = processCache(options, fetch, handler)
+    }
 
     Object.assign(handler.internal, cached)
+    if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
   }
 
   return {

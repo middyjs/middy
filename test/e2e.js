@@ -1,8 +1,8 @@
 
-// const httpError = require('http-error')
+//import httpError from 'http-errors'
 
 import middy from '../packages/core/index.js'
-import middyProfiler from '../packages/core/profiler.js'
+import middyProfiler from '../profiler/time.js'
 import { getInternal } from '../packages/core/util.js'
 
 import httpServerTiming from '../packages/http-server-timing/index.js'
@@ -29,7 +29,9 @@ import fetchRdsSigner from '../packages/rds-signer/index.js'
 import httpErrorHandler from '../packages/http-error-handler/index.js'
 
 const handler = async (event, context) => {
-  // throw { statusCode: 500, message: 'test' }
+ /// throw { statusCode: 500, message: 'test' }
+
+  throw new httpError.UnprocessableEntity()
 
   return {
     statusCode: 200,
@@ -89,7 +91,7 @@ const runExport = middy(handler, middyProfiler(/* {
     })
   )
 
-  .use(validator({ inputSchema, outputSchema }))
+  //.use(validator({ inputSchema, outputSchema }))
 
   .use(httpErrorHandler())
 

@@ -1,6 +1,8 @@
 import { jsonSafeParse } from '../core/util.js'
 
-const defaults = {}
+const defaults = {
+  reviver: undefined
+}
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)

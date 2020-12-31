@@ -65,19 +65,25 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
-  profiler?.before(middlewares.length + '-' + nextMiddleware?.name)
-  await nextMiddleware?.(request)
-  profiler?.after(middlewares.length + '-' + nextMiddleware?.name)
+  profiler?.before(nextMiddleware?.name)
+  const res = await nextMiddleware?.(request)
+  profiler?.after(nextMiddleware?.name)
+  if (res) {
+    throw new Error('Unexpected return value in middleware')
+  }
   return runMiddlewares(stack, request, profiler)
 }
 
 const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
   const stack = Array.from(middlewares)
-  if (!stack.length || request.response) return
+  if (!stack.length || !request.error) return
   const nextMiddleware = stack.shift()
-  profiler?.before(middlewares.length + '-' + nextMiddleware?.name)
-  await nextMiddleware?.(request)
-  profiler?.after(middlewares.length + '-' + nextMiddleware?.name)
+  profiler?.before(nextMiddleware?.name)
+  const res = await nextMiddleware?.(request)
+  profiler?.after(nextMiddleware?.name)
+  if (res) {
+    throw new Error('Unexpected return value in onError middleware')
+  }
   return runErrorMiddlewares(stack, request, profiler)
 }
 
@@ -87,16 +93,24 @@ const runErrorMiddlewares = async (middlewares, request, profiler = null) => {
  * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-const middy = (handler, profiler) => {
+export default (handler = () => {}, profiler= null) => {
+  profiler?.start()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const instance = (event, context, callback) => {
+  const defaultCallback = (e,r) => {
+    if (e) throw e
+    return r
+  }
+  const instance = (event = {}, context = {}, callbackLambda = defaultCallback) => {
     const request = {
       event,
       context,
-      callback,
+      callback: (err, response) => {
+        profiler?.end()
+        return callbackLambda(err, response)
+      },
       response: null,
       error: null,
       internal: {}
@@ -105,17 +119,22 @@ const middy = (handler, profiler) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
-        profiler?.before('0-handler')
+        profiler?.beforeHandler()
         request.response = await handler(request.event, request.context)
-        profiler?.after('0-handler')
+        profiler?.afterHandler()
         await runMiddlewares(afterMiddlewares, request, profiler)
-        return callback(null, request.response)
-      } catch (err) {
+        return request.callback(null, request.response)
+      } catch (e) {
         request.response = null
-        request.error = err
-        await runErrorMiddlewares(onErrorMiddlewares, request, profiler)
-        if (request.response) return callback(null, request.response)
-        return callback(err)
+        request.error = e
+        try {
+          await runErrorMiddlewares(onErrorMiddlewares, request, profiler)
+          if (request.response) return request.callback(null, request.response)
+        } catch (e) {
+          e.originalError = request.error
+          request.error = e
+        }
+        return request.callback(request.error)
       }
     }
     return middyPromise()
@@ -127,9 +146,8 @@ const middy = (handler, profiler) => {
       return instance
     } else if (typeof middlewares === 'object') {
       return instance.applyMiddleware(middlewares)
-    } else {
-      throw new Error('Middy.use() accepts an object or an array of objects')
     }
+    throw new Error('Middy.use() accepts an object or an array of objects')
   }
 
   instance.applyMiddleware = (middleware) => {
@@ -172,5 +190,3 @@ const middy = (handler, profiler) => {
 
   return instance
 }
-
-export default middy

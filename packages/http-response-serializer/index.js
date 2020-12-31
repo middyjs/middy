@@ -1,4 +1,4 @@
-const Accept = require('@hapi/accept')
+import Accept from '@hapi/accept'
 
 const defaults = {}
 
@@ -17,12 +17,13 @@ export default (opts = {}) => {
     // find accept value(s)
     let types
 
-    if (handler.event.requiredContentType) {
-      types = [].concat(handler.event.requiredContentType)
+    const handlerEvent = handler.event || {}
+    if (handlerEvent.requiredContentType) {
+      types = [].concat(handlerEvent.requiredContentType)
     } else {
       types = [].concat(
         (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) || [],
-        handler.event.preferredContentType || [],
+        handlerEvent.preferredContentType || [],
         options.default || []
       )
     }
@@ -42,6 +43,7 @@ export default (opts = {}) => {
       handler.response = typeof handler.response === 'object' ? handler.response : { body: handler.response }
 
       // set header
+      handler.response.headers = handler.response.headers || {}
       handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
 
       // run serializer

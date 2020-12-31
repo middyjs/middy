@@ -61,11 +61,11 @@ NOTES:
 and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
 
 ```javascript
-const middy = require('@middy/core')
-const httpErrorHandler = require('@middy/http-error-handler')
-const cors = require('@middy/http-cors')
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
+import cors from '@middy/http-cors'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   throw new createError.UnprocessableEntity()
 })
 handler.use(httpErrorHandler())
@@ -73,8 +73,8 @@ handler.use(httpErrorHandler())
            
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
-  expect(response).toEqual({
+  t.is(response.headers['Access-Control-Allow-Origin'],'*')
+  t.deepEqual(response,{
       statusCode: 422,
       body: 'Unprocessable Entity'
     })
@@ -84,18 +84,18 @@ handler({}, {}, (_, response) => {
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const cors = require('@middy/http-cors')
+import middy from '@middy/core'
+import cors from '@middy/http-cors'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 handler.use(cors())
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  expect(response.headers['Access-Control-Allow-Origin']).toEqual('*')
+  t.is(response.headers['Access-Control-Allow-Origin'],'*')
 })
 ```
 

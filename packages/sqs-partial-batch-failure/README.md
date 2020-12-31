@@ -46,10 +46,10 @@ npm install --save @middy/sqs-partial-batch-failure
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const sqsBatch = require('@middy/sqs-partial-batch-failure')
+import middy from '@middy/core'
+import sqsBatch from '@middy/sqs-partial-batch-failure'
 
-const originalHandler = (event, context, cb) => {
+const originalHandler = (event, context) => {
   const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
   return Promise.allSettled(recordPromises)
 }

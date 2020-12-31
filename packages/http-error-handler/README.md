@@ -51,10 +51,10 @@ npm install --save @middy/http-error-handler
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpErrorHandler = require('@middy/http-error-handler')
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   throw new createError.UnprocessableEntity()
 })
 
@@ -63,7 +63,7 @@ handler
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  expect(response).toEqual({
+  t.deepEqual(response,{
     statusCode: 422,
     body: 'Unprocessable Entity'
   })

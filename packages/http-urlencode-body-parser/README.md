@@ -47,11 +47,11 @@ npm install --save @middy/http-urlencode-body-parser
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpUrlEncodeBodyParser = require('@middy/http-urlencode-body-parser')
+import middy from '@middy/core'
+import httpUrlEncodeBodyParser from '@middy/http-urlencode-body-parser'
 
-const handler = middy((event, context, cb) => {
-  cb(null, event.body) // propagates the body as response
+const handler = middy((event, context) => {
+  return event.body // propagates the body as response
 })
 
 handler.use(httpUrlEncodeBodyParser({extended: false}))
@@ -65,7 +65,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  expect(body).toEqual({
+  t.deepEqual(body, {
     frappucino: 'muffin',
     'goat[]': 'scone',
     pond: 'moose'

@@ -1,7 +1,7 @@
 {
-  "name": "@middy/db-manager",
+  "name": "@middy/ssm-path",
   "version": "2.0.0-alpha.0",
-  "description": "Simple database manager for the middy framework",
+  "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
   "type": "module",
   "engines": {
     "node": ">=14"
@@ -12,10 +12,9 @@
   },
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "jest",
+    "test:unit": "ava",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
-  "types": "dist/types.d.ts",
   "license": "MIT",
   "keywords": [
     "Lambda",
@@ -23,7 +22,11 @@
     "Serverless",
     "Framework",
     "AWS",
-    "AWS Lambda"
+    "AWS Lambda",
+    "Middy",
+    "SSM",
+    "EC2 Systems Manager",
+    "Parameters"
   ],
   "author": {
     "name": "Middy contributors",
@@ -38,10 +41,12 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "knex": "0.21.13"
+    "@middy/core": "^1.5.0"
   },
   "devDependencies": {
-    "@middy/core": "^1.5.0"
+    "@aws-sdk/client-ssm": ">=3.0.0",
+    "@types/node": "^10.0.8"
+
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

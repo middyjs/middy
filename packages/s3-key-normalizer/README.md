@@ -58,10 +58,10 @@ This middleware does not have any option
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const s3KeyNormalizer = require('@middy/s3-key-normalizer')
+import middy from '@middy/core'
+import s3KeyNormalizer from '@middy/s3-key-normalizer'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   // use the event key directly without decoding it
   console.log(event.Records[0].s3.object.key)
 

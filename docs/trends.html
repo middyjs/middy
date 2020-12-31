@@ -1,0 +1,164 @@
+<html>
+<head>
+</head>
+<body>
+
+<!--<canvas id="2021" width="16" height="9" style="width:90%; height:90%"></canvas>-->
+<canvas id="2020" width="16" height="9" style="width:90%; height:90%"></canvas>
+<canvas id="2019" width="16" height="9" style="width:90%; height:90%"></canvas>
+<canvas id="2018" width="16" height="9" style="width:90%; height:90%"></canvas>
+
+<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@1.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script type="module">
+    //import Chart from 'https://cdnjs.com/libraries/Chart.js'
+    const pkgs = [
+      // v0.x
+      'middy',
+      // v1.x
+      '@middy/core',
+      '@middy/cache',   // v1.x
+      '@middy/db-manager',  // v1.x
+      '@middy/do-not-wait-for-empty-event-loop',
+      '@middy/error-logger',
+      '@middy/function-shield', // v1.x
+      '@middy/http-content-negotiation',
+      '@middy/http-cors',
+      '@middy/http-error-handler',
+      '@middy/http-event-normalizer',
+      '@middy/http-json-body-parser',
+      '@middy/http-multipart-body-parser',
+      '@middy/http-partial-response',
+      '@middy/http-security-headers',
+      //'@middy/http-server-timing',    // v2.x
+      '@middy/http-urlencode-body-parser',
+      '@middy/http-urlencode-path-parser',
+      '@middy/input-output-logger',
+      //'@middy/rds-signer',    // v2.x
+      '@middy/s3-key-normalizer',
+      '@middy/secrets-manager',
+      '@middy/sqs-json-body-parser',
+      '@middy/sqs-partial-batch-failure',
+      '@middy/ssm',
+      //'@middy/ssm-path',  // v2.x
+      //'@middy/sts',   // v2.x
+      '@middy/validator',
+      '@middy/warmup',  // v1.x
+    ]
+    const colors = {
+      'middy':'#003f5c',
+      '@middy/core':'#ffa600'
+    }
+    const pickColor = function(str) {
+      if (colors[str]) return colors[str]
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return `hsl(${hash % 360}, 80%, 65%)`;
+    }
+
+
+    const run = async(year) => {
+      const period = `${year}-01-01:${year}-12-31`
+      const dailyStats = {}
+      const weeklyStats = {}
+      const yearlyStats = {}
+      for(const pkg of pkgs) {
+        const pkgColor = pickColor(pkg)
+        // https://github.com/npm/registry/blob/master/docs/download-counts.md
+        yearlyStats[pkg] = await fetch(`https://api.npmjs.org/downloads/point/${period}/${pkg}`)
+          .then(res => res.json())
+          .then(res => res.downloads)
+
+        const dailyData = await fetch(`https://api.npmjs.org/downloads/range/${period}/${pkg}`)
+          .then(res => res.json())
+          .then(res => res.downloads.map(point => ({
+            x:point.day,
+            //x: new Date(point.day),
+            y:point.downloads
+          })))
+
+        dailyStats[pkg] = {
+          label: pkg,
+          fill: false,
+          borderColor: pkgColor,
+          backgroundColor: pkgColor,
+          data: dailyData
+        }
+        weeklyStats[pkg] = {
+          label: pkg,
+          fill: false,
+          borderColor: pkgColor,
+          backgroundColor: pkgColor,
+          data: []
+        }
+        let sum = 0
+        for(const [idx, dailyStat] of dailyData.entries()) {
+          if ((idx+1) % 7 === 0) {
+            weeklyStats[pkg].data.push({
+              x: dailyStat.x,
+              y: sum
+            })
+            sum = 0
+          }
+          sum += dailyStat.y
+        }
+
+      }
+      //console.log('dailyStats', dailyStats)
+      //console.log('weeklyStats', weeklyStats)
+      console.log('yearlyStats', year, yearlyStats)
+      console.log('Total', year, yearlyStats['middy'] + yearlyStats['@middy/core'])
+
+      const ctx = document.getElementById(year);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: Object.values(weeklyStats)
+        },
+        elements:{},
+        options: {
+
+          scales: {
+            xAxes: [{
+              type: 'time',
+              scaleLabel:{
+                display: true,
+                labelString:period.substr(0,4)
+              },
+              time: {
+                minUnit: 'day'
+              }
+            }],
+            yAxes: [{
+              scaleLabel:{
+                display: true,
+                labelString:'Downloads'
+              }
+            }]
+          },
+          layout: {
+            padding: {
+              left: 10,
+              right: 25,
+              top: 10,
+              bottom: 10
+            }
+          }
+        }
+      });
+
+
+    }
+    run(2018)
+    run(2019)
+    run(2020)
+    //run(2021)
+
+
+</script>
+</body>
+</html>

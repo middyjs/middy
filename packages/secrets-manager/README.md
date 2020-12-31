@@ -62,11 +62,11 @@ NOTES:
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const secretsManager = require('@middy/secrets-manager')
+import middy from '@middy/core'
+import secretsManager from '@middy/secrets-manager'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
  handler.use(secretsManager({
@@ -79,8 +79,8 @@ const handler = middy((event, context, cb) => {
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/rds_login has two keys, 'Username' and 'Password'
-  expect(context.RDS_LOGIN.Username).toEqual('username')
-  expect(context.RDS_LOGIN.Password).toEqual('password')
+  t.is(context.RDS_LOGIN.Username,'username')
+  t.is(context.RDS_LOGIN.Password,'password')
 })
 ```
 

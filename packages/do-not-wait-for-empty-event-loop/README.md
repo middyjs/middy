@@ -54,11 +54,11 @@ meaning you can override it in handler to `true` if needed. You can set it in al
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const doNotWaitForEmptyEventLoop = require('@middy/do-not-wait-for-empty-event-loop')
+import middy from '@middy/core'
+import doNotWaitForEmptyEventLoop from '@middy/do-not-wait-for-empty-event-loop'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
@@ -66,7 +66,7 @@ handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
 // When Lambda runs the handler it gets context with callbackWaitsForEmptyEventLoop property set to false
 
 handler(event, context, (_, response) => {
-  expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
+  t.is(context.callbackWaitsForEmptyEventLoop,false)
 })
 ```
 

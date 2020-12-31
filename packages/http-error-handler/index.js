@@ -9,8 +9,6 @@ export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpErrorHandlerMiddlewareOnError = async (handler) => {
-    if (!handler.error.message) return // Should never happen
-
     if (typeof options.logger === 'function') {
       options.logger(handler.error)
     }
@@ -27,6 +25,9 @@ export default (opts = {}) => {
     handler.response.headers['Content-Type'] = typeof handler.response.body === 'string'
       ? 'plain/text'
       : 'application/json'
+
+    // Send signal that error has been handled
+    handler.error = null
   }
 
   return {

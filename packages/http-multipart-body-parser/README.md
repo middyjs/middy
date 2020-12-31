@@ -58,10 +58,10 @@ If you really have to deal with big files, then you might also want to consider 
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const { httpMultipartBodyParser } = require('@middy/http-multipart-body-parser')
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+import middy from '@middy/core'
+import { httpMultipartBodyParser } from '@middy/http-multipart-body-parser'
+const handler = middy((event, context) => {
+  return {}
 })
 handler.use(httpMultipartBodyParser())
 // invokes the handler
@@ -73,7 +73,7 @@ const event = {
   isBase64Encoded: true
 }
 handler(event, {}, (_, body) => {
-  expect(body).toEqual({ foo: 'bar' })
+  t.is(body,{ foo: 'bar' })
 })
 ```
 

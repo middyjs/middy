@@ -1,5 +1,11 @@
 
-export default () => {
+const defaults = {
+  setProcessEnv: false,
+  setContext: false
+}
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+
   let tags
   let starts
   let durations
@@ -34,7 +40,10 @@ export default () => {
   const httpServerTimingsMiddlewareBefore = async (handler) => {
     init()
     start('total')
-    handler.context.serverTiming = { tag, start, stop }
+    const serverTiming = { tag, start, stop }
+    Object.assign(handler.internal,{serverTiming})
+    if (options.setProcessEnv) Object.assign(process.env, {serverTiming})
+    if (options.setContext) Object.assign(handler.context, {serverTiming})
   }
 
   const httpServerTimingsMiddlewareAfter = async (handler) => {

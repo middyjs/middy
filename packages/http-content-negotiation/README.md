@@ -71,12 +71,12 @@ npm install --save @middy/http-content-negotiation
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const httpContentNegotiation = require('@middy/http-content-negotiation')
-const httpHeaderNormalizer = require('@middy/http-header-normalizer')
-const httpErrorHandler = require('@middy/http-error-handler')
+import middy from '@middy/core'
+import httpContentNegotiation from '@middy/http-content-negotiation'
+import httpHeaderNormalizer from '@middy/http-header-normalizer'
+import httpErrorHandler from '@middy/http-error-handler'
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
   let message, body
 
   switch (event.preferredLanguage) {
