@@ -1,4 +1,3 @@
-import { jsonSafeParse } from '../core/util.js'
 
 const getOrigin = (incomingOrigin, options) => {
   if (options?.origins.length > 0) {

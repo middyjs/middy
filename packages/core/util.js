@@ -13,7 +13,7 @@ export const awsClientDefaultOptions = {
 }
 
 export const createPrefetchClient = (options, handler) => {
-  let awsClientEndpoint = {}
+  const awsClientEndpoint = {}
 
   // Secure Endpoint (FIPS 140-2)
   if (options.awsClientFipsEndpoint) {
@@ -29,12 +29,12 @@ export const createClient = async (options, handler) => {
   // Role Credentials
   if (options.awsClientAssumeRole) {
     if (!handler) throw new Error('Handler required when assuming role')
-    awsClientCredentials = await getInternal({credentials:options.awsClientAssumeRole}, handler)
+    awsClientCredentials = await getInternal({ credentials: options.awsClientAssumeRole }, handler)
   }
 
   awsClientCredentials = Object.assign({}, awsClientCredentials, options.awsClientOptions)
 
-  return createPrefetchClient(Object.assign({}, options, {awsClientOptions: awsClientCredentials}), handler)
+  return createPrefetchClient(Object.assign({}, options, { awsClientOptions: awsClientCredentials }), handler)
 }
 
 export const canPrefetch = (options) => {
