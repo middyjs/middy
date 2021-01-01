@@ -10,6 +10,12 @@
   "publishConfig": {
     "access": "public"
   },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "tsconfig.json"
+  ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",

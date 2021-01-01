@@ -2,7 +2,7 @@
 
 Focus on performance and security by default.
 
-- Added in new middlewares (`http-server-timing`, `rds-signer`, `sts`)
+- Added in new middlewares (`rds-signer`, `sts`)
 - Added new profiler mode for `core` to allow easier bottlenecks detection with middlewares and handler
 
 ## Breaking Changes
