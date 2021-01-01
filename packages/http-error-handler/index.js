@@ -1,4 +1,4 @@
-import { jsonSafeParse } from '../core/util.js'
+import { jsonSafeParse } from '@middy/core/util.js'
 
 const defaults = {
   logger: console.error,

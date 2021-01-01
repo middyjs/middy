@@ -1,4 +1,4 @@
-import { canPrefetch, createClient, getInternal, processCache } from '../core/util.js'
+import { canPrefetch, createClient, getInternal, processCache } from '@middy/core/util.js'
 import { RDS } from '@aws-sdk/client-rds'
 
 const defaults = {

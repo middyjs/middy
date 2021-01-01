@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "files": [
-    "index.js",
     "index.d.ts",
     "tsconfig.json"
   ],
@@ -38,7 +37,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/secrets-manager"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -46,7 +46,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "3.0.0",
-    "@middy/core": "1.5.0"
+    "@middy/core": "file:../core"
   },
   "devDependencies": {
     "@types/node": "^14.0.0"

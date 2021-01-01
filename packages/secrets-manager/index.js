@@ -1,5 +1,5 @@
 import { SecretsManager } from '@aws-sdk/client-secrets-manager'
-import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
 
 const defaults = {
   AwsClient: SecretsManager, // Allow for XRay

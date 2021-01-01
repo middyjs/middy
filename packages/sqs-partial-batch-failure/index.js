@@ -1,5 +1,5 @@
 import { SQS } from '@aws-sdk/client-sqs'
-import { canPrefetch, createPrefetchClient, createClient } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient } from '@middy/core/util.js'
 
 const defaults = {
   AwsClient: SQS, // Allow for XRay

@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "files": [
-    "index.js",
     "index.d.ts",
     "tsconfig.json"
   ],
@@ -39,7 +38,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/validator"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -53,7 +53,6 @@
     "http-errors": "1.8.0"
   },
   "devDependencies": {
-    "@middy/core": "^1.5.0",
     "@types/http-errors": "1.8.0",
     "ajv-bsontype": "^1.0.7"
   },

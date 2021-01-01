@@ -1,4 +1,4 @@
-import { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } from '@middy/core/util.js'
 import { STS } from '@aws-sdk/client-sts'
 
 const defaults = {

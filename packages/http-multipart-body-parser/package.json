@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "files": [
-    "index.js",
     "index.d.ts",
     "tsconfig.json"
   ],
@@ -40,7 +39,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/http-multipart-body-parser"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -50,9 +50,6 @@
     "busboy": "0.3.1",
     "content-type": "1.0.4",
     "http-errors": "1.8.0"
-  },
-  "devDependencies": {
-    "@middy/core": "^1.5.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

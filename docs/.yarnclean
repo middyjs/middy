@@ -1,7 +1,4 @@
 # Middy.js
-# xargs rm -rf < .yarnclean
-# find . -name '**/@types/*'
-# find . -type f -name '*.ts'
 
 # Dependencies
 **/@types

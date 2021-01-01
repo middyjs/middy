@@ -1,3 +1,0 @@
-beforeEach(() => {
-  expect.hasAssertions()
-})

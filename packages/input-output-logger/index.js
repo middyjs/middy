@@ -29,7 +29,7 @@ const omit = (originalObject = {}, keysToOmit = []) => {
   for (const path of keysToOmit) {
     deleteKey(clonedObject, path)
   }
-  return clonedObject;
+  return clonedObject
 }
 
 const deleteKey = (obj, key) => {

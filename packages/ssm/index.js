@@ -1,4 +1,4 @@
-import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '../core/util.js'
+import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
 const awsRequestLimit = 10

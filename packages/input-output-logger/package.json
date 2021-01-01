@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "files": [
-    "index.js",
     "index.d.ts",
     "tsconfig.json"
   ],
@@ -40,7 +39,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/input-output-logger"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -48,7 +48,6 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {},
   "devDependencies": {
-    "@middy/core": "^1.5.0",
     "@types/node": "^14.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

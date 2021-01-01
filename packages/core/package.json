@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "files": [
-    "index.js",
     "util.js",
     "index.d.ts",
     "util.d.ts",
@@ -38,16 +37,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/core"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "dependencies": {
-    "@aws-sdk/node-http-handler": "3.1.0"
-  },
   "devDependencies": {
+    "@aws-sdk/node-http-handler": "^3.1.0",
     "@types/aws-lambda": "^8.10.3"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
