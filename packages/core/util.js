@@ -28,7 +28,7 @@ export const createClient = async (options, handler) => {
 
   awsClientCredentials = Object.assign({}, awsClientCredentials, options.awsClientOptions)
 
-  return createPrefetchClient(Object.assign({}, options, { awsClientOptions: awsClientCredentials }), handler)
+  return createPrefetchClient(Object.assign({}, options, { awsClientOptions: awsClientCredentials }))
 }
 
 export const canPrefetch = (options) => {
