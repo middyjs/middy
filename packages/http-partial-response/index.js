@@ -1,6 +1,4 @@
-import jsonMask from 'json-mask'
-const compile = jsonMask.compile
-const filter = jsonMask.filter
+import mask from 'json-mask'
 
 const defaults = {
   filteringKeyName: 'fields'
@@ -11,16 +9,21 @@ export default (opts = {}) => {
   const { filteringKeyName } = options
 
   const httpPartialResponseMiddlewareAfter = async (handler) => {
-    const params = getFilterParams(handler, filteringKeyName)
+    let body = handler?.response?.body
+    if (!body) return
 
-    if (!isResponseFilterable(params)) return
+    const fields = handler?.event?.queryStringParameters?.[filteringKeyName]
+    if (!fields) return
 
-    let { body, fields } = params
-    const isBodyStringified = isJson(body)
+    let isBodyStringified
+    try {
+      body = JSON.parse(body)
+      isBodyStringified = true
+    } catch (e) {
+      if (typeof body !== 'object') return
+    }
 
-    body = isBodyStringified ? JSON.parse(body) : body
-
-    const filteredBody = filter(body, compile(fields))
+    const filteredBody = mask(body, fields)
 
     handler.response.body = isBodyStringified
       ? JSON.stringify(filteredBody)
@@ -29,35 +32,4 @@ export default (opts = {}) => {
   return {
     after: httpPartialResponseMiddlewareAfter
   }
-}
-
-const getFilterParams = (handler, filteringKeyName) => {
-  const { body } = handler.response || {}
-  const { queryStringParameters } = handler.event || {}
-  const fields = queryStringParameters
-    ? queryStringParameters[filteringKeyName]
-    : undefined
-
-  return {
-    body,
-    fields
-  }
-}
-
-const isJson = str => {
-  try {
-    return JSON.parse(str) && true
-  } catch (err) {
-    return false
-  }
-}
-
-const isResponseFilterable = params => {
-  const { body, fields } = params
-
-  if (!body) return false
-  if (!isJson(body) && typeof body !== 'object') return false
-  if (!fields) return false
-
-  return true
 }
