@@ -1,4 +1,3 @@
-import omit from 'lodash.omit'
 
 export default (opts = {}) => {
   const defaults = {
@@ -9,11 +8,8 @@ export default (opts = {}) => {
   let { logger, omitPaths } = Object.assign({}, defaults, opts)
   if (typeof logger !== 'function') logger = null
 
-  const cloneMessage = message => JSON.parse(JSON.stringify(message))
-
-  const omitAndLog = message => {
-    const messageClone = cloneMessage(message)
-    const redactedMessage = omit(messageClone, omitPaths)
+  const omitAndLog = (message) => {
+    const redactedMessage = omit(message, omitPaths)
     logger(redactedMessage)
   }
 
@@ -25,4 +21,24 @@ export default (opts = {}) => {
     after: logger ? inputOutputLoggerMiddlewareAfter : null,
     onError: logger ? inputOutputLoggerMiddlewareOnError : null
   })
+}
+
+// move to util, if ever used elsewhere
+const omit = (originalObject = {}, keysToOmit = []) => {
+  const clonedObject = { ...originalObject }
+  for (const path of keysToOmit) {
+    deleteKey(clonedObject, path)
+  }
+  return clonedObject;
+}
+
+const deleteKey = (obj, key) => {
+  if (!Array.isArray(key)) key = key.split('.')
+  const rootKey = key.shift()
+  if (key.length && obj[rootKey]) {
+    deleteKey(obj[rootKey], key)
+  } else {
+    delete obj[rootKey]
+  }
+  return obj
 }

@@ -50,8 +50,8 @@ test('It should omit paths', async (t) => {
 
   await handler({ foo: 'bar', fuu: 'baz' })
 
-  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
-  t.true(logger.calledWith({ response: { message: 'hello world', bar: 'bi' } }))
+  t.true(logger.calledWith({ event: { fuu: 'baz' } }))
+  t.true(logger.calledWith({ response: { message: 'hello world' } }))
 })
 test('It should skip paths that do not exist', async (t) => {
   const logger = sinon.spy()

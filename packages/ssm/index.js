@@ -13,8 +13,8 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'ssm',
   cacheExpiry: -1,
-  setProcessEnv: false,
-  setContext: false,
+  setToEnv: false,
+  setToContext: false,
   onChange: undefined
 }
 
@@ -72,12 +72,12 @@ export default (opts = {}) => {
     } else {
       cached = processCache(options, fetch, handler)
     }
-    if (!init) options?.onChange()
+    if (!init) options?.onChange?.()
     init = false
 
     Object.assign(handler.internal, cached)
-    if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
-    if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
   }
 
   return {

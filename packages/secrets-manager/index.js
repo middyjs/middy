@@ -9,8 +9,8 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
   cacheExpiry: -1,
-  setProcessEnv: false, // can return object when requesting db credentials, cannot set to process.env
-  setContext: false,
+  setToEnv: false, // can return object when requesting db credentials, cannot set to process.env
+  setToContext: false,
   onChange: undefined
 }
 
@@ -50,12 +50,12 @@ export default (opts = {}) => {
     } else {
       cached = processCache(options, fetch, handler)
     }
-    if (!init) options?.onChange()
+    if (!init) options?.onChange?.()
     init = false
 
     Object.assign(handler.internal, cached)
-    if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
-    if (options.setContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
   }
 
   return {

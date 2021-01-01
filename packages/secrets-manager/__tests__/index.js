@@ -137,7 +137,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
       fetchData: {
         token: 'api_key'
       },
-      setContext: true
+      setToContext: true
     }))
     .before(middleware)
 
@@ -161,7 +161,7 @@ test.serial('It should set SecretsManager secret to process.env', async (t) => {
       fetchData: {
         token: 'api_key'
       },
-      setProcessEnv: true
+      setToEnv: true
     }))
     .before(middleware)
 

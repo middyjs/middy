@@ -41,7 +41,6 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "lodash.omit": "^4.5.0"
   },
   "devDependencies": {
     "@middy/core": "^1.5.0",

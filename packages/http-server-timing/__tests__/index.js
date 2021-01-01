@@ -20,7 +20,7 @@ test('It should return default header with extra timing', async (t) => {
   })
 
   handler.use(serverTiming({
-    setContext:true
+    setToContext:true
   }))
 
   const response = await handler()
@@ -36,7 +36,7 @@ test('It should return default header with tags', async (t) => {
   })
 
   handler.use(serverTiming({
-    setContext: true
+    setToContext: true
   }))
 
   const response = await handler()
@@ -49,7 +49,7 @@ test('It should return default header with extra timing and descriptions', async
 
   handler
     .use(serverTiming({
-      setContext: true
+      setToContext: true
     }))
     .before((handler) => {
       handler.context.serverTiming.tag('a')

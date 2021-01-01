@@ -1,5 +1,5 @@
 const defaults = {
-  setContext: false
+  setToContext: false
 }
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
@@ -40,7 +40,7 @@ export default (opts = {}) => {
     start('total')
     const serverTiming = { tag, start, stop }
     Object.assign(handler.internal, { serverTiming })
-    if (options.setContext) Object.assign(handler.context, { serverTiming })
+    if (options.setToContext) Object.assign(handler.context, { serverTiming })
   }
 
   const httpServerTimingsMiddlewareAfter = async (handler) => {

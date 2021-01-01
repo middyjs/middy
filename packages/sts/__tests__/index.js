@@ -112,7 +112,7 @@ test.serial('It should set STS secret to context', async (t) => {
           RoleArn: '.../role'
         }
       },
-      setContext: true
+      setToContext: true
     }))
     .before(middleware)
 

@@ -83,7 +83,7 @@ test.serial('It should set SSM param value to context', async (t) => {
       fetchData: {
         key: '/dev/service_name/key_name'
       },
-      setContext: true
+      setToContext: true
     }))
     .before(middleware)
 
@@ -107,7 +107,7 @@ test.serial('It should set SSM param value to process.env', async (t) => {
       fetchData: {
         key: '/dev/service_name/key_name'
       },
-      setProcessEnv: true
+      setToEnv: true
     }))
     .before(middleware)
 
@@ -246,7 +246,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
       fetchData: {
         key: '/dev/service_name/key_name'
       },
-      setContext: true
+      setToContext: true
     }))
 
   try {
