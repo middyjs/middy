@@ -4,6 +4,7 @@ import { RDS } from '@aws-sdk/client-rds'
 const defaults = {
   AwsClient: RDS.Signer, // Allow for XRay
   awsClientOptions: {},
+  awsClientAssumeRole: undefined,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',
@@ -48,7 +49,6 @@ export default (opts = {}) => {
     }
     if (!init) options?.onChange()
     init = false
-
 
     Object.assign(handler.internal, cached)
     if (options.setProcessEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))

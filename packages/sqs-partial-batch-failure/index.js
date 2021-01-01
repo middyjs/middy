@@ -5,17 +5,15 @@ const defaults = {
   AwsClient: SQS, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientFipsEndpoint: false,
   disablePrefetch: false
 }
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
-  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'sqs-fips'
 
   const getQueueUrl = async (eventSourceARN) => {
     const [, , , , accountId, queueName] = eventSourceARN.split(':')
-    const urlParts = await client.config.endpoint() // Why AWS, just why ... ?
+    const urlParts = await client.config.endpoint() // Why AWS, just why ... ? replace w/ makeFipsEndpoint?
     return `${urlParts.protocol}//${urlParts.hostname}${urlParts.path}${accountId}/${queueName}`
   }
 

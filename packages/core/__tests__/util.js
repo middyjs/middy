@@ -79,18 +79,6 @@ test('It should create AWS Client with role from promise', async (t) => {
   t.is(Client.args[0][0].credentials, 'creds object')
 })
 
-test('It should create AWS Client with endpoint', async (t) => {
-  const Client = sinon.spy()
-
-  util.createClient({
-    AwsClient: Client,
-    awsClientFipsEndpoint: 's3-fips'
-  })
-  t.is(Client.callCount, 1)
-  t.deepEqual(Object.keys(Client.args[0][0]), ['requestHandler', 'endpoint'])
-  t.is(Client.args[0][0].endpoint, 's3-fips.ca-central-1.amazonaws.com')
-})
-
 // canPrefetch
 test('It should prefetch', async (t) => {
   const prefetch = util.canPrefetch()

@@ -9,7 +9,6 @@ const defaults = {
     retryDelayOptions: { base: 200 }
   },
   awsClientAssumeRole: undefined,
-  awsClientFipsEndpoint: false,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',
@@ -21,7 +20,6 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
-  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'ssm-fips'
 
   const fetch = () => {
     const values = {}

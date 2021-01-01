@@ -25,8 +25,8 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   if (options.allErrors) errors(ajv)
 
   // Note: Can throw errors if schema is invalid
-  let validateInput = inputSchema ? ajv.compile(inputSchema) : null
-  let validateOutput = outputSchema ? ajv.compile(outputSchema) : null
+  const validateInput = inputSchema ? ajv.compile(inputSchema) : null
+  const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
 
   const validatorMiddlewareBefore = async (handler) => {
     const valid = validateInput(handler.event)

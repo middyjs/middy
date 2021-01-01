@@ -5,7 +5,6 @@ const defaults = {
   AwsClient: SecretsManager, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientFipsEndpoint: false,
   fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
@@ -17,7 +16,6 @@ const defaults = {
 
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
-  if (options.awsClientFipsEndpoint) options.awsClientFipsEndpoint = 'secretsmanager-fips'
 
   const fetch = () => {
     const values = {}

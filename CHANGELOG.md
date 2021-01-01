@@ -1,26 +1,30 @@
 # 2.0.0
 
-- Smaller codebase
+Focus on performance and security by default.
+
 - Added in new middlewares (`http-server-timing`, `rds-signer`, `sts`)
 - Added new profiler mode for `core` to allow easier bottlenecks detection with middlewares and handler
 
 ## Breaking Changes
 - Updated `aws-sdk` to v3
+- Use FIPS 140-2 endpoints by default, when available
 - Updated all packages to be ES6 modules
 - All middlewares now use `async/await` and have deprecated `next()` and `callback()`
 - Error handling has been a common pain point for some, it's been reworked
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
-- Middlewares that reach out to 3rd party API have been completely refactored to have unifying options. Applies to:
+- Middlewares that reach out to 3rd party API have been completely refactored to have unifying options that resolve on demand from internal context. Applies to:
+    - `rds-signer`
     - `secrets-manager`
     - `ssm`
+    - `sts`
 - Deprecated middlewares:
     - `cache`: little usage, makes more sense to be pulled out of core
     - `db-manager`: little usage, makes more sense to be pulled out of core
     - `function-shield`: Only supported up to Node v10
-    - `warmup`: AWS now supported reserved concurrency for Lambda
+    - `warmup`: AWS now supported reserved provisioned concurrency for Lambda
 
 ## Maintenance
-- Documentation overhaul, with a dedicated section of TypeScript
+- Documentation overhaul, with a dedicated section for TypeScript
 - Changed test runner to `ava`/`sinon` for esm support and keep deps clean
 - Added `c8` for test coverage logging
 - Changed linting to use `standard` cli to keep deps clean

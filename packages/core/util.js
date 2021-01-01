@@ -12,17 +12,11 @@ export const awsClientDefaultOptions = {
   })
 }
 
-export const createPrefetchClient = (options, handler) => {
-  const awsClientEndpoint = {}
-
-  // Secure Endpoint (FIPS 140-2)
-  if (options.awsClientFipsEndpoint) {
-    awsClientEndpoint.endpoint = `${options.awsClientFipsEndpoint}.${process.env.AWS_REGION}.amazonaws.com`
-  }
-
-  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, awsClientEndpoint, options.awsClientOptions)
+export const createPrefetchClient = (options) => {
+  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, options.awsClientOptions)
   return new options.AwsClient(awsClientOptions)
 }
+
 export const createClient = async (options, handler) => {
   let awsClientCredentials = {}
 
