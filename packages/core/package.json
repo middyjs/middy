@@ -10,7 +10,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "index.js",
   "files": [
     "util.js",
     "index.d.ts",
