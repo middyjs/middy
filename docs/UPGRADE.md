@@ -2,7 +2,7 @@
 
 - Smaller codebase
 - Updated `aws-sdk` to v3
-- Added in new middlewares (`sts`, `rds-signer`, `http-server-timing`)
+- Added in new middlewares (`sts`, `rds-signer`)
 - Added new profiler mode for `core` to allow easier finding of bottlenecks with middlewares
   
 ## Breaking Changes
