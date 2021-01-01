@@ -1,8 +1,6 @@
 # Middy.js
 
 # Dependencies
-**/@types
-**/@serverless/event-mocks
 **/ajv/docs
 **/ajv/lib
 **/ajv/.tonic_examples.js
@@ -17,7 +15,11 @@
 **/qs/dist
 **/qs/test
 
-## Sub Dependencies
+# DevDependencies
+**/@types
+**/@serverless/event-mocks
+
+## Sub[/Sub] Dependencies
 **/bowser/src
 **/bowser/bundled.js
 **/dicer/bench
@@ -27,6 +29,7 @@
 **/json-schema-traverse/spec
 **/fast-deep-equal/es6
 **/fast-deep-equal/react.js
+**/querystring/test
 **/react-native-get-random-values/android
 **/react-native-get-random-values/ios
 **/react-native-get-random-values/index.web.js
