@@ -60,7 +60,8 @@ npm install --save @middy/validator
 
 NOTES:
 - At least one of `inputSchema` or `outputSchema` is required.
-- **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for empty JSON Schemas. Precompiling is highly recommended.
+- **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
+- Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`
 
 ## Sample usage
 

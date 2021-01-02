@@ -2,7 +2,7 @@ import createError from 'http-errors'
 import _ajv from 'ajv/dist/2019.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
-// import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
+import formatsDraft2019 from 'ajv-formats-draft2019'
 
 const Ajv = _ajv.default // esm workaround linting
 
@@ -60,7 +60,7 @@ export const compile = (schema, ajvOptions, ajvInstance = null) => {
   if (!ajv) {
     ajv = ajvInstance || new Ajv(options)
     formats(ajv)
-    // formatsDraft2019(ajv)
+    formatsDraft2019(ajv)
   }
   return ajv.compile(schema)
 }

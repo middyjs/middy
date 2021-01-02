@@ -10,8 +10,9 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "index.js", "types": "index.d.ts", "files":[],
-
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",
@@ -44,8 +45,8 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "ajv": "7.0.2",
-    "ajv-errors": "2.0.0",
     "ajv-formats": "1.5.1",
+    "ajv-formats-draft2019": "1.4.3",
     "ajv-i18n": "3.6.0",
     "http-errors": "1.8.0"
   },
