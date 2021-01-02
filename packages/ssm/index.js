@@ -25,12 +25,12 @@ export default (opts = {}) => {
     const values = {}
     let request = null
     let batch = []
-    for (const [idx, contextKey] of Object.keys(options.fetchData).entries()) {
+    for (const [idx, internalKey] of Object.keys(options.fetchData).entries()) {
       if (idx % awsRequestLimit === 0) {
         batch = []
         request = null
       }
-      batch.push(options.fetchData[contextKey])
+      batch.push(options.fetchData[internalKey])
       if (!request) {
         request = client
           .getParameters({ Names: batch, WithDecryption: true })
@@ -47,9 +47,9 @@ export default (opts = {}) => {
           })
       }
 
-      values[contextKey] = request.then(params => {
+      values[internalKey] = request.then(params => {
         params = Object.assign(...params)
-        return params[options.fetchData[contextKey]]
+        return params[options.fetchData[internalKey]]
       })
     }
     return values

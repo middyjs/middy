@@ -20,11 +20,11 @@ export default (opts = {}) => {
   const fetch = () => {
     const values = {}
 
-    for (const contextKey of Object.keys(options.fetchData)) {
-      const assumeRoleOptions = options.fetchData[contextKey]
+    for (const internalKey of Object.keys(options.fetchData)) {
+      const assumeRoleOptions = options.fetchData[internalKey]
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
       if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-sts-session-' + Math.random() * 99999 | 0
-      values[contextKey] = client
+      values[internalKey] = client
         .assumeRole(assumeRoleOptions)
         .then(resp => ({
           accessKeyId: resp.Credentials.AccessKeyId,

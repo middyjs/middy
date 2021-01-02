@@ -20,9 +20,9 @@ export default (opts = {}) => {
   const fetch = () => {
     const values = {}
 
-    for (const contextKey of Object.keys(options.fetchData)) {
-      values[contextKey] = client
-        .Signer({ ...options.awsClientOptions, ...options.fetchData[contextKey] })
+    for (const internalKey of Object.keys(options.fetchData)) {
+      values[internalKey] = client
+        .Signer({ ...options.awsClientOptions, ...options.fetchData[internalKey] })
         .getAuthToken()
         // .then(resp => resp)
     }

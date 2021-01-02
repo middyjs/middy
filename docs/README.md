@@ -39,7 +39,7 @@
 
 Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
 
-If you are used to web frameworks like Express, then you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
+If you have used web frameworks like Express, then you will be familiar with the concepts adopted in Middy and you will be able to get started very quickly.
 
 A middleware engine allows you to focus on the strict business logic of your Lambda and then attach additional common elements like authentication, authorization, validation, serialization, etc. in a modular and reusable way by decorating the main business logic.
 
@@ -63,7 +63,7 @@ Code is better than 10,000 words, so let's jump into an example.
 Let's assume you are building a JSON API to process a payment:
 
 ```javascript
-# handler.js
+//# handler.js #
 
 // import core
 import middy from '@middy/core'
@@ -74,14 +74,14 @@ import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
-const processPayment = (event, context, callback) => {
+const processPayment = async (event, context, callback) => {
  // we don't need to deserialize the body ourself as a middleware will be used to do that
  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
  // do stuff with this data
  // ...
 
- return callback(null, { result: 'success', message: 'payment processed correctly'})
+ return { result: 'success', message: 'payment processed correctly'}
 }
 
 // Notice that in the handler you only added base business logic (no deserialization,
@@ -159,7 +159,7 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const originalHandler = (event, context, callback) => {
+const originalHandler = (event, context) => {
   /* your business logic */
 }
 
@@ -182,7 +182,7 @@ import middleware2 from "sample-middleware2";
 import middleware3 from "sample-middleware3";
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const originalHandler = (event, context, callback) => {
+const originalHandler = (event, context) => {
   /* your business logic */
 };
 
@@ -244,9 +244,9 @@ it gets sent to the user.
 
 Some middlewares might need to stop the whole execution flow and return a response immediately.
 
-If you want to do this you can invoke `handler.callback` in your middleware and return early without invoking `next`.
+If you want to do this you can invoke `retunr response` in your middleware.
 
-**Note**: this will totally stop the execution of successive middlewares in any phase (`before` and `after`) and returns
+**Note**: this will totally stop the execution of successive middlewares in any phase (`before`, `after`, `onError`) and returns
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
 like output serialization or error handling, these won't be invoked in this case.
 
@@ -262,25 +262,28 @@ const storage = {}
 // middleware
 const cacheMiddleware = options => {
   let cacheKey
-  return {
-    before: (handler) => {
-      cacheKey = options.calculateCacheId(handler.event)
-      if (options.storage.hasOwnProperty(cacheKey)) {
-        // exits early and returns the value from the cache if it's already there
-        return handler.callback(null, options.storage[cacheKey])
-      }
-
-      return next()
-    },
-    after: (handler) => {
-      // stores the calculated response in the cache
-      options.storage[cacheKey] = handler.response
+  
+  const cacheMiddlewareBefore = async (handler) => {
+    cacheKey = options.calculateCacheId(handler.event)
+    if (options.storage.hasOwnProperty(cacheKey)) {
+      // exits early and returns the value from the cache if it's already there
+      return options.storage[cacheKey]
     }
+  }
+  
+  const cacheMiddlewareAfter = async (handler) => {
+    // stores the calculated response in the cache
+    options.storage[cacheKey] = handler.response
+  }
+  
+  return {
+    before: cacheMiddlewareBefore,
+    after: cacheMiddlewareAfter
   }
 }
 
 // sample usage
-const handler = middy((event, context, callback) => {
+const handler = middy((event, context) => {
   /* ... */
 }).use(
   cacheMiddleware({
@@ -308,41 +311,19 @@ to the user.
 
 If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
-### Using async/await
-
-Node.js 8.10 supports [async/await](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function),
-allowing you to work with promises in a way that makes handling asynchronous logic easier to reason about and
-asynchronous code easier to read.
-
-Take the following code as an example of a handler written with async/await:
-
 ```javascript
-middy(async (event, context) => {
-  await someAsyncStuff()
-  await someOtherAsyncStuff()
+// Initailaize response
+handler.response = handler.response || {}
 
-  return { foo: bar }
-})
+// Add to response
+handler.response.add = 'more'
+
+// Override an error
+handler.error = new Error('...')
+
+// handle the error
+return handler.response
 ```
-
-And, here is an example of a middleware written with async/await:
-
-```javascript
-const asyncValidator = () => {
-  before: async handler => {
-    if (handler.event.body) {
-      await asyncValidate(handler.event.body)
-
-      return { foo: bar }
-    }
-
-    return
-  }
-}
-
-handler.use(asyncValidator())
-```
-
 
 ## Writing a middleware
 
@@ -383,13 +364,13 @@ export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const customMiddlewareBefore = async (handler) => {
-    // might read options from `config`
+    // might read options
   }
   const customMiddlewareAfter = async (handler) => {
-    // might read options from `config`
+    // might read options 
   }
   const customMiddlewareOnError = async (handler) => {
-    // might read options from `config`
+    // might read options
   }
   
   return {
@@ -436,23 +417,20 @@ Let's see how inline middlewares work with a simple example:
 ```javascript
 import middy from '@middy/core'
 
-const handler = middy((event, context, callback) => {
+const handler = middy((event, context) => {
   // do stuff
 })
 
 handler.before((handler) => {
   // do something in the before phase
-  next()
 })
 
 handler.after((handler) => {
   // do something in the after phase
-  next()
 })
 
 handler.onError((handler) => {
   // do something in the on error phase
-  next()
 })
 
 module.exports = { handler }
@@ -461,14 +439,71 @@ module.exports = { handler }
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
 methods to allow you to quickly hook in simple inline middlewares.
 
+### Request caching & Internal storage
+The handler also contains an `internal` object that can be used to store values securely between middlewares that 
+expires when the event ends. To compliment this there is also a cache where middleware can store request promises.
+During `before` these promises can be stored into `internal` then resolved only when needed. This pattern is useful to 
+take advantage of the async nature of node especially when you have multiple middleware that require reaching out the 
+external APIs.
+
+Here is a middleware boilerplate using this pattern:
+```javascript
+import { canPrefetch, getInternal, processCache } from '@middy/core/util.js'
+
+const defaults = {
+  fetchData: {}, // { internalKey: params }
+  disablePrefetch: false,
+  cacheKey: 'custom',
+  cacheExpiry: -1,
+  setToEnv: false,
+  setToContext: false,
+  onChange: undefined
+}
+
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+
+  const fetch = () => {
+    const values = {}
+    // Start your custom fetch
+    for (const internalKey of Object.keys(options.fetchData)) {
+      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(res => res.text())
+    }
+    // End your custom fetch
+    return values
+  }
+
+  let prefetch, client, init
+  if (canPrefetch(options)) {
+    init = true
+    prefetch = processCache(options, fetch)
+  }
+
+  const customMiddlewareBefore = async (handler) => {
+    let cached
+    if (init) {
+      cached = prefetch
+    } else {
+      cached = processCache(options, fetch, handler)
+    }
+
+    Object.assign(handler.internal, cached)
+    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+
+    if (!init) options?.onChange?.()
+    else init = false
+  }
+
+  return {
+    before: customMiddlewareBefore
+  }
+}
+```
+
 ### More details on creating middlewares
 
-Check the [code for existing middlewares](/packages) to see more examples
-on how to write a middleware.
-
-## FAQ
-
-
+Check the [code for existing middlewares](/packages) to see more examples on how to write a middleware.
 
 ## Available middlewares
 
@@ -529,9 +564,7 @@ The following middlewares are created and maintained outside this project. We ca
 
 In the spirit of Open Source Software, everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
-Before contributing to the project, make sure to have a look at our [Code of Conduct](/CODE_OF_CONDUCT.md).
-
-If you are a maintainer and want to release a new version of Middy, consult the dedicated [RELEASE manual](/RELEASE.md).
+Before contributing to the project, make sure to have a look at our [Code of Conduct](/.github/CODE_OF_CONDUCT.md).
 
 ## License
 

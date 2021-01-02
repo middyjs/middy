@@ -24,9 +24,9 @@ export default (opts = {}) => {
     // however this is likely uncommon IRL, increases complexity to handle,
     // and will require recursive promise resolution impacting performance.
     // See https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SecretsManager.html#listSecrets-property
-    for (const contextKey of Object.keys(options.fetchData)) {
-      values[contextKey] = client
-        .getSecretValue({ SecretId: options.fetchData[contextKey] })
+    for (const internalKey of Object.keys(options.fetchData)) {
+      values[internalKey] = client
+        .getSecretValue({ SecretId: options.fetchData[internalKey] })
         .then(resp => jsonSafeParse(resp.SecretString))
     }
 
