@@ -511,6 +511,9 @@ Check the [code for existing middlewares](/packages) to see more examples on how
 ## Best Practice and Common Patterns
 Tips and trick to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
 
+### ENV variables
+Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` to allow AWS services to reuse their connections.
+
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
 ```javascript

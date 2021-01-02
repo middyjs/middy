@@ -1,4 +1,11 @@
-import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
+import {
+  canPrefetch,
+  createPrefetchClient,
+  createClient,
+  processCache,
+  jsonSafeParse,
+  getInternal
+} from '@middy/core/util.js'
 import { SSM } from '@aws-sdk/client-ssm'
 
 const awsRequestLimit = 10
@@ -25,32 +32,39 @@ export default (opts = {}) => {
     const values = {}
     let request = null
     let batch = []
-    for (const [idx, internalKey] of Object.keys(options.fetchData).entries()) {
-      if (idx % awsRequestLimit === 0) {
-        batch = []
-        request = null
-      }
+
+    const internalKeys = Object.keys(options.fetchData)
+    for (const [idx, internalKey] of internalKeys.entries()) {
       batch.push(options.fetchData[internalKey])
-      if (!request) {
-        request = client
-          .getParameters({ Names: batch, WithDecryption: true })
-          .then(resp => {
-            if (resp.InvalidParameters?.length) {
-              throw new Error(
-                `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
-              )
-            }
-            return resp.Parameters
-              .map(param => {
-                return { [param.Name]: jsonSafeParse(param.Value) }
-              })
-          })
+      // from the first to the batch size skip, unless it's the last entry
+      if ((!idx || (idx + 1) % awsRequestLimit !== 0) && !(idx + 1 === internalKeys.length)) {
+        continue
       }
 
-      values[internalKey] = request.then(params => {
-        params = Object.assign(...params)
-        return params[options.fetchData[internalKey]]
-      })
+      request = client
+        .getParameters({ Names: batch, WithDecryption: true })
+        .then(resp => {
+          console.log('ssm.resp', resp)
+          if (resp.InvalidParameters?.length) {
+            throw new Error(
+              `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
+            )
+          }
+          return resp.Parameters
+            .map(param => {
+              return { [param.Name]: jsonSafeParse(param.Value) }
+            })
+        })
+
+      for(const internalKey of batch) {
+        values[internalKey] = request.then(params => {
+          params = Object.assign(...params)
+          return params[options.fetchData[internalKey]]
+        })
+      }
+
+      batch = []
+      request = null
     }
     return values
   }

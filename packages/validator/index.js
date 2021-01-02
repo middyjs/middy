@@ -17,44 +17,52 @@ const defaults = {
 }
 
 export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
-  const options = Object.assign({}, defaults, ajvOptions)
-  ajv = ajvInstance || new Ajv(options)
-  formats(ajv)
-  // formatsDraft2019(ajv)
-
-  // Note: Can throw errors if schema is invalid
-  const validateInput = inputSchema ? ajv.compile(inputSchema) : null
-  const validateOutput = outputSchema ? ajv.compile(outputSchema) : null
+  inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
+  outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
   const validatorMiddlewareBefore = async (handler) => {
-    const valid = validateInput(handler.event)
+    const valid = inputSchema(handler.event)
 
     if (!valid) {
       const error = new createError.BadRequest('Event object failed validation')
       handler.event.headers = Object.assign({}, handler.event.headers)
 
       const language = chooseLanguage(handler.event, options.defaultLanguage)
-      localize[language](validateInput.errors)
+      localize[language](inputSchema.errors)
 
-      error.details = validateInput.errors
+      error.details = inputSchema.errors
       throw error
     }
   }
 
   const validatorMiddlewareAfter = async (handler) => {
-    const valid = validateOutput(handler.response)
+    const valid = outputSchema(handler.response)
 
     if (!valid) {
       const error = new createError.InternalServerError('Response object failed validation')
-      error.details = validateOutput.errors
+      error.details = outputSchema.errors
       error.response = handler.response
       throw error
     }
   }
   return {
-    before: validateInput ? validatorMiddlewareBefore : null,
-    after: validateOutput ? validatorMiddlewareAfter : null
+    before: inputSchema ? validatorMiddlewareBefore : null,
+    after: outputSchema ? validatorMiddlewareAfter : null
   }
+}
+
+// This is pulled out due to it's performance cost (50-100ms on cold start)
+// Precompile your schema during a build step is recommended.
+export const compile = (schema, ajvOptions, ajvInstance = null) => {
+  // Check if already compiled
+  if (typeof schema === 'function') return schema
+  const options = Object.assign({}, defaults, ajvOptions)
+  if (!ajv) {
+    ajv = ajvInstance || new Ajv(options)
+    formats(ajv)
+    // formatsDraft2019(ajv)
+  }
+  return ajv.compile(schema)
 }
 
 /* in ajv-i18n Portuguese is represented as pt-BR */

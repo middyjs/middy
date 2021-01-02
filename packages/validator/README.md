@@ -51,13 +51,16 @@ npm install --save @middy/validator
 
 ## Options
 
- - `inputSchema` (object) (optional): The JSON schema object that will be used
+ - `inputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
    to validate the input (`handler.event`) of the Lambda handler.
- - `outputSchema` (object) (optional): The JSON schema object that will be used
+ - `outputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
    to validate the output (`handler.response`) of the Lambda handler.
- - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org)
-    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en', jsonPointers: true}`. Note that `jsonPointers` is needed by `ajv-errors`.
- - `ajvPlugins` (object) (optional): Plugin names (without `ajv-` prefix) as key and its options for the value, to apply to [ajv](https://ajv.js.org) once instantiated. You can pass in `{}` to not include the modules. Defaults are `{keywords: null, errors: null, i18n: null}`. Note that for no options `null` / `{}` is used as value.
+ - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
+    class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: false, defaultLanguage: 'en' }`.
+
+NOTES:
+- At least one of `inputSchema` or `outputSchema` is required.
+- **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for empty JSON Schemas. Precompiling is highly recommended.
 
 ## Sample usage
 
@@ -65,7 +68,7 @@ Example for input validation:
 
 ```javascript
 import middy from '@middy/core'
-import validator from '@middy/validator'
+import validator, {compile} from '@middy/validator'
 
 const handler = middy((event, context) => {
   return {}
