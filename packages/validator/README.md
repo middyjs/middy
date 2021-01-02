@@ -38,7 +38,7 @@ response to the user.
 
 It can also be used in combination with [`httpcontentnegotiation`](#httpContentNegotiation) to load localised translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-i18n`](http://npm.im/ajv-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
 
-Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance. Out-of-the-box, `ajv-i18n`, `ajv-formats`, and `ajv-errors` are being used.
+Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance. Out-of-the-box `ajv-i18n` and `ajv-formats` are being used.
 
 ## Install
 

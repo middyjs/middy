@@ -3,7 +3,6 @@ import _ajv from 'ajv/dist/2019.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 // import formatsDraft2019 from 'ajv-formats-draft2019'  // if requested
-import errors from 'ajv-errors'
 
 const Ajv = _ajv.default // esm workaround linting
 
@@ -22,7 +21,6 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
   ajv = ajvInstance || new Ajv(options)
   formats(ajv)
   // formatsDraft2019(ajv)
-  if (options.allErrors) errors(ajv)
 
   // Note: Can throw errors if schema is invalid
   const validateInput = inputSchema ? ajv.compile(inputSchema) : null

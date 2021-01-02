@@ -508,7 +508,7 @@ Check the [code for existing middlewares](/packages) to see more examples on how
 ## TypeScript
 **TODO**
 
-## Best Practices
+## Best Practice and Common Patterns
 Tips and trick to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
 
 ### Adding internal values to context
@@ -517,6 +517,12 @@ When all of your middlewares are done, and you need a value or two for your hand
 import {getInternal} from '@middy/core/util.js'
 
 middy(handler)
+  // Incase you want to add values on to internal directly
+  .before((async (handler) => {
+    handler.internal = {
+      env: provess.env.NODE_ENV
+    }
+  }))
   .use(sts(...))
   .use(ssm(...))
   .use(rdsSigner(...))
@@ -529,11 +535,25 @@ middy(handler)
     // get all the values, only if you really need to, but you should only request what you need for the handler
     Object.assign(handler.context, await getInternal(true, handler))
   })
+```
+
+### Adding in monitoring with AWS XRay
+**TODO**
+
+```javascript
+import {SSM} from '@aws-sdk/client-ssm'
+import {XRay} from 'TODO'
+
+middy(handler)
+  .use(ssm({
+    AwsClient: XRay(SSM) // likely something like this
+  }))
 
 ```
 
 ### Bundling Lambda packages
-**TODO**
+If you're using serverless, checkout [`serverless-bundle`](https://www.npmjs.com/package/serverless-bundle). 
+It's wrapper around webpack, babel, and a bunch of other dependencies.
 
 ### Keeping Lambda packages small when you can't bundle
 Using a bundler is the optimal solution, be can be complex depending on your setup. In this case you should remove 
@@ -545,8 +565,6 @@ a [`.yarnclean`](/docs/.yarnclean) file you can check out and use as part of you
 - Add docs for profilers
 - link to clinicjs and add example
 
-### Serverless fine-tuning
-**TODO**
 
 ## FAQ
 ### My lambda keep timing out without responding, what do I do?
@@ -558,14 +576,12 @@ JSON modules are still experimental in Node.js v14. You need to enable if with a
 ## Available middlewares
 
 ### Misc
+- [`error-logger`](/packages/error-logger): Logs errors
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 
-### Request Transformation 
+### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
-
-- [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
-- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
@@ -573,23 +589,28 @@ JSON modules are still experimental in Node.js v14. You need to enable if with a
 - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
 - [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
+- [`sqs-json-body-parser`](/packages/sqs-json-body-parser): Parse body from SQS events
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 
 ### Response Transformation
 - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
+- [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
+- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/packages/http-response-serializer): TODO
+- [`sqs-partial-batch-failure`](/packages/sqs-partial-batch-failure): handles partially failed SQS batches.
 
 ### Fetch Data
+- [`rds-signer`](/packages/rds-signer): Fetches token for connecting to RDS with IAM users.
 - [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
-- [`sqs-partial-batch-failure`](/packages/sqs-partial-batch-failure): handles partially failed SQS batches.
 - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
+- [`sts`](/packages/sts): Fetches credentials to assumes IAM roles for connection to other AWS services.
 
+### Community generated middleware
 
-## Community generated middleware
-
-The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
+The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 
+If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
 - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions

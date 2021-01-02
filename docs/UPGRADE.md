@@ -95,7 +95,8 @@ New middleware to fetch assume role credentials.
 
 ### [validator](/packages/validator/README.md)
 Upgraded `ajv` and it's plugins to support JSON Schema Draft 2019-09 specification. Defaults were change because of this.
-Plugin `ajv-keywords` is also removed from being included by default.
+- Plugin `ajv-keywords` removed from being included by default because it's quite a large package and usually only one keyword is used.
+- Plugin `ajv-errors` removed from included by default because it conflicts with `ajv-i18n` when dealing with custom messages for multiple languages
 
 ### warmup
 Deprecated. This was a work round for a missing feature in AWS Lambda. AWS added in the ability to use [provisioned concurrency](https://aws.amazon.com/blogs/aws/new-provisioned-concurrency-for-lambda-functions/)
