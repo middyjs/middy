@@ -1,17 +1,17 @@
-# Middy sqs partial batch failure middleware
+# Middy intput-out-logger middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>SQS batch middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>STS middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsqs-partial-batch-failure">
-    <img src="https://badge.fury.io/js/%40middy%2Fsqs-partial-batch-failure.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Frds-signer">
+    <img src="https://badge.fury.io/js/%40middy%2Frds-signer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -25,40 +25,57 @@
 </p>
 </div>
 
-Middleware for handling partially failed SQS batches.
+Fetches STS credentials to be used when connecting to other AWS services.
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/sqs-partial-batch-failure
+npm install --save @middy/rds-signer
 ```
+
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SQS`): AWS.SQS class constructor (e.g. that has been instrumented with AWS XRay)
-- `awsClientOptions` (object) (optional): Options to pass to AWS.SQS class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
+- `AwsClient` (object) (default `AWS.RDS.Signer`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay)
+- `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
+- `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
+- `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `setToContext` (boolean) (default `false`): Store credentials to `handler.context`.
+- `onChange` (function) (optional): Calls function when credentials change after being initially set.
 
 NOTES:
-- Lambda is required to have IAM permission for `sqs:DeleteMessage`
+- Lambda is required to have IAM permission for `sts:AssumeRole`
+- `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
 
 ## Sample usage
 
 ```javascript
 import middy from '@middy/core'
-import sqsBatch from '@middy/sqs-partial-batch-failure'
+import rdsSigner from '@middy/sts'
 
-const originalHandler = (event, context) => {
-  const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
-  return Promise.allSettled(recordPromises)
-}
+const handler = middy((event, context) => {
+  const response = {
+    statusCode: 200,
+    headers: {},
+    body: JSON.stringify({ message: 'hello world' })
+  };
 
-const handler = middy(originalHandler)
-  .use(sqsBatch())
+  callback(null, response)
+})
+
+handler
+  .use(sts({
+    assumeRole: {
+      RoleArn: '...',
+      RoleSessionName:'' // optional
+    }
+  }))
 ```
+
 
 ## Middy documentation and examples
 

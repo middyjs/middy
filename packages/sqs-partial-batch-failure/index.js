@@ -13,7 +13,7 @@ export default (opts = {}) => {
 
   const getQueueUrl = async (eventSourceARN) => {
     const [, , , , accountId, queueName] = eventSourceARN.split(':')
-    const urlParts = await client.config.endpoint() // Why AWS, just why ... ? replace w/ makeFipsEndpoint?
+    const urlParts = await client.config.endpoint() // Why AWS, just why ... ?
     return `${urlParts.protocol}//${urlParts.hostname}${urlParts.path}${accountId}/${queueName}`
   }
 

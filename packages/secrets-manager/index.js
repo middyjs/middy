@@ -50,12 +50,13 @@ export default (opts = {}) => {
     } else {
       cached = processCache(options, fetch, handler)
     }
-    if (!init) options?.onChange?.()
-    init = false
 
     Object.assign(handler.internal, cached)
     if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
     if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+
+    if (!init) options?.onChange?.()
+    else init = false
   }
 
   return {

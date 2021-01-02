@@ -23,7 +23,7 @@ export default (opts = {}) => {
     for (const contextKey of Object.keys(options.fetchData)) {
       const assumeRoleOptions = options.fetchData[contextKey]
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-      if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-ssm-session-' + Math.random() * 99999 | 0
+      if (!assumeRoleOptions.RoleSessionName) assumeRoleOptions.RoleSessionName = 'middy-sts-session-' + Math.random() * 99999 | 0
       values[contextKey] = client
         .assumeRole(assumeRoleOptions)
         .then(resp => ({
@@ -53,11 +53,12 @@ export default (opts = {}) => {
     } else {
       cached = processCache(options, fetch, handler)
     }
-    if (!init) options?.onChange?.()
-    init = false
 
     Object.assign(handler.internal, cached)
     if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+
+    if (!init) options?.onChange?.()
+    else init = false
   }
 
   return {

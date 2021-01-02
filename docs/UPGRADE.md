@@ -1,27 +1,117 @@
 # Upgrade 1.x -> 2.x
 
-- Smaller codebase
-- Updated `aws-sdk` to v3
-- Added in new middlewares (`sts`, `rds-signer`)
-- Added new profiler mode for `core` to allow easier finding of bottlenecks with middlewares
-  
-## Breaking Changes
-- Updated all packages to be ES6 modules
-- Error handling has been a common pain point for some, it's been reworked
-- All middleware now use `async/await` and have deprecated `next()` and `callback()`
-- `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
-- Middlewares that reach out to 3rd party API have been completely refactored to have unifying options. Applies to:
-  - `secrets-manager`
-  - `ssm`
-- Deprecated middlewares:
-  - `cache`: little usage, makes more sense to be pulled out of core
-  - `db-manager`: little usage, makes more sense to be pulled out of core
-  - `function-shield`: Only supported up to Node v10
-  - `warmup`: AWS now supported reserved concurrency for Lambda
-  
-## Node.js 14 now supported / Node.js 10 and 12 now dropped
+See [CHANGELOG](/docs/CHANGELOG.md) for overview of changes.
 
-Version 2.x of Middy no longer supports Node.js versions 10.x and 12.x. You are highly encouraged to move to Node.js 14, which support ES6 modules by default and optional chaining.
+Version 2.x of Middy no longer supports Node.js versions 10.x and 12.x. You are highly encouraged to move to Node.js 14, 
+which support ES6 modules by default and optional chaining.
+
+All modules are `esm`
+
+## Core
+- In handler `callback(err, reponse)` have been removed for `async/await` support
+  - `return response` to trigger `after` middleware stack  
+  - `throw new Error(...)` to trigger `onError` middleware stack
+- In middleware `next(err)` has been removed for `async/await` support
+  - `throw new Error(...)` to trigger `onError` middleware stack
+  - `return reponse` to **short circuit** any middleware stack and respond. v1.x currently throws an error when something is returned
+
+## Middleware
+### cache
+Deprecated. Too generic and had low usage.
+
+### db-manager ** TODO add in external replacement
+Deprecated. Too generic and had low usage.
+
+### [do-not-wait-for-empty-event-loop](/packages/do-not-wait-for-empty-event-loop/README.md)
+No change
+
+### function-shield
+Deprecated. Only supported up to Node v10.
+
+### [http-content-negotiation](/packages/http-content-negotiation/README.md)
+No change
+
+### [http-cors](/packages/http-cors/README.md)
+Added new options to support more headers
+- methods
+- exposeHeaders
+- requestHeaders
+- requestMethods
+
+### [http-error-handler](/packages/http-error-handler/README.md)
+Added new option to catch any non-http errors
+- fallbackMessage
+
+### [http-event-normalizer](/packages/http-event-normalizer/README.md)
+No change
+
+### [http-header-normalizer](/packages/http-header-normalizer/README.md)
+No change
+
+### [http-json-body-parser](/packages/http-json-body-parser/README.md)
+No change
+
+### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
+No change
+
+### [http-partial-response](/packages/http-partial-response/README.md)
+No change
+
+### [http-response-serializer](/packages/http-response-serializer/README.md)
+No change
+
+### [http-security-headers](/packages/http-security-headers/README.md)
+No change
+
+### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
+Remove `extended` option. Only uses `qs` as the parser, formally enabled by options `{extended: true}`.
+
+### [http-urlencode-path-parser](/packages/http-urlencode-path-parser/README.md)
+No change
+
+### [input-output-logger](/packages/input-output-logger/README.md)
+Now additionally logs response from the `onError` middleware stack
+
+### [rds-signer](/packages/rds-signer/README.md) ** TODO update after aws sdk supported
+New middleware to fetch RDS credential used when connecting with IAM roles. This was built into `db-manager`.
+
+### [s3-key-normalizer](/packages/s3-key-normalizer/README.md)
+No change
+
+### [secrets-manager](/packages/secrets-manager/README.md)
+Refactored
+
+### [sqs-json-body-parser](/packages/sqs-json-body-parser/README.md)
+No change
+
+### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
+Replaced option `sqs` with `AwsClient` and added in more options for control.
+
+### [ssm](/packages/ssm/README.md) ** TODO add in external replacement
+Refactored. Removed ability to fetch values by path due to how the API worked and how that effected performance.
+
+### [sts](/packages/sts/README.md)
+New middleware to fetch assume role credentials.
+
+### [validator](/packages/validator/README.md)
+Upgraded `ajv` and it's plugins to support JSON Schema Draft 2019-09 specification. Defaults were change because of this.
+Plugin `ajv-keywords` is also removed from being included by default.
+
+### warmup
+Deprecated. This was a work round for a missing feature in AWS Lambda. AWS added in the ability to use [provisioned concurrency](https://aws.amazon.com/blogs/aws/new-provisioned-concurrency-for-lambda-functions/)
+on 2019-12-03, removing the need for this work around.
+
+However, you can use the following if needed:
+```javascript
+middy(handler)
+  .before((handler) => {
+    if (handler.event.source === 'serverless-plugin-warmup') {
+      console.log('Exiting early via warmup Middleware')
+      return 'warmup'
+    }
+  })
+```
+
 
 # Upgrade 0.x -> 1.x
 

@@ -1,16 +1,17 @@
 # 2.0.0
 
-Focus on performance and security by default.
+Checkout [`UPGRADE.md`](/docs/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `1.x`.
 
-- Added in new middlewares (`rds-signer`, `sts`)
-- Added new profiler mode for `core` to allow easier bottlenecks detection with middlewares and handler
+Focus this version was on performance and security by default.
+
+## Additions
+- New middlewares (`rds-signer`, `sts`)
+- New profiler hook for `core` to allow easier bottleneck detection with middlewares and handler
 
 ## Breaking Changes
 - Updated `aws-sdk` to v3
-- Use FIPS 140-2 endpoints by default, when available
 - Updated all packages to be ES6 modules
-- All middlewares now use `async/await` and have deprecated `next()` and `callback()`
-- Error handling has been a common pain point for some, it's been reworked
+- All middlewares now use `async/await` and have deprecated `next(err)` and `callback(err, response)`
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
 - Middlewares that reach out to 3rd party API have been completely refactored to have unifying options that resolve on demand from internal context. Applies to:
     - `rds-signer`
@@ -95,7 +96,7 @@ This release includes multiple improvements to `@middy/ssm`
 
 # 1.0.0
 
-Checkout [`UPGRADE.md`](/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `0.x`.
+Checkout [`UPGRADE.md`](/docs/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `0.x`.
 
 Main changes:
 

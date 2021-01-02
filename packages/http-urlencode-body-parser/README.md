@@ -19,9 +19,6 @@
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
-  </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
@@ -40,10 +37,6 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-urlencode-body-parser
 ```
 
-
-## Options
-
-
 ## Sample usage
 
 ```javascript
@@ -54,7 +47,7 @@ const handler = middy((event, context) => {
   return event.body // propagates the body as response
 })
 
-handler.use(httpUrlEncodeBodyParser({extended: false}))
+handler.use(httpUrlEncodeBodyParser())
 
 // When Lambda runs the handler with a sample event...
 const event = {
@@ -86,7 +79,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

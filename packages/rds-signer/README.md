@@ -1,17 +1,17 @@
-# Middy ssm middleware
+# Middy intput-out-logger middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>SSM (AWS System Manager Parameter) middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>RDS Signer middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fssm">
-    <img src="https://badge.fury.io/js/%40middy%2Fssm.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Frds-signer">
+    <img src="https://badge.fury.io/js/%40middy%2Frds-signer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -25,60 +25,60 @@
 </p>
 </div>
 
-This middleware fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
-
-Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/).
-
-By default parameters are assigned to the Node.js `process.env` object. They can instead be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
-
-The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
-
-For each parameter defined by name, you also provide the name under which its value should be added to `process.env` or `context`. For each path, you instead provide a prefix, and by default the value import each parameter returned from that path will be added to `process.env` or `context` with a name equal to what's left of the parameter's full name _after_ the defined path, with the prefix prepended. If the prefix is an empty string, nothing is prepended. You can override this behaviour by providing your own mapping function with the `getParamNameFromPath` config option.
-
+Fetches RDS credentials to be used when connecting to RDS with IAM roles.
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/ssm
+npm install --save @middy/rds-signer
 ```
 
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SSM.Signer`): AWS.SSMr class constructor (e.g. that has been instrumented with AWS XRay)
-- `awsClientOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
+- `AwsClient` (object) (default `AWS.RDS.Signer`): AWS.RDS.Signer class constructor (e.g. that has been instrumented with AWS XRay)
+- `awsClientOptions` (object) (optional): Options to pass to AWS.RDS.Signer class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `ssm`): Internal cache key for the fetched data responses.
+- `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store role tokens to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
-- `setToContext` (boolean) (default `false`): Store role tokes to `handler.context`.
+- `setToContext` (boolean) (default `false`): Store role tokens to `handler.context`.
 - `onChange` (function) (optional): Calls function when role tokens change after being initially set.
 
 NOTES:
-- Lambda is required to have IAM permission for `ssm:GetParameters`
+- Lambda is required to have IAM permission for `rds-db:connect` with a resource like `arn:aws:rds-db:#{AWS::Region}:#{AWS::AccountId}:dbuser:${database_resource}/${iam_role}`
 - `setToEnv` and `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
-- `setToEnv` can only assign secrets of type string
 
 ## Sample usage
 
 ```javascript
 import middy from '@middy/core'
-import ssm from '@middy/ssm'
+import rdsSigner from '@middy/rds-signer'
 
 const handler = middy((event, context) => {
-  return {}
+  const response = {
+    statusCode: 200,
+    headers: {},
+    body: JSON.stringify({ message: 'hello world' })
+  };
+
+  callback(null, response)
 })
 
-handler.use(ssm({
-  fetchData: {
-    accessToken: '/dev/service_name/access_token'
-  }
-}))
-
+handler
+  .use(rdsSigner({
+    rdsToken: {
+      region: 'ca-central-1', 
+      hostname: '***.rds.amazonaws.com', 
+      username: 'iam_role', 
+      database: 'postgres', 
+      port: 5432
+    }
+  }))
 ```
 
 
