@@ -421,15 +421,15 @@ const handler = middy((event, context) => {
   // do stuff
 })
 
-handler.before((handler) => {
+handler.before(async (handler) => {
   // do something in the before phase
 })
 
-handler.after((handler) => {
+handler.after(async (handler) => {
   // do something in the after phase
 })
 
-handler.onError((handler) => {
+handler.onError(async (handler) => {
   // do something in the on error phase
 })
 
@@ -504,6 +504,56 @@ export default (opts = {}) => {
 ### More details on creating middlewares
 
 Check the [code for existing middlewares](/packages) to see more examples on how to write a middleware.
+
+## TypeScript
+**TODO**
+
+## Best Practices
+Tips and trick to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
+
+### Adding internal values to context
+When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
+```javascript
+import {getInternal} from '@middy/core/util.js'
+
+middy(handler)
+  .use(sts(...))
+  .use(ssm(...))
+  .use(rdsSigner(...))
+  .use(secretsManager(...))
+  .before(async (handler) => {
+    // Map with same name
+    Object.assign(handler.context, await getInternal(['keyOne','tokenTwo'], handler))
+    // Map to new name
+    Object.assign(handler.context, await getInternal({'newKeyOne':'keyOne','tokenTwo':'tokenTwo'}, handler))
+    // get all the values, only if you really need to, but you should only request what you need for the handler
+    Object.assign(handler.context, await getInternal(true, handler))
+  })
+
+```
+
+### Bundling Lambda packages
+**TODO**
+
+### Keeping Lambda packages small when you can't bundle
+Using a bundler is the optimal solution, be can be complex depending on your setup. In this case you should remove 
+excess files from your `node_modules` directory to ensure it doesn't have anything excess shipped to AWS. We put together
+a [`.yarnclean`](/docs/.yarnclean) file you can check out and use as part of your CI/CD process.
+
+### Keeping your middlewares fast
+**TODO**
+- Add docs for profilers
+- link to clinicjs and add example
+
+### Serverless fine-tuning
+**TODO**
+
+## FAQ
+### My lambda keep timing out without responding, what do I do?
+Likely your event loop is not empty. This happens when you have a database connect still open. Checkout the `@middy/do-not-wait-for-empty-event-loop`.
+
+### I'm getting `TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".json" for ...` when I try to import json using `{ "type": "module"}`
+JSON modules are still experimental in Node.js v14. You need to enable if with a flag. You can add flags to AWS Lambda by using the env [`NODE_OPTIONS`](https://nodejs.org/api/cli.html#cli_node_options_options). 
 
 ## Available middlewares
 
