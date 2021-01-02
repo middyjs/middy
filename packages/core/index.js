@@ -83,6 +83,7 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
  */
 export default (handler = () => {}, profiler = null) => {
   profiler?.start()
+  profiler?.initStart()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
@@ -105,6 +106,7 @@ export default (handler = () => {}, profiler = null) => {
     }
 
     const middyPromise = async () => {
+      profiler?.initEnd()
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
         if (request.response) return request.callback(null, request.response) // catch short circuit

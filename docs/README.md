@@ -508,11 +508,12 @@ Check the [code for existing middlewares](/packages) to see more examples on how
 ## TypeScript
 **TODO**
 
-## Best Practice and Common Patterns
-Tips and trick to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
+## Common Patterns and Best Practice
+Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
 
 ### ENV variables
-Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` to allow AWS services to reuse their connections.
+Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse 
+the first connection established.
 
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
@@ -531,12 +532,16 @@ middy(handler)
   .use(rdsSigner(...))
   .use(secretsManager(...))
   .before(async (handler) => {
+    // internal == { key: 'value' }
+    
     // Map with same name
-    Object.assign(handler.context, await getInternal(['keyOne','tokenTwo'], handler))
+    Object.assign(handler.context, await getInternal(['key'], handler)) // context == { key: 'value'}
+    
     // Map to new name
-    Object.assign(handler.context, await getInternal({'newKeyOne':'keyOne','tokenTwo':'tokenTwo'}, handler))
+    Object.assign(handler.context, await getInternal({'newKey':'key'}, handler)) // context == { newKey: 'value'}
+    
     // get all the values, only if you really need to, but you should only request what you need for the handler
-    Object.assign(handler.context, await getInternal(true, handler))
+    Object.assign(handler.context, await getInternal(true, handler)) // context == { key: 'value'}
   })
 ```
 
@@ -556,17 +561,15 @@ middy(handler)
 
 ### Bundling Lambda packages
 If you're using serverless, checkout [`serverless-bundle`](https://www.npmjs.com/package/serverless-bundle). 
-It's wrapper around webpack, babel, and a bunch of other dependencies.
+It's a wrapper around webpack, babel, and a bunch of other dependencies.
 
-### Keeping Lambda packages small when you can't bundle
-Using a bundler is the optimal solution, be can be complex depending on your setup. In this case you should remove 
+### Keeping Lambda node_modules small
+Using a bundler is the optimal solution, but can be complex depending on your setup. In this case you should remove 
 excess files from your `node_modules` directory to ensure it doesn't have anything excess shipped to AWS. We put together
 a [`.yarnclean`](/docs/.yarnclean) file you can check out and use as part of your CI/CD process.
 
 ### Keeping your middlewares fast
-**TODO**
-- Add docs for profilers
-- link to clinicjs and add example
+There is a whole document on this, [PROFILING.md](/docs/PROFILING.md).
 
 
 ## FAQ
@@ -615,6 +618,9 @@ JSON modules are still experimental in Node.js v14. You need to enable if with a
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
+#### Version 2 Ready
+
+#### Version 1
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
 - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
 - [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
@@ -633,6 +639,16 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [@ematipico/middy-request-response](https://www.npmjs.com/package/@ematipico/middy-request-response): a middleware that creates a pair of request/response objects
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
+
+## A brief history of Middy
+- Middy was started in the early beginning of AWS Lambda. 
+- 2017-08-03: It was first made public
+- 2018-05-20: v1.0.0-alpha
+- 2020-01-09: v1.0.0-beta
+- 2020-04-25: [v1.0.0 Released](https://loige.co/middy-1-is-here/)
+- [2020 Review](https://loige.co/2020-a-year-in-review/#middy) from @lmammino
+- [2020 Review](https://github.com/middyjs/middy/issues/590) from @willfarrell
+- 2021: [v2.0.0 Coming soon](https://github.com/middyjs/middy/issues/585)
 
 ## Contributing
 

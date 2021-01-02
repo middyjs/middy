@@ -12,10 +12,12 @@ export default (opts = {}) => {
     logger(id, process.hrtime(store[id])[1] / 1000000, 'ms')
   }
 
-  const start = () => before('lambda')
+  const start = () => before('total')
+  const initStart = () => before('init')
+  const initEnd = () => after('init')
   const beforeHandler = () => before('handler')
   const afterHandler = () => after('handler')
-  const end = () => after('lambda')
+  const end = () => after('total')
 
-  return { start, before, beforeHandler, afterHandler, after, end }
+  return { start, initStart, initEnd, before, beforeHandler, afterHandler, after, end }
 }

@@ -15,10 +15,12 @@ export default (opts = {}) => {
     logger(id, store[id].end())
   }
 
-  const start = () => before('lambda')
+  const start = () => before('total')
+  const initStart = () => before('init')
+  const initEnd = () => after('init')
   const beforeHandler = () => before('handler')
   const afterHandler = () => before('handler')
-  const end = () => after('lambda')
+  const end = () => after('total')
 
-  return { start, before, beforeHandler, afterHandler, after, end }
+  return { start, initStart, initEnd, before, beforeHandler, afterHandler, after, end }
 }
