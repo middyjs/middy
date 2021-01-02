@@ -618,7 +618,7 @@ JSON modules are still experimental in Node.js v14. You need to enable if with a
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-#### Version 2 Ready
+#### Version 2
 
 #### Version 1
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware

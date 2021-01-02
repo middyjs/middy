@@ -87,7 +87,7 @@ No change
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
 Replaced option `sqs` with `AwsClient` and added in more options for control.
 
-### [ssm](/packages/ssm/README.md) ** TODO add in external replacement
+### [ssm](/packages/ssm/README.md) ** TODO add in external replacement for ssm path support
 Refactored. Removed ability to fetch values by path due to how the API worked and how that effected performance.
 
 ### [sts](/packages/sts/README.md)
@@ -97,6 +97,9 @@ New middleware to fetch assume role credentials.
 Upgraded `ajv` and it's plugins to support JSON Schema Draft 2019-09 specification. Defaults were change because of this.
 - Plugin `ajv-keywords` removed from being included by default because it's quite a large package and usually only one keyword is used.
 - Plugin `ajv-errors` removed from included by default because it conflicts with `ajv-i18n` when dealing with custom messages for multiple languages
+
+Note: 
+- `avj-errors` maybe be re-added back in before v2-alpha is released based on ajv v8 development. See https://github.com/ajv-validator/ajv-errors/issues/81 for discussion.
 
 ### warmup
 Deprecated. This was a work round for a missing feature in AWS Lambda. AWS added in the ability to use [provisioned concurrency](https://aws.amazon.com/blogs/aws/new-provisioned-concurrency-for-lambda-functions/)
