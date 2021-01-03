@@ -77,7 +77,7 @@ New middleware to fetch RDS credential used when connecting with IAM roles. This
 No change
 
 ### [secrets-manager](/packages/secrets-manager/README.md)
-Refactored
+Refactored, see documentation
 
 ### [sqs-json-body-parser](/packages/sqs-json-body-parser/README.md)
 No change
@@ -86,7 +86,7 @@ No change
 Replaced option `sqs` with `AwsClient` and added in more options for control.
 
 ### [ssm](/packages/ssm/README.md)
-Refactored
+Refactored, see documentation
 
 ### [sts](/packages/sts/README.md)
 New middleware to fetch assume role credentials.
