@@ -639,6 +639,8 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [@ematipico/middy-request-response](https://www.npmjs.com/package/@ematipico/middy-request-response): a middleware that creates a pair of request/response objects
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
+- [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
+- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 
 ## A brief history of Middy
 - Middy was started in the early beginning of AWS Lambda. 
