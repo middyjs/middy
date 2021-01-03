@@ -70,7 +70,7 @@ No change
 ### [input-output-logger](/packages/input-output-logger/README.md)
 Now additionally logs response from the `onError` middleware stack
 
-### [rds-signer](/packages/rds-signer/README.md) ** TODO update after aws sdk supported
+### [rds-signer](/packages/rds-signer/README.md)
 New middleware to fetch RDS credential used when connecting with IAM roles. This was built into `db-manager`.
 
 ### [s3-key-normalizer](/packages/s3-key-normalizer/README.md)
@@ -85,8 +85,8 @@ No change
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
 Replaced option `sqs` with `AwsClient` and added in more options for control.
 
-### [ssm](/packages/ssm/README.md) ** TODO add in external replacement for ssm path support
-Refactored. Removed ability to fetch values by path due to how the API worked and how that effected performance.
+### [ssm](/packages/ssm/README.md)
+Refactored
 
 ### [sts](/packages/sts/README.md)
 New middleware to fetch assume role credentials.

@@ -50,7 +50,7 @@ npm install --save @middy/ssm
 - `AwsClient` (object) (default `AWS.SSM`): AWS.SSM class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
-- `fetchData` (object) (required): Mapping of internal key name to API request parameters.
+- `fetchData` (object) (required): Mapping of internal key name to API request parameter `Name`.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `ssm`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
@@ -59,7 +59,7 @@ npm install --save @middy/ssm
 - `onChange` (function) (optional): Calls function when role tokens change after being initially set.
 
 NOTES:
-- Lambda is required to have IAM permission for `ssm:GetParameters`
+- Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting.
 - `setToEnv` and `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
 - `setToEnv` can only assign secrets of type string
 
@@ -75,7 +75,8 @@ const handler = middy((event, context) => {
 
 handler.use(ssm({
   fetchData: {
-    accessToken: '/dev/service_name/access_token'
+    accessToken: '/dev/service_name/access_token',  // single value
+    dbParams: '/dev/service_name/database/'         // object of values, key for each path
   }
 }))
 
