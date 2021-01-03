@@ -88,7 +88,6 @@ export default (handler = () => {}, profiler = null) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-
   const instance = (event = {}, context = {}) => {
     const request = {
       event,

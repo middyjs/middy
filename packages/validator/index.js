@@ -12,7 +12,7 @@ const ajvDefaults = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: 'empty',
-  messages: false, // allow i18n
+  messages: false // allow i18n
 
 }
 
