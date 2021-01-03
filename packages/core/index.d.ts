@@ -1,57 +1,120 @@
 import {
-  Callback,
-  Context,
-  Handler
-} from 'aws-lambda'
+  Callback as AWSCallback,
+  Context as AWSContext,
+  Handler as AWSHandler,
+} from "aws-lambda";
 
-declare type EventType<T, C> =
-  T extends (event: infer EventArgType, context: C, callback: Callback<any>) => void ? EventArgType :
-  T extends (event: infer EventArgType, context: C) => Promise<any> ? EventArgType :
-  never;
+declare type EventType<
+  Handler,
+  Context extends AWSContext = AWSContext
+> = Handler extends (
+  event: infer EventArgType,
+  context: Context,
+  callback: AWSCallback<unknown>
+) => void
+  ? EventArgType
+  : Handler extends (
+      event: infer EventArgType,
+      context: Context
+    ) => Promise<unknown>
+  ? EventArgType
+  : never;
 
-declare type HandlerReturnType<T, C> =
-  T extends (event: any, context: C) => Promise<infer RetType> ? RetType :
-  T extends (event: any, context: C, callback: Callback<infer RetType>) => void ? RetType :
-  never;
+declare type HandlerReturnType<
+  Handler,
+  Context extends AWSContext = AWSContext
+> = Handler extends (
+  event: unknown,
+  context: Context
+) => Promise<infer Response>
+  ? Response
+  : Handler extends (
+      event: unknown,
+      context: Context,
+      callback: AWSCallback<infer Response>
+    ) => void
+  ? Response
+  : never;
 
-declare type AsyncHandler<C extends Context> =
-  ((event: any, context: C, callback: Callback<any>) => void) |
-  ((event: any, context: C) => Promise<any>);
+declare type AsyncHandler<
+  Event = unknown,
+  Response = unknown,
+  Context extends AWSContext = AWSContext
+> =
+  | ((event: Event, context: Context, callback: AWSCallback<Response>) => void)
+  | ((event: Event, context: Context) => Promise<Response>);
 
-declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(handler: H) => middy.Middy<
-  EventType<H, C>,
-  HandlerReturnType<H, C>,
-  C
->
+declare const middy: <
+  Handler extends AsyncHandler<unknown, unknown, Context>,
+  Context extends AWSContext = AWSContext
+>(
+  handler: Handler
+) => middy.Middy<
+  EventType<Handler, Context>,
+  HandlerReturnType<Handler, Context>,
+  Context
+>;
 
 declare namespace middy {
-  interface Middy<T, R, C extends Context = Context> extends Handler<T, R> {
-    use: <M extends MiddlewareObject<T, R, C>>(middlewares: M | M[]) => Middy<T, R, C>;
-    before: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
-    after: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
-    onError: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
+  interface Middy<
+    Event = unknown,
+    Response = unknown,
+    Context extends AWSContext = AWSContext
+  > extends AWSHandler<Event, Response> {
+    use: <M extends MiddlewareObject<Event, Response, Context>>(
+      middlewares: M | M[]
+    ) => Middy<Event, Response, Context>;
+    before: (
+      callbackFn: MiddlewareFunction<Event, Response, Context>
+    ) => Middy<Event, Response, Context>;
+    after: (
+      callbackFn: MiddlewareFunction<Event, Response, Context>
+    ) => Middy<Event, Response, Context>;
+    onError: (
+      callbackFn: MiddlewareFunction<Event, Response, Context>
+    ) => Middy<Event, Response, Context>;
   }
 
-  type Middleware<C extends any, T = any, R = any> = (config?: C) => MiddlewareObject<T, R>;
+  type Middleware<
+    Config = unknown,
+    Event = unknown,
+    Response = unknown,
+    Context extends AWSContext = AWSContext
+  > = (config?: Config) => MiddlewareObject<Event, Response, Context>;
 
-  interface MiddlewareObject<T, R, C extends Context = Context> {
-    before?: MiddlewareFunction<T, R, C>;
-    after?: MiddlewareFunction<T, R, C>;
-    onError?: MiddlewareFunction<T, R, C>;
+  interface MiddlewareObject<
+    Event = unknown,
+    Response = unknown,
+    Context extends AWSContext = AWSContext
+  > {
+    before?: MiddlewareFunction<Event, Response, Context>;
+    after?: MiddlewareFunction<Event, Response, Context>;
+    onError?: MiddlewareFunction<Event, Response, Context>;
   }
 
-  type MiddlewareFunction<T, R, C extends Context = Context> = (handler: HandlerLambda<T, R, C>, next: NextFunction) => void | Promise<any>;
+  type MiddlewareFunction<
+    Event,
+    Response,
+    Context extends AWSContext = AWSContext
+  > = (
+    handler: HandlerLambda<Event, Response, Context>,
+    next: NextFunction
+  ) => void | Promise<unknown>;
 
-  type NextFunction = (error?: any) => void;
+  type NextFunction = (error?: Error) => void;
 
-  interface HandlerLambda<T = any, V = any, C extends Context = Context> {
-    event: T;
-    context: C;
-    response: V;
+  interface HandlerLambda<
+    Event = unknown,
+    Response = unknown,
+    Context extends AWSContext = AWSContext
+  > {
+    event: Event;
+    context: Context;
+    response: Response;
     error: Error;
-    callback: Callback<V>;
+    callback: AWSCallback<Response>;
   }
 }
 
-export default middy
+export default middy;
 export as namespace middy;
