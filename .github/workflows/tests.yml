@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.x]
+        node-version: [12.x, 14.x]
 
     steps:
     - uses: actions/checkout@v2
@@ -37,6 +37,9 @@ jobs:
       run: npm run test:lint:ci
       env:
         CI: true
+    - name: Build as Commonjs for Node.js v12
+      run: |
+        lerna exec --bail --concurrency 2 -- babel  index.js --out-file index.js
     - name: Unit tests
       run: npm run test:packages:unit
       env:

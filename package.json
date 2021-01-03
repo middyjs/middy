@@ -25,7 +25,6 @@
     "lerna:outdated": "lerna exec --concurrency 2 npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
     "lerna:sync": "lerna exec --bail --concurrency 2 npm install && lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
-    "lerna:build": "lerna exec --bail --concurrency 2 -- babel  index.js --out-file index.cjs",
     "lerna:publish": "lerna publish --yes --skip-git --repo-version $npm_package_version"
   },
   "repository": {
