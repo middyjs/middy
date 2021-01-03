@@ -1,12 +1,10 @@
 import test from 'ava'
 import sinon from 'sinon'
-
-import {RDS} from '@aws-sdk/client-rds'
-import {Signer} from '@aws-sdk/client-signer'
-
 import middy from '../../core/index.js'
-import rdsSigner from '../index.js'
 import { getInternal, clearCache } from '../../core/util.js'
+import RDS from 'aws-sdk/clients/rds.js' // v2
+//import {RDS} from '@aws-sdk/client-rds' // v3
+import rdsSigner from '../index.js'
 
 
 let sandbox
@@ -31,16 +29,6 @@ const makeRdsSpy = (resp) => {
 }
 
 test.serial('It should an authToken', async (t) => {
-  const client = new RDS()
-  console.log(RDS, client)
-  console.log(RDS.Signer)
-  console.log(client.Signer)
-
-  const clientS =  new Signer()
-  console.log(Signer, clientS)
-  console.log(Signer.getAuthToken)
-  console.log(clientS.getAuthToken)
-
   const rdsSpy = sandbox.stub(RDS.prototype, 'Signer').returns({ getAuthToken: async ()=> 'token'})
 
   const handler = middy((event, context) => {})

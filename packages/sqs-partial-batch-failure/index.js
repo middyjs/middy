@@ -1,5 +1,6 @@
-import { SQS } from '@aws-sdk/client-sqs'
 import { canPrefetch, createPrefetchClient, createClient } from '@middy/core/util.js'
+import SQS from 'aws-sdk/clients/sqs.js' // v2
+// import { SQS } from '@aws-sdk/client-sqs' // v3
 
 const defaults = {
   AwsClient: SQS, // Allow for XRay
@@ -11,19 +12,25 @@ const defaults = {
 export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  const getQueueUrl = async (eventSourceARN) => {
+  const getQueueUrl = (eventSourceARN) => { // needs to be async for aws-sdk v3
     const [, , , , accountId, queueName] = eventSourceARN.split(':')
-    const urlParts = await client.config.endpoint() // Why AWS, just why ... ?
+    // aws-sdk v2
+    const urlParts = client.endpoint // possible alt, https://${client.config.endpoint}/
+    // aws-sdk v3
+    // const urlParts = await client.config.endpoint() // Missing `href` and a promise ... Why AWS, just why ... ?
+
     return `${urlParts.protocol}//${urlParts.hostname}${urlParts.path}${accountId}/${queueName}`
   }
 
   const deleteSqsMessages = async (fulfilledRecords) => {
-    if (!fulfilledRecords || !fulfilledRecords.length) return null
+    if (!fulfilledRecords?.length) return null
 
     const Entries = getEntries(fulfilledRecords)
     const { eventSourceARN } = fulfilledRecords[0]
-    const QueueUrl = await getQueueUrl(eventSourceARN)
-    return client.deleteMessageBatch({ Entries, QueueUrl })
+    const QueueUrl = getQueueUrl(eventSourceARN)
+    return client
+      .deleteMessageBatch({ Entries, QueueUrl })
+      .promise() // Required for aws-sdk v2
   }
 
   let client

@@ -1,5 +1,6 @@
 import { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } from '@middy/core/util.js'
-import { STS } from '@aws-sdk/client-sts'
+import STS from 'aws-sdk/clients/sts.js' // v2
+// import { STS } from '@aws-sdk/client-sts' // v3
 
 const defaults = {
   AwsClient: STS, // Allow for XRay
@@ -26,6 +27,7 @@ export default (opts = {}) => {
       assumeRoleOptions.RoleSessionName = assumeRoleOptions?.RoleSessionName ?? 'middy-sts-session-' + Math.random() * 99999 | 0
       values[internalKey] = client
         .assumeRole(assumeRoleOptions)
+        .promise() // Required for aws-sdk v2
         .then(resp => ({
           accessKeyId: resp.Credentials.AccessKeyId,
           secretAccessKey: resp.Credentials.SecretAccessKey,

@@ -6,7 +6,8 @@ import {
   jsonSafeParse,
   getInternal
 } from '@middy/core/util.js'
-import { SSM } from '@aws-sdk/client-ssm'
+import SSM from 'aws-sdk/clients/ssm.js' // v2
+// import { SSM } from '@aws-sdk/client-ssm' // v3
 
 const awsRequestLimit = 10
 const defaults = {
@@ -44,6 +45,7 @@ export default (opts = {}) => {
 
       request = client
         .getParameters({ Names: batch, WithDecryption: true })
+        .promise() // Required for aws-sdk v2
         .then(resp => {
           if (resp.InvalidParameters?.length) {
             throw new Error(

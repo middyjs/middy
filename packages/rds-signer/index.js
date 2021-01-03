@@ -1,8 +1,9 @@
 import { canPrefetch, createClient, getInternal, processCache } from '@middy/core/util.js'
-import { RDS } from '@aws-sdk/client-rds'
+import RDS from 'aws-sdk/clients/rds.js' // v2
+// import { RDS } from '@aws-sdk/client-rds' // v3
 
 const defaults = {
-  AwsClient: RDS.Signer, // Allow for XRay
+  AwsClient: RDS, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
@@ -24,6 +25,7 @@ export default (opts = {}) => {
       values[internalKey] = client
         .Signer({ ...options.awsClientOptions, ...options.fetchData[internalKey] })
         .getAuthToken()
+        .promise() // Required for aws-sdk v2
         // .then(resp => resp)
     }
 
@@ -33,7 +35,7 @@ export default (opts = {}) => {
   let prefetch, client, init
   if (canPrefetch(options)) {
     init = true
-    client = createClient(options)
+    // client = createClient(options)
     prefetch = processCache(options, fetch)
   }
 

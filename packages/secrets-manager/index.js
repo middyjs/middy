@@ -1,5 +1,6 @@
-import { SecretsManager } from '@aws-sdk/client-secrets-manager'
 import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
+import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
+// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
 
 const defaults = {
   AwsClient: SecretsManager, // Allow for XRay
@@ -27,9 +28,9 @@ export default (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       values[internalKey] = client
         .getSecretValue({ SecretId: options.fetchData[internalKey] })
+        .promise() // Required for aws-sdk v2
         .then(resp => jsonSafeParse(resp.SecretString))
     }
-
     return values
   }
 

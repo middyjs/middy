@@ -1,8 +1,10 @@
 import test from 'ava'
 import sinon from 'sinon'
-import { SecretsManager } from '@aws-sdk/client-secrets-manager'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../core/util.js'
+//import AWS from 'aws-sdk-mock'  // v2
+import SecretsManager from 'aws-sdk/clients/secretsmanager.js'  // v2
+//import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
 import secretsManager from '../index.js'
 
 let sandbox
@@ -15,11 +17,24 @@ test.afterEach((t) => {
   clearCache()
 })
 
+const mockService = (client, responseOne, responseTwo) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
+  if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  client.prototype.getSecretValue = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
 test.serial('It should set secret to internal storage (token)', async (t) => {
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  mockService(SecretsManager, {
     SecretString: 'token'
   })
-
   const handler = middy((handler) => {})
 
   const middleware = async (handler) => {
@@ -40,13 +55,11 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set secrets to internal storage (token)', async (t) => {
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue')
-    .onFirstCall().resolves({
-      SecretString: 'token1'
-    })
-    .onSecondCall().resolves({
-      SecretString: 'token2'
-    })
+  mockService(SecretsManager,{
+    SecretString: 'token1'
+  }, {
+    SecretString: 'token2'
+  })
 
   const handler = middy((handler) => {})
 
@@ -70,15 +83,15 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set secrets to internal storage (json)', async (t) => {
-  const credentials = {username:'admin',password:'secret'}
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  const credentials = { username: 'admin', password: 'secret' }
+  mockService(SecretsManager,{
     SecretString: JSON.stringify(credentials)
   })
 
   const handler = middy((handler) => {})
 
   const middleware = async (handler) => {
-    const values = await getInternal({username:'credentials.username', password:'credentials.password'}, handler)
+    const values = await getInternal({ username: 'credentials.username', password: 'credentials.password' }, handler)
     t.deepEqual(values, credentials)
   }
 
@@ -95,7 +108,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
 })
 
 test.serial('It should set SecretsManager secret to internal storage without prefetch', async (t) => {
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  mockService(SecretsManager,{
     SecretString: 'token'
   })
 
@@ -121,7 +134,7 @@ test.serial('It should set SecretsManager secret to internal storage without pre
 })
 
 test.serial('It should set SecretsManager secret to context', async (t) => {
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  mockService(SecretsManager,{
     SecretString: 'token'
   })
 
@@ -145,7 +158,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
 })
 
 test.serial('It should set SecretsManager secret to process.env', async (t) => {
-  sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  mockService(SecretsManager,{
     SecretString: 'token'
   })
 
@@ -169,7 +182,7 @@ test.serial('It should set SecretsManager secret to process.env', async (t) => {
 })
 
 test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
-  const stub = sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  const stub = mockService(SecretsManager,{
     SecretString: 'token'
   })
 
@@ -196,7 +209,9 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 })
 
 test.serial('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
-  const stub = sandbox.stub(SecretsManager.prototype, 'getSecretValue').resolves({
+  const stub = mockService(SecretsManager,{
+    SecretString: 'token'
+  },{
     SecretString: 'token'
   })
 

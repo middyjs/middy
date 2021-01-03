@@ -14,7 +14,8 @@ export const awsClientDefaultOptions = {
 
 export const createPrefetchClient = (options) => {
   const awsClientOptions = Object.assign({}, awsClientDefaultOptions, options.awsClientOptions)
-  return new options.AwsClient(awsClientOptions)
+  const client = new options.AwsClient(awsClientOptions)
+  return client
 }
 
 export const createClient = async (options, handler) => {

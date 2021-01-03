@@ -302,7 +302,6 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     // other middleware that puts the cors header
     .use({
       after: (handler) => {
-        console.log('after')
         handler.response = handler.response || {}
         handler.response.headers = handler.response.headers || {}
         handler.response.headers['Access-Control-Allow-Credentials'] = 'true'

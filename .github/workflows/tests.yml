@@ -28,7 +28,9 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - name: Install dependencies
-      run: npm install
+      run: |
+        npm install
+        npm run lerna:install
       env:
         CI: true
     - name: Linting
