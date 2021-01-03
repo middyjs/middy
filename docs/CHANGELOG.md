@@ -9,7 +9,6 @@ Focus this version was on performance and security by default.
 - New profiler hook for `core` to allow easier bottleneck detection with middlewares and handler
 
 ## Breaking Changes
-- Updated `aws-sdk` to v3
 - Updated all packages to be ES6 modules (esm)
 - All middlewares now use `async/await` and have deprecated `next(err)` and `callback(err, response)`
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)

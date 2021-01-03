@@ -38,7 +38,7 @@ npm install --save @middy/rds-signer
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.RDS.Signer`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay)
+- `AwsClient` (object) (default `AWS.STS`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
@@ -55,7 +55,7 @@ NOTES:
 
 ```javascript
 import middy from '@middy/core'
-import rdsSigner from '@middy/sts'
+import sts from '@middy/sts'
 
 const handler = middy((event, context) => {
   const response = {

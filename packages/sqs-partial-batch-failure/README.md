@@ -37,7 +37,7 @@ npm install --save @middy/sqs-partial-batch-failure
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SQS`): AWS.SQS class constructor (e.g. that has been instrumented with AWS XRay)
+- `AwsClient` (object) (default `AWS.SQS`): AWS.SQS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.SQS class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.

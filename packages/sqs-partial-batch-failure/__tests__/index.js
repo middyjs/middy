@@ -1,10 +1,12 @@
 import test from 'ava'
 import sinon from 'sinon'
 import createEvent from '@serverless/event-mocks'
-import { SQS } from '@aws-sdk/client-sqs'
+
 import middy from '../../core/index.js'
-import sqsPartialBatchFailure from '../index.js'
 import { clearCache } from '../../core/util.js'
+import SQS from 'aws-sdk/clients/sqs.js' // v2
+//import { SQS } from '@aws-sdk/client-sqs' // v3
+import sqsPartialBatchFailure from '../index.js'
 
 process.env.AWS_REGION = 'ca-central-1'
 
@@ -17,6 +19,20 @@ test.afterEach((t) => {
   sandbox.restore()
   clearCache()
 })
+
+const mockService = (client, responseOne, responseTwo) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
+  if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  client.prototype.deleteMessageBatch = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
 
 const originalHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
@@ -40,7 +56,7 @@ test.serial('Should resolve when there are no failed messages', async (t) => {
       }]
     }
   )
-  sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  mockService(SQS,{})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
       AwsClient: SQS,
@@ -69,7 +85,7 @@ test.serial('Should resolve when there are no failed messages, prefetch disabled
       }]
     }
   )
-  sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  mockService(SQS,{})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
       AwsClient: SQS,
@@ -105,7 +121,7 @@ test.serial('Should throw with failure reasons', async (t) => {
       }]
     }
   )
-  const sqs = sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  const mock = mockService(SQS,{})
   const handler = middy(originalHandler)
     .use(sqsPartialBatchFailure({
       AwsClient: SQS
@@ -114,10 +130,10 @@ test.serial('Should throw with failure reasons', async (t) => {
     await handler(event)
   } catch (e) {
     t.is(e.message, 'Error message...')
-    t.is(sqs.callCount, 1)
-    t.true(sqs.calledWith({
-      Entries: [{ Id: '0', ReceiptHandle: 'successfulMessageReceiptHandle' }],
-      QueueUrl: 'https://sqs.ca-central-1.amazonaws.com/123456789012/my-queue'
+    t.is(mock.callCount, 1)
+    t.true(mock.calledWith({
+      Entries: [ { Id: '0', ReceiptHandle: 'successfulMessageReceiptHandle' } ],
+      QueueUrl: 'https://sqs.us-west-2.amazonaws.com/123456789012/my-queue'
     }))
   }
 })

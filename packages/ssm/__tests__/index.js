@@ -1,8 +1,9 @@
 import test from 'ava'
 import sinon from 'sinon'
-import { SSM } from '@aws-sdk/client-ssm'
-import { getInternal, clearCache } from '../../core/util.js'
 import middy from '../../core/index.js'
+import { getInternal, clearCache } from '../../core/util.js'
+import SSM from 'aws-sdk/clients/ssm.js' // v2
+//import { SSM } from '@aws-sdk/client-ssm' // v3
 import ssm from '../index.js'
 
 let sandbox
@@ -15,8 +16,22 @@ test.afterEach((t) => {
   clearCache()
 })
 
+const mockService = (client, responseOne, responseTwo) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
+  if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  client.prototype.getParameters = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
 test.serial('It should set SSM param value to internal storage', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  mockService(SSM,{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -41,7 +56,7 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
 })
 
 test.serial('It should set SSM param value to internal storage without prefetch', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  mockService(SSM,{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -67,7 +82,7 @@ test.serial('It should set SSM param value to internal storage without prefetch'
 })
 
 test.serial('It should set SSM param value to context', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  mockService(SSM,{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -91,7 +106,7 @@ test.serial('It should set SSM param value to context', async (t) => {
 })
 
 test.serial('It should set SSM param value to process.env', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  mockService(SSM,{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -115,8 +130,7 @@ test.serial('It should set SSM param value to process.env', async (t) => {
 })
 
 test.serial('It should set SSM param value to internal storage when request > 10 params', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters')
-    .onFirstCall().resolves({
+  mockService(SSM,{
       Parameters: [
         { Name: '/dev/service_name/key_name0', Value: 'key-value0' },
         { Name: '/dev/service_name/key_name1', Value: 'key-value1' },
@@ -129,8 +143,7 @@ test.serial('It should set SSM param value to internal storage when request > 10
         { Name: '/dev/service_name/key_name8', Value: 'key-value8' },
         { Name: '/dev/service_name/key_name9', Value: 'key-value9' },
       ]
-    })
-    .onSecondCall().resolves({
+    },{
       Parameters: [
         { Name: '/dev/service_name/key_name10', Value: 'key-value10' },
         { Name: '/dev/service_name/key_name11', Value: 'key-value11' },
@@ -179,7 +192,7 @@ test.serial('It should set SSM param value to internal storage when request > 10
 })
 
 test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
-  const stub = sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  const stub = mockService(SSM,{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -206,7 +219,9 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 })
 
 test.serial('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
-  const stub = sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  const stub = mockService(SSM,{
+    Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+  },{
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
@@ -234,7 +249,7 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
 })
 
 test('It should throw error if InvalidParameters returned', async (t) => {
-  sandbox.stub(SSM.prototype, 'getParameters').resolves({
+  mockService(SSM,{
     InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
   })
 

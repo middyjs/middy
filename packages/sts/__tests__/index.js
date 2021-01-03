@@ -1,8 +1,9 @@
 import test from 'ava'
 import sinon from 'sinon'
-import { STS } from '@aws-sdk/client-sts'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../core/util.js'
+import STS from 'aws-sdk/clients/sts.js' // v2
+//import { STS } from '@aws-sdk/client-sts' // v3
 import sts from '../index.js'
 
 let sandbox
@@ -15,8 +16,22 @@ test.afterEach((t) => {
   clearCache()
 })
 
+const mockService = (client, responseOne, responseTwo) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
+  if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  client.prototype.assumeRole = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
 test.serial('It should set credential to internal storage', async (t) => {
-  sandbox.stub(STS.prototype, 'assumeRole').resolves({
+  mockService(STS,{
     Credentials: {
       AccessKeyId: 'accessKeyId',
       SecretAccessKey: 'secretAccessKey',
@@ -50,7 +65,7 @@ test.serial('It should set credential to internal storage', async (t) => {
 })
 
 test.serial('It should set STS secret to internal storage without prefetch', async (t) => {
-  sandbox.stub(STS.prototype, 'assumeRole').resolves({
+  mockService(STS,{
     Credentials: {
       AccessKeyId: 'accessKeyId',
       SecretAccessKey: 'secretAccessKey',
@@ -86,7 +101,7 @@ test.serial('It should set STS secret to internal storage without prefetch', asy
 })
 
 test.serial('It should set STS secret to context', async (t) => {
-  sandbox.stub(STS.prototype, 'assumeRole').resolves({
+  mockService(STS,{
     Credentials: {
       AccessKeyId: 'accessKeyId',
       SecretAccessKey: 'secretAccessKey',
@@ -120,7 +135,7 @@ test.serial('It should set STS secret to context', async (t) => {
 })
 
 test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
-  const stub = sandbox.stub(STS.prototype, 'assumeRole').resolves({
+  const stub = mockService(STS,{
     Credentials: {
       AccessKeyId: 'accessKeyId',
       SecretAccessKey: 'secretAccessKey',
@@ -157,7 +172,13 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 })
 
 test.serial('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
-  const stub = sandbox.stub(STS.prototype, 'assumeRole').resolves({
+  const stub = mockService(STS,{
+    Credentials: {
+      AccessKeyId: 'accessKeyId',
+      SecretAccessKey: 'secretAccessKey',
+      SessionToken: 'sessionToken'
+    }
+  },{
     Credentials: {
       AccessKeyId: 'accessKeyId',
       SecretAccessKey: 'secretAccessKey',
