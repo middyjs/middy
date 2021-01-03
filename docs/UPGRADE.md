@@ -1,11 +1,9 @@
 # Upgrade 1.x -> 2.x
 
-See [CHANGELOG](/docs/CHANGELOG.md) for overview of changes.
+See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 
-Version 2.x of Middy no longer supports Node.js versions 10.x and 12.x. You are highly encouraged to move to Node.js 14, 
-which support ES6 modules by default and optional chaining.
-
-All modules are `esm`
+Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly encouraged to move to Node.js 14, 
+which support ES6 modules by default (`export`), optional chaining (`?.`) and nullish coalescing operator (`??`) natively.
 
 ## Core
 - In handler `callback(err, reponse)` have been removed for `async/await` support

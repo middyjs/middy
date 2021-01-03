@@ -6,8 +6,8 @@ export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const httpResponseSerializerMiddlewareAfter = async (handler) => {
     // normalise headers for internal use only
-    const requestHeaders = getNormalisedHeaders((handler.event && handler.event.headers) || {})
-    const responseHeaders = getNormalisedHeaders((handler.response && handler.response.headers) || {})
+    const requestHeaders = getNormalisedHeaders(handler.event?.headers ?? {})
+    const responseHeaders = getNormalisedHeaders(handler.response?.headers ?? {})
 
     // skip serialization when content-type is already set
     if (responseHeaders['content-type']) {
@@ -17,7 +17,7 @@ export default (opts = {}) => {
     // find accept value(s)
     let types
 
-    const handlerEvent = handler.event || {}
+    const handlerEvent = handler.event ?? {}
     if (handlerEvent.requiredContentType) {
       types = [].concat(handlerEvent.requiredContentType)
     } else {
@@ -40,10 +40,12 @@ export default (opts = {}) => {
       if (!test) { return false }
 
       // if the response is not an object, assign it to body. { body: undefined } is not serialized
-      handler.response = handler.response !== null && typeof handler.response === 'object' ? handler.response : { body: handler.response }
+      handler.response = handler.response !== null && typeof handler.response === 'object'
+        ? handler.response
+        : { body: handler.response }
 
       // set header
-      handler.response.headers = handler.response.headers || {}
+      handler.response.headers = handler.response?.headers ?? {}
       handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
 
       // run serializer

@@ -13,18 +13,19 @@ const ajvDefaults = {
   allErrors: true,
   useDefaults: 'empty',
   messages: false, // allow i18n
-  defaultLanguage: 'en'
+
 }
 
 const defaults = {
   inputSchema: null,
   outputSchema: null,
   ajvOptions: {},
-  ajvInstance: undefined
+  ajvInstance: undefined,
+  defaultLanguage: 'en'
 }
 
 export default (opts = {}) => {
-  let { inputSchema, outputSchema, ajvOptions, ajvInstance } = Object.assign({}, defaults, opts)
+  let { inputSchema, outputSchema, ajvOptions, ajvInstance, defaultLanguage } = Object.assign({}, defaults, opts)
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
@@ -35,7 +36,7 @@ export default (opts = {}) => {
       const error = new createError.BadRequest('Event object failed validation')
       handler.event.headers = Object.assign({}, handler.event.headers)
 
-      const language = chooseLanguage(handler.event, options.defaultLanguage)
+      const language = chooseLanguage(handler.event, defaultLanguage)
       localize[language](inputSchema.errors)
 
       error.details = inputSchema.errors
@@ -63,7 +64,7 @@ export default (opts = {}) => {
 // Precompile your schema during a build step is recommended.
 export const compile = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
-  if (typeof schema === 'function') return schema
+  if (typeof schema === 'function' || !schema) return schema
   const options = Object.assign({}, ajvDefaults, ajvOptions)
   if (!ajv) {
     ajv = ajvInstance || new Ajv(options)

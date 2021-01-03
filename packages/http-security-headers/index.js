@@ -125,8 +125,8 @@ export default (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
-    handler.response = handler.response || { statusCode: 500 } // catch thrown errors, prevent default statusCode
-    handler.response.headers = handler.response.headers || {}
+    handler.response = handler.response ?? { statusCode: 500 } // catch thrown errors, prevent default statusCode
+    handler.response.headers = handler.response?.headers ?? {}
 
     Object.keys(helmet).forEach(key => {
       const options = Object.assign({}, defaults[key], opts[key])

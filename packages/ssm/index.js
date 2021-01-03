@@ -56,7 +56,7 @@ export default (opts = {}) => {
             })
         })
 
-      for(const internalKey of batch) {
+      for (const internalKey of batch) {
         values[internalKey] = request.then(params => {
           params = Object.assign(...params)
           return params[options.fetchData[internalKey]]

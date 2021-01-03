@@ -16,7 +16,7 @@ export default (opts = {}) => {
       return
     }
 
-    const contentType = headers['Content-Type'] || headers['content-type']
+    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
     if (contentType) {
       const { type } = contentTypeLib.parse(contentType)
       if (type !== 'multipart/form-data') {

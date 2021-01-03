@@ -17,12 +17,15 @@
     "test:packages:unit": "c8 lerna exec --bail --concurrency 5 npm run test:unit",
     "test:packages:typings": "lerna exec --bail --concurrency 5 npm run test:typings",
     "release:tag": "git tag $npm_package_version && git push --tags",
-    "lerna:rm": "find . -type d -name 'node_modules' -exec rm -rf {} \\;",
+    "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:build",
+    "lerna:rm:build": "lerna exec -- rm -rf index.cjs",
+    "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
     "lerna:install": "lerna exec --bail --concurrency 5 npm i",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update",
     "lerna:outdated": "lerna exec --concurrency 2 npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
     "lerna:sync": "lerna exec --bail --concurrency 2 npm install && lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",
+    "lerna:build": "lerna exec --bail --concurrency 2 -- babel  index.js --out-file index.cjs",
     "lerna:publish": "lerna publish --yes --skip-git --repo-version $npm_package_version"
   },
   "repository": {
@@ -47,6 +50,9 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
+    "@babel/cli": "7.12.10",
+    "@babel/core": "7.12.10",
+    "@babel/preset-env": "7.12.11",
     "ava": "^3.14.0",
     "c8": "7.4.0",
     "eslint-plugin-import": "^2.22.1",

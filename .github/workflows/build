@@ -5,6 +5,7 @@ cd packages/$1
 
 mkdir -p dist
 
+cp index.js dist/
 cp index.d.ts dist/
 cp index.js dist/inde.mjs
 cp index.js dist/index.cjs

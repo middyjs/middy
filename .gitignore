@@ -1,5 +1,6 @@
 tmp
-dist
+*.cjs
+*.mjs
 
 # Logs
 logs

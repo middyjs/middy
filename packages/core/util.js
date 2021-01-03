@@ -98,7 +98,7 @@ export const getCache = (key) => {
 }
 
 export const clearCache = (keys = null) => {
-  if (!keys) keys = Object.keys(cache)
+  keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
     delete cache[cacheKey]
