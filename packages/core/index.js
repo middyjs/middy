@@ -1,5 +1,3 @@
-const isPromise = require('./isPromise')
-const once = require('once')
 
 /**
  * @typedef middy
@@ -39,10 +37,10 @@ const once = require('once')
  */
 
 /**
-  * @typedef middlewareNextFunction
-  * @type {function}
-  * @param {error} error - An optional error object to pass in case an error occurred
-  */
+ * @typedef middlewareNextFunction
+ * @type {function}
+ * @param {error} error - An optional error object to pass in case an error occurred
+ */
 
 /**
  * @typedef middlewareFunction
@@ -50,8 +48,7 @@ const once = require('once')
  * @param {function} handler - the original handler function.
  *   It will expose properties `event`, `context`, `response`, `error` and `callback` that can
  *   be used to interact with the middleware lifecycle
- * @param {middlewareNextFunction} next - the callback to invoke to pass the control to the next middleware
- * @return {void|Promise} - A middleware can return a Promise instead of using the `next` function as a callback.
+ * @return {void|Promise} - A middleware can return a Promise.
  *                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
  *                          propagate the result to the next middleware.
  */
@@ -64,147 +61,74 @@ const once = require('once')
  * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
  */
 
-const runMiddlewares = (middlewares, request, done) => {
+const runMiddlewares = async (middlewares, request, profiler = null) => {
   const stack = Array.from(middlewares)
-  const runNext = (err) => {
-    try {
-      if (err) {
-        return done(err)
-      }
-
-      const nextMiddleware = stack.shift()
-
-      if (nextMiddleware) {
-        const retVal = nextMiddleware(request, runNext)
-
-        if (retVal) {
-          if (!isPromise(retVal)) {
-            throw new Error('Unexpected return value in middleware')
-          }
-
-          retVal
-            .then(runNext)
-            .catch(done)
-        }
-
-        return
-      }
-
-      return done()
-    } catch (err) {
-      return done(err)
-    }
-  }
-
-  runNext()
-}
-
-const runErrorMiddlewares = (middlewares, request, done) => {
-  const stack = Array.from(middlewares)
-  request.__handledError = false
-  const runNext = (err) => {
-    try {
-      if (!err) {
-        request.__handledError = true
-      }
-
-      const nextMiddleware = stack.shift()
-
-      if (nextMiddleware) {
-        const retVal = nextMiddleware(request, runNext)
-
-        if (retVal) {
-          if (!isPromise(retVal)) {
-            const invalidMiddlewareReturnError = new Error('Unexpected return value in onError middleware')
-            // embed original error to avoid swallowing the real exception
-            invalidMiddlewareReturnError.originalError = err
-            throw invalidMiddlewareReturnError
-          }
-
-          retVal
-            .then(runNext)
-            .catch(done)
-        }
-
-        return
-      }
-
-      return done(request.__handledError ? null : err)
-    } catch (err) {
-      return done(err)
-    }
-  }
-
-  runNext(request.error)
+  if (!stack.length) return
+  const nextMiddleware = stack.shift()
+  profiler?.before(nextMiddleware?.name)
+  const res = await nextMiddleware?.(request)
+  profiler?.after(nextMiddleware?.name)
+  if (res !== undefined) {
+    request.response = res
+    return
+  } // short circuit chaining and respond early
+  return runMiddlewares(stack, request, profiler)
 }
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param  {function} handler - your original AWS Lambda function
+ * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-const middy = (handler) => {
+export default (handler = () => {}, profiler = null) => {
+  profiler?.start()
+  profiler?.initStart()
   const beforeMiddlewares = []
   const afterMiddlewares = []
-  const errorMiddlewares = []
+  const onErrorMiddlewares = []
 
-  const instance = (event, context, callback) => {
-    const request = {}
-    request.event = event
-    request.context = context
-    request.callback = callback
-    request.response = null
-    request.error = null
+  const defaultCallback = (e, r) => {
+    if (e) throw e
+    return r
+  }
+  const instance = (event = {}, context = {}, callbackLambda = defaultCallback) => {
+    const request = {
+      event,
+      context,
+      callback: (err, response) => {
+        profiler?.end()
+        return callbackLambda(err, response)
+      },
+      response: null,
+      error: null,
+      internal: {}
+    }
 
-    const middyPromise = new Promise((resolve, reject) => {
-      const terminate = (err) => {
-        if (err) {
-          return callback ? callback(err) : reject(err)
+    const middyPromise = async () => {
+      profiler?.initEnd()
+      try {
+        await runMiddlewares(beforeMiddlewares, request, profiler)
+        if (request.response) return request.callback(null, request.response) // catch short circuit
+        profiler?.beforeHandler()
+        request.response = await handler(request.event, request.context)
+        profiler?.afterHandler()
+        await runMiddlewares(afterMiddlewares, request, profiler)
+        return request.callback(null, request.response)
+      } catch (e) {
+        request.response = null
+        request.error = e
+        try {
+          await runMiddlewares(onErrorMiddlewares, request, profiler)
+          if (request.response) return request.callback(null, request.response)
+        } catch (e) {
+          e.originalError = request.error
+          request.error = e
         }
-
-        return callback ? callback(null, request.response) : resolve(request.response)
+        return request.callback(request.error)
       }
-
-      const errorHandler = err => {
-        request.error = err
-        return runErrorMiddlewares(errorMiddlewares, request, terminate)
-      }
-
-      runMiddlewares(beforeMiddlewares, request, (err) => {
-        if (err) return errorHandler(err)
-
-        const onHandlerError = once((err) => {
-          request.response = null
-          errorHandler(err)
-        })
-
-        const onHandlerSuccess = once((response) => {
-          request.response = response
-          runMiddlewares(afterMiddlewares, request, (err) => {
-            if (err) return errorHandler(err)
-
-            terminate()
-          })
-        })
-
-        const handlerReturnValue = handler.call(request, request.event, request.context, (err, response) => {
-          if (err) return onHandlerError(err)
-          onHandlerSuccess(response)
-        })
-
-        // support for async/await promise return in handler
-        if (handlerReturnValue) {
-          if (!isPromise(handlerReturnValue)) {
-            throw new Error('Unexpected return value in handler')
-          }
-
-          handlerReturnValue
-            .then(onHandlerSuccess)
-            .catch(onHandlerError)
-        }
-      })
-    })
-    if (!request.callback) return middyPromise
+    }
+    return middyPromise()
   }
 
   instance.use = (middlewares) => {
@@ -213,9 +137,8 @@ const middy = (handler) => {
       return instance
     } else if (typeof middlewares === 'object') {
       return instance.applyMiddleware(middlewares)
-    } else {
-      throw new Error('Middy.use() accepts an object or an array of objects')
     }
+    throw new Error('Middy.use() accepts an object or an array of objects')
   }
 
   instance.applyMiddleware = (middleware) => {
@@ -229,46 +152,32 @@ const middy = (handler) => {
       throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
     }
 
-    if (before) {
-      instance.before(before)
-    }
-
-    if (after) {
-      instance.after(after)
-    }
-
-    if (onError) {
-      instance.onError(onError)
-    }
+    if (before) instance.before(before)
+    if (after) instance.after(after)
+    if (onError) instance.onError(onError)
 
     return instance
   }
 
+  // Inline Middlewares
   instance.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
-
     return instance
   }
-
   instance.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware)
-
     return instance
   }
-
-  instance.onError = (errorMiddleware) => {
-    errorMiddlewares.push(errorMiddleware)
-
+  instance.onError = (onErrorMiddleware) => {
+    onErrorMiddlewares.push(onErrorMiddleware)
     return instance
   }
 
   instance.__middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
-    onError: errorMiddlewares
+    onError: onErrorMiddlewares
   }
 
   return instance
 }
-
-module.exports = middy

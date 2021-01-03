@@ -1,189 +1,98 @@
-const createEvent = require('@serverless/event-mocks').default
-const middy = require('../../core')
-const sqsJsonBodyParser = require('../')
+import test from 'ava'
+import sinon from 'sinon'
+import createEvent from '@serverless/event-mocks'
+import middy from '../../core/index.js'
+import sqsJsonBodyParser from '../index.js'
 
-describe('middleware/sqsJsonBodyParser >', () => {
-  let opts
-  let bodyParser
-  let next
-  let event
+let event
 
-  beforeEach(() => {
-    opts = undefined
-    bodyParser = sqsJsonBodyParser(opts)
-    next = jest.fn()
-    event = createEvent('aws:sqs')
+let sandbox
+test.beforeEach(t => {
+  event = createEvent.default('aws:sqs')
+  sandbox = sinon.createSandbox()
+})
+
+test.afterEach((t) => {
+  sandbox.restore()
+})
+
+test.serial('parses each body payload', async (t) => {
+  const handler = { event }
+  const bodys = [{ one: 1 }, { two: 2 }, { three: 3 }]
+  event.Records.push({ ...event.Records[0] })
+  event.Records.push({ ...event.Records[0] })
+
+  bodys.forEach((body, idx) => {
+    event.Records[idx].body = JSON.stringify(body)
   })
 
-  describe('as function >', () => {
-    let handler
+  await sqsJsonBodyParser().before(handler)
 
-    beforeEach(() => {
-      jest.spyOn(JSON, 'parse')
-
-      handler = { event }
-    })
-
-    afterEach(() => {
-      JSON.parse.mockRestore()
-    })
-
-    test('handles empty event object', () => {
-      handler = {}
-      bodyParser.before(handler, next)
-
-      expect(JSON.parse).not.toHaveBeenCalled()
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-
-    test('handles empty Records array', function () {
-      handler = { event: {} }
-      bodyParser.before(handler, next)
-
-      expect(JSON.parse).not.toHaveBeenCalled()
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-
-    test('parses each body payload', function () {
-      const bodys = [{ one: 1 }, { two: 2 }, { three: 3 }]
-      event.Records.push({ ...event.Records[0] })
-      event.Records.push({ ...event.Records[0] })
-
-      bodys.forEach((body, idx) => {
-        event.Records[idx].body = JSON.stringify(body)
-      })
-
-      bodyParser.before(handler, next)
-
-      expect(JSON.parse).toHaveBeenCalledTimes(3)
-      event.Records.forEach((rcd, idx) => {
-        expect(JSON.parse).toHaveBeenNthCalledWith((idx + 1), JSON.stringify(bodys[idx]), undefined)
-        expect(rcd.body).toStrictEqual(bodys[idx])
-      })
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-
-    test('returns original body when parse error', function () {
-      const body = 'bad json'
-      handler.event.Records[0].body = body
-      bodyParser.before(handler, next)
-
-      expect(JSON.parse).toHaveBeenCalledTimes(1)
-      expect(JSON.parse).toHaveBeenCalledWith(body, undefined)
-      expect(handler.event.Records[0].body).toBe(body)
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-
-    test('calls reviver when provided', function () {
-      const body = '{}'
-      handler.event.Records[0].body = body
-      const reviver = jest.fn()
-      opts = { reviver }
-      bodyParser = sqsJsonBodyParser(opts)
-
-      bodyParser.before(handler, next)
-
-      expect(JSON.parse).toHaveBeenCalledTimes(1)
-      expect(JSON.parse).toHaveBeenCalledWith(body, reviver)
-      expect(reviver).toHaveBeenCalled()
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-
-    test('calls safeParse when provided', function () {
-      const { body } = handler.event.Records[0]
-      const safeParseRet = 'jibberish'
-      const reviver = jest.fn()
-      const safeParse = jest.fn().mockReturnValue(safeParseRet)
-      opts = { reviver, safeParse }
-      bodyParser = sqsJsonBodyParser(opts)
-
-      bodyParser.before(handler, next)
-
-      expect(safeParse).toHaveBeenCalledTimes(1)
-      expect(safeParse).toHaveBeenCalledWith(body, reviver)
-      expect(handler.event.Records[0].body).toBe(safeParseRet)
-      expect(next).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('as middleware > ', function () {
-    let originalHandler
-    let handler
-
-    beforeEach(function () {
-      originalHandler = jest.fn()
-      handler = middy(originalHandler)
-
-      handler.use(bodyParser)
-    })
-
-    test('parses the body', function () {
-      const body = '{}'
-      event.Records[0].body = body
-
-      handler(event, {})
-
-      expect(event.Records[0].body).toStrictEqual({})
-    })
-
-    test('parses all bodys', function () {
-      const bodys = [{ one: 1 }, { two: 2 }]
-      event.Records.push({ ...event.Records[0] })
-
-      bodys.forEach((body, idx) => {
-        event.Records[idx].body = JSON.stringify(body)
-      })
-
-      handler(event, {})
-
-      event.Records.forEach((rcd, idx) => {
-        expect(rcd.body).toStrictEqual(bodys[idx])
-      })
-    })
-
-    test('returns original body when parse error', function () {
-      const body = 'bad json'
-      event.Records[0].body = body
-
-      handler(event, {})
-
-      expect(event.Records[0].body).toBe(body)
-    })
-
-    test('calls reviver when provided', function () {
-      const body = '{}'
-      event.Records[0].body = body
-      const revivereRet = 'jibberish'
-      const reviver = jest.fn().mockReturnValue(revivereRet)
-      opts = { reviver }
-      bodyParser = sqsJsonBodyParser(opts)
-
-      handler = middy(originalHandler)
-
-      handler.use(bodyParser)
-
-      handler(event, {})
-
-      expect(reviver).toHaveBeenCalled()
-      expect(event.Records[0].body).toBe(revivereRet)
-    })
-
-    test('calls safeParse when provided', function () {
-      const { body } = event.Records[0]
-      const safeParseRet = 'jibberish'
-      const safeParse = jest.fn().mockReturnValue(safeParseRet)
-      opts = { safeParse }
-      bodyParser = sqsJsonBodyParser(opts)
-
-      handler = middy(originalHandler)
-
-      handler.use(bodyParser)
-
-      handler(event, {})
-
-      expect(safeParse).toHaveBeenCalledTimes(1)
-      expect(safeParse).toHaveBeenCalledWith(body, undefined)
-      expect(event.Records[0].body).toBe(safeParseRet)
-    })
+  event.Records.forEach((rcd, idx) => {
+    t.deepEqual(rcd.body, bodys[idx])
   })
 })
+
+test.serial('returns original body when parse error', async (t) => {
+  const handler = {event}
+  const body = 'bad json'
+  handler.event.Records[0].body = body
+  await sqsJsonBodyParser().before(handler)
+
+  t.deepEqual(handler.event.Records[0].body, body)
+})
+
+
+test.serial('It should parse the body', async (t) => {
+  const handler = middy()
+    .use(sqsJsonBodyParser())
+  const body = '{}'
+  event.Records[0].body = body
+
+  await handler(event, {})
+
+  t.deepEqual(event.Records[0].body, {})
+})
+
+test.serial('It should parse all bodys', async (t) => {
+  const handler = middy()
+    .use(sqsJsonBodyParser())
+  const bodys = [{ one: 1 }, { two: 2 }]
+  event.Records.push({ ...event.Records[0] })
+
+  bodys.forEach((body, idx) => {
+    event.Records[idx].body = JSON.stringify(body)
+  })
+
+  await handler(event, {})
+
+  event.Records.forEach((rcd, idx) => {
+    t.deepEqual(rcd.body, bodys[idx])
+  })
+})
+
+test.serial('It should return original body when parse error', async (t) =>{
+  const handler = middy()
+    .use(sqsJsonBodyParser())
+  const body = 'bad json'
+  event.Records[0].body = body
+
+  await handler(event, {})
+
+  t.deepEqual(event.Records[0].body, body)
+})
+
+test.serial('It should call reviver when provided', async (t) =>{
+  const handler = middy()
+  const body = '{}'
+  event.Records[0].body = body
+  const reviverReturn = 'jibberish'
+  const reviver = sandbox.stub().returns(reviverReturn)
+
+  handler.use(sqsJsonBodyParser({ reviver }))
+
+  await handler(event, {})
+
+  t.deepEqual(event.Records[0].body, reviverReturn)
+})
+

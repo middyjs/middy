@@ -1,9 +1,11 @@
-const createError = require('http-errors')
-const contentType = require('content-type')
+import createError from 'http-errors'
+import contentType from 'content-type'
 
-module.exports = (opts) => ({
-  before: (handler, next) => {
-    opts = opts || {}
+const defaults = {}
+
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+  const httpJsonBodyParserMiddlewareBefore = async (handler) => {
     if (handler.event.headers) {
       const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
       if (contentTypeHeader) {
@@ -14,13 +16,16 @@ module.exports = (opts) => ({
               ? Buffer.from(handler.event.body, 'base64').toString()
               : handler.event.body
 
-            handler.event.body = JSON.parse(data, opts.reviver)
+            handler.event.body = JSON.parse(data, options.reviver)
           } catch (err) {
             throw new createError.UnprocessableEntity('Content type defined as JSON but an invalid JSON was provided')
           }
         }
       }
     }
-    next()
   }
-})
+
+  return {
+    before: httpJsonBodyParserMiddlewareBefore
+  }
+}

@@ -1,4 +1,4 @@
-import { SecretsManager } from 'aws-sdk'
+import { SecretsManager } from '@aws-sdk/client-secrets-manager'
 import middy from '@middy/core'
 
 interface ISecretsManagerOptions {

@@ -1,4 +1,4 @@
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     runOnBefore: true,
     runOnAfter: false,
@@ -7,14 +7,13 @@ module.exports = (opts) => {
 
   const options = Object.assign({}, defaults, opts)
 
-  const disableEmptyEventLoopWait = (handler, next) => {
+  const doNotWaitForEmptyEventLoop = async (handler) => {
     handler.context.callbackWaitsForEmptyEventLoop = false
-    next(handler.error)
   }
 
   return ({
-    before: options.runOnBefore ? disableEmptyEventLoopWait : undefined,
-    after: options.runOnAfter ? disableEmptyEventLoopWait : undefined,
-    onError: options.runOnError ? disableEmptyEventLoopWait : undefined
+    before: options.runOnBefore ? doNotWaitForEmptyEventLoop : undefined,
+    after: options.runOnAfter ? doNotWaitForEmptyEventLoop : undefined,
+    onError: options.runOnError ? doNotWaitForEmptyEventLoop : undefined
   })
 }

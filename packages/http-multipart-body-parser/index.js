@@ -1,8 +1,8 @@
-const BusBoy = require('busboy')
-const contentTypeLib = require('content-type')
-const createError = require('http-errors')
+import BusBoy from 'busboy'
+import contentTypeLib from 'content-type'
+import createError from 'http-errors'
 
-module.exports = opts => {
+export default (opts = {}) => {
   const defaults = {
     // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
     busboy: {}
@@ -10,29 +10,29 @@ module.exports = opts => {
 
   const options = Object.assign({}, defaults, opts)
 
-  return {
-    before: (handler, next) => {
-      const { headers } = handler.event
-      if (!headers) {
-        return next()
-      }
-
-      const contentType = headers['Content-Type'] || headers['content-type']
-      if (contentType) {
-        const { type } = contentTypeLib.parse(contentType)
-        if (type !== 'multipart/form-data') {
-          return next()
-        }
-
-        return parseMultipartData(handler.event, options.busboy)
-          .then(multipartData => { handler.event.body = multipartData })
-          .catch(_ => {
-            throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided')
-          })
-      } else {
-        return next()
-      }
+  const httpMultipartBodyParserBefore = async (handler) => {
+    const { headers } = handler.event
+    if (!headers) {
+      return
     }
+
+    const contentType = headers['Content-Type'] || headers['content-type']
+    if (contentType) {
+      const { type } = contentTypeLib.parse(contentType)
+      if (type !== 'multipart/form-data') {
+        return
+      }
+
+      return parseMultipartData(handler.event, options.busboy)
+        .then(multipartData => { handler.event.body = multipartData })
+        .catch(_ => {
+          throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided')
+        })
+    }
+  }
+
+  return {
+    before: httpMultipartBodyParserBefore
   }
 }
 

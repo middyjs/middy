@@ -1,71 +1,90 @@
-const { invoke } = require('../../test-helpers')
-const middy = require('../../core')
-const inputOutputLogger = require('../')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import inputOutputLogger from '../index.js'
 
-describe('📦 Middleware Input Output Logger', () => {
-  test('It should log event and response', async () => {
-    const logger = jest.fn()
+// Silence logging
+console.log = () => {}
 
-    const handler = middy((event, context, cb) => {
-      cb(null, { message: 'hello world' })
-    })
+test('It should log event and response', async (t) => {
+  const logger = sinon.spy()
 
+  const handler = middy((event, context) => {
+    return { message: 'hello world' }
+  })
+
+  handler
+    .use(inputOutputLogger({ logger }))
+
+  await handler({ foo: 'bar', fuu: 'baz' })
+
+  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ response: { message: 'hello world' } }))
+})
+
+test('It should throw error when invalid logger', async (t) => {
+  const logger = false
+
+  const handler = middy((event, context) => {
+    return { message: 'hello world' }
+  })
+
+  try {
     handler
       .use(inputOutputLogger({ logger }))
 
-    await invoke(handler, { foo: 'bar', fuu: 'baz' })
-
-    expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
-    expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
-  })
-  describe('omitPaths', () => {
-    test('It should omit paths', async () => {
-      const logger = jest.fn()
-
-      const handler = middy((event, context, cb) => {
-        cb(null, { message: 'hello world', bar: 'bi' })
-      })
-
-      handler
-        .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
-
-      await invoke(handler, { foo: 'bar', fuu: 'baz' })
-
-      expect(logger).toHaveBeenCalledWith({ event: { fuu: 'baz' } })
-      expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
-    })
-    test('It should skip paths that do not exist', async () => {
-      const logger = jest.fn()
-
-      const handler = middy((event, context, cb) => {
-        cb(null, 'yo')
-      })
-
-      handler
-        .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.bar'] }))
-
-      await invoke(handler, { foo: 'bar', fuu: 'baz' })
-
-      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
-      expect(logger).toHaveBeenCalledWith({ response: 'yo' })
-    })
-
-    test('Skipped parts should be present in the response', async () => {
-      const logger = jest.fn()
-
-      const handler = middy((event, context, cb) => {
-        cb(null, { foo: [{ foo: 'bar', fuu: 'baz' }] })
-      })
-
-      handler
-        .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.foo[0].foo'] }))
-
-      const response = await invoke(handler, { foo: 'bar', fuu: 'baz' })
-
-      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
-      expect(logger).toHaveBeenCalledWith({ response: { foo: [{ fuu: 'baz' }] } })
-
-      expect(response).toMatchObject({ foo: [{ foo: 'bar', fuu: 'baz' }] })
-    })
-  })
+  } catch (e) {
+    t.is(e.message,'Middleware must contain at least one key among "before", "after", "onError"')
+  }
 })
+
+test('It should omit paths', async (t) => {
+  const logger = sinon.spy()
+
+  const handler = middy((event, context) => {
+    return { message: 'hello world', bar: 'bi' }
+  })
+
+  handler
+    .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
+
+  await handler({ foo: 'bar', fuu: 'baz' })
+
+  t.true(logger.calledWith({ event: { fuu: 'baz' } }))
+  t.true(logger.calledWith({ response: { message: 'hello world' } }))
+})
+test('It should skip paths that do not exist', async (t) => {
+  const logger = sinon.spy()
+
+  const handler = middy((event, context) => {
+    return 'yo'
+  })
+
+  handler
+    .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.bar'] }))
+
+  await handler({ foo: 'bar', fuu: 'baz' })
+
+  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ response: 'yo' }))
+})
+
+test('Skipped parts should be present in the response', async (t) => {
+  const logger = sinon.spy()
+
+  const handler = middy((event, context) => {
+    return { foo: [{ foo: 'bar', fuu: 'baz' }] }
+  })
+
+  handler
+    .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.foo[0].foo'] }))
+
+  const response = await handler({ foo: 'bar', fuu: 'baz' })
+
+  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ response: { foo: [{ foo: 'bar', fuu: 'baz' }] } }))
+
+  t.deepEqual(response, { foo: [{ foo: 'bar', fuu: 'baz' }] })
+})
+
+

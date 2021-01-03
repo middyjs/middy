@@ -1,3 +1,6 @@
+tmp
+dist
+
 # Logs
 logs
 *.log
@@ -60,8 +63,6 @@ typings/
 
 .tern-port
 .DS_Store
-docs/
-!docs/middlewares.md
 
 *.iml
 .idea/

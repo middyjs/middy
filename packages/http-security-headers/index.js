@@ -45,7 +45,7 @@ const helmetHtmlOnly = {}
 
 // crossdomain - N/A - For Adobe products
 
-// https://github.com/helmetjs/dns-prefetch-control
+// https://github.com/helmetjs/dns-Prefetch-control
 helmet.dnsPrefetchControl = (headers, options) => {
   headers['X-DNS-Prefetch-Control'] = options.allow ? 'on' : 'off'
   return headers
@@ -121,10 +121,10 @@ helmetHtmlOnly.xssFilter = (headers, options) => {
   return headers
 }
 
-module.exports = (opts = {}) => {
+export default (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
-  const response = (handler, next) => {
+  const httpSecurityHeadersMiddlewareAfter = async (handler) => {
     handler.response = handler.response || { statusCode: 500 } // catch thrown errors, prevent default statusCode
     handler.response.headers = handler.response.headers || {}
 
@@ -139,12 +139,12 @@ module.exports = (opts = {}) => {
         handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
       })
     }
-
-    next()
   }
 
+  const httpSecurityHeadersMiddlewareOnError = httpSecurityHeadersMiddlewareAfter
+
   return {
-    after: response,
-    onError: response
+    after: httpSecurityHeadersMiddlewareAfter,
+    onError: httpSecurityHeadersMiddlewareOnError
   }
 }

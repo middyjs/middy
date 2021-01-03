@@ -1,24 +1,20 @@
-const defaultSafeParse = (body, reviver) => {
-  try {
-    return JSON.parse(body, reviver)
-  } catch (err) {
-    return body
+import { jsonSafeParse } from '@middy/core/util.js'
+
+const defaults = {
+  reviver: undefined
+}
+
+export default (opts = {}) => {
+  const options = Object.assign({}, defaults, opts)
+
+  const sqsJsonBodyParserMiddlewareBefore = async (handler) => {
+    const { event: { Records = [] } = { Records: [] } } = handler
+
+    Records.forEach(record => {
+      record.body = jsonSafeParse(record.body || '{}', options.reviver)
+    })
+  }
+  return {
+    before: sqsJsonBodyParserMiddlewareBefore
   }
 }
-
-const sqsJsonBodyParserBefore = ({ reviver, safeParse }) => (handler, next) => {
-  const { event: { Records = [] } = { Records: [] } } = handler
-
-  Records.forEach(record => {
-    record.body = safeParse(record.body, reviver)
-  })
-
-  next()
-}
-
-module.exports = ({ reviver, safeParse = defaultSafeParse } = {}) => ({
-  before: sqsJsonBodyParserBefore({
-    reviver,
-    safeParse
-  })
-})

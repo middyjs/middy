@@ -1,0 +1,54 @@
+{
+  "name": "@middy/rds-signer",
+  "version": "2.0.0-alpha.0",
+  "description": "RDS (Relational Database Service) credentials middleware for the middy framework",
+  "type": "module",
+  "engines": {
+    "node": ">=14"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "index.js", "types": "index.d.ts", "files":[],
+
+  "scripts": {
+    "test": "npm run test:typings && npm run test:unit",
+    "test:unit": "",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "RDS",
+    "Relational Database Service",
+    "Credentials"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github:middyjs/middy",
+    "directory": "packages/rds-signer"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "@aws-sdk/client-rds": "3.0.0",
+    "@middy/core": "file:../core"
+  },
+  "devDependencies": {
+    "@types/node": "^14.0.0"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}

@@ -1,17 +1,20 @@
 {
   "name": "@middy/s3-key-normalizer",
-  "version": "1.5.0",
+  "version": "2.0.0-alpha.0",
   "description": "S3 key normalizer middleware for the middy framework",
+  "type": "module",
   "engines": {
-    "node": ">=10"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
     "access": "public"
   },
+  "main": "index.js", "types": "index.d.ts", "files":[],
+
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "jest",
+    "test:unit": "ava",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
   "license": "MIT",
@@ -33,18 +36,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/s3-key-normalizer"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
-  },
-  "devDependencies": {
-    "@middy/core": "^1.5.0",
-    "es6-promisify": "^6.0.2"
-  },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

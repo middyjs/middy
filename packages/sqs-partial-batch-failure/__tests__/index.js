@@ -1,83 +1,124 @@
-require('promise.allsettled').shim()
-const SQS = require('aws-sdk/clients/sqs')
-const eventMocks = require('@serverless/event-mocks').default
-const middy = require('../../core')
-const sqsBatchMiddleware = require('../')
+import test from 'ava'
+import sinon from 'sinon'
+import createEvent from '@serverless/event-mocks'
+import { SQS } from '@aws-sdk/client-sqs'
+import middy from '../../core/index.js'
+import sqsPartialBatchFailure from '../index.js'
+import { clearCache } from '../../core/util.js'
 
-// Mock SQS
-const mockDeleteMessageBatch = jest.fn()
-mockDeleteMessageBatch.mockImplementation(() => ({
-  async promise () { }
-}))
+process.env.AWS_REGION = 'ca-central-1'
 
-const sqs = new SQS({ region: 'us-east-2' })
-sqs.deleteMessageBatch = mockDeleteMessageBatch
-
-beforeEach(() => {
-  mockDeleteMessageBatch.mockClear()
+let sandbox
+test.beforeEach(t => {
+  sandbox = sinon.createSandbox()
 })
 
-const originalHandler = jest.fn(async (e) => {
+test.afterEach((t) => {
+  sandbox.restore()
+  clearCache()
+})
+
+const originalHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
     if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') return r.messageId
     throw new Error('Error message...')
   })
   return Promise.allSettled(processedRecords)
+}
+
+test.serial('Should resolve when there are no failed messages', async (t) => {
+  const event = createEvent.default(
+    'aws:sqs',
+    {
+      Records: [{
+        messageAttributes: {
+          resolveOrReject: {
+            stringValue: 'resolve'
+          }
+        },
+        body: ''
+      }]
+    }
+  )
+  sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  const handler = middy(originalHandler)
+    .use(sqsPartialBatchFailure({
+      AwsClient: SQS,
+    }))
+
+  const res = await handler(event)
+  t.deepEqual(res, [
+    {
+      status: 'fulfilled',
+      value: '059f36b4-87a3-44ab-83d2-661975830a7d'
+    }
+  ])
 })
 
-describe('📨 SQS batch', () => {
-  test('Should resolve when there are no failed messages', async () => {
-    const event = eventMocks(
-      'aws:sqs',
-      {
-        Records: [{
-          messageAttributes: {
-            resolveOrReject: {
-              stringValue: 'resolve'
-            }
-          },
-          body: ''
-        }]
-      }
-    )
-    const handler = middy(originalHandler)
-      .use(sqsBatchMiddleware({ sqs }))
-    await expect(handler(event)).resolves.toEqual([
-      {
-        status: 'fulfilled',
-        value: '059f36b4-87a3-44ab-83d2-661975830a7d'
-      }
-    ])
-  })
-  test('Should throw with failure reasons', async () => {
-    const event = eventMocks(
-      'aws:sqs',
-      {
-        Records: [{
-          receiptHandle: 'successfulMessageReceiptHandle',
-          messageAttributes: {
-            resolveOrReject: {
-              stringValue: 'resolve'
-            }
+test.serial('Should resolve when there are no failed messages, prefetch disabled', async (t) => {
+  const event = createEvent.default(
+    'aws:sqs',
+    {
+      Records: [{
+        messageAttributes: {
+          resolveOrReject: {
+            stringValue: 'resolve'
           }
-        }, {
-          messageAttributes: {
-            resolveOrReject: {
-              stringValue: 'reject'
-            }
-          }
-        }]
-      }
-    )
-    const handler = middy(originalHandler)
-      .use(sqsBatchMiddleware({ sqs }))
-    await expect(handler(event)).rejects.toThrow('Error message...')
-    expect(mockDeleteMessageBatch).toHaveBeenCalledWith({
-      Entries: [{
-        Id: '0',
-        ReceiptHandle: 'successfulMessageReceiptHandle'
-      }],
-      QueueUrl: 'https://sqs.us-east-2.amazonaws.com/123456789012/my-queue'
-    })
-  })
+        },
+        body: ''
+      }]
+    }
+  )
+  sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  const handler = middy(originalHandler)
+    .use(sqsPartialBatchFailure({
+      AwsClient: SQS,
+      disablePrefetch: true
+    }))
+
+  const res = await handler(event)
+  t.deepEqual(res, [
+    {
+      status: 'fulfilled',
+      value: '059f36b4-87a3-44ab-83d2-661975830a7d'
+    }
+  ])
 })
+
+test.serial('Should throw with failure reasons', async (t) => {
+  const event = createEvent.default(
+    'aws:sqs',
+    {
+      Records: [{
+        receiptHandle: 'successfulMessageReceiptHandle',
+        messageAttributes: {
+          resolveOrReject: {
+            stringValue: 'resolve'
+          }
+        }
+      }, {
+        messageAttributes: {
+          resolveOrReject: {
+            stringValue: 'reject'
+          }
+        }
+      }]
+    }
+  )
+  const sqs = sandbox.stub(SQS.prototype, 'deleteMessageBatch').resolves({})
+  const handler = middy(originalHandler)
+    .use(sqsPartialBatchFailure({
+      AwsClient: SQS
+    }))
+  try {
+    await handler(event)
+  } catch (e) {
+    t.is(e.message, 'Error message...')
+    t.is(sqs.callCount, 1)
+    t.true(sqs.calledWith({
+      Entries: [{ Id: '0', ReceiptHandle: 'successfulMessageReceiptHandle' }],
+      QueueUrl: 'https://sqs.ca-central-1.amazonaws.com/123456789012/my-queue'
+    }))
+  }
+})
+

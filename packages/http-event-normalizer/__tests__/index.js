@@ -1,140 +1,151 @@
-const { invoke } = require('../../test-helpers')
-const middy = require('../../core')
-const httpEventNormalizer = require('../')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpEventNormalizer from '../index.js'
 
-const handlerRestApi = middy((event, context, cb) => cb(null, event)).use(httpEventNormalizer())
-const handlerHttpApi = middy((event, context, cb) => cb(null, event)).use(httpEventNormalizer({ payloadFormatVersion: 2 }))
+const handlerRestApi = middy((event, context) => event).use(httpEventNormalizer())
+const handlerHttpApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 2 }))
+const handlerNextGenApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 3 }))
 
-describe('📦 Middleware normalize HTTP event', () => {
-  test('It should do nothing if not HTTP event', async () => {
-    const nonEvent = {
-      source: 's3'
-    }
+test('It should throw error when invalid version', async (t) => {
+  const nonEvent = {
+    source: 's3'
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, nonEvent)
+  try {
+    await handlerNextGenApi(nonEvent)
+  } catch(e) {
+    t.is(e.message, 'Unknown API Gateway Payload format. Please use value 1 or 2.')
+  }
+})
 
-    expect(normalizedEvent).toEqual(nonEvent)
-    expect(normalizedEvent.queryStringParameters).toBeUndefined()
-  })
+test('It should do nothing if not HTTP event', async (t) => {
+  const nonEvent = {
+    source: 's3'
+  }
 
-  test('It should default queryStringParameters', async () => {
-    const event = {
-      httpMethod: 'GET'
-    }
+  const normalizedEvent = await handlerRestApi(nonEvent)
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  t.is(normalizedEvent, nonEvent)
+  t.is(normalizedEvent.queryStringParameters, undefined)
+})
 
-    expect(normalizedEvent).toHaveProperty('queryStringParameters', {})
-  })
+test('It should default queryStringParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET'
+  }
 
-  test('It should default queryStringParameters with HTTP API', async () => {
-    const event = {
-      requestContext: {
-        http: {
-          method: 'GET'
-        }
+  const normalizedEvent = await handlerRestApi(event)
+
+  t.deepEqual(normalizedEvent.queryStringParameters, {})
+})
+
+test('It should default queryStringParameters with HTTP API', async (t) => {
+  const event = {
+    requestContext: {
+      http: {
+        method: 'GET'
       }
     }
+  }
 
-    const normalizedEvent = await invoke(handlerHttpApi, event)
+  const normalizedEvent = await handlerHttpApi(event)
 
-    expect(normalizedEvent).toHaveProperty('queryStringParameters', {})
-  })
+  t.deepEqual(normalizedEvent.queryStringParameters, {})
+})
 
-  test('It should default multiValueQueryStringParameters', async () => {
-    const event = {
-      httpMethod: 'GET'
-    }
+test('It should default multiValueQueryStringParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET'
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  const normalizedEvent = await handlerRestApi(event)
 
-    expect(normalizedEvent).toHaveProperty('multiValueQueryStringParameters', {})
-  })
+  t.deepEqual(normalizedEvent.multiValueQueryStringParameters, {})
+})
 
-  test('It should default pathParameters', async () => {
-    const event = {
-      httpMethod: 'GET'
-    }
+test('It should default pathParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET'
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  const normalizedEvent = await handlerRestApi(event)
 
-    expect(normalizedEvent).toHaveProperty('pathParameters', {})
-  })
+  t.deepEqual(normalizedEvent.pathParameters, {})
+})
 
-  test('It should default pathParameters with HTTP API', async () => {
-    const event = {
-      requestContext: {
-        http: {
-          method: 'GET'
-        }
+test('It should default pathParameters with HTTP API', async (t) => {
+  const event = {
+    requestContext: {
+      http: {
+        method: 'GET'
       }
     }
+  }
 
-    const normalizedEvent = await invoke(handlerHttpApi, event)
+  const normalizedEvent = await handlerHttpApi(event)
 
-    expect(normalizedEvent).toHaveProperty('pathParameters', {})
-  })
+  t.deepEqual(normalizedEvent.pathParameters, {})
+})
 
-  test('It should not overwrite queryStringParameters', async () => {
-    const event = {
-      httpMethod: 'GET',
-      queryStringParameters: { param: '123' }
-    }
+test('It should not overwrite queryStringParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    queryStringParameters: { param: '123' }
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  const normalizedEvent = await handlerRestApi(event)
 
-    expect(normalizedEvent).toHaveProperty('queryStringParameters', { param: '123' })
-  })
+  t.deepEqual(normalizedEvent.queryStringParameters, { param: '123' })
+})
 
-  test('It should not overwrite queryStringParameters with HTTP API', async () => {
-    const event = {
-      requestContext: {
-        http: {
-          method: 'GET'
-        }
-      },
-      queryStringParameters: { param: '123' }
-    }
+test('It should not overwrite queryStringParameters with HTTP API', async (t) => {
+  const event = {
+    requestContext: {
+      http: {
+        method: 'GET'
+      }
+    },
+    queryStringParameters: { param: '123' }
+  }
 
-    const normalizedEvent = await invoke(handlerHttpApi, event)
+  const normalizedEvent = await handlerHttpApi(event)
 
-    expect(normalizedEvent).toHaveProperty('queryStringParameters', { param: '123' })
-  })
+  t.deepEqual(normalizedEvent.queryStringParameters, { param: '123' })
+})
 
-  test('It should not overwrite multiValueQueryStringParameters', async () => {
-    const event = {
-      httpMethod: 'GET',
-      multiValueQueryStringParameters: { param: ['123'] }
-    }
+test('It should not overwrite multiValueQueryStringParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    multiValueQueryStringParameters: { param: ['123'] }
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  const normalizedEvent = await handlerRestApi(event)
 
-    expect(normalizedEvent).toHaveProperty('multiValueQueryStringParameters', { param: ['123'] })
-  })
+  t.deepEqual(normalizedEvent.multiValueQueryStringParameters, { param: ['123'] })
+})
 
-  test('It should not overwrite pathParameters', async () => {
-    const event = {
-      httpMethod: 'GET',
-      pathParameters: { param: '123' }
-    }
+test('It should not overwrite pathParameters', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    pathParameters: { param: '123' }
+  }
 
-    const normalizedEvent = await invoke(handlerRestApi, event)
+  const normalizedEvent = await handlerRestApi(event)
 
-    expect(normalizedEvent).toHaveProperty('pathParameters', { param: '123' })
-  })
+  t.deepEqual(normalizedEvent.pathParameters, { param: '123' })
+})
 
-  test('It should not overwrite pathParameters with HTTP API', async () => {
-    const event = {
-      requestContext: {
-        http: {
-          method: 'GET'
-        }
-      },
-      pathParameters: { param: '123' }
-    }
+test('It should not overwrite pathParameters with HTTP API', async (t) => {
+  const event = {
+    requestContext: {
+      http: {
+        method: 'GET'
+      }
+    },
+    pathParameters: { param: '123' }
+  }
 
-    const normalizedEvent = await invoke(handlerHttpApi, event)
+  const normalizedEvent = await handlerHttpApi(event)
 
-    expect(normalizedEvent).toHaveProperty('pathParameters', { param: '123' })
-  })
+  t.deepEqual(normalizedEvent.pathParameters, { param: '123' })
 })

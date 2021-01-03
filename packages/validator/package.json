@@ -1,17 +1,21 @@
 {
   "name": "@middy/validator",
-  "version": "1.5.0",
+  "version": "2.0.0-alpha.0",
   "description": "Validator middleware for the middy framework",
+  "type": "module",
   "engines": {
-    "node": ">=10"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
     "access": "public"
   },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "jest",
+    "test:unit": "ava",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
   "license": "MIT",
@@ -32,27 +36,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/validator"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "peerDependencies": {
-    "@middy/core": ">=1.0.0-alpha"
-  },
   "dependencies": {
-    "@types/http-errors": "^1.6.1",
-    "ajv": "^6.5.0",
-    "ajv-errors": "^1.0.1",
-    "ajv-i18n": "^3.3.0",
-    "ajv-keywords": "^3.2.0",
-    "http-errors": "^1.6.3"
+    "ajv": "7.0.2",
+    "ajv-formats": "1.5.1",
+    "ajv-formats-draft2019": "1.4.3",
+    "ajv-i18n": "3.6.0",
+    "http-errors": "1.8.0"
   },
   "devDependencies": {
-    "@middy/core": "^1.5.0",
-    "ajv-bsontype": "^1.0.7",
-    "es6-promisify": "^6.0.2"
+    "@types/http-errors": "1.8.0",
+    "ajv-bsontype": "^1.0.7"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

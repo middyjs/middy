@@ -1,7 +1,7 @@
 # Middy validator middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
@@ -18,9 +18,6 @@
   </a>
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
-  </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
@@ -41,7 +38,7 @@ response to the user.
 
 It can also be used in combination with [`httpcontentnegotiation`](#httpContentNegotiation) to load localised translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-i18n`](http://npm.im/ajv-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
 
-Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance. Out-of-the-box, `ajv-i18n`, `ajv-errors` and `ajv-keywords` are being used.
+Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance. Out-of-the-box `ajv-i18n` and `ajv-formats` are being used.
 
 ## Install
 
@@ -54,24 +51,28 @@ npm install --save @middy/validator
 
 ## Options
 
- - `inputSchema` (object) (optional): The JSON schema object that will be used
+ - `inputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
    to validate the input (`handler.event`) of the Lambda handler.
- - `outputSchema` (object) (optional): The JSON schema object that will be used
+ - `outputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
    to validate the output (`handler.response`) of the Lambda handler.
- - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org)
-    class constructor. Defaults are `{v5: true, coerceTypes: 'array', $data: true, allErrors: true, useDefaults: true, defaultLanguage: 'en', jsonPointers: true}`. Note that `jsonPointers` is needed by `ajv-errors`.
- - `ajvPlugins` (object) (optional): Plugin names (without `ajv-` prefix) as key and its options for the value, to apply to [ajv](https://ajv.js.org) once instantiated. You can pass in `{}` to not include the modules. Defaults are `{keywords: null, errors: null, i18n: null}`. Note that for no options `null` / `{}` is used as value.
+ - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
+    class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: false, defaultLanguage: 'en' }`.
+
+NOTES:
+- At least one of `inputSchema` or `outputSchema` is required.
+- **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
+- Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`
 
 ## Sample usage
 
 Example for input validation:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator, {compile} from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -97,18 +98,18 @@ const event = {
   body: JSON.stringify({something: 'somethingelse'})
 }
 handler(event, {}, (err, res) => {
-  expect(err.message).toEqual('Event object failed validation')
+  t.is(err.message,'Event object failed validation')
 })
 ```
 
 Example for output validation:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -126,8 +127,8 @@ const schema = {
 handler.use(validator({outputSchema: schema}))
 
 handler({}, {}, (err, response) => {
-  expect(err).not.toBe(null)
-  expect(err.message).toEqual('Response object failed validation')
+  t.not(err, null)
+  t.is(err.message,'Response object failed validation')
   expect(response).not.toBe(null) // it doesn't destroy the response so it can be used by other middlewares
 })
 ```
@@ -135,11 +136,11 @@ handler({}, {}, (err, response) => {
 Example for plugins applied with `ajv-bsontype`:
 
 ```javascript
-const middy = require('@middy/core')
-const validator = require('@middy/validator')
+import middy from '@middy/core'
+import validator from '@middy/validator'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 const schema = {
@@ -161,7 +162,7 @@ const event = {
   body: JSON.stringify({ name: "Leo", gpa: "4" })
 }
 handler(event, {}, (err, response) => {
-  expect(err.details[0].message).toEqual('should be double got 4')
+  t.is(err.details[0].message,'should be double got 4')
 })
 ```
 
@@ -177,7 +178,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

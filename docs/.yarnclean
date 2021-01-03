@@ -1,0 +1,64 @@
+# Middy.js
+
+# Dependencies
+**/ajv/docs
+**/ajv/lib
+**/ajv/.tonic_examples.js
+**/ajv-errors/src
+**/ajv-formats/src
+**/json-mask/bin
+**/json-mask/build
+**/json-mask/example
+**/json-mask/test
+**/json-mask/logo.png
+**/qs/.github
+**/qs/dist
+**/qs/test
+
+# DevDependencies
+**/@types
+**/@serverless/event-mocks
+
+## Sub[/Sub] Dependencies
+**/bowser/src
+**/bowser/bundled.js
+**/dicer/bench
+**/dicer/test
+**/inherits/inherits_browser.js
+**/json-schema-traverse/.github
+**/json-schema-traverse/spec
+**/fast-deep-equal/es6
+**/fast-deep-equal/react.js
+**/querystring/test
+**/react-native-get-random-values/android
+**/react-native-get-random-values/ios
+**/react-native-get-random-values/index.web.js
+**/react-native-get-random-values/react-native-get-random-values.podspec
+**/setprototypeof/test
+**/tslib
+**/uri-js/dist/esnext
+**/url/.zuul.yml
+**/url/test.js
+**/uuid/bin
+
+# Builds
+*.ts
+tsconfig.json
+*.js.map
+package-lock.json
+yarn.lock
+.travis.yml
+
+# Common
+.bin
+.cache
+.editorconfig
+.eslintignore
+.eslintrc
+.eslintrc.yml
+.gitattributes
+.npmignore
+AUTHORS
+LICENSE
+*.md
+*.txt

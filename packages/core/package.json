@@ -1,17 +1,24 @@
 {
   "name": "@middy/core",
-  "version": "1.5.0",
+  "version": "2.0.0-alpha.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
+  "type": "module",
   "engines": {
-    "node": ">=10"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
     "access": "public"
   },
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "util.js",
+    "util.d.ts"
+  ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "jest",
+    "test:unit": "ava",
     "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
   "license": "MIT",
@@ -29,18 +36,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
+    "url": "github:middyjs/middy",
+    "directory": "packages/core"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "dependencies": {
-    "once": "^1.4.0"
-  },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.3",
-    "es6-promisify": "^6.0.2"
+    "@aws-sdk/node-http-handler": "^3.1.0",
+    "@types/aws-lambda": "^8.10.3"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

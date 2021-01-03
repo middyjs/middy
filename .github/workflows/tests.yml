@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [10.x, 12.x, 14.x]
+        node-version: [14.x]
 
     steps:
     - uses: actions/checkout@v2
@@ -35,11 +35,11 @@ jobs:
       run: npm run test:lint:ci
       env:
         CI: true
-    - name: Check typings
-      run: npm run test:packages:typings
-      env:
-        CI: true
     - name: Unit tests
       run: npm run test:packages:unit
+      env:
+        CI: true
+    - name: Check typings
+      run: npm run test:packages:typings
       env:
         CI: true

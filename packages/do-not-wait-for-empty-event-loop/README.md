@@ -1,7 +1,7 @@
 # Middy do-not-wait-for-empty-event-loop middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
@@ -18,9 +18,6 @@
   </a>
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
-  </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
@@ -54,11 +51,11 @@ meaning you can override it in handler to `true` if needed. You can set it in al
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const doNotWaitForEmptyEventLoop = require('@middy/do-not-wait-for-empty-event-loop')
+import middy from '@middy/core'
+import doNotWaitForEmptyEventLoop from '@middy/do-not-wait-for-empty-event-loop'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
 handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
@@ -66,7 +63,7 @@ handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
 // When Lambda runs the handler it gets context with callbackWaitsForEmptyEventLoop property set to false
 
 handler(event, context, (_, response) => {
-  expect(context.callbackWaitsForEmptyEventLoop).toEqual(false)
+  t.is(context.callbackWaitsForEmptyEventLoop,false)
 })
 ```
 
@@ -83,7 +80,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

@@ -1,35 +1,44 @@
-const omit = require('lodash/omit')
 
-module.exports = (opts) => {
+export default (opts = {}) => {
   const defaults = {
     logger: data => console.log(JSON.stringify(data, null, 2)),
     omitPaths: []
   }
 
-  const { logger, omitPaths } = Object.assign({}, defaults, opts)
+  let { logger, omitPaths } = Object.assign({}, defaults, opts)
+  if (typeof logger !== 'function') logger = null
 
-  const cloneMessage = message => JSON.parse(JSON.stringify(message))
-
-  const omitAndLog = message => {
-    const messageClone = cloneMessage(message)
-    const redactedMessage = omit(messageClone, omitPaths)
+  const omitAndLog = (message) => {
+    const redactedMessage = omit(message, omitPaths)
     logger(redactedMessage)
   }
 
+  const inputOutputLoggerMiddlewareBefore = async (handler) => omitAndLog({ event: handler.event })
+  const inputOutputLoggerMiddlewareAfter = async (handler) => omitAndLog({ response: handler.response })
+  const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return ({
-    before: (handler, next) => {
-      if (typeof logger === 'function') {
-        omitAndLog({ event: handler.event })
-      }
-
-      return next()
-    },
-    after: (handler, next) => {
-      if (typeof logger === 'function') {
-        omitAndLog({ response: handler.response })
-      }
-
-      return next()
-    }
+    before: logger ? inputOutputLoggerMiddlewareBefore : null,
+    after: logger ? inputOutputLoggerMiddlewareAfter : null,
+    onError: logger ? inputOutputLoggerMiddlewareOnError : null
   })
+}
+
+// move to util, if ever used elsewhere
+const omit = (originalObject = {}, keysToOmit = []) => {
+  const clonedObject = { ...originalObject }
+  for (const path of keysToOmit) {
+    deleteKey(clonedObject, path)
+  }
+  return clonedObject
+}
+
+const deleteKey = (obj, key) => {
+  if (!Array.isArray(key)) key = key.split('.')
+  const rootKey = key.shift()
+  if (key.length && obj[rootKey]) {
+    deleteKey(obj[rootKey], key)
+  } else {
+    delete obj[rootKey]
+  }
+  return obj
 }

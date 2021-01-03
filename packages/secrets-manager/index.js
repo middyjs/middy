@@ -1,104 +1,65 @@
-const SecretsManager = require('aws-sdk/clients/secretsmanager')
-let secretsManagerInstance
+import { SecretsManager } from '@aws-sdk/client-secrets-manager'
+import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
 
-module.exports = opts => {
-  const defaults = {
-    awsSdkOptions: {},
-    secrets: {}, // e.g. { RDS_SECRET: 'dev/rds_login', API_SECRET: '...' }
-    throwOnFailedCall: false,
-    cache: false,
-    cacheExpiryInMillis: undefined,
-    secretsLoaded: false,
-    secretsCache: undefined,
-    secretsLoadedAt: new Date(0)
-  }
+const defaults = {
+  AwsClient: SecretsManager, // Allow for XRay
+  awsClientOptions: {},
+  awsClientAssumeRole: undefined,
+  fetchData: {}, // If more than 2, consider writing own using ListSecrets
+  disablePrefetch: false,
+  cacheKey: 'secrets-manager',
+  cacheExpiry: -1,
+  setToEnv: false, // can return object when requesting db credentials, cannot set to process.env
+  setToContext: false,
+  onChange: undefined
+}
 
+export default (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  return {
-    before: (handler, next) => {
-      // if there're cached secrets already, then use it in case refresh fails
-      if (options.secretsCache) {
-        options.secretsCache.forEach(object => {
-          Object.assign(handler.context, object)
-        })
-      }
+  const fetch = () => {
+    const values = {}
 
-      if (!shouldFetchFromSecretsManager(options)) {
-        return next()
-      }
-
-      secretsManagerInstance = secretsManagerInstance || new SecretsManager(options.awsSdkOptions)
-      const secretsPromises = Object.keys(options.secrets).map(key => {
-        const secretName = options.secrets[key]
-        return secretsManagerInstance
-          .getSecretValue({ SecretId: secretName })
-          .promise()
-          .then(resp => {
-            const secret = safeParse(resp.SecretString)
-            const object = {}
-            object[key] = secret
-            return object
-          })
-      })
-
-      return Promise.all(secretsPromises)
-        .then(objectsToMap => {
-          objectsToMap.forEach(object => {
-            Object.assign(handler.context, object)
-          })
-
-          options.secretsLoaded = true
-          options.secretsCache = objectsToMap
-          options.secretsLoadedAt = new Date()
-        })
-        .catch(err => {
-          console.error(
-            'failed to refresh secrets from Secrets Manager:',
-            err.message
-          )
-          // throw error if there is no secret in cache already and flag throwOnFailedCall provided
-          if (options.throwOnFailedCall && !options.secretsCache) {
-            throw err
-          }
-          // if we already have a cached secrets, then reset the timestamp so we don't
-          // keep retrying on every invocation which can cause performance problems
-          // when there's temporary problems with Secrets Manager
-          if (options.secretsCache) {
-            options.secretsLoadedAt = new Date()
-          }
-        })
+    // Multiple secrets can be requested in a single requests,
+    // however this is likely uncommon IRL, increases complexity to handle,
+    // and will require recursive promise resolution impacting performance.
+    // See https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SecretsManager.html#listSecrets-property
+    for (const internalKey of Object.keys(options.fetchData)) {
+      values[internalKey] = client
+        .getSecretValue({ SecretId: options.fetchData[internalKey] })
+        .then(resp => jsonSafeParse(resp.SecretString))
     }
-  }
-}
 
-const shouldFetchFromSecretsManager = ({
-  secretsLoaded,
-  secretsLoadedAt,
-  cache,
-  cacheExpiryInMillis
-}) => {
-  // if caching is OFF, or we haven't loaded anything yet, then definitely load it from SecretsManager
-  if (!cache || !secretsLoaded) {
-    return true
+    return values
   }
 
-  // if caching is ON, and cache expiration is ON, and enough time has passed, then also load it from SecretsManager
-  const now = new Date()
-  const millisSinceLastLoad = now.getTime() - secretsLoadedAt.getTime()
-  if (cacheExpiryInMillis && millisSinceLastLoad > cacheExpiryInMillis) {
-    return true
+  let prefetch, client, init
+  if (canPrefetch(options)) {
+    init = true
+    client = createPrefetchClient(options)
+    prefetch = processCache(options, fetch)
   }
 
-  // otherwise, don't bother
-  return false
-}
+  const secretsManagerMiddlewareBefore = async (handler) => {
+    if (!client) {
+      client = await createClient(options, handler)
+    }
+    let cached
+    if (init) {
+      cached = prefetch
+    } else {
+      cached = processCache(options, fetch, handler)
+    }
 
-function safeParse (secretString) {
-  try {
-    return JSON.parse(secretString || '{}')
-  } catch (err) {
+    Object.assign(handler.internal, cached)
+    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
+    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+
+    if (!init) options?.onChange?.()
+    else init = false
   }
 
-  return secretString
+  return {
+    before: secretsManagerMiddlewareBefore
+  }
 }

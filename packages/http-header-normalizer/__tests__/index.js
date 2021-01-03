@@ -1,125 +1,205 @@
-const { invoke } = require('../../test-helpers')
-const middy = require('../../core')
-const httpHeaderNormalizer = require('../')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpHeaderNormalizer from '../index.js'
 
-describe('👺 Middleware Http Header Normalizer', () => {
-  test('It should normalize (lowercase) all the headers and create a copy in rawHeaders', async () => {
-    const handler = middy((event, context, cb) => cb(null, event))
+// Headers
 
-    handler
-      .use(httpHeaderNormalizer())
+test('It should normalize (lowercase) all the headers and create a copy in rawHeaders', async (t) => {
+  const handler = middy((event, context) => event)
 
-    const event = {
-      headers: {
-        'x-aPi-key': '123456',
-        tcn: 'abc',
-        te: 'cde',
-        DNS: 'd',
-        FOO: 'bar'
-      }
-    }
+  handler
+    .use(httpHeaderNormalizer())
 
-    const expectedHeaders = {
-      'x-api-key': '123456',
-      TCN: 'abc',
-      TE: 'cde',
-      dns: 'd',
-      foo: 'bar'
-    }
-
-    const originalHeaders = Object.assign({}, event.headers)
-
-    const resultingEvent = await invoke(handler, event)
-
-    expect(resultingEvent.headers).toEqual(expectedHeaders)
-    expect(resultingEvent.rawHeaders).toEqual(originalHeaders)
-  })
-
-  test('It should normalize (canonical) all the headers and create a copy in rawHeaders', async () => {
-    const handler = middy((event, context, cb) => cb(null, event))
-
-    handler
-      .use(httpHeaderNormalizer({ canonical: true }))
-
-    const event = {
-      headers: {
-        'x-api-key': '123456',
-        tcn: 'abc',
-        te: 'cde',
-        DNS: 'd',
-        FOO: 'bar'
-      }
-    }
-
-    const expectedHeaders = {
-      'X-Api-Key': '123456',
-      TCN: 'abc',
-      TE: 'cde',
-      Dns: 'd',
-      Foo: 'bar'
-    }
-
-    const originalHeaders = Object.assign({}, event.headers)
-
-    const resultingEvent = await invoke(handler, event)
-
-    expect(resultingEvent.headers).toEqual(expectedHeaders)
-    expect(resultingEvent.rawHeaders).toEqual(originalHeaders)
-  })
-
-  test('It can use custom normalization function', async () => {
-    const normalizeHeaderKey = (key) => key.toUpperCase()
-
-    const handler = middy((event, context, cb) => cb(null, event))
-
-    handler
-      .use(httpHeaderNormalizer({
-        normalizeHeaderKey
-      }))
-
-    const event = {
-      headers: {
-        'x-api-key': '123456',
-        tcn: 'abc',
-        te: 'cde',
-        DNS: 'd',
-        FOO: 'bar'
-      }
-    }
-
-    const expectedHeaders = {
-      'X-API-KEY': '123456',
-      TCN: 'abc',
-      TE: 'cde',
+  const event = {
+    headers: {
+      'x-aPi-key': '123456',
+      tcn: 'abc',
+      te: 'cde',
       DNS: 'd',
       FOO: 'bar'
     }
+  }
 
-    const originalHeaders = Object.assign({}, event.headers)
+  const expectedHeaders = {
+    'x-api-key': '123456',
+    TCN: 'abc',
+    TE: 'cde',
+    dns: 'd',
+    foo: 'bar'
+  }
 
-    const resultingEvent = await invoke(handler, event)
+  const originalHeaders = Object.assign({}, event.headers)
 
-    expect(resultingEvent.headers).toEqual(expectedHeaders)
-    expect(resultingEvent.rawHeaders).toEqual(originalHeaders)
-  })
+  const resultingEvent = await handler(event)
 
-  test('It should not fail if the event does not contain headers', async () => {
-    const handler = middy((event, context, cb) => cb(null, event))
+  t.deepEqual(resultingEvent.headers, expectedHeaders)
+  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
+})
 
-    handler
-      .use(httpHeaderNormalizer({}))
+test('It should normalize (canonical) all the headers and create a copy in rawHeaders', async (t) => {
+  const handler = middy((event, context) => event)
 
-    const event = {
-      foo: 'bar'
+  handler
+    .use(httpHeaderNormalizer({ canonical: true }))
+
+  const event = {
+    headers: {
+      'x-api-key': '123456',
+      tcn: 'abc',
+      te: 'cde',
+      DNS: 'd',
+      FOO: 'bar'
     }
+  }
 
-    const expectedEvent = {
-      foo: 'bar'
+  const expectedHeaders = {
+    'X-Api-Key': '123456',
+    TCN: 'abc',
+    TE: 'cde',
+    Dns: 'd',
+    Foo: 'bar'
+  }
+
+  const originalHeaders = Object.assign({}, event.headers)
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent.headers, expectedHeaders)
+  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
+})
+
+test('It can use custom normalization function', async (t) => {
+  const normalizeHeaderKey = (key) => key.toUpperCase()
+
+  const handler = middy((event, context) => event)
+
+  handler
+    .use(httpHeaderNormalizer({
+      normalizeHeaderKey
+    }))
+
+  const event = {
+    headers: {
+      'x-api-key': '123456',
+      tcn: 'abc',
+      te: 'cde',
+      DNS: 'd',
+      FOO: 'bar'
     }
+  }
 
-    const resultingEvent = await invoke(handler, event)
+  const expectedHeaders = {
+    'X-API-KEY': '123456',
+    TCN: 'abc',
+    TE: 'cde',
+    DNS: 'd',
+    FOO: 'bar'
+  }
 
-    expect(resultingEvent).toEqual(expectedEvent)
-    expect(resultingEvent.rawHeaders).toBeUndefined()
-  })
+  const originalHeaders = Object.assign({}, event.headers)
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent.headers, expectedHeaders)
+  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
+})
+
+
+// multiValueHeaders
+
+test('It should normalize (lowercase) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
+  const handler = middy((event, context) => event)
+
+  handler
+    .use(httpHeaderNormalizer())
+
+  const event = {
+    multiValueHeaders: {
+      'cOOkie': ['123456','654321'],
+    }
+  }
+
+  const expectedHeaders = {
+    'cookie': ['123456','654321']
+  }
+
+  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
+  t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
+})
+
+test('It should normalize (canonical) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
+  const handler = middy((event, context) => event)
+
+  handler
+    .use(httpHeaderNormalizer({ canonical: true }))
+
+  const event = {
+    multiValueHeaders: {
+      'cOOkie': ['123456','654321'],
+    }
+  }
+
+  const expectedHeaders = {
+    'Cookie': ['123456','654321']
+  }
+
+  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
+  t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
+})
+
+test('It can use custom normalization function on multiValueHeaders', async (t) => {
+  const normalizeHeaderKey = (key) => key.toUpperCase()
+
+  const handler = middy((event, context) => event)
+
+  handler
+    .use(httpHeaderNormalizer({
+      normalizeHeaderKey
+    }))
+
+  const event = {
+    multiValueHeaders: {
+      'cOOkie': ['123456','654321'],
+    }
+  }
+
+  const expectedHeaders = {
+    'COOKIE': ['123456','654321']
+  }
+
+  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
+  t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
+})
+
+// Misc
+test('It should not fail if the event does not contain headers', async (t) => {
+  const handler = middy((event, context) => event)
+
+  handler
+    .use(httpHeaderNormalizer({}))
+
+  const event = {
+    foo: 'bar'
+  }
+
+  const expectedEvent = {
+    foo: 'bar'
+  }
+
+  const resultingEvent = await handler(event)
+
+  t.deepEqual(resultingEvent, expectedEvent)
+  t.deepEqual(resultingEvent.rawHeaders, undefined)
 })

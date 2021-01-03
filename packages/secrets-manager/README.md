@@ -1,7 +1,7 @@
 # Middy secrets-manager middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
@@ -18,9 +18,6 @@
   </a>
   <a href="https://standardjs.com/">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
-  </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
   </a>
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
@@ -48,39 +45,43 @@ npm install --save @middy/secrets-manager
 
 ## Options
 
-- `cache` (boolean) (optional): Defaults to `false`. Set it to `true` to skip further calls to AWS Secrets Manager
-- `cacheExpiryInMillis` (int) (optional): Defaults to `undefined`. Use this option to invalidate cached secrets from Secrets Manager
-- `secrets` (object) : Map of secrets to fetch from Secrets Manager, where the key is the destination, and value is secret name or secret ARN in Secrets Manager.
-  Example: `{secrets: {RDS_LOGIN: 'dev/rds_login'}}`
-- `awsSdkOptions` (object) (optional): Options to pass to AWS.SecretsManager class constructor.
-- `throwOnFailedCall` (boolean) (optional): Defaults to `false`. Set it to `true` if you want your lambda to fail in case call to AWS Secrets Manager fails (secrets don't exist or internal error). It will only print error if secrets are not already cached.
+- `AwsClient` (object) (default `AWS.SecretsManager`): AWS.SecretsManager class constructor (e.g. that has been instrumented with AWS XRay)
+- `awsClientOptions` (object) (optional): Options to pass to AWS.SecretsManager class constructor.
+- `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
+- `fetchData` (object) (required): Mapping of internal key name to API request parameters.
+- `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
+- `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `setToEnv` (boolean) (default `false`): Store secrets to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
+- `setToContext` (boolean) (default `false`): Store secrets to `handler.context`.
+- `onChange` (function) (optional): Calls function when secrets change after being initially set.
 
 NOTES:
-* Lambda is required to have IAM permission for `secretsmanager:GetSecretValue` action
-* `aws-sdk` version of `2.176.0` or greater is required. If your project doesn't currently use `aws-sdk`, you may need to install it as a `devDependency` in order to run tests
+- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
+- `setToEnv` and `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
+- `setToEnv` can only assign secrets of type string
 
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const secretsManager = require('@middy/secrets-manager')
+import middy from '@middy/core'
+import secretsManager from '@middy/secrets-manager'
 
-const handler = middy((event, context, cb) => {
-  cb(null, {})
+const handler = middy((event, context) => {
+  return {}
 })
 
  handler.use(secretsManager({
-  cache: true,
-  secrets: {
-    RDS_LOGIN: 'dev/rds_login'
+   fetchData: {
+    apiToken: 'dev/api_token'
   }
 }))
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/rds_login has two keys, 'Username' and 'Password'
-  expect(context.RDS_LOGIN.Username).toEqual('username')
-  expect(context.RDS_LOGIN.Password).toEqual('password')
+  t.is(context.RDS_LOGIN.Username,'username')
+  t.is(context.RDS_LOGIN.Password,'password')
 })
 ```
 
@@ -94,7 +95,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2018 Luciano Mammino and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">
