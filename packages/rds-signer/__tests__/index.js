@@ -299,7 +299,7 @@ test('it should grab connection details from context even if connection object d
   const event = {
     body: JSON.stringify({ foo: 'bar' })
   }
-  await handler(event, {}, (err, body) => {
+  await handler(event, {})
     t.is(err, null)
     t.is(body, '{"foo":"bar"}')
     done()
@@ -350,7 +350,7 @@ test('it should grab connection details and not delete details from context if r
   const event = {
     body: JSON.stringify({ foo: 'bar' })
   }
-  await handler(event, {}, (err, body) => {
+  await handler(event, {})
     t.is(err, null)
     t.is(body, '{"foo":"bar"}')
     done()

@@ -16,10 +16,9 @@ test('It should decode simple url encoded requests', async (t) => {
     }
   }
 
-  await handler(event, {}, (_, body) => {
-    t.deepEqual(body, {
-      char: 'Mîddy'
-    })
+  const response = await handler(event, {})
+  t.deepEqual(response, {
+    char: 'Mîddy'
   })
 })
 
@@ -36,9 +35,10 @@ test('It should throw error', async (t) => {
     }
   }
 
-  await handler(event, {}, (err, body) => {
-    t.is(err.message, 'URI malformed')
-    t.is(body, undefined)
-  })
+  try {
+    await handler(event, {})
+  } catch(e) {
+    t.is(e.message, 'URI malformed')
+  }
 })
 

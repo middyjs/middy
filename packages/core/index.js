@@ -88,18 +88,11 @@ export default (handler = () => {}, profiler = null) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const defaultCallback = (e, r) => {
-    if (e) throw e
-    return r
-  }
-  const instance = (event = {}, context = {}, callbackLambda = defaultCallback) => {
+
+  const instance = (event = {}, context = {}) => {
     const request = {
       event,
       context,
-      callback: (err, response) => {
-        profiler?.end()
-        return callbackLambda(err, response)
-      },
       response: null,
       error: null,
       internal: {}
@@ -109,23 +102,30 @@ export default (handler = () => {}, profiler = null) => {
       profiler?.initEnd()
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
-        if (request.response) return request.callback(null, request.response) // catch short circuit
+        if (request.response) { // catch short circuit
+          profiler?.end()
+          return request.response
+        }
         profiler?.beforeHandler()
         request.response = await handler(request.event, request.context)
         profiler?.afterHandler()
         await runMiddlewares(afterMiddlewares, request, profiler)
-        return request.callback(null, request.response)
+        profiler?.end()
+        return request.response
       } catch (e) {
         request.response = null
         request.error = e
         try {
           await runMiddlewares(onErrorMiddlewares, request, profiler)
-          if (request.response) return request.callback(null, request.response)
+          if (request.response) {
+            profiler?.end()
+            return request.response
+          }
         } catch (e) {
           e.originalError = request.error
           request.error = e
         }
-        return request.callback(request.error)
+        throw request.error
       }
     }
     return middyPromise()

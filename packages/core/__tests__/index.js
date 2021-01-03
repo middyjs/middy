@@ -1,5 +1,5 @@
 import test from 'ava'
-import sinon from 'sinon';
+import sinon from 'sinon'
 import middy from '../index.js'
 
 test('Middleware attached with "use" must be an object or array', async (t) => {
@@ -60,7 +60,7 @@ test('"use" can add multiple before middleware', async (t) => {
   const handler = middy()
   const before = () => {}
   const middleware = () => ({ before })
-  handler.use([middleware(),middleware()])
+  handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.before[0], before)
   t.is(handler.__middlewares.before[1], before)
 })
@@ -69,7 +69,7 @@ test('"use" can add multiple after middleware', async (t) => {
   const handler = middy()
   const after = () => {}
   const middleware = () => ({ after })
-  handler.use([middleware(),middleware()])
+  handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.after[0], after)
   t.is(handler.__middlewares.after[1], after)
 })
@@ -78,7 +78,7 @@ test('"use" can add multiple onError middleware', async (t) => {
   const handler = middy()
   const onError = () => {}
   const middleware = () => ({ onError })
-  handler.use([middleware(),middleware()])
+  handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.onError[0], onError)
   t.is(handler.__middlewares.onError[1], onError)
 })
@@ -89,7 +89,7 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
   const after = () => {}
   const onError = () => {}
   const middleware = () => ({ before, after, onError })
-  handler.use([middleware(),middleware()])
+  handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.before[0], before)
   t.is(handler.__middlewares.after[0], after)
   t.is(handler.__middlewares.onError[0], onError)
@@ -152,11 +152,10 @@ test('It should execute before and after middlewares in the right order', async 
     .use(m2())
 
   // executes the handler
-  await handler({}, {}, (_, response) => {
-    t.deepEqual(executedBefore, ['m1', 'm2'])
-    t.deepEqual(executedAfter,['m2', 'm1'])
-    t.deepEqual(response, { foo: 'bar' })
-  })
+  const response = await handler({}, {})
+  t.deepEqual(executedBefore, ['m1', 'm2'])
+  t.deepEqual(executedAfter, ['m2', 'm1'])
+  t.deepEqual(response, { foo: 'bar' })
 })
 
 test('"before" middlewares should be able to change event', async (t) => {
@@ -172,9 +171,8 @@ test('"before" middlewares should be able to change event', async (t) => {
 
   handler.before(changeEventMiddleware)
 
-  await handler({}, {}, () => {
-    t.true(handlerEvent.modified)
-  })
+  await handler({}, {})
+  t.true(handlerEvent.modified)
 })
 
 test('"before" middleware should be able to modify context', async (t) => {
@@ -189,12 +187,12 @@ test('"before" middleware should be able to modify context', async (t) => {
       ...handler.context,
       modifiedSpread: true
     }
-    Object.assign(handler.context, {modifiedAssign: true})
+    Object.assign(handler.context, { modifiedAssign: true })
   }
 
   handler.before(getLambdaContext)
 
-  await handler({}, {}, () => {})
+  await handler({}, {})
 })
 
 test('"after" middlewares should be able to change response', async (t) => {
@@ -208,10 +206,8 @@ test('"after" middlewares should be able to change response', async (t) => {
 
   handler.after(changeResponseMiddleware)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.true(response.modified)
-  })
+  const response = await handler({}, {})
+  t.true(response.modified)
 })
 
 test('"before" middleware should be able to access context', async (t) => {
@@ -227,7 +223,7 @@ test('"before" middleware should be able to access context', async (t) => {
 
   handler.before(getLambdaContext)
 
-  await handler({}, context, () => {})
+  await handler({}, context)
 })
 
 test('If there is an error in the before middlewares the error middlewares are invoked', async (t) => {
@@ -251,11 +247,13 @@ test('If there is an error in the before middlewares the error middlewares are i
     .before(failingMiddlewareSpy)
     .onError(onErrorMiddlewareSpy)
 
-  await handler({}, {}, function () {
+  try {
+    await handler({}, {})
+  } catch (e) {
     t.false(originalHandlerSpy.calledOnce)
     t.true(failingMiddlewareSpy.threw())
     t.true(onErrorMiddlewareSpy.calledOnce)
-  })
+  }
 })
 
 test('If there is an error in the original handler the error middlewares are invoked', async (t) => {
@@ -273,9 +271,11 @@ test('If there is an error in the original handler the error middlewares are inv
   handler
     .onError(onErrorMiddlewareSpy)
 
-  await handler({}, {}, function () {
+  try {
+    await handler({}, {})
+  } catch (e) {
     t.true(onErrorMiddlewareSpy.calledOnce)
-  })
+  }
 })
 
 test('If there is an error in the after middlewares the error middlewares are invoked', async (t) => {
@@ -300,11 +300,13 @@ test('If there is an error in the after middlewares the error middlewares are in
     .after(failingMiddlewareSpy)
     .onError(onErrorMiddlewareSpy)
 
-  await handler({}, {}, function () {
+  try {
+    await handler({}, {})
+  } catch (e) {
     t.false(originalHandlerSpy.calledOnce)
     t.true(failingMiddlewareSpy.threw())
     t.true(onErrorMiddlewareSpy.calledOnce)
-  })
+  }
 })
 
 test('If theres an error and one error middleware handles the error, the next error middlewares is executed', async (t) => {
@@ -318,7 +320,6 @@ test('If theres an error and one error middleware handles the error, the next er
   }
   const onErrorMiddleware2 = (handler) => {}
 
-
   const onErrorMiddleware1Spy = sinon.spy(onErrorMiddleware1)
   const onErrorMiddleware2Spy = sinon.spy(onErrorMiddleware2)
 
@@ -326,12 +327,11 @@ test('If theres an error and one error middleware handles the error, the next er
     .onError(onErrorMiddleware1Spy)
     .onError(onErrorMiddleware2Spy)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.true(onErrorMiddleware1Spy.calledOnce)
-    t.false(onErrorMiddleware2Spy.calledOnce)
-    t.deepEqual(response, expectedResponse)
-  })
+  const response = await handler({}, {})
+  t.true(onErrorMiddleware1Spy.calledOnce)
+  t.false(onErrorMiddleware2Spy.calledOnce)
+  t.deepEqual(response, expectedResponse)
+
 })
 
 test('If theres an error and the first error middleware doesn\'t handle the error, the next error middlewares is executed', async (t) => {
@@ -352,12 +352,11 @@ test('If theres an error and the first error middleware doesn\'t handle the erro
     .onError(onErrorMiddleware1Spy)
     .onError(onErrorMiddleware2Spy)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.true(onErrorMiddleware1Spy.calledOnce)
-    t.true(onErrorMiddleware2Spy.calledOnce)
-    t.deepEqual(response, expectedResponse)
-  })
+  const response = await handler({}, {})
+  t.true(onErrorMiddleware1Spy.calledOnce)
+  t.true(onErrorMiddleware2Spy.calledOnce)
+  t.deepEqual(response, expectedResponse)
+
 })
 
 test('It handles synchronous errors generated by throw statements in the before middleware', async (t) => {
@@ -372,9 +371,11 @@ test('It handles synchronous errors generated by throw statements in the before 
   handler
     .before(beforeMiddleware)
 
- await handler({}, {}, (err, response) => {
-    t.deepEqual(err, expectedError)
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.deepEqual(e, expectedError)
+  }
 })
 
 test('It handles synchronous errors generated by throw statements in the original handler', async (t) => {
@@ -384,9 +385,11 @@ test('It handles synchronous errors generated by throw statements in the origina
     throw expectedError
   })
 
-  await handler({}, {}, (err, response) => {
-    t.deepEqual(err, expectedError)
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.deepEqual(e, expectedError)
+  }
 })
 
 test('It handles synchronous errors generated by throw statements in the after middleware', async (t) => {
@@ -402,9 +405,11 @@ test('It handles synchronous errors generated by throw statements in the after m
   handler
     .after(afterMiddleware)
 
-  await handler({}, {}, (err, response) => {
-    t.deepEqual(err, expectedError)
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.deepEqual(e, expectedError)
+  }
 })
 
 test('It handles synchronous errors generated by throw statements in the error middleware', async (t) => {
@@ -420,9 +425,11 @@ test('It handles synchronous errors generated by throw statements in the error m
   handler
     .onError(onErrorMiddleware)
 
-  await handler({}, {}, (err, response) => {
-    t.deepEqual(err, expectedError)
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.deepEqual(e, expectedError)
+  }
 })
 
 test('It should support handlers that return promises instead of using the callback', async (t) => {
@@ -430,10 +437,8 @@ test('It should support handlers that return promises instead of using the callb
     return Promise.resolve({ some: 'response' })
   })
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.deepEqual(response, { some: 'response' })
-  })
+  const response = await handler({}, {})
+  t.deepEqual(response, { some: 'response' })
 })
 
 test('It should support async handlers', async (t) => {
@@ -441,10 +446,8 @@ test('It should support async handlers', async (t) => {
     return { some: 'response' }
   })
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.deepEqual(response, { some: 'response' })
-  })
+  const response = await handler({}, {})
+  t.deepEqual(response, { some: 'response' })
 })
 
 test('It should be possible to await a middyfied handler', async (t) => {
@@ -499,9 +502,11 @@ test('A handler that returns a rejected promise will behave as an errored execut
     return Promise.reject(new Error('bad stuff happened'))
   })
 
-  await handler({}, {}, (err, response) => {
-    t.is(err.message, 'bad stuff happened')
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.is(e.message, 'bad stuff happened')
+  }
 })
 
 test('An async handler that throws an error is threated as a failed execution', async (t) => {
@@ -509,9 +514,11 @@ test('An async handler that throws an error is threated as a failed execution', 
     throw new Error('bad stuff happened')
   })
 
-  await handler({}, {}, (err, response) => {
-    t.is(err.message, 'bad stuff happened')
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.is(e.message, 'bad stuff happened')
+  }
 })
 
 test('It should handle async middlewares', async (t) => {
@@ -522,7 +529,6 @@ test('It should handle async middlewares', async (t) => {
     return { some: 'response' }
   })
 
-
   const asyncBeforeSpy = sinon.spy(asyncBefore)
   const asyncAfterSpy = sinon.spy(asyncAfter)
 
@@ -530,11 +536,11 @@ test('It should handle async middlewares', async (t) => {
     .before(asyncBeforeSpy)
     .after(asyncAfterSpy)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.is(asyncBeforeSpy.callCount, 1)
-    t.is(asyncAfterSpy.callCount, 1)
-  })
+  await handler({}, {})
+
+  t.is(asyncBeforeSpy.callCount, 1)
+  t.is(asyncAfterSpy.callCount, 1)
+
 })
 
 test('It should handle async error middlewares', async (t) => {
@@ -552,10 +558,9 @@ test('It should handle async error middlewares', async (t) => {
   handler
     .onError(asyncOnError)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
-    t.deepEqual(response, { result: 'The error is handled' })
-  })
+  const response = await handler({}, {})
+
+  t.deepEqual(response, { result: 'The error is handled' })
 })
 
 test('It should be able to short circuit a before middleware', async (t) => {
@@ -568,11 +573,10 @@ test('It should be able to short circuit a before middleware', async (t) => {
     .before(before1)
     .before(before2)
 
-  await handler({}, {}, (err, response) => {
-    t.is(response, 'short')
-    t.is(before1.callCount, 1)
-    t.is(before2.callCount, 0)
-  })
+  const response = await handler({}, {})
+  t.is(response, 'short')
+  t.is(before1.callCount, 1)
+  t.is(before2.callCount, 0)
 })
 
 // see issue #49 (https://github.com/middyjs/middy/issues/49)
@@ -588,9 +592,11 @@ test('Handles error thrown in async functions', async (t) => {
   handler
     .before(beforeMiddleware)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err.message,'I am throwing in an async func')
-  })
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.is(e.message, 'I am throwing in an async func')
+  }
 })
 
 // see issue #485 https://github.com/middyjs/middy/issues/485
@@ -616,11 +622,12 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
     .use(middleware1)
     .use(middleware2)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err.message,'something bad happened')
-    t.is(response, undefined)
+  try {
+    await handler({}, {})
+  } catch (e) {
+    t.is(e.message, 'something bad happened')
     t.is(handler.middleware2_called, undefined)
-  })
+  }
 })
 
 /*test('Middlewares can be stopped by calling the callback from the context', async (t) => {
@@ -638,12 +645,12 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
     .before(beforeMiddleware2)
     .after(afterMiddleware)
 
-  await handler({}, {}, (err, response) => {
-    t.is(err, null)
+  const response = await handler({}, {})
+
     t.is(response, 'ending early')
     t.false(beforeMiddleware2.calledOnce)
     t.false(originalHandler.calledOnce)
     t.false(afterMiddleware.calledOnce)
-  })
+
 })*/
 
