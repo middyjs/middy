@@ -34,8 +34,9 @@ export default (opts = {}) => {
     let batch = []
 
     const internalKeys = Object.keys(options.fetchData)
-    for (const [idx, internalKey] of internalKeys.entries()) {
-      batch.push(options.fetchData[internalKey])
+    const fetchKeys = Object.values(options.fetchData)
+    for (const [idx, fetchKey] of fetchKeys.entries()) {
+      batch.push(fetchKey)
       // from the first to the batch size skip, unless it's the last entry
       if ((!idx || (idx + 1) % awsRequestLimit !== 0) && !(idx + 1 === internalKeys.length)) {
         continue
@@ -44,7 +45,6 @@ export default (opts = {}) => {
       request = client
         .getParameters({ Names: batch, WithDecryption: true })
         .then(resp => {
-          console.log('ssm.resp', resp)
           if (resp.InvalidParameters?.length) {
             throw new Error(
               `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
@@ -56,16 +56,18 @@ export default (opts = {}) => {
             })
         })
 
-      for (const internalKey of batch) {
+      for (const fetchKey of batch) {
+        const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
         values[internalKey] = request.then(params => {
           params = Object.assign(...params)
-          return params[options.fetchData[internalKey]]
+          return params[fetchKey]
         })
       }
 
       batch = []
       request = null
     }
+
     return values
   }
 
