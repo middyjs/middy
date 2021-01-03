@@ -31,7 +31,6 @@
 
 <div align="center">
 
-<p><strong>⚠️ NOTE: if you are using Node.js v12, use [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), Middy 2.x requires Node.js v14</strong></p>
 <p><strong>⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!</strong></p>
 
 </div>
@@ -66,7 +65,8 @@ Let's assume you are building a JSON API to process a payment:
 //# handler.js #
 
 // import core
-import middy from '@middy/core'
+import middy from '@middy/core' // esm Node v14+
+//const middy require('@middy/core/index.cjs') // commonjs Node v12+
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
