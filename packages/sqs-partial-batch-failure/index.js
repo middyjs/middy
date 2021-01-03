@@ -23,7 +23,7 @@ export default (opts = {}) => {
   }
 
   const deleteSqsMessages = async (fulfilledRecords) => {
-    if (!fulfilledRecords || !fulfilledRecords.length) return null
+    if (!fulfilledRecords?.length) return null
 
     const Entries = getEntries(fulfilledRecords)
     const { eventSourceARN } = fulfilledRecords[0]
