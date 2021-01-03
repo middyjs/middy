@@ -12,9 +12,7 @@
   },
   "main": "index.js",
   "types": "index.d.ts",
-  "files": [
-    "index.*"
-  ],
+
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "",
