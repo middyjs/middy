@@ -313,7 +313,7 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ```javascript
 // Initailaize response
-handler.response = handler.response || {}
+handler.response = handler.response ?? {}
 
 // Add to response
 handler.response.add = 'more'

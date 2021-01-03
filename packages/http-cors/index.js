@@ -34,8 +34,8 @@ export default (opts = {}) => {
   const httpCorsMiddlewareAfter = async (handler) => {
     if (!handler.event?.httpMethod) return
 
-    handler.response = handler.response || {}
-    handler.response.headers = handler.response.headers || {}
+    handler.response = handler.response ?? {}
+    handler.response.headers = handler.response?.headers ?? {}
 
     const existingHeaders = Object.keys(handler.response.headers)
 
@@ -59,8 +59,8 @@ export default (opts = {}) => {
 
     // Check if already setup the header Access-Control-Allow-Origin
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
-      const eventHeaders = handler.event.headers || {}
-      const incomingOrigin = eventHeaders.origin || eventHeaders.Origin
+      const eventHeaders = handler.event?.headers ?? {}
+      const incomingOrigin = eventHeaders.origin ?? eventHeaders.Origin
       handler.response.headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
     }
 

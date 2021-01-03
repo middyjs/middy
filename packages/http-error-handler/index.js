@@ -21,8 +21,8 @@ export default (opts = {}) => {
     }
 
     if (handler.error.statusCode) {
-      handler.response = handler.response || {}
-      handler.response.headers = handler.response.headers || {}
+      handler.response = handler.response ?? {}
+      handler.response.headers = handler.response?.headers ?? {}
       handler.response.statusCode = handler.error?.statusCode
       handler.response.body = jsonSafeParse(handler.error?.message)
       handler.response.headers['Content-Type'] = typeof handler.response?.body === 'string'

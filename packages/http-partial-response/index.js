@@ -9,10 +9,10 @@ export default (opts = {}) => {
   const { filteringKeyName } = options
 
   const httpPartialResponseMiddlewareAfter = async (handler) => {
-    let body = handler?.response?.body
+    let body = handler.response?.body
     if (!body) return
 
-    const fields = handler?.event?.queryStringParameters?.[filteringKeyName]
+    const fields = handler.event?.queryStringParameters?.[filteringKeyName]
     if (!fields) return
 
     let isBodyStringified

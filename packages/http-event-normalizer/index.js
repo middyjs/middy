@@ -24,10 +24,10 @@ export default (opts = {}) => {
     }
 
     if (isHttpEvent) {
-      event.queryStringParameters = event.queryStringParameters || {}
-      event.pathParameters = event.pathParameters || {}
+      event.queryStringParameters = event.queryStringParameters ?? {}
+      event.pathParameters = event.pathParameters ?? {}
       if (options.payloadFormatVersion === 1) {
-        event.multiValueQueryStringParameters = event.multiValueQueryStringParameters || {}
+        event.multiValueQueryStringParameters = event.multiValueQueryStringParameters ?? {}
       }
     }
   }

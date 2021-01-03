@@ -52,7 +52,7 @@ const parseHeader = (headerName, type, availableValues, failOnMismatch, event) =
   const plural = singular + 's'
   const resultsName = `preferred${plural}`
   const resultName = `preferred${singular}`
-  const headerValue = event.headers[headerName.toLowerCase()] || event.headers[headerName]
+  const headerValue = event?.headers?.[headerName.toLowerCase()] ?? event.headers?.[headerName]
   event[resultsName] = parseFn[type](headerValue, availableValues)
   event[resultName] = event[resultsName][0]
 
