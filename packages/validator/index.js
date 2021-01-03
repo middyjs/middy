@@ -4,10 +4,10 @@ import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 import formatsDraft2019 from 'ajv-formats-draft2019'
 
-const Ajv = _ajv.default // esm workaround linting
+const Ajv = _ajv.default // esm workaround for linting
 
 let ajv
-const defaults = {
+const ajvDefaults = {
   strict: true,
   coerceTypes: 'array', // important for query string params
   allErrors: true,
@@ -16,7 +16,15 @@ const defaults = {
   defaultLanguage: 'en'
 }
 
-export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) => {
+const defaults = {
+  inputSchema: null,
+  outputSchema: null,
+  ajvOptions: {},
+  ajvInstance: undefined
+}
+
+export default (opts = {}) => {
+  let { inputSchema, outputSchema, ajvOptions, ajvInstance } = Object.assign({}, defaults, opts)
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
@@ -56,7 +64,7 @@ export default ({ inputSchema, outputSchema, ajvOptions, ajvInstance = null }) =
 export const compile = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
   if (typeof schema === 'function') return schema
-  const options = Object.assign({}, defaults, ajvOptions)
+  const options = Object.assign({}, ajvDefaults, ajvOptions)
   if (!ajv) {
     ajv = ajvInstance || new Ajv(options)
     formats(ajv)
