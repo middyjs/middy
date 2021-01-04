@@ -121,7 +121,7 @@ function initAjv (options, pluginsOptions) {
       pluginsInstances[p] = require(`ajv-${p}`)
     } catch (e) {
       /* Fixes issue with esbuild */
-      getPlugins(p);
+      getPlugins(p)
     }
 
     if (typeof pluginsInstances[p] === 'function') {
@@ -134,12 +134,12 @@ function initAjv (options, pluginsOptions) {
   previousConstructorOptions = options
 }
 
-function getPlugins(p) {
+function getPlugins (p) {
   try {
     /* Fixes #560: Webpack needs explicit paths for dynamic imports */
     const pckJson = require(`../../ajv-${p}/package.json`)
     pluginsInstances[p] = require(`../../ajv-${p}/${pckJson.main}`)
   } catch (e) {
-    console.error(`Error getting plugins ${e.message}`);
+    console.error(`Error getting plugins ${e.message}`)
   }
 }
