@@ -22,6 +22,20 @@ test('It should decode simple url encoded requests', async (t) => {
   })
 })
 
+test('It should skip if no path parameters', async (t) => {
+  const handler = middy((event, context) => {
+    return event.pathParameters // propagates the body as response
+  })
+
+  handler.use(urlEncodePathParser())
+
+  // invokes the handler
+  const event = {}
+
+  const response = await handler(event, {})
+  t.is(response, undefined)
+})
+
 test('It should throw error', async (t) => {
   const handler = middy((event, context) => {
     return event.pathParameters // propagates the body as response

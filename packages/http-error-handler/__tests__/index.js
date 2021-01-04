@@ -8,7 +8,7 @@ import createError from 'http-errors'
 // Silence logging
 //console.error = () => {}
 
-test('It should create a response for HTTP errors', async (t) => {
+test('It should create a response for HTTP errors (string)', async (t) => {
   const handler = middy(() => {
     throw new createError.UnprocessableEntity()
   })
@@ -16,13 +16,32 @@ test('It should create a response for HTTP errors', async (t) => {
   handler
     .use(httpErrorHandler({ logger: false }))
 
-  const response = await handler()
+  const response = await handler(null)
 
-  t.deepEqual(response,{
+  t.deepEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity',
     headers: {
       'Content-Type': 'plain/text'
+    }
+  })
+})
+
+test('It should create a response for HTTP errors (json)', async (t) => {
+  const handler = middy(() => {
+    throw new Error()
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false, fallbackMessage: '{"json":"error"}' }))
+
+  const response = await handler()
+
+  t.deepEqual(response, {
+    statusCode: 500,
+    body: { 'json': 'error' },
+    headers: {
+      'Content-Type': 'application/json'
     }
   })
 })
@@ -51,9 +70,9 @@ test('It should handle non HTTP errors when fallback set', async (t) => {
 
   handler
     .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
-  
+
   const response = await handler()
-  t.deepEqual(response,{
+  t.deepEqual(response, {
     statusCode: 500,
     body: 'Error: unknown',
     headers: {
@@ -90,7 +109,7 @@ test('It should create a response for HTTP errors created with a generic error',
 
   const response = await handler()
 
-  t.deepEqual(response,{
+  t.deepEqual(response, {
     statusCode: 500,
     body: 'A server error',
     headers: {

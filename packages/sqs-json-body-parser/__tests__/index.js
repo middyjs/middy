@@ -42,6 +42,15 @@ test.serial('returns original body when parse error', async (t) => {
   t.deepEqual(handler.event.Records[0].body, body)
 })
 
+test.serial('returns default body when nullish', async (t) => {
+  const handler = {event}
+  const body = null
+  handler.event.Records[0].body = body
+  await sqsJsonBodyParser().before(handler)
+
+  t.deepEqual(handler.event.Records[0].body, {})
+})
+
 
 test.serial('It should parse the body', async (t) => {
   const handler = middy()

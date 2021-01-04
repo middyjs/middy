@@ -164,7 +164,7 @@ test('It shouldn\'t process the body if headers are passed without content type'
   t.is(response, 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=')
 })
 
-test('It should parse an array from a multipart/form-data request', async (t) => {
+test('It should parse an array from a multipart/form-data request (base64)', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -182,5 +182,25 @@ test('It should parse an array from a multipart/form-data request', async (t) =>
 
   t.not(response.foo, undefined)
   t.is(response.foo.length, 2)
+})
+
+test('It should parse an array from a multipart/form-data request (binary)', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(httpMultipartBodyParser())
+
+  const event = {
+    headers: {
+      'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+    },
+    body: '',
+    isBase64Encoded: false
+  }
+  const response = await handler(event)
+
+  // TODO add in better test for binary
+  t.deepEqual(response, { })
 })
 

@@ -17,8 +17,8 @@ export default (opts = {}) => {
     // find accept value(s)
     let types
 
-    const handlerEvent = handler.event ?? {}
-    if (handlerEvent.requiredContentType) {
+    const handlerEvent = handler.event
+    if (handlerEvent?.requiredContentType) {
       types = [].concat(handlerEvent.requiredContentType)
     } else {
       types = [].concat(
