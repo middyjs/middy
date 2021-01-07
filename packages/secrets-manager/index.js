@@ -3,9 +3,10 @@ import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
 // import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
 
 const defaults = {
-  AwsClient: SecretsManager, // Allow for XRay
+  AwsClient: SecretsManager,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',

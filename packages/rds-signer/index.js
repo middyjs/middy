@@ -3,9 +3,10 @@ import RDS from 'aws-sdk/clients/rds.js' // v2
 // import { RDS } from '@aws-sdk/client-rds' // v3
 
 const defaults = {
-  AwsClient: RDS, // Allow for XRay
+  AwsClient: RDS,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',

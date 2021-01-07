@@ -1,5 +1,6 @@
 import { Agent } from 'https'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
+import {captureAWSClient} from 'aws-xray-sdk'
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
 export const awsClientDefaultOptions = {
@@ -15,6 +16,12 @@ export const awsClientDefaultOptions = {
 export const createPrefetchClient = (options) => {
   const awsClientOptions = Object.assign({}, awsClientDefaultOptions, options.awsClientOptions)
   const client = new options.AwsClient(awsClientOptions)
+
+  // AWS XRay
+  if (options.awsClientCapture) {
+    return captureAWSClient(client)
+  }
+
   return client
 }
 

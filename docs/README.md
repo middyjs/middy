@@ -545,20 +545,6 @@ middy(handler)
   })
 ```
 
-### Adding in monitoring with AWS XRay
-**TODO**
-
-```javascript
-import {SSM} from '@aws-sdk/client-ssm'
-import {XRay} from 'TODO'
-
-middy(handler)
-  .use(ssm({
-    AwsClient: XRay(SSM) // likely something like this
-  }))
-
-```
-
 ### Bundling Lambda packages
 If you're using serverless, checkout [`serverless-bundle`](https://www.npmjs.com/package/serverless-bundle). 
 It's a wrapper around webpack, babel, and a bunch of other dependencies.

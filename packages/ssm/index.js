@@ -18,6 +18,7 @@ const defaults = {
     retryDelayOptions: { base: 200 }
   },
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',

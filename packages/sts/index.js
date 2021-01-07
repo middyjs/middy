@@ -3,9 +3,10 @@ import STS from 'aws-sdk/clients/sts.js' // v2
 // import { STS } from '@aws-sdk/client-sts' // v3
 
 const defaults = {
-  AwsClient: STS, // Allow for XRay
+  AwsClient: STS,
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
+  awsClientCapture: false,
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',
