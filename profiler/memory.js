@@ -8,19 +8,23 @@ module.exports = (opts = {}) => {
   const { logger } = Object.assign({}, defaults, opts)
   const store = {}
 
-  const before = (id) => {
+  const start = (id) => {
     store[id] = new memwatch.HeapDiff()
   }
-  const after = (id) => {
+  const stop = (id) => {
     logger(id, store[id].end())
   }
 
-  const start = () => before('total')
-  const initStart = () => before('init')
-  const initEnd = () => after('init')
-  const beforeHandler = () => before('handler')
-  const afterHandler = () => before('handler')
-  const end = () => after('total')
+  const beforePrefetch = () => start('total')
+  const requestStart = () => {
+    store.init = store.total
+    stop('init')
+  }
+  const beforeMiddleware = start
+  const afterMiddleware = stop
+  const beforeHandler = () => start('handler')
+  const afterHandler = () => stop('handler')
+  const requestEnd = () => stop('total')
 
-  return { start, initStart, initEnd, before, beforeHandler, afterHandler, after, end }
+  return { beforePrefetch, requestStart, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
 }

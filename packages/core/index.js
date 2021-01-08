@@ -65,9 +65,9 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
-  profiler?.before(nextMiddleware?.name)
+  profiler?.beforeMiddleware(nextMiddleware?.name)
   const res = await nextMiddleware?.(request)
-  profiler?.after(nextMiddleware?.name)
+  profiler?.afterMiddleware(nextMiddleware?.name)
   if (res !== undefined) {
     request.response = res
     return
@@ -82,13 +82,13 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
  * @return {middy} - a `middy` instance
  */
 module.exports = (handler = () => {}, profiler = null) => {
-  profiler?.start()
-  profiler?.initStart()
+  profiler?.beforePrefetch()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
+    profiler?.requestStart()
     const request = {
       event,
       context,
@@ -98,18 +98,17 @@ module.exports = (handler = () => {}, profiler = null) => {
     }
 
     const middyPromise = async () => {
-      profiler?.initEnd()
       try {
         await runMiddlewares(beforeMiddlewares, request, profiler)
         if (request.response) { // catch short circuit
-          profiler?.end()
+          await profiler?.requestEnd()
           return request.response
         }
         profiler?.beforeHandler()
         request.response = await handler(request.event, request.context)
         profiler?.afterHandler()
         await runMiddlewares(afterMiddlewares, request, profiler)
-        profiler?.end()
+        await profiler?.requestEnd()
         return request.response
       } catch (e) {
         request.response = null
@@ -117,7 +116,7 @@ module.exports = (handler = () => {}, profiler = null) => {
         try {
           await runMiddlewares(onErrorMiddlewares, request, profiler)
           if (request.response) {
-            profiler?.end()
+            await profiler?.requestEnd()
             return request.response
           }
         } catch (e) {

@@ -102,7 +102,7 @@ module.exports = (opts = {}) => {
         Object.assign(
           values,
           ...resp.Parameters.map(param => {
-            return { [sanitizeKey(param.Name.replace(path,''))]: jsonSafeParse(param.Value) }
+            return { [sanitizeKey(param.Name.replace(path, ''))]: jsonSafeParse(param.Value) }
           })
         )
         if (resp.NextToken) return fetchPath(path, resp.nextToken, values)

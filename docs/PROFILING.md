@@ -10,20 +10,22 @@ Let's take a look at a simple time profiler example:
 
 // Profiler, simplified version of /profiler/time.js
 const store = {}
-const before = (id) => {
+const start = (id) => {
     store[id] = process.hrtime()
 }
-const after = (id) => {
+const stop = (id) => {
     console.log(id, process.hrtime(store[id])[1] / 1000000, 'ms')
 }
 
 // one off hooks
-const start = () => before('total')
-const beforeHandler = () => before('handler')
-const afterHandler = () => after('handler')
-const end = () => after('total')
+const beforePrefetch = () => start('total')
+const beforeMiddleware = start
+const afterMiddleware = stop
+const beforeHandler = () => start('handler')
+const afterHandler = () => stop('handler')
+const requestEnd = async () => stop('total') // This is the last run hook, it will resolve before the request ends.
 
-const profiler = { start, before, beforeHandler, afterHandler, after, end }
+const profiler = { beforePrefetch, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
 
 middy(originalHandler, profiler)
   .use(eventLogger())
@@ -65,7 +67,7 @@ The Ajv constructor and compiler do a lot of magic when they first run to get re
 This is why in the `validator` middleware we now support passing in complied schema and expose the default compiler in 
 case you want to use it in a build step. We hope this feature will help to you in identify slow middlewares and improve your development experience.
 
-There is also an `initStart` and `initEnd` hook, but were left out of the example for dramatic effect.
+There is also a `beforeRequest` hook, but was left out of the example for dramatic effect.
 
 Additionally, you'll notice that each middleware shows a descriptive name. This is printing out the function name passed into middy core.
 If you've looked at the code for some the supported middlewares, you'll see these long descriptive variable names being set, then returned.
