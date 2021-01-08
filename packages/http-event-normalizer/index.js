@@ -3,7 +3,7 @@ const defaults = {
   payloadFormatVersion: 1
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpEventNormalizerMiddlewareBefore = async (handler) => {

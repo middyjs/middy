@@ -1,10 +1,10 @@
-import { jsonSafeParse } from '@middy/core/util.js'
+const { jsonSafeParse } = require('@middy/core/util.js')
 
 const defaults = {
   reviver: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const sqsJsonBodyParserMiddlewareBefore = async (handler) => {

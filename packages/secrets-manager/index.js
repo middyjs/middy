@@ -1,11 +1,12 @@
-import { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } from '@middy/core/util.js'
-import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
-// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+const { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } = require('@middy/core/util.js')
+const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
+// const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 
 const defaults = {
-  AwsClient: SecretsManager, // Allow for XRay
+  AwsClient: SecretsManager,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
@@ -15,7 +16,7 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {

@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import httpEventNormalizer from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const httpEventNormalizer = require('../index.js')
 
 const handlerRestApi = middy((event, context) => event).use(httpEventNormalizer())
 const handlerHttpApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 2 }))

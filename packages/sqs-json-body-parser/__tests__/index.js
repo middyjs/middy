@@ -1,8 +1,8 @@
-import test from 'ava'
-import sinon from 'sinon'
-import createEvent from '@serverless/event-mocks'
-import middy from '../../core/index.js'
-import sqsJsonBodyParser from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const createEvent = require('@serverless/event-mocks')
+const middy = require('../../core/index.js')
+const sqsJsonBodyParser = require('../index.js')
 
 let event
 
@@ -40,6 +40,15 @@ test.serial('returns original body when parse error', async (t) => {
   await sqsJsonBodyParser().before(handler)
 
   t.deepEqual(handler.event.Records[0].body, body)
+})
+
+test.serial('returns default body when nullish', async (t) => {
+  const handler = {event}
+  const body = null
+  handler.event.Records[0].body = body
+  await sqsJsonBodyParser().before(handler)
+
+  t.deepEqual(handler.event.Records[0].body, {})
 })
 
 

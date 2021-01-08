@@ -2,7 +2,7 @@
   "name": "@middy/profiler",
   "version": "2.0.0-alpha.0",
   "description": "Performance profilers for middy",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

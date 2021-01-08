@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import httpContentNegotiation from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const httpContentNegotiation = require('../index.js')
 
 test('It should parse charset, encoding, language and media type', async (t) => {
   const handler = middy((event, context, callback) => event)

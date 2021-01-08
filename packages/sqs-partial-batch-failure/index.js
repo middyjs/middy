@@ -1,15 +1,16 @@
-import { canPrefetch, createPrefetchClient, createClient } from '@middy/core/util.js'
-import SQS from 'aws-sdk/clients/sqs.js' // v2
-// import { SQS } from '@aws-sdk/client-sqs' // v3
+const { canPrefetch, createPrefetchClient, createClient } = require('@middy/core/util.js')
+const SQS = require('aws-sdk/clients/sqs.js') // v2
+// const { SQS } = require('@aws-sdk/client-sqs') // v3
 
 const defaults = {
-  AwsClient: SQS, // Allow for XRay
+  AwsClient: SQS,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   disablePrefetch: false
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const getQueueUrl = (eventSourceARN) => { // needs to be async for aws-sdk v3

@@ -2,13 +2,13 @@
   "name": "middy-monorepo",
   "version": "2.0.0-alpha.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },
   "engineStrict": true,
   "scripts": {
-    "test:package": "c8 ava packages/secrets-manager/__tests__/index.js",
+    "test:package": "c8 ava packages/ssm/__tests__/index.js",
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
     "test:lint": "standard --fix",

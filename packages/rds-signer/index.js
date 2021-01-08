@@ -1,11 +1,12 @@
-import { canPrefetch, createClient, getInternal, processCache } from '@middy/core/util.js'
-import RDS from 'aws-sdk/clients/rds.js' // v2
-// import { RDS } from '@aws-sdk/client-rds' // v3
+const { canPrefetch, createClient, getInternal, processCache } = require('@middy/core/util.js')
+const RDS = require('aws-sdk/clients/rds.js') // v2
+// const { RDS } = require('@aws-sdk/client-rds') // v3
 
 const defaults = {
-  AwsClient: RDS, // Allow for XRay
+  AwsClient: RDS,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',
@@ -15,7 +16,7 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {

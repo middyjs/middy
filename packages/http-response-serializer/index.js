@@ -1,8 +1,8 @@
-import Accept from '@hapi/accept'
+const Accept = require('@hapi/accept')
 
 const defaults = {}
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const httpResponseSerializerMiddlewareAfter = async (handler) => {
     // normalise headers for internal use only
@@ -17,8 +17,8 @@ export default (opts = {}) => {
     // find accept value(s)
     let types
 
-    const handlerEvent = handler.event ?? {}
-    if (handlerEvent.requiredContentType) {
+    const handlerEvent = handler.event
+    if (handlerEvent?.requiredContentType) {
       types = [].concat(handlerEvent.requiredContentType)
     } else {
       types = [].concat(

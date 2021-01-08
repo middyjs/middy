@@ -1,13 +1,14 @@
-import {
+const {
   canPrefetch,
   createPrefetchClient,
   createClient,
   processCache,
   jsonSafeParse,
-  getInternal
-} from '@middy/core/util.js'
-import SSM from 'aws-sdk/clients/ssm.js' // v2
-// import { SSM } from '@aws-sdk/client-ssm' // v3
+  getInternal,
+  sanitizeKey
+} = require('@middy/core/util.js')
+const SSM = require('aws-sdk/clients/ssm.js') // v2
+// const { SSM } = require('@aws-sdk/client-ssm') // v3
 
 const awsRequestLimit = 10
 const defaults = {
@@ -17,6 +18,7 @@ const defaults = {
     retryDelayOptions: { base: 200 }
   },
   awsClientAssumeRole: undefined,
+  awsClientCapture: false,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',
@@ -26,10 +28,14 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
+    return { ...fetchSingle(), ...fetchByPath() }
+  }
+
+  const fetchSingle = () => {
     const values = {}
     let request = null
     let batch = []
@@ -37,6 +43,7 @@ export default (opts = {}) => {
     const internalKeys = Object.keys(options.fetchData)
     const fetchKeys = Object.values(options.fetchData)
     for (const [idx, fetchKey] of fetchKeys.entries()) {
+      if (fetchKey.substr(-1) === '/') continue // Skip path passed in
       batch.push(fetchKey)
       // from the first to the batch size skip, unless it's the last entry
       if ((!idx || (idx + 1) % awsRequestLimit !== 0) && !(idx + 1 === internalKeys.length)) {
@@ -52,18 +59,17 @@ export default (opts = {}) => {
               `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
             )
           }
-          return resp.Parameters
-            .map(param => {
+          return Object.assign(
+            ...resp.Parameters.map(param => {
+              // Don't sanitize key, mapped to set value in options
               return { [param.Name]: jsonSafeParse(param.Value) }
             })
+          )
         })
 
       for (const fetchKey of batch) {
         const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
-        values[internalKey] = request.then(params => {
-          params = Object.assign(...params)
-          return params[fetchKey]
-        })
+        values[internalKey] = request.then(params => params[fetchKey])
       }
 
       batch = []
@@ -71,6 +77,37 @@ export default (opts = {}) => {
     }
 
     return values
+  }
+
+  const fetchByPath = () => {
+    const values = {}
+    for (const internalKey in options.fetchData) {
+      const fetchKey = options.fetchData[internalKey]
+      if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
+      values[internalKey] = fetchPath(fetchKey)
+    }
+    return values
+  }
+
+  const fetchPath = (path, nextToken, values = {}) => {
+    return client
+      .getParametersByPath({
+        Path: path,
+        NextToken: nextToken,
+        Recursive: true,
+        WithDecryption: true
+      })
+      .promise() // Required for aws-sdk v2
+      .then(resp => {
+        Object.assign(
+          values,
+          ...resp.Parameters.map(param => {
+            return { [sanitizeKey(param.Name.replace(path, ''))]: jsonSafeParse(param.Value) }
+          })
+        )
+        if (resp.NextToken) return fetchPath(path, resp.nextToken, values)
+        return values
+      })
   }
 
   let prefetch, client, init

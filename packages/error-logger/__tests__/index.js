@@ -1,7 +1,7 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import errorLogger from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const errorLogger = require('../index.js')
 
 test('It should log errors and propagate the error', async (t) => {
 

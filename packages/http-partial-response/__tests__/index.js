@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import httpPartialResponse from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const httpPartialResponse = require('../index.js')
 
 const createDefaultObjectResponse = () =>
   Object.assign(
@@ -23,9 +23,27 @@ const createDefaultStringifiedResponse = () =>
     }
   )
 
-test('It should filter a response with default opts', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse()
-  )
+test('It should filter a response with default opts (string)', async (t) => {
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body: 'response'
+  }))
+
+  handler.use(httpPartialResponse())
+
+  const event = {
+    queryStringParameters: {
+      fields: 'firstname'
+    }
+  }
+
+  const response = await handler(event)
+
+  t.deepEqual(response.body, 'response')
+})
+
+test('It should filter a response with default opts (json)', async (t) => {
+  const handler = middy((event, context) => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse())
 

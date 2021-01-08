@@ -1,10 +1,10 @@
-import mask from 'json-mask'
+const mask = require('json-mask')
 
 const defaults = {
   filteringKeyName: 'fields'
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const { filteringKeyName } = options
 

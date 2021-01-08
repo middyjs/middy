@@ -1,10 +1,10 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import { getInternal, clearCache } from '../../core/util.js'
-import SSM from 'aws-sdk/clients/ssm.js' // v2
-//import { SSM } from '@aws-sdk/client-ssm' // v3
-import ssm from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const { getInternal, clearCache } = require('../../core/util.js')
+const SSM = require('aws-sdk/clients/ssm.js') // v2
+//const { SSM } = require('@aws-sdk/client-ssm') // v3
+const ssm = require('../index.js')
 
 let sandbox
 test.beforeEach(t => {
@@ -22,8 +22,12 @@ const mockService = (client, responseOne, responseTwo) => {
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
   if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
   client.prototype.getParameters = mock
+  client.prototype.getParametersByPath = mock
   // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // const mock = sandbox.stub(client.prototype, 'getParameters')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+  // const mock = sandbox.stub(client.prototype, 'getParametersByPath')
   // mock.onFirstCall().resolves(responseOne)
   // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
 
@@ -53,6 +57,69 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
 
   await handler()
 
+})
+
+test.serial('It should set SSM param path to internal storage', async (t) => {
+  mockService(SSM,{
+    Parameters: [
+      { Name: '/dev/service_name/key_name', Value: 'key-value' },
+      { Name: '/dev/service_name/key_pass', Value: 'key-pass' }
+      ]
+  })
+
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.deepEqual(values.key, {
+      key_name:'key-value',
+      key_pass:'key-pass'
+    })
+  }
+
+  handler
+    .use(ssm({
+      AwsClient: SSM,
+      fetchData: {
+        key: '/dev/service_name/'
+      }
+    }))
+    .before(middleware)
+
+  await handler()
+})
+test.serial('It should set SSM param path to internal storage when nextToken is returned', async (t) => {
+  mockService(SSM,{
+    NextToken: 'NextToken',
+    Parameters: [
+      { Name: '/dev/service_name/key_name', Value: 'key-value' }
+    ]
+  },{
+    Parameters: [
+      { Name: '/dev/service_name/key_pass', Value: 'key-pass' }
+    ]
+  })
+
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.deepEqual(values.key, {
+      key_name:'key-value',
+      key_pass:'key-pass'
+    })
+  }
+
+  handler
+    .use(ssm({
+      AwsClient: SSM,
+      fetchData: {
+        key: '/dev/service_name/'
+      }
+    }))
+    .before(middleware)
+
+  await handler()
 })
 
 test.serial('It should set SSM param value to internal storage without prefetch', async (t) => {

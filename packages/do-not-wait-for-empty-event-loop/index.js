@@ -1,4 +1,4 @@
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const defaults = {
     runOnBefore: true,
     runOnAfter: false,

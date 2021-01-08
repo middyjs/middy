@@ -1,8 +1,9 @@
-import { Agent } from 'https'
-import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
+const { Agent } = require('https')
+const { NodeHttpHandler } = require('@aws-sdk/node-http-handler')
+const { captureAWSClient } = require('aws-xray-sdk')
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
-export const awsClientDefaultOptions = {
+const awsClientDefaultOptions = {
   requestHandler: new NodeHttpHandler({
     httpsAgent: new Agent(
       {
@@ -12,13 +13,19 @@ export const awsClientDefaultOptions = {
   })
 }
 
-export const createPrefetchClient = (options) => {
+const createPrefetchClient = (options) => {
   const awsClientOptions = Object.assign({}, awsClientDefaultOptions, options.awsClientOptions)
   const client = new options.AwsClient(awsClientOptions)
+
+  // AWS XRay
+  if (options.awsClientCapture) {
+    return captureAWSClient(client)
+  }
+
   return client
 }
 
-export const createClient = async (options, handler) => {
+const createClient = async (options, handler) => {
   let awsClientCredentials = {}
 
   // Role Credentials
@@ -32,12 +39,12 @@ export const createClient = async (options, handler) => {
   return createPrefetchClient(Object.assign({}, options, { awsClientOptions: awsClientCredentials }))
 }
 
-export const canPrefetch = (options) => {
+const canPrefetch = (options) => {
   return (!options?.awsClientAssumeRole && !options?.disablePrefetch)
 }
 
 // Internal Context
-export const getInternal = async (variables, handler) => {
+const getInternal = async (variables, handler) => {
   if (!variables) return {}
   let keys = []
   let values = []
@@ -69,7 +76,7 @@ export const getInternal = async (variables, handler) => {
 
   return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {})
 }
-export const sanitizeKey = (key) => {
+const sanitizeKey = (key) => {
   return key
     .replace(/^([0-9])/, '_$1')
     .replace(/[^a-zA-Z0-9]+/g, '_')
@@ -77,7 +84,7 @@ export const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = {} // key: { value, expiry }
-export const processCache = (options, fetch = () => undefined, handler) => {
+const processCache = (options, fetch = () => undefined, handler) => {
   if (options.cacheExpiry) {
     const cached = getCache(options.cacheKey)
     if (cached && (cache.expiry >= Date.now() || options.cacheExpiry < 0)) {
@@ -94,11 +101,11 @@ export const processCache = (options, fetch = () => undefined, handler) => {
   return value
 }
 
-export const getCache = (key) => {
+const getCache = (key) => {
   return cache[key]
 }
 
-export const clearCache = (keys = null) => {
+const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
@@ -106,10 +113,12 @@ export const clearCache = (keys = null) => {
   }
 }
 
-export const jsonSafeParse = (string, reviver) => {
+const jsonSafeParse = (string, reviver) => {
   try {
     return JSON.parse(string, reviver)
   } catch (e) {}
 
   return string
 }
+
+module.exports = { createPrefetchClient, createClient, canPrefetch, getInternal, sanitizeKey, processCache, getCache, clearCache, jsonSafeParse }

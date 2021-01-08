@@ -360,7 +360,7 @@ E.g.
 
 const defaults = {}
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const customMiddlewareBefore = async (handler) => {
@@ -460,7 +460,7 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {
@@ -543,20 +543,6 @@ middy(handler)
     // get all the values, only if you really need to, but you should only request what you need for the handler
     Object.assign(handler.context, await getInternal(true, handler)) // context == { key: 'value'}
   })
-```
-
-### Adding in monitoring with AWS XRay
-**TODO**
-
-```javascript
-import {SSM} from '@aws-sdk/client-ssm'
-import {XRay} from 'TODO'
-
-middy(handler)
-  .use(ssm({
-    AwsClient: XRay(SSM) // likely something like this
-  }))
-
 ```
 
 ### Bundling Lambda packages

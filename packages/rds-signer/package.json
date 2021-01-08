@@ -2,7 +2,7 @@
   "name": "@middy/rds-signer",
   "version": "2.0.0-alpha.0",
   "description": "RDS (Relational Database Service) credentials middleware for the middy framework",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

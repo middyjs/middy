@@ -121,7 +121,7 @@ helmetHtmlOnly.xssFilter = (headers, options) => {
   return headers
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   opts = Object.assign({}, defaults, opts)
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {

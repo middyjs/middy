@@ -1,10 +1,10 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import createError from 'http-errors'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const createError = require('http-errors')
 
-import httpErrorHandler from '../../http-error-handler/index.js'
-import httpResponseSerializer from '../index.js'
+const httpErrorHandler = require('../../http-error-handler/index.js')
+const httpResponseSerializer = require('../index.js')
 
 const standardConfiguration = {
   serializers: [

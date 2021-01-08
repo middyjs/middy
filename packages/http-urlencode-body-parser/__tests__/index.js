@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import urlEncodeBodyParser from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const urlEncodeBodyParser = require('../index.js')
 
 test('It should decode complex url encoded requests', async (t) => {
   const handler = middy((event, context) => {
@@ -30,7 +30,7 @@ test('It should decode complex url encoded requests', async (t) => {
   })
 })
 
-test('It shouldn\'t process the body if no header is passed', async (t) => {
+test('It should not process the body if no headers are passed', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -40,6 +40,24 @@ test('It shouldn\'t process the body if no header is passed', async (t) => {
   // invokes the handler
   const event = {
     body: JSON.stringify({ foo: 'bar' })
+  }
+
+  const body = await handler(event)
+
+  t.is(body, '{"foo":"bar"}')
+})
+
+test('It should not process the body if no header is passed', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser())
+
+  // invokes the handler
+  const event = {
+    body: JSON.stringify({ foo: 'bar' }),
+    headers: {}
   }
 
   const body = await handler(event)
