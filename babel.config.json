@@ -7,7 +7,7 @@
     [
       "@babel/preset-env",
       {
-        ",targets": {
+        "targets": {
           "node": "12"
         }
       }
