@@ -2,7 +2,7 @@
   "name": "@middy/sqs-partial-batch-failure",
   "version": "2.0.0-alpha.0",
   "description": "SQS partial batch failure middleware for the middy framework",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

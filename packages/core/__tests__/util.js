@@ -1,7 +1,6 @@
-import test from 'ava'
-import sinon from 'sinon'
-import * as util from '../util.js'
-import { getInternal } from '../util.js'
+const test = require('ava')
+const sinon = require('sinon')
+const util = require('../util.js')
 
 process.env.AWS_REGION = 'ca-central-1'
 

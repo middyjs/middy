@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import httpPartialResponse from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const httpPartialResponse = require('../index.js')
 
 const createDefaultObjectResponse = () =>
   Object.assign(

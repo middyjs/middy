@@ -1,7 +1,7 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import inputOutputLogger from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const inputOutputLogger = require('../index.js')
 
 // Silence logging
 console.log = () => {}

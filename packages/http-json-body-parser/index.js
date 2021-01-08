@@ -1,9 +1,9 @@
-import createError from 'http-errors'
-import contentType from 'content-type'
+const createError = require('http-errors')
+const contentType = require('content-type')
 
 const defaults = {}
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
   const httpJsonBodyParserMiddlewareBefore = async (handler) => {
     if (handler.event.headers) {

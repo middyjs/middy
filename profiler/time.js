@@ -1,7 +1,7 @@
 const defaults = {
   logger: console.log
 }
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const { logger } = Object.assign({}, defaults, opts)
   const store = {}
 

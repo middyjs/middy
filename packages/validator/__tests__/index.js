@@ -1,7 +1,7 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import validator from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const validator = require('../index.js')
 
 test('It should validate an incoming object', async (t) => {
   const handler = middy((event, context) => {

@@ -81,7 +81,7 @@ const runMiddlewares = async (middlewares, request, profiler = null) => {
  * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-export default (handler = () => {}, profiler = null) => {
+module.exports = (handler = () => {}, profiler = null) => {
   profiler?.start()
   profiler?.initStart()
   const beforeMiddlewares = []

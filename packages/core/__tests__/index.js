@@ -1,6 +1,6 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../index.js')
 
 test('Middleware attached with "use" must be an object or array', async (t) => {
   const handler = middy()

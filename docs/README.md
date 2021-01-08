@@ -360,7 +360,7 @@ E.g.
 
 const defaults = {}
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const customMiddlewareBefore = async (handler) => {
@@ -460,7 +460,7 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {

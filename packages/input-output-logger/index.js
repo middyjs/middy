@@ -1,5 +1,5 @@
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const defaults = {
     logger: data => console.log(JSON.stringify(data, null, 2)),
     omitPaths: []

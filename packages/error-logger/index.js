@@ -2,7 +2,7 @@ const defaults = {
   logger: console.error
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   let { logger } = Object.assign({}, defaults, opts)
   if (typeof logger !== 'function') logger = null
 

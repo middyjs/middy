@@ -1,6 +1,6 @@
-import { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } from '@middy/core/util.js'
-import STS from 'aws-sdk/clients/sts.js' // v2
-// import { STS } from '@aws-sdk/client-sts' // v3
+const { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } = require('@middy/core/util.js')
+const STS = require('aws-sdk/clients/sts.js') // v2
+// const { STS } = require('@aws-sdk/client-sts') // v3
 
 const defaults = {
   AwsClient: STS,
@@ -16,7 +16,7 @@ const defaults = {
   onChange: undefined
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const fetch = () => {

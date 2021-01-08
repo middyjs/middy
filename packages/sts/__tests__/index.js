@@ -1,10 +1,10 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import { getInternal, clearCache } from '../../core/util.js'
-import STS from 'aws-sdk/clients/sts.js' // v2
-//import { STS } from '@aws-sdk/client-sts' // v3
-import sts from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const { getInternal, clearCache } = require('../../core/util.js')
+const STS = require('aws-sdk/clients/sts.js') // v2
+//const { STS } = require('@aws-sdk/client-sts') // v3
+const sts = require('../index.js')
 
 let sandbox
 test.beforeEach(t => {

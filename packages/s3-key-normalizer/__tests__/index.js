@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import s3KeyNormalizer from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const s3KeyNormalizer = require('../index.js')
 
 test('It normalizes keys in a s3 PUT event', async (t) => {
   const event = {

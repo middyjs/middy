@@ -1,9 +1,9 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import httpErrorHandler from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const httpErrorHandler = require('../index.js')
 
-import createError from 'http-errors'
+const createError = require('http-errors')
 
 // Silence logging
 //console.error = () => {}

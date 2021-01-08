@@ -1,12 +1,12 @@
-import test from 'ava'
-import sinon from 'sinon'
-import createEvent from '@serverless/event-mocks'
+const test = require('ava')
+const sinon = require('sinon')
+const createEvent = require('@serverless/event-mocks')
 
-import middy from '../../core/index.js'
-import { clearCache } from '../../core/util.js'
-import SQS from 'aws-sdk/clients/sqs.js' // v2
-//import { SQS } from '@aws-sdk/client-sqs' // v3
-import sqsPartialBatchFailure from '../index.js'
+const middy = require('../../core/index.js')
+const { clearCache } = require('../../core/util.js')
+const SQS = require('aws-sdk/clients/sqs.js') // v2
+//const { SQS } = require('@aws-sdk/client-sqs') // v3
+const sqsPartialBatchFailure = require('../index.js')
 
 process.env.AWS_REGION = 'ca-central-1'
 

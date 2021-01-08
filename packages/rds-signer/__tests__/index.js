@@ -1,10 +1,10 @@
-import test from 'ava'
-import sinon from 'sinon'
-import middy from '../../core/index.js'
-import { getInternal, clearCache } from '../../core/util.js'
-import RDS from 'aws-sdk/clients/rds.js' // v2
-//import {RDS} from '@aws-sdk/client-rds' // v3
-import rdsSigner from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const middy = require('../../core/index.js')
+const { getInternal, clearCache } = require('../../core/util.js')
+const RDS = require('aws-sdk/clients/rds.js') // v2
+//const {RDS} = require('@aws-sdk/client-rds') // v3
+const rdsSigner = require('../index.js')
 
 
 let sandbox

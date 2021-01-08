@@ -1,8 +1,8 @@
-import createError from 'http-errors'
-import charset from 'negotiator/lib/charset.js'
-import encoding from 'negotiator/lib/encoding.js'
-import language from 'negotiator/lib/language.js'
-import mediaType from 'negotiator/lib/mediaType.js'
+const createError = require('http-errors')
+const charset = require('negotiator/lib/charset.js')
+const encoding = require('negotiator/lib/encoding.js')
+const language = require('negotiator/lib/language.js')
+const mediaType = require('negotiator/lib/mediaType.js')
 
 const parseFn = { charset, encoding, language, mediaType }
 
@@ -18,7 +18,7 @@ const defaults = {
   failOnMismatch: true
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpContentNegotiationMiddlewareBefore = async (handler) => {

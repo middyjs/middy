@@ -12,6 +12,6 @@ const s3KeyNormalizerMiddlewareBefore = async (handler) => {
   }
 }
 
-export default () => ({
+module.exports = () => ({
   before: s3KeyNormalizerMiddlewareBefore
 })

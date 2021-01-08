@@ -17,6 +17,43 @@ which support ES6 modules by default (`export`), optional chaining (`?.`) and nu
 ### cache
 Deprecated. Too generic and had low usage.
 
+However, you can use the following if needed:
+```javascript
+const { createHash } = require('crypto')
+
+module.exports = (opts) => {
+  const storage = {}
+  const defaults = {
+    calculateCacheId: async (event) => createHash('md5').update(JSON.stringify(event)).digest('hex'),
+    getValue: async (key) => storage[key],
+    setValue: async (key, value) => {
+      storage[key] = value
+    }
+  }
+
+  const options = Object.assign({}, defaults, opts)
+  let currentCacheKey
+
+  const cacheMiddlewareBefore = async (handler) => {
+    const cacheKey = await options.calculateCacheId(handler.event)
+    const response = await options.getValue(cacheKey)
+    if (response) {
+      return response
+    }
+    handler.internal.cacheKey = cacheKey
+  }
+
+  const cacheMiddlewareAfter = async (handler) => {
+    await options.setValue(handler.internal.cacheKey, handler.response)
+  }
+  
+  return {
+    before: cacheMiddlewareBefore,
+    after: cacheMiddlewareAfter
+  }
+}
+```
+
 ### db-manager ** TODO add in external replacement
 Deprecated. Too generic and had low usage.
 

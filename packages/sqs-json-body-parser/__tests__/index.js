@@ -1,8 +1,8 @@
-import test from 'ava'
-import sinon from 'sinon'
-import createEvent from '@serverless/event-mocks'
-import middy from '../../core/index.js'
-import sqsJsonBodyParser from '../index.js'
+const test = require('ava')
+const sinon = require('sinon')
+const createEvent = require('@serverless/event-mocks')
+const middy = require('../../core/index.js')
+const sqsJsonBodyParser = require('../index.js')
 
 let event
 

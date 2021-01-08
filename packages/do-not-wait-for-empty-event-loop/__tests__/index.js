@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import doNotWaitForEmptyEventLoop from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const doNotWaitForEmptyEventLoop = require('../index.js')
 
 test('It should set callbackWaitsForEmptyEventLoop to false by default', async (t) => {
   const handler = middy((event, context) => {

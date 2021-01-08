@@ -1,8 +1,8 @@
-import BusBoy from 'busboy'
-import contentTypeLib from 'content-type'
-import createError from 'http-errors'
+const BusBoy = require('busboy')
+const contentTypeLib = require('content-type')
+const createError = require('http-errors')
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const defaults = {
     // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
     busboy: {}

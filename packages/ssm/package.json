@@ -2,7 +2,7 @@
   "name": "@middy/ssm",
   "version": "2.0.0-alpha.0",
   "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

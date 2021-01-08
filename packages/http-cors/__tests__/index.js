@@ -1,6 +1,6 @@
-import test from 'ava'
-import middy from '../../core/index.js'
-import cors from '../index.js'
+const test = require('ava')
+const middy = require('../../core/index.js')
+const cors = require('../index.js')
 
 test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
   const handler = middy((event, context) => ({}))

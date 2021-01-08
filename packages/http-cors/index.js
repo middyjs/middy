@@ -28,7 +28,7 @@ const defaults = {
   cacheControl: false
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpCorsMiddlewareAfter = async (handler) => {

@@ -2,7 +2,7 @@
   "name": "@middy/http-security-headers",
   "version": "2.0.0-alpha.0",
   "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

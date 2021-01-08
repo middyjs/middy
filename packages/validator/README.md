@@ -69,7 +69,7 @@ Example for input validation:
 
 ```javascript
 import middy from '@middy/core'
-import validator, {compile} from '@middy/validator'
+import validator from '@middy/validator'
 
 const handler = middy((event, context) => {
   return {}

@@ -2,7 +2,7 @@
   "name": "@middy/http-partial-response",
   "version": "2.0.0-alpha.0",
   "description": "Http partial response middleware for the middy framework",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },

@@ -1,11 +1,11 @@
-import { jsonSafeParse } from '@middy/core/util.js'
+const { jsonSafeParse } = require('@middy/core/util.js')
 
 const defaults = {
   logger: console.error,
   fallbackMessage: null
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
   const httpErrorHandlerMiddlewareOnError = async (handler) => {

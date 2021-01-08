@@ -1,8 +1,8 @@
-import createError from 'http-errors'
-import _ajv from 'ajv/dist/2019.js'
-import localize from 'ajv-i18n'
-import formats from 'ajv-formats'
-import formatsDraft2019 from 'ajv-formats-draft2019'
+const createError = require('http-errors')
+const _ajv = require('ajv/dist/2019.js')
+const localize = require('ajv-i18n')
+const formats = require('ajv-formats')
+const formatsDraft2019 = require('ajv-formats-draft2019')
 
 const Ajv = _ajv.default // esm workaround for linting
 
@@ -24,7 +24,7 @@ const defaults = {
   defaultLanguage: 'en'
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   let { inputSchema, outputSchema, ajvOptions, ajvInstance, defaultLanguage } = Object.assign({}, defaults, opts)
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
@@ -62,7 +62,7 @@ export default (opts = {}) => {
 
 // This is pulled out due to it's performance cost (50-100ms on cold start)
 // Precompile your schema during a build step is recommended.
-export const compile = (schema, ajvOptions, ajvInstance = null) => {
+const compile = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
   if (typeof schema === 'function' || !schema) return schema
   const options = Object.assign({}, ajvDefaults, ajvOptions)

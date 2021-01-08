@@ -1,5 +1,5 @@
-import contentType from 'content-type'
-import { parse } from 'qs'
+const contentType = require('content-type')
+const { parse } = require('qs')
 
 const httpUrlencodeBodyParserMiddlewareBefore = async (handler) => {
   if (!handler.event?.headers) return
@@ -12,6 +12,6 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (handler) => {
   }
 }
 
-export default () => ({
+module.exports = () => ({
   before: httpUrlencodeBodyParserMiddlewareBefore
 })

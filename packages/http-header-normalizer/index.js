@@ -3,7 +3,7 @@ const defaults = {
   canonical: false
 }
 
-export default (opts = {}) => {
+module.exports = (opts = {}) => {
   const exceptionsList = [
     'ALPN',
     'C-PEP',

@@ -2,7 +2,7 @@
   "name": "@middy/http-urlencode-body-parser",
   "version": "2.0.0-alpha.0",
   "description": "Urlencode body parser middleware for the middy framework",
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=14"
   },
