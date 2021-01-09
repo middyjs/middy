@@ -12,7 +12,7 @@ const delay = async (ms, x) => {
 test('It should create AWS Client', async (t) => {
   const Client = sinon.spy()
 
-  util.createClient({
+  await util.createClient({
     AwsClient: Client
   })
   t.is(Client.callCount, 1)
@@ -22,7 +22,7 @@ test('It should create AWS Client', async (t) => {
 test('It should create AWS Client with options', async (t) => {
   const Client = sinon.spy()
 
-  util.createClient({
+  await util.createClient({
     AwsClient: Client,
     awsClientOptions: { apiVersion: '2014-11-06' }
   })
