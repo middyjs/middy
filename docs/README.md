@@ -66,7 +66,7 @@ Let's assume you are building a JSON API to process a payment:
 
 // import core
 import middy from '@middy/core' // esm Node v14+
-//const middy require('@middy/core/index.cjs') // commonjs Node v12+
+//const middy require('@middy/core') // commonjs Node v12+
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
@@ -508,6 +508,7 @@ Check the [code for existing middlewares](/packages) to see more examples on how
 ## TypeScript
 **TODO**
 
+
 ## Common Patterns and Best Practice
 Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
 
@@ -560,10 +561,8 @@ There is a whole document on this, [PROFILING.md](/docs/PROFILING.md).
 
 ## FAQ
 ### My lambda keep timing out without responding, what do I do?
-Likely your event loop is not empty. This happens when you have a database connect still open. Checkout the `@middy/do-not-wait-for-empty-event-loop`.
+Likely your event loop is not empty. This happens when you have a database connect still open for example. Checkout `@middy/do-not-wait-for-empty-event-loop`.
 
-### I'm getting `TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".json" for ...` when I try to import json using `{ "type": "module"}`
-JSON modules are still experimental in Node.js v14. You need to enable if with a flag. You can add flags to AWS Lambda by using the env [`NODE_OPTIONS`](https://nodejs.org/api/cli.html#cli_node_options_options). 
 
 ## Available middlewares
 
@@ -604,9 +603,9 @@ JSON modules are still experimental in Node.js v14. You need to enable if with a
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-#### Version 2
+#### Version 2.x
 
-#### Version 1
+#### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
 - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
 - [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
@@ -630,13 +629,16 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 
 ## A brief history of Middy
 - Middy was started in the early beginning of AWS Lambda. 
-- 2017-08-03: It was first made public
+- 2017-08-03: First commit
+- 2017-09-04: v0.2.1 First release
 - 2018-05-20: v1.0.0-alpha
 - 2020-01-09: v1.0.0-beta
-- 2020-04-25: [v1.0.0 Released](https://loige.co/middy-1-is-here/)
+- 2020-04-25: [v1.0.0](https://loige.co/middy-1-is-here/) Released
 - [2020 Review](https://loige.co/2020-a-year-in-review/#middy) from @lmammino
 - [2020 Review](https://github.com/middyjs/middy/issues/590) from @willfarrell
 - 2021: [v2.0.0 Coming soon](https://github.com/middyjs/middy/issues/585)
+
+Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
 
 ## Contributing
 
