@@ -40,6 +40,7 @@ jobs:
     - name: Build as Commonjs for Node.js v12
       run: |
         ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
+        cd package/core && babel --root-mode upward util.js --out-file util.js
     - name: Unit tests
       run: npm run test:packages:unit
       env:
