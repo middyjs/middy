@@ -24,11 +24,10 @@ module.exports = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       const awsClientOptions = {
         AwsClient: options.AwsClient,
-        awsClientOptions: {...options.awsClientOptions, ...options.fetchData[internalKey]},
+        awsClientOptions: { ...options.awsClientOptions, ...options.fetchData[internalKey] },
         awsClientAssumeRole: options.awsClientAssumeRole,
         awsClientCapture: options.awsClientCapture
       }
-      let client
 
       // AWS doesn't support .promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
