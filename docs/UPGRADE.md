@@ -54,8 +54,9 @@ module.exports = (opts) => {
 }
 ```
 
-### db-manager ** TODO add in external replacement
-Deprecated. Too generic and had low usage.
+### db-manager
+Deprecated. Too generic and had low usage. You can check out [middy-rds](https://github.com/willfarrell/middy-rds) as a 
+possible alternative or example on building your own replacement.
 
 ### [do-not-wait-for-empty-event-loop](/packages/do-not-wait-for-empty-event-loop/README.md)
 No change
