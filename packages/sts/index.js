@@ -25,7 +25,7 @@ module.exports = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       const assumeRoleOptions = options.fetchData[internalKey]
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-      assumeRoleOptions.RoleSessionName = assumeRoleOptions?.RoleSessionName ?? 'middy-sts-session-' + Math.random() * 99999 | 0
+      assumeRoleOptions.RoleSessionName = assumeRoleOptions?.RoleSessionName ?? 'middy-sts-session-' + Math.ceil(Math.random() * 99999)
       values[internalKey] = client
         .assumeRole(assumeRoleOptions)
         .promise() // Required for aws-sdk v2

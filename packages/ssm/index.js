@@ -61,6 +61,7 @@ module.exports = (opts = {}) => {
           }
           return Object.assign(
             ...resp.Parameters.map(param => {
+              // Future: Add in parser for Type:StringList when requested
               // Don't sanitize key, mapped to set value in options
               return { [param.Name]: jsonSafeParse(param.Value) }
             })
@@ -102,6 +103,7 @@ module.exports = (opts = {}) => {
         Object.assign(
           values,
           ...resp.Parameters.map(param => {
+            // Future: Add in parser for Type:StringList when requested
             return { [sanitizeKey(param.Name.replace(path, ''))]: jsonSafeParse(param.Value) }
           })
         )
