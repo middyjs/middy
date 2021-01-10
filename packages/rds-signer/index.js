@@ -3,7 +3,7 @@ const RDS = require('aws-sdk/clients/rds.js') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
 
 const defaults = {
-  AwsClient: RDS,
+  AwsClient: RDS.Signer,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: false,
@@ -19,36 +19,47 @@ const defaults = {
 module.exports = (opts = {}) => {
   const options = Object.assign({}, defaults, opts)
 
-  const fetch = () => {
+  const fetch = (handler) => () => {
     const values = {}
-
     for (const internalKey of Object.keys(options.fetchData)) {
-      values[internalKey] = client
-        .Signer({ ...options.awsClientOptions, ...options.fetchData[internalKey] })
-        .getAuthToken()
-        .promise() // Required for aws-sdk v2
-        // .then(resp => resp)
+      const awsClientOptions = {
+        AwsClient: options.AwsClient,
+        awsClientOptions: {...options.awsClientOptions, ...options.fetchData[internalKey]},
+        awsClientAssumeRole: options.awsClientAssumeRole,
+        awsClientCapture: options.awsClientCapture
+      }
+      let client
+
+      // AWS doesn't support .promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
+      values[internalKey] = new Promise((resolve, reject) => {
+        createClient(awsClientOptions, handler).then(client => {
+          client.getAuthToken({}, (err, token) => {
+            if (err) {
+              reject(err)
+            }
+            resolve(token)
+          })
+        })
+      })
+      // aws-sdk v3
+      // values[internalKey] = createClient(awsClientOptions, handler).then(client => client.getAuthToken())
     }
 
     return values
   }
 
-  let prefetch, client, init
+  let prefetch, init
   if (canPrefetch(options)) {
     init = true
-    // client = createClient(options)
-    prefetch = processCache(options, fetch)
+    prefetch = processCache(options, fetch())
   }
 
   const rdsSignerMiddlewareBefore = async (handler) => {
-    if (!client) {
-      client = await createClient(options, handler)
-    }
     let cached
     if (init) {
       cached = prefetch
     } else {
-      cached = processCache(options, fetch, handler)
+      cached = processCache(options, fetch(handler), handler)
     }
 
     Object.assign(handler.internal, cached)

@@ -70,9 +70,11 @@ const handler = middy((event, context) => {
 
 handler
   .use(sts({
-    assumeRole: {
-      RoleArn: '...',
-      RoleSessionName:'' // optional
+    fetchData: {
+      assumeRole: {
+        RoleArn: '...',
+        RoleSessionName:'' // optional
+      }
     }
   }))
 ```
