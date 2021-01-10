@@ -61,9 +61,8 @@ module.exports = (opts = {}) => {
           }
           return Object.assign(
             ...resp.Parameters.map(param => {
-              // Future: Add in parser for Type:StringList when requested
               // Don't sanitize key, mapped to set value in options
-              return { [param.Name]: jsonSafeParse(param.Value) }
+              return { [param.Name]: parseValue(param) }
             })
           )
         })
@@ -103,13 +102,19 @@ module.exports = (opts = {}) => {
         Object.assign(
           values,
           ...resp.Parameters.map(param => {
-            // Future: Add in parser for Type:StringList when requested
-            return { [sanitizeKey(param.Name.replace(path, ''))]: jsonSafeParse(param.Value) }
+            return { [sanitizeKey(param.Name.replace(path, ''))]: parseValue(param) }
           })
         )
         if (resp.NextToken) return fetchPath(path, resp.nextToken, values)
         return values
       })
+  }
+
+  const parseValue = (param) => {
+    if (param.Type === 'StringList') {
+      return param.Value.split(',')
+    }
+    return jsonSafeParse(param.Value)
   }
 
   let prefetch, client, init
