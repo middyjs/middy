@@ -29,7 +29,7 @@ module.exports = (opts = {}) => {
         awsClientCapture: options.awsClientCapture
       }
 
-      // AWS doesn't support .promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
+      // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
         createClient(awsClientOptions, handler).then(client => {
           client.getAuthToken({}, (err, token) => {
