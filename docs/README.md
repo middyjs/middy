@@ -634,6 +634,7 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x
+- [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
