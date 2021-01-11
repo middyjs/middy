@@ -120,9 +120,8 @@ function initAjv (options, pluginsOptions) {
     try {
       pluginsInstances[p] = require(`ajv-${p}`)
     } catch (e) {
-      /* Fixes #560: Webpack needs explicit paths for dynamic imports */
-      const pckJson = require(`../../ajv-${p}/package.json`)
-      pluginsInstances[p] = require(`../../ajv-${p}/${pckJson.main}`)
+      /* Fixes issue with esbuild */
+      getPlugins(p)
     }
 
     if (typeof pluginsInstances[p] === 'function') {
@@ -133,4 +132,14 @@ function initAjv (options, pluginsOptions) {
   availableLanguages = Object.keys(pluginsInstances.i18n || {})
 
   previousConstructorOptions = options
+}
+
+function getPlugins (p) {
+  try {
+    /* Fixes #560: Webpack needs explicit paths for dynamic imports */
+    const pckJson = require(`../../ajv-${p}/package.json`)
+    pluginsInstances[p] = require(`../../ajv-${p}/${pckJson.main}`)
+  } catch (e) {
+    console.error(`Error getting plugins ${e.message}`)
+  }
 }
