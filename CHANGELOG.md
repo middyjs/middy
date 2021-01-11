@@ -1,3 +1,6 @@
+# 1.5.1
+- #600 ESBuild fix for `validator` @doktor500
+
 # 1.5.0
 
 This release includes multiple improvements to `@middy/ssm`
