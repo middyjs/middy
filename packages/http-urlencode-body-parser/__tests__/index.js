@@ -65,3 +65,22 @@ test('It should not process the body if no header is passed', async (t) => {
   t.is(body, '{"foo":"bar"}')
 })
 
+test('It should handle base64 body', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser())
+
+  const event = {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+    },
+    body: Buffer.from('a=a&b=b').toString('base64'),
+    isBase64Encoded: true
+  }
+
+  const body = await handler(event)
+
+  t.deepEqual(body, {a:'a',b:'b'})
+})
