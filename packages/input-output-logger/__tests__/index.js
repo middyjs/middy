@@ -1,6 +1,7 @@
 const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
-const inputOutputLogger = require('../')
+const inputOutputLogger = require('../');
+const { async } = require('regenerator-runtime');
 
 describe('📦 Middleware Input Output Logger', () => {
   test('It should log event and response', async () => {
@@ -34,6 +35,21 @@ describe('📦 Middleware Input Output Logger', () => {
       expect(logger).toHaveBeenCalledWith({ event: { fuu: 'baz' } })
       expect(logger).toHaveBeenCalledWith({ response: { message: 'hello world' } })
     })
+    test('It should include identifier if supplied', async () => {
+      const logger = jest.fn()
+
+      const handler = middy((event, context, cb) => {
+        cb(null, { message: 'hello world', bar: 'bi' })
+      })
+
+      handler
+        .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'], identifier: '123' }))
+
+      await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+      expect(logger).toHaveBeenCalledWith({ identifier: '123', event: { fuu: 'baz' } })
+      expect(logger).toHaveBeenCalledWith({ identifier: '123', response: { message: 'hello world' } })
+    })
     test('It should skip paths that do not exist', async () => {
       const logger = jest.fn()
 
@@ -49,7 +65,6 @@ describe('📦 Middleware Input Output Logger', () => {
       expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
       expect(logger).toHaveBeenCalledWith({ response: 'yo' })
     })
-
     test('Skipped parts should be present in the response', async () => {
       const logger = jest.fn()
 

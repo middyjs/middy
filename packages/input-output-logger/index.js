@@ -3,17 +3,19 @@ const omit = require('lodash/omit')
 module.exports = (opts) => {
   const defaults = {
     logger: data => console.log(JSON.stringify(data, null, 2)),
-    omitPaths: []
+    omitPaths: [],
+    identifier: ''
   }
 
-  const { logger, omitPaths } = Object.assign({}, defaults, opts)
+  const { logger, omitPaths, identifier } = Object.assign({}, defaults, opts)
 
   const cloneMessage = message => JSON.parse(JSON.stringify(message))
 
   const omitAndLog = message => {
     const messageClone = cloneMessage(message)
     const redactedMessage = omit(messageClone, omitPaths)
-    logger(redactedMessage)
+
+    identifier ? logger({ identifier, ...redactedMessage }) : logger(redactedMessage)
   }
 
   return ({
