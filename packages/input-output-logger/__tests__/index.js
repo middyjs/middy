@@ -1,7 +1,6 @@
 const { invoke } = require('../../test-helpers')
 const middy = require('../../core')
-const inputOutputLogger = require('../');
-const { async } = require('regenerator-runtime');
+const inputOutputLogger = require('../')
 
 describe('📦 Middleware Input Output Logger', () => {
   test('It should log event and response', async () => {
