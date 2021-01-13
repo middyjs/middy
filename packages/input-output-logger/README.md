@@ -46,6 +46,7 @@ npm install --save @middy/input-output-logger
 
 `logger` property accept a function (default `console.log`)
 `omitPaths` property accepts an array of paths that will be used to remove particular fields from the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
+`identifier` property accepts a string value to add to logged input and output messages.
 
 
 ## Sample usage
