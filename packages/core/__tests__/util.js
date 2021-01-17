@@ -4,6 +4,9 @@ const util = require('../util.js')
 
 process.env.AWS_REGION = 'ca-central-1'
 
+// httpOptions: aws-sdk v3
+// httpOptions: aws-sdk v2
+
 const delay = async (ms, x) => {
   return new Promise(resolve => setTimeout(() => resolve(x), ms))
 }
@@ -16,7 +19,7 @@ test('It should create AWS Client', async (t) => {
     AwsClient: Client
   })
   t.is(Client.callCount, 1)
-  t.deepEqual(Object.keys(Client.args[0][0]), ['requestHandler'])
+  t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions'])
 })
 
 test('It should create AWS Client with options', async (t) => {
@@ -27,7 +30,7 @@ test('It should create AWS Client with options', async (t) => {
     awsClientOptions: { apiVersion: '2014-11-06' }
   })
   t.is(Client.callCount, 1)
-  t.deepEqual(Object.keys(Client.args[0][0]), ['requestHandler', 'apiVersion'])
+  t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'apiVersion'])
   t.is(Client.args[0][0].apiVersion, '2014-11-06')
 })
 
@@ -57,7 +60,7 @@ test('It should create AWS Client with role', async (t) => {
     awsClientAssumeRole: 'adminRole'
   }, handler)
   t.is(Client.callCount, 1)
-  t.deepEqual(Object.keys(Client.args[0][0]), ['requestHandler', 'credentials'])
+  t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
   t.is(Client.args[0][0].credentials, 'creds object')
 })
 
@@ -74,7 +77,7 @@ test('It should create AWS Client with role from promise', async (t) => {
     awsClientAssumeRole: 'adminRole'
   }, handler)
   t.is(Client.callCount, 1)
-  t.deepEqual(Object.keys(Client.args[0][0]), ['requestHandler', 'credentials'])
+  t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
   t.is(Client.args[0][0].credentials, 'creds object')
 })
 
