@@ -35,8 +35,6 @@ jobs:
       run: |
         npm install
         npm run lerna:install
-      env:
-        CI: true
     -
       name: Linting
       run: npm run test:lint:ci
