@@ -1,16 +1,17 @@
-const { Agent } = require('https')
-const { NodeHttpHandler } = require('@aws-sdk/node-http-handler')
+//const { Agent } = require('https')
+//const { NodeHttpHandler } = require('@aws-sdk/node-http-handler')
 const { captureAWSClient } = require('aws-xray-sdk')
 
 // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
 const awsClientDefaultOptions = {
-  requestHandler: new NodeHttpHandler({
+  // AWS SDK v3
+  /*requestHandler: new NodeHttpHandler({
     httpsAgent: new Agent(
       {
         secureProtocol: 'TLSv1_2_method'
       }
     )
-  })
+  })*/
 }
 
 const createPrefetchClient = (options) => {

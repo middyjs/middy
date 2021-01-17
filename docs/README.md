@@ -514,7 +514,7 @@ Tips and tricks to ensure you don't hit any performance or security issues. Did 
 
 ### ENV variables
 Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse 
-the first connection established.
+the first connection established. See [Reusing Connections with Keep-Alive in Node.js](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/node-reusing-connections.html)
 
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
