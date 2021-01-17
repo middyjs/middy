@@ -1,6 +1,5 @@
 const { Agent } = require('https')
 //const { NodeHttpHandler } = require('@aws-sdk/node-http-handler') // aws-sdk v3
-const { captureAWSClient } = require('aws-xray-sdk')
 
 
 const awsClientDefaultOptions = {
@@ -27,7 +26,7 @@ const createPrefetchClient = (options) => {
 
   // AWS XRay
   if (options.awsClientCapture) {
-    return captureAWSClient(client)
+    return options.awsClientCapture(client)
   }
 
   return client

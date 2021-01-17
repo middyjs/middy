@@ -46,8 +46,5 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.3"
   },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
-  "dependencies": {
-    "aws-xray-sdk": "3.2.0"
-  }
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
