@@ -506,7 +506,7 @@ module.exports = (opts = {}) => {
 Check the [code for existing middlewares](/packages) to see more examples on how to write a middleware.
 
 ## TypeScript
-**TODO**
+See [#589 TypeScript Support](https://github.com/middyjs/middy/issues/589)
 
 
 ## Common Patterns and Best Practice
@@ -619,7 +619,7 @@ Likely your event loop is not empty. This happens when you have a database conne
 - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
-- [`http-response-serializer`](/packages/http-response-serializer): TODO
+- [`http-response-serializer`](/packages/http-response-serializer): HTTP response serializer.
 - [`sqs-partial-batch-failure`](/packages/sqs-partial-batch-failure): handles partially failed SQS batches.
 
 ### Fetch Data
@@ -634,7 +634,7 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x
-- [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection
+- [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using knex
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
