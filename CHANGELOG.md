@@ -1,3 +1,6 @@
+# 1.5.2
+- #603 base64decode on http urlencode body parser @fredericbarthelet
+
 # 1.5.1
 - #600 ESBuild fix for `validator` @doktor500
 
