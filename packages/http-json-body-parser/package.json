@@ -12,7 +12,6 @@
   },
   "main": "index.js",
   "types": "index.d.ts",
-
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",

@@ -1,6 +1,5 @@
-tmp
-*.cjs
-*.mjs
+
+package-lock.json
 
 # Logs
 logs
