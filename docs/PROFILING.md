@@ -1,14 +1,14 @@
 # Profiling Middy
 
-## Profiler hooks on core
+## Plugin hooks on core
 
 Inside of `@middy/core` we've added some hook before and after every middleware called, the handler and from start to end of it's execution.
 
-Let's take a look at a simple time profiler example:
+Let's take a look at a simple time plugin example:
 
 ```javascript
 
-// Profiler, simplified version of /profiler/time.js
+// Plugin, simplified version of /plugin/time.js
 const store = {}
 const start = (id) => {
     store[id] = process.hrtime()
@@ -25,9 +25,9 @@ const beforeHandler = () => start('handler')
 const afterHandler = () => stop('handler')
 const requestEnd = async () => stop('total') // This is the last run hook, it will resolve before the request ends.
 
-const profiler = { beforePrefetch, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
+const plugin = { beforePrefetch, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
 
-middy(originalHandler, profiler)
+middy(originalHandler, plugin)
   .use(eventLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())

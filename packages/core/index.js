@@ -61,34 +61,34 @@
  * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
  */
 
-const runMiddlewares = async (middlewares, request, profiler = null) => {
+const runMiddlewares = async (middlewares, request, plugin = null) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
-  profiler?.beforeMiddleware(nextMiddleware?.name)
+  plugin?.beforeMiddleware(nextMiddleware?.name)
   const res = await nextMiddleware?.(request)
-  profiler?.afterMiddleware(nextMiddleware?.name)
+  plugin?.afterMiddleware(nextMiddleware?.name)
   if (res !== undefined) {
     request.response = res
     return
   } // short circuit chaining and respond early
-  return runMiddlewares(stack, request, profiler)
+  return runMiddlewares(stack, request, plugin)
 }
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param  {function} handler - your original AWS Lambda function
- * @param  {middlewareObject} profiler - wraps around each middleware and handler to profile performance
+ * @param  {middlewareObject} plugin - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-module.exports = (handler = () => {}, profiler = null) => {
-  profiler?.beforePrefetch()
+module.exports = (handler = () => {}, plugin = null) => {
+  plugin?.beforePrefetch()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
-    profiler?.requestStart()
+    plugin?.requestStart()
     const request = {
       event,
       context,
@@ -99,24 +99,24 @@ module.exports = (handler = () => {}, profiler = null) => {
 
     const middyPromise = async () => {
       try {
-        await runMiddlewares(beforeMiddlewares, request, profiler)
+        await runMiddlewares(beforeMiddlewares, request, plugin)
         if (request.response) { // catch short circuit
-          await profiler?.requestEnd()
+          await plugin?.requestEnd()
           return request.response
         }
-        profiler?.beforeHandler()
+        plugin?.beforeHandler()
         request.response = await handler(request.event, request.context)
-        profiler?.afterHandler()
-        await runMiddlewares(afterMiddlewares, request, profiler)
-        await profiler?.requestEnd()
+        plugin?.afterHandler()
+        await runMiddlewares(afterMiddlewares, request, plugin)
+        await plugin?.requestEnd()
         return request.response
       } catch (e) {
         request.response = null
         request.error = e
         try {
-          await runMiddlewares(onErrorMiddlewares, request, profiler)
+          await runMiddlewares(onErrorMiddlewares, request, plugin)
           if (request.response) {
-            await profiler?.requestEnd()
+            await plugin?.requestEnd()
             return request.response
           }
         } catch (e) {

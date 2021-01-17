@@ -1,7 +1,7 @@
 {
-  "name": "@middy/profiler",
+  "name": "@middy/plugin",
   "version": "2.0.0-alpha.0",
-  "description": "Performance profilers for middy",
+  "description": "Performance profiling plugins for middy",
   "type": "commonjs",
   "engines": {
     "node": ">=14"
