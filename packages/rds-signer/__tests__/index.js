@@ -6,7 +6,6 @@ const RDS = require('aws-sdk/clients/rds.js') // v2
 //const {RDS} = require('@aws-sdk/client-rds') // v3
 const rdsSigner = require('../index.js')
 
-
 let sandbox
 test.beforeEach(t => {
   sandbox = sinon.createSandbox()
@@ -17,332 +16,197 @@ test.afterEach((t) => {
   clearCache()
 })
 
-const makeRdsSpy = (resp) => {
-  // return sandbox.stub().returns(
-  //   sinon.spy().returns({
-  //     Signer: sinon.spy().returns({
-  //       getAuthToken: sinon.spy().resolves(resp)
-  //     })
-  //   })
-  // )
-  return
+const mockService = (client, responseOne, responseTwo) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  // getAuthToken doesn't support .promise()
+  // mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
+  // if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  mock.onFirstCall().yields(null, responseOne)
+  if (responseTwo) mock.onSecondCall().yields(null, responseTwo)
+  client.prototype.getAuthToken = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getAuthToken')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
 }
 
-test.serial('It should an authToken', async (t) => {
-  const rdsSpy = sandbox.stub(RDS.prototype, 'Signer').returns({ getAuthToken: async ()=> 'token'})
+test.serial('It should set token to internal storage (token)', async (t) => {
+  mockService(RDS.Signer, 'token')
+  const handler = middy((handler) => {})
 
-  const handler = middy((event, context) => {})
   const middleware = async (handler) => {
     const values = await getInternal(true, handler)
-    t.is(values.key, 'token')
+    t.is(values.token, 'token')
   }
-  //const rdsSpy = makeRdsSpy('token')
+
   handler
     .use(rdsSigner({
-      AwsClient: rdsSpy,
-      fetchData:{
+      AwsClient: RDS.Signer,
+      fetchData: {
         token: {
-          region:'us-east-1', hostname:'hostname', username:'username', database:'database', port:5432
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
         }
       }
-    } ))
+    }))
+    .before(middleware)
+
+  await handler()
+})
+
+test.serial('It should set tokens to internal storage (token)', async (t) => {
+  mockService(RDS.Signer, 'token1', 'token2')
+
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.is(values.token1, 'token1')
+    t.is(values.token2, 'token2')
+  }
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token1: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database1', port: 5432
+        },
+        token2: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database2', port: 5432
+        }
+      }
+    }))
+    .before(middleware)
+
+  await handler()
+})
+
+test.serial('It should set RDS.Signer token to internal storage without prefetch', async (t) => {
+  mockService(RDS.Signer, 'token')
+
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.is(values.token, 'token')
+  }
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
+        }
+      },
+      disablePrefetch: true
+    }))
     .before(middleware)
 
   await handler()
 
 })
 
-/*
-let destroyFn
-let clientMock
+test.serial('It should set RDS.Signer token to context', async (t) => {
+  mockService(RDS.Signer, 'token')
 
-beforeEach(() => {
-  RDS.Signer = class Signer {
-    getAuthToken (options) { return 'token' }
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    t.is(handler.context.token, 'token')
   }
-  destroyFn = sinon.spy()
-  clientMock = jest.fn(() => ({
-    destroy: destroyFn
-  }))
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
+        }
+      },
+      setToContext: true
+    }))
+    .before(middleware)
+
+  await handler()
 })
 
-afterEach(() => {
-  clientMock.mockReset()
-  destroyFn.mockReset()
+test.serial('It should set RDS.Signer token to process.env', async (t) => {
+  mockService(RDS.Signer, 'token')
+  const handler = middy((handler) => {})
+
+  const middleware = async (handler) => {
+    t.is(process.env.token, 'token')
+  }
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
+        }
+      },
+      setToEnv: true
+    }))
+    .before(middleware)
+
+  await handler()
 })
 
-test('it should create an authToken to be used as the password', () => {
-  knex.mockReturnValue(clientMock())
-  const newClient = sinon.spy().mockReturnValue(clientMock)
-  const config = {
-    connection: {
-      host: '127.0.0.1',
-      user: '1234',
-      port: '5432'
-    }
-  }
-  const handler = middy((event, context) => {
-    t.is(context.db(), clientMock())
-    expect(newClient).toHaveBeenCalledTimes(1)
-    config.connection.password = 'token'
-    expect(newClient).toHaveBeenCalledWith(config)
-    return event.body // propagates the body as a response
-  })
+test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
+  const stub = mockService(RDS.Signer, 'token')
+  const handler = middy((handler) => {})
 
-  handler.use(dbManager({
-    client: newClient,
-    rdsSigner: {
-      region: 'us-east-1',
-      hostname: '127.0.0.1',
-      username: '1234',
-      port: '5432'
-    },
-    config
-  }))
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.is(values.token, 'token')
   }
-  handler(event, {}, (err, body) => {
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-  })
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
+        }
+      }
+    }))
+    .before(middleware)
+
+  await handler()
+  await handler()
+
+  t.is(stub.callCount, 1)
 })
 
-test('it should destroy instance if forceNewConnection flag provided', (done) => {
-  knex.mockReturnValue(clientMock())
-  const handler = middy((event, context) => {
-    return
-    return event.body // propagates the body as a response
-  })
+test.serial('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
+  const stub = mockService(RDS.Signer, 'token', 'token')
 
-  handler.use(dbManager({
-    config: {},
-    forceNewConnection: true
-  }))
+  const handler = middy((handler) => {})
 
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
+  const middleware = async (handler) => {
+    const values = await getInternal(true, handler)
+    t.is(values.token, 'token')
   }
-  handler(event, {}, (err, body) => {
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-    expect(destroyFn).toHaveBeenCalledTimes(1)
-    done()
-  })
+
+  handler
+    .use(rdsSigner({
+      AwsClient: RDS.Signer,
+      fetchData: {
+        token: {
+          region: 'us-east-1', hostname: 'hostname', username: 'username', database: 'database', port: 5432
+        }
+      },
+      cacheExpiry: 0
+    }))
+    .before(middleware)
+
+  await handler()
+  await handler()
+
+  t.is(stub.callCount, 2)
 })
-
-test('it should throw if no config provided', (done) => {
-  const returnedValue = jest.fn(clientMock)
-  knex.mockReturnValue(returnedValue)
-  const handler = middy((event, context) => {
-    t.is(context.db, returnedValue)
-    return
-    return event.body // propagates the body as a response
-  })
-
-  handler.use(dbManager({
-    forceNewConnection: true
-  }))
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
-  }
-  handler(event, {}, (err) => {
-    t.true(err)
-    t.is(err.message, 'Config is required in dbManager')
-    done()
-  })
-})
-
-test('it should initialize custom client', (done) => {
-  const newClient = sinon.spy().mockReturnValue(clientMock)
-  const config = {
-    connection: {
-      user: '1234',
-      password: '56678'
-    }
-  }
-  const handler = middy((event, context) => {
-    t.is(context.db.toString(), clientMock.toString()) // compare invocations, not functions
-    expect(newClient).toHaveBeenCalledTimes(1)
-    expect(newClient).toHaveBeenCalledWith(config)
-    return
-    return event.body // propagates the body as a response
-  })
-
-  handler.use(dbManager({
-    client: newClient,
-    config,
-    forceNewConnection: true
-  }))
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
-  }
-  handler(event, {}, (err, body) => {
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-    done()
-  })
-})
-
-test('it should grab connection details from context', (done) => {
-  const newClient = sinon.spy().mockReturnValue(clientMock)
-  const secretsPath = 'secret_location'
-  const connection = {
-    user: '1234',
-    password: '56678'
-  }
-  const config = {
-    connection: {
-      host: '127.0.0.1'
-    }
-  }
-  const handler = middy((event, context) => {
-    t.is(context.db.toString(), clientMock.toString()) // compare invocations, not functions
-    expect(newClient).toHaveBeenCalledTimes(1)
-    Object.assign(config.connection, { connection }) // add details that are supposed be in context
-    expect(newClient).toHaveBeenCalledWith(config)
-    return
-    return event.body // propagates the body as a response
-  })
-
-  handler.use({
-    before: (handler) => {
-      handler.context[secretsPath] = connection
-      next()
-    }
-  })
-
-  handler.use(dbManager({
-    client: newClient,
-    config,
-    secretsPath,
-    forceNewConnection: true
-  }))
-
-  handler.use({
-    after: (handler) => {
-      t.is(handler.context[secretsPath], undefined)
-      next()
-    }
-  })
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
-  }
-  handler(event, {}, (err, body) => {
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-    done()
-  })
-})
-
-test('it should grab connection details from context even if connection object doesn\'t exist', (done) => {
-  const newClient = sinon.spy().mockReturnValue(clientMock)
-  const secretsPath = 'secret_location'
-  const connection = {
-    host: '127.0.0.1',
-    user: '1234',
-    password: '56678'
-  }
-  const config = {}
-  const handler = middy((event, context) => {
-    t.is(context.db.toString(), clientMock.toString()) // compare invocations, not functions
-    expect(newClient).toHaveBeenCalledTimes(1)
-    Object.assign(config.connection, { connection }) // add details that are supposed be in context
-    expect(newClient).toHaveBeenCalledWith(config)
-    return
-    return event.body // propagates the body as a response
-  })
-
-  handler.use({
-    before: (handler) => {
-      handler.context[secretsPath] = connection
-      next()
-    }
-  })
-
-  handler.use(dbManager({
-    client: newClient,
-    config,
-    secretsPath,
-    forceNewConnection: true
-  }))
-
-  handler.use({
-    after: (handler) => {
-      t.is(handler.context[secretsPath], undefined)
-      next()
-    }
-  })
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
-  }
-  await handler(event, {})
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-    done()
-  })
-})
-
-test('it should grab connection details and not delete details from context if removeSecrets = false', (done) => {
-  const newClient = sinon.spy().mockReturnValue(clientMock)
-  const secretsPath = 'secret_location'
-  const connection = {
-    host: '127.0.0.1',
-    user: '1234',
-    password: '56678'
-  }
-  const config = { connection }
-  const handler = middy((event, context) => {
-    t.is(context.db.toString(), clientMock.toString()) // compare invocations, not functions
-    expect(newClient).toHaveBeenCalledTimes(1)
-    Object.assign(config.connection, { connection }) // add details that are supposed be in context
-    expect(newClient).toHaveBeenCalledWith(config)
-    return
-    return event.body // propagates the body as a response
-  })
-
-  handler.use({
-    before: (handler) => {
-      handler.context[secretsPath] = connection
-      next()
-    }
-  })
-
-  handler.use(dbManager({
-    client: newClient,
-    config,
-    secretsPath,
-    removeSecrets: false,
-    forceNewConnection: true
-  }))
-
-  handler.use({
-    after: (handler) => {
-      t.is(handler.context[secretsPath], connection)
-      next()
-    }
-  })
-
-  // invokes the handler
-  const event = {
-    body: JSON.stringify({ foo: 'bar' })
-  }
-  await handler(event, {})
-    t.is(err, null)
-    t.is(body, '{"foo":"bar"}')
-    done()
-  })
-})
-
-*/
