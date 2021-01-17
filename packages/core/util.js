@@ -1,17 +1,16 @@
 const { Agent } = require('https')
-//const { NodeHttpHandler } = require('@aws-sdk/node-http-handler') // aws-sdk v3
-
+// const { NodeHttpHandler } = require('@aws-sdk/node-http-handler') // aws-sdk v3
 
 const awsClientDefaultOptions = {
   // AWS SDK v3
   // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
-  /*requestHandler: new NodeHttpHandler({
+  /* requestHandler: new NodeHttpHandler({
     httpsAgent: new Agent(
       {
         secureProtocol: 'TLSv1_2_method'
       }
     )
-  })*/
+  }) */
   // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/enforcing-tls.html
   httpOptions: {
     agent: new Agent({
