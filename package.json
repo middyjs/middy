@@ -19,7 +19,7 @@
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:build",
     "lerna:rm:build": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
-    "lerna:install": "lerna exec --bail --concurrency 5 npm install",
+    "lerna:install": "lerna exec --bail --concurrency 5 npm i",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update",
     "lerna:outdated": "lerna exec --concurrency 2 npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
