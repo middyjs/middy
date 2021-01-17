@@ -15,7 +15,10 @@ module.exports = (opts) => {
           const { type } = contentType.parse(contentTypeHeader)
 
           if (type === 'application/x-www-form-urlencoded') {
-            handler.event.body = parserFn(handler.event.body)
+            const data = handler.event.isBase64Encoded
+              ? Buffer.from(handler.event.body, 'base64').toString()
+              : handler.event.body
+            handler.event.body = parserFn(data)
           }
         }
       }
