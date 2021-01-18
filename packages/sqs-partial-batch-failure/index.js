@@ -6,7 +6,7 @@ const defaults = {
   AwsClient: SQS,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientCapture: false,
+  awsClientCapture: undefined,
   disablePrefetch: false
 }
 

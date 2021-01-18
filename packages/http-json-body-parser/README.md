@@ -62,7 +62,7 @@ handler.use(httpJsonBodyParser())
 // invokes the handler
 const event = {
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json'  // It is important that the request has the proper content type.
   },
   body: JSON.stringify({foo: 'bar'})
 }

@@ -6,7 +6,7 @@ const defaults = {
   AwsClient: RDS.Signer,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientCapture: false,
+  awsClientCapture: undefined,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',

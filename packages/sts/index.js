@@ -6,7 +6,7 @@ const defaults = {
   AwsClient: STS,
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
-  awsClientCapture: false,
+  awsClientCapture: undefined,
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',

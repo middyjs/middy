@@ -6,7 +6,7 @@ const defaults = {
   AwsClient: SecretsManager,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientCapture: false,
+  awsClientCapture: undefined,
   fetchData: {}, // If more than 2, consider writing own using ListSecrets
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
