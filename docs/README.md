@@ -361,7 +361,7 @@ E.g.
 const defaults = {}
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const customMiddlewareBefore = async (handler) => {
     // might read options
@@ -461,7 +461,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const fetch = () => {
     const values = {}

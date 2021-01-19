@@ -20,7 +20,7 @@ const awsClientDefaultOptions = {
 }
 
 const createPrefetchClient = (options) => {
-  const awsClientOptions = Object.assign({}, awsClientDefaultOptions, options.awsClientOptions)
+  const awsClientOptions = { ...awsClientDefaultOptions, ...options.awsClientOptions }
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
@@ -40,9 +40,9 @@ const createClient = async (options, handler) => {
     awsClientCredentials = await getInternal({ credentials: options.awsClientAssumeRole }, handler)
   }
 
-  awsClientCredentials = Object.assign({}, awsClientCredentials, options.awsClientOptions)
+  awsClientCredentials = { ...awsClientCredentials, ...options.awsClientOptions }
 
-  return createPrefetchClient(Object.assign({}, options, { awsClientOptions: awsClientCredentials }))
+  return createPrefetchClient({ ...options, awsClientOptions: awsClientCredentials })
 }
 
 const canPrefetch = (options) => {

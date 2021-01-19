@@ -214,7 +214,7 @@ test('It should not normalize the event if the S3 event doesn\'t match the expec
     ]
   }
 
-  const eventOriginalCopy = Object.assign({}, event)
+  const eventOriginalCopy = { ...event }
 
   const handler = middy((event, context) => event)
 

@@ -8,7 +8,7 @@ module.exports = (opts = {}) => {
     busboy: {}
   }
 
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpMultipartBodyParserBefore = async (handler) => {
     const { headers } = handler.event
@@ -38,7 +38,7 @@ module.exports = (opts = {}) => {
 
 const parseMultipartData = (event, options) => {
   const multipartData = {}
-  const bb = BusBoy(Object.assign({}, options, { headers: event.headers }))
+  const bb = BusBoy({ ...options, headers: event.headers })
 
   return new Promise((resolve, reject) => {
     bb

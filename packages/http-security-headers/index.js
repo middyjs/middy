@@ -46,23 +46,23 @@ const helmetHtmlOnly = {}
 // crossdomain - N/A - For Adobe products
 
 // https://github.com/helmetjs/dns-Prefetch-control
-helmet.dnsPrefetchControl = (headers, options) => {
-  headers['X-DNS-Prefetch-Control'] = options.allow ? 'on' : 'off'
+helmet.dnsPrefetchControl = (headers, config) => {
+  headers['X-DNS-Prefetch-Control'] = config.allow ? 'on' : 'off'
   return headers
 }
 
 // expectCt - in-progress spec
 
 // https://github.com/helmetjs/frameguard
-helmetHtmlOnly.frameguard = (headers, options) => {
-  headers['X-Frame-Options'] = options.action.toUpperCase()
+helmetHtmlOnly.frameguard = (headers, config) => {
+  headers['X-Frame-Options'] = config.action.toUpperCase()
   return headers
 }
 
 // https://github.com/helmetjs/hide-powered-by
-helmet.hidePoweredBy = (headers, options) => {
-  if (options.setTo) {
-    headers['X-Powered-By'] = options.setTo
+helmet.hidePoweredBy = (headers, config) => {
+  if (config.setTo) {
+    headers['X-Powered-By'] = config.setTo
   } else {
     Reflect.deleteProperty(headers, 'Server')
     Reflect.deleteProperty(headers, 'X-Powered-By')
@@ -73,12 +73,12 @@ helmet.hidePoweredBy = (headers, options) => {
 // hpkp - deprecated
 
 // https://github.com/helmetjs/hsts
-helmet.hsts = (headers, options) => {
-  let header = 'max-age=' + Math.round(options.maxAge)
-  if (options.includeSubDomains) {
+helmet.hsts = (headers, config) => {
+  let header = 'max-age=' + Math.round(config.maxAge)
+  if (config.includeSubDomains) {
     header += '; includeSubDomains'
   }
-  if (options.preload) {
+  if (config.preload) {
     header += '; preload'
   }
   headers['Strict-Transport-Security'] = header
@@ -86,57 +86,57 @@ helmet.hsts = (headers, options) => {
 }
 
 // https://github.com/helmetjs/ienoopen
-helmet.ieNoOpen = (headers, options) => {
-  headers['X-Download-Options'] = options.action
+helmet.ieNoOpen = (headers, config) => {
+  headers['X-Download-Options'] = config.action
   return headers
 }
 
 // noCache - N/A - separate middleware
 
 // https://github.com/helmetjs/dont-sniff-mimetype
-helmet.noSniff = (headers, options) => {
-  headers['X-Content-Type-Options'] = options.action
+helmet.noSniff = (headers, config) => {
+  headers['X-Content-Type-Options'] = config.action
   return headers
 }
 
 // https://github.com/helmetjs/referrer-policy
-helmet.referrerPolicy = (headers, options) => {
-  headers['Referrer-Policy'] = options.policy
+helmet.referrerPolicy = (headers, config) => {
+  headers['Referrer-Policy'] = config.policy
   return headers
 }
 
 // https://github.com/helmetjs/crossdomain
-helmet.permittedCrossDomainPolicies = (headers, options) => {
-  headers['X-Permitted-Cross-Domain-Policies'] = options.policy
+helmet.permittedCrossDomainPolicies = (headers, config) => {
+  headers['X-Permitted-Cross-Domain-Policies'] = config.policy
   return headers
 }
 
 // https://github.com/helmetjs/x-xss-protection
-helmetHtmlOnly.xssFilter = (headers, options) => {
+helmetHtmlOnly.xssFilter = (headers, config) => {
   let header = '1; mode=block'
-  if (options.reportUri) {
-    header += '; report=' + options.reportUri
+  if (config.reportUri) {
+    header += '; report=' + config.reportUri
   }
   headers['X-XSS-Protection'] = header
   return headers
 }
 
 module.exports = (opts = {}) => {
-  opts = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
     handler.response = handler.response ?? { statusCode: 500 } // catch thrown errors, prevent default statusCode
     handler.response.headers = handler.response?.headers ?? {}
 
     Object.keys(helmet).forEach(key => {
-      const options = Object.assign({}, defaults[key], opts[key])
-      handler.response.headers = helmet[key](handler.response.headers, options)
+      const config = { ...defaults[key], ...options[key]}
+      handler.response.headers = helmet[key](handler.response.headers, config)
     })
 
     if (handler.response.headers['Content-Type'] && handler.response.headers['Content-Type'].indexOf('text/html') !== -1) {
       Object.keys(helmetHtmlOnly).forEach(key => {
-        const options = Object.assign({}, defaults[key], opts[key])
-        handler.response.headers = helmetHtmlOnly[key](handler.response.headers, options)
+        const config = { ...defaults[key], ...options[key] }
+        handler.response.headers = helmetHtmlOnly[key](handler.response.headers, config)
       })
     }
   }

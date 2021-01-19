@@ -5,7 +5,7 @@ module.exports = (opts = {}) => {
     runOnError: false
   }
 
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const doNotWaitForEmptyEventLoop = async (handler) => {
     handler.context.callbackWaitsForEmptyEventLoop = false

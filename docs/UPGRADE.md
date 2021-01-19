@@ -31,7 +31,7 @@ module.exports = (opts) => {
     }
   }
 
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
   let currentCacheKey
 
   const cacheMiddlewareBefore = async (handler) => {

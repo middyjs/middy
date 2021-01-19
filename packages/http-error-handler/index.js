@@ -6,7 +6,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpErrorHandlerMiddlewareOnError = async (handler) => {
     if (typeof options.logger === 'function') {

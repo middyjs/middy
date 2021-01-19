@@ -59,7 +59,7 @@ module.exports = (opts = {}) => {
 
   defaults.normalizeHeaderKey = normalizeHeaderKey
 
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpHeaderNormalizerMiddlewareBefore = async (handler) => {
     if (handler.event.headers) {

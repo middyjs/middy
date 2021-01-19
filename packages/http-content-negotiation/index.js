@@ -19,7 +19,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpContentNegotiationMiddlewareBefore = async (handler) => {
     const { event } = handler

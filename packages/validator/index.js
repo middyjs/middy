@@ -25,7 +25,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  let { inputSchema, outputSchema, ajvOptions, ajvInstance, defaultLanguage } = Object.assign({}, defaults, opts)
+  let { inputSchema, outputSchema, ajvOptions, ajvInstance, defaultLanguage } = { ...defaults, ...opts }
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
@@ -34,7 +34,7 @@ module.exports = (opts = {}) => {
 
     if (!valid) {
       const error = new createError.BadRequest('Event object failed validation')
-      handler.event.headers = Object.assign({}, handler.event.headers)
+      handler.event.headers = { ...handler.event.headers }
 
       const language = chooseLanguage(handler.event, defaultLanguage)
       localize[language](inputSchema.errors)
@@ -65,7 +65,7 @@ module.exports = (opts = {}) => {
 const compile = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
   if (typeof schema === 'function' || !schema) return schema
-  const options = Object.assign({}, ajvDefaults, ajvOptions)
+  const options = { ...ajvDefaults, ...ajvOptions}
   if (!ajv) {
     ajv = ajvInstance || new Ajv(options)
     formats(ajv)

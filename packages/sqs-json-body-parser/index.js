@@ -5,7 +5,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const sqsJsonBodyParserMiddlewareBefore = async (handler) => {
     const { event: { Records = [] } = { Records: [] } } = handler

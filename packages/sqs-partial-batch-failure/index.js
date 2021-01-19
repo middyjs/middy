@@ -11,7 +11,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const getQueueUrl = (eventSourceARN) => { // needs to be async for aws-sdk v3
     const [, , , , accountId, queueName] = eventSourceARN.split(':')

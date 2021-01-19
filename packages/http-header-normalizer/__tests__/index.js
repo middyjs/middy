@@ -28,7 +28,7 @@ test('It should normalize (lowercase) all the headers and create a copy in rawHe
     foo: 'bar'
   }
 
-  const originalHeaders = Object.assign({}, event.headers)
+  const originalHeaders = { ...event.headers }
 
   const resultingEvent = await handler(event)
 
@@ -60,7 +60,7 @@ test('It should normalize (canonical) all the headers and create a copy in rawHe
     Foo: 'bar'
   }
 
-  const originalHeaders = Object.assign({}, event.headers)
+  const originalHeaders = { ...event.headers}
 
   const resultingEvent = await handler(event)
 

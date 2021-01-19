@@ -5,7 +5,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const { logger } = Object.assign({}, defaults, opts)
+  const { logger } = { ...defaults, ...opts }
   const store = {}
 
   const start = (id) => {

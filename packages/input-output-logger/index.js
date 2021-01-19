@@ -5,7 +5,7 @@ module.exports = (opts = {}) => {
     omitPaths: []
   }
 
-  let { logger, omitPaths } = Object.assign({}, defaults, opts)
+  let { logger, omitPaths } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
   const omitAndLog = (message) => {

@@ -5,7 +5,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
   const { filteringKeyName } = options
 
   const httpPartialResponseMiddlewareAfter = async (handler) => {

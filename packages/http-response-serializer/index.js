@@ -3,7 +3,7 @@ const Accept = require('@hapi/accept')
 const defaults = {}
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (handler) => {
     // normalise headers for internal use only
     const requestHeaders = getNormalisedHeaders(handler.event?.headers ?? {})
@@ -46,7 +46,7 @@ module.exports = (opts = {}) => {
 
       // set header
       handler.response.headers = handler.response?.headers ?? {}
-      handler.response.headers = Object.assign({}, handler.response.headers, { 'Content-Type': type })
+      handler.response.headers = { ...handler.response.headers,  'Content-Type': type }
 
       // run serializer
       const result = s.serializer(handler.response)

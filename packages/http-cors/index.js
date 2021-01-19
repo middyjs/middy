@@ -29,7 +29,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpCorsMiddlewareAfter = async (handler) => {
     if (!handler.event?.httpMethod) return

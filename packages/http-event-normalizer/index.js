@@ -4,7 +4,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  const options = Object.assign({}, defaults, opts)
+  const options = { ...defaults, ...opts }
 
   const httpEventNormalizerMiddlewareBefore = async (handler) => {
     const { event } = handler
