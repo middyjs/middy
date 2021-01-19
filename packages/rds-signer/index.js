@@ -34,7 +34,7 @@ module.exports = (opts = {}) => {
         createClient(awsClientOptions, handler).then(client => {
           client.getAuthToken({}, (err, token) => {
             if (err) {
-              reject(err)
+              return reject(err)
             }
             resolve(token)
           })
