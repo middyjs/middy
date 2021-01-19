@@ -1,4 +1,4 @@
-# Middy intput-out-logger middleware
+# Middy rds-signer middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
