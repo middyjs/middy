@@ -61,7 +61,7 @@
  * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
  */
 
-const runMiddlewares = async (middlewares, request, plugin = null) => {
+const runMiddlewares = async (middlewares, request, plugin) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
@@ -81,7 +81,7 @@ const runMiddlewares = async (middlewares, request, plugin = null) => {
  * @param  {middlewareObject} plugin - wraps around each middleware and handler to profile performance
  * @return {middy} - a `middy` instance
  */
-module.exports = (handler = () => {}, plugin = null) => {
+module.exports = (handler = () => {}, plugin) => {
   plugin?.beforePrefetch()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -92,8 +92,8 @@ module.exports = (handler = () => {}, plugin = null) => {
     const request = {
       event,
       context,
-      response: null,
-      error: null,
+      response: undefined,
+      error: undefined,
       internal: {}
     }
 
@@ -111,7 +111,7 @@ module.exports = (handler = () => {}, plugin = null) => {
         await plugin?.requestEnd()
         return request.response
       } catch (e) {
-        request.response = null
+        request.response = undefined
         request.error = e
         try {
           await runMiddlewares(onErrorMiddlewares, request, plugin)
