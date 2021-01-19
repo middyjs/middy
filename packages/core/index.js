@@ -1,10 +1,27 @@
+/**
+ * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
+ * @param  {function} handler - your original AWS Lambda function
+ * @param  {pluginObject} plugin - wraps around each middleware and handler to profile performance
+ * @return {middy} - a `middy` instance
+ */
+
+/**
+ * @typedef pluginObject
+ * @type Object
+ * @property {function} beforePrefetch - request hook for *beforePrefetch*
+ * @property {function} requestStart - request hook for *beforePrefetch*
+ * @property {function} beforeMiddleware - request hook for *beforeMiddleware*
+ * @property {function} afterMiddleware - request hook for *afterMiddleware*
+ * @property {function} beforeHandler - request hook for *beforeHandler*
+ * @property {function} afterHandler - request hook for *afterHandler*
+ * @property {function} requestEnd - request hook for *beforePrefetch*
+ */
 
 /**
  * @typedef middy
  * @type function
  * @param {Object} event - the AWS Lambda event from the original handler
  * @param {Object} context - the AWS Lambda context from the original handler
- * @param {function} callback - the AWS Lambda callback from the original handler
  * @property {useFunction} use - attach one or more new middlewares
  * @property {applyMiddlewareFunction} applyMiddleware - attach a new middleware
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
@@ -23,6 +40,14 @@
  */
 
 /**
+ * @typedef middlewareObject
+ * @type Object
+ * @property {middlewareFunction} before - the middleware function to attach as *before* middleware
+ * @property {middlewareFunction} after - the middleware function to attach as *after* middleware
+ * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
+ */
+
+/**
  * @typedef applyMiddlewareFunction
  * @type {function}
  * @param {middlewareObject} - the middleware object to attach
@@ -37,50 +62,17 @@
  */
 
 /**
- * @typedef middlewareNextFunction
- * @type {function}
- * @param {error} error - An optional error object to pass in case an error occurred
- */
-
-/**
  * @typedef middlewareFunction
  * @type {function}
  * @param {function} handler - the original handler function.
- *   It will expose properties `event`, `context`, `response`, `error` and `callback` that can
+ *   It will expose properties `event`, `context`, `response`, `error` and `internal` that can
  *   be used to interact with the middleware lifecycle
  * @return {void|Promise} - A middleware can return a Promise.
  *                          In this case middy will wait for the promise to resolve (or reject) and it will automatically
  *                          propagate the result to the next middleware.
  */
 
-/**
- * @typedef middlewareObject
- * @type Object
- * @property {middlewareFunction} before - the middleware function to attach as *before* middleware
- * @property {middlewareFunction} after - the middleware function to attach as *after* middleware
- * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
- */
 
-const runMiddlewares = async (middlewares, request, plugin) => {
-  const stack = Array.from(middlewares)
-  if (!stack.length) return
-  const nextMiddleware = stack.shift()
-  plugin?.beforeMiddleware?.(nextMiddleware?.name)
-  const res = await nextMiddleware?.(request)
-  plugin?.afterMiddleware?.(nextMiddleware?.name)
-  if (res !== undefined) {
-    request.response = res
-    return
-  } // short circuit chaining and respond early
-  return runMiddlewares(stack, request, plugin)
-}
-
-/**
- * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
- * @param  {function} handler - your original AWS Lambda function
- * @param  {middlewareObject} plugin - wraps around each middleware and handler to profile performance
- * @return {middy} - a `middy` instance
- */
 module.exports = (handler = () => {}, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
@@ -179,4 +171,19 @@ module.exports = (handler = () => {}, plugin) => {
   }
 
   return instance
+}
+
+const runMiddlewares = async (middlewares, request, plugin) => {
+  const stack = Array.from(middlewares)
+  if (!stack.length) return
+  const nextMiddleware = stack.shift()
+  plugin?.beforeMiddleware?.(nextMiddleware?.name)
+  const res = await nextMiddleware?.(request)
+  plugin?.afterMiddleware?.(nextMiddleware?.name)
+  if (res !== undefined) {
+    // short circuit chaining and respond early
+    request.response = res
+    return
+  }
+  return runMiddlewares(stack, request, plugin)
 }
