@@ -67,7 +67,7 @@ const handler = middy((event, context) => {
     body: JSON.stringify({ message: 'hello world' })
   };
 
-  callback(null, response)
+  return response
 })
 
 handler

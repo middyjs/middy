@@ -63,7 +63,7 @@ const handler = middy((event, context) => {
   console.log(event.Records[0].s3.object.key)
 
   // return all the keys
-  callback(null, event.Records.map(record => record.s3.object.key))
+  return event.Records.map(record => record.s3.object.key)
 })
 
 handler
