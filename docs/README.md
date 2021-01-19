@@ -26,14 +26,14 @@
   <a href="https://gitter.im/middyjs/Lobby">
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
   </a>
+  <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
+  </a>
 </p>
 </div>
 
-<div align="center">
+⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
 
-<p><strong>⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!</strong></p>
-
-</div>
 ## What is Middy
 
 Middy is a very simple middleware engine that allows you to simplify your AWS Lambda code when using Node.js.
