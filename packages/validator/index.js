@@ -65,7 +65,7 @@ module.exports = (opts = {}) => {
 const compile = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
   if (typeof schema === 'function' || !schema) return schema
-  const options = { ...ajvDefaults, ...ajvOptions}
+  const options = { ...ajvDefaults, ...ajvOptions }
   if (!ajv) {
     ajv = ajvInstance || new Ajv(options)
     formats(ajv)

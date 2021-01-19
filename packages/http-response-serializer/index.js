@@ -46,7 +46,7 @@ module.exports = (opts = {}) => {
 
       // set header
       handler.response.headers = handler.response?.headers ?? {}
-      handler.response.headers = { ...handler.response.headers,  'Content-Type': type }
+      handler.response.headers = { ...handler.response.headers, 'Content-Type': type }
 
       // run serializer
       const result = s.serializer(handler.response)

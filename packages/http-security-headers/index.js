@@ -129,7 +129,7 @@ module.exports = (opts = {}) => {
     handler.response.headers = handler.response?.headers ?? {}
 
     Object.keys(helmet).forEach(key => {
-      const config = { ...defaults[key], ...options[key]}
+      const config = { ...defaults[key], ...options[key] }
       handler.response.headers = helmet[key](handler.response.headers, config)
     })
 

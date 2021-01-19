@@ -3,7 +3,7 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  let { logger } = { ...defaults, ...opts}
+  let { logger } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
   const errorLoggerMiddlewareOnError = async (handler) => logger(handler.error)

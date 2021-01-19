@@ -2,7 +2,7 @@ const defaults = {
   logger: console.log
 }
 module.exports = (opts = {}) => {
-  const { logger } = { ...defaults, ...opts}
+  const { logger } = { ...defaults, ...opts }
   const store = {}
 
   const start = (id) => {
