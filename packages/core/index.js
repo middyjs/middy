@@ -100,7 +100,7 @@ module.exports = (handler = () => {}, plugin) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, plugin)
-        if (request.response) { // catch short circuit
+        if (request.response !== undefined) { // catch short circuit
           await plugin?.requestEnd()
           return request.response
         }
@@ -115,7 +115,7 @@ module.exports = (handler = () => {}, plugin) => {
         request.error = e
         try {
           await runMiddlewares(onErrorMiddlewares, request, plugin)
-          if (request.response) {
+          if (request.response !== undefined) {
             await plugin?.requestEnd()
             return request.response
           }
