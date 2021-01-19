@@ -44,7 +44,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "file:../util"
+    "@middy/util": "2.0.0-alpha.0"
   },
   "devDependencies": {
     "@serverless/event-mocks": "^1.1.1"

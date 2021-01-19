@@ -34,7 +34,6 @@ jobs:
       name: Install dependencies
       run: |
         npm install
-        npm run lerna:install
       env:
         CI: true
     -
