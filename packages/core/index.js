@@ -65,9 +65,9 @@ const runMiddlewares = async (middlewares, request, plugin) => {
   const stack = Array.from(middlewares)
   if (!stack.length) return
   const nextMiddleware = stack.shift()
-  plugin?.beforeMiddleware(nextMiddleware?.name)
+  plugin?.beforeMiddleware?.(nextMiddleware?.name)
   const res = await nextMiddleware?.(request)
-  plugin?.afterMiddleware(nextMiddleware?.name)
+  plugin?.afterMiddleware?.(nextMiddleware?.name)
   if (res !== undefined) {
     request.response = res
     return
@@ -82,13 +82,13 @@ const runMiddlewares = async (middlewares, request, plugin) => {
  * @return {middy} - a `middy` instance
  */
 module.exports = (handler = () => {}, plugin) => {
-  plugin?.beforePrefetch()
+  plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
-    plugin?.requestStart()
+    plugin?.requestStart?.()
     const request = {
       event,
       context,
@@ -101,14 +101,14 @@ module.exports = (handler = () => {}, plugin) => {
       try {
         await runMiddlewares(beforeMiddlewares, request, plugin)
         if (request.response !== undefined) { // catch short circuit
-          await plugin?.requestEnd()
+          await plugin?.requestEnd?.()
           return request.response
         }
-        plugin?.beforeHandler()
+        plugin?.beforeHandler?.()
         request.response = await handler(request.event, request.context)
-        plugin?.afterHandler()
+        plugin?.afterHandler?.()
         await runMiddlewares(afterMiddlewares, request, plugin)
-        await plugin?.requestEnd()
+        await plugin?.requestEnd?.()
         return request.response
       } catch (e) {
         request.response = undefined
@@ -116,13 +116,14 @@ module.exports = (handler = () => {}, plugin) => {
         try {
           await runMiddlewares(onErrorMiddlewares, request, plugin)
           if (request.response !== undefined) {
-            await plugin?.requestEnd()
+            await plugin?.requestEnd?.()
             return request.response
           }
         } catch (e) {
           e.originalError = request.error
           request.error = e
         }
+        await plugin?.requestEnd?.()
         throw request.error
       }
     }
