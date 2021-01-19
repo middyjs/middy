@@ -4,7 +4,7 @@ const util = require('../index.js')
 
 process.env.AWS_REGION = 'ca-central-1'
 
-// httpOptions: aws-sdk v3
+// requestHandler: aws-sdk v3
 // httpOptions: aws-sdk v2
 
 const delay = async (ms, x) => {
@@ -115,6 +115,7 @@ const getInternalHandler = {
     promiseObject: Promise.resolve({
       key: 'value'
     }),
+    //promiseReject: Promise.reject('promise')
   }
 }
 test('It should get none from internal store', async (t) => {

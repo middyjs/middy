@@ -654,3 +654,32 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
 
 })*/
 
+// Plugin
+test('Should trigger all plugin hooks', async (t) => {
+  const plugin = {
+    beforePrefetch: sinon.spy(),
+    requestStart: sinon.spy(),
+    beforeMiddleware: sinon.spy(),
+    afterMiddleware: sinon.spy(),
+    beforeHandler: sinon.spy(),
+    afterHandler: sinon.spy(),
+    requestEnd: sinon.spy(),
+  }
+  const beforeMiddleware = sinon.spy()
+  const originalHandler = sinon.spy()
+  const afterMiddleware = sinon.spy()
+
+  const handler = middy(originalHandler, plugin)
+    .before(beforeMiddleware)
+    .after(afterMiddleware)
+
+  await handler({}, {})
+
+  t.is(plugin.beforePrefetch.callCount, 1)
+  t.is(plugin.requestStart.callCount, 1)
+  t.is(plugin.beforeMiddleware.callCount, 2)
+  t.is(plugin.afterMiddleware.callCount, 2)
+  t.is(plugin.beforeHandler.callCount, 1)
+  t.is(plugin.afterHandler.callCount, 1)
+  t.is(plugin.requestEnd.callCount, 1)
+})
