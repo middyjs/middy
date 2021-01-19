@@ -1,4 +1,4 @@
-const { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } = require('@middy/core/util.js')
+const { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } = require('@middy/util')
 const STS = require('aws-sdk/clients/sts.js') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
 

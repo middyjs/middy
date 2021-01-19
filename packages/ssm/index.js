@@ -6,7 +6,7 @@ const {
   jsonSafeParse,
   getInternal,
   sanitizeKey
-} = require('@middy/core/util.js')
+} = require('@middy/util')
 const SSM = require('aws-sdk/clients/ssm.js') // v2
 // const { SSM } = require('@aws-sdk/client-ssm') // v3
 

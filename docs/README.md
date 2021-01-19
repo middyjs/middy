@@ -448,7 +448,7 @@ external APIs.
 
 Here is a middleware boilerplate using this pattern:
 ```javascript
-import { canPrefetch, getInternal, processCache } from '@middy/core/util.js'
+import { canPrefetch, getInternal, processCache } from '@middy/util'
 
 const defaults = {
   fetchData: {}, // { internalKey: params }
@@ -519,7 +519,7 @@ the first connection established. See [Reusing Connections with Keep-Alive in No
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
 ```javascript
-import {getInternal} from '@middy/core/util.js'
+import {getInternal} from '@middy/util'
 
 middy(handler)
   // Incase you want to add values on to internal directly

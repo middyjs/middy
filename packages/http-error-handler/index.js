@@ -1,4 +1,4 @@
-const { jsonSafeParse } = require('@middy/core/util.js')
+const { jsonSafeParse } = require('@middy/util')
 
 const defaults = {
   logger: console.error,

@@ -44,7 +44,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/core": "file:../core"
+    "@middy/util": "file:../util"
   },
   "devDependencies": {
     "@types/node": "^14.0.0",

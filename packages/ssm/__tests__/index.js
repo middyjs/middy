@@ -1,7 +1,7 @@
 const test = require('ava')
 const sinon = require('sinon')
 const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../core/util.js')
+const { getInternal, clearCache } = require('../../util')
 const SSM = require('aws-sdk/clients/ssm.js') // v2
 //const { SSM } = require('@aws-sdk/client-ssm') // v3
 const ssm = require('../index.js')

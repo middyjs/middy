@@ -1,4 +1,4 @@
-const { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } = require('@middy/core/util.js')
+const { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } = require('@middy/util')
 const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
 // const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 

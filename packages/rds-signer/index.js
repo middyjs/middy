@@ -1,4 +1,4 @@
-const { canPrefetch, createClient, getInternal, processCache } = require('@middy/core/util.js')
+const { canPrefetch, createClient, getInternal, processCache } = require('@middy/util')
 const RDS = require('aws-sdk/clients/rds.js') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
 

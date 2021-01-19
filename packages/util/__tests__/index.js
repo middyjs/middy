@@ -1,6 +1,6 @@
 const test = require('ava')
 const sinon = require('sinon')
-const util = require('../util.js')
+const util = require('../index.js')
 
 process.env.AWS_REGION = 'ca-central-1'
 

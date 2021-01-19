@@ -78,6 +78,7 @@ const getInternal = async (variables, handler) => {
     )
   }
   // ensure promise has resolved by the time it's needed
+  // If one of the promises throws it will bubble up to @middy/core
   values = await Promise.all(promises)
 
   return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {})

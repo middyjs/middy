@@ -3,7 +3,7 @@ const sinon = require('sinon')
 const createEvent = require('@serverless/event-mocks')
 
 const middy = require('../../core/index.js')
-const { clearCache } = require('../../core/util.js')
+const { clearCache } = require('../../util')
 const SQS = require('aws-sdk/clients/sqs.js') // v2
 //const { SQS } = require('@aws-sdk/client-sqs') // v3
 const sqsPartialBatchFailure = require('../index.js')
