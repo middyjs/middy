@@ -669,6 +669,8 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [2020 Review](https://loige.co/2020-a-year-in-review/#middy) from @lmammino
 - [2020 Review](https://github.com/middyjs/middy/issues/590) from @willfarrell
 - 2021: [v2.0.0 Coming soon](https://github.com/middyjs/middy/issues/585)
+- 2021-01-24: v2.0.0-alpha
+
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
 
