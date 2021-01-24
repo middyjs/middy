@@ -72,7 +72,6 @@
  *                          propagate the result to the next middleware.
  */
 
-
 module.exports = (handler = () => {}, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
