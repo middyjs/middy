@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-partial-response",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "description": "Http partial response middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -11,7 +11,8 @@
     "access": "public"
   },
   "main": "index.js",
-  "types": "index.d.ts","files":[],
+  "types": "index.d.ts",
+  "files": [],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",
