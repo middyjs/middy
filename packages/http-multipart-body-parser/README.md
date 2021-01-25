@@ -1,7 +1,7 @@
 # Middy http-multipart-body-parser middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/docs/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
