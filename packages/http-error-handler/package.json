@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "Http error handler middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -12,7 +12,9 @@
   },
   "main": "index.js",
   "types": "index.d.ts",
-  "files": ["index.d.ts"],
+  "files": [
+    "index.d.ts"
+  ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",
@@ -46,7 +48,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.0.0-alpha.1"
+    "@middy/util": "^2.0.0-alpha.2"
   },
   "devDependencies": {
     "http-errors": "^1.8.0"

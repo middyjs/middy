@@ -1,6 +1,6 @@
 {
   "name": "@middy/error-logger",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "Input and output logger middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -12,7 +12,9 @@
   },
   "main": "index.js",
   "types": "index.d.ts",
-  "files": ["index.d.ts"],
+  "files": [
+    "index.d.ts"
+  ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
     "test:unit": "ava",
