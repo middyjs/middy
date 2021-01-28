@@ -4,7 +4,7 @@
   "description": "Performance profiling plugins for middy",
   "type": "commonjs",
   "engines": {
-    "node": ">=14"
+    "node": ">=12"
   },
   "engineStrict": true,
   "publishConfig": {

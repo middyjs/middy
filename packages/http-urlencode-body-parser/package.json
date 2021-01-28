@@ -1,10 +1,10 @@
 {
   "name": "@middy/http-urlencode-body-parser",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "Urlencode body parser middleware for the middy framework",
   "type": "commonjs",
   "engines": {
-    "node": ">=14"
+    "node": ">=12"
   },
   "engineStrict": true,
   "publishConfig": {

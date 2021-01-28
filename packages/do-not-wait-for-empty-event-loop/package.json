@@ -1,10 +1,10 @@
 {
   "name": "@middy/do-not-wait-for-empty-event-loop",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "Middleware for the middy framework that allows to easily disable the wait for empty event loop in a Lambda function",
   "type": "commonjs",
   "engines": {
-    "node": ">=14"
+    "node": ">=12"
   },
   "engineStrict": true,
   "publishConfig": {

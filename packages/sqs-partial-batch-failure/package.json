@@ -1,10 +1,10 @@
 {
   "name": "@middy/sqs-partial-batch-failure",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "SQS partial batch failure middleware for the middy framework",
   "type": "commonjs",
   "engines": {
-    "node": ">=14"
+    "node": ">=12"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -47,7 +47,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.0.0-alpha.2"
+    "@middy/util": "^2.0.0-alpha.3"
   },
   "devDependencies": {
     "@serverless/event-mocks": "^1.1.1",

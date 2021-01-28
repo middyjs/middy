@@ -1,10 +1,10 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "type": "commonjs",
   "engines": {
-    "node": ">=14"
+    "node": ">=12"
   },
   "engineStrict": true,
   "publishConfig": {
