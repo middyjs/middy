@@ -9,9 +9,8 @@ Focus this version was on performance and security by default.
 - New profiler hook for `core` to allow easier bottleneck detection with middlewares and handler
 
 ## Breaking Changes
-- Updated all packages to be ES6 modules (esm)
 - All middlewares now use `async/await` and have deprecated `next(err)` and `callback(err, response)`
-- `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default (MAYBE)
+- `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default
 - Middlewares that reach out to 3rd party API have been completely refactored to have unifying options that resolve on demand from internal context. Applies to:
     - `rds-signer`
     - `secrets-manager`
@@ -28,6 +27,10 @@ Focus this version was on performance and security by default.
 - Changed test runner to `ava`/`sinon` for esm support and keep deps clean
 - Added `c8` for test coverage logging
 - Changed linting to use `standard` cli to keep deps clean
+
+## Thanks
+- @lmammino: For code review and discussions to bounce and talk through ideas.
+- @ffxsam: For reporting #609
 
 # 1.5.0
 
