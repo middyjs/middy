@@ -13,10 +13,7 @@ const SSM = require('aws-sdk/clients/ssm.js') // v2
 const awsRequestLimit = 10
 const defaults = {
   AwsClient: SSM, // Allow for XRay
-  awsClientOptions: {
-    maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
-    retryDelayOptions: { base: 200 }
-  },
+  awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }

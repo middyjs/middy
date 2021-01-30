@@ -61,6 +61,7 @@ npm install --save @middy/ssm
 
 NOTES:
 - Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting.
+- `SSM` has [throughput limitations](https://docs.aws.amazon.com/general/latest/gr/ssm.html). Switching to Advanced Parameter type or increasing `maxRetries` and `retryDelayOptions.base` in `awsClientOptions` may be required.
 - `setToEnv` and `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
 - `setToEnv` can only assign secrets of type string
 

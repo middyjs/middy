@@ -29,7 +29,7 @@ Focus this version was on performance and security by default.
 - Changed linting to use `standard` cli to keep deps clean
 
 ## Thanks
-- @lmammino: For code review and discussions to bounce and talk through ideas.
+- @lmammino: For discussions to bounce and talk through ideas. Code audit/review.
 - @ffxsam: For reporting #609
 
 # 1.5.0
