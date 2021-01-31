@@ -15,7 +15,7 @@ module.exports = (opts = {}) => {
 
     // Set default expose value, only passes in when there is an override
     if (handler.error?.statusCode && handler.error?.expose === undefined) {
-      handler.error.expose = handler.error.statusCode >= 500
+      handler.error.expose = handler.error.statusCode < 500
     }
 
     // Non-http error OR expose set to false

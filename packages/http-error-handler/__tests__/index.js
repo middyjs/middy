@@ -100,7 +100,7 @@ test('It should be possible to pass a custom logger function', async (t) => {
 test('It should create a response for HTTP errors created with a generic error', async (t) => {
   const handler = middy(() => {
     const err = new Error('A server error')
-    err.statusCode = 500
+    err.statusCode = 412
     throw err
   })
 
@@ -110,8 +110,28 @@ test('It should create a response for HTTP errors created with a generic error',
   const response = await handler()
 
   t.deepEqual(response, {
-    statusCode: 500,
+    statusCode: 412,
     body: 'A server error',
+    headers: {
+      'Content-Type': 'plain/text'
+    }
+  })
+})
+
+test('It should expose of error to user', async (t) => {
+  const expectedError = new createError(404, 'NotFound')
+
+  const handler = middy(() => {
+    throw expectedError
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+
+  const response = await handler()
+  t.deepEqual(response, {
+    statusCode: 404,
+    body: 'NotFound',
     headers: {
       'Content-Type': 'plain/text'
     }
@@ -120,6 +140,26 @@ test('It should create a response for HTTP errors created with a generic error',
 
 test('It should be possible to prevent expose of error to user', async (t) => {
   const expectedError = new createError(404, 'NotFound', {expose:false})
+
+  const handler = middy(() => {
+    throw expectedError
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+
+  const response = await handler()
+  t.deepEqual(response, {
+    statusCode: 500,
+    body: 'Error: unknown',
+    headers: {
+      'Content-Type': 'plain/text'
+    }
+  })
+})
+
+test('It should not send error to user', async (t) => {
+  const expectedError = new createError(500, 'InternalError')
 
   const handler = middy(() => {
     throw expectedError
