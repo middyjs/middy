@@ -117,3 +117,43 @@ test('It should create a response for HTTP errors created with a generic error',
     }
   })
 })
+
+test('It should be possible to prevent expose of error to user', async (t) => {
+  const expectedError = new createError(404, 'NotFound', {expose:false})
+
+  const handler = middy(() => {
+    throw expectedError
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+
+  const response = await handler()
+  t.deepEqual(response, {
+    statusCode: 500,
+    body: 'Error: unknown',
+    headers: {
+      'Content-Type': 'plain/text'
+    }
+  })
+})
+
+test('It should be possible to force expose of error to user', async (t) => {
+  const expectedError = new createError(500, 'OkayError', {expose:true})
+
+  const handler = middy(() => {
+    throw expectedError
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+
+  const response = await handler()
+  t.deepEqual(response, {
+    statusCode: 500,
+    body: 'OkayError',
+    headers: {
+      'Content-Type': 'plain/text'
+    }
+  })
+})

@@ -13,14 +13,21 @@ module.exports = (opts = {}) => {
       options.logger(handler.error)
     }
 
-    if (!handler.error.statusCode && options.fallbackMessage) {
+    // Set default expose value, only passes in when there is an override
+    if (handler.error?.statusCode && handler.error?.expose === undefined) {
+      handler.error.expose = handler.error.statusCode >= 500
+    }
+
+    // Non-http error OR expose set to false
+    if (options.fallbackMessage && (!handler.error?.statusCode || !handler.error?.expose)) {
       handler.error = {
         statusCode: 500,
-        message: options.fallbackMessage
+        message: options.fallbackMessage,
+        expose: true
       }
     }
 
-    if (handler.error.statusCode) {
+    if (handler.error?.expose) {
       handler.response = handler.response ?? {}
       handler.response.headers = handler.response?.headers ?? {}
       handler.response.statusCode = handler.error?.statusCode
@@ -29,7 +36,6 @@ module.exports = (opts = {}) => {
         ? 'plain/text'
         : 'application/json'
 
-      // Send signal that error has been handled
       return handler.response
     }
   }
