@@ -26,7 +26,8 @@
 </div>
 
 Automatically handles uncaught errors that contain the properties `statusCode` (number) and `message` (string) and creates a proper HTTP response
-for them (using the message and the status code provided by the error object). We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors).
+for them (using the message and the status code provided by the error object). Additionally, support for the property `expose` is included with a default value of `statusCode < 500`. 
+We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors).
 
 This middleware should be set as the last error handler unless you also want to register the `http-reponse-serializer`. If so, this middleware should come second-last and the `http-response-serializer` should come last.
 

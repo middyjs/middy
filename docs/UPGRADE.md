@@ -75,8 +75,10 @@ Added new options to support more headers
 - requestMethods
 
 ### [http-error-handler](/packages/http-error-handler/README.md)
-Added new option to catch any non-http errors
+Added in support to honour httpError.expose. Errors with statusCode >= 500 are no longer applied to response by default.
+Added new option to catch any non-http and statusCode >= 500 errors
 - fallbackMessage
+
 
 ### [http-event-normalizer](/packages/http-event-normalizer/README.md)
 No change
