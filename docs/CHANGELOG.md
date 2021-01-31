@@ -6,7 +6,7 @@ Focus this version was on performance and security by default.
 
 ## Additions
 - New middlewares (`rds-signer`, `sts`)
-- New profiler hook for `core` to allow easier bottleneck detection with middlewares and handler
+- New plugin hook for `core` to allow easier bottleneck detection with middlewares and handler
 
 ## Breaking Changes
 - All middlewares now use `async/await` and have deprecated `next(err)` and `callback(err, response)`
@@ -28,9 +28,10 @@ Focus this version was on performance and security by default.
 - Added `c8` for test coverage logging
 - Changed linting to use `standard` cli to keep deps clean
 
-## Thanks
+## Thanks to
 - @lmammino: For discussions to bounce and talk through ideas. Code audit/review.
-- @ffxsam: For reporting #609
+- @ffxsam: For reporting #609.
+- @raae & @AyoAlfonso: For `expose` support in `http-error-handler` #610.
 
 # 1.5.0
 
