@@ -11,6 +11,7 @@ Focus this version was on performance and security by default.
 ## Breaking Changes
 - All middlewares now use `async/await` and have deprecated `next(err)` and `callback(err, response)`
 - `validator` refactored to support `draft-2019-09` using the latest version of `ajv`. Full `i18n` is now enabled by default
+- `http-error-handler` no longer exposes status code >= 500 by default.
 - Middlewares that reach out to 3rd party API have been completely refactored to have unifying options that resolve on demand from internal context. Applies to:
     - `rds-signer`
     - `secrets-manager`
