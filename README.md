@@ -28,6 +28,7 @@
   </a>
 </p>
 </div>
+
 **⚠️ NOTE: if you are upgrading from [Middy 0.x](https://github.com/middyjs/middy/tree/0.x) or to [Middy 2.x](https://github.com/middyjs/middy/tree/main), check out the [upgrade instructions](https://github.com/middyjs/middy/blob/main/docs/UPGRADE.md)!**
 
 ## What is Middy
