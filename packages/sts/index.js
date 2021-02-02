@@ -58,7 +58,7 @@ module.exports = (opts = {}) => {
     if (options.setToContext || (options.onChange && !cache)) {
       const data = await getInternal(Object.keys(options.fetchData), handler)
       if (options.setToContext) Object.assign(handler.context, data)
-      if (options.onChange && !cache) options.onChange?.(data)
+      if (options.onChange && !cache) await options.onChange?.(data)
     }
   }
 

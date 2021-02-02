@@ -55,7 +55,7 @@ module.exports = (opts = {}) => {
       const data = await getInternal(Object.keys(options.fetchData), handler)
       if (options.setToEnv) Object.assign(process.env, data)
       if (options.setToContext) Object.assign(handler.context, data)
-      if (options.onChange && !cache) options.onChange?.(data)
+      if (options.onChange && !cache) await options.onChange?.(data)
     }
   }
 
