@@ -47,16 +47,17 @@ module.exports = (opts = {}) => {
     }
 
     const { value, cache } = prefetch ?? processCache(options, fetch, handler)
-    prefetch = null
 
     Object.assign(handler.internal, value)
 
-    if ((options.onChange && !cache) || options.setToContext || options.setToEnv) {
+    if (options.setToContext || (options.onChange && !cache && !prefetch) || options.setToEnv) {
       const data = await getInternal(Object.keys(options.fetchData), handler)
       if (options.setToEnv) Object.assign(process.env, data)
       if (options.setToContext) Object.assign(handler.context, data)
-      if (options.onChange && !cache) await options.onChange?.(data)
+      if (options.onChange) await options.onChange?.(data)
     }
+
+    prefetch = null
   }
 
   return {

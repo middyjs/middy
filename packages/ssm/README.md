@@ -57,7 +57,7 @@ npm install --save @middy/ssm
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store role tokens to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
 - `setToContext` (boolean) (default `false`): Store role tokes to `handler.context`.
-- `onChange` (function(data)) (optional): Calls function when role tokens change after being initially set.
+- `onChange` (function(data)) (optional): Calls function when values change after being initially set.
 
 NOTES:
 - Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting.

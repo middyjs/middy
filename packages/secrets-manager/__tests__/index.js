@@ -206,7 +206,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
   await handler()
   await handler()
 
-  t.is(onChange.callCount, 1)
+  t.is(onChange.callCount, 0)
   t.is(stub.callCount, 1)
 })
 
@@ -224,18 +224,21 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
     t.is(values.token, 'token')
   }
 
+  const onChange = sinon.spy()
   handler
     .use(secretsManager({
       AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
       },
-      cacheExpiry: 0
+      cacheExpiry: 0,
+      onChange
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
+  t.is(onChange.callCount, 1)
   t.is(stub.callCount, 2)
 })

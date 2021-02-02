@@ -99,13 +99,11 @@ const processCache = (options, fetch = () => undefined, handler) => {
     }
   }
   const value = fetch(handler)
+  const expiry = Date.now() + options.cacheExpiry
   if (options.cacheExpiry) {
-    cache[options.cacheKey] = {
-      value,
-      expiry: Date.now() + options.cacheExpiry
-    }
+    cache[options.cacheKey] = { value, expiry }
   }
-  return { value }
+  return { value, expiry }
 }
 
 const getCache = (key) => {
