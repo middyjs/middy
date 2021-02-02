@@ -53,7 +53,7 @@ module.exports = (opts = {}) => {
   }
 
   const rdsSignerMiddlewareBefore = async (handler) => {
-    const {value, cache} = prefetch ?? processCache(options, fetch, handler)
+    const { value, cache } = prefetch ?? processCache(options, fetch, handler)
     prefetch = null
 
     Object.assign(handler.internal, value)

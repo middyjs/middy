@@ -46,7 +46,7 @@ module.exports = (opts = {}) => {
       client = await createClient(options, handler)
     }
 
-    const {value, cache} = prefetch ?? processCache(options, fetch, handler)
+    const { value, cache } = prefetch ?? processCache(options, fetch, handler)
     prefetch = null
 
     Object.assign(handler.internal, value)
