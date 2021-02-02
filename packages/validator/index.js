@@ -13,7 +13,6 @@ const ajvDefaults = {
   allErrors: true,
   useDefaults: 'empty',
   messages: false // allow i18n
-
 }
 
 const defaults = {

@@ -154,6 +154,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     })
   }
 
+  const onChange = sinon.spy()
   handler
     .use(sts({
       AwsClient: STS,
@@ -161,13 +162,15 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
         role: {
           RoleArn: '.../role'
         }
-      }
+      },
+      onChange
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
+  t.is(onChange.callCount, 1)
   t.is(stub.callCount, 1)
 })
 

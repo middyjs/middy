@@ -19,7 +19,7 @@ const defaults = {
 module.exports = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (handler) => () => {
+  const fetch = (handler) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       const awsClientOptions = {
@@ -47,26 +47,23 @@ module.exports = (opts = {}) => {
     return values
   }
 
-  let prefetch, init
+  let prefetch
   if (canPrefetch(options)) {
-    init = true
-    prefetch = processCache(options, fetch())
+    prefetch = processCache(options, fetch)
   }
 
   const rdsSignerMiddlewareBefore = async (handler) => {
-    let cached
-    if (init) {
-      cached = prefetch
-    } else {
-      cached = processCache(options, fetch(handler), handler)
+    const {value, cache} = prefetch ?? processCache(options, fetch, handler)
+    prefetch = null
+
+    Object.assign(handler.internal, value)
+
+    if (options.setToContext || (options.onChange && !cache) || options.setToEnv) {
+      const data = await getInternal(Object.keys(options.fetchData), handler)
+      if (options.setToEnv) Object.assign(process.env, data)
+      if (options.setToContext) Object.assign(handler.context, data)
+      if (options.onChange && !cache) options.onChange?.(data)
     }
-
-    Object.assign(handler.internal, cached)
-    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
-    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
-
-    if (!init) options?.onChange?.()
-    else init = false
   }
 
   return {

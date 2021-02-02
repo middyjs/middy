@@ -35,9 +35,8 @@ module.exports = (opts = {}) => {
     return values
   }
 
-  let prefetch, client, init
+  let prefetch, client
   if (canPrefetch(options)) {
-    init = true
     client = createPrefetchClient(options)
     prefetch = processCache(options, fetch)
   }
@@ -46,19 +45,18 @@ module.exports = (opts = {}) => {
     if (!client) {
       client = await createClient(options, handler)
     }
-    let cached
-    if (init) {
-      cached = prefetch
-    } else {
-      cached = processCache(options, fetch, handler)
+
+    const {value, cache} = prefetch ?? processCache(options, fetch, handler)
+    prefetch = null
+
+    Object.assign(handler.internal, value)
+
+    if ((options.onChange && !cache) || options.setToContext || options.setToEnv) {
+      const data = await getInternal(Object.keys(options.fetchData), handler)
+      if (options.setToEnv) Object.assign(process.env, data)
+      if (options.setToContext) Object.assign(handler.context, data)
+      if (options.onChange && !cache) options.onChange?.(data)
     }
-
-    Object.assign(handler.internal, cached)
-    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
-    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
-
-    if (!init) options?.onChange?.()
-    else init = false
   }
 
   return {

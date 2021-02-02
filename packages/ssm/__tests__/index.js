@@ -270,18 +270,21 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     t.is(values.key, 'key-value')
   }
 
+  const onChange = sinon.spy()
   handler
     .use(ssm({
       AwsClient: SSM,
       fetchData: {
         key: '/dev/service_name/key_name'
-      }
+      },
+      onChange
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
+  t.is(onChange.callCount, 1)
   t.is(stub.callCount, 1)
 })
 

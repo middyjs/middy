@@ -192,18 +192,21 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     t.is(values.token, 'token')
   }
 
+  const onChange = sinon.spy()
   handler
     .use(secretsManager({
       AwsClient: SecretsManager,
       fetchData: {
         token: 'api_key'
-      }
+      },
+      onChange
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
+  t.is(onChange.callCount, 1)
   t.is(stub.callCount, 1)
 })
 
