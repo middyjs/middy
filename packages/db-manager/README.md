@@ -157,7 +157,7 @@ handler.use(dbManager({
   rdsSigner:{
     region: 'us-east-1',
     hostname: '*****.******.{region}.rds.amazonaws.com',
-    username: 'iam_user',
+    username: 'your_database_user_with_iam_role',
     database: 'myapp_test',
     port: '5432'
   },
@@ -166,7 +166,7 @@ handler.use(dbManager({
     client: 'pg',
     connection: {
       host: '*****.******.{region}.rds.amazonaws.com',
-      user: 'your_database_user',
+      user: 'your_database_user_with_iam_role',
       database: 'myapp_test',
       port: '5432',
       ssl: {

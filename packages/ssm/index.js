@@ -7,6 +7,8 @@ module.exports = opts => {
       maxRetries: 6, // lowers a chance to hit service rate limits, default is 3
       retryDelayOptions: { base: 200 }
     },
+    throwOnFailedCall: false,
+    awsSdkInstance: undefined,
     onChange: undefined,
     paths: {},
     names: {},
@@ -33,7 +35,7 @@ module.exports = opts => {
         return next()
       }
 
-      ssmInstance = ssmInstance || new SSM(options.awsSdkOptions)
+      ssmInstance = options.awsSdkInstance || ssmInstance || new SSM(options.awsSdkOptions)
 
       const ssmPromises = Object.keys(options.paths).reduce(
         (aggregator, prefix) => {
@@ -81,6 +83,22 @@ module.exports = opts => {
         options.paramsCache = objectsToMap
         options.paramsLoadedAt = new Date()
       })
+        .catch(err => {
+          console.error(
+            '[Failed to get parameters from SSM] ',
+            err.message
+          )
+          // throw error if there is no params in cache already and flag throwOnFailedCall is provided
+          if (options.throwOnFailedCall && !options.paramsCache) {
+            throw err
+          }
+          // if we already have a cached params, then reset the timestamp so we don't
+          // keep retrying on every invocation which can cause performance problems
+          // when there's temporary problems with SSM
+          if (options.paramsCache) {
+            options.paramsLoadedAt = new Date()
+          }
+        })
     }
   }
 }

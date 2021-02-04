@@ -95,4 +95,30 @@ describe('📦 Middleware URL Encoded Body Parser', () => {
 
     expect(body).toEqual('{"foo":"bar"}')
   })
+
+  test('It should handle a base64 body', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as response
+    })
+
+    handler.use(urlEncodeBodyParser())
+
+    // invokes the handler
+    const data = 'a=a&b=b'
+    const base64Data = Buffer.from(data).toString('base64')
+    const event = {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: base64Data,
+      isBase64Encoded: true
+    }
+
+    const body = await invoke(handler, event)
+
+    expect(body).toEqual({
+      a: 'a',
+      b: 'b'
+    })
+  })
 })

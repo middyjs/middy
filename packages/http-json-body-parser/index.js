@@ -8,7 +8,7 @@ module.exports = (opts) => ({
       const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
       if (contentTypeHeader) {
         const { type } = contentType.parse(contentTypeHeader)
-        if (type === 'application/json') {
+        if (type.match(/^application\/(.*\+)?json$/)) {
           try {
             const data = handler.event.isBase64Encoded
               ? Buffer.from(handler.event.body, 'base64').toString()

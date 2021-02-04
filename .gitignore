@@ -63,5 +63,6 @@ typings/
 docs/
 !docs/middlewares.md
 
+*.iml
 .idea/
 .vscode/

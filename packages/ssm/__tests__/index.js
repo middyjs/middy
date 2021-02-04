@@ -292,7 +292,7 @@ describe('🔒 SSM Middleware', () => {
     })
   })
 
-  test('It should throw error when some SSM params are invalid', async () => {
+  test('It should throw error when some SSM params are invalid and "throwOnFailedCall" flag is set to true', async () => {
     await testScenario({
       ssmMockResponse: {
         InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
@@ -301,11 +301,37 @@ describe('🔒 SSM Middleware', () => {
         names: {
           invalidParam: 'invalid-smm-param-name',
           anotherInvalidParam: 'another-invalid-ssm-param'
-        }
+        },
+        throwOnFailedCall: true
       },
       callbacks: [
         (error) => {
           expect(error.message).toEqual('InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param')
+        }
+      ]
+    })
+  })
+
+  test('It should resolve if "throwOnFailedCall" flag is not provided but some SSM params are invalid (will throw silently?)', async () => {
+    await testScenario({
+      ssmMockResponse: {
+        InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
+      },
+      middlewareOptions: {
+        names: {
+          invalidParam: 'invalid-smm-param-name',
+          anotherInvalidParam: 'another-invalid-ssm-param'
+        },
+        throwOnFailedCall: false
+      },
+      callbacks: [
+        (_) => {
+          expect(_).toBeNull() // TODO: don't know how to test this properly... there is no mockObject to check whether was called or not! (Check if console.error prints '[Failed to get parameters from SSM] ...' ?)
+        },
+        () => {
+          expect(getParametersMock).toBeCalled()
+          expect(getParametersMock).toHaveBeenCalledTimes(2)
+          getParametersMock.mockClear()
         }
       ]
     })

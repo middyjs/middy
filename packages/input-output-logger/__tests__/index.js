@@ -49,5 +49,23 @@ describe('📦 Middleware Input Output Logger', () => {
       expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
       expect(logger).toHaveBeenCalledWith({ response: 'yo' })
     })
+
+    test('Skipped parts should be present in the response', async () => {
+      const logger = jest.fn()
+
+      const handler = middy((event, context, cb) => {
+        cb(null, { foo: [{ foo: 'bar', fuu: 'baz' }] })
+      })
+
+      handler
+        .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.foo[0].foo'] }))
+
+      const response = await invoke(handler, { foo: 'bar', fuu: 'baz' })
+
+      expect(logger).toHaveBeenCalledWith({ event: { foo: 'bar', fuu: 'baz' } })
+      expect(logger).toHaveBeenCalledWith({ response: { foo: [{ fuu: 'baz' }] } })
+
+      expect(response).toMatchObject({ foo: [{ foo: 'bar', fuu: 'baz' }] })
+    })
   })
 })

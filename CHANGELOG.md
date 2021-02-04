@@ -1,3 +1,46 @@
+# 1.5.2
+- #603 base64decode on http urlencode body parser @fredericbarthelet
+
+# 1.5.1
+- #600 ESBuild fix for `validator` @doktor500
+
+# 1.5.0
+
+This release includes multiple improvements to `@middy/ssm`
+- #571 X-Ray support @chris-armstrong
+- #572 Error edge case catch @bokjo
+
+## Bug Fixes
+- #574 TypeScript Typo @bhamon-dot
+
+## Misc
+- #566 Remove @types/aws-lambda as peerDep
+
+# 1.4.0
+
+## Features
+- #562 Allow http-json-body-parser to accept `application/vnd.api+json` @rob0t7
+
+# 1.3.2
+
+## Features
+- #561 Add in a fix for dynamic require with webpack @leog 
+
+# 1.3.1
+
+## Features
+- #522 Added in an option to remove ajv plugins from `validator` @willfarrell
+
+# 1.3.0
+
+## Features
+- #552 Validator extend for better avj plugin support @leog 
+- #559 Scope requests individually to allow batch requests @thetrevdev
+
+## Bug Fixes
+- #556 be able to replace the context from a middleware @russell-dot-js
+- #557 deep close on input-output-logger @MiguelNazMor
+
 # 1.2.0
 
 ## Features

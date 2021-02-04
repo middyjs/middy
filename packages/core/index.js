@@ -64,7 +64,7 @@ const once = require('once')
  * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
  */
 
-const runMiddlewares = (middlewares, instance, done) => {
+const runMiddlewares = (middlewares, request, done) => {
   const stack = Array.from(middlewares)
   const runNext = (err) => {
     try {
@@ -75,7 +75,7 @@ const runMiddlewares = (middlewares, instance, done) => {
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        const retVal = nextMiddleware(instance, runNext)
+        const retVal = nextMiddleware(request, runNext)
 
         if (retVal) {
           if (!isPromise(retVal)) {
@@ -99,19 +99,19 @@ const runMiddlewares = (middlewares, instance, done) => {
   runNext()
 }
 
-const runErrorMiddlewares = (middlewares, instance, done) => {
+const runErrorMiddlewares = (middlewares, request, done) => {
   const stack = Array.from(middlewares)
-  instance.__handledError = false
+  request.__handledError = false
   const runNext = (err) => {
     try {
       if (!err) {
-        instance.__handledError = true
+        request.__handledError = true
       }
 
       const nextMiddleware = stack.shift()
 
       if (nextMiddleware) {
-        const retVal = nextMiddleware(instance, runNext)
+        const retVal = nextMiddleware(request, runNext)
 
         if (retVal) {
           if (!isPromise(retVal)) {
@@ -129,13 +129,13 @@ const runErrorMiddlewares = (middlewares, instance, done) => {
         return
       }
 
-      return done(instance.__handledError ? null : err)
+      return done(request.__handledError ? null : err)
     } catch (err) {
       return done(err)
     }
   }
 
-  runNext(instance.error)
+  runNext(request.error)
 }
 
 /**
@@ -149,11 +149,12 @@ const middy = (handler) => {
   const errorMiddlewares = []
 
   const instance = (event, context, callback) => {
-    instance.event = event
-    instance.context = context
-    instance.callback = callback
-    instance.response = null
-    instance.error = null
+    const request = {}
+    request.event = event
+    request.context = context
+    request.callback = callback
+    request.response = null
+    request.error = null
 
     const middyPromise = new Promise((resolve, reject) => {
       const terminate = (err) => {
@@ -161,32 +162,32 @@ const middy = (handler) => {
           return callback ? callback(err) : reject(err)
         }
 
-        return callback ? callback(null, instance.response) : resolve(instance.response)
+        return callback ? callback(null, request.response) : resolve(request.response)
       }
 
       const errorHandler = err => {
-        instance.error = err
-        return runErrorMiddlewares(errorMiddlewares, instance, terminate)
+        request.error = err
+        return runErrorMiddlewares(errorMiddlewares, request, terminate)
       }
 
-      runMiddlewares(beforeMiddlewares, instance, (err) => {
+      runMiddlewares(beforeMiddlewares, request, (err) => {
         if (err) return errorHandler(err)
 
         const onHandlerError = once((err) => {
-          instance.response = null
+          request.response = null
           errorHandler(err)
         })
 
         const onHandlerSuccess = once((response) => {
-          instance.response = response
-          runMiddlewares(afterMiddlewares, instance, (err) => {
+          request.response = response
+          runMiddlewares(afterMiddlewares, request, (err) => {
             if (err) return errorHandler(err)
 
             terminate()
           })
         })
 
-        const handlerReturnValue = handler.call(instance, instance.event, context, (err, response) => {
+        const handlerReturnValue = handler.call(request, request.event, request.context, (err, response) => {
           if (err) return onHandlerError(err)
           onHandlerSuccess(response)
         })
@@ -203,7 +204,7 @@ const middy = (handler) => {
         }
       })
     })
-    if (!instance.callback) return middyPromise
+    if (!request.callback) return middyPromise
   }
 
   instance.use = (middlewares) => {
