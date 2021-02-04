@@ -200,10 +200,11 @@ test.serial('It should cache forever', async (t) => {
   }
   util.processCache(options, fetch, cacheHandler)
   await delay(100)
-  const cache = util.getCache('key')
-  t.not(cache, undefined)
-  const cached = await util.processCache(options, fetch, cacheHandler)
-  t.is(cached, 'value')
+  const cacheValue = util.getCache('key')
+  t.not(cacheValue, undefined)
+  const {value, cache} = util.processCache(options, fetch, cacheHandler)
+  t.is(await value, 'value')
+  t.true(cache)
   util.clearCache()
 })
 

@@ -46,7 +46,6 @@ npm install --save @middy/rds-signer
 - `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Store credentials to `handler.context`.
-- `onChange` (function) (optional): Calls function when credentials change after being initially set.
 
 NOTES:
 - Lambda is required to have IAM permission for `sts:AssumeRole`
