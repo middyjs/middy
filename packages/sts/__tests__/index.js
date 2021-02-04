@@ -154,7 +154,6 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     })
   }
 
-  const onChange = sinon.spy()
   handler
     .use(sts({
       AwsClient: STS,
@@ -162,15 +161,13 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
         role: {
           RoleArn: '.../role'
         }
-      },
-      onChange
+      }
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
-  t.is(onChange.callCount, 0)
   t.is(stub.callCount, 1)
 })
 
@@ -200,7 +197,6 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
     })
   }
 
-  const onChange = sinon.spy()
   handler
     .use(sts({
       AwsClient: STS,
@@ -209,14 +205,12 @@ test.serial('It should call aws-sdk if cache enabled but cached param has expire
           RoleArn: '.../role'
         }
       },
-      cacheExpiry: 0,
-      onChange
+      cacheExpiry: 0
     }))
     .before(middleware)
 
   await handler()
   await handler()
 
-  t.is(onChange.callCount, 1)
   t.is(stub.callCount, 2)
 })
