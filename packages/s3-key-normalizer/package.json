@@ -1,6 +1,6 @@
 {
   "name": "@middy/s3-key-normalizer",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "description": "S3 key normalizer middleware for the middy framework",
   "type": "commonjs",
   "engines": {

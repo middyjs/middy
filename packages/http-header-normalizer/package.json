@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-header-normalizer",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "description": "Http header normalizer middleware for the middy framework",
   "type": "commonjs",
   "engines": {
