@@ -50,14 +50,13 @@ module.exports = (opts = {}) => {
       client = await createClient(options, handler)
     }
 
-    const { value, cache } = prefetch ?? processCache(options, fetch, handler)
+    const { value } = prefetch ?? processCache(options, fetch, handler)
 
     Object.assign(handler.internal, value)
 
-    if (options.setToContext || (options.onChange && !cache && !prefetch)) {
+    if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), handler)
       if (options.setToContext) Object.assign(handler.context, data)
-      if (options.onChange) await options.onChange?.(data)
     }
     prefetch = null
   }

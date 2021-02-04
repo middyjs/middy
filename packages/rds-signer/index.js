@@ -53,15 +53,14 @@ module.exports = (opts = {}) => {
   }
 
   const rdsSignerMiddlewareBefore = async (handler) => {
-    const { value, cache } = prefetch ?? processCache(options, fetch, handler)
+    const { value } = prefetch ?? processCache(options, fetch, handler)
 
     Object.assign(handler.internal, value)
 
-    if (options.setToContext || (options.onChange && !cache && !prefetch) || options.setToEnv) {
+    if (options.setToContext || options.setToEnv) {
       const data = await getInternal(Object.keys(options.fetchData), handler)
       if (options.setToEnv) Object.assign(process.env, data)
       if (options.setToContext) Object.assign(handler.context, data)
-      if (options.onChange) await options.onChange?.(data)
     }
 
     prefetch = null

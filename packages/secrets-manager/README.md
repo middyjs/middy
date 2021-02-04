@@ -55,7 +55,6 @@ npm install --save @middy/secrets-manager
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store secrets to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
 - `setToContext` (boolean) (default `false`): Store secrets to `handler.context`.
-- `onChange` (function(data)) (optional): Calls function when secrets change after being initially set.
 
 NOTES:
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
