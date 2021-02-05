@@ -1,5 +1,5 @@
 const createError = require('http-errors')
-const Ajv = require('ajv')
+const Ajv = require('ajv').default
 const { deepStrictEqual } = require('assert')
 
 let ajv
@@ -9,14 +9,12 @@ const optionsDefault = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: true,
-  $data: true, // required for ajv-keywords
-  defaultLanguage: 'en',
-  jsonPointers: true
+  defaultLanguage: 'en'
 }
 const pluginsInstances = {}
 const pluginsDefault = {
   keywords: null,
-  errors: null,
+  errors: {},
   i18n: null
 }
 

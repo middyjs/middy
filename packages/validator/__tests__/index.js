@@ -9,6 +9,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body'],
       properties: {
         body: {
@@ -39,6 +40,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body', 'foo'],
       properties: {
         // this will pass validation
@@ -77,6 +79,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body', 'foo'],
       properties: {
         // this will pass validation
@@ -116,6 +119,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body', 'foo'],
       properties: {
         // this will pass validation
@@ -143,7 +147,7 @@ describe('📦  Middleware Validator', () => {
       await invoke(handler, event)
     } catch (err) {
       expect(err.message).toEqual('Event object failed validation')
-      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'deve ter a propriedade requerida foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
+      expect(err.details).toEqual([{ dataPath: '', keyword: 'required', message: 'deve ter a propriedade obrigatória foo', params: { missingProperty: 'foo' }, schemaPath: '#/required' }])
     }
   })
 
@@ -158,6 +162,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body', 'statusCode'],
       properties: {
         body: {
@@ -184,6 +189,7 @@ describe('📦  Middleware Validator', () => {
     })
 
     const schema = {
+      type: 'object',
       required: ['body', 'statusCode'],
       properties: {
         body: {
@@ -206,40 +212,6 @@ describe('📦  Middleware Validator', () => {
       expect(err.message).toEqual('Response object failed validation')
       expect(response).not.toBe(null) // it doesn't destroy the response so it gets logged
     }
-  })
-
-  describe('🏗 Ajv constructor options', () => {
-    const schema = { required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
-
-    test('It should allow invalid email using default constructor options', async () => {
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema }))
-
-      // This email is considered as valid in 'fast' mode
-      const resp = await invoke(handler, { email: 'abc@abc' })
-
-      expect(resp).toEqual({})
-    })
-
-    test('It should not allow bad email format using custom ajv constructor options', async () => {
-      expect.assertions(1)
-
-      const handler = middy((event, context, cb) => {
-        cb(null, {})
-      })
-
-      handler.use(validator({ inputSchema: schema, ajvOptions: { format: 'full' } }))
-
-      try {
-      // This same email is not a valid one in 'full' validation mode
-        await invoke(handler, { email: 'abc@abc' })
-      } catch (err) {
-        expect(err.details[0].message).toEqual('should match format "email"')
-      }
-    })
   })
 
   describe('🔌 Ajv plugins setup', () => {
@@ -268,7 +240,7 @@ describe('📦  Middleware Validator', () => {
       handler.use(validator({ inputSchema: schema }))
 
       try {
-        await invoke(handler, { foo: 'a' })
+        await invoke(handler, { foo: 'a', bar: 2 })
       } catch (err) {
         expect(err.message).toEqual('Event object failed validation')
         expect(err.details).toEqual(
@@ -279,16 +251,19 @@ describe('📦  Middleware Validator', () => {
       }
     })
 
-    test('It should apply added plugin bsontype', async () => {
+    test('It should apply added plugin formats', async () => {
       expect.assertions(2)
       const schema = {
-        required: ['name', 'gpa'],
+        type: 'object',
+        required: ['scheduled', 'email'],
         properties: {
-          name: {
-            bsonType: 'string'
+          scheduled: {
+            type: 'string',
+            format: 'date'
           },
-          gpa: {
-            bsonType: ['double']
+          email: {
+            type: 'string',
+            format: 'email'
           }
         }
       }
@@ -297,15 +272,16 @@ describe('📦  Middleware Validator', () => {
         cb(null, {})
       })
 
-      handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
+      handler.use(validator({ inputSchema: schema, ajvPlugins: { formats: {} }, ajvOptions: { strict: false } }))
 
       try {
-        await invoke(handler, { name: 'Leo', gpa: '4' })
+        await invoke(handler, { scheduled: 'not_a_date', email: 'not_an_email' })
       } catch (err) {
         expect(err.message).toEqual('Event object failed validation')
         expect(err.details).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ message: 'should be double got 4' })
+            expect.objectContaining({ message: 'should match format "date"' }),
+            expect.objectContaining({ message: 'should match format "email"' })
           ])
         )
       }
