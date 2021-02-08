@@ -1,7 +1,8 @@
 const defaults = {
   logger: console.log
 }
-module.exports = (opts = {}) => {
+
+const timePlugin = (opts = {}) => {
   const { logger } = { ...defaults, ...opts }
   const store = {}
 
@@ -33,3 +34,4 @@ module.exports = (opts = {}) => {
     requestEnd
   }
 }
+module.exports = timePlugin
