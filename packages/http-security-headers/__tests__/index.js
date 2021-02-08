@@ -142,21 +142,6 @@ const createArrayResponse = () => [{ firstname: 'john', lastname: 'doe' }]
     t.is(response.headers['X-XSS-Protection'],'1; mode=block; report=https://example.com/report')
   })
 
-  test('It should catch thrown errors', async (t) => {
-    const handler = middy(async () => {
-      throw new Error('This error should not return 200')
-    })
-
-    handler.use(httpSecurityHeaders())
-
-    const event = {
-      httpMethod: 'GET'
-    }
-
-    const response = await handler(event)
-    t.is(response.statusCode,500)
-  })
-
   test('It should support array responses', async (t) => {
     const handler = middy((event, context) => createArrayResponse())
 

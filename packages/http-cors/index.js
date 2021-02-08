@@ -1,3 +1,4 @@
+const {normalizeHttpResponse} = require('@middy/util')
 
 const getOrigin = (incomingOrigin, options) => {
   if (options?.origins.length > 0) {
@@ -34,8 +35,7 @@ module.exports = (opts = {}) => {
   const httpCorsMiddlewareAfter = async (handler) => {
     if (!handler.event?.httpMethod) return
 
-    handler.response = handler.response ?? {}
-    handler.response.headers = handler.response?.headers ?? {}
+    handler.response = normalizeHttpResponse(handler.response)
 
     const existingHeaders = Object.keys(handler.response.headers)
 

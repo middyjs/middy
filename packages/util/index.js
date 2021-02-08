@@ -126,4 +126,13 @@ const jsonSafeParse = (string, reviver) => {
   return string
 }
 
-module.exports = { createPrefetchClient, createClient, canPrefetch, getInternal, sanitizeKey, processCache, getCache, clearCache, jsonSafeParse }
+const normalizeHttpResponse = (response, fallbackResponse = {}) => {
+  response = response ?? fallbackResponse
+  if (Array.isArray(response) || typeof response !== 'object') { // May require updating to catch other types
+    response = { body: response }
+  }
+  response.headers = response?.headers ?? {}
+  return response
+}
+
+module.exports = { createPrefetchClient, createClient, canPrefetch, getInternal, sanitizeKey, processCache, getCache, clearCache, jsonSafeParse, normalizeHttpResponse }

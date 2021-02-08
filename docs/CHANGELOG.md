@@ -33,6 +33,7 @@ Focus this version was on performance and security by default.
 - @lmammino: For discussions to bounce and talk through ideas. Code audit/review.
 - @ffxsam: For reporting #609.
 - @raae & @AyoAlfonso: For `expose` support in `http-error-handler` #610.
+- @nfantone: For improved response default handling #615
 
 # 1.5.0
 

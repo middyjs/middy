@@ -1,4 +1,4 @@
-const { jsonSafeParse } = require('@middy/util')
+const { jsonSafeParse, normalizeHttpResponse } = require('@middy/util')
 
 const defaults = {
   logger: console.error,
@@ -28,8 +28,7 @@ module.exports = (opts = {}) => {
     }
 
     if (handler.error?.expose) {
-      handler.response = handler.response ?? {}
-      handler.response.headers = handler.response?.headers ?? {}
+      handler.response = normalizeHttpResponse(handler.response)
       handler.response.statusCode = handler.error?.statusCode
       handler.response.body = jsonSafeParse(handler.error?.message)
       handler.response.headers['Content-Type'] = typeof handler.response?.body === 'string'

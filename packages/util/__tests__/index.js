@@ -12,7 +12,7 @@ const delay = async (ms, x) => {
 }
 
 // createClient
-test('It should create AWS Client', async (t) => {
+test('createClient should create AWS Client', async (t) => {
   const Client = sinon.spy()
 
   await util.createClient({
@@ -22,7 +22,7 @@ test('It should create AWS Client', async (t) => {
   t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions'])
 })
 
-test('It should create AWS Client with options', async (t) => {
+test('createClient should create AWS Client with options', async (t) => {
   const Client = sinon.spy()
 
   await util.createClient({
@@ -34,7 +34,7 @@ test('It should create AWS Client with options', async (t) => {
   t.is(Client.args[0][0].apiVersion, '2014-11-06')
 })
 
-test('It should throw when creating AWS Client with role and no handler', async (t) => {
+test('createClient should throw when creating AWS Client with role and no handler', async (t) => {
   const Client = sinon.spy()
 
   try {
@@ -47,7 +47,7 @@ test('It should throw when creating AWS Client with role and no handler', async 
   }
 })
 
-test('It should create AWS Client with role', async (t) => {
+test('createClient should create AWS Client with role', async (t) => {
   const Client = sinon.spy()
 
   const handler = {
@@ -64,7 +64,7 @@ test('It should create AWS Client with role', async (t) => {
   t.is(Client.args[0][0].credentials, 'creds object')
 })
 
-test('It should create AWS Client with role from promise', async (t) => {
+test('createClient should create AWS Client with role from promise', async (t) => {
   const Client = sinon.spy()
 
   const handler = {
@@ -82,19 +82,19 @@ test('It should create AWS Client with role from promise', async (t) => {
 })
 
 // canPrefetch
-test('It should prefetch', async (t) => {
+test('canPrefetch should prefetch', async (t) => {
   const prefetch = util.canPrefetch()
   t.is(prefetch, true)
 })
 
-test('It should not prefetch with assume role set', async (t) => {
+test('canPrefetch should not prefetch with assume role set', async (t) => {
   const prefetch = util.canPrefetch({
     awsClientAssumeRole: 'admin'
   })
   t.is(prefetch, false)
 })
 
-test('It should not prefetch when disabled', async (t) => {
+test('canPrefetch should not prefetch when disabled', async (t) => {
   const prefetch = util.canPrefetch({
     disablePrefetch: true
   })
@@ -118,12 +118,12 @@ const getInternalHandler = {
     //promiseReject: Promise.reject('promise')
   }
 }
-test('It should get none from internal store', async (t) => {
+test('getInternal should get none from internal store', async (t) => {
   const values = await util.getInternal(false, getInternalHandler)
   t.deepEqual(values, {})
 })
 
-test('It should get all from internal store', async (t) => {
+test('getInternal should get all from internal store', async (t) => {
   const values = await util.getInternal(true, getInternalHandler)
   t.deepEqual(values, {
     array: [],
@@ -140,38 +140,38 @@ test('It should get all from internal store', async (t) => {
   })
 })
 
-test('It should get from internal store when string', async (t) => {
+test('getInternal should get from internal store when string', async (t) => {
   const values = await util.getInternal('number', getInternalHandler)
   t.deepEqual(values, { number: 1 })
 })
 
-test('It should get from internal store when array[string]', async (t) => {
+test('getInternal should get from internal store when array[string]', async (t) => {
   const values = await util.getInternal(['boolean', 'string'], getInternalHandler)
   t.deepEqual(values, { boolean: true, string: 'string' })
 })
 
-test('It should get from internal store when object', async (t) => {
+test('getInternal should get from internal store when object', async (t) => {
   const values = await util.getInternal({ newKey: 'promise' }, getInternalHandler)
   t.deepEqual(values, { newKey: 'promise' })
 })
 
-test('It should get from internal store a nested value', async (t) => {
+test('getInternal should get from internal store a nested value', async (t) => {
   const values = await util.getInternal('promiseObject.key', getInternalHandler)
   t.deepEqual(values, { promiseObject_key: 'value' })
 })
 
 // sanitizeKey
-test('It should sanitize key', async (t) => {
+test('sanitizeKey should sanitize key', async (t) => {
   const key = util.sanitizeKey('api//secret-key0.pem')
   t.is(key, 'api_secret_key0_pem')
 })
 
-test('It should sanitize key with leading number', async (t) => {
+test('sanitizeKey should sanitize key with leading number', async (t) => {
   const key = util.sanitizeKey('0key')
   t.is(key, '_0key')
 })
 
-test('It should not sanitize key', async (t) => {
+test('sanitizeKey should not sanitize key', async (t) => {
   const key = util.sanitizeKey('api_secret_key0_pem')
   t.is(key, 'api_secret_key0_pem')
 })
@@ -180,7 +180,7 @@ test('It should not sanitize key', async (t) => {
 const cacheHandler = {
   internal: {}
 }
-test.serial('It should not cache', async (t) => {
+test.serial('processCache should not cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
   const options = {
     cacheKey: 'key',
@@ -192,7 +192,7 @@ test.serial('It should not cache', async (t) => {
   util.clearCache()
 })
 
-test.serial('It should cache forever', async (t) => {
+test.serial('processCache should cache forever', async (t) => {
   const fetch = sinon.stub().resolves('value')
   const options = {
     cacheKey: 'key',
@@ -208,7 +208,7 @@ test.serial('It should cache forever', async (t) => {
   util.clearCache()
 })
 
-test.serial('It should cache and expire', async (t) => {
+test.serial('processCache should cache and expire', async (t) => {
   const fetch = sinon.stub().resolves('value')
   const options = {
     cacheKey: 'key',
@@ -224,7 +224,7 @@ test.serial('It should cache and expire', async (t) => {
   util.clearCache()
 })
 
-test.serial('It should clear single key cache', async (t) => {
+test.serial('processCache should clear single key cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
   util.processCache({
     cacheKey: 'key',
@@ -240,7 +240,7 @@ test.serial('It should clear single key cache', async (t) => {
   util.clearCache()
 })
 
-test.serial('It should clear multi key cache', async (t) => {
+test.serial('processCache should clear multi key cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
   util.processCache({
     cacheKey: 'key',
@@ -256,7 +256,7 @@ test.serial('It should clear multi key cache', async (t) => {
   util.clearCache()
 })
 
-test.serial('It should clear all cache', async (t) => {
+test.serial('processCache should clear all cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
   util.processCache({
     cacheKey: 'key',
@@ -273,27 +273,53 @@ test.serial('It should clear all cache', async (t) => {
 })
 
 // jsonSafeParse
-test('It should parse valid json', async (t) => {
+test('jsonSafeParse should parse valid json', async (t) => {
   const value = util.jsonSafeParse('{}')
   t.deepEqual(value, {})
 })
-test('It should not parse object', async (t) => {
+test('jsonSafeParse should not parse object', async (t) => {
   const value = util.jsonSafeParse({})
   t.deepEqual(value, {})
 })
-test('It should not parse string', async (t) => {
+test('jsonSafeParse should not parse string', async (t) => {
   const value = util.jsonSafeParse('value')
   t.is(value, 'value')
 })
-test('It should not parse empty string', async (t) => {
+test('jsonSafeParse should not parse empty string', async (t) => {
   const value = util.jsonSafeParse('')
   t.is(value, '')
 })
-test('It should not parse null', async (t) => {
+test('jsonSafeParse should not parse null', async (t) => {
   const value = util.jsonSafeParse(null)
   t.is(value, null)
 })
-test('It should not parse number', async (t) => {
+test('jsonSafeParse should not parse number', async (t) => {
   const value = util.jsonSafeParse(1)
   t.is(value, 1)
+})
+
+// normalizeHttpResponse
+test('normalizeHttpResponse should not change response', async(t) => {
+  const value = util.normalizeHttpResponse({headers:{}})
+  t.deepEqual(value, {headers:{}})
+})
+test('normalizeHttpResponse should update headers in response', async(t) => {
+  const value = util.normalizeHttpResponse({})
+  t.deepEqual(value, {headers:{}})
+})
+
+test('normalizeHttpResponse should update nullish response', async(t) => {
+  let value = util.normalizeHttpResponse(null)
+  t.deepEqual(value, {headers:{}})
+  value = util.normalizeHttpResponse()
+  t.deepEqual(value, {headers:{}})
+})
+
+test('normalizeHttpResponse should update string response', async(t) => {
+  const value = util.normalizeHttpResponse('')
+  t.deepEqual(value, {body:'', headers:{}})
+})
+test('normalizeHttpResponse should update array response', async(t) => {
+  const value = util.normalizeHttpResponse([])
+  t.deepEqual(value, {body:[], headers:{}})
 })

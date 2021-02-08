@@ -1,3 +1,5 @@
+const { normalizeHttpResponse } = require('@middy/util')
+
 // Code and Defaults heavily based off https://helmetjs.github.io/
 
 const defaults = {
@@ -121,19 +123,11 @@ helmetHtmlOnly.xssFilter = (headers, config) => {
   return headers
 }
 
-const normalizeResponse = (response) => {
-  return Array.isArray(response)
-    ? { body: response }
-    : response ??
-      { statusCode: 500 } // catch thrown errors, prevent default statusCode
-}
-
 module.exports = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
-    handler.response = normalizeResponse(handler.response)
-    handler.response.headers = handler.response?.headers ?? {}
+    handler.response = normalizeHttpResponse(handler.response)
 
     Object.keys(helmet).forEach(key => {
       const config = { ...defaults[key], ...options[key] }

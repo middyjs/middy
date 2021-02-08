@@ -1,3 +1,4 @@
+const {normalizeHttpResponse} = require('@middy/util')
 const Accept = require('@hapi/accept')
 
 const defaults = {}
@@ -7,7 +8,8 @@ module.exports = (opts = {}) => {
   const httpResponseSerializerMiddlewareAfter = async (handler) => {
     // normalise headers for internal use only
     const requestHeaders = getNormalisedHeaders(handler.event?.headers ?? {})
-    const responseHeaders = getNormalisedHeaders(handler.response?.headers ?? {})
+    handler.response = normalizeHttpResponse(handler.response)
+    const responseHeaders = getNormalisedHeaders(handler.response.headers)
 
     // skip serialization when content-type is already set
     if (responseHeaders['content-type']) {
@@ -39,14 +41,8 @@ module.exports = (opts = {}) => {
 
       if (!test) { return false }
 
-      // if the response is not an object, assign it to body. { body: undefined } is not serialized
-      handler.response = handler.response !== null && typeof handler.response === 'object'
-        ? handler.response
-        : { body: handler.response }
-
       // set header
-      handler.response.headers = handler.response?.headers ?? {}
-      handler.response.headers = { ...handler.response.headers, 'Content-Type': type }
+      handler.response.headers['Content-Type'] = type
 
       // run serializer
       const result = s.serializer(handler.response)

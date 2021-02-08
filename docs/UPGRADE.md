@@ -99,7 +99,7 @@ No change
 No change
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
-No change
+No longer adds `statusCode:500` when there is no response.
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
 Remove `extended` option. Only uses `qs` as the parser, formally enabled by options `{extended: true}`.

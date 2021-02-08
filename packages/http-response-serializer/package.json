@@ -51,6 +51,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@hapi/accept": "5.0.1",
+    "@middy/util": "2.0.0-alpha.5",
     "http-errors": "1.8.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

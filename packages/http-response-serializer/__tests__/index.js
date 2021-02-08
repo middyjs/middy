@@ -179,6 +179,7 @@ test('It should pass-through when no preference or default is found', async (t) 
 
   t.deepEqual(response, {
     statusCode: 200,
+    headers: {},
     body: 'Hello World'
   })
 })
