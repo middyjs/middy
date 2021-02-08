@@ -73,8 +73,7 @@
   },
   "lint-staged": {
     "*.{json,js,ts}": [
-      "npm run test:lint",
-      "git add"
+      "npm run test:lint"
     ]
   }
 }
