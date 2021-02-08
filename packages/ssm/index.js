@@ -43,21 +43,24 @@ module.exports = (opts = {}) => {
       if (fetchKey.substr(-1) === '/') continue // Skip path passed in
       batch.push(fetchKey)
       // from the first to the batch size skip, unless it's the last entry
-      if ((!idx || (idx + 1) % awsRequestLimit !== 0) && !(idx + 1 === internalKeys.length)) {
+      if (
+        (!idx || (idx + 1) % awsRequestLimit !== 0) &&
+        !(idx + 1 === internalKeys.length)
+      ) {
         continue
       }
 
       request = client
         .getParameters({ Names: batch, WithDecryption: true })
         .promise() // Required for aws-sdk v2
-        .then(resp => {
+        .then((resp) => {
           if (resp.InvalidParameters?.length) {
             throw new Error(
               `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
             )
           }
           return Object.assign(
-            ...resp.Parameters.map(param => {
+            ...resp.Parameters.map((param) => {
               // Don't sanitize key, mapped to set value in options
               return { [param.Name]: parseValue(param) }
             })
@@ -66,7 +69,7 @@ module.exports = (opts = {}) => {
 
       for (const fetchKey of batch) {
         const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
-        values[internalKey] = request.then(params => params[fetchKey])
+        values[internalKey] = request.then((params) => params[fetchKey])
       }
 
       batch = []
@@ -95,11 +98,13 @@ module.exports = (opts = {}) => {
         WithDecryption: true
       })
       .promise() // Required for aws-sdk v2
-      .then(resp => {
+      .then((resp) => {
         Object.assign(
           values,
-          ...resp.Parameters.map(param => {
-            return { [sanitizeKey(param.Name.replace(path, ''))]: parseValue(param) }
+          ...resp.Parameters.map((param) => {
+            return {
+              [sanitizeKey(param.Name.replace(path, ''))]: parseValue(param)
+            }
           })
         )
         if (resp.NextToken) return fetchPath(path, resp.nextToken, values)

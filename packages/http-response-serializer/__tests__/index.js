@@ -29,13 +29,8 @@ const createHttpResponse = () => ({
   body: 'Hello World'
 })
 
-for (const [key] of [
-  ['Content-Type'],
-  ['content-type'],
-  ['CONTENT-TYPE']
-]) {
+for (const [key] of [['Content-Type'], ['content-type'], ['CONTENT-TYPE']]) {
   test(`${key} skips response serialization`, async (t) => {
-
     const handlerResponse = Object.assign({}, createHttpResponse(), {
       headers: {
         [key]: 'text/plain'
@@ -48,13 +43,18 @@ for (const [key] of [
     const response = await handler()
 
     t.is(response, handlerResponse)
-
   })
 }
 
 for (const [accept, result] of [
-  ['application/xml, text/x-dvi; q=0.8, text/x-c', '<message>Hello World</message>'],
-  ['text/x-dvi; q=0.8, application/xml, text/x-c', '<message>Hello World</message>'],
+  [
+    'application/xml, text/x-dvi; q=0.8, text/x-c',
+    '<message>Hello World</message>'
+  ],
+  [
+    'text/x-dvi; q=0.8, application/xml, text/x-c',
+    '<message>Hello World</message>'
+  ],
   ['text/x-dvi, application/xml, text/x-c', '<message>Hello World</message>'],
   ['application/json, text/plain, */*', '{"message":"Hello World"}'],
   ['*/*', '{"message":"Hello World"}'],
@@ -105,8 +105,7 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
 })
 
 test('It should use the default when no accept preferences are given', async (t) => {
-  const handler = middy((event, context) => createHttpResponse()
-  )
+  const handler = middy((event, context) => createHttpResponse())
 
   handler.use(httpResponseSerializer(standardConfiguration))
 
@@ -168,12 +167,13 @@ test('It should use `event.preferredContentType` instead of the default', async 
 })
 
 test('It should pass-through when no preference or default is found', async (t) => {
-  const handler = middy((event, context) => createHttpResponse()
-  )
+  const handler = middy((event, context) => createHttpResponse())
 
-  handler.use(httpResponseSerializer({
-    serializers: standardConfiguration.serializers
-  }))
+  handler.use(
+    httpResponseSerializer({
+      serializers: standardConfiguration.serializers
+    })
+  )
 
   const response = await handler()
 
@@ -185,8 +185,7 @@ test('It should pass-through when no preference or default is found', async (t) 
 })
 
 test('It should not pass-through when request content-type is set', async (t) => {
-  const handler = middy((event, context) => createHttpResponse()
-  )
+  const handler = middy((event, context) => createHttpResponse())
 
   handler.use(httpResponseSerializer(standardConfiguration))
 
@@ -208,21 +207,23 @@ test('It should not pass-through when request content-type is set', async (t) =>
 })
 
 test('It should replace the response object when the serializer returns an object', async (t) => {
-  const handler = middy((event, context) => createHttpResponse()
-  )
+  const handler = middy((event, context) => createHttpResponse())
 
-  handler.use(httpResponseSerializer({
-    serializers: [
-      {
-        regex: /^text\/plain$/,
-        serializer: (response) => (Object.assign({}, response, {
-          body: Buffer.from(response.body).toString('base64'),
-          isBase64Encoded: true
-        }))
-      }
-    ],
-    default: 'text/plain'
-  }))
+  handler.use(
+    httpResponseSerializer({
+      serializers: [
+        {
+          regex: /^text\/plain$/,
+          serializer: (response) =>
+            Object.assign({}, response, {
+              body: Buffer.from(response.body).toString('base64'),
+              isBase64Encoded: true
+            })
+        }
+      ],
+      default: 'text/plain'
+    })
+  )
 
   const response = await handler()
 
@@ -243,7 +244,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
 
   handler
     .use(httpResponseSerializer(standardConfiguration))
-    .use(httpErrorHandler({logger:false}))
+    .use(httpErrorHandler({ logger: false }))
 
   const response = await handler()
 

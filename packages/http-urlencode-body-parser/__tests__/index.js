@@ -82,5 +82,5 @@ test('It should handle base64 body', async (t) => {
 
   const body = await handler(event)
 
-  t.deepEqual(body, {a:'a',b:'b'})
+  t.deepEqual(body, { a: 'a', b: 'b' })
 })

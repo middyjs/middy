@@ -91,7 +91,8 @@ module.exports = (handler = () => {}, plugin) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, plugin)
-        if (request.response !== undefined) { // catch short circuit
+        // catch short circuit
+        if (request.response !== undefined) {
           await plugin?.requestEnd?.()
           return request.response
         }
@@ -123,7 +124,7 @@ module.exports = (handler = () => {}, plugin) => {
 
   instance.use = (middlewares) => {
     if (Array.isArray(middlewares)) {
-      middlewares.forEach(middleware => instance.applyMiddleware(middleware))
+      middlewares.forEach((middleware) => instance.applyMiddleware(middleware))
       return instance
     } else if (typeof middlewares === 'object') {
       return instance.applyMiddleware(middlewares)
@@ -139,7 +140,9 @@ module.exports = (handler = () => {}, plugin) => {
     const { before, after, onError } = middleware
 
     if (!before && !after && !onError) {
-      throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
+      throw new Error(
+        'Middleware must contain at least one key among "before", "after", "onError"'
+      )
     }
 
     if (before) instance.before(before)

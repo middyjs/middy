@@ -7,7 +7,7 @@ const sqsJsonBodyParser = require('../index.js')
 let event
 
 let sandbox
-test.beforeEach(t => {
+test.beforeEach((t) => {
   event = createEvent.default('aws:sqs')
   sandbox = sinon.createSandbox()
 })
@@ -34,7 +34,7 @@ test.serial('parses each body payload', async (t) => {
 })
 
 test.serial('returns original body when parse error', async (t) => {
-  const handler = {event}
+  const handler = { event }
   const body = 'bad json'
   handler.event.Records[0].body = body
   await sqsJsonBodyParser().before(handler)
@@ -43,7 +43,7 @@ test.serial('returns original body when parse error', async (t) => {
 })
 
 test.serial('returns default body when nullish', async (t) => {
-  const handler = {event}
+  const handler = { event }
   const body = null
   handler.event.Records[0].body = body
   await sqsJsonBodyParser().before(handler)
@@ -51,10 +51,8 @@ test.serial('returns default body when nullish', async (t) => {
   t.deepEqual(handler.event.Records[0].body, {})
 })
 
-
 test.serial('It should parse the body', async (t) => {
-  const handler = middy()
-    .use(sqsJsonBodyParser())
+  const handler = middy().use(sqsJsonBodyParser())
   const body = '{}'
   event.Records[0].body = body
 
@@ -64,8 +62,7 @@ test.serial('It should parse the body', async (t) => {
 })
 
 test.serial('It should parse all bodys', async (t) => {
-  const handler = middy()
-    .use(sqsJsonBodyParser())
+  const handler = middy().use(sqsJsonBodyParser())
   const bodys = [{ one: 1 }, { two: 2 }]
   event.Records.push({ ...event.Records[0] })
 
@@ -80,9 +77,8 @@ test.serial('It should parse all bodys', async (t) => {
   })
 })
 
-test.serial('It should return original body when parse error', async (t) =>{
-  const handler = middy()
-    .use(sqsJsonBodyParser())
+test.serial('It should return original body when parse error', async (t) => {
+  const handler = middy().use(sqsJsonBodyParser())
   const body = 'bad json'
   event.Records[0].body = body
 
@@ -91,7 +87,7 @@ test.serial('It should return original body when parse error', async (t) =>{
   t.deepEqual(event.Records[0].body, body)
 })
 
-test.serial('It should call reviver when provided', async (t) =>{
+test.serial('It should call reviver when provided', async (t) => {
   const handler = middy()
   const body = '{}'
   event.Records[0].body = body
@@ -104,4 +100,3 @@ test.serial('It should call reviver when provided', async (t) =>{
 
   t.deepEqual(event.Records[0].body, reviverReturn)
 })
-

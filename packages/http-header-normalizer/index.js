@@ -1,4 +1,3 @@
-
 const defaults = {
   canonical: false
 }
@@ -51,8 +50,8 @@ module.exports = (opts = {}) => {
 
     return key
       .split('-')
-      .map(text =>
-        text.charAt(0).toUpperCase() + text.substr(1).toLowerCase()
+      .map(
+        (text) => text.charAt(0).toUpperCase() + text.substr(1).toLowerCase()
       )
       .join('-')
   }
@@ -68,7 +67,8 @@ module.exports = (opts = {}) => {
 
       Object.keys(handler.event.headers).forEach((key) => {
         rawHeaders[key] = handler.event.headers[key]
-        headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.headers[key]
+        headers[options.normalizeHeaderKey(key, options.canonical)] =
+          handler.event.headers[key]
       })
 
       handler.event.headers = headers
@@ -81,7 +81,8 @@ module.exports = (opts = {}) => {
 
       Object.keys(handler.event.multiValueHeaders).forEach((key) => {
         rawHeaders[key] = handler.event.multiValueHeaders[key]
-        headers[options.normalizeHeaderKey(key, options.canonical)] = handler.event.multiValueHeaders[key]
+        headers[options.normalizeHeaderKey(key, options.canonical)] =
+          handler.event.multiValueHeaders[key]
       })
 
       handler.event.multiValueHeaders = headers

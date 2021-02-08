@@ -7,7 +7,9 @@ module.exports = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (handler) => {
     if (handler.event.headers) {
-      const contentTypeHeader = handler.event.headers['content-type'] || handler.event.headers['Content-Type']
+      const contentTypeHeader =
+        handler.event.headers['content-type'] ||
+        handler.event.headers['Content-Type']
       if (contentTypeHeader) {
         const { type } = contentType.parse(contentTypeHeader)
         if (type.match(/^application\/(.*\+)?json$/)) {
@@ -18,7 +20,9 @@ module.exports = (opts = {}) => {
 
             handler.event.body = JSON.parse(data, options.reviver)
           } catch (err) {
-            throw new createError.UnprocessableEntity('Content type defined as JSON but an invalid JSON was provided')
+            throw new createError.UnprocessableEntity(
+              'Content type defined as JSON but an invalid JSON was provided'
+            )
           }
         }
       }

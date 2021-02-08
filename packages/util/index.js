@@ -20,7 +20,10 @@ const awsClientDefaultOptions = {
 }
 
 const createPrefetchClient = (options) => {
-  const awsClientOptions = { ...awsClientDefaultOptions, ...options.awsClientOptions }
+  const awsClientOptions = {
+    ...awsClientDefaultOptions,
+    ...options.awsClientOptions
+  }
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
@@ -37,16 +40,25 @@ const createClient = async (options, handler) => {
   // Role Credentials
   if (options.awsClientAssumeRole) {
     if (!handler) throw new Error('Handler required when assuming role')
-    awsClientCredentials = await getInternal({ credentials: options.awsClientAssumeRole }, handler)
+    awsClientCredentials = await getInternal(
+      { credentials: options.awsClientAssumeRole },
+      handler
+    )
   }
 
-  awsClientCredentials = { ...awsClientCredentials, ...options.awsClientOptions }
+  awsClientCredentials = {
+    ...awsClientCredentials,
+    ...options.awsClientOptions
+  }
 
-  return createPrefetchClient({ ...options, awsClientOptions: awsClientCredentials })
+  return createPrefetchClient({
+    ...options,
+    awsClientOptions: awsClientCredentials
+  })
 }
 
 const canPrefetch = (options) => {
-  return (!options?.awsClientAssumeRole && !options?.disablePrefetch)
+  return !options?.awsClientAssumeRole && !options?.disablePrefetch
 }
 
 // Internal Context
@@ -74,19 +86,22 @@ const getInternal = async (variables, handler) => {
       valuePromise = Promise.resolve(valuePromise)
     }
     promises.push(
-      valuePromise.then(value => pathOptionKey.reduce((p, c) => p?.[c], value))
+      valuePromise.then((value) =>
+        pathOptionKey.reduce((p, c) => p?.[c], value)
+      )
     )
   }
   // ensure promise has resolved by the time it's needed
   // If one of the promises throws it will bubble up to @middy/core
   values = await Promise.all(promises)
 
-  return keys.reduce((obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }), {})
+  return keys.reduce(
+    (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }),
+    {}
+  )
 }
 const sanitizeKey = (key) => {
-  return key
-    .replace(/^([0-9])/, '_$1')
-    .replace(/[^a-zA-Z0-9]+/g, '_')
+  return key.replace(/^([0-9])/, '_$1').replace(/[^a-zA-Z0-9]+/g, '_')
 }
 
 // fetch Cache
@@ -128,11 +143,23 @@ const jsonSafeParse = (string, reviver) => {
 
 const normalizeHttpResponse = (response, fallbackResponse = {}) => {
   response = response ?? fallbackResponse
-  if (Array.isArray(response) || typeof response !== 'object') { // May require updating to catch other types
+  // May require updating to catch other types
+  if (Array.isArray(response) || typeof response !== 'object') {
     response = { body: response }
   }
   response.headers = response?.headers ?? {}
   return response
 }
 
-module.exports = { createPrefetchClient, createClient, canPrefetch, getInternal, sanitizeKey, processCache, getCache, clearCache, jsonSafeParse, normalizeHttpResponse }
+module.exports = {
+  createPrefetchClient,
+  createClient,
+  canPrefetch,
+  getInternal,
+  sanitizeKey,
+  processCache,
+  getCache,
+  clearCache,
+  jsonSafeParse,
+  normalizeHttpResponse
+}

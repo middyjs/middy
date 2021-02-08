@@ -19,7 +19,10 @@ module.exports = (opts = {}) => {
     }
 
     // Non-http error OR expose set to false
-    if (options.fallbackMessage && (!handler.error?.statusCode || !handler.error?.expose)) {
+    if (
+      options.fallbackMessage &&
+      (!handler.error?.statusCode || !handler.error?.expose)
+    ) {
       handler.error = {
         statusCode: 500,
         message: options.fallbackMessage,
@@ -31,9 +34,10 @@ module.exports = (opts = {}) => {
       handler.response = normalizeHttpResponse(handler.response)
       handler.response.statusCode = handler.error?.statusCode
       handler.response.body = jsonSafeParse(handler.error?.message)
-      handler.response.headers['Content-Type'] = typeof handler.response?.body === 'string'
-        ? 'plain/text'
-        : 'application/json'
+      handler.response.headers['Content-Type'] =
+        typeof handler.response?.body === 'string'
+          ? 'plain/text'
+          : 'application/json'
 
       return handler.response
     }

@@ -13,8 +13,7 @@ test('It should create a response for HTTP errors (string)', async (t) => {
     throw new createError.UnprocessableEntity()
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false }))
+  handler.use(httpErrorHandler({ logger: false }))
 
   const response = await handler(null)
 
@@ -32,14 +31,15 @@ test('It should create a response for HTTP errors (json)', async (t) => {
     throw new Error()
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: '{"json":"error"}' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: '{"json":"error"}' })
+  )
 
   const response = await handler()
 
   t.deepEqual(response, {
     statusCode: 500,
-    body: { 'json': 'error' },
+    body: { json: 'error' },
     headers: {
       'Content-Type': 'application/json'
     }
@@ -47,13 +47,11 @@ test('It should create a response for HTTP errors (json)', async (t) => {
 })
 
 test('It should NOT handle non HTTP errors', async (t) => {
-
   const handler = middy(() => {
     throw new Error('non-http error')
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false }))
+  handler.use(httpErrorHandler({ logger: false }))
 
   try {
     await handler()
@@ -63,13 +61,13 @@ test('It should NOT handle non HTTP errors', async (t) => {
 })
 
 test('It should handle non HTTP errors when fallback set', async (t) => {
-
   const handler = middy(() => {
     throw new Error('non-http error')
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
+  )
 
   const response = await handler()
   t.deepEqual(response, {
@@ -89,8 +87,7 @@ test('It should be possible to pass a custom logger function', async (t) => {
     throw expectedError
   })
 
-  handler
-    .use(httpErrorHandler({ logger }))
+  handler.use(httpErrorHandler({ logger }))
 
   await handler()
 
@@ -104,8 +101,7 @@ test('It should create a response for HTTP errors created with a generic error',
     throw err
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false }))
+  handler.use(httpErrorHandler({ logger: false }))
 
   const response = await handler()
 
@@ -125,8 +121,9 @@ test('It should expose of error to user', async (t) => {
     throw expectedError
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
+  )
 
   const response = await handler()
   t.deepEqual(response, {
@@ -139,14 +136,15 @@ test('It should expose of error to user', async (t) => {
 })
 
 test('It should be possible to prevent expose of error to user', async (t) => {
-  const expectedError = new createError(404, 'NotFound', {expose:false})
+  const expectedError = new createError(404, 'NotFound', { expose: false })
 
   const handler = middy(() => {
     throw expectedError
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
+  )
 
   const response = await handler()
   t.deepEqual(response, {
@@ -165,8 +163,9 @@ test('It should not send error to user', async (t) => {
     throw expectedError
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
+  )
 
   const response = await handler()
   t.deepEqual(response, {
@@ -179,14 +178,15 @@ test('It should not send error to user', async (t) => {
 })
 
 test('It should be possible to force expose of error to user', async (t) => {
-  const expectedError = new createError(500, 'OkayError', {expose:true})
+  const expectedError = new createError(500, 'OkayError', { expose: true })
 
   const handler = middy(() => {
     throw expectedError
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' }))
+  handler.use(
+    httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
+  )
 
   const response = await handler()
   t.deepEqual(response, {

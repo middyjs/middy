@@ -129,15 +129,21 @@ module.exports = (opts = {}) => {
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
     handler.response = normalizeHttpResponse(handler.response)
 
-    Object.keys(helmet).forEach(key => {
+    Object.keys(helmet).forEach((key) => {
       const config = { ...defaults[key], ...options[key] }
       handler.response.headers = helmet[key](handler.response.headers, config)
     })
 
-    if (handler.response.headers['Content-Type'] && handler.response.headers['Content-Type'].indexOf('text/html') !== -1) {
-      Object.keys(helmetHtmlOnly).forEach(key => {
+    if (
+      handler.response.headers['Content-Type'] &&
+      handler.response.headers['Content-Type'].indexOf('text/html') !== -1
+    ) {
+      Object.keys(helmetHtmlOnly).forEach((key) => {
         const config = { ...defaults[key], ...options[key] }
-        handler.response.headers = helmetHtmlOnly[key](handler.response.headers, config)
+        handler.response.headers = helmetHtmlOnly[key](
+          handler.response.headers,
+          config
+        )
       })
     }
   }

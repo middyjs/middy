@@ -1,4 +1,11 @@
-const { canPrefetch, createPrefetchClient, createClient, processCache, jsonSafeParse, getInternal } = require('@middy/util')
+const {
+  canPrefetch,
+  createPrefetchClient,
+  createClient,
+  processCache,
+  jsonSafeParse,
+  getInternal
+} = require('@middy/util')
 const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
 // const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 
@@ -30,7 +37,7 @@ module.exports = (opts = {}) => {
       values[internalKey] = client
         .getSecretValue({ SecretId: options.fetchData[internalKey] })
         .promise() // Required for aws-sdk v2
-        .then(resp => jsonSafeParse(resp.SecretString))
+        .then((resp) => jsonSafeParse(resp.SecretString))
     }
     return values
   }

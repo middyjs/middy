@@ -7,8 +7,7 @@ const httpHeaderNormalizer = require('../index.js')
 test('It should normalize (lowercase) all the headers and create a copy in rawHeaders', async (t) => {
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer())
+  handler.use(httpHeaderNormalizer())
 
   const event = {
     headers: {
@@ -39,8 +38,7 @@ test('It should normalize (lowercase) all the headers and create a copy in rawHe
 test('It should normalize (canonical) all the headers and create a copy in rawHeaders', async (t) => {
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer({ canonical: true }))
+  handler.use(httpHeaderNormalizer({ canonical: true }))
 
   const event = {
     headers: {
@@ -60,7 +58,7 @@ test('It should normalize (canonical) all the headers and create a copy in rawHe
     Foo: 'bar'
   }
 
-  const originalHeaders = { ...event.headers}
+  const originalHeaders = { ...event.headers }
 
   const resultingEvent = await handler(event)
 
@@ -73,10 +71,11 @@ test('It can use custom normalization function', async (t) => {
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer({
+  handler.use(
+    httpHeaderNormalizer({
       normalizeHeaderKey
-    }))
+    })
+  )
 
   const event = {
     headers: {
@@ -104,23 +103,21 @@ test('It can use custom normalization function', async (t) => {
   t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
-
 // multiValueHeaders
 
 test('It should normalize (lowercase) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer())
+  handler.use(httpHeaderNormalizer())
 
   const event = {
     multiValueHeaders: {
-      'cOOkie': ['123456','654321'],
+      cOOkie: ['123456', '654321']
     }
   }
 
   const expectedHeaders = {
-    'cookie': ['123456','654321']
+    cookie: ['123456', '654321']
   }
 
   const originalHeaders = Object.assign({}, event.multiValueHeaders)
@@ -134,17 +131,16 @@ test('It should normalize (lowercase) all the headers and create a copy in rawMu
 test('It should normalize (canonical) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer({ canonical: true }))
+  handler.use(httpHeaderNormalizer({ canonical: true }))
 
   const event = {
     multiValueHeaders: {
-      'cOOkie': ['123456','654321'],
+      cOOkie: ['123456', '654321']
     }
   }
 
   const expectedHeaders = {
-    'Cookie': ['123456','654321']
+    Cookie: ['123456', '654321']
   }
 
   const originalHeaders = Object.assign({}, event.multiValueHeaders)
@@ -160,19 +156,20 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer({
+  handler.use(
+    httpHeaderNormalizer({
       normalizeHeaderKey
-    }))
+    })
+  )
 
   const event = {
     multiValueHeaders: {
-      'cOOkie': ['123456','654321'],
+      cOOkie: ['123456', '654321']
     }
   }
 
   const expectedHeaders = {
-    'COOKIE': ['123456','654321']
+    COOKIE: ['123456', '654321']
   }
 
   const originalHeaders = Object.assign({}, event.multiValueHeaders)
@@ -187,8 +184,7 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
 test('It should not fail if the event does not contain headers', async (t) => {
   const handler = middy((event, context) => event)
 
-  handler
-    .use(httpHeaderNormalizer({}))
+  handler.use(httpHeaderNormalizer({}))
 
   const event = {
     foo: 'bar'

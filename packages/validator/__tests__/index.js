@@ -18,10 +18,11 @@ test('It should validate an incoming object', async (t) => {
     }
   }
 
-  handler
-    .use(validator({
+  handler.use(
+    validator({
       inputSchema: schema
-    }))
+    })
+  )
 
   // invokes the handler
   const event = {
@@ -34,7 +35,6 @@ test('It should validate an incoming object', async (t) => {
 })
 
 test('It should handle invalid schema as a BadRequest', async (t) => {
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -54,9 +54,11 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
     }
   }
 
-  handler.use(validator({
-    inputSchema: schema
-  }))
+  handler.use(
+    validator({
+      inputSchema: schema
+    })
+  )
 
   // invokes the handler, note that property foo is missing
   const event = {
@@ -67,18 +69,19 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [{
-      dataPath: '',
-      keyword: 'required',
-      message: 'should have required property foo',
-      params: { missingProperty: 'foo' },
-      schemaPath: '#/required'
-    }])
+    t.deepEqual(err.details, [
+      {
+        dataPath: '',
+        keyword: 'required',
+        message: 'should have required property foo',
+        params: { missingProperty: 'foo' },
+        schemaPath: '#/required'
+      }
+    ])
   }
 })
 
 test('It should handle invalid schema as a BadRequest in a different language', async (t) => {
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -98,9 +101,11 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     }
   }
 
-  handler.use(validator({
-    inputSchema: schema
-  }))
+  handler.use(
+    validator({
+      inputSchema: schema
+    })
+  )
 
   // invokes the handler, note that property foo is missing
   const event = {
@@ -112,18 +117,19 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [{
-      dataPath: '',
-      keyword: 'required',
-      message: 'requiert la propriété foo',
-      params: { missingProperty: 'foo' },
-      schemaPath: '#/required'
-    }])
+    t.deepEqual(err.details, [
+      {
+        dataPath: '',
+        keyword: 'required',
+        message: 'requiert la propriété foo',
+        params: { missingProperty: 'foo' },
+        schemaPath: '#/required'
+      }
+    ])
   }
 })
 
 test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async (t) => {
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -143,9 +149,11 @@ test('It should handle invalid schema as a BadRequest in a different language (w
     }
   }
 
-  handler.use(validator({
-    inputSchema: schema
-  }))
+  handler.use(
+    validator({
+      inputSchema: schema
+    })
+  )
 
   // invokes the handler, note that property foo is missing
   const event = {
@@ -157,13 +165,15 @@ test('It should handle invalid schema as a BadRequest in a different language (w
     await handler(event)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [{
-      dataPath: '',
-      keyword: 'required',
-      message: 'deve ter a propriedade obrigatória foo',
-      params: { missingProperty: 'foo' },
-      schemaPath: '#/required'
-    }])
+    t.deepEqual(err.details, [
+      {
+        dataPath: '',
+        keyword: 'required',
+        message: 'deve ter a propriedade obrigatória foo',
+        params: { missingProperty: 'foo' },
+        schemaPath: '#/required'
+      }
+    ])
   }
 })
 
@@ -198,7 +208,6 @@ test('It should validate response', async (t) => {
 })
 
 test('It should make requests with invalid responses fail with an Internal Server Error', async (t) => {
-
   const handler = middy((event, context) => {
     return {}
   })
@@ -230,7 +239,11 @@ test('It should make requests with invalid responses fail with an Internal Serve
 })
 
 test('It should not allow bad email format', async (t) => {
-  const schema = { type: 'object', required: ['email'], properties: { email: { type: 'string', format: 'email' } } }
+  const schema = {
+    type: 'object',
+    required: ['email'],
+    properties: { email: { type: 'string', format: 'email' } }
+  }
   const handler = middy((event, context) => {
     return {}
   })
@@ -262,7 +275,6 @@ test('It should error when unsupported keywords used (input)', async (t) => {
     t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
-
 
 test('It should error when unsupported keywords used (output)', async (t) => {
   const schema = {

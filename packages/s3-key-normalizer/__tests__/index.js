@@ -29,7 +29,8 @@ test('It normalizes keys in a s3 PUT event', async (t) => {
           s3SchemaVersion: '1.0'
         },
         responseElements: {
-          'x-amz-id-2': 'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
+          'x-amz-id-2':
+            'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
           'x-amz-request-id': 'EXAMPLE123456789'
         },
         awsRegion: 'us-east-1',
@@ -44,8 +45,7 @@ test('It normalizes keys in a s3 PUT event', async (t) => {
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(s3KeyNormalizer())
+  handler.use(s3KeyNormalizer())
 
   const response = await handler(event)
 
@@ -77,7 +77,8 @@ test('It normalizes keys in a s3 DELETE event', async (t) => {
           s3SchemaVersion: '1.0'
         },
         responseElements: {
-          'x-amz-id-2': 'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
+          'x-amz-id-2':
+            'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
           'x-amz-request-id': 'EXAMPLE123456789'
         },
         awsRegion: 'us-east-1',
@@ -92,8 +93,7 @@ test('It normalizes keys in a s3 DELETE event', async (t) => {
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(s3KeyNormalizer())
+  handler.use(s3KeyNormalizer())
 
   const response = await handler(event)
 
@@ -125,7 +125,8 @@ test('It should normalize the event if the event version is 2.x', async (t) => {
           s3SchemaVersion: '1.0'
         },
         responseElements: {
-          'x-amz-id-2': 'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
+          'x-amz-id-2':
+            'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
           'x-amz-request-id': 'EXAMPLE123456789'
         },
         awsRegion: 'us-east-1',
@@ -140,15 +141,14 @@ test('It should normalize the event if the event version is 2.x', async (t) => {
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(s3KeyNormalizer())
+  handler.use(s3KeyNormalizer())
 
   const response = await handler(event)
 
   t.is(response.Records[0].s3.object.key, 'This is a picture.jpg')
 })
 
-test('It should not normalize the event if it doesn\'t look like an S3 event', async (t) => {
+test("It should not normalize the event if it doesn't look like an S3 event", async (t) => {
   const alexaEvent = {
     header: {
       payloadVersion: '2',
@@ -165,8 +165,7 @@ test('It should not normalize the event if it doesn\'t look like an S3 event', a
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(s3KeyNormalizer())
+  handler.use(s3KeyNormalizer())
 
   const response = await handler(alexaEvent)
 
@@ -174,7 +173,7 @@ test('It should not normalize the event if it doesn\'t look like an S3 event', a
   t.deepEqual(response, eventOriginalCopy)
 })
 
-test('It should not normalize the event if the S3 event doesn\'t match the expected format', async (t) => {
+test("It should not normalize the event if the S3 event doesn't match the expected format", async (t) => {
   const event = {
     Records: [
       {
@@ -201,7 +200,8 @@ test('It should not normalize the event if the S3 event doesn\'t match the expec
           s3SchemaVersion: '1.0'
         },
         responseElements: {
-          'x-amz-id-2': 'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
+          'x-amz-id-2':
+            'EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH',
           'x-amz-request-id': 'EXAMPLE123456789'
         },
         awsRegion: 'us-east-1',
@@ -218,12 +218,10 @@ test('It should not normalize the event if the S3 event doesn\'t match the expec
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(s3KeyNormalizer())
+  handler.use(s3KeyNormalizer())
 
   const response = await handler(event)
 
   // checks if the event is still equal to its original copy
   t.deepEqual(response, eventOriginalCopy)
 })
-

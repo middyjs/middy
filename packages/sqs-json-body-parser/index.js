@@ -10,7 +10,7 @@ module.exports = (opts = {}) => {
   const sqsJsonBodyParserMiddlewareBefore = async (handler) => {
     const { event: { Records = [] } = { Records: [] } } = handler
 
-    Records.forEach(record => {
+    Records.forEach((record) => {
       record.body = jsonSafeParse(record.body ?? '{}', options.reviver)
     })
   }

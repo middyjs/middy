@@ -2,9 +2,15 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const httpEventNormalizer = require('../index.js')
 
-const handlerRestApi = middy((event, context) => event).use(httpEventNormalizer())
-const handlerHttpApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 2 }))
-const handlerNextGenApi = middy((event, context) => event).use(httpEventNormalizer({ payloadFormatVersion: 3 }))
+const handlerRestApi = middy((event, context) => event).use(
+  httpEventNormalizer()
+)
+const handlerHttpApi = middy((event, context) => event).use(
+  httpEventNormalizer({ payloadFormatVersion: 2 })
+)
+const handlerNextGenApi = middy((event, context) => event).use(
+  httpEventNormalizer({ payloadFormatVersion: 3 })
+)
 
 test('It should throw error when invalid version', async (t) => {
   const nonEvent = {
@@ -13,8 +19,11 @@ test('It should throw error when invalid version', async (t) => {
 
   try {
     await handlerNextGenApi(nonEvent)
-  } catch(e) {
-    t.is(e.message, 'Unknown API Gateway Payload format. Please use value 1 or 2.')
+  } catch (e) {
+    t.is(
+      e.message,
+      'Unknown API Gateway Payload format. Please use value 1 or 2.'
+    )
   }
 })
 
@@ -121,7 +130,9 @@ test('It should not overwrite multiValueQueryStringParameters', async (t) => {
 
   const normalizedEvent = await handlerRestApi(event)
 
-  t.deepEqual(normalizedEvent.multiValueQueryStringParameters, { param: ['123'] })
+  t.deepEqual(normalizedEvent.multiValueQueryStringParameters, {
+    param: ['123']
+  })
 })
 
 test('It should not overwrite pathParameters', async (t) => {

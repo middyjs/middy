@@ -24,9 +24,13 @@ module.exports = (opts = {}) => {
       }
 
       return parseMultipartData(handler.event, options.busboy)
-        .then(multipartData => { handler.event.body = multipartData })
-        .catch(_ => {
-          throw new createError.UnprocessableEntity('Invalid or malformed multipart/form-data was provided')
+        .then((multipartData) => {
+          handler.event.body = multipartData
+        })
+        .catch((_) => {
+          throw new createError.UnprocessableEntity(
+            'Invalid or malformed multipart/form-data was provided'
+          )
         })
     }
   }
@@ -41,25 +45,24 @@ const parseMultipartData = (event, options) => {
   const bb = BusBoy({ ...options, headers: event.headers })
 
   return new Promise((resolve, reject) => {
-    bb
-      .on('file', (fieldname, file, filename, encoding, mimetype) => {
-        const attachment = {
-          filename,
-          mimetype,
-          encoding
-        }
+    bb.on('file', (fieldname, file, filename, encoding, mimetype) => {
+      const attachment = {
+        filename,
+        mimetype,
+        encoding
+      }
 
-        const chunks = []
+      const chunks = []
 
-        file.on('data', data => {
-          chunks.push(data)
-        })
-        file.on('end', () => {
-          attachment.truncated = file.truncated
-          attachment.content = Buffer.concat(chunks)
-          multipartData[fieldname] = attachment
-        })
+      file.on('data', (data) => {
+        chunks.push(data)
       })
+      file.on('end', () => {
+        attachment.truncated = file.truncated
+        attachment.content = Buffer.concat(chunks)
+        multipartData[fieldname] = attachment
+      })
+    })
       .on('field', (fieldname, value) => {
         const matches = fieldname.match(/(.+)\[(.*)]$/)
         if (!matches) {
@@ -72,7 +75,7 @@ const parseMultipartData = (event, options) => {
         }
       })
       .on('finish', () => resolve(multipartData))
-      .on('error', err => reject(err))
+      .on('error', (err) => reject(err))
 
     bb.write(event.body, event.isBase64Encoded ? 'base64' : 'binary')
     bb.end()

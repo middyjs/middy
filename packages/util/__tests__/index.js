@@ -8,7 +8,7 @@ process.env.AWS_REGION = 'ca-central-1'
 // httpOptions: aws-sdk v2
 
 const delay = async (ms, x) => {
-  return new Promise(resolve => setTimeout(() => resolve(x), ms))
+  return new Promise((resolve) => setTimeout(() => resolve(x), ms))
 }
 
 // createClient
@@ -55,10 +55,13 @@ test('createClient should create AWS Client with role', async (t) => {
       adminRole: 'creds object'
     }
   }
-  await util.createClient({
-    AwsClient: Client,
-    awsClientAssumeRole: 'adminRole'
-  }, handler)
+  await util.createClient(
+    {
+      AwsClient: Client,
+      awsClientAssumeRole: 'adminRole'
+    },
+    handler
+  )
   t.is(Client.callCount, 1)
   t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
   t.is(Client.args[0][0].credentials, 'creds object')
@@ -72,10 +75,13 @@ test('createClient should create AWS Client with role from promise', async (t) =
       adminRole: Promise.resolve('creds object')
     }
   }
-  await util.createClient({
-    AwsClient: Client,
-    awsClientAssumeRole: 'adminRole'
-  }, handler)
+  await util.createClient(
+    {
+      AwsClient: Client,
+      awsClientAssumeRole: 'adminRole'
+    },
+    handler
+  )
   t.is(Client.callCount, 1)
   t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
   t.is(Client.args[0][0].credentials, 'creds object')
@@ -114,7 +120,7 @@ const getInternalHandler = {
     promise: Promise.resolve('promise'),
     promiseObject: Promise.resolve({
       key: 'value'
-    }),
+    })
     //promiseReject: Promise.reject('promise')
   }
 }
@@ -130,13 +136,13 @@ test('getInternal should get all from internal store', async (t) => {
     boolean: true,
     number: 1,
     object: {
-      key: 'value',
+      key: 'value'
     },
     promise: 'promise',
     promiseObject: {
-      key: 'value',
+      key: 'value'
     },
-    string: 'string',
+    string: 'string'
   })
 })
 
@@ -146,12 +152,18 @@ test('getInternal should get from internal store when string', async (t) => {
 })
 
 test('getInternal should get from internal store when array[string]', async (t) => {
-  const values = await util.getInternal(['boolean', 'string'], getInternalHandler)
+  const values = await util.getInternal(
+    ['boolean', 'string'],
+    getInternalHandler
+  )
   t.deepEqual(values, { boolean: true, string: 'string' })
 })
 
 test('getInternal should get from internal store when object', async (t) => {
-  const values = await util.getInternal({ newKey: 'promise' }, getInternalHandler)
+  const values = await util.getInternal(
+    { newKey: 'promise' },
+    getInternalHandler
+  )
   t.deepEqual(values, { newKey: 'promise' })
 })
 
@@ -202,7 +214,7 @@ test.serial('processCache should cache forever', async (t) => {
   await delay(100)
   const cacheValue = util.getCache('key')
   t.not(cacheValue, undefined)
-  const {value, cache} = util.processCache(options, fetch, cacheHandler)
+  const { value, cache } = util.processCache(options, fetch, cacheHandler)
   t.is(await value, 'value')
   t.true(cache)
   util.clearCache()
@@ -220,20 +232,28 @@ test.serial('processCache should cache and expire', async (t) => {
   t.not(cache, undefined)
   await delay(100)
   cache = util.getCache('key')
-  t.true(cache.expiry < Date.now() )
+  t.true(cache.expiry < Date.now())
   util.clearCache()
 })
 
 test.serial('processCache should clear single key cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
-  util.processCache({
-    cacheKey: 'key',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
-  util.processCache({
-    cacheKey: 'other',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
+  util.processCache(
+    {
+      cacheKey: 'key',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
+  util.processCache(
+    {
+      cacheKey: 'other',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
   util.clearCache('other')
   t.not(util.getCache('key'), undefined)
   t.is(util.getCache('other'), undefined)
@@ -242,15 +262,23 @@ test.serial('processCache should clear single key cache', async (t) => {
 
 test.serial('processCache should clear multi key cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
-  util.processCache({
-    cacheKey: 'key',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
-  util.processCache({
-    cacheKey: 'other',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
-  util.clearCache(['key','other'])
+  util.processCache(
+    {
+      cacheKey: 'key',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
+  util.processCache(
+    {
+      cacheKey: 'other',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
+  util.clearCache(['key', 'other'])
   t.is(util.getCache('key'), undefined)
   t.is(util.getCache('other'), undefined)
   util.clearCache()
@@ -258,14 +286,22 @@ test.serial('processCache should clear multi key cache', async (t) => {
 
 test.serial('processCache should clear all cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
-  util.processCache({
-    cacheKey: 'key',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
-  util.processCache({
-    cacheKey: 'other',
-    cacheExpiry: -1
-  }, fetch, cacheHandler)
+  util.processCache(
+    {
+      cacheKey: 'key',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
+  util.processCache(
+    {
+      cacheKey: 'other',
+      cacheExpiry: -1
+    },
+    fetch,
+    cacheHandler
+  )
   util.clearCache()
   t.is(util.getCache('key'), undefined)
   t.is(util.getCache('other'), undefined)
@@ -299,27 +335,27 @@ test('jsonSafeParse should not parse number', async (t) => {
 })
 
 // normalizeHttpResponse
-test('normalizeHttpResponse should not change response', async(t) => {
-  const value = util.normalizeHttpResponse({headers:{}})
-  t.deepEqual(value, {headers:{}})
+test('normalizeHttpResponse should not change response', async (t) => {
+  const value = util.normalizeHttpResponse({ headers: {} })
+  t.deepEqual(value, { headers: {} })
 })
-test('normalizeHttpResponse should update headers in response', async(t) => {
+test('normalizeHttpResponse should update headers in response', async (t) => {
   const value = util.normalizeHttpResponse({})
-  t.deepEqual(value, {headers:{}})
+  t.deepEqual(value, { headers: {} })
 })
 
-test('normalizeHttpResponse should update nullish response', async(t) => {
+test('normalizeHttpResponse should update nullish response', async (t) => {
   let value = util.normalizeHttpResponse(null)
-  t.deepEqual(value, {headers:{}})
+  t.deepEqual(value, { headers: {} })
   value = util.normalizeHttpResponse()
-  t.deepEqual(value, {headers:{}})
+  t.deepEqual(value, { headers: {} })
 })
 
-test('normalizeHttpResponse should update string response', async(t) => {
+test('normalizeHttpResponse should update string response', async (t) => {
   const value = util.normalizeHttpResponse('')
-  t.deepEqual(value, {body:'', headers:{}})
+  t.deepEqual(value, { body: '', headers: {} })
 })
-test('normalizeHttpResponse should update array response', async(t) => {
+test('normalizeHttpResponse should update array response', async (t) => {
   const value = util.normalizeHttpResponse([])
-  t.deepEqual(value, {body:[], headers:{}})
+  t.deepEqual(value, { body: [], headers: {} })
 })

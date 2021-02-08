@@ -25,19 +25,43 @@ module.exports = (opts = {}) => {
     const { event } = handler
     if (event.headers) {
       if (options.parseCharsets) {
-        parseHeader('Accept-Charset', 'charset', options.availableCharsets, options.failOnMismatch, event)
+        parseHeader(
+          'Accept-Charset',
+          'charset',
+          options.availableCharsets,
+          options.failOnMismatch,
+          event
+        )
       }
 
       if (options.parseEncodings) {
-        parseHeader('Accept-Encoding', 'encoding', options.availableEncodings, options.failOnMismatch, event)
+        parseHeader(
+          'Accept-Encoding',
+          'encoding',
+          options.availableEncodings,
+          options.failOnMismatch,
+          event
+        )
       }
 
       if (options.parseLanguages) {
-        parseHeader('Accept-Language', 'language', options.availableLanguages, options.failOnMismatch, event)
+        parseHeader(
+          'Accept-Language',
+          'language',
+          options.availableLanguages,
+          options.failOnMismatch,
+          event
+        )
       }
 
       if (options.parseMediaTypes) {
-        parseHeader('Accept', 'mediaType', options.availableMediaTypes, options.failOnMismatch, event)
+        parseHeader(
+          'Accept',
+          'mediaType',
+          options.availableMediaTypes,
+          options.failOnMismatch,
+          event
+        )
       }
     }
   }
@@ -47,16 +71,25 @@ module.exports = (opts = {}) => {
   }
 }
 
-const parseHeader = (headerName, type, availableValues, failOnMismatch, event) => {
+const parseHeader = (
+  headerName,
+  type,
+  availableValues,
+  failOnMismatch,
+  event
+) => {
   const singular = type.charAt(0).toUpperCase() + type.slice(1)
   const plural = singular + 's'
   const resultsName = `preferred${plural}`
   const resultName = `preferred${singular}`
-  const headerValue = event?.headers?.[headerName.toLowerCase()] ?? event.headers?.[headerName]
+  const headerValue =
+    event?.headers?.[headerName.toLowerCase()] ?? event.headers?.[headerName]
   event[resultsName] = parseFn[type](headerValue, availableValues)
   event[resultName] = event[resultsName][0]
 
   if (typeof event[resultName] === 'undefined' && failOnMismatch) {
-    throw new createError.NotAcceptable(`Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`)
+    throw new createError.NotAcceptable(
+      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
+    )
   }
 }

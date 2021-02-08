@@ -11,9 +11,9 @@ module.exports = (opts = {}) => {
     handler.context.callbackWaitsForEmptyEventLoop = false
   }
 
-  return ({
+  return {
     before: options.runOnBefore ? doNotWaitForEmptyEventLoop : undefined,
     after: options.runOnAfter ? doNotWaitForEmptyEventLoop : undefined,
     onError: options.runOnError ? doNotWaitForEmptyEventLoop : undefined
-  })
+  }
 }

@@ -24,7 +24,8 @@ module.exports = (opts = {}) => {
       types = [].concat(handlerEvent.requiredContentType)
     } else {
       types = [].concat(
-        (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) || [],
+        (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) ||
+          [],
         handlerEvent.preferredContentType || [],
         options.default || []
       )
@@ -36,27 +37,31 @@ module.exports = (opts = {}) => {
     }
 
     // find in order of first preferred type that has a matching serializer
-    types.find(type => options.serializers.find(s => {
-      const test = s.regex.test(type)
+    types.find((type) =>
+      options.serializers.find((s) => {
+        const test = s.regex.test(type)
 
-      if (!test) { return false }
+        if (!test) {
+          return false
+        }
 
-      // set header
-      handler.response.headers['Content-Type'] = type
+        // set header
+        handler.response.headers['Content-Type'] = type
 
-      // run serializer
-      const result = s.serializer(handler.response)
+        // run serializer
+        const result = s.serializer(handler.response)
 
-      if (typeof result === 'object') {
-        // replace response object if result is object
-        handler.response = result
-      } else {
-        // otherwise only replace the body attribute
-        handler.response.body = result
-      }
+        if (typeof result === 'object') {
+          // replace response object if result is object
+          handler.response = result
+        } else {
+          // otherwise only replace the body attribute
+          handler.response.body = result
+        }
 
-      return true
-    }))
+        return true
+      })
+    )
   }
   const httpResponseSerializerMiddlewareOnError = httpResponseSerializerMiddlewareAfter
   return {
@@ -65,9 +70,8 @@ module.exports = (opts = {}) => {
   }
 }
 
-const getNormalisedHeaders = (source) => Object
-  .keys(source)
-  .reduce((destination, key) => {
+const getNormalisedHeaders = (source) =>
+  Object.keys(source).reduce((destination, key) => {
     destination[key.toLowerCase()] = source[key]
 
     return destination

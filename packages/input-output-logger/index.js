@@ -1,7 +1,6 @@
-
 module.exports = (opts = {}) => {
   const defaults = {
-    logger: data => console.log(JSON.stringify(data, null, 2)),
+    logger: (data) => console.log(JSON.stringify(data, null, 2)),
     omitPaths: []
   }
 
@@ -13,14 +12,16 @@ module.exports = (opts = {}) => {
     logger(redactedMessage)
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (handler) => omitAndLog({ event: handler.event })
-  const inputOutputLoggerMiddlewareAfter = async (handler) => omitAndLog({ response: handler.response })
+  const inputOutputLoggerMiddlewareBefore = async (handler) =>
+    omitAndLog({ event: handler.event })
+  const inputOutputLoggerMiddlewareAfter = async (handler) =>
+    omitAndLog({ response: handler.response })
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
-  return ({
+  return {
     before: logger ? inputOutputLoggerMiddlewareBefore : null,
     after: logger ? inputOutputLoggerMiddlewareAfter : null,
     onError: logger ? inputOutputLoggerMiddlewareOnError : null
-  })
+  }
 }
 
 // move to util, if ever used elsewhere

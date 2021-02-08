@@ -1,4 +1,10 @@
-const { canPrefetch, createPrefetchClient, createClient, getInternal, processCache } = require('@middy/util')
+const {
+  canPrefetch,
+  createPrefetchClient,
+  createClient,
+  getInternal,
+  processCache
+} = require('@middy/util')
 const STS = require('aws-sdk/clients/sts.js') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
 
@@ -25,11 +31,13 @@ module.exports = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       const assumeRoleOptions = options.fetchData[internalKey]
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-      assumeRoleOptions.RoleSessionName = assumeRoleOptions?.RoleSessionName ?? 'middy-sts-session-' + Math.ceil(Math.random() * 99999)
+      assumeRoleOptions.RoleSessionName =
+        assumeRoleOptions?.RoleSessionName ??
+        'middy-sts-session-' + Math.ceil(Math.random() * 99999)
       values[internalKey] = client
         .assumeRole(assumeRoleOptions)
         .promise() // Required for aws-sdk v2
-        .then(resp => ({
+        .then((resp) => ({
           accessKeyId: resp.Credentials.AccessKeyId,
           secretAccessKey: resp.Credentials.SecretAccessKey,
           sessionToken: resp.Credentials.SessionToken

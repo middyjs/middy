@@ -47,7 +47,7 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
-  const reviver = _ => _
+  const reviver = (_) => _
   handler.use(jsonBodyParser({ reviver }))
 
   // invokes the handler
@@ -103,11 +103,14 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   try {
     await handler(event)
   } catch (err) {
-    t.is(err.message, 'Content type defined as JSON but an invalid JSON was provided')
+    t.is(
+      err.message,
+      'Content type defined as JSON but an invalid JSON was provided'
+    )
   }
 })
 
-test('It shouldn\'t process the body if no header is passed', async (t) => {
+test("It shouldn't process the body if no header is passed", async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -125,7 +128,6 @@ test('It shouldn\'t process the body if no header is passed', async (t) => {
 })
 
 test('It should handle a base64 body', async (t) => {
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -149,7 +151,6 @@ test('It should handle a base64 body', async (t) => {
 })
 
 test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t) => {
-
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -170,7 +171,9 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
   try {
     await handler(event)
   } catch (err) {
-    t.is(err.message, 'Content type defined as JSON but an invalid JSON was provided')
+    t.is(
+      err.message,
+      'Content type defined as JSON but an invalid JSON was provided'
+    )
   }
 })
-

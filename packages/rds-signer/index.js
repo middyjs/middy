@@ -1,4 +1,9 @@
-const { canPrefetch, createClient, getInternal, processCache } = require('@middy/util')
+const {
+  canPrefetch,
+  createClient,
+  getInternal,
+  processCache
+} = require('@middy/util')
 const RDS = require('aws-sdk/clients/rds.js') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
 
@@ -24,14 +29,17 @@ module.exports = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       const awsClientOptions = {
         AwsClient: options.AwsClient,
-        awsClientOptions: { ...options.awsClientOptions, ...options.fetchData[internalKey] },
+        awsClientOptions: {
+          ...options.awsClientOptions,
+          ...options.fetchData[internalKey]
+        },
         awsClientAssumeRole: options.awsClientAssumeRole,
         awsClientCapture: options.awsClientCapture
       }
 
       // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
-        createClient(awsClientOptions, handler).then(client => {
+        createClient(awsClientOptions, handler).then((client) => {
           client.getAuthToken({}, (err, token) => {
             if (err) {
               return reject(err)

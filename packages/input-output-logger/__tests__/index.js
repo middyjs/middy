@@ -13,8 +13,7 @@ test('It should log event and response', async (t) => {
     return { message: 'hello world' }
   })
 
-  handler
-    .use(inputOutputLogger({ logger }))
+  handler.use(inputOutputLogger({ logger }))
 
   await handler({ foo: 'bar', fuu: 'baz' })
 
@@ -30,11 +29,12 @@ test('It should throw error when invalid logger', async (t) => {
   })
 
   try {
-    handler
-      .use(inputOutputLogger({ logger }))
-
+    handler.use(inputOutputLogger({ logger }))
   } catch (e) {
-    t.is(e.message,'Middleware must contain at least one key among "before", "after", "onError"')
+    t.is(
+      e.message,
+      'Middleware must contain at least one key among "before", "after", "onError"'
+    )
   }
 })
 
@@ -45,8 +45,9 @@ test('It should omit paths', async (t) => {
     return { message: 'hello world', bar: 'bi' }
   })
 
-  handler
-    .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
+  handler.use(
+    inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] })
+  )
 
   await handler({ foo: 'bar', fuu: 'baz' })
 
@@ -60,8 +61,12 @@ test('It should skip paths that do not exist', async (t) => {
     return 'yo'
   })
 
-  handler
-    .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.bar'] }))
+  handler.use(
+    inputOutputLogger({
+      logger,
+      omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.bar']
+    })
+  )
 
   await handler({ foo: 'bar', fuu: 'baz' })
 
@@ -76,8 +81,12 @@ test('Skipped parts should be present in the response', async (t) => {
     return { foo: [{ foo: 'bar', fuu: 'baz' }] }
   })
 
-  handler
-    .use(inputOutputLogger({ logger, omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.foo[0].foo'] }))
+  handler.use(
+    inputOutputLogger({
+      logger,
+      omitPaths: ['event.zooloo', 'event.foo.hoo', 'response.foo[0].foo']
+    })
+  )
 
   const response = await handler({ foo: 'bar', fuu: 'baz' })
 
@@ -86,5 +95,3 @@ test('Skipped parts should be present in the response', async (t) => {
 
   t.deepEqual(response, { foo: [{ foo: 'bar', fuu: 'baz' }] })
 })
-
-

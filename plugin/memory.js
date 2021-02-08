@@ -26,5 +26,13 @@ module.exports = (opts = {}) => {
   const afterHandler = () => stop('handler')
   const requestEnd = () => stop('total')
 
-  return { beforePrefetch, requestStart, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
+  return {
+    beforePrefetch,
+    requestStart,
+    beforeMiddleware,
+    afterMiddleware,
+    beforeHandler,
+    afterHandler,
+    requestEnd
+  }
 }

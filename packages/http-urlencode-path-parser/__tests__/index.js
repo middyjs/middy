@@ -51,8 +51,7 @@ test('It should throw error', async (t) => {
 
   try {
     await handler(event, {})
-  } catch(e) {
+  } catch (e) {
     t.is(e.message, 'URI malformed')
   }
 })
-

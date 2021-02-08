@@ -59,8 +59,7 @@ test('It should filter a response with default opts (json)', async (t) => {
 })
 
 test('It should filter a response with defined filter key name in opts', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse()
-  )
+  const handler = middy((event, context) => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
 
@@ -102,8 +101,10 @@ test('It should return the initial response if response body is empty', async (t
 })
 
 test('It should return the initial response if response body is not an object neither a json string', async (t) => {
-  const handler = middy((event, context) => ({ statusCode: 200, body: 'success response' })
-  )
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body: 'success response'
+  }))
 
   handler.use(httpPartialResponse())
 
@@ -119,9 +120,8 @@ test('It should return the initial response if there is no queryStringParameters
 
   const response = await handler()
 
-  t.deepEqual(response.body,{
+  t.deepEqual(response.body, {
     firstname: 'john',
     lastname: 'doe'
   })
 })
-

@@ -24,7 +24,13 @@ const defaults = {
 }
 
 module.exports = (opts = {}) => {
-  let { inputSchema, outputSchema, ajvOptions, ajvInstance, defaultLanguage } = { ...defaults, ...opts }
+  let {
+    inputSchema,
+    outputSchema,
+    ajvOptions,
+    ajvInstance,
+    defaultLanguage
+  } = { ...defaults, ...opts }
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
@@ -47,7 +53,9 @@ module.exports = (opts = {}) => {
     const valid = outputSchema(handler.response)
 
     if (!valid) {
-      const error = new createError.InternalServerError('Response object failed validation')
+      const error = new createError.InternalServerError(
+        'Response object failed validation'
+      )
       error.details = outputSchema.errors
       error.response = handler.response
       throw error
@@ -85,7 +93,8 @@ const languageNormalizationMap = {
   zh_tw: 'zh-TW'
 }
 
-const normalizePreferredLanguage = (lang) => languageNormalizationMap[lang] || lang
+const normalizePreferredLanguage = (lang) =>
+  languageNormalizationMap[lang] || lang
 
 const availableLanguages = Object.keys(localize)
 const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
