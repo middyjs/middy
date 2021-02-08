@@ -45,9 +45,7 @@ const normalizeHeaderKey = (key, canonical) => {
 
   return key
     .split('-')
-    .map(
-      (text) => text.charAt(0).toUpperCase() + text.substr(1).toLowerCase()
-    )
+    .map((text) => text.charAt(0).toUpperCase() + text.substr(1).toLowerCase())
     .join('-')
 }
 
