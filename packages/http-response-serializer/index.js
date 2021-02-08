@@ -1,4 +1,4 @@
-const {normalizeHttpResponse} = require('@middy/util')
+const { normalizeHttpResponse } = require('@middy/util')
 const Accept = require('@hapi/accept')
 
 const defaults = {}

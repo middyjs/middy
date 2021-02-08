@@ -1,4 +1,4 @@
-const {normalizeHttpResponse} = require('@middy/util')
+const { normalizeHttpResponse } = require('@middy/util')
 
 const getOrigin = (incomingOrigin, options) => {
   if (options?.origins.length > 0) {
