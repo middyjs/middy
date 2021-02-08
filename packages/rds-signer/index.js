@@ -21,7 +21,7 @@ const defaults = {
   onChange: undefined
 }
 
-module.exports = (opts = {}) => {
+const rdsSignerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = (handler) => {
@@ -78,3 +78,4 @@ module.exports = (opts = {}) => {
     before: rdsSignerMiddlewareBefore
   }
 }
+module.exports = rdsSignerMiddleware

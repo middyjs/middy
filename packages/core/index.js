@@ -72,7 +72,7 @@
  *                          propagate the result to the next middleware.
  */
 
-module.exports = (handler = () => {}, plugin) => {
+const middy = (handler = () => {}, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -189,3 +189,5 @@ const runMiddlewares = async (middlewares, request, plugin) => {
   }
   return runMiddlewares(stack, request, plugin)
 }
+
+module.exports = middy

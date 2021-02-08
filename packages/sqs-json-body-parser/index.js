@@ -4,7 +4,7 @@ const defaults = {
   reviver: undefined
 }
 
-module.exports = (opts = {}) => {
+const sqsJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const sqsJsonBodyParserMiddlewareBefore = async (handler) => {
@@ -18,3 +18,4 @@ module.exports = (opts = {}) => {
     before: sqsJsonBodyParserMiddlewareBefore
   }
 }
+module.exports = sqsJsonBodyParserMiddleware

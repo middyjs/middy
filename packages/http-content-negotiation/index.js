@@ -18,7 +18,7 @@ const defaults = {
   failOnMismatch: true
 }
 
-module.exports = (opts = {}) => {
+const httpContentNegotiationMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpContentNegotiationMiddlewareBefore = async (handler) => {
@@ -93,3 +93,5 @@ const parseHeader = (
     )
   }
 }
+
+module.exports = httpContentNegotiationMiddleware

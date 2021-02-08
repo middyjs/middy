@@ -29,7 +29,7 @@ const defaults = {
   cacheControl: false
 }
 
-module.exports = (opts = {}) => {
+const httpCorsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpCorsMiddlewareAfter = async (handler) => {
@@ -120,3 +120,4 @@ module.exports = (opts = {}) => {
     onError: httpCorsMiddlewareOnError
   }
 }
+module.exports = httpCorsMiddleware

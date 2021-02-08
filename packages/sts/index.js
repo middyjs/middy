@@ -22,7 +22,7 @@ const defaults = {
   onChange: undefined
 }
 
-module.exports = (opts = {}) => {
+const stsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -73,3 +73,4 @@ module.exports = (opts = {}) => {
     before: stsMiddlewareBefore
   }
 }
+module.exports = stsMiddleware

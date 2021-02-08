@@ -2,7 +2,7 @@ const defaults = {
   payloadFormatVersion: 1
 }
 
-module.exports = (opts = {}) => {
+const httpEventNormalizerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpEventNormalizerMiddlewareBefore = async (handler) => {
@@ -42,3 +42,4 @@ module.exports = (opts = {}) => {
     before: httpEventNormalizerMiddlewareBefore
   }
 }
+module.exports = httpEventNormalizerMiddleware

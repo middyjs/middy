@@ -3,7 +3,7 @@ const contentType = require('content-type')
 
 const defaults = {}
 
-module.exports = (opts = {}) => {
+const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (handler) => {
     if (handler.event.headers) {
@@ -33,3 +33,4 @@ module.exports = (opts = {}) => {
     before: httpJsonBodyParserMiddlewareBefore
   }
 }
+module.exports = httpJsonBodyParserMiddleware

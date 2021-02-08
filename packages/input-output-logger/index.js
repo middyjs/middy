@@ -1,4 +1,4 @@
-module.exports = (opts = {}) => {
+const inputOutputLoggerMiddleware = (opts = {}) => {
   const defaults = {
     logger: (data) => console.log(JSON.stringify(data, null, 2)),
     omitPaths: []
@@ -43,3 +43,5 @@ const deleteKey = (obj, key) => {
   }
   return obj
 }
+
+module.exports = inputOutputLoggerMiddleware

@@ -1,4 +1,4 @@
-module.exports = (opts = {}) => {
+const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
   const defaults = {
     runOnBefore: true,
     runOnAfter: false,
@@ -17,3 +17,4 @@ module.exports = (opts = {}) => {
     onError: options.runOnError ? doNotWaitForEmptyEventLoop : undefined
   }
 }
+module.exports = doNotWaitForEmptyEventLoopMiddleware

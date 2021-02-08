@@ -123,7 +123,7 @@ helmetHtmlOnly.xssFilter = (headers, config) => {
   return headers
 }
 
-module.exports = (opts = {}) => {
+const httpSecurityHeadersMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
@@ -155,3 +155,4 @@ module.exports = (opts = {}) => {
     onError: httpSecurityHeadersMiddlewareOnError
   }
 }
+module.exports = httpSecurityHeadersMiddleware

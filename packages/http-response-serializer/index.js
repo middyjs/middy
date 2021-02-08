@@ -3,7 +3,7 @@ const Accept = require('@hapi/accept')
 
 const defaults = {}
 
-module.exports = (opts = {}) => {
+const httpResponseSerializerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (handler) => {
     // normalise headers for internal use only
@@ -76,3 +76,5 @@ const getNormalisedHeaders = (source) =>
 
     return destination
   }, {})
+
+module.exports = httpResponseSerializerMiddleware

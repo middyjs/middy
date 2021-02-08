@@ -23,7 +23,7 @@ const defaults = {
   onChange: undefined
 }
 
-module.exports = (opts = {}) => {
+const secretsManagerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -70,3 +70,4 @@ module.exports = (opts = {}) => {
     before: secretsManagerMiddlewareBefore
   }
 }
+module.exports = secretsManagerMiddleware

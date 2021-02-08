@@ -4,7 +4,7 @@ const defaults = {
   filteringKeyName: 'fields'
 }
 
-module.exports = (opts = {}) => {
+const httpPartialResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const { filteringKeyName } = options
 
@@ -33,3 +33,4 @@ module.exports = (opts = {}) => {
     after: httpPartialResponseMiddlewareAfter
   }
 }
+module.exports = httpPartialResponseMiddleware

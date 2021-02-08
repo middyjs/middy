@@ -23,7 +23,7 @@ const defaults = {
   defaultLanguage: 'en'
 }
 
-module.exports = (opts = {}) => {
+const validatorMiddleware = (opts = {}) => {
   let {
     inputSchema,
     outputSchema,
@@ -107,3 +107,5 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
 
   return defaultLanguage
 }
+
+module.exports = validatorMiddleware

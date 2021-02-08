@@ -14,7 +14,7 @@ const defaults = {
   disablePrefetch: false
 }
 
-module.exports = (opts = {}) => {
+const sqsPartialBatchFailureMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   // needs to be async for aws-sdk v3
@@ -42,7 +42,7 @@ module.exports = (opts = {}) => {
     client = createPrefetchClient(options)
   }
 
-  const sqsPartialBatchFailureAfter = async (handler) => {
+  const sqsPartialBatchFailureMiddlewareAfter = async (handler) => {
     if (!client) {
       client = await createClient(options, handler)
     }
@@ -70,7 +70,7 @@ module.exports = (opts = {}) => {
   }
 
   return {
-    after: sqsPartialBatchFailureAfter
+    after: sqsPartialBatchFailureMiddlewareAfter
   }
 }
 
@@ -99,3 +99,4 @@ const getEntries = (fulfilledRecords) => {
 const getErrorMessage = (rejectedReasons) => {
   return rejectedReasons.join('\n')
 }
+module.exports = sqsPartialBatchFailureMiddleware

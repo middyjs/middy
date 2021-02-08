@@ -5,7 +5,7 @@ const defaults = {
   fallbackMessage: null
 }
 
-module.exports = (opts = {}) => {
+const httpErrorHandlerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpErrorHandlerMiddlewareOnError = async (handler) => {
@@ -47,3 +47,4 @@ module.exports = (opts = {}) => {
     onError: httpErrorHandlerMiddlewareOnError
   }
 }
+module.exports = httpErrorHandlerMiddleware

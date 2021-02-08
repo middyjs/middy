@@ -2,7 +2,7 @@ const defaults = {
   logger: console.error
 }
 
-module.exports = (opts = {}) => {
+const errorLoggerMiddleware = (opts = {}) => {
   let { logger } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
@@ -11,3 +11,4 @@ module.exports = (opts = {}) => {
     onError: logger ? errorLoggerMiddlewareOnError : null
   }
 }
+module.exports = errorLoggerMiddleware

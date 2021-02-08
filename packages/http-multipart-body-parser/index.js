@@ -2,7 +2,7 @@ const BusBoy = require('busboy')
 const contentTypeLib = require('content-type')
 const createError = require('http-errors')
 
-module.exports = (opts = {}) => {
+const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const defaults = {
     // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
     busboy: {}
@@ -10,7 +10,7 @@ module.exports = (opts = {}) => {
 
   const options = { ...defaults, ...opts }
 
-  const httpMultipartBodyParserBefore = async (handler) => {
+  const httpMultipartBodyParserMiddlewareBefore = async (handler) => {
     const { headers } = handler.event
     if (!headers) {
       return
@@ -36,7 +36,7 @@ module.exports = (opts = {}) => {
   }
 
   return {
-    before: httpMultipartBodyParserBefore
+    before: httpMultipartBodyParserMiddlewareBefore
   }
 }
 
@@ -81,3 +81,4 @@ const parseMultipartData = (event, options) => {
     bb.end()
   })
 }
+module.exports = httpMultipartBodyParserMiddleware

@@ -17,6 +17,7 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (handler) => {
   }
 }
 
-module.exports = () => ({
+const httpUrlencodeBodyParserMiddleware = () => ({
   before: httpUrlencodeBodyParserMiddlewareBefore
 })
+module.exports = httpUrlencodeBodyParserMiddleware

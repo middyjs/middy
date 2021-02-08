@@ -25,7 +25,7 @@ const defaults = {
   onChange: undefined
 }
 
-module.exports = (opts = {}) => {
+const ssmMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -147,3 +147,4 @@ module.exports = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
+module.exports = ssmMiddleware
