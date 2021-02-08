@@ -37,6 +37,8 @@ const createHeaderObjectResponse = () =>
     }
   )
 
+const createArrayResponse = () => [{ firstname: 'john', lastname: 'doe' }]
+
   test('It should return default security headers', async (t) => {
     const handler = middy((event, context) => createDefaultObjectResponse()
     )
@@ -153,4 +155,29 @@ const createHeaderObjectResponse = () =>
 
     const response = await handler(event)
     t.is(response.statusCode,500)
+  })
+
+  test('It should support array responses', async (t) => {
+    const handler = middy((event, context) => createArrayResponse())
+
+    handler.use(httpSecurityHeaders())
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    const response = await handler(event)
+
+    t.deepEqual(response.body,[{ firstname: 'john', lastname: 'doe' }])
+    t.is(response.statusCode,undefined)
+    t.is(response.headers['X-DNS-Prefetch-Control'],'off')
+    t.is(response.headers['X-Powered-By'],undefined)
+    t.is(response.headers['Strict-Transport-Security'],'max-age=15552000; includeSubDomains; preload')
+    t.is(response.headers['X-Download-Options'],'noopen')
+    t.is(response.headers['X-Content-Type-Options'],'nosniff')
+    t.is(response.headers['Referrer-Policy'],'no-referrer')
+    t.is(response.headers['X-Permitted-Cross-Domain-Policies'],'none')
+
+    t.is(response.headers['X-Frame-Options'],undefined)
+    t.is(response.headers['X-XSS-Protection'],undefined)
   })

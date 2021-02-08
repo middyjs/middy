@@ -121,11 +121,18 @@ helmetHtmlOnly.xssFilter = (headers, config) => {
   return headers
 }
 
+const normalizeResponse = (response) => {
+  return Array.isArray(response)
+    ? { body: response }
+    : response ??
+      { statusCode: 500 } // catch thrown errors, prevent default statusCode
+}
+
 module.exports = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpSecurityHeadersMiddlewareAfter = async (handler) => {
-    handler.response = handler.response ?? { statusCode: 500 } // catch thrown errors, prevent default statusCode
+    handler.response = normalizeResponse(handler.response)
     handler.response.headers = handler.response?.headers ?? {}
 
     Object.keys(helmet).forEach(key => {
