@@ -13,7 +13,21 @@ test('It should validate an incoming object', async (t) => {
     required: ['body'],
     properties: {
       body: {
-        type: 'string'
+        type: 'object',
+        properties: {
+          string: {
+            type: 'string'
+          },
+          boolean: {
+            type: 'boolean'
+          },
+          integer: {
+            type: 'integer'
+          },
+          number: {
+            type: 'number'
+          }
+        }
       }
     }
   }
@@ -26,12 +40,17 @@ test('It should validate an incoming object', async (t) => {
 
   // invokes the handler
   const event = {
-    body: JSON.stringify({ foo: 'bar' })
+    body: {
+      string: JSON.stringify({ foo: 'bar' }),
+      boolean: 'true',
+      integer: '0',
+      number: '0.1'
+    }
   }
 
   const body = await handler(event)
 
-  t.is(body, '{"foo":"bar"}')
+  t.deepEqual(body, {boolean:true,integer:0,number:0.1,string:'{"foo":"bar"}'})
 })
 
 test('It should handle invalid schema as a BadRequest', async (t) => {
