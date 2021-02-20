@@ -64,7 +64,7 @@ import middy from '@middy/core'
 import httpEventNormalizer from '@middy/http-event-normalizer'
 
 const handler = middy((event, context) => {
-  console.log(`Hello user ${event.pathParameters.userId}`) // might produce `Hello user #undefined`, but not an error
+  console.log(`Hello user ${event.pathParameters.userId}`) // might produce `Hello user undefined`, but not an error
   return {}
 })
 

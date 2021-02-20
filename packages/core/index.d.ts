@@ -1,57 +1,70 @@
 import {
-  Callback,
-  Context,
-  Handler
+  Context as LambdaContext,
+  Handler as LambdaHandler
 } from 'aws-lambda'
 
-declare type EventType<T, C> =
-  T extends (event: infer EventArgType, context: C, callback: Callback<any>) => void ? EventArgType :
-  T extends (event: infer EventArgType, context: C) => Promise<any> ? EventArgType :
-  never;
+type PluginHook = { (): void };
+type PluginHookWithMiddlewareName = { (middlewareName: string): void };
 
-declare type HandlerReturnType<T, C> =
-  T extends (event: any, context: C) => Promise<infer RetType> ? RetType :
-  T extends (event: any, context: C, callback: Callback<infer RetType>) => void ? RetType :
-  never;
+type PluginObject = {
+  beforePrefetch: PluginHook;
+  requestStart: PluginHook;
+  beforeMiddleware: PluginHookWithMiddlewareName;
+  afterMiddleware: PluginHookWithMiddlewareName;
+  beforeHandler: PluginHook;
+  afterHandler: PluginHook;
+  requestEnd: PluginHook;
+};
 
-declare type AsyncHandler<C extends Context> =
-  ((event: any, context: C, callback: Callback<any>) => void) |
-  ((event: any, context: C) => Promise<any>);
-
-declare const middy: <H extends AsyncHandler<C>, C extends Context = Context>(handler: H) => middy.Middy<
-  EventType<H, C>,
-  HandlerReturnType<H, C>,
-  C
->
-
-declare namespace middy {
-  interface Middy<T, R, C extends Context = Context> extends Handler<T, R> {
-    use: <M extends MiddlewareObject<T, R, C>>(middlewares: M | M[]) => Middy<T, R, C>;
-    before: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
-    after: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
-    onError: (callbackFn: MiddlewareFunction<T, R, C>) => Middy<T, R, C>;
-  }
-
-  type Middleware<C extends any, T = any, R = any> = (config?: C) => MiddlewareObject<T, R>;
-
-  interface MiddlewareObject<T, R, C extends Context = Context> {
-    before?: MiddlewareFunction<T, R, C>;
-    after?: MiddlewareFunction<T, R, C>;
-    onError?: MiddlewareFunction<T, R, C>;
-  }
-
-  type MiddlewareFunction<T, R, C extends Context = Context> = (handler: HandlerLambda<T, R, C>, next: NextFunction) => void | Promise<any>;
-
-  type NextFunction = (error?: any) => void;
-
-  interface HandlerLambda<T = any, V = any, C extends Context = Context> {
-    event: T;
-    context: C;
-    response: V;
-    error: Error;
-    callback: Callback<V>;
-  }
+type Handler<TEvent = any, TResult = any, TErr = Error> = LambdaHandler<TEvent, TResult> & {
+  /** the AWS Lambda event from the original handler */
+  event?: TEvent;
+  /** the AWS Lambda context from the original handler */
+  context?: LambdaContext;
+  /** the response object being returned by this lambda */
+  response?: TResult;
+  /** the error object being thrown by this lambda */
+  error?: TErr;
 }
 
-export default middy
-export as namespace middy;
+type MiddlewareFn<TEvent = any, TResult = any, TErr = Error> = { (handler: Middy<TEvent, TResult, TErr>): void };
+
+type MiddlewareObj<TEvent = any, TResult = any, TErr = Error> = {
+  before?: MiddlewareFn<TEvent, TResult, TErr>;
+  after?: MiddlewareFn<TEvent, TResult, TErr>;
+  onError?: MiddlewareFn<TEvent, TResult, TErr>;
+}
+
+type UseFn<TEvent = any, TResult = any, TErr = Error> = {
+  (middlewares: MiddlewareObj<TEvent, TResult, TErr> | MiddlewareObj<TEvent, TResult, TErr>[]): Middy<TEvent, TResult, TErr>
+}
+
+type Middy<TEvent = any, TResult = any, TErr = Error> = Handler<TEvent, TResult, TErr> & {
+  use: UseFn<TEvent, TResult, TErr>;
+  applyMiddleware: MiddlewareFn<TEvent, TResult, TErr>;
+  before: MiddlewareFn<TEvent, TResult, TErr>;
+  after: MiddlewareFn<TEvent, TResult, TErr>;
+  onError: MiddlewareFn<TEvent, TResult, TErr>;
+  __middlewares: MiddlewareFn<TEvent, TResult, TErr>[];
+}
+
+/**
+ * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
+ * @param handler your original AWS Lambda function
+ * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
+ */
+declare function middy<TEvent = any, TResult = any, TErr = Error>(handler?: Handler<TEvent, TResult, TErr>, plugin?: PluginObject): Middy<TEvent, TResult, TErr>;
+
+declare namespace middy {
+  export {
+    PluginHook,
+    PluginHookWithMiddlewareName,
+    PluginObject,
+    Handler,
+    MiddlewareFn,
+    MiddlewareObj,
+    Middy
+  };
+}
+
+export = middy;
