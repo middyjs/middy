@@ -1,3 +1,8 @@
+/**
+ * ssm Middleware
+ * @namespace @middy/ssm
+ */
+
 const {
   canPrefetch,
   createPrefetchClient,
@@ -9,6 +14,21 @@ const {
 } = require('@middy/util')
 const SSM = require('aws-sdk/clients/ssm.js') // v2
 // const { SSM } = require('@aws-sdk/client-ssm') // v3
+
+/**
+ * @memberof @middy/ssm
+ * @typedef {Object} options
+ * @property {AWS.SSM} [AwsClient] - AWS.SSM class constructor
+ * @property {AWS.SSM.ClientConfiguration} [awsClientOptions] - Options to pass to AWS.SSM class constructor.
+ * @property {string} [awsClientAssumeRole] - Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
+ * @property {function} [awsClientCapture] - Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
+ * @property {Object.<string, string>} fetchData - Mapping of internal key name to API request parameter `Names`/`Path`.
+ * @property {boolean} [disablePrefetch=false] - On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
+ * @property {string} [cacheKey=ssm] - Internal cache key for the fetched data responses.
+ * @property {integer} [cacheExpiry=-1] - How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+ * @property {boolean} [setToEn=false] - Store role tokens to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
+ * @property {boolean} [setToContext=false] - Store role tokes to `handler.context`.
+ */
 
 const awsRequestLimit = 10
 const defaults = {
@@ -23,6 +43,11 @@ const defaults = {
   setToEnv: false,
   setToContext: false
 }
+
+/**
+ * @param {options} [opts={}] - the options for middleware
+ * @return {@middy/core.middlewareObject}
+ */
 
 const ssmMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
@@ -147,3 +172,28 @@ const ssmMiddleware = (opts = {}) => {
   }
 }
 module.exports = ssmMiddleware
+
+/**
+ * Examples
+ * @example
+ * import middy from '@middy/core'
+ * import ssm from '@middy/ssm'
+ *
+ * const handler = middy((event, context) => {
+ *   return {}
+ * })
+ *
+ * let globalDefaults = {}
+ * handler
+ *   .use(ssm({
+ *     fetchData: {
+ *       accessToken: '/dev/service_name/access_token',  // single value
+ *       dbParams: '/dev/service_name/database/',         // object of values, key for each path
+ *       defaults: '/dev/defaults'
+ *     },
+ *    setToContext: true
+ *  }))
+ *  .before((handler) => {
+ *    globalDefaults = handler.context.defaults.global
+ *  })
+ */
