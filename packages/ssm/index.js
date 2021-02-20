@@ -21,8 +21,7 @@ const defaults = {
   cacheKey: 'ssm',
   cacheExpiry: -1,
   setToEnv: false,
-  setToContext: false,
-  onChange: undefined
+  setToContext: false
 }
 
 const ssmMiddleware = (opts = {}) => {

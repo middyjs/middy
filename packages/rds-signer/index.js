@@ -17,8 +17,7 @@ const defaults = {
   cacheKey: 'rds-signer',
   cacheExpiry: -1,
   setToEnv: false,
-  setToContext: false,
-  onChange: undefined
+  setToContext: false
 }
 
 const rdsSignerMiddleware = (opts = {}) => {
