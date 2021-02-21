@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 
-interface IHTTPSecurityHeadersOptions {
+interface IHttpSecurityHeadersOptions {
   dnsPrefetchControl?: {
     allow?: Boolean
   },
@@ -31,6 +31,6 @@ interface IHTTPSecurityHeadersOptions {
   xssFilter?: Object
 }
 
-declare const httpSecurityHeaders : middy.Middleware<IHTTPSecurityHeadersOptions, any, any>
+declare const httpSecurityHeaders : middy.Middleware<IHttpSecurityHeadersOptions, any, any>
 
 export default httpSecurityHeaders

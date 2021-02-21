@@ -1,10 +1,10 @@
 import middy from '@middy/core'
 
-interface IHTTPHeaderNormalizerOptions {
+interface IHttpHeaderNormalizerOptions {
   normalizeHeaderKey?: (key: string) => string;
   canonical?: Boolean;
 }
 
-declare const httpHeaderNormalizer : middy.Middleware<IHTTPHeaderNormalizerOptions, any, any>
+declare const httpHeaderNormalizer : middy.Middleware<IHttpHeaderNormalizerOptions, any, any>
 
 export default httpHeaderNormalizer

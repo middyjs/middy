@@ -17,16 +17,16 @@ const getOrigin = (incomingOrigin, options) => {
 
 const defaults = {
   getOrigin,
-  credentials: false,
-  headers: false,
-  methods: false,
+  credentials: undefined,
+  headers: undefined,
+  methods: undefined,
   origin: '*',
   origins: [],
-  exposeHeaders: false,
-  maxAge: false,
-  requestHeaders: false,
-  requestMethods: false,
-  cacheControl: false
+  exposeHeaders: undefined,
+  maxAge: undefined,
+  requestHeaders: undefined,
+  requestMethods: undefined,
+  cacheControl: undefined
 }
 
 const httpCorsMiddleware = (opts = {}) => {

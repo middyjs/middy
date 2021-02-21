@@ -1,9 +1,15 @@
 import middy from '@middy/core'
+import SQS from 'aws-sdk/clients/sqs.js'
+import {captuteAWSClient} from 'aws-xray-sdk'
 
-interface ISqsBatchOptions {
-  sqs?: object;
+interface ISQSPartialBatchFailureOptions {
+  AwsClient?: SQS,
+  awsClientOptions?: Partial<SQS.Types.ClientConfiguration>;
+  awsClientAssumeRole?: string,
+  awsClientCapture?: captuteAWSClient,
+  disablePrefetch?: boolean,
 }
 
-declare const sqsBatch: middy.Middleware<ISqsBatchOptions, any, any>
+declare const sqsPartialBatchFailure: middy.Middleware<ISQSPartialBatchFailureOptions, any, any>
 
-export default sqsBatch
+export default sqsPartialBatchFailure
