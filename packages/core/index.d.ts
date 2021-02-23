@@ -3,17 +3,17 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-type PluginHook = { (): void };
-type PluginHookWithMiddlewareName = { (middlewareName: string): void };
+declare type PluginHook = () => void;
+declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
 
-type PluginObject = {
-  beforePrefetch: PluginHook;
-  requestStart: PluginHook;
-  beforeMiddleware: PluginHookWithMiddlewareName;
-  afterMiddleware: PluginHookWithMiddlewareName;
-  beforeHandler: PluginHook;
-  afterHandler: PluginHook;
-  requestEnd: PluginHook;
+declare type PluginObject = {
+  beforePrefetch?: PluginHook;
+  requestStart?: PluginHook;
+  beforeMiddleware?: PluginHookWithMiddlewareName;
+  afterMiddleware?: PluginHookWithMiddlewareName;
+  beforeHandler?: PluginHook;
+  afterHandler?: PluginHook;
+  requestEnd?: PluginHook;
 };
 
 type Handler<TEvent = any, TResult = any, TErr = Error> = LambdaHandler<TEvent, TResult> & {
@@ -27,24 +27,26 @@ type Handler<TEvent = any, TResult = any, TErr = Error> = LambdaHandler<TEvent, 
   error?: TErr;
 }
 
-type MiddlewareFn<TEvent = any, TResult = any, TErr = Error> = { (handler: Middy<TEvent, TResult, TErr>): void };
+declare type MiddlewareFn<TEvent = any, TResult = any, TErr = Error> = (handler: Middy<TEvent, TResult, TErr>) => any;
 
-type MiddlewareObj<TEvent = any, TResult = any, TErr = Error> = {
+declare type MiddlewareObj<TEvent = any, TResult = any, TErr = Error> = {
   before?: MiddlewareFn<TEvent, TResult, TErr>;
   after?: MiddlewareFn<TEvent, TResult, TErr>;
   onError?: MiddlewareFn<TEvent, TResult, TErr>;
 }
 
-type UseFn<TEvent = any, TResult = any, TErr = Error> = {
-  (middlewares: MiddlewareObj<TEvent, TResult, TErr> | MiddlewareObj<TEvent, TResult, TErr>[]): Middy<TEvent, TResult, TErr>
-}
+declare type AttachMiddlewareFn<TEvent = any, TResult = any, TErr = Error> = (middleware: MiddlewareFn) => Middy<TEvent, TResult, TErr>;
 
-type Middy<TEvent = any, TResult = any, TErr = Error> = Handler<TEvent, TResult, TErr> & {
+declare type AttachMiddlewareObj<TEvent = any, TResult = any, TErr = Error> = (middleware: MiddlewareObj) => Middy<TEvent, TResult, TErr>;
+
+declare type UseFn<TEvent = any, TResult = any, TErr = Error> = (middlewares: MiddlewareObj<TEvent, TResult, TErr> | MiddlewareObj<TEvent, TResult, TErr>[]) => Middy<TEvent, TResult, TErr>;
+
+declare type Middy<TEvent = any, TResult = any, TErr = Error> = Handler<TEvent, TResult, TErr> & {
   use: UseFn<TEvent, TResult, TErr>;
-  applyMiddleware: MiddlewareFn<TEvent, TResult, TErr>;
-  before: MiddlewareFn<TEvent, TResult, TErr>;
-  after: MiddlewareFn<TEvent, TResult, TErr>;
-  onError: MiddlewareFn<TEvent, TResult, TErr>;
+  applyMiddleware: AttachMiddlewareObj<TEvent, TResult, TErr>;
+  before: AttachMiddlewareFn<TEvent, TResult, TErr>;
+  after: AttachMiddlewareFn<TEvent, TResult, TErr>;
+  onError: AttachMiddlewareFn<TEvent, TResult, TErr>;
   __middlewares: MiddlewareFn<TEvent, TResult, TErr>[];
 }
 
