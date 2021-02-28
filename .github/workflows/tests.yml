@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Update npm
+      - name: Use npm 7.5
         run: |
           npm install -g npm@7.5
       - name: Install dependencies
