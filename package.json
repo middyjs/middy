@@ -61,8 +61,7 @@
     "sinon": "^9.2.4",
     "ts-standard": "^10.0.0",
     "tsd": "^0.14.0",
-    "typescript": "^4.1.5",
-    "typings-tester": "^0.3.2"
+    "typescript": "^4.1.5"
   },
   "husky": {
     "hooks": {
