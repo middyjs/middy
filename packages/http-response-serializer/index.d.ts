@@ -5,11 +5,11 @@ interface SerializerHandler {
   serializer: (respones: any) => any;
 }
 
-interface IhttpResponseSerializerOptions {
+interface IHttpResponseSerializerOptions {
   serializers: Array<SerializerHandler>;
   default?: string;
 }
 
-declare const httpResponseSerializer : middy.Middleware<IhttpResponseSerializerOptions, any, any>
+declare const httpResponseSerializer : middy.Middleware<IHttpResponseSerializerOptions, any, any>
 
 export default httpResponseSerializer

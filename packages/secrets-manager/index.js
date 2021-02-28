@@ -19,8 +19,7 @@ const defaults = {
   cacheKey: 'secrets-manager',
   cacheExpiry: -1,
   setToEnv: false, // can return object when requesting db credentials, cannot set to process.env
-  setToContext: false,
-  onChange: undefined
+  setToContext: false
 }
 
 const secretsManagerMiddleware = (opts = {}) => {

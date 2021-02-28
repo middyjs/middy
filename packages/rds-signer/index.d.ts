@@ -1,10 +1,10 @@
-import SecretsManager from 'aws-sdk/clients/secrets-manager'
+import RDS from 'aws-sdk/clients/rds'
 import {captuteAWSClient} from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface ISecretsManagerOptions {
-  AwsClient?: SecretsManager,
-  awsClientOptions?: Partial<SecretsManager.Types.ClientConfiguration>;
+interface IRDSSignerOptions {
+  AwsClient?: RDS.Signer,
+  awsClientOptions?: Partial<RDS.Types.ClientConfiguration>;
   awsClientAssumeRole?: string,
   awsClientCapture?: captuteAWSClient,
   fetchData?: { [key: string]: string; },
@@ -15,6 +15,6 @@ interface ISecretsManagerOptions {
   setToContext?: boolean,
 }
 
-declare const secretsManager : middy.Middleware<ISecretsManagerOptions, any, any>
+declare const rdsSigner : middy.Middleware<IRDSSignerOptions, any, any>
 
-export default secretsManager
+export default rdsSigner

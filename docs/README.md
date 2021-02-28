@@ -457,8 +457,7 @@ const defaults = {
   cacheKey: 'custom',
   cacheExpiry: -1,
   setToEnv: false,
-  setToContext: false,
-  onChange: undefined
+  setToContext: false
 }
 
 module.exports = (opts = {}) => {
@@ -492,7 +491,6 @@ module.exports = (opts = {}) => {
     if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
     if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
 
-    if (!init) options?.onChange?.()
     else init = false
   }
 

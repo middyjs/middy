@@ -18,8 +18,7 @@ const defaults = {
   cacheKey: 'sts',
   cacheExpiry: -1,
   // setToEnv: false, // returns object, cannot set to process.env
-  setToContext: false,
-  onChange: undefined
+  setToContext: false
 }
 
 const stsMiddleware = (opts = {}) => {
