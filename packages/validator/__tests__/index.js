@@ -1,5 +1,4 @@
 const test = require('ava')
-const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const validator = require('../index.js')
 
@@ -50,7 +49,7 @@ test('It should validate an incoming object', async (t) => {
 
   const body = await handler(event)
 
-  t.deepEqual(body, {boolean:true,integer:0,number:0.1,string:'{"foo":"bar"}'})
+  t.deepEqual(body, { boolean: true, integer: 0, number: 0.1, string: '{"foo":"bar"}' })
 })
 
 test('It should handle invalid schema as a BadRequest', async (t) => {
@@ -314,7 +313,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
 })
 
 // TODO Not support yet with ajv v7
-/*test('It should use out-of-the-box ajv-errors plugin', async (t) => {
+/* test('It should use out-of-the-box ajv-errors plugin', async (t) => {
   const schema = {
     type: 'object',
     required: ['foo'],
@@ -352,4 +351,4 @@ test('It should error when unsupported keywords used (output)', async (t) => {
       message: 'should be an object with an integer property foo only'
     }])
   }
-})*/
+}) */

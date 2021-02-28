@@ -3,7 +3,7 @@ const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const { getInternal, clearCache } = require('../../util')
 const SSM = require('aws-sdk/clients/ssm.js') // v2
-//const { SSM } = require('@aws-sdk/client-ssm') // v3
+// const { SSM } = require('@aws-sdk/client-ssm') // v3
 const ssm = require('../index.js')
 
 let sandbox
@@ -20,8 +20,7 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo)
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
   client.prototype.getParameters = mock
   client.prototype.getParametersByPath = mock
   // aws-sdk v3

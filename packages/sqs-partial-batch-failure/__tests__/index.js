@@ -5,7 +5,7 @@ const createEvent = require('@serverless/event-mocks')
 const middy = require('../../core/index.js')
 const { clearCache } = require('../../util')
 const SQS = require('aws-sdk/clients/sqs.js') // v2
-//const { SQS } = require('@aws-sdk/client-sqs') // v3
+// const { SQS } = require('@aws-sdk/client-sqs') // v3
 const sqsPartialBatchFailure = require('../index.js')
 
 process.env.AWS_REGION = 'ca-central-1'
@@ -24,8 +24,7 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo)
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
   client.prototype.deleteMessageBatch = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'getSecretValue')
@@ -37,8 +36,7 @@ const mockService = (client, responseOne, responseTwo) => {
 
 const originalHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
-    if (r.messageAttributes.resolveOrReject.stringValue === 'resolve')
-      return r.messageId
+    if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') { return r.messageId }
     throw new Error('Error message...')
   })
   return Promise.allSettled(processedRecords)

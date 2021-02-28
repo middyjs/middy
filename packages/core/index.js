@@ -1,4 +1,4 @@
-const middy = (handler = () => { }, plugin = null) => {
+const middy = (handler = () => { }, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []

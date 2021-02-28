@@ -3,7 +3,7 @@ const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const { getInternal, clearCache } = require('../../util')
 const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
-//const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
+// const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 const secretsManager = require('../index.js')
 
 let sandbox
@@ -20,8 +20,7 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo)
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
   client.prototype.getSecretValue = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'getSecretValue')

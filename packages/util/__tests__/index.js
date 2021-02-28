@@ -121,7 +121,7 @@ const getInternalHandler = {
     promiseObject: Promise.resolve({
       key: 'value'
     })
-    //promiseReject: Promise.reject('promise')
+    // promiseReject: Promise.reject('promise')
   }
 }
 test('getInternal should get none from internal store', async (t) => {

@@ -1,5 +1,4 @@
 const test = require('ava')
-const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const createError = require('http-errors')
 

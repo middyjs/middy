@@ -618,7 +618,7 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
   }
 })
 
-/*test('Middlewares can be stopped by calling the callback from the context', async (t) => {
+/* test('Middlewares can be stopped by calling the callback from the context', async (t) => {
   const beforeMiddleware = (handler) => {
     // calling the handler.callback directly and not calling next()
     return 'ending early'
@@ -640,7 +640,7 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
     t.false(originalHandler.calledOnce)
     t.false(afterMiddleware.calledOnce)
 
-})*/
+}) */
 
 // Plugin
 test('Should trigger all plugin hooks', async (t) => {

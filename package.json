@@ -11,11 +11,11 @@
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
     "test:style": "prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
-    "test:lint": "standard --fix",
-    "test:lint:ci": "standard",
+    "test:lint": "ts-standard --fix",
+    "test:lint:ci": "ts-standard",
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
     "test:packages:unit": "lerna exec --bail --concurrency 5 npm run test:unit",
-    "test:packages:typings": "lerna exec --bail --concurrency 5 npm run test:typings",
+    "test:packages:typings": "lerna exec --bail --concurrency 5 tsd",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:lock",
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
@@ -59,15 +59,10 @@
     "lint-staged": "^10.5.3",
     "prettier": "2.2.1",
     "sinon": "^9.2.4",
-    "standard": "^16.0.3",
+    "ts-standard": "^10.0.0",
     "tsd": "^0.14.0",
     "typescript": "^4.1.5",
     "typings-tester": "^0.3.2"
-  },
-  "standard": {
-    "ignore": [
-      "**/__tests__/*.js"
-    ]
   },
   "husky": {
     "hooks": {
@@ -75,8 +70,8 @@
     }
   },
   "lint-staged": {
-    "*.{json,js,ts}": [
-      "npm run test:lint"
+    "*.{js,ts}": [
+      "npm run test:lint:ci"
     ]
   }
 }

@@ -2,7 +2,7 @@ import { expectType } from 'tsd'
 import middy from '.'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 
-async function baseHandler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
@@ -21,19 +21,19 @@ expectType<Handler>(handler)
 
 // initialize with plugin with few hooks
 handler = middy(baseHandler, {
-  beforePrefetch() { console.log('beforePrefetch') }
+  beforePrefetch () { console.log('beforePrefetch') }
 })
 expectType<Handler>(handler)
 
 // initialize with plugin with all hooks
 handler = middy(baseHandler, {
-  beforePrefetch() { console.log('beforePrefetch') },
-  requestStart() { console.log('requestStart') },
-  beforeMiddleware(name: string) { console.log('beforeMiddleware', name) },
-  afterMiddleware(name: string) { console.log('afterMiddleware', name) },
-  beforeHandler() { console.log('beforeHandler') },
-  afterHandler() { console.log('afterHandler') },
-  requestEnd() { console.log('requestEnd') },
+  beforePrefetch () { console.log('beforePrefetch') },
+  requestStart () { console.log('requestStart') },
+  beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },
+  afterMiddleware (name: string) { console.log('afterMiddleware', name) },
+  beforeHandler () { console.log('beforeHandler') },
+  afterHandler () { console.log('afterHandler') },
+  async requestEnd () { console.log('requestEnd') }
 })
 expectType<Handler>(handler)
 
@@ -46,7 +46,7 @@ const middlewareObj = {
   },
   onError: (handler: Handler) => {
     console.log('OnError', handler)
-  },
+  }
 }
 
 // use with 1 middleware
@@ -74,4 +74,4 @@ handler = handler.onError((handler: Handler) => { console.log('OnError', handler
 expectType<Handler>(handler)
 
 // check middlewares list
-expectType<Function[]>(handler.__middlewares)
+expectType<Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>>(handler.__middlewares)
