@@ -48,7 +48,11 @@ declare type Middy<TEvent = any, TResult = any, TErr = Error> = Handler<TEvent, 
   before: AttachMiddlewareFn<TEvent, TResult, TErr>
   after: AttachMiddlewareFn<TEvent, TResult, TErr>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr>
-  __middlewares: Array<MiddlewareFn<TEvent, TResult, TErr>>
+  __middlewares: {
+    before: Array<MiddlewareFn<TEvent, TResult, TErr>>
+    after: Array<MiddlewareFn<TEvent, TResult, TErr>>
+    onError: Array<MiddlewareFn<TEvent, TResult, TErr>>
+  }
 }
 
 /**

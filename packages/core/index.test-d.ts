@@ -74,4 +74,8 @@ handler = handler.onError((handler: Handler) => { console.log('OnError', handler
 expectType<Handler>(handler)
 
 // check middlewares list
-expectType<Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>>(handler.__middlewares)
+expectType<{
+  before: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
+  after: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
+  onError: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
+}>(handler.__middlewares)
