@@ -1,0 +1,54 @@
+{
+  "name": "@middy/context-authorizer-from-headers",
+  "version": "1.5.2",
+  "description": "Midleware to map headers into requestContext",
+  "engines": {
+    "node": ">=10"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "npm run test:typings && npm run test:unit",
+    "test:unit": "jest",
+    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "Input",
+    "Output",
+    "Logger"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "peerDependencies": {
+    "@middy/core": ">=1.0.0-alpha",
+    "aws-sdk": ">=2.221.1"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@middy/core": "^1.2.0",
+    "@types/node": "^10.0.8",
+    "es6-promisify": "^6.0.2",
+    "jest": "26.6.3"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
