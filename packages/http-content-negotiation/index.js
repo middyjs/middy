@@ -1,4 +1,4 @@
-const createError = require('http-errors')
+const HTTPErrors = require('http-errors')
 const charset = require('negotiator/lib/charset.js')
 const encoding = require('negotiator/lib/encoding.js')
 const language = require('negotiator/lib/language.js')
@@ -88,7 +88,7 @@ const parseHeader = (
   event[resultName] = event[resultsName][0]
 
   if (typeof event[resultName] === 'undefined' && failOnMismatch) {
-    throw new createError.NotAcceptable(
+    throw new HTTPErrors.NotAcceptable(
       `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
     )
   }

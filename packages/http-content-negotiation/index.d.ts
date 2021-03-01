@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 
-interface IHttpContentNegotiationOptions {
+interface Options {
   parseCharsets?: boolean
   availableCharsets?: string[]
   parseEncodings?: boolean
@@ -12,6 +12,6 @@ interface IHttpContentNegotiationOptions {
   failOnMismatch?: boolean
 }
 
-declare const httpContentNegotiation: middy.Middleware<IHttpContentNegotiationOptions, any, any>
+declare function httpContentNegotiation (options?: Options): middy.MiddlewareObj
 
 export default httpContentNegotiation
