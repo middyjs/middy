@@ -8,8 +8,8 @@ const defaults = {
   },
   expectCT: {
     enforce: true,
-    maxAge: 30
-    // reportUri: ''
+    maxAge: 30,
+    reportUri: ''
   },
   frameguard: {
     action: 'deny'
@@ -35,7 +35,7 @@ const defaults = {
     policy: 'no-referrer'
   },
   xssFilter: {
-    // reportUri: ''
+    reportUri: ''
   }
 }
 
