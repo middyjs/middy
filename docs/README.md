@@ -657,6 +657,13 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 
+## Middy's Influence
+- .Net port [Voxel.MiddyNet](https://github.com/VoxelGroup/Voxel.MiddyNet) [@vgaltes
+  ](https://twitter.com/vgaltes/status/1366371605337825284)
+- GoLang port [Vesper](https://github.com/mefellows/vesper)
+
+Have a similar project? Let us know.
+
 ## A brief history of Middy
 - Middy was started in the early beginning of AWS Lambda. 
 - 2017-08-03: First commit
@@ -668,6 +675,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [2020 Review](https://github.com/middyjs/middy/issues/590) from @willfarrell
 - 2021: [v2.0.0 Coming soon](https://github.com/middyjs/middy/issues/585)
 - 2021-01-24: v2.0.0-alpha
+- 2021-03: v2.0.0-beta
 
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
