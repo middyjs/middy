@@ -43,6 +43,6 @@ test('It should throw error when invalid logger', async (t) => {
     response = await handler()
   } catch (err) {
     t.is(response, undefined)
-    t.is(err.message, 'Middleware must contain at least one key among "before", "after", "onError"')
+    t.is(err.message, 'Middleware must contain at least one key among "before", "after", "onError", "cleanup"')
   }
 })

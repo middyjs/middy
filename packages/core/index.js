@@ -27,6 +27,7 @@
  * @property {middlewareAttachFunction} before - attach a new *before-only* middleware
  * @property {middlewareAttachFunction} after - attach a new *after-only* middleware
  * @property {middlewareAttachFunction} onError - attach a new *error-handler-only* middleware
+ * @property {middlewareAttachFunction} cleanup - attach a new *cleanup-only* middleware
  * @property {Object} __middlewares - contains the list of all the attached
  *   middlewares organised by type (`before`, `after`, `onError`). To be used only
  *   for testing and debugging purposes
@@ -45,6 +46,7 @@
  * @property {middlewareFunction} before - the middleware function to attach as *before* middleware
  * @property {middlewareFunction} after - the middleware function to attach as *after* middleware
  * @property {middlewareFunction} onError - the middleware function to attach as *error* middleware
+ * @property {middlewareFunction} cleanup - the middleware function to attach as *cleanup* middleware
  */
 
 /**
@@ -72,11 +74,12 @@
  *                          propagate the result to the next middleware.
  */
 
-module.exports = (handler = () => {}, plugin) => {
+module.exports = function middy (handler = () => {}, plugin) {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
+  const cleanupMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
     plugin?.requestStart?.()
@@ -91,32 +94,31 @@ module.exports = (handler = () => {}, plugin) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, plugin)
-        if (request.response !== undefined) { // catch short circuit
-          await plugin?.requestEnd?.()
-          return request.response
+        if (request.response === undefined) { // catch short circuit
+          plugin?.beforeHandler?.()
+          request.response = await handler(request.event, request.context)
+          plugin?.afterHandler?.()
+          await runMiddlewares(afterMiddlewares, request, plugin)
         }
-        plugin?.beforeHandler?.()
-        request.response = await handler(request.event, request.context)
-        plugin?.afterHandler?.()
-        await runMiddlewares(afterMiddlewares, request, plugin)
-        await plugin?.requestEnd?.()
-        return request.response
       } catch (e) {
         request.response = undefined
         request.error = e
         try {
           await runMiddlewares(onErrorMiddlewares, request, plugin)
-          if (request.response !== undefined) {
-            await plugin?.requestEnd?.()
-            return request.response
+          if (request.response === undefined) {
+            throw request.error
           }
         } catch (e) {
           e.originalError = request.error
           request.error = e
+          throw request.error
         }
+      } finally {
+        await runMiddlewares(cleanupMiddlewares, request, plugin)
         await plugin?.requestEnd?.()
-        throw request.error
       }
+
+      return request.response
     }
     return middyPromise()
   }
@@ -136,15 +138,16 @@ module.exports = (handler = () => {}, plugin) => {
       throw new Error('Middleware must be an object')
     }
 
-    const { before, after, onError } = middleware
+    const { before, after, onError, cleanup } = middleware
 
-    if (!before && !after && !onError) {
-      throw new Error('Middleware must contain at least one key among "before", "after", "onError"')
+    if (!before && !after && !onError && !cleanup) {
+      throw new Error('Middleware must contain at least one key among "before", "after", "onError", "cleanup"')
     }
 
     if (before) instance.before(before)
     if (after) instance.after(after)
     if (onError) instance.onError(onError)
+    if (cleanup) instance.cleanup(cleanup)
 
     return instance
   }
@@ -162,11 +165,16 @@ module.exports = (handler = () => {}, plugin) => {
     onErrorMiddlewares.push(onErrorMiddleware)
     return instance
   }
+  instance.cleanup = (cleanupMiddleware) => {
+    cleanupMiddlewares.push(cleanupMiddleware)
+    return instance
+  }
 
   instance.__middlewares = {
     before: beforeMiddlewares,
     after: afterMiddlewares,
-    onError: onErrorMiddlewares
+    onError: onErrorMiddlewares,
+    cleanup: cleanupMiddlewares
   }
 
   return instance

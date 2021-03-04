@@ -8,10 +8,10 @@ test('Middleware attached with "use" must be an object or array', async (t) => {
   t.is(error.message, 'Middy.use() accepts an object or an array of objects')
 })
 
-test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError"', async (t) => {
+test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError", "cleanup"', async (t) => {
   const handler = middy()
   const error = t.throws(() => { handler.use({ foo: 'bar' }) })
-  t.is(error.message, 'Middleware must contain at least one key among "before", "after", "onError"')
+  t.is(error.message, 'Middleware must contain at least one key among "before", "after", "onError", "cleanup"')
 })
 
 test('Middleware attached with "use" must be an array[object', async (t) => {
@@ -122,6 +122,14 @@ test('"onError" should add a before middleware', async (t) => {
   t.is(handler.__middlewares.onError[0], onError)
 })
 
+test('"cleanup" should add a cleanup middleware', async (t) => {
+  const handler = middy()
+  const cleanup = () => {}
+
+  handler.cleanup(cleanup)
+  t.is(handler.__middlewares.cleanup[0], cleanup)
+})
+
 test('It should execute before and after middlewares in the right order', async (t) => {
   const handler = middy((event, context) => {
     return { foo: 'bar' }
@@ -205,6 +213,21 @@ test('"after" middlewares should be able to change response', async (t) => {
   }
 
   handler.after(changeResponseMiddleware)
+
+  const response = await handler({}, {})
+  t.true(response.modified)
+})
+
+test('"cleanup" middlewares should be able to change response', async (t) => {
+  const handler = middy((event, context) => {
+    return { foo: 'bar' }
+  })
+
+  const changeResponseMiddleware = (handler) => {
+    handler.response.modified = true
+  }
+
+  handler.cleanup(changeResponseMiddleware)
 
   const response = await handler({}, {})
   t.true(response.modified)
