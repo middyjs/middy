@@ -50,6 +50,8 @@
     "content-type": "1.0.4",
     "qs": "6.9.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@middy/core": "2.0.0-alpha.6"
+  },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
