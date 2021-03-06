@@ -1,12 +1,12 @@
-import RDS from 'aws-sdk/clients/rds'
-import { captuteAWSClient } from 'aws-xray-sdk'
+import { Signer, Types } from 'aws-sdk/clients/rds'
+import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface IRDSSignerOptions {
-  AwsClient?: RDS.Signer
-  awsClientOptions?: Partial<RDS.Types.ClientConfiguration>
+interface Options {
+  AwsClient?: Signer
+  awsClientOptions?: Partial<Types.ClientConfiguration>
   awsClientAssumeRole?: string
-  awsClientCapture?: captuteAWSClient
+  awsClientCapture?: typeof captureAWSClient
   fetchData?: { [key: string]: string }
   disablePrefetch?: boolean
   cacheKey?: string
@@ -15,6 +15,6 @@ interface IRDSSignerOptions {
   setToContext?: boolean
 }
 
-declare const rdsSigner: middy.Middleware<IRDSSignerOptions, any, any>
+declare function rdsSigner (options?: Options): middy.MiddlewareObj
 
 export default rdsSigner
