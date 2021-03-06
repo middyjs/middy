@@ -1,10 +1,13 @@
-import middy from '@middy/core';
+import middy from "@middy/core";
 
-interface IInputOutputLoggerOptions {
-  logger?: (message: any) => void;
-  omitPaths?: string[];
+interface ContextAuthorizerFromHeadersOptions {
+  mapper: object[];
 }
 
-declare const inputOutputLogger : middy.Middleware<IInputOutputLoggerOptions, any, any>
+declare const contextAuthorizerMapper: middy.Middleware<
+  ContextAuthorizerFromHeadersOptions,
+  any,
+  any
+>;
 
-export default inputOutputLogger;
+export default contextAuthorizerMapper;
