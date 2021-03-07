@@ -2,8 +2,8 @@ import middy from '@middy/core'
 import { SQS } from 'aws-sdk'
 import { captureAWSClient } from 'aws-xray-sdk'
 
-interface Options {
-  AwsClient?: typeof SQS
+interface Options<S = SQS> {
+  AwsClient?: new() => S
   awsClientOptions?: Partial<SQS.Types.ClientConfiguration>
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient

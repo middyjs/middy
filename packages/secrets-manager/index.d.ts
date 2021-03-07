@@ -2,8 +2,8 @@ import { SecretsManager } from 'aws-sdk'
 import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface Options {
-  AwsClient?: typeof SecretsManager
+interface Options<SM = SecretsManager> {
+  AwsClient?: new() => SM
   awsClientOptions?: Partial<SecretsManager.Types.ClientConfiguration>
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient

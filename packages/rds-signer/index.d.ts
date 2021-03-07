@@ -2,8 +2,8 @@ import { RDS } from 'aws-sdk'
 import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface Options {
-  AwsClient?: typeof RDS.Signer
+interface Options<Signer = RDS.Signer> {
+  AwsClient?: new() => Signer
   awsClientOptions?: Partial<RDS.Types.ClientConfiguration>
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient
