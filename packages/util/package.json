@@ -43,6 +43,7 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "devDependencies": {
+    "@middy/core": "2.0.0-alpha.6",
     "@types/aws-lambda": "^8.10.3",
     "@types/node": "^14.0.0",
     "aws-sdk": "^2.804.0",

@@ -34,15 +34,15 @@ const createPrefetchClient = (options) => {
   return client
 }
 
-const createClient = async (options, handler) => {
+const createClient = async (options, request) => {
   let awsClientCredentials = {}
 
   // Role Credentials
   if (options.awsClientAssumeRole) {
-    if (!handler) throw new Error('Handler required when assuming role')
+    if (!request) throw new Error('Request required when assuming role')
     awsClientCredentials = await getInternal(
       { credentials: options.awsClientAssumeRole },
-      handler
+      request
     )
   }
 
@@ -62,12 +62,12 @@ const canPrefetch = (options) => {
 }
 
 // Internal Context
-const getInternal = async (variables, handler) => {
+const getInternal = async (variables, request) => {
   if (!variables) return {}
   let keys = []
   let values = []
   if (variables === true) {
-    keys = values = Object.keys(handler.internal)
+    keys = values = Object.keys(request.internal)
   } else if (typeof variables === 'string') {
     keys = values = [variables]
   } else if (Array.isArray(variables)) {
@@ -81,7 +81,7 @@ const getInternal = async (variables, handler) => {
     // 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
-    let valuePromise = handler.internal[rootOptionKey]
+    let valuePromise = request.internal[rootOptionKey]
     if (typeof valuePromise?.then !== 'function') {
       valuePromise = Promise.resolve(valuePromise)
     }
@@ -106,14 +106,14 @@ const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = {} // key: { value, expiry }
-const processCache = (options, fetch = () => undefined, handler) => {
+const processCache = (options, fetch = () => undefined, request) => {
   if (options.cacheExpiry) {
     const cached = getCache(options.cacheKey)
     if (cached && (cache.expiry >= Date.now() || options.cacheExpiry < 0)) {
       return { ...cached, cache: true }
     }
   }
-  const value = fetch(handler)
+  const value = fetch(request)
   const expiry = Date.now() + options.cacheExpiry
   if (options.cacheExpiry) {
     cache[options.cacheKey] = { value, expiry }
@@ -136,7 +136,7 @@ const clearCache = (keys = null) => {
 const jsonSafeParse = (string, reviver) => {
   try {
     return JSON.parse(string, reviver)
-  } catch (e) {}
+  } catch (e) { }
 
   return string
 }

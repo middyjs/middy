@@ -9,7 +9,8 @@ async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProx
   }
 }
 
-type Handler = middy.Middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
 
 // initialize
 let handler = middy(baseHandler)
@@ -38,14 +39,14 @@ handler = middy(baseHandler, {
 expectType<Handler>(handler)
 
 const middlewareObj = {
-  before: (handler: Handler) => {
-    console.log('Before', handler)
+  before: (request: Request) => {
+    console.log('Before', request)
   },
-  after: (handler: Handler) => {
-    console.log('After', handler)
+  after: (request: Request) => {
+    console.log('After', request)
   },
-  onError: (handler: Handler) => {
-    console.log('OnError', handler)
+  onError: (request: Request) => {
+    console.log('OnError', request)
   }
 }
 
@@ -62,15 +63,15 @@ handler = handler.applyMiddleware(middlewareObj)
 expectType<Handler>(handler)
 
 // before
-handler = handler.before((handler: Handler) => { console.log('Before', handler) })
+handler = handler.before((request: Request) => { console.log('Before', request) })
 expectType<Handler>(handler)
 
 // after
-handler = handler.after((handler: Handler) => { console.log('After', handler) })
+handler = handler.after((request: Request) => { console.log('After', request) })
 expectType<Handler>(handler)
 
 // error
-handler = handler.onError((handler: Handler) => { console.log('OnError', handler) })
+handler = handler.onError((request: Request) => { console.log('OnError', request) })
 expectType<Handler>(handler)
 
 // check middlewares list

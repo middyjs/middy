@@ -1,12 +1,11 @@
-import AWS from 'aws-sdk'
-import { captuteAWSClient } from 'aws-xray-sdk'
-import { Handler } from 'aws-lambda'
+import middy from '@middy/core'
+import { captureAWSClient } from 'aws-xray-sdk'
 
-interface Options {
-  AwsClient?: AWS
-  awsClientOptions?: Partial<AWS.Types.ClientConfiguration>
+interface Options<Client, ClientOptions> {
+  AwsClient?: new() => Client
+  awsClientOptions?: Partial<ClientOptions>
   awsClientAssumeRole?: string
-  awsClientCapture?: captuteAWSClient
+  awsClientCapture?: typeof captureAWSClient
   fetchData?: { [key: string]: string }
   disablePrefetch?: boolean
   cacheKey?: string
@@ -15,17 +14,17 @@ interface Options {
   setToContext?: boolean
 }
 
-declare function createPrefetchClient (options: Options): AWS
+declare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
 
-declare function createClient (options: Options, handler: Handler): AWS
+declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Client
 
-declare function canPrefetch (options: Options): boolean
+declare function canPrefetch<Client, ClientOptions> (options: Options<Client, ClientOptions>): boolean
 
-declare function getInternal (variables: any, handler: Handler): Promise<object>
+declare function getInternal (variables: any, request: middy.Request): Promise<any>
 
 declare function sanitizeKey (key: string): string
 
-declare function processCache (options: Options, fetch: (handler: Handler) => any, handler: Handler): { value: any, expiry: number }
+declare function processCache<Client, ClientOptions> (options: Options<Client, ClientOptions>, fetch: (request: middy.Request) => any, request: middy.Request): { value: any, expiry: number }
 
 declare function getCache (keys: string): any
 
