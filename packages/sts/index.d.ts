@@ -1,12 +1,12 @@
-import STS from 'aws-sdk/clients/sts'
-import { captuteAWSClient } from 'aws-xray-sdk'
+import { STS } from 'aws-sdk'
+import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface ISTSOptions {
-  AwsClient?: STS
+interface Options<S = STS> {
+  AwsClient?: new() => S
   awsClientOptions?: Partial<STS.Types.ClientConfiguration>
   // awsClientAssumeRole?: string,
-  awsClientCapture?: captuteAWSClient
+  awsClientCapture?: typeof captureAWSClient
   fetchData?: { [key: string]: string }
   disablePrefetch?: boolean
   cacheKey?: string
@@ -15,6 +15,6 @@ interface ISTSOptions {
   setToContext?: boolean
 }
 
-declare const ssm: middy.Middleware<ISTSOptions, any, any>
+declare function sts (options?: Options): middy.MiddlewareObj
 
-export default ssm
+export default sts
