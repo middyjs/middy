@@ -1,8 +1,5 @@
 import middy from '@middy/core'
 
-interface IUrlEncodeBodyParserOptions {
-}
-
-declare const urlEncodeBodyParser : middy.Middleware<IUrlEncodeBodyParserOptions, any, any>
+declare function urlEncodeBodyParser (): middy.MiddlewareObj
 
 export default urlEncodeBodyParser

@@ -17,8 +17,7 @@
   ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "ava",
-    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+    "test:unit": "ava"
   },
   "license": "MIT",
   "keywords": [
@@ -53,7 +52,8 @@
     "http-errors": "1.8.0"
   },
   "devDependencies": {
-    "@types/http-errors": "1.8.0"
+    "@types/http-errors": "1.8.0",
+    "@middy/core": "2.0.0-alpha.6"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

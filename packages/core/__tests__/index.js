@@ -4,8 +4,9 @@ const middy = require('../index.js')
 
 test('Middleware attached with "use" must be an object or array', async (t) => {
   const handler = middy()
+
   const error = t.throws(() => {
-    handler.use(() => {})
+    handler.use(() => { })
   })
   t.is(error.message, 'Middy.use() accepts an object or an array of objects')
 })
@@ -31,7 +32,7 @@ test('Middleware attached with "use" must be an array[object', async (t) => {
 
 test('"use" can add single before middleware', async (t) => {
   const handler = middy()
-  const before = () => {}
+  const before = () => { }
   const middleware = () => ({ before })
   handler.use(middleware())
   t.is(handler.__middlewares.before[0], before)
@@ -39,7 +40,7 @@ test('"use" can add single before middleware', async (t) => {
 
 test('"use" can add single after middleware', async (t) => {
   const handler = middy()
-  const after = () => {}
+  const after = () => { }
   const middleware = () => ({ after })
   handler.use(middleware())
   t.is(handler.__middlewares.after[0], after)
@@ -47,7 +48,7 @@ test('"use" can add single after middleware', async (t) => {
 
 test('"use" can add single onError middleware', async (t) => {
   const handler = middy()
-  const onError = () => {}
+  const onError = () => { }
   const middleware = () => ({ onError })
   handler.use(middleware())
   t.is(handler.__middlewares.onError[0], onError)
@@ -55,9 +56,9 @@ test('"use" can add single onError middleware', async (t) => {
 
 test('"use" can add single object with all types of middlewares', async (t) => {
   const handler = middy()
-  const before = () => {}
-  const after = () => {}
-  const onError = () => {}
+  const before = () => { }
+  const after = () => { }
+  const onError = () => { }
   const middleware = () => ({ before, after, onError })
   handler.use(middleware())
   t.is(handler.__middlewares.before[0], before)
@@ -67,7 +68,7 @@ test('"use" can add single object with all types of middlewares', async (t) => {
 
 test('"use" can add multiple before middleware', async (t) => {
   const handler = middy()
-  const before = () => {}
+  const before = () => { }
   const middleware = () => ({ before })
   handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.before[0], before)
@@ -76,7 +77,7 @@ test('"use" can add multiple before middleware', async (t) => {
 
 test('"use" can add multiple after middleware', async (t) => {
   const handler = middy()
-  const after = () => {}
+  const after = () => { }
   const middleware = () => ({ after })
   handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.after[0], after)
@@ -85,7 +86,7 @@ test('"use" can add multiple after middleware', async (t) => {
 
 test('"use" can add multiple onError middleware', async (t) => {
   const handler = middy()
-  const onError = () => {}
+  const onError = () => { }
   const middleware = () => ({ onError })
   handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.onError[0], onError)
@@ -94,9 +95,9 @@ test('"use" can add multiple onError middleware', async (t) => {
 
 test('"use" can add multiple object with all types of middlewares', async (t) => {
   const handler = middy()
-  const before = () => {}
-  const after = () => {}
-  const onError = () => {}
+  const before = () => { }
+  const after = () => { }
+  const onError = () => { }
   const middleware = () => ({ before, after, onError })
   handler.use([middleware(), middleware()])
   t.is(handler.__middlewares.before[0], before)
@@ -109,7 +110,7 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
 
 test('"before" should add a before middleware', async (t) => {
   const handler = middy()
-  const before = () => {}
+  const before = () => { }
 
   handler.before(before)
   t.is(handler.__middlewares.before[0], before)
@@ -117,7 +118,7 @@ test('"before" should add a before middleware', async (t) => {
 
 test('"after" should add a before middleware', async (t) => {
   const handler = middy()
-  const after = () => {}
+  const after = () => { }
 
   handler.after(after)
   t.is(handler.__middlewares.after[0], after)
@@ -125,7 +126,7 @@ test('"after" should add a before middleware', async (t) => {
 
 test('"onError" should add a before middleware', async (t) => {
   const handler = middy()
-  const onError = () => {}
+  const onError = () => { }
 
   handler.onError(onError)
   t.is(handler.__middlewares.onError[0], onError)
@@ -235,7 +236,7 @@ test('"before" middleware should be able to access context', async (t) => {
 
 test('If there is an error in the before middlewares the error middlewares are invoked', async (t) => {
   const error = new Error('Some error 227')
-  const originalHandler = (handler) => {}
+  const originalHandler = (handler) => { }
   const failingMiddleware = (handler) => {
     throw error
   }
@@ -320,7 +321,7 @@ test('If theres an error and one error middleware handles the error, the next er
   const onErrorMiddleware1 = (handler) => {
     return expectedResponse
   }
-  const onErrorMiddleware2 = (handler) => {}
+  const onErrorMiddleware2 = (handler) => { }
 
   const onErrorMiddleware1Spy = sinon.spy(onErrorMiddleware1)
   const onErrorMiddleware2Spy = sinon.spy(onErrorMiddleware2)
@@ -339,7 +340,7 @@ test("If theres an error and the first error middleware doesn't handle the error
   const handler = middy((event, context) => {
     throw new Error('Some error 331')
   })
-  const onErrorMiddleware1 = (handler) => {}
+  const onErrorMiddleware1 = (handler) => { }
   const onErrorMiddleware2 = (handler) => {
     return expectedResponse
   }
@@ -362,7 +363,7 @@ test('It handles synchronous errors generated by throw statements in the before 
     throw expectedError
   }
 
-  const handler = middy((event, context) => {})
+  const handler = middy((event, context) => { })
 
   handler.before(beforeMiddleware)
 
@@ -519,8 +520,8 @@ test('An async handler that throws an error is threated as a failed execution', 
 })
 
 test('It should handle async middlewares', async (t) => {
-  const asyncBefore = async () => {}
-  const asyncAfter = async () => {}
+  const asyncBefore = async () => { }
+  const asyncAfter = async () => { }
 
   const handler = middy((event, context) => {
     return { some: 'response' }
@@ -560,7 +561,7 @@ test('It should be able to short circuit a before middleware', async (t) => {
   const before1 = sinon.spy(() => {
     return 'short'
   })
-  const before2 = sinon.spy(() => {})
+  const before2 = sinon.spy(() => { })
   const handler = middy().before(before1).before(before2)
 
   const response = await handler({}, {})
@@ -617,7 +618,7 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
   }
 })
 
-/*test('Middlewares can be stopped by calling the callback from the context', async (t) => {
+/* test('Middlewares can be stopped by calling the callback from the context', async (t) => {
   const beforeMiddleware = (handler) => {
     // calling the handler.callback directly and not calling next()
     return 'ending early'
@@ -639,7 +640,7 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
     t.false(originalHandler.calledOnce)
     t.false(afterMiddleware.calledOnce)
 
-})*/
+}) */
 
 // Plugin
 test('Should trigger all plugin hooks', async (t) => {

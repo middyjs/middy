@@ -1,15 +1,15 @@
 import middy from '@middy/core'
 
-import { Options as AjvOptions} from 'ajv'
+import Ajv, { Options as AjvOptions } from 'ajv'
 
-interface IValidatorOptions {
-  inputSchema?: object|any,
-  outputSchema?: object|any,
-  ajvOptions?: Partial<AjvOptions>,
-  ajvInstance?: any,  // Ajv
+interface Options {
+  inputSchema?: object | any
+  outputSchema?: object | any
+  ajvOptions?: Partial<AjvOptions>
+  ajvInstance?: Ajv
   defaultLanguage?: string
 }
 
-declare const validator : middy.Middleware<IValidatorOptions, any, any>
+declare function validator (options?: Options): middy.MiddlewareObj
 
 export default validator

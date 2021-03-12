@@ -10,29 +10,26 @@ jobs:
     name: release
     runs-on: ubuntu-latest
     steps:
-    -
-      name: Checkout repository
-      uses: actions/checkout@master
-    -
-      name: Set up Node.js
-      uses: actions/setup-node@master
-      with:
-        node-version: 14.0.0
-    -
-      name: Create .npmrc
-      run: |
-        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-      env:
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-    -
-      name: Install dependencies
-      run: |
-        npm install
-    -
-      name: Build as Commonjs for Node.js v12
-      run: |
-        ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
-    -
-      name: Release
-      run: |
-        npm run lerna:publish
+      - name: Checkout repository
+        uses: actions/checkout@master
+      - name: Set up Node.js
+        uses: actions/setup-node@2
+        with:
+          node-version: 14.0.0
+      - name: Use npm 7.5
+        run: |
+          npm install -g npm@7.5
+      - name: Create .npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install dependencies
+        run: |
+          npm install
+      - name: Build as Commonjs for Node.js v12
+        run: |
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
+      - name: Release
+        run: |
+          npm run lerna:publish

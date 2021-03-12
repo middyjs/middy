@@ -1,5 +1,5 @@
 import middy from '@middy/core'
 
-declare const urlEncodePathParser: middy.Middleware<any, any, any>;
+declare function urlEncodePathParser (): middy.MiddlewareObj
 
 export default urlEncodePathParser

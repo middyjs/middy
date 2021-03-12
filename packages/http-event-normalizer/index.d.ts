@@ -1,9 +1,9 @@
 import middy from '@middy/core'
 
-interface IHttpEventNormalizerOptions {
-  payloadFormatVersion?: number;
+interface Options {
+  payloadFormatVersion?: 1 | 2
 }
 
-declare const httpEventNormalizer : middy.Middleware<IHttpEventNormalizerOptions, any, any>
+declare function httpEventNormalizer (options?: Options): middy.MiddlewareObj
 
 export default httpEventNormalizer

@@ -1,10 +1,9 @@
 import middy from '@middy/core'
 
-interface ISQSJsonBodyParserOptions {
-  reviver?: (key: string, value: any) => any,
-  safeParse?: (body: string) => any
+interface Options {
+  reviver?: (key: string, value: any) => any
 }
 
-declare const sqsJsonBodyParser : middy.Middleware<ISQSJsonBodyParserOptions, any, any>
+declare function sqsJsonBodyParser (options?: Options): middy.MiddlewareObj
 
 export default sqsJsonBodyParser

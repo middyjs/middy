@@ -1,19 +1,13 @@
 name: Tests
 
 on:
-  pull_request:
-    branches:
-      - "**"
-    tags-ignore:
-      - '*.*.*'
   push:
     branches:
       - "**"
     tags-ignore:
-      - '*.*.*'
+      - "*.*.*"
 
 jobs:
-  
   tests:
     runs-on: ubuntu-latest
 
@@ -22,37 +16,32 @@ jobs:
         node-version: [12.x, 14.x]
 
     steps:
-    -
-      name: Checkout repository
-      uses: actions/checkout@v2
-    -
-      name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ matrix.node-version }}
-    -
-      name: Install dependencies
-      run: |
-        npm install
-      env:
-        CI: true
-    -
-      name: Linting
-      run: npm run test:lint:ci
-      env:
-        CI: true
-    -
-      name: Build as Commonjs for Node.js v12
-      run: |
-        ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
-    -
-      name: Unit tests
-      run: npm run test:packages:unit
-      env:
-        CI: true
-# Disabled until TS support has been updated.
-#    -
-#      name: Check typings
-#      run: npm run test:packages:typings
-#      env:
-#        CI: true
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Use npm 7.5
+        run: |
+          npm install -g npm@7.5
+      - name: Install dependencies
+        run: |
+          npm install
+        env:
+          CI: true
+      - name: Linting
+        run: npm run test:lint:ci
+        env:
+          CI: true
+      - name: Build as Commonjs for Node.js v12
+        run: |
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
+      - name: Unit tests
+        run: npm run test:packages:unit
+        env:
+          CI: true
+      - name: Check typings
+        run: npm run test:packages:typings
+        env:
+          CI: true

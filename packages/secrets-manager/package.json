@@ -17,8 +17,7 @@
   ],
   "scripts": {
     "test": "npm run test:typings && npm run test:unit",
-    "test:unit": "ava",
-    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
+    "test:unit": "ava"
   },
   "license": "MIT",
   "keywords": [
@@ -48,6 +47,7 @@
     "@middy/util": "2.0.0-alpha.6"
   },
   "devDependencies": {
+    "@middy/core": "2.0.0-alpha.6",
     "aws-sdk": "^2.804.0",
     "aws-xray-sdk": "^3.2.0"
   },

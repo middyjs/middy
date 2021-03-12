@@ -1,36 +1,39 @@
 import middy from '@middy/core'
 
-interface IHttpSecurityHeadersOptions {
+interface Options {
   dnsPrefetchControl?: {
-    allow?: Boolean
-  },
+    allow?: boolean
+  }
   expectCT?: {
-    enforce?: Boolean,
-    maxAge?: Number
-  },
+    enforce?: boolean
+    maxAge?: number
+    reportUri?: string
+  }
   frameguard?: {
-    action?: String
-  },
+    action?: string
+  }
   hidePoweredBy?: {
-    setTo: String
-  },
+    setTo: string
+  }
   hsts?: {
-    maxAge?: Number,
-    includeSubDomains?: Boolean,
-    preload?: Boolean
-  },
+    maxAge?: number
+    includeSubDomains?: boolean
+    preload?: boolean
+  }
   ieNoOpen?: {
-    action?: String
-  },
+    action?: string
+  }
   noSniff?: {
-    action?: String
-  },
+    action?: string
+  }
   referrerPolicy?: {
-    policy?: String
-  },
-  xssFilter?: Object
+    policy?: string
+  }
+  xssFilter?: {
+    reportUri?: string
+  }
 }
 
-declare const httpSecurityHeaders : middy.Middleware<IHttpSecurityHeadersOptions, any, any>
+declare function httpSecurityHeaders (options?: Options): middy.MiddlewareObj
 
 export default httpSecurityHeaders

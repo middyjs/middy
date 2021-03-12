@@ -34,7 +34,7 @@ test('createClient should create AWS Client with options', async (t) => {
   t.is(Client.args[0][0].apiVersion, '2014-11-06')
 })
 
-test('createClient should throw when creating AWS Client with role and no handler', async (t) => {
+test('createClient should throw when creating AWS Client with role and no request', async (t) => {
   const Client = sinon.spy()
 
   try {
@@ -43,14 +43,14 @@ test('createClient should throw when creating AWS Client with role and no handle
       awsClientAssumeRole: 'adminRole'
     })
   } catch (e) {
-    t.is(e.message, 'Handler required when assuming role')
+    t.is(e.message, 'Request required when assuming role')
   }
 })
 
 test('createClient should create AWS Client with role', async (t) => {
   const Client = sinon.spy()
 
-  const handler = {
+  const request = {
     internal: {
       adminRole: 'creds object'
     }
@@ -60,7 +60,7 @@ test('createClient should create AWS Client with role', async (t) => {
       AwsClient: Client,
       awsClientAssumeRole: 'adminRole'
     },
-    handler
+    request
   )
   t.is(Client.callCount, 1)
   t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
@@ -70,7 +70,7 @@ test('createClient should create AWS Client with role', async (t) => {
 test('createClient should create AWS Client with role from promise', async (t) => {
   const Client = sinon.spy()
 
-  const handler = {
+  const request = {
     internal: {
       adminRole: Promise.resolve('creds object')
     }
@@ -80,7 +80,7 @@ test('createClient should create AWS Client with role from promise', async (t) =
       AwsClient: Client,
       awsClientAssumeRole: 'adminRole'
     },
-    handler
+    request
   )
   t.is(Client.callCount, 1)
   t.deepEqual(Object.keys(Client.args[0][0]), ['httpOptions', 'credentials'])
@@ -108,7 +108,7 @@ test('canPrefetch should not prefetch when disabled', async (t) => {
 })
 
 // getInternal
-const getInternalHandler = {
+const getInternalRequest = {
   internal: {
     boolean: true,
     number: 1,
@@ -121,16 +121,16 @@ const getInternalHandler = {
     promiseObject: Promise.resolve({
       key: 'value'
     })
-    //promiseReject: Promise.reject('promise')
+    // promiseReject: Promise.reject('promise')
   }
 }
 test('getInternal should get none from internal store', async (t) => {
-  const values = await util.getInternal(false, getInternalHandler)
+  const values = await util.getInternal(false, getInternalRequest)
   t.deepEqual(values, {})
 })
 
 test('getInternal should get all from internal store', async (t) => {
-  const values = await util.getInternal(true, getInternalHandler)
+  const values = await util.getInternal(true, getInternalRequest)
   t.deepEqual(values, {
     array: [],
     boolean: true,
@@ -147,14 +147,14 @@ test('getInternal should get all from internal store', async (t) => {
 })
 
 test('getInternal should get from internal store when string', async (t) => {
-  const values = await util.getInternal('number', getInternalHandler)
+  const values = await util.getInternal('number', getInternalRequest)
   t.deepEqual(values, { number: 1 })
 })
 
 test('getInternal should get from internal store when array[string]', async (t) => {
   const values = await util.getInternal(
     ['boolean', 'string'],
-    getInternalHandler
+    getInternalRequest
   )
   t.deepEqual(values, { boolean: true, string: 'string' })
 })
@@ -162,13 +162,13 @@ test('getInternal should get from internal store when array[string]', async (t) 
 test('getInternal should get from internal store when object', async (t) => {
   const values = await util.getInternal(
     { newKey: 'promise' },
-    getInternalHandler
+    getInternalRequest
   )
   t.deepEqual(values, { newKey: 'promise' })
 })
 
 test('getInternal should get from internal store a nested value', async (t) => {
-  const values = await util.getInternal('promiseObject.key', getInternalHandler)
+  const values = await util.getInternal('promiseObject.key', getInternalRequest)
   t.deepEqual(values, { promiseObject_key: 'value' })
 })
 

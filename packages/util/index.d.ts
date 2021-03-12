@@ -1,42 +1,35 @@
-import AWS from 'aws-sdk'
-import {captuteAWSClient} from 'aws-xray-sdk'
-import {
-  Context,
-  Handler
-} from 'aws-lambda'
+import middy from '@middy/core'
+import { captureAWSClient } from 'aws-xray-sdk'
 
-interface IMiddlewareOptions {
-  AwsClient?: AWS,
-  awsClientOptions?: Partial<AWS.Types.ClientConfiguration>;
-  awsClientAssumeRole?: string,
-  awsClientCapture?: captuteAWSClient,
-  fetchData?: { [key: string]: string; },
-  disablePrefetch?: boolean,
-  cacheKey?: string,
-  cacheExpiry?: number,
-  setToEnv?: boolean,
-  setToContext?: boolean,
+interface Options<Client, ClientOptions> {
+  AwsClient?: new() => Client
+  awsClientOptions?: Partial<ClientOptions>
+  awsClientAssumeRole?: string
+  awsClientCapture?: typeof captureAWSClient
+  fetchData?: { [key: string]: string }
+  disablePrefetch?: boolean
+  cacheKey?: string
+  cacheExpiry?: number
+  setToEnv?: boolean
+  setToContext?: boolean
 }
 
-declare const createPrefetchClient: <IMiddlewareOptions> () => void
+declare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
 
-declare const createClient: <IMiddlewareOptions, Handler> () => void
+declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Client
 
-declare const canPrefetch: <IMiddlewareOptions> () => boolean
+declare function canPrefetch<Client, ClientOptions> (options: Options<Client, ClientOptions>): boolean
 
-declare const getInternal: <any, Handler> () => object
+declare function getInternal (variables: any, request: middy.Request): Promise<any>
 
-declare const sanitizeKey: <string> () => string
+declare function sanitizeKey (key: string): string
 
-declare const processCache: <IMiddlewareOptions, () => void, Handler> () => any
+declare function processCache<Client, ClientOptions> (options: Options<Client, ClientOptions>, fetch: (request: middy.Request) => any, request: middy.Request): { value: any, expiry: number }
 
-declare const getCache: <string> () => object
+declare function getCache (keys: string): any
 
-declare const clearCache: <any> () => void
+declare function clearCache (keys?: string | string[] | null): void
 
-declare const jsonSafeParse: <any> () => any
+declare function jsonSafeParse (string: string, reviver?: (key: string, value: any) => any): any
 
-declare const normalizeHttpResponse: <any> () => object
-
-
-
+declare function normalizeHttpResponse (response: any, fallbackResponse?: any): any

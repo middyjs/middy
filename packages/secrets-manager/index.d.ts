@@ -1,20 +1,20 @@
-import SecretsManager from 'aws-sdk/clients/secrets-manager'
-import {captuteAWSClient} from 'aws-xray-sdk'
+import { SecretsManager } from 'aws-sdk'
+import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
 
-interface ISecretsManagerOptions {
-  AwsClient?: SecretsManager,
-  awsClientOptions?: Partial<SecretsManager.Types.ClientConfiguration>;
-  awsClientAssumeRole?: string,
-  awsClientCapture?: captuteAWSClient,
-  fetchData?: { [key: string]: string; },
-  disablePrefetch?: boolean,
-  cacheKey?: string,
-  cacheExpiry?: number,
-  setToEnv?: boolean,
-  setToContext?: boolean,
+interface Options<SM = SecretsManager> {
+  AwsClient?: new() => SM
+  awsClientOptions?: Partial<SecretsManager.Types.ClientConfiguration>
+  awsClientAssumeRole?: string
+  awsClientCapture?: typeof captureAWSClient
+  fetchData?: { [key: string]: string }
+  disablePrefetch?: boolean
+  cacheKey?: string
+  cacheExpiry?: number
+  setToEnv?: boolean
+  setToContext?: boolean
 }
 
-declare const secretsManager : middy.Middleware<ISecretsManagerOptions, any, any>
+declare function secretsManager (options?: Options): middy.MiddlewareObj
 
 export default secretsManager

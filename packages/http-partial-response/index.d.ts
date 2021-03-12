@@ -1,9 +1,9 @@
 import middy from '@middy/core'
 
-interface IHttpPartialResponseOptions {
-  filteringKeyName?: string;
+interface Options {
+  filteringKeyName?: string
 }
 
-declare const httpPartialResponse : middy.Middleware<IHttpPartialResponseOptions, any, any>
+declare function httpPartialResponse (options?: Options): middy.MiddlewareObj
 
 export default httpPartialResponse
