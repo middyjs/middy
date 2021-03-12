@@ -504,8 +504,35 @@ module.exports = (opts = {}) => {
 
 Check the [code for existing middlewares](/packages) to see more examples on how to write a middleware.
 
+
 ## TypeScript
-See [#589 TypeScript Support](https://github.com/middyjs/middy/issues/589)
+
+Middy can be used with TypeScript with typings built in in every official package.
+
+Here's an example of how you might be using Middy with TypeScript for a Lambda receiving events from API Gateway:
+
+```typescript
+import middy from '@middy/core'
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+
+async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  // the returned response will be checked against the type `APIGatewayProxyResult`
+  return {
+    statusCode: 200,
+    body: `Hello from ${event.path}`
+  }
+}
+
+let handler = middy(baseHandler)
+handler
+  .use(someMiddleware)
+  .use(someOtherMiddleware)
+
+export default handler
+```
+
+**Note**: the Middy core team does not use TypeScript often and we can't certainly claim that we are TypeScript experts. We tried our best to come up
+with type definitions that should give TypeScript users a good experience. There is certainly room for improvement, so we would be more than happy to receive contributions 😊
 
 
 ## Common Patterns and Best Practice
