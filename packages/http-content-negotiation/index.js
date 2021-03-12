@@ -21,8 +21,8 @@ const defaults = {
 const httpContentNegotiationMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const httpContentNegotiationMiddlewareBefore = async (handler) => {
-    const { event } = handler
+  const httpContentNegotiationMiddlewareBefore = async (request) => {
+    const { event } = request
     if (event.headers) {
       if (options.parseCharsets) {
         parseHeader(

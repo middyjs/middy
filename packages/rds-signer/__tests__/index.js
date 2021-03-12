@@ -35,10 +35,10 @@ const mockService = (client, responseOne, responseTwo) => {
 
 test.serial('It should set token to internal storage (token)', async (t) => {
   mockService(RDS.Signer, 'token')
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    const values = await getInternal(true, handler)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
     t.is(values.token, 'token')
   }
 
@@ -65,10 +65,10 @@ test.serial('It should set token to internal storage (token)', async (t) => {
 test.serial('It should set tokens to internal storage (token)', async (t) => {
   mockService(RDS.Signer, 'token1', 'token2')
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    const values = await getInternal(true, handler)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
     t.is(values.token1, 'token1')
     t.is(values.token2, 'token2')
   }
@@ -105,10 +105,10 @@ test.serial(
   async (t) => {
     mockService(RDS.Signer, 'token')
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 
@@ -137,10 +137,10 @@ test.serial(
 test.serial('It should set RDS.Signer token to context', async (t) => {
   mockService(RDS.Signer, 'token')
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    t.is(handler.context.token, 'token')
+  const middleware = async (request) => {
+    t.is(request.context.token, 'token')
   }
 
   handler
@@ -166,9 +166,9 @@ test.serial('It should set RDS.Signer token to context', async (t) => {
 
 test.serial('It should set RDS.Signer token to process.env', async (t) => {
   mockService(RDS.Signer, 'token')
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
+  const middleware = async () => {
     t.is(process.env.token, 'token')
   }
 
@@ -197,10 +197,10 @@ test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
     const stub = mockService(RDS.Signer, 'token')
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 
@@ -233,10 +233,10 @@ test.serial(
   async (t) => {
     const stub = mockService(RDS.Signer, 'token', 'token')
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 

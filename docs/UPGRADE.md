@@ -34,17 +34,17 @@ module.exports = (opts) => {
   const options = { ...defaults, ...opts }
   let currentCacheKey
 
-  const cacheMiddlewareBefore = async (handler) => {
-    const cacheKey = await options.calculateCacheId(handler.event)
+  const cacheMiddlewareBefore = async (request) => {
+    const cacheKey = await options.calculateCacheId(request.event)
     const response = await options.getValue(cacheKey)
     if (response) {
       return response
     }
-    handler.internal.cacheKey = cacheKey
+    request.internal.cacheKey = cacheKey
   }
 
-  const cacheMiddlewareAfter = async (handler) => {
-    await options.setValue(handler.internal.cacheKey, handler.response)
+  const cacheMiddlewareAfter = async (request) => {
+    await options.setValue(request.internal.cacheKey, request.response)
   }
   
   return {
@@ -146,8 +146,8 @@ on 2019-12-03, removing the need for this work around.
 However, you can use the following if needed:
 ```javascript
 middy(handler)
-  .before((handler) => {
-    if (handler.event.source === 'serverless-plugin-warmup') {
+  .before((quest) => {
+    if (quest.event.source === 'serverless-plugin-warmup') {
       console.log('Exiting early via warmup Middleware')
       return 'warmup'
     }

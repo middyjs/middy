@@ -4,7 +4,7 @@ module.exports = (opts = {}) => {
   const defaults = {}
   const options = { ...defaults, ...opts }
 
-  const cloudwatchMetricsBefore = (handler) => {
+  const cloudwatchMetricsBefore = (request) => {
     const metrics = awsEmbeddedMetrics.createMetricsLogger()
 
     // If not set, defaults to aws-embedded-metrics
@@ -16,11 +16,11 @@ module.exports = (opts = {}) => {
     if (options.dimensions) {
       metrics.setDimensions(...options.dimensions)
     }
-    Object.assign(handler.context, { metrics })
+    Object.assign(request.context, { metrics })
   }
 
-  const cloudwatchMetricsAfter = async (handler) => {
-    await handler.context.metrics.flush()
+  const cloudwatchMetricsAfter = async (request) => {
+    await request.context.metrics.flush()
   }
 
   return {

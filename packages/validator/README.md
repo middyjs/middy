@@ -52,9 +52,9 @@ npm install --save @middy/validator
 ## Options
 
  - `inputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
-   to validate the input (`handler.event`) of the Lambda handler.
+   to validate the input (`request.event`) of the Lambda handler.
  - `outputSchema` (object) (optional): The JSON schema object or compiled ajv validator that will be used
-   to validate the output (`handler.response`) of the Lambda handler.
+   to validate the output (`request.response`) of the Lambda handler.
  - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
     class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: false, defaultLanguage: 'en' }`.
 

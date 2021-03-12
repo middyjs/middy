@@ -160,11 +160,11 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const originalHandler = (event, context) => {
+const baseHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(originalHandler)
+const handler = middy(baseHandler)
 
 handler
   .use(middleware1())
@@ -183,11 +183,11 @@ import middleware2 from "sample-middleware2";
 import middleware3 from "sample-middleware3";
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const originalHandler = (event, context) => {
+const baseHandler = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(originalHandler);
+const handler = middy(baseHandler);
 
 handler.use(middlewares)
 
@@ -264,17 +264,17 @@ const storage = {}
 const cacheMiddleware = options => {
   let cacheKey
   
-  const cacheMiddlewareBefore = async (handler) => {
-    cacheKey = options.calculateCacheId(handler.event)
+  const cacheMiddlewareBefore = async (request) => {
+    cacheKey = options.calculateCacheId(request.event)
     if (options.storage.hasOwnProperty(cacheKey)) {
       // exits early and returns the value from the cache if it's already there
       return options.storage[cacheKey]
     }
   }
   
-  const cacheMiddlewareAfter = async (handler) => {
+  const cacheMiddlewareAfter = async (request) => {
     // stores the calculated response in the cache
-    options.storage[cacheKey] = handler.response
+    options.storage[cacheKey] = request.response
   }
   
   return {
@@ -314,16 +314,16 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ```javascript
 // Initailaize response
-handler.response = handler.response ?? {}
+request.response = request.response ?? {}
 
 // Add to response
-handler.response.add = 'more'
+request.response.add = 'more'
 
 // Override an error
-handler.error = new Error('...')
+request.error = new Error('...')
 
 // handle the error
-return handler.response
+return request.response
 ```
 
 ## Writing a middleware
@@ -337,7 +337,7 @@ A middleware is an object that should contain at least 1 of 3 possible keys:
 `before`, `after` and `onError` functions need to have the following signature:
 
 ```javascript
-async (handler) => {
+async (request) => {
   // ...
 }
 ```
@@ -364,13 +364,13 @@ const defaults = {}
 module.exports = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const customMiddlewareBefore = async (handler) => {
+  const customMiddlewareBefore = async (request) => {
     // might read options
   }
-  const customMiddlewareAfter = async (handler) => {
+  const customMiddlewareAfter = async (request) => {
     // might read options 
   }
-  const customMiddlewareOnError = async (handler) => {
+  const customMiddlewareOnError = async (request) => {
     // might read options
   }
   
@@ -422,15 +422,15 @@ const handler = middy((event, context) => {
   // do stuff
 })
 
-handler.before(async (handler) => {
+handler.before(async (request) => {
   // do something in the before phase
 })
 
-handler.after(async (handler) => {
+handler.after(async (request) => {
   // do something in the after phase
 })
 
-handler.onError(async (handler) => {
+handler.onError(async (request) => {
   // do something in the on error phase
 })
 
@@ -479,17 +479,17 @@ module.exports = (opts = {}) => {
     prefetch = processCache(options, fetch)
   }
 
-  const customMiddlewareBefore = async (handler) => {
+  const customMiddlewareBefore = async (request) => {
     let cached
     if (init) {
       cached = prefetch
     } else {
-      cached = processCache(options, fetch, handler)
+      cached = processCache(options, fetch, request)
     }
 
-    Object.assign(handler.internal, cached)
-    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), handler))
-    if (options.setToContext) Object.assign(handler.context, await getInternal(Object.keys(options.fetchData), handler))
+    Object.assign(request.internal, cached)
+    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), request))
+    if (options.setToContext) Object.assign(request.context, await getInternal(Object.keys(options.fetchData), request))
 
     else init = false
   }
@@ -549,8 +549,8 @@ import {getInternal} from '@middy/util'
 
 middy(handler)
   // Incase you want to add values on to internal directly
-  .before((async (handler) => {
-    handler.internal = {
+  .before((async (request) => {
+    request.internal = {
       env: provess.env.NODE_ENV
     }
   }))
@@ -558,17 +558,17 @@ middy(handler)
   .use(ssm(...))
   .use(rdsSigner(...))
   .use(secretsManager(...))
-  .before(async (handler) => {
+  .before(async (request) => {
     // internal == { key: 'value' }
     
     // Map with same name
-    Object.assign(handler.context, await getInternal(['key'], handler)) // context == { key: 'value'}
+    Object.assign(request.context, await getInternal(['key'], request)) // context == { key: 'value'}
     
     // Map to new name
-    Object.assign(handler.context, await getInternal({'newKey':'key'}, handler)) // context == { newKey: 'value'}
+    Object.assign(request.context, await getInternal({'newKey':'key'}, request)) // context == { newKey: 'value'}
     
     // get all the values, only if you really need to, but you should only request what you need for the handler
-    Object.assign(handler.context, await getInternal(true, handler)) // context == { key: 'value'}
+    Object.assign(request.context, await getInternal(true, request)) // context == { key: 'value'}
   })
 ```
 

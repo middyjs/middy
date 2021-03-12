@@ -25,8 +25,8 @@ test('It should not override already declared Access-Control-Allow-Origin header
 
   // other middleware that puts the cors header
   handler.use({
-    after: (handler) => {
-      handler.response = {
+    after: (request) => {
+      request.response = {
         headers: {
           'Access-Control-Allow-Origin': 'https://example.com'
         }
@@ -173,7 +173,7 @@ test('It should add headers even onError', async (t) => {
   )
 
   handler.use({
-    onError: (handler) => {}
+    onError: () => {}
   })
 
   const event = {
@@ -208,8 +208,8 @@ test('It should not override already declared Access-Control-Allow-Headers heade
 
   // other middleware that puts the cors header
   handler.use({
-    after: (handler) => {
-      handler.response.headers['Access-Control-Allow-Headers'] = 'x-example'
+    after: (request) => {
+      request.response.headers['Access-Control-Allow-Headers'] = 'x-example'
     }
   })
   handler.use(
@@ -218,7 +218,7 @@ test('It should not override already declared Access-Control-Allow-Headers heade
     })
   )
   handler.use({
-    onError: (handler) => {}
+    onError: () => {}
   })
 
   const event = {
@@ -263,8 +263,8 @@ test('It should not override already declared Access-Control-Allow-Credentials h
 
   // other middleware that puts the cors header
   handler.use({
-    after: (handler) => {
-      handler.response.headers['Access-Control-Allow-Credentials'] = 'false'
+    after: (request) => {
+      request.response.headers['Access-Control-Allow-Credentials'] = 'false'
     }
   })
   handler.use(
@@ -273,7 +273,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     })
   )
   handler.use({
-    onError: (handler) => {}
+    onError: () => {}
   })
 
   const event = {
@@ -299,10 +299,10 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     )
     // other middleware that puts the cors header
     .use({
-      after: (handler) => {
-        handler.response = handler.response || {}
-        handler.response.headers = handler.response.headers || {}
-        handler.response.headers['Access-Control-Allow-Credentials'] = 'true'
+      after: (request) => {
+        request.response = request.response || {}
+        request.response.headers = request.response.headers || {}
+        request.response.headers['Access-Control-Allow-Credentials'] = 'true'
       }
     })
 

@@ -34,14 +34,14 @@ const validatorMiddleware = (opts = {}) => {
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
 
-  const validatorMiddlewareBefore = async (handler) => {
-    const valid = inputSchema(handler.event)
+  const validatorMiddlewareBefore = async (request) => {
+    const valid = inputSchema(request.event)
 
     if (!valid) {
       const error = new createError.BadRequest('Event object failed validation')
-      handler.event.headers = { ...handler.event.headers }
+      request.event.headers = { ...request.event.headers }
 
-      const language = chooseLanguage(handler.event, defaultLanguage)
+      const language = chooseLanguage(request.event, defaultLanguage)
       localize[language](inputSchema.errors)
 
       error.details = inputSchema.errors
@@ -49,15 +49,15 @@ const validatorMiddleware = (opts = {}) => {
     }
   }
 
-  const validatorMiddlewareAfter = async (handler) => {
-    const valid = outputSchema(handler.response)
+  const validatorMiddlewareAfter = async (request) => {
+    const valid = outputSchema(request.response)
 
     if (!valid) {
       const error = new createError.InternalServerError(
         'Response object failed validation'
       )
       error.details = outputSchema.errors
-      error.response = handler.response
+      error.response = request.response
       throw error
     }
   }

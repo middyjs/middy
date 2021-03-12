@@ -189,7 +189,7 @@ test('sanitizeKey should not sanitize key', async (t) => {
 })
 
 // processCache / clearCache
-const cacheHandler = {
+const cacheRequest = {
   internal: {}
 }
 test.serial('processCache should not cache', async (t) => {
@@ -198,7 +198,7 @@ test.serial('processCache should not cache', async (t) => {
     cacheKey: 'key',
     cacheExpiry: 0
   }
-  util.processCache(options, fetch, cacheHandler)
+  util.processCache(options, fetch, cacheRequest)
   const cache = util.getCache('key')
   t.is(cache, undefined)
   util.clearCache()
@@ -210,11 +210,11 @@ test.serial('processCache should cache forever', async (t) => {
     cacheKey: 'key',
     cacheExpiry: -1
   }
-  util.processCache(options, fetch, cacheHandler)
+  util.processCache(options, fetch, cacheRequest)
   await delay(100)
   const cacheValue = util.getCache('key')
   t.not(cacheValue, undefined)
-  const { value, cache } = util.processCache(options, fetch, cacheHandler)
+  const { value, cache } = util.processCache(options, fetch, cacheRequest)
   t.is(await value, 'value')
   t.true(cache)
   util.clearCache()
@@ -226,7 +226,7 @@ test.serial('processCache should cache and expire', async (t) => {
     cacheKey: 'key',
     cacheExpiry: 150
   }
-  util.processCache(options, fetch, cacheHandler)
+  util.processCache(options, fetch, cacheRequest)
   await delay(100)
   let cache = util.getCache('key')
   t.not(cache, undefined)
@@ -244,7 +244,7 @@ test.serial('processCache should clear single key cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.processCache(
     {
@@ -252,7 +252,7 @@ test.serial('processCache should clear single key cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.clearCache('other')
   t.not(util.getCache('key'), undefined)
@@ -268,7 +268,7 @@ test.serial('processCache should clear multi key cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.processCache(
     {
@@ -276,7 +276,7 @@ test.serial('processCache should clear multi key cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.clearCache(['key', 'other'])
   t.is(util.getCache('key'), undefined)
@@ -292,7 +292,7 @@ test.serial('processCache should clear all cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.processCache(
     {
@@ -300,7 +300,7 @@ test.serial('processCache should clear all cache', async (t) => {
       cacheExpiry: -1
     },
     fetch,
-    cacheHandler
+    cacheRequest
   )
   util.clearCache()
   t.is(util.getCache('key'), undefined)

@@ -8,38 +8,38 @@ const defaults = {
 const httpErrorHandlerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const httpErrorHandlerMiddlewareOnError = async (handler) => {
+  const httpErrorHandlerMiddlewareOnError = async (request) => {
     if (typeof options.logger === 'function') {
-      options.logger(handler.error)
+      options.logger(request.error)
     }
 
     // Set default expose value, only passes in when there is an override
-    if (handler.error?.statusCode && handler.error?.expose === undefined) {
-      handler.error.expose = handler.error.statusCode < 500
+    if (request.error?.statusCode && request.error?.expose === undefined) {
+      request.error.expose = request.error.statusCode < 500
     }
 
     // Non-http error OR expose set to false
     if (
       options.fallbackMessage &&
-      (!handler.error?.statusCode || !handler.error?.expose)
+      (!request.error?.statusCode || !request.error?.expose)
     ) {
-      handler.error = {
+      request.error = {
         statusCode: 500,
         message: options.fallbackMessage,
         expose: true
       }
     }
 
-    if (handler.error?.expose) {
-      handler.response = normalizeHttpResponse(handler.response)
-      handler.response.statusCode = handler.error?.statusCode
-      handler.response.body = jsonSafeParse(handler.error?.message)
-      handler.response.headers['Content-Type'] =
-        typeof handler.response?.body === 'string'
+    if (request.error?.expose) {
+      request.response = normalizeHttpResponse(request.response)
+      request.response.statusCode = request.error?.statusCode
+      request.response.body = jsonSafeParse(request.error?.message)
+      request.response.headers['Content-Type'] =
+        typeof request.response?.body === 'string'
           ? 'plain/text'
           : 'application/json'
 
-      return handler.response
+      return request.response
     }
   }
 

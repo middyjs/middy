@@ -1,8 +1,8 @@
 const normalizeKey = (key) => decodeURIComponent(key.replace(/\+/g, ' '))
 
-const s3KeyNormalizerMiddlewareBefore = async (handler) => {
-  if (handler.event.Records && Array.isArray(handler.event.Records)) {
-    handler.event.Records = handler.event.Records.map((record) => {
+const s3KeyNormalizerMiddlewareBefore = async (request) => {
+  if (request.event.Records && Array.isArray(request.event.Records)) {
+    request.event.Records = request.event.Records.map((record) => {
       const eventVersion = parseFloat(record.eventVersion)
       if (
         record.s3 &&

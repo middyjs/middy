@@ -10,8 +10,8 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
   const options = { ...defaults, ...opts }
 
-  const httpMultipartBodyParserMiddlewareBefore = async (handler) => {
-    const { headers } = handler.event
+  const httpMultipartBodyParserMiddlewareBefore = async (request) => {
+    const { headers } = request.event
     if (!headers) {
       return
     }
@@ -23,9 +23,9 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         return
       }
 
-      return parseMultipartData(handler.event, options.busboy)
+      return parseMultipartData(request.event, options.busboy)
         .then((multipartData) => {
-          handler.event.body = multipartData
+          request.event.body = multipartData
         })
         .catch((_) => {
           throw new createError.UnprocessableEntity(

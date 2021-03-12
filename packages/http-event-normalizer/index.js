@@ -5,8 +5,8 @@ const defaults = {
 const httpEventNormalizerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const httpEventNormalizerMiddlewareBefore = async (handler) => {
-    const { event } = handler
+  const httpEventNormalizerMiddlewareBefore = async (request) => {
+    const { event } = request
     let isHttpEvent = false
 
     switch (options.payloadFormatVersion) {

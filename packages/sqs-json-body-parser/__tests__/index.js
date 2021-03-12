@@ -17,7 +17,7 @@ test.afterEach((t) => {
 })
 
 test.serial('parses each body payload', async (t) => {
-  const handler = { event }
+  const request = { event }
   const bodys = [{ one: 1 }, { two: 2 }, { three: 3 }]
   event.Records.push({ ...event.Records[0] })
   event.Records.push({ ...event.Records[0] })
@@ -26,7 +26,7 @@ test.serial('parses each body payload', async (t) => {
     event.Records[idx].body = JSON.stringify(body)
   })
 
-  await sqsJsonBodyParser().before(handler)
+  await sqsJsonBodyParser().before(request)
 
   event.Records.forEach((rcd, idx) => {
     t.deepEqual(rcd.body, bodys[idx])
@@ -34,21 +34,21 @@ test.serial('parses each body payload', async (t) => {
 })
 
 test.serial('returns original body when parse error', async (t) => {
-  const handler = { event }
+  const request = { event }
   const body = 'bad json'
-  handler.event.Records[0].body = body
-  await sqsJsonBodyParser().before(handler)
+  request.event.Records[0].body = body
+  await sqsJsonBodyParser().before(request)
 
-  t.deepEqual(handler.event.Records[0].body, body)
+  t.deepEqual(request.event.Records[0].body, body)
 })
 
 test.serial('returns default body when nullish', async (t) => {
-  const handler = { event }
+  const request = { event }
   const body = null
-  handler.event.Records[0].body = body
-  await sqsJsonBodyParser().before(handler)
+  request.event.Records[0].body = body
+  await sqsJsonBodyParser().before(request)
 
-  t.deepEqual(handler.event.Records[0].body, {})
+  t.deepEqual(request.event.Records[0].body, {})
 })
 
 test.serial('It should parse the body', async (t) => {

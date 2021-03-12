@@ -8,11 +8,11 @@ const httpPartialResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const { filteringKeyName } = options
 
-  const httpPartialResponseMiddlewareAfter = async (handler) => {
-    let body = handler.response?.body
+  const httpPartialResponseMiddlewareAfter = async (request) => {
+    let body = request.response?.body
     if (!body) return
 
-    const fields = handler.event?.queryStringParameters?.[filteringKeyName]
+    const fields = request.event?.queryStringParameters?.[filteringKeyName]
     if (!fields) return
 
     let isBodyStringified
@@ -25,7 +25,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 
     const filteredBody = mask(body, fields)
 
-    handler.response.body = isBodyStringified
+    request.response.body = isBodyStringified
       ? JSON.stringify(filteredBody)
       : filteredBody
   }

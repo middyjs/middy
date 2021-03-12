@@ -45,7 +45,7 @@ npm install --save @middy/rds-signer
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store credentials to `handler.context`.
+- `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 
 NOTES:
 - Lambda is required to have IAM permission for `sts:AssumeRole`

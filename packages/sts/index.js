@@ -52,18 +52,18 @@ const stsMiddleware = (opts = {}) => {
     prefetch = processCache(options, fetch)
   }
 
-  const stsMiddlewareBefore = async (handler) => {
+  const stsMiddlewareBefore = async (request) => {
     if (!client) {
-      client = await createClient(options, handler)
+      client = await createClient(options, request)
     }
 
-    const { value } = prefetch ?? processCache(options, fetch, handler)
+    const { value } = prefetch ?? processCache(options, fetch, request)
 
-    Object.assign(handler.internal, value)
+    Object.assign(request.internal, value)
 
     if (options.setToContext) {
-      const data = await getInternal(Object.keys(options.fetchData), handler)
-      if (options.setToContext) Object.assign(handler.context, data)
+      const data = await getInternal(Object.keys(options.fetchData), request)
+      if (options.setToContext) Object.assign(request.context, data)
     }
     prefetch = null
   }

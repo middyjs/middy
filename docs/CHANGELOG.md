@@ -30,10 +30,11 @@ Focus this version was on performance and security by default.
 - Changed linting to use `standard` cli to keep deps clean
 
 ## Thanks to
-- @lmammino: For discussions to bounce and talk through ideas. Code audit/review.
+- @lmammino: For discussions to bounce and talk through ideas. Code audit/review & TypeScript definitions.
 - @ffxsam: For reporting #609.
 - @raae & @AyoAlfonso: For `expose` support in `http-error-handler` #610.
 - @nfantone: For improved response default handling #615
+- @fredericbarthelet: For new `cloudwater-metrics` middleware
 
 # 1.5.0
 

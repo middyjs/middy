@@ -7,8 +7,8 @@ const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
 
   const options = { ...defaults, ...opts }
 
-  const doNotWaitForEmptyEventLoop = async (handler) => {
-    handler.context.callbackWaitsForEmptyEventLoop = false
+  const doNotWaitForEmptyEventLoop = async (request) => {
+    request.context.callbackWaitsForEmptyEventLoop = false
   }
 
   return {

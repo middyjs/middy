@@ -12,10 +12,10 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     logger(redactedMessage)
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (handler) =>
-    omitAndLog({ event: handler.event })
-  const inputOutputLoggerMiddlewareAfter = async (handler) =>
-    omitAndLog({ response: handler.response })
+  const inputOutputLoggerMiddlewareBefore = async (request) =>
+    omitAndLog({ event: request.event })
+  const inputOutputLoggerMiddlewareAfter = async (request) =>
+    omitAndLog({ response: request.response })
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return {
     before: logger ? inputOutputLoggerMiddlewareBefore : null,

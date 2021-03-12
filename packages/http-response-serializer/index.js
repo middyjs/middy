@@ -5,11 +5,11 @@ const defaults = {}
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
-  const httpResponseSerializerMiddlewareAfter = async (handler) => {
+  const httpResponseSerializerMiddlewareAfter = async (request) => {
     // normalise headers for internal use only
-    const requestHeaders = getNormalisedHeaders(handler.event?.headers ?? {})
-    handler.response = normalizeHttpResponse(handler.response)
-    const responseHeaders = getNormalisedHeaders(handler.response.headers)
+    const requestHeaders = getNormalisedHeaders(request.event?.headers ?? {})
+    request.response = normalizeHttpResponse(request.response)
+    const responseHeaders = getNormalisedHeaders(request.response.headers)
 
     // skip serialization when content-type is already set
     if (responseHeaders['content-type']) {
@@ -19,14 +19,14 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     // find accept value(s)
     let types
 
-    const handlerEvent = handler.event
-    if (handlerEvent?.requiredContentType) {
-      types = [].concat(handlerEvent.requiredContentType)
+    const requestEvent = request.event
+    if (requestEvent?.requiredContentType) {
+      types = [].concat(requestEvent.requiredContentType)
     } else {
       types = [].concat(
         (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) ||
           [],
-        handlerEvent.preferredContentType || [],
+        requestEvent.preferredContentType || [],
         options.default || []
       )
     }
@@ -46,17 +46,17 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
         }
 
         // set header
-        handler.response.headers['Content-Type'] = type
+        request.response.headers['Content-Type'] = type
 
         // run serializer
-        const result = s.serializer(handler.response)
+        const result = s.serializer(request.response)
 
         if (typeof result === 'object') {
           // replace response object if result is object
-          handler.response = result
+          request.response = result
         } else {
           // otherwise only replace the body attribute
-          handler.response.body = result
+          request.response.body = result
         }
 
         return true

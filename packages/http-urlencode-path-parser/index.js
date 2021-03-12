@@ -1,8 +1,8 @@
-const httpUrlencodePathParserMiddlewareBefore = async (handler) => {
-  if (!handler.event?.pathParameters) return
-  for (const key in handler.event.pathParameters) {
-    handler.event.pathParameters[key] = decodeURIComponent(
-      handler.event.pathParameters[key]
+const httpUrlencodePathParserMiddlewareBefore = async (request) => {
+  if (!request.event?.pathParameters) return
+  for (const key in request.event.pathParameters) {
+    request.event.pathParameters[key] = decodeURIComponent(
+      request.event.pathParameters[key]
     )
   }
 }

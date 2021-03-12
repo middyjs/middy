@@ -27,7 +27,7 @@ const requestEnd = async () => stop('total') // This is the last run hook, it wi
 
 const plugin = { beforePrefetch, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
 
-middy(originalHandler, plugin)
+middy(baseHandler, plugin)
   .use(eventLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())

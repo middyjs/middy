@@ -54,7 +54,7 @@ npm install --save @middy/secrets-manager
 - `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store secrets to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
-- `setToContext` (boolean) (default `false`): Store secrets to `handler.context`.
+- `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
 
 NOTES:
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`

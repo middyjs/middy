@@ -23,7 +23,7 @@ const defaults = {
 const rdsSignerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (handler) => {
+  const fetch = (request) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       const awsClientOptions = {
@@ -38,7 +38,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 
       // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
-        createClient(awsClientOptions, handler).then((client) => {
+        createClient(awsClientOptions, request).then((client) => {
           client.getAuthToken({}, (err, token) => {
             if (err) {
               return reject(err)
@@ -48,7 +48,7 @@ const rdsSignerMiddleware = (opts = {}) => {
         })
       })
       // aws-sdk v3
-      // values[internalKey] = createClient(awsClientOptions, handler).then(client => client.getAuthToken())
+      // values[internalKey] = createClient(awsClientOptions, request).then(client => client.getAuthToken())
     }
 
     return values
@@ -59,15 +59,15 @@ const rdsSignerMiddleware = (opts = {}) => {
     prefetch = processCache(options, fetch)
   }
 
-  const rdsSignerMiddlewareBefore = async (handler) => {
-    const { value } = prefetch ?? processCache(options, fetch, handler)
+  const rdsSignerMiddlewareBefore = async (request) => {
+    const { value } = prefetch ?? processCache(options, fetch, request)
 
-    Object.assign(handler.internal, value)
+    Object.assign(request.internal, value)
 
     if (options.setToContext || options.setToEnv) {
-      const data = await getInternal(Object.keys(options.fetchData), handler)
+      const data = await getInternal(Object.keys(options.fetchData), request)
       if (options.setToEnv) Object.assign(process.env, data)
-      if (options.setToContext) Object.assign(handler.context, data)
+      if (options.setToContext) Object.assign(request.context, data)
     }
 
     prefetch = null

@@ -7,8 +7,8 @@ const defaults = {
 const sqsJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const sqsJsonBodyParserMiddlewareBefore = async (handler) => {
-    const { event: { Records = [] } = { Records: [] } } = handler
+  const sqsJsonBodyParserMiddlewareBefore = async (request) => {
+    const { event: { Records = [] } = { Records: [] } } = request
 
     Records.forEach((record) => {
       record.body = jsonSafeParse(record.body ?? '{}', options.reviver)

@@ -34,10 +34,10 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
   mockService(SecretsManager, {
     SecretString: 'token'
   })
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    const values = await getInternal(true, handler)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
     t.is(values.token, 'token')
   }
 
@@ -66,10 +66,10 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
     }
   )
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    const values = await getInternal(true, handler)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
     t.is(values.token1, 'token1')
     t.is(values.token2, 'token2')
   }
@@ -95,12 +95,12 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
     SecretString: JSON.stringify(credentials)
   })
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
+  const middleware = async (request) => {
     const values = await getInternal(
       { username: 'credentials.username', password: 'credentials.password' },
-      handler
+      request
     )
     t.deepEqual(values, credentials)
   }
@@ -126,10 +126,10 @@ test.serial(
       SecretString: 'token'
     })
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 
@@ -154,10 +154,10 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
     SecretString: 'token'
   })
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    t.is(handler.context.token, 'token')
+  const middleware = async (request) => {
+    t.is(request.context.token, 'token')
   }
 
   handler
@@ -180,9 +180,9 @@ test.serial('It should set SecretsManager secret to process.env', async (t) => {
     SecretString: 'token'
   })
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
+  const middleware = async () => {
     t.is(process.env.token, 'token')
   }
 
@@ -208,10 +208,10 @@ test.serial(
       SecretString: 'token'
     })
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 
@@ -246,10 +246,10 @@ test.serial(
       }
     )
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.is(values.token, 'token')
     }
 

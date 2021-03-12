@@ -22,9 +22,9 @@ test.afterEach((t) => {
 test.serial('It should add a MetricLogger instance on context.metrics', async (t) => {
   const handler = middy(() => {})
 
-  const middleware = (handler) => {
+  const middleware = (request) => {
     t.true(createMetricsLoggerStub.called)
-    t.deepEqual(handler.context, { metrics: metricsLoggerMock })
+    t.deepEqual(request.context, { metrics: metricsLoggerMock })
   }
 
   handler.use(metrics()).before(middleware)

@@ -39,10 +39,10 @@ test.serial('It should set credential to internal storage', async (t) => {
     }
   })
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    const values = await getInternal(true, handler)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
     t.deepEqual(values.role, {
       accessKeyId: 'accessKeyId',
       secretAccessKey: 'secretAccessKey',
@@ -77,10 +77,10 @@ test.serial(
       }
     })
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.deepEqual(values.role, {
         accessKeyId: 'accessKeyId',
         secretAccessKey: 'secretAccessKey',
@@ -115,10 +115,10 @@ test.serial('It should set STS secret to context', async (t) => {
     }
   })
 
-  const handler = middy((handler) => {})
+  const handler = middy(() => {})
 
-  const middleware = async (handler) => {
-    t.deepEqual(handler.context.role, {
+  const middleware = async (request) => {
+    t.deepEqual(request.context.role, {
       accessKeyId: 'accessKeyId',
       secretAccessKey: 'secretAccessKey',
       sessionToken: 'sessionToken'
@@ -153,10 +153,10 @@ test.serial(
       }
     })
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.deepEqual(values.role, {
         accessKeyId: 'accessKeyId',
         secretAccessKey: 'secretAccessKey',
@@ -205,10 +205,10 @@ test.serial(
       }
     )
 
-    const handler = middy((handler) => {})
+    const handler = middy(() => {})
 
-    const middleware = async (handler) => {
-      const values = await getInternal(true, handler)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
       t.deepEqual(values.role, {
         accessKeyId: 'accessKeyId',
         secretAccessKey: 'secretAccessKey',

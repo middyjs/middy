@@ -47,7 +47,7 @@ npm install --save @middy/rds-signer
 - `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store role tokens to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
-- `setToContext` (boolean) (default `false`): Store role tokens to `handler.context`.
+- `setToContext` (boolean) (default `false`): Store role tokens to `request.context`.
 
 NOTES:
 - Lambda is required to have IAM permission for `rds-db:connect` with a resource like `arn:aws:rds-db:#{AWS::Region}:#{AWS::AccountId}:dbuser:${database_resource}/${iam_role}`

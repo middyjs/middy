@@ -57,33 +57,33 @@ const defaults = {
 const httpHeaderNormalizerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const httpHeaderNormalizerMiddlewareBefore = async (handler) => {
-    if (handler.event.headers) {
+  const httpHeaderNormalizerMiddlewareBefore = async (request) => {
+    if (request.event.headers) {
       const rawHeaders = {}
       const headers = {}
 
-      Object.keys(handler.event.headers).forEach((key) => {
-        rawHeaders[key] = handler.event.headers[key]
+      Object.keys(request.event.headers).forEach((key) => {
+        rawHeaders[key] = request.event.headers[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
-          handler.event.headers[key]
+          request.event.headers[key]
       })
 
-      handler.event.headers = headers
-      handler.event.rawHeaders = rawHeaders
+      request.event.headers = headers
+      request.event.rawHeaders = rawHeaders
     }
 
-    if (handler.event.multiValueHeaders) {
+    if (request.event.multiValueHeaders) {
       const rawHeaders = {}
       const headers = {}
 
-      Object.keys(handler.event.multiValueHeaders).forEach((key) => {
-        rawHeaders[key] = handler.event.multiValueHeaders[key]
+      Object.keys(request.event.multiValueHeaders).forEach((key) => {
+        rawHeaders[key] = request.event.multiValueHeaders[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
-          handler.event.multiValueHeaders[key]
+          request.event.multiValueHeaders[key]
       })
 
-      handler.event.multiValueHeaders = headers
-      handler.event.rawMultiValueHeaders = rawHeaders
+      request.event.multiValueHeaders = headers
+      request.event.rawMultiValueHeaders = rawHeaders
     }
   }
 

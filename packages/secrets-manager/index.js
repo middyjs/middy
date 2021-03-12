@@ -47,19 +47,19 @@ const secretsManagerMiddleware = (opts = {}) => {
     prefetch = processCache(options, fetch)
   }
 
-  const secretsManagerMiddlewareBefore = async (handler) => {
+  const secretsManagerMiddlewareBefore = async (request) => {
     if (!client) {
-      client = await createClient(options, handler)
+      client = await createClient(options, request)
     }
 
-    const { value } = prefetch ?? processCache(options, fetch, handler)
+    const { value } = prefetch ?? processCache(options, fetch, request)
 
-    Object.assign(handler.internal, value)
+    Object.assign(request.internal, value)
 
     if (options.setToContext || options.setToEnv) {
-      const data = await getInternal(Object.keys(options.fetchData), handler)
+      const data = await getInternal(Object.keys(options.fetchData), request)
       if (options.setToEnv) Object.assign(process.env, data)
-      if (options.setToContext) Object.assign(handler.context, data)
+      if (options.setToContext) Object.assign(request.context, data)
     }
 
     prefetch = null

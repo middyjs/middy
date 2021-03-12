@@ -126,22 +126,22 @@ helmetHtmlOnly.xssFilter = (headers, config) => {
 const httpSecurityHeadersMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const httpSecurityHeadersMiddlewareAfter = async (handler) => {
-    handler.response = normalizeHttpResponse(handler.response)
+  const httpSecurityHeadersMiddlewareAfter = async (request) => {
+    request.response = normalizeHttpResponse(request.response)
 
     Object.keys(helmet).forEach((key) => {
       const config = { ...defaults[key], ...options[key] }
-      handler.response.headers = helmet[key](handler.response.headers, config)
+      request.response.headers = helmet[key](request.response.headers, config)
     })
 
     if (
-      handler.response.headers['Content-Type'] &&
-      handler.response.headers['Content-Type'].indexOf('text/html') !== -1
+      request.response.headers['Content-Type'] &&
+      request.response.headers['Content-Type'].indexOf('text/html') !== -1
     ) {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         const config = { ...defaults[key], ...options[key] }
-        handler.response.headers = helmetHtmlOnly[key](
-          handler.response.headers,
+        request.response.headers = helmetHtmlOnly[key](
+          request.response.headers,
           config
         )
       })

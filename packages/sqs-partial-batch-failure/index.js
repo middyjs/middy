@@ -42,15 +42,15 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     client = createPrefetchClient(options)
   }
 
-  const sqsPartialBatchFailureMiddlewareAfter = async (handler) => {
+  const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
     if (!client) {
-      client = await createClient(options, handler)
+      client = await createClient(options, request)
     }
 
     const {
       event: { Records },
       response
-    } = handler
+    } = request
     const rejectedReasons = getRejectedReasons(response)
 
     // If all messages were processed successfully, continue and let the messages be deleted by Lambda's native functionality

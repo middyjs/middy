@@ -34,7 +34,7 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
-const originalHandler = async (e) => {
+const baseHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
     if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') { return r.messageId }
     throw new Error('Error message...')
@@ -56,7 +56,7 @@ test.serial('Should throw when there are only failed messages', async (t) => {
     ]
   })
   mockService(SQS, {})
-  const handler = middy(originalHandler).use(
+  const handler = middy(baseHandler).use(
     sqsPartialBatchFailure({
       AwsClient: SQS
     })
@@ -83,7 +83,7 @@ test.serial('Should resolve when there are no failed messages', async (t) => {
     ]
   })
   mockService(SQS, {})
-  const handler = middy(originalHandler).use(
+  const handler = middy(baseHandler).use(
     sqsPartialBatchFailure({
       AwsClient: SQS
     })
@@ -114,7 +114,7 @@ test.serial(
       ]
     })
     mockService(SQS, {})
-    const handler = middy(originalHandler).use(
+    const handler = middy(baseHandler).use(
       sqsPartialBatchFailure({
         AwsClient: SQS,
         disablePrefetch: true
@@ -152,7 +152,7 @@ test.serial('Should throw with failure reasons', async (t) => {
     ]
   })
   const mock = mockService(SQS, {})
-  const handler = middy(originalHandler).use(
+  const handler = middy(baseHandler).use(
     sqsPartialBatchFailure({
       AwsClient: SQS
     })
