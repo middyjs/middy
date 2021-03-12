@@ -52,6 +52,7 @@
     "http-errors": "1.8.0"
   },
   "devDependencies": {
+    "@middy/core": "2.0.0-alpha.6",
     "@types/http-errors": "1.8.0",
     "ajv-bsontype": "^1.0.7"
   },

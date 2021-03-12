@@ -1,11 +1,11 @@
 import middy from '@middy/core'
-export { MetricsLogger } from "aws-embedded-metrics"
+export { MetricsLogger } from 'aws-embedded-metrics'
 
-interface IMetricsOptions {
-  namespace?: string;
-  dimensions?: Record<string, string>[]
+interface Options {
+  namespace?: string
+  dimensions?: Array<Record<string, string>>
 }
 
-declare const cloudwatchMetrics : middy.Middleware<IMetricsOptions, any, any>
+declare function cloudwatchMetrics (options?: Options): middy.MiddlewareObj
 
 export default cloudwatchMetrics
