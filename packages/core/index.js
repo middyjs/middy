@@ -17,33 +17,33 @@ const middy = (handler = () => { }, plugin) => {
     const middyPromise = async () => {
       try {
         await runMiddlewares(beforeMiddlewares, request, plugin)
-        // catch short circuit
-        if (request.response !== undefined) {
-          await plugin?.requestEnd?.()
-          return request.response
+        // Check if before stack doesn't need to exit early
+        if (request.response === undefined) {
+          plugin?.beforeHandler?.()
+          request.response = await handler(request.event, request.context)
+          plugin?.afterHandler?.()
+          await runMiddlewares(afterMiddlewares, request, plugin)
         }
-        plugin?.beforeHandler?.()
-        request.response = await handler(request.event, request.context)
-        plugin?.afterHandler?.()
-        await runMiddlewares(afterMiddlewares, request, plugin)
-        await plugin?.requestEnd?.()
-        return request.response
       } catch (e) {
+        // Reset response changes made by after stack before error thrown
         request.response = undefined
         request.error = e
         try {
           await runMiddlewares(onErrorMiddlewares, request, plugin)
-          if (request.response !== undefined) {
-            await plugin?.requestEnd?.()
-            return request.response
+          // Catch if onError stack hasn't handled the error
+          if (request.response === undefined) {
+            throw request.error
           }
         } catch (e) {
+          // Save error that wasn't handled
           e.originalError = request.error
           request.error = e
+          throw request.error
         }
+      } finally {
         await plugin?.requestEnd?.()
-        throw request.error
       }
+      return request.response
     }
     return middyPromise()
   }
