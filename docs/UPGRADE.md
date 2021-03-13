@@ -145,9 +145,9 @@ on 2019-12-03, removing the need for this work around.
 
 However, you can use the following if needed:
 ```javascript
-middy(handler)
-  .before((quest) => {
-    if (quest.event.source === 'serverless-plugin-warmup') {
+middy(baseHandler)
+  .before((request) => {
+    if (request.event.source === 'serverless-plugin-warmup') {
       console.log('Exiting early via warmup Middleware')
       return 'warmup'
     }

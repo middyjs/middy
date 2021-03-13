@@ -45,12 +45,12 @@ npm install --save @middy/sqs-json-body-parser
 import middy from '@middy/core'
 import sqsJsonBodyParser from '@middy/sqs-json-body-parser'
 
-const yourHandler = (event, context) => {
+const baseHandler = (event, context) => {
   const { Records } = event
   return Promise.all(Records.map(async (record, index) => { /* your message processing logic */ }))
 }
 
-const handler = middy(yourHandler).use(sqsJsonBodyParser())
+const handler = middy(baseHandler).use(sqsJsonBodyParser())
 ```
 
 ## Middy documentation and examples

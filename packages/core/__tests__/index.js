@@ -436,7 +436,7 @@ test('It should support handlers that return promises instead of using the callb
 })
 
 test('It should support async handlers', async (t) => {
-  const handler = middy(async (event, context) => {
+  const handler = middy(() => {
     return { some: 'response' }
   })
 
@@ -508,7 +508,7 @@ test('A handler that returns a rejected promise will behave as an errored execut
 })
 
 test('An async handler that throws an error is threated as a failed execution', async (t) => {
-  const handler = middy(async (event, context) => {
+  const handler = middy(() => {
     throw new Error('bad stuff happened')
   })
 
