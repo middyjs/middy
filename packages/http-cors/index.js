@@ -20,7 +20,7 @@ const defaults = {
   credentials: false,
   maxAge: null,
   cacheControl: null,
-  allowMethods: null,
+  allowMethods: null
 }
 
 const addCorsHeaders = (opts, handler, next) => {
