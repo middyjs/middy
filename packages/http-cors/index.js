@@ -55,7 +55,7 @@ const addCorsHeaders = (opts, handler, next) => {
       handler.response.headers['Access-Control-Max-Age'] = String(options.maxAge)
     }
 
-    if (options.allowMethods && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Max-Age')) {
+    if (options.allowMethods && !Object.prototype.hasOwnProperty.call(handler.response.headers, 'Access-Control-Allow-Methods')) {
       handler.response.headers['Access-Control-Allow-Methods'] = String(options.allowMethods)
     }
 
