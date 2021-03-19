@@ -529,4 +529,44 @@ describe('📦 Middleware CORS', () => {
       }
     })
   })
+
+  test('it should set Access-Control-Allow-Methods header if present in config', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, {})
+    })
+
+    handler.use(cors({ allowMethods: 'GET,PUT,POST' }))
+
+    const event = {
+      httpMethod: 'GET'
+    }
+
+    const response = await invoke(handler, event)
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,PUT,POST'
+      }
+    })
+  })
+
+  test('it should not overwrite Access-Control-Allow-Methods header if already set', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, { headers: { 'Access-Control-Allow-Methods': 'POST' } })
+    })
+
+    handler.use(cors({ maxAge: '3600' }))
+
+    const event = {
+      allowMethods: 'GET,PUT,POST'
+    }
+
+    const response = await invoke(handler, event)
+    expect(response).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST'
+      }
+    })
+  })
 })

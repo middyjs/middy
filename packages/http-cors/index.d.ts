@@ -7,6 +7,7 @@ interface ICorsOptions {
   credentials?: boolean;
   maxAge?: string;
   cacheControl?: string;
+  allowMethods?: string;
 }
 
 declare const cors : middy.Middleware<ICorsOptions, any, any>

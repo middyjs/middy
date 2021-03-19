@@ -51,6 +51,7 @@ npm install --save @middy/http-cors
  - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
  - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
  - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
+- `allowMethods` (string) (optional): value to put in Access-Control-Allow-Methods header on pre-flight (OPTIONS) requests (default: `null`)
 
 NOTES:
 - If another middleware does not handle and swallow errors, then it will bubble all the way up 
