@@ -35,7 +35,7 @@ interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error> {
   onError?: MiddlewareFn<TEvent, TResult, TErr>
 }
 
-interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error> {
+interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error>  extends LambdaHandler<TEvent, TResult> {
   use: UseFn<TEvent, TResult, TErr>
   applyMiddleware: AttachMiddlewareObj<TEvent, TResult, TErr>
   before: AttachMiddlewareFn<TEvent, TResult, TErr>
