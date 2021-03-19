@@ -555,10 +555,10 @@ describe('📦 Middleware CORS', () => {
       cb(null, { headers: { 'Access-Control-Allow-Methods': 'POST' } })
     })
 
-    handler.use(cors({ maxAge: '3600' }))
+    handler.use(cors({ allowMethods: 'GET,PUT,POST' }))
 
     const event = {
-      allowMethods: 'GET,PUT,POST'
+      httpMethod: 'POST'
     }
 
     const response = await invoke(handler, event)
