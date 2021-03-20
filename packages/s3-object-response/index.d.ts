@@ -5,7 +5,7 @@ import middy from '@middy/core'
 interface Options<S = S3> {
   AwsClient?: new() => S
   awsClientOptions?: Partial<S3.Types.ClientConfiguration>
-  awsClientAssumeRole?: string,
+  awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient
   disablePrefetch?: boolean
   setToContext?: boolean

@@ -1,12 +1,12 @@
 const https = require('https')
-const parseUrl = require('url').parse
-const { PassThrough, pipeline} = require('stream')
+const { URL } = require('url')
+const { PassThrough, pipeline } = require('stream')
 const eventEmitter = require('events')
 
 const {
   canPrefetch,
   createPrefetchClient,
-  createClient,
+  createClient
 } = require('@middy/util')
 
 const S3 = require('aws-sdk/clients/s3.js') // v2
@@ -18,11 +18,9 @@ const defaults = {
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   disablePrefetch: false,
-  //setToEnv: false,
-  setToContext: false // if true return full object contents
+  setToContext: false
 }
 
-// Names: s3-object-response
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
@@ -36,19 +34,19 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    const {inputS3Url, outputRoute, outputToken} = request.event.getObjectContext
+    const { inputS3Url, outputRoute, outputToken } = request.event.getObjectContext
 
     const s3ObjectResponse = {
       outputRoute,
       outputToken
     }
 
-    const parsedInputS3Url = parseUrl(inputS3Url)
+    const parsedInputS3Url = new URL(inputS3Url)
     const fetchOptions = {
       method: 'GET',
       host: parsedInputS3Url.hostname,
       port: parsedInputS3Url.port,
-      path: parsedInputS3Url.path,
+      path: parsedInputS3Url.pathname
     }
 
     if (options.setToContext) {
@@ -59,14 +57,14 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     request.internal.s3ObjectResponse = s3ObjectResponse
   }
 
-  const s3ObjectResponseMiddlewareAfter = async(request) => {
+  const s3ObjectResponseMiddlewareAfter = async (request) => {
     // Docs: https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property
 
-    const {readStream, outputRoute, outputToken} = request.internal.s3ObjectResponse
+    const { readStream, outputRoute, outputToken } = request.internal.s3ObjectResponse
 
     let body = request.response.Body
 
-    if ( isWritableStream(request.response.Body)) {
+    if (isWritableStream(request.response.Body)) {
       body = pipeline(readStream, body)
     }
 
@@ -101,7 +99,7 @@ const fetchPromise = (options) => {
   const stream = fetchStream(options)
   return new Promise((resolve, reject) => {
     let data = ''
-    stream.on('data', chunk => data += chunk)
+    stream.on('data', chunk => { data += chunk })
     stream.on('end', () => resolve(data))
     stream.on('error', error => reject(error))
   })
