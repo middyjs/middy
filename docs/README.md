@@ -626,7 +626,7 @@ Likely your event loop is not empty. This happens when you have a database conne
 - [`error-logger`](/packages/error-logger): Logs errors
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
-- [`cloudwatch-metrics`](): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
