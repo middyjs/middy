@@ -68,16 +68,12 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       body = pipeline(readStream, body)
     }
 
-    await client.writeGetObjectResponse({
+    return client.writeGetObjectResponse({
       ...request.response,
       RequestRoute: outputRoute,
       RequestToken: outputToken,
       Body: body
     })
-
-    return {
-      statusCode: 200
-    }
   }
 
   return {
