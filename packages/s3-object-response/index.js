@@ -83,8 +83,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 }
 
 const fetchStream = (options) => {
-  const s3ObjectRequest = https.request(options)
   const readStream = new PassThrough()
+  const s3ObjectRequest = https.request(options)
   s3ObjectRequest.on('data', chunk => {
     readStream.push(chunk)
   })
@@ -92,12 +92,12 @@ const fetchStream = (options) => {
 }
 
 const fetchPromise = (options) => {
-  const stream = fetchStream(options)
   return new Promise((resolve, reject) => {
     let data = ''
-    stream.on('data', chunk => { data += chunk })
-    stream.on('end', () => resolve(data))
-    stream.on('error', error => reject(error))
+    const s3ObjectRequest = https.request(options)
+    s3ObjectRequest.on('data', chunk => { data += chunk })
+    s3ObjectRequest.on('end', () => resolve(data))
+    s3ObjectRequest.on('error', error => reject(error))
   })
 }
 
