@@ -44,7 +44,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     }
 
     const parsedInputS3Url = parseUrl(inputS3Url)
-    const options = {
+    const fetchOptions = {
       method: 'GET',
       host: parsedInputS3Url.hostname,
       port: parsedInputS3Url.port,
@@ -52,9 +52,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     }
 
     if (options.setToContext) {
-      request.context.s3Object = await fetchPromise(options)
+      request.context.s3Object = await fetchPromise(fetchOptions)
     } else {
-      s3ObjectResponse.readStream = fetchStream(options)
+      s3ObjectResponse.readStream = fetchStream(fetchOptions)
     }
     request.internal.s3ObjectResponse = s3ObjectResponse
   }
