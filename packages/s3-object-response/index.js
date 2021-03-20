@@ -45,7 +45,6 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     const fetchOptions = {
       method: 'GET',
       host: parsedInputS3Url.hostname,
-      port: parsedInputS3Url.port,
       path: parsedInputS3Url.pathname
     }
 
@@ -58,12 +57,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
-    // Docs: https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property
-
     const { readStream, outputRoute, outputToken } = request.internal.s3ObjectResponse
 
     let body = request.response.Body
-
     if (isWritableStream(request.response.Body)) {
       body = pipeline(readStream, body)
     }
@@ -83,21 +79,16 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 }
 
 const fetchStream = (options) => {
-  const readStream = new PassThrough()
-  const s3ObjectRequest = https.request(options)
-  s3ObjectRequest.on('data', chunk => {
-    readStream.push(chunk)
-  })
-  return readStream
+  return https.request(options)
 }
 
 const fetchPromise = (options) => {
   return new Promise((resolve, reject) => {
     let data = ''
-    const s3ObjectRequest = https.request(options)
-    s3ObjectRequest.on('data', chunk => { data += chunk })
-    s3ObjectRequest.on('end', () => resolve(data))
-    s3ObjectRequest.on('error', error => reject(error))
+    const stream = fetchStream(options)
+    stream.on('data', chunk => { data += chunk })
+    stream.on('end', () => resolve(data))
+    stream.on('error', error => reject(error))
   })
 }
 
