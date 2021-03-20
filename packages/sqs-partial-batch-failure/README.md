@@ -53,7 +53,10 @@ import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
 const baseHandler = (event, context) => {
-  const recordPromises = event.Records.map(async (record, index) => { /* Custom message processing logic */ })
+  const recordPromises = event.Records.map(async (record, index) => { 
+    /* Custom message processing logic */
+    return record
+  })
   return Promise.allSettled(recordPromises)
 }
 
