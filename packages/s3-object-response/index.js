@@ -64,12 +64,11 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
     const {readStream, outputRoute, outputToken} = request.internal.s3ObjectResponse
 
-    let body = request.response.body
+    let body = request.response.Body
 
-    if ( isWritableStream(request.response.body)) {
+    if ( isWritableStream(request.response.Body)) {
       body = pipeline(readStream, body)
     }
-    delete request.response.body
 
     await client.writeGetObjectResponse({
       ...request.response,
