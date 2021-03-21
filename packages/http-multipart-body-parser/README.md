@@ -59,7 +59,7 @@ If you really have to deal with big files, then you might also want to consider 
 
 ```javascript
 const middy = require('@middy/core')
-const { httpMultipartBodyParser } = require('@middy/http-multipart-body-parser')
+const httpMultipartBodyParser = require('@middy/http-multipart-body-parser')
 const handler = middy((event, context, cb) => {
   cb(null, {})
 })
