@@ -184,4 +184,27 @@ describe('📦  Middleware Multipart Form Data Body Parser', () => {
     expect(Object.keys(response)).toContain('foo')
     expect(response.foo.length).toEqual(2)
   })
+
+  test('It should parse a field with multiple files succesfullly', async () => {
+    const handler = middy((event, context, cb) => {
+      cb(null, event.body) // propagates the body as a response
+    })
+
+    handler.use(httpMultipartBodyParser())
+
+    const event = {
+      headers: {
+        'content-type': 'multipart/form-data; boundary=---------------------------237588144631607450464127370583'
+      },
+      body: 'LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDIudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDEudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDMudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMtLQ0K',
+      isBase64Encoded: true
+    }
+    const response = await invoke(handler, event)
+    // response:
+    // {
+    //   files: [ {filename: 't1.txt'}, {filename: 't2.txt'}, {filename: 't3.txt'} ]   -- and other properties inside each object
+    // }
+    expect(Object.keys(response)).toContain('files')
+    expect(response.files.length).toEqual(3)
+  })
 })
