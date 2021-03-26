@@ -53,10 +53,6 @@ npm install --save @middy/http-cors
  - `requestMethods` (string) (optional): value to put in `Access-Control-Request-Mehtods` (default: `false`)
  - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
 
-NOTES:
-- If another middleware does not handle and swallow errors, then it will bubble all the way up 
-and terminate the Lambda invocation with an error. In this case API Gateway would return a default 502 response, and the CORS headers would be lost. To prevent this, you should use the `httpErrorHandler` middleware before the `cors` middleware like this:
-
 ```javascript
 import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'

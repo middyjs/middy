@@ -10,8 +10,8 @@
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Frds-signer">
-    <img src="https://badge.fury.io/js/%40middy%2Frds-signer.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fsts">
+    <img src="https://badge.fury.io/js/%40middy%2Fsts.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -32,7 +32,7 @@ Fetches STS credentials to be used when connecting to other AWS services.
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/rds-signer
+npm install --save @middy/sts
 ```
 
 
@@ -43,7 +43,7 @@ npm install --save @middy/rds-signer
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `rds-signer`): Internal cache key for the fetched data responses.
+- `cacheKey` (string) (default `sts`): Internal cache key for the fetched data responses.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 

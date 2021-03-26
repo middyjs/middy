@@ -245,7 +245,7 @@ it gets sent to the user.
 
 Some middlewares might need to stop the whole execution flow and return a response immediately.
 
-If you want to do this you can invoke `retunr response` in your middleware.
+If you want to do this you can invoke `return response` in your middleware.
 
 **Note**: this will totally stop the execution of successive middlewares in any phase (`before`, `after`, `onError`) and returns
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
@@ -551,7 +551,7 @@ middy(baseHandler)
   // Incase you want to add values on to internal directly
   .before((async (request) => {
     request.internal = {
-      env: provess.env.NODE_ENV
+      env: process.env.NODE_ENV
     }
   }))
   .use(sts(...))
@@ -626,6 +626,7 @@ Likely your event loop is not empty. This happens when you have a database conne
 - [`error-logger`](/packages/error-logger): Logs errors
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
