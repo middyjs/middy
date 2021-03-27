@@ -22,7 +22,7 @@ const defaults = {
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  if (!['stream','promise'].includes(options.bodyType)) throw new Error('bodyType is invalid.')
+  if (!['stream', 'promise'].includes(options.bodyType)) throw new Error('bodyType is invalid.')
 
   let client
   if (canPrefetch(options)) {
@@ -63,7 +63,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       ...request.internal.s3ObjectResponse,
       Body: request.response.Body ?? request.response.body
     }).promise()
-      .then(() => ({ statusCode: 200 }))  // TODO test if needed
+      .then(() => ({ statusCode: 200 })) // TODO test if needed
   }
 
   return {
