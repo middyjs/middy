@@ -8,7 +8,7 @@ interface Options<S = S3> {
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient
   disablePrefetch?: boolean
-  bodyType: string
+  bodyType?: string
 }
 
 declare function s3ObjectResponse (options?: Options): middy.MiddlewareObj
