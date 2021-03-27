@@ -1,4 +1,4 @@
-# Middy intput-out-logger middleware
+# Middy s3-object-response middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
@@ -24,6 +24,8 @@
   </a>
 </p>
 </div>
+
+** This middleware is a Proof of Concept and requires real world testing before use, not recommended for production **
 
 Fetches S3 object as a stream and writes back to s3 object response.
 
