@@ -45,9 +45,6 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "dependencies": {
-    "@middy/util": "^2.0.0-beta.0"
-  },
   "devDependencies": {
     "@middy/core": "^2.0.0-beta.0",
     "aws-sdk": "^2.804.0",

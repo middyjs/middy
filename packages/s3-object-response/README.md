@@ -37,36 +37,42 @@ npm install --save @middy/s3-object-response
 
 
 ## Options
-
+- `bodyType` (string) (required): How to pass in the s3 object through the handler. Can be `stream` or `promise`.
 - `AwsClient` (object) (default `AWS.S3`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 
 NOTES:
 - The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
-- `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
 
 ## Sample usage
-### Streams
+### Stream
 ```javascript
+const { pipeline } = require('stream')
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
 
 const handler = middy((event, context) => {
+  const readStream = context.s3Object
+  const transformStream = zlib.createBrotliCompress()
   return {
-    Body: zlib.createBrotliCompress() // This will be pipelined with the input read stream
+    Body: pipeline(
+      readStream,
+      transformStream
+    )
   }
 })
 
 handler
-  .use(s3ObjectResponse())
+  .use(s3ObjectResponse({
+    bodyType: 'stream'
+  }))
 ```
 
-### 
+### Promise
 ```javascript
 import zlib from 'zlib'
 import middy from '@middy/core'
@@ -82,7 +88,7 @@ const handler = middy(async (event, context) => {
 
 handler
   .use(s3ObjectResponse({
-    setToContext: true
+    bodyType: 'promise'
   }))
 ```
 

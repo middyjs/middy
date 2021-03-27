@@ -1,7 +1,5 @@
 const https = require('https')
 const { URL } = require('url')
-const { PassThrough, pipeline } = require('stream')
-const eventEmitter = require('events')
 
 const {
   canPrefetch,
@@ -18,11 +16,13 @@ const defaults = {
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   disablePrefetch: false,
-  setToContext: false
+  bodyType: undefined  // 'stream' or 'promise'
 }
 
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
+
+  if (!options.bodyType) throw new Error(`bodyType is required.`)
 
   let client
   if (canPrefetch(options)) {
@@ -36,9 +36,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
     const { inputS3Url, outputRoute, outputToken } = request.event.getObjectContext
 
-    const s3ObjectResponse = {
-      outputRoute,
-      outputToken
+    request.internal.s3ObjectResponse = {
+      RequestRoute: outputRoute,
+      RequestToken: outputToken,
     }
 
     const parsedInputS3Url = new URL(inputS3Url)
@@ -49,26 +49,17 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     }
 
     if (options.setToContext) {
-      request.context.s3Object = await fetchPromise(fetchOptions)
+      request.context.s3Object = fetchPromise(fetchOptions)
     } else {
-      s3ObjectResponse.readStream = fetchStream(fetchOptions)
+      request.context.s3Object = fetchStream(fetchOptions)
     }
-    request.internal.s3ObjectResponse = s3ObjectResponse
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
-    const { readStream, outputRoute, outputToken } = request.internal.s3ObjectResponse
-
-    let body = request.response.Body
-    if (isWritableStream(request.response.Body)) {
-      body = pipeline(readStream, body)
-    }
-
     return client.writeGetObjectResponse({
       ...request.response,
-      RequestRoute: outputRoute,
-      RequestToken: outputToken,
-      Body: body
+      ...request.internal.s3ObjectResponse,
+      Body: request.response.Body ?? request.response.body
     })
   }
 
@@ -90,10 +81,6 @@ const fetchPromise = (options) => {
     stream.on('end', () => resolve(data))
     stream.on('error', error => reject(error))
   })
-}
-
-const isWritableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.write === 'function' && typeof body.end === 'function'
 }
 
 module.exports = s3ObjectResponseMiddleware
