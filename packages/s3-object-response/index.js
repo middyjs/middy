@@ -16,7 +16,7 @@ const defaults = {
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   disablePrefetch: false,
-  bodyType: undefined  // 'stream' or 'promise'
+  bodyType: undefined
 }
 
 const s3ObjectResponseMiddleware = (opts = {}) => {
@@ -30,10 +30,6 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    if (!client) {
-      client = await createClient(options, request)
-    }
-
     const { inputS3Url, outputRoute, outputToken } = request.event.getObjectContext
 
     request.internal.s3ObjectResponse = {
@@ -48,19 +44,28 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       path: parsedInputS3Url.pathname
     }
 
-    if (options.setToContext) {
-      request.context.s3Object = fetchPromise(fetchOptions)
+    let s3Object
+    if (options.bodyType === 'stream') {
+      s3Object = fetchStream(fetchOptions)
+    } else if (options.bodyType === 'promise') {
+      s3Object = fetchPromise(fetchOptions)
     } else {
-      request.context.s3Object = fetchStream(fetchOptions)
+      throw new Error('bodyType value unsupported.')
     }
+    request.context.s3Object = s3Object
+
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
+    if (!client) {
+      client = await createClient(options, request)
+    }
+
     return client.writeGetObjectResponse({
       ...request.response,
       ...request.internal.s3ObjectResponse,
       Body: request.response.Body ?? request.response.body
-    })
+    }).promise()
   }
 
   return {
