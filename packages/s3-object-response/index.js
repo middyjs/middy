@@ -22,7 +22,7 @@ const defaults = {
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  if (!options.bodyType) throw new Error('bodyType is required.')
+  if (!['stream','promise'].includes(options.bodyType)) throw new Error('bodyType is invalid.')
 
   let client
   if (canPrefetch(options)) {
@@ -49,8 +49,6 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       s3Object = fetchStream(fetchOptions)
     } else if (options.bodyType === 'promise') {
       s3Object = fetchPromise(fetchOptions)
-    } else {
-      throw new Error('bodyType value unsupported.')
     }
     request.context.s3Object = s3Object
   }
@@ -65,7 +63,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       ...request.internal.s3ObjectResponse,
       Body: request.response.Body ?? request.response.body
     }).promise()
-      .then(() => ({ statusCode: 200 }))
+      .then(() => ({ statusCode: 200 }))  // TODO test if needed
   }
 
   return {
