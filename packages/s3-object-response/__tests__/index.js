@@ -41,11 +41,11 @@ const mockHttps = (mockResponse) => {
 
   https.request = () => mockStream
 
-  sinon.spy(mockStream, 'pipe');
+  sinon.spy(mockStream, 'pipe')
   return https
 }
 
-const isReadableStream = (body) =>  {
+const isReadableStream = (body) => {
   return body instanceof eventEmitter && typeof body.read === 'function'
 }
 
@@ -57,12 +57,12 @@ const event = {
   getObjectContext: {
     inputS3Url: 'https://s3.amazonservices.com/key?signature',
     outputRoute: 'https://s3.amazonservices.com/key',
-    outputToken:'token'
+    outputToken: 'token'
   }
 }
 
 test.serial('It should pass a stream to handler', async (t) => {
-  mockService(S3, {statusCode: 200})
+  mockService(S3, { statusCode: 200 })
   s3ObejctResponse.__set__('https', mockHttps('hello world'))
 
   const handler = middy((event, context) => {
@@ -86,7 +86,7 @@ test.serial('It should pass a stream to handler', async (t) => {
 })
 
 test.serial('It should pass a promise to handler', async (t) => {
-  mockService(S3, {statusCode: 200})
+  mockService(S3, { statusCode: 200 })
   s3ObejctResponse.__set__('https', mockHttps('hello world'))
 
   const handler = middy(async (event, context) => {
@@ -108,5 +108,3 @@ test.serial('It should pass a promise to handler', async (t) => {
   const response = await handler(event)
   t.deepEqual(200, response.statusCode)
 })
-
-

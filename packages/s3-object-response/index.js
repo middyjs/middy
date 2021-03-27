@@ -22,7 +22,7 @@ const defaults = {
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  if (!options.bodyType) throw new Error(`bodyType is required.`)
+  if (!options.bodyType) throw new Error('bodyType is required.')
 
   let client
   if (canPrefetch(options)) {
@@ -34,7 +34,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
     request.internal.s3ObjectResponse = {
       RequestRoute: outputRoute,
-      RequestToken: outputToken,
+      RequestToken: outputToken
     }
 
     const parsedInputS3Url = new URL(inputS3Url)
@@ -53,7 +53,6 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       throw new Error('bodyType value unsupported.')
     }
     request.context.s3Object = s3Object
-
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
@@ -66,7 +65,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       ...request.internal.s3ObjectResponse,
       Body: request.response.Body ?? request.response.body
     }).promise()
-      .then(() => ({statusCode: 200}))
+      .then(() => ({ statusCode: 200 }))
   }
 
   return {
