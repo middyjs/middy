@@ -49,10 +49,6 @@ const isReadableStream = (body) => {
   return body instanceof eventEmitter && typeof body.read === 'function'
 }
 
-const isWritableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.write === 'function' && typeof body.end === 'function'
-}
-
 const event = {
   getObjectContext: {
     inputS3Url: 'https://s3.amazonservices.com/key?signature',
@@ -66,7 +62,7 @@ test.serial('It should pass a stream to handler', async (t) => {
   s3ObejctResponse.__set__('https', mockHttps('hello world'))
 
   const handler = middy((event, context) => {
-    t.true(isReadableStream(context.s3Object) || isWritableStream(context.s3Object))
+    t.true(isReadableStream(context.s3Object))
 
     return {
       Body: context.s3Object
