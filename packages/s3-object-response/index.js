@@ -66,6 +66,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       ...request.internal.s3ObjectResponse,
       Body: request.response.Body ?? request.response.body
     }).promise()
+      .then(() => ({statusCode: 200}))
   }
 
   return {

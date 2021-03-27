@@ -50,7 +50,6 @@ NOTES:
 ## Sample usage
 ### Stream
 ```javascript
-const { pipeline } = require('stream')
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
@@ -59,10 +58,7 @@ const handler = middy((event, context) => {
   const readStream = context.s3Object
   const transformStream = zlib.createBrotliCompress()
   return {
-    Body: pipeline(
-      readStream,
-      transformStream
-    )
+    Body: readStream.pipe(transformStream)
   }
 })
 
