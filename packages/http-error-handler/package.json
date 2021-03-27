@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "2.0.0-beta.0",
+  "version": "2.0.0-beta.1",
   "description": "Http error handler middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -47,10 +47,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.0.0-beta.0"
+    "@middy/util": "^2.0.0-beta.1"
   },
   "devDependencies": {
-    "@middy/core": "^2.0.0-beta.0",
+    "@middy/core": "^2.0.0-beta.1",
     "@types/http-errors": "^1.8.0",
     "http-errors": "^1.8.0"
   },

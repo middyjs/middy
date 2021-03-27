@@ -6,6 +6,7 @@ on:
       - "**"
     tags-ignore:
       - "*.*.*"
+  pull_request: {}
 
 jobs:
   tests:

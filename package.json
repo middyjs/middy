@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "2.0.0-beta.0",
+  "version": "2.0.0-beta.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "type": "commonjs",
   "engines": {
@@ -48,20 +48,20 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
-    "@babel/cli": "^7.12.13",
-    "@babel/core": "^7.12.13",
-    "@babel/preset-env": "^7.12.13",
+    "@babel/cli": "^7.13.10",
+    "@babel/core": "^7.13.13",
+    "@babel/preset-env": "^7.13.12",
     "ava": "^3.15.0",
-    "c8": "^7.5.0",
+    "c8": "^7.6.0",
     "eslint-plugin-import": "^2.22.1",
-    "husky": "^4.3.8",
-    "lerna": "^3.22.1",
-    "lint-staged": "^10.5.3",
+    "husky": "^5.2.0",
+    "lerna": "^4.0.0",
+    "lint-staged": "^10.5.4",
     "prettier": "2.2.1",
-    "sinon": "^9.2.4",
+    "sinon": "^10.0.0",
     "ts-standard": "^10.0.0",
     "tsd": "^0.14.0",
-    "typescript": "^4.1.5"
+    "typescript": "^4.2.3"
   },
   "husky": {
     "hooks": {

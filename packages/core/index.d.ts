@@ -46,6 +46,7 @@ interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error> {
     after: Array<MiddlewareFn<TEvent, TResult, TErr>>
     onError: Array<MiddlewareFn<TEvent, TResult, TErr>>
   }
+  (event: TEvent, context: LambdaContext): Promise<TResult>
 }
 
 declare type AttachMiddlewareFn<TEvent = any, TResult = any, TErr = Error> = (middleware: MiddlewareFn) => MiddyfiedHandler<TEvent, TResult, TErr>
