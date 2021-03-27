@@ -29,7 +29,7 @@ jobs:
           npm install
       - name: Build as Commonjs for Node.js v12
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- babel --root-mode upward index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Release
         run: |
           npm run lerna:publish
