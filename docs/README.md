@@ -655,6 +655,7 @@ Likely your event loop is not empty. This happens when you have a database conne
 - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 - [`sts`](/packages/sts): Fetches credentials to assumes IAM roles for connection to other AWS services.
 - [`s3-object-response`](/packages/s3-object-response): Gets and write S3 object response.
+
 ### Community generated middleware
 
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 

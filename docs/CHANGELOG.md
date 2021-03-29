@@ -5,7 +5,7 @@ Checkout [`UPGRADE.md`](/docs/UPGRADE.md) to see what are the main breaking chan
 Focus this version was on performance and security by default.
 
 ## Additions
-- New middlewares (`rds-signer`, `sts`)
+- New middlewares (`rds-signer`, `sts`, `s3-object-response`)
 - New plugin hook for `core` to allow easier bottleneck detection with middlewares and handler
 
 ## Breaking Changes
@@ -31,6 +31,8 @@ Focus this version was on performance and security by default.
 
 ## Thanks to
 - @lmammino: For discussions to bounce and talk through ideas. Code audit/review & TypeScript definitions.
+- @markcarroll: TypeScript bug fix #630
+- @huyennbl: Muti-file parsing support #634
 - @ffxsam: For reporting #609.
 - @raae & @AyoAlfonso: For `expose` support in `http-error-handler` #610.
 - @nfantone: For improved response default handling #615

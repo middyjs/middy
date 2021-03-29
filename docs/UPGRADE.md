@@ -116,6 +116,9 @@ New middleware to fetch RDS credential used when connecting with IAM roles. This
 ### [s3-key-normalizer](/packages/s3-key-normalizer/README.md)
 No change
 
+### [s3-object-response](/packages/s3-object-response/README.md)
+New middleware to fetch and respond to S3 Object Get request event.
+
 ### [secrets-manager](/packages/secrets-manager/README.md)
 Refactored, see documentation
 
