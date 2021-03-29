@@ -651,10 +651,10 @@ Likely your event loop is not empty. This happens when you have a database conne
 
 ### Fetch Data
 - [`rds-signer`](/packages/rds-signer): Fetches token for connecting to RDS with IAM users.
+- [`s3-object-response`](/packages/s3-object-response): Gets and write S3 object response.
 - [`secrets-manager`](/packages/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
 - [`ssm`](/packages/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 - [`sts`](/packages/sts): Fetches credentials to assumes IAM roles for connection to other AWS services.
-- [`s3-object-response`](/packages/s3-object-response): Gets and write S3 object response.
 
 ### Community generated middleware
 
