@@ -49,7 +49,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@hapi/accept": "5.0.1",
+    "@hapi/accept": "5.0.2",
     "@middy/util": "^2.0.0-beta.1",
     "http-errors": "1.8.0"
   },
