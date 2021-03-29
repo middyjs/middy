@@ -704,7 +704,8 @@ Have a similar project? Let us know.
 - [2020 Review](https://github.com/middyjs/middy/issues/590) from @willfarrell
 - 2021: [v2.0.0 Coming soon](https://github.com/middyjs/middy/issues/585)
 - 2021-01-24: v2.0.0-alpha
-- 2021-03: v2.0.0-beta
+- 2021-03-12: v2.0.0-beta
+- 2021-04-01: v2.0.0
 
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
