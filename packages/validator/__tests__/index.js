@@ -89,9 +89,9 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
       {
-        dataPath: '',
+        instancePath: '',
         keyword: 'required',
-        message: 'should have required property foo',
+        message: 'must have required property foo',
         params: { missingProperty: 'foo' },
         schemaPath: '#/required'
       }
@@ -137,7 +137,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
       {
-        dataPath: '',
+        instancePath: '',
         keyword: 'required',
         message: 'requiert la propriété foo',
         params: { missingProperty: 'foo' },
@@ -185,7 +185,7 @@ test('It should handle invalid schema as a BadRequest in a different language (w
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
       {
-        dataPath: '',
+        instancePath: '',
         keyword: 'required',
         message: 'deve ter a propriedade obrigatória foo',
         params: { missingProperty: 'foo' },
@@ -272,14 +272,14 @@ test('It should not allow bad email format', async (t) => {
     // This same email is not a valid one in 'full' validation mode
     await handler({ email: 'abc@abc' })
   } catch (err) {
-    t.is(err.details[0].message, 'should match format "email"')
+    t.is(err.details[0].message, 'must match format "email"')
   }
 })
 
 test('It should error when unsupported keywords used (input)', async (t) => {
   const schema = {
     type: 'object',
-    somethingnew: 'should be an object with an integer property foo only'
+    somethingnew: 'must be an object with an integer property foo only'
   }
 
   const handler = middy((event, context) => {
@@ -297,7 +297,7 @@ test('It should error when unsupported keywords used (input)', async (t) => {
 test('It should error when unsupported keywords used (output)', async (t) => {
   const schema = {
     type: 'object',
-    somethingnew: 'should be an object with an integer property foo only'
+    somethingnew: 'must be an object with an integer property foo only'
   }
 
   const handler = middy((event, context) => {
@@ -320,7 +320,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     properties: {
       foo: { type: 'integer' }
     },
-    errorMessage: 'should be an object with an integer property foo only'
+    errorMessage: 'must be an object with an integer property foo only'
   }
 
   const handler = middy((event, context) => {
@@ -334,11 +334,11 @@ test('It should error when unsupported keywords used (output)', async (t) => {
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [{
-      dataPath: '',
+      instancePath: '',
       keyword: 'errorMessage',
       params: {
         errors: [{
-          dataPath: '/foo',
+          instancePath: '/foo',
           emUsed: true,
           keyword: 'type',
           params: {
@@ -348,7 +348,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
         }]
       },
       schemaPath: '#/errorMessage',
-      message: 'should be an object with an integer property foo only'
+      message: 'must be an object with an integer property foo only'
     }])
   }
 }) */

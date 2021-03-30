@@ -45,10 +45,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "ajv": "7.2.4",
-    "ajv-formats": "1.5.1",
+    "ajv": "8.0.1",
+    "ajv-formats": "2.0.1",
     "ajv-formats-draft2019": "1.4.3",
-    "ajv-i18n": "3.6.0",
+    "ajv-i18n": "4.0.0",
     "http-errors": "1.8.0"
   },
   "devDependencies": {

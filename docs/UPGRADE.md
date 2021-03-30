@@ -135,7 +135,7 @@ Refactored, see documentation
 New middleware to fetch assume role credentials.
 
 ### [validator](/packages/validator/README.md)
-Upgraded `ajv` and it's plugins to support JSON Schema Draft 2019-09 specification. Defaults were change because of this.
+Upgraded `ajv` and it's plugins to support JSON Schema Draft 2020-12 specification. Defaults were change because of this.
 - Plugin `ajv-keywords` removed from being included by default because it's quite a large package and usually only one keyword is used.
 - Plugin `ajv-errors` removed from included by default because it conflicts with `ajv-i18n` when dealing with custom messages for multiple languages
 
