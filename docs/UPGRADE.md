@@ -139,9 +139,6 @@ Upgraded `ajv` and it's plugins to support JSON Schema Draft 2020-12 specificati
 - Plugin `ajv-keywords` removed from being included by default because it's quite a large package and usually only one keyword is used.
 - Plugin `ajv-errors` removed from included by default because it conflicts with `ajv-i18n` when dealing with custom messages for multiple languages
 
-Note: 
-- `avj-errors` maybe be re-added back in before v2-alpha is released based on ajv v8 development. See https://github.com/ajv-validator/ajv-errors/issues/81 for discussion.
-
 ### warmup
 Deprecated. This was a work round for a missing feature in AWS Lambda. AWS added in the ability to use [provisioned concurrency](https://aws.amazon.com/blogs/aws/new-provisioned-concurrency-for-lambda-functions/)
 on 2019-12-03, removing the need for this work around.
