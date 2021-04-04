@@ -312,7 +312,7 @@ test('If there is an error in the after middlewares the error middlewares are in
   }
 })
 
-test('If theres an error and one error middleware handles the error, the next error middlewares is executed', async (t) => {
+test('If theres an error and one error middleware handles the error, the next error middlewares is not executed', async (t) => {
   const expectedResponse = { message: 'error handled' }
 
   const handler = middy(() => {
