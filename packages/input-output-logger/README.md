@@ -1,4 +1,4 @@
-# Middy intput-out-logger middleware
+# Middy input-out-logger middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
