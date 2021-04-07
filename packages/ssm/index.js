@@ -106,7 +106,7 @@ const ssmMiddleware = (opts = {}) => {
             }
           })
         )
-        if (resp.NextToken) return fetchPath(path, resp.nextToken, values)
+        if (resp.NextToken) return fetchPath(path, resp.NextToken, values)
         return values
       })
   }
