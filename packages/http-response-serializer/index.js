@@ -12,7 +12,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     const responseHeaders = getNormalisedHeaders(request.response.headers)
 
     // skip serialization when content-type is already set
-    if (responseHeaders['content-type']) {
+    if (responseHeaders['content-type'] ?? responseHeaders['Content-Type']) {
       return
     }
 
