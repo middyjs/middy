@@ -74,7 +74,7 @@ const compile = (schema, ajvOptions, ajvInstance = null) => {
   if (typeof schema === 'function' || !schema) return schema
   const options = { ...ajvDefaults, ...ajvOptions }
   if (!ajv) {
-    ajv = ajvInstance || new Ajv(options)
+    ajv = ajvInstance ?? new Ajv(options)
     formats(ajv)
     formatsDraft2019(ajv)
   }
@@ -94,7 +94,7 @@ const languageNormalizationMap = {
 }
 
 const normalizePreferredLanguage = (lang) =>
-  languageNormalizationMap[lang] || lang
+  languageNormalizationMap[lang] ?? lang
 
 const availableLanguages = Object.keys(localize)
 const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {

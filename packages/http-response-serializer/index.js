@@ -26,8 +26,8 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
       types = [].concat(
         (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) ||
           [],
-        requestEvent.preferredContentType || [],
-        options.default || []
+        requestEvent.preferredContentType ?? [],
+        options.default ?? []
       )
     }
 
