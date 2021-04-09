@@ -11,9 +11,13 @@
   <a href="http://badge.fury.io/js/%40middy%2Fcore">
     <img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;">
   </a>
+  <a href="https://packagephobia.com/result?p=@middy/core">
+    <img src="https://packagephobia.com/badge?p=@middy/core" alt="npm install size" style="max-width:100%;">
+  </a>
   <a href="https://github.com/middyjs/middy/actions">
     <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
   </a>
+  <br/>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
@@ -32,6 +36,7 @@
   </a>
 </p>
 </div>
+
 
 ⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
 
