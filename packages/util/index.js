@@ -100,8 +100,10 @@ const getInternal = async (variables, request) => {
     {}
   )
 }
+const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
+const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
 const sanitizeKey = (key) => {
-  return key.replace(/^([0-9])/, '_$1').replace(/[^a-zA-Z0-9]+/g, '_')
+  return key.replace(sanitizeKeyPrefixLeadingNumber, '_$1').replace(sanitizeKeyRemoveDisallowedChar, '_')
 }
 
 // fetch Cache

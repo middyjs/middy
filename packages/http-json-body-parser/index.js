@@ -1,30 +1,26 @@
-const createError = require('http-errors')
-const contentType = require('content-type')
+const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
 const defaults = {}
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
-    if (request.event.headers) {
-      const contentTypeHeader =
-        request.event.headers['content-type'] ||
-        request.event.headers['Content-Type']
-      if (contentTypeHeader) {
-        const { type } = contentType.parse(contentTypeHeader)
-        if (type.match(/^application\/(.*\+)?json$/)) {
-          try {
-            const data = request.event.isBase64Encoded
-              ? Buffer.from(request.event.body, 'base64').toString()
-              : request.event.body
+    const { headers, body } = request.event
 
-            request.event.body = JSON.parse(data, options.reviver)
-          } catch (err) {
-            throw new createError.UnprocessableEntity(
-              'Content type defined as JSON but an invalid JSON was provided'
-            )
-          }
-        }
+    const contentTypeHeader = headers?.['Content-Type'] ?? headers?.['content-type']
+
+    if (mimePattern.test(contentTypeHeader)) {
+      try {
+        const data = request.event.isBase64Encoded
+          ? Buffer.from(body, 'base64').toString()
+          : body
+
+        request.event.body = JSON.parse(data, options.reviver)
+      } catch (err) {
+        const createError = require('http-errors')
+        throw new createError.UnprocessableEntity(
+          'Content type defined as JSON but an invalid JSON was provided'
+        )
       }
     }
   }

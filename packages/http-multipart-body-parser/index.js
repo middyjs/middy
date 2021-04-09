@@ -1,6 +1,6 @@
 const BusBoy = require('busboy')
-const contentTypeLib = require('content-type')
-const createError = require('http-errors')
+const mimePattern = /^multipart\/form-data(;.*)?$/
+const fieldnamePattern = /(.+)\[(.*)]$/
 
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const defaults = {
@@ -12,27 +12,21 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
     const { headers } = request.event
-    if (!headers) {
-      return
-    }
 
     const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
-    if (contentType) {
-      const { type } = contentTypeLib.parse(contentType)
-      if (type !== 'multipart/form-data') {
-        return
-      }
 
-      return parseMultipartData(request.event, options.busboy)
-        .then((multipartData) => {
-          request.event.body = multipartData
-        })
-        .catch((_) => {
-          throw new createError.UnprocessableEntity(
-            'Invalid or malformed multipart/form-data was provided'
-          )
-        })
-    }
+    if (!mimePattern.test(contentType)) return
+
+    return parseMultipartData(request.event, options.busboy)
+      .then((multipartData) => {
+        request.event.body = multipartData
+      })
+      .catch((e) => {
+        const createError = require('http-errors')
+        throw new createError.UnprocessableEntity(
+          'Invalid or malformed multipart/form-data was provided'
+        )
+      })
   }
 
   return {
@@ -69,7 +63,7 @@ const parseMultipartData = (event, options) => {
       })
     })
       .on('field', (fieldname, value) => {
-        const matches = fieldname.match(/(.+)\[(.*)]$/)
+        const matches = fieldname.match(fieldnamePattern)
         if (!matches) {
           multipartData[fieldname] = value
         } else {
