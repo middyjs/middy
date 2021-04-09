@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "ava",
+    "test:unit": "ava"
   },
   "license": "MIT",
   "keywords": [
