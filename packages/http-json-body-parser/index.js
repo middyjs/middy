@@ -1,20 +1,19 @@
-
-const mimePattern = new RegExp(/^application\/(.+\+)?json(;.*)?$/)
+const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
 const defaults = {}
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
-    if (!request.event?.headers) return
+    const { headers, body } = request.event
 
-    const contentTypeHeader = request.event?.headers['content-type'] ?? request.event?.headers['Content-Type']
+    const contentTypeHeader = headers?.['Content-Type'] ?? headers?.['content-type']
 
     if (mimePattern.test(contentTypeHeader)) {
       try {
         const data = request.event.isBase64Encoded
-          ? Buffer.from(request.event.body, 'base64').toString()
-          : request.event.body
+          ? Buffer.from(body, 'base64').toString()
+          : body
 
         request.event.body = JSON.parse(data, options.reviver)
       } catch (err) {

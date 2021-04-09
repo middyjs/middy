@@ -1,4 +1,5 @@
-const normalizeKey = (key) => decodeURIComponent(key.replace(/\+/g, ' '))
+const normalizeKeyReplacePlus = /\+/g
+const normalizeKey = (key) => decodeURIComponent(key.replace(normalizeKeyReplacePlus, ' '))
 
 const s3KeyNormalizerMiddlewareBefore = async (request) => {
   if (request.event.Records && Array.isArray(request.event.Records)) {

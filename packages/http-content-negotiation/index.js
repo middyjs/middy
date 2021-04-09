@@ -1,4 +1,3 @@
-const HTTPErrors = require('http-errors')
 const charset = require('negotiator/lib/charset.js')
 const encoding = require('negotiator/lib/encoding.js')
 const language = require('negotiator/lib/language.js')
@@ -23,46 +22,45 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
 
   const httpContentNegotiationMiddlewareBefore = async (request) => {
     const { event } = request
-    if (event.headers) {
-      if (options.parseCharsets) {
-        parseHeader(
-          'Accept-Charset',
-          'charset',
-          options.availableCharsets,
-          options.failOnMismatch,
-          event
-        )
-      }
+    if (!event.headers) return
+    if (options.parseCharsets) {
+      parseHeader(
+        'Accept-Charset',
+        'charset',
+        options.availableCharsets,
+        options.failOnMismatch,
+        event
+      )
+    }
 
-      if (options.parseEncodings) {
-        parseHeader(
-          'Accept-Encoding',
-          'encoding',
-          options.availableEncodings,
-          options.failOnMismatch,
-          event
-        )
-      }
+    if (options.parseEncodings) {
+      parseHeader(
+        'Accept-Encoding',
+        'encoding',
+        options.availableEncodings,
+        options.failOnMismatch,
+        event
+      )
+    }
 
-      if (options.parseLanguages) {
-        parseHeader(
-          'Accept-Language',
-          'language',
-          options.availableLanguages,
-          options.failOnMismatch,
-          event
-        )
-      }
+    if (options.parseLanguages) {
+      parseHeader(
+        'Accept-Language',
+        'language',
+        options.availableLanguages,
+        options.failOnMismatch,
+        event
+      )
+    }
 
-      if (options.parseMediaTypes) {
-        parseHeader(
-          'Accept',
-          'mediaType',
-          options.availableMediaTypes,
-          options.failOnMismatch,
-          event
-        )
-      }
+    if (options.parseMediaTypes) {
+      parseHeader(
+        'Accept',
+        'mediaType',
+        options.availableMediaTypes,
+        options.failOnMismatch,
+        event
+      )
     }
   }
 
@@ -82,13 +80,13 @@ const parseHeader = (
   const plural = singular + 's'
   const resultsName = `preferred${plural}`
   const resultName = `preferred${singular}`
-  const headerValue =
-    event?.headers?.[headerName.toLowerCase()] ?? event.headers?.[headerName]
+  const headerValue = event.headers[headerName] ?? event.headers[headerName.toLowerCase()]
   event[resultsName] = parseFn[type](headerValue, availableValues)
   event[resultName] = event[resultsName][0]
 
   if (typeof event[resultName] === 'undefined' && failOnMismatch) {
-    throw new HTTPErrors.NotAcceptable(
+    const createError = require('http-errors')
+    throw new createError.NotAcceptable(
       `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
     )
   }
