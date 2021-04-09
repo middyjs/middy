@@ -8,9 +8,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
   const httpResponseSerializerMiddlewareAfter = async (request) => {
     request.response = normalizeHttpResponse(request.response)
     // skip serialization when content-type is already set
-    if (request.response.headers['content-type'] || request.response.headers['Content-Type']) {
-      return
-    }
+    if (request.response.headers['Content-Type'] || request.response.headers['content-type']) return
 
     // find accept value(s)
     let types
@@ -28,9 +26,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     }
 
     // dont bother finding a serializer if no types are given
-    if (!types.length) {
-      return
-    }
+    if (!types.length) return
 
     // find in order of first preferred type that has a matching serializer
     types.find((type) =>

@@ -11,7 +11,7 @@
     "access": "public"
   },
   "scripts": {
-    "test": "npm run test:typings && npm run test:unit",
+    "test": "npm run test:unit",
     "test:unit": "ava"
   },
   "license": "MIT",

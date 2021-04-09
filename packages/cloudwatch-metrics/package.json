@@ -16,9 +16,8 @@
     "index.d.ts"
   ],
   "scripts": {
-    "test": "npm run test:typings && npm run test:unit",
+    "test": "npm run test:unit",
     "test:unit": "ava",
-    "test:typings": "typings-tester --config tsconfig.json index.d.ts"
   },
   "license": "MIT",
   "keywords": [

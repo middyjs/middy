@@ -21,7 +21,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
       .then((multipartData) => {
         request.event.body = multipartData
       })
-      .catch((e) => {
+      .catch(() => {
         const createError = require('http-errors')
         throw new createError.UnprocessableEntity(
           'Invalid or malformed multipart/form-data was provided'
