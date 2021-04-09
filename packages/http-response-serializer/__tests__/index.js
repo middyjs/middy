@@ -28,7 +28,7 @@ const createHttpResponse = () => ({
   body: 'Hello World'
 })
 
-for (const [key] of [['Content-Type'], ['content-type'], ['CONTENT-TYPE']]) {
+for (const [key] of [['Content-Type'], ['content-type']]) {
   test(`${key} skips response serialization`, async (t) => {
     const handlerResponse = Object.assign({}, createHttpResponse(), {
       headers: {
@@ -213,11 +213,12 @@ test('It should replace the response object when the serializer returns an objec
       serializers: [
         {
           regex: /^text\/plain$/,
-          serializer: (response) =>
-            Object.assign({}, response, {
-              body: Buffer.from(response.body).toString('base64'),
+          serializer: (response) => {
+            Object.assign(response, {
               isBase64Encoded: true
             })
+            return Buffer.from(response.body).toString('base64')
+          }
         }
       ],
       default: 'text/plain'

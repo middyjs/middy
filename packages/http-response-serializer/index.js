@@ -6,13 +6,9 @@ const defaults = {}
 const httpResponseSerializerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (request) => {
-    // normalise headers for internal use only
-    const requestHeaders = getNormalisedHeaders(request.event?.headers ?? {})
     request.response = normalizeHttpResponse(request.response)
-    const responseHeaders = getNormalisedHeaders(request.response.headers)
-
     // skip serialization when content-type is already set
-    if (responseHeaders['content-type'] ?? responseHeaders['Content-Type']) {
+    if (request.response.headers['content-type'] || request.response.headers['Content-Type']) {
       return
     }
 
@@ -21,11 +17,11 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 
     const requestEvent = request.event
     if (requestEvent?.requiredContentType) {
-      types = [].concat(requestEvent.requiredContentType)
+      types = requestEvent.requiredContentType
     } else {
+      const acceptHeader = request.event?.headers?.accept ?? request.event?.headers?.Accept
       types = [].concat(
-        (requestHeaders.accept && Accept.mediaTypes(requestHeaders.accept)) ||
-          [],
+        (acceptHeader && Accept.mediaTypes(acceptHeader)) ?? [],
         requestEvent.preferredContentType ?? [],
         options.default ?? []
       )
@@ -49,15 +45,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
         request.response.headers['Content-Type'] = type
 
         // run serializer
-        const result = s.serializer(request.response)
-
-        if (typeof result === 'object') {
-          // replace response object if result is object
-          request.response = result
-        } else {
-          // otherwise only replace the body attribute
-          request.response.body = result
-        }
+        request.response.body = s.serializer(request.response)
 
         return true
       })
@@ -69,12 +57,5 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     onError: httpResponseSerializerMiddlewareOnError
   }
 }
-
-const getNormalisedHeaders = (source) =>
-  Object.keys(source).reduce((destination, key) => {
-    destination[key.toLowerCase()] = source[key]
-
-    return destination
-  }, {})
 
 module.exports = httpResponseSerializerMiddleware
