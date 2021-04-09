@@ -27,7 +27,6 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
           'Invalid or malformed multipart/form-data was provided'
         )
       })
-
   }
 
   return {
