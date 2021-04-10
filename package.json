@@ -10,8 +10,7 @@
   "scripts": {
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
-    "test:style": "prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
-    "test:lint": "ts-standard --fix",
+    "test:lint": "ts-standard --fix && prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
     "test:lint:ci": "ts-standard",
     "test:package:unit": "cd packages/http-json-body-parser && npm run test:unit",
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
@@ -66,14 +65,9 @@
     "tsd": "^0.14.0",
     "typescript": "^4.2.4"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
   "lint-staged": {
     "*.{js,ts}": [
-      "npm run test:lint:ci"
+      "npm run test:lint"
     ]
   }
 }
