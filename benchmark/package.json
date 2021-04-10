@@ -1,0 +1,56 @@
+{
+  "name": "@middy/benchmark",
+  "version": "2.0.0",
+  "description": "Performance benchmarks for middy",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=12"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "npm run test:bench",
+    "test:bench": "npm run rollup && node suite.js $EXAMPLE",
+    "test:doctor": "clinic doctor --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "test:flame": "clinic flame --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "test:bubbleprof": "clinic bubbleprof --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "rollup": "rollup --config rollup.config.js --environment INCLUDE_DEPS,BUILD:production"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "@middy/core": "2.0.1",
+    "@middy/s3-key-normalizer": "2.0.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "18.0.0",
+    "@rollup/plugin-node-resolve": "11.2.1",
+    "autocannon": "6.5.0",
+    "benchmark": "^2.1.4",
+    "clinic": "8.0.1",
+    "rollup": "2.45.1",
+    "rollup-plugin-terser": "7.0.2"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
