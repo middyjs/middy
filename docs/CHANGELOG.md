@@ -1,3 +1,7 @@
+# 2.0.1
+- #640 `sms` bug fix where infinite loop happens when pulling >10 values @garnertb
+- #643 improve performance of `http-json-body-parser` @nponeccop
+
 # 2.0.0
 
 Checkout [`UPGRADE.md`](/docs/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `1.x`.

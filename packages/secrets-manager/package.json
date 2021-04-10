@@ -1,6 +1,6 @@
 {
   "name": "@middy/secrets-manager",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Secrets Manager middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -44,10 +44,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.0.0"
+    "@middy/util": "^2.0.1"
   },
   "devDependencies": {
-    "@middy/core": "^2.0.0",
+    "@middy/core": "^2.0.1",
     "aws-sdk": "^2.884.0",
     "aws-xray-sdk": "^3.2.0"
   },
