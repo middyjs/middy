@@ -11,8 +11,9 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     if (
       request.response.headers['Content-Type'] ||
       request.response.headers['content-type']
-    )
+    ) {
       return
+    }
 
     // find accept value(s)
     let types

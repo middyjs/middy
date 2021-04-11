@@ -22,8 +22,9 @@ const defaults = {
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  if (!['stream', 'promise'].includes(options.bodyType))
+  if (!['stream', 'promise'].includes(options.bodyType)) {
     throw new Error('bodyType is invalid.')
+  }
 
   let client
   if (canPrefetch(options)) {
