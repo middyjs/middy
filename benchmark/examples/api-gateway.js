@@ -31,10 +31,12 @@ const handler = middy(() => {
     body: '{"hello":"world", "secret":"password""}'
   }
 })
-  // before
   .use(httpEventNormalizerMiddleware())
-  .use(httpContentNegotiationMiddleware())
   .use(httpHeaderNormalizerMiddleware())
+  .use(httpContentNegotiationMiddleware({
+    availableLanguages: ['en-CA', 'fr-CA'],
+    availableMediaTypes: ['application/json']
+  }))
   .use(httpUrlencodePathParametersParserMiddleware())
   // Start oneOf
   .use(httpUrlencodeBodyParserMiddleware())

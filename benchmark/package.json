@@ -41,6 +41,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@middy/core": "2.0.1",
+    "@middy/do-not-wait-for-empty-event-loop": "2.0.1",
     "@middy/http-content-negotiation": "2.0.1",
     "@middy/http-cors": "2.0.1",
     "@middy/http-error-handler": "2.0.1",
@@ -53,7 +54,10 @@
     "@middy/http-security-headers": "2.0.1",
     "@middy/http-urlencode-body-parser": "2.0.1",
     "@middy/http-urlencode-path-parser": "2.0.1",
-    "@middy/s3-key-normalizer": "2.0.1"
+    "@middy/rds-signer": "2.0.1",
+    "@middy/s3-key-normalizer": "2.0.1",
+    "@middy/sqs-partial-batch-failure": "2.0.1",
+    "middy-rds": "*"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "18.0.0",
