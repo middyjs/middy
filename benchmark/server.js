@@ -7,7 +7,10 @@ const endpoints = {
 }
 
 const requestListener = async (req, res) => {
-  await endpoints[req.url].handler(endpoints[req.url].event, endpoints[req.url].context)
+  await endpoints[req.url].handler(
+    endpoints[req.url].event,
+    endpoints[req.url].context
+  )
   res.end()
 }
 

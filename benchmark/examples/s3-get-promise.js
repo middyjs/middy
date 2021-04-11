@@ -1,6 +1,5 @@
 // Mock out event and AWS service
-const event = {
-}
+const event = {}
 
 /**
  * Trigger Lambda from S3 Get Object (Promise)
@@ -14,10 +13,11 @@ const handler = middy(async (event, context) => {
   return {
     Body: body
   }
-})
-  .use(s3GetResponseMiddleware({
+}).use(
+  s3GetResponseMiddleware({
     bodyType: 'promise'
-  }))
-  // .use(httpPartialResponseMiddleware())
+  })
+)
+// .use(httpPartialResponseMiddleware())
 
 module.exports = { handler, event }

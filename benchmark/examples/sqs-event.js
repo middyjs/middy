@@ -38,20 +38,24 @@ const event = {
 
 const sinon = require('sinon')
 const SQS = require('aws-sdk/clients/sqs.js')
-SQS.prototype.deleteMessageBatch = sinon.createSandbox().stub().returns({
-  promise: () => Promise.resolve({
-    Records: [
-      {
-        messageAttributes: {
-          resolveOrReject: {
-            stringValue: 'resolve'
+SQS.prototype.deleteMessageBatch = sinon
+  .createSandbox()
+  .stub()
+  .returns({
+    promise: () =>
+      Promise.resolve({
+        Records: [
+          {
+            messageAttributes: {
+              resolveOrReject: {
+                stringValue: 'resolve'
+              }
+            },
+            body: ''
           }
-        },
-        body: ''
-      }
-    ]
+        ]
+      })
   })
-})
 
 /**
  * Trigger Lambda from SQS Event
@@ -65,8 +69,10 @@ const handler = middy((event) => {
   return Promise.allSettled(event.Records.map(async (record) => record))
 })
   .use(sqsJsonBodyParserMiddleware())
-  .use(sqsPartialBatchFailureMiddleware({
-    AwsClient: SQS
-  }))
+  .use(
+    sqsPartialBatchFailureMiddleware({
+      AwsClient: SQS
+    })
+  )
 
 module.exports = { handler, event }

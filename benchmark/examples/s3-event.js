@@ -5,7 +5,8 @@ const event = {
       eventVersion: '2.2',
       eventSource: 'aws:s3',
       awsRegion: 'us-west-2',
-      eventTime: 'The time, in ISO-8601 format, for example, 1970-01-01T00:00:00.000Z, when Amazon S3 finished processing the request',
+      eventTime:
+        'The time, in ISO-8601 format, for example, 1970-01-01T00:00:00.000Z, when Amazon S3 finished processing the request',
       eventName: 'event-type',
       userIdentity: {
         principalId: 'Amazon-customer-ID-of-the-user-who-caused-the-event'
@@ -31,13 +32,16 @@ const event = {
           key: 'object-key',
           size: 'object-size',
           eTag: 'object eTag',
-          versionId: 'object version if bucket is versioning-enabled, otherwise null',
-          sequencer: 'a string representation of a hexadecimal value used to determine event sequence, only used with PUTs and DELETEs'
+          versionId:
+            'object version if bucket is versioning-enabled, otherwise null',
+          sequencer:
+            'a string representation of a hexadecimal value used to determine event sequence, only used with PUTs and DELETEs'
         }
       },
       glacierEventData: {
         restoreEventData: {
-          lifecycleRestorationExpiryTime: 'The time, in ISO-8601 format, for example, 1970-01-01T00:00:00.000Z, of Restore Expiry',
+          lifecycleRestorationExpiryTime:
+            'The time, in ISO-8601 format, for example, 1970-01-01T00:00:00.000Z, of Restore Expiry',
           lifecycleRestoreStorageClass: 'Source storage class for restore'
         }
       }
@@ -53,7 +57,6 @@ const event = {
 const middy = require('@middy/core')
 const s3KeyNormalizerMiddleware = require('@middy/s3-key-normalizer')
 
-const handler = middy(() => {})
-  .use(s3KeyNormalizerMiddleware())
+const handler = middy(() => {}).use(s3KeyNormalizerMiddleware())
 
 module.exports = { handler, event }
