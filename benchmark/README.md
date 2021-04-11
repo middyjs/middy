@@ -1,17 +1,18 @@
 # Benchmarking
+A collection of examples and tools for running benchmarks on AWS Lambda.
 
 ## Examples
 - `baseline`: Just runs `@middy/core`
 - `api-gateway`: `@middy/http-*` middleware
-- `rds-connection`: 
-- `logging`: logging middleware
+- `rds-connection`: All middleware needed to connect to RDS securly 
+- `logging`: logging middlewares
 - `s3-event`: middleware for S3 events
-- `sqs-event`: 
-
+- `sqs-event`: middleware for SQS events
 
 ## Benchmark.js Suite
 ```shell
-EXAMPLE={example} npm test
+npm run rollup
+EXAMPLE={example} npm run test:benchmark
 ```
 
 ## Clinic.js

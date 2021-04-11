@@ -9,9 +9,6 @@ function onwarn(warning, warn) {
 
 export default [
   {
-    input: 'examples/test.js'
-  },
-  {
     input: 'examples/baseline.js'
   },
   {
@@ -37,7 +34,7 @@ export default [
       compress: {
         ecma: 2020,
         keep_fargs: false,
-        passes: 25
+        passes: 5
       }
     })
   ],
