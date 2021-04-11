@@ -24,7 +24,9 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
+  if (responseTwo) {
+    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  }
   client.prototype.writeGetObjectResponse = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'writeGetObjectResponse')
@@ -69,13 +71,12 @@ test.serial('It should pass a stream to handler', async (t) => {
     }
   })
 
-  handler
-    .use(
-      s3ObejctResponse({
-        AwsClient: S3,
-        bodyType: 'stream'
-      })
-    )
+  handler.use(
+    s3ObejctResponse({
+      AwsClient: S3,
+      bodyType: 'stream'
+    })
+  )
 
   const response = await handler(event)
   t.deepEqual(200, response.statusCode)
@@ -93,13 +94,12 @@ test.serial('It should pass a promise to handler', async (t) => {
     }
   })
 
-  handler
-    .use(
-      s3ObejctResponse({
-        AwsClient: S3,
-        bodyType: 'promise'
-      })
-    )
+  handler.use(
+    s3ObejctResponse({
+      AwsClient: S3,
+      bodyType: 'promise'
+    })
+  )
 
   const response = await handler(event)
   t.deepEqual(200, response.statusCode)

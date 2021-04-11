@@ -24,7 +24,9 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
+  if (responseTwo) {
+    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  }
   client.prototype.deleteMessageBatch = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'getSecretValue')
@@ -36,7 +38,9 @@ const mockService = (client, responseOne, responseTwo) => {
 
 const baseHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
-    if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') { return r.messageId }
+    if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') {
+      return r.messageId
+    }
     throw new Error('Error message...')
   })
   return Promise.allSettled(processedRecords)

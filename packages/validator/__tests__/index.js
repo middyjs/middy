@@ -49,7 +49,12 @@ test('It should validate an incoming object', async (t) => {
 
   const body = await handler(event)
 
-  t.deepEqual(body, { boolean: true, integer: 0, number: 0.1, string: '{"foo":"bar"}' })
+  t.deepEqual(body, {
+    boolean: true,
+    integer: 0,
+    number: 0.1,
+    string: '{"foo":"bar"}'
+  })
 })
 
 test('It should handle invalid schema as a BadRequest', async (t) => {

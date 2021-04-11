@@ -1,4 +1,4 @@
-const middy = (handler = () => { }, plugin) => {
+const middy = (handler = () => {}, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -14,60 +14,30 @@ const middy = (handler = () => { }, plugin) => {
       internal: {}
     }
 
-    const middyPromise = async () => {
-      try {
-        await runMiddlewares(beforeMiddlewares, request, plugin)
-        // Check if before stack doesn't need to exit early
-        if (request.response === undefined) {
-          plugin?.beforeHandler?.()
-          request.response = await handler(request.event, request.context)
-          plugin?.afterHandler?.()
-          await runMiddlewares(afterMiddlewares, request, plugin)
-        }
-      } catch (e) {
-        // Reset response changes made by after stack before error thrown
-        request.response = undefined
-        request.error = e
-        try {
-          await runMiddlewares(onErrorMiddlewares, request, plugin)
-          // Catch if onError stack hasn't handled the error
-          if (request.response === undefined) {
-            throw request.error
-          }
-        } catch (e) {
-          // Save error that wasn't handled
-          e.originalError = request.error
-          request.error = e
-          throw request.error
-        }
-      } finally {
-        await plugin?.requestEnd?.()
-      }
-      return request.response
-    }
-    return middyPromise()
+    return runMiddy(
+      request,
+      handler,
+      [...beforeMiddlewares],
+      [...afterMiddlewares],
+      [...onErrorMiddlewares],
+      plugin
+    )
   }
 
   instance.use = (middlewares) => {
     if (Array.isArray(middlewares)) {
       middlewares.forEach((middleware) => instance.applyMiddleware(middleware))
       return instance
-    } else if (typeof middlewares === 'object') {
-      return instance.applyMiddleware(middlewares)
     }
-    throw new Error('Middy.use() accepts an object or an array of objects')
+    return instance.applyMiddleware(middlewares)
   }
 
   instance.applyMiddleware = (middleware) => {
-    if (typeof middleware !== 'object') {
-      throw new Error('Middleware must be an object')
-    }
-
     const { before, after, onError } = middleware
 
     if (!before && !after && !onError) {
       throw new Error(
-        'Middleware must contain at least one key among "before", "after", "onError"'
+        'Middleware must an object containing at least one key among "before", "after", "onError"'
       )
     }
 
@@ -101,10 +71,46 @@ const middy = (handler = () => { }, plugin) => {
   return instance
 }
 
+const runMiddy = async (
+  request,
+  handler,
+  beforeMiddlewares,
+  afterMiddlewares,
+  onErrorMiddlewares,
+  plugin
+) => {
+  try {
+    await runMiddlewares(beforeMiddlewares, request, plugin)
+    // Check if before stack doesn't need to exit early
+    if (request.response === undefined) {
+      plugin?.beforeHandler?.()
+      request.response = await handler(request.event, request.context)
+      plugin?.afterHandler?.()
+      await runMiddlewares(afterMiddlewares, request, plugin)
+    }
+  } catch (e) {
+    // Reset response changes made by after stack before error thrown
+    request.response = undefined
+    request.error = e
+    try {
+      await runMiddlewares(onErrorMiddlewares, request, plugin)
+      // Catch if onError stack hasn't handled the error
+      if (request.response === undefined) throw request.error
+    } catch (e) {
+      // Save error that wasn't handled
+      e.originalError = request.error
+      request.error = e
+      throw request.error
+    }
+  } finally {
+    await plugin?.requestEnd?.()
+  }
+  return request.response
+}
+
 const runMiddlewares = async (middlewares, request, plugin) => {
-  const stack = Array.from(middlewares)
-  if (!stack.length) return
-  const nextMiddleware = stack.shift()
+  if (!middlewares.length) return
+  const nextMiddleware = middlewares.shift()
   plugin?.beforeMiddleware?.(nextMiddleware?.name)
   const res = await nextMiddleware?.(request)
   plugin?.afterMiddleware?.(nextMiddleware?.name)
@@ -113,7 +119,7 @@ const runMiddlewares = async (middlewares, request, plugin) => {
     request.response = res
     return
   }
-  return runMiddlewares(stack, request, plugin)
+  return runMiddlewares(middlewares, request, plugin)
 }
 
 module.exports = middy

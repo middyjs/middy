@@ -103,7 +103,9 @@ const getInternal = async (variables, request) => {
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
 const sanitizeKey = (key) => {
-  return key.replace(sanitizeKeyPrefixLeadingNumber, '_$1').replace(sanitizeKeyRemoveDisallowedChar, '_')
+  return key
+    .replace(sanitizeKeyPrefixLeadingNumber, '_$1')
+    .replace(sanitizeKeyRemoveDisallowedChar, '_')
 }
 
 // fetch Cache
@@ -138,7 +140,7 @@ const clearCache = (keys = null) => {
 const jsonSafeParse = (string, reviver) => {
   try {
     return JSON.parse(string, reviver)
-  } catch (e) { }
+  } catch (e) {}
 
   return string
 }

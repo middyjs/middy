@@ -13,73 +13,91 @@ const metricsLoggerMock = {
   setNamespace: setNamespaceStub,
   setDimensions: setDimensionsStub
 }
-const createMetricsLoggerStub = sinon.stub(awsEmbeddedMetrics, 'createMetricsLogger').returns(metricsLoggerMock)
+const createMetricsLoggerStub = sinon
+  .stub(awsEmbeddedMetrics, 'createMetricsLogger')
+  .returns(metricsLoggerMock)
 
 test.afterEach((t) => {
   sandbox.restore()
 })
 
-test.serial('It should add a MetricLogger instance on context.metrics', async (t) => {
-  const handler = middy(() => {})
+test.serial(
+  'It should add a MetricLogger instance on context.metrics',
+  async (t) => {
+    const handler = middy(() => {})
 
-  const middleware = (request) => {
-    t.true(createMetricsLoggerStub.called)
-    t.deepEqual(request.context, { metrics: metricsLoggerMock })
+    const middleware = (request) => {
+      t.true(createMetricsLoggerStub.called)
+      t.deepEqual(request.context, { metrics: metricsLoggerMock })
+    }
+
+    handler.use(metrics()).before(middleware)
+
+    await handler()
   }
+)
 
-  handler.use(metrics()).before(middleware)
+test.serial(
+  'It should call metrics.flush after handler invocation',
+  async (t) => {
+    const handler = middy(() => {})
 
-  await handler()
-})
+    const middleware = () => {
+      t.true(flushStub.calledOnce)
+    }
 
-test.serial('It should call metrics.flush after handler invocation', async (t) => {
-  const handler = middy(() => {})
+    handler.use(metrics()).after(middleware)
 
-  const middleware = () => {
-    t.true(flushStub.calledOnce)
+    await handler()
   }
+)
 
-  handler.use(metrics()).after(middleware)
+test.serial(
+  'It should call metrics.setNamespace when option passed',
+  async (t) => {
+    const handler = middy(() => {})
 
-  await handler()
-})
+    const middleware = () => {
+      t.true(setNamespaceStub.calledWith('myNamespace'))
+    }
 
-test.serial('It should call metrics.setNamespace when option passed', async (t) => {
-  const handler = middy(() => {})
+    handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
 
-  const middleware = () => {
-    t.true(setNamespaceStub.calledWith('myNamespace'))
+    await handler()
   }
+)
 
-  handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
+test.serial(
+  'It should call metrics.setDimensions when option passed',
+  async (t) => {
+    const handler = middy(() => {})
 
-  await handler()
-})
-
-test.serial('It should call metrics.setDimensions when option passed', async (t) => {
-  const handler = middy(() => {})
-
-  const middleware = () => {
-    t.true(setDimensionsStub.calledWith({
-      Runtime: 'NodeJS',
-      Platform: 'ECS',
-      Agent: 'CloudWatchAgent',
-      Version: 2
-    }))
-  }
-
-  handler.use(
-    metrics({
-      dimensions: [
-        {
+    const middleware = () => {
+      t.true(
+        setDimensionsStub.calledWith({
           Runtime: 'NodeJS',
           Platform: 'ECS',
           Agent: 'CloudWatchAgent',
           Version: 2
-        }
-      ]
-    })
-  ).before(middleware)
+        })
+      )
+    }
 
-  await handler()
-})
+    handler
+      .use(
+        metrics({
+          dimensions: [
+            {
+              Runtime: 'NodeJS',
+              Platform: 'ECS',
+              Agent: 'CloudWatchAgent',
+              Version: 2
+            }
+          ]
+        })
+      )
+      .before(middleware)
+
+    await handler()
+  }
+)

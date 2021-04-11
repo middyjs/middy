@@ -20,7 +20,9 @@ const mockService = (client, responseOne, responseTwo) => {
   // aws-sdk v2
   const mock = sandbox.stub()
   mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) { mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) }) }
+  if (responseTwo) {
+    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
+  }
   client.prototype.getSecretValue = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'getSecretValue')
