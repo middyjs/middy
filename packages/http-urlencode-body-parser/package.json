@@ -47,7 +47,6 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "content-type": "1.0.4",
     "qs": "6.10.1"
   },
   "devDependencies": {

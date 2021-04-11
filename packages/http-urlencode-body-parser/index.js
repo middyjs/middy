@@ -1,19 +1,17 @@
-const contentType = require('content-type')
 const { parse } = require('qs')
 
-const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
-  if (!request.event?.headers) return
-  const contentTypeHeader =
-    request.event.headers?.['Content-Type'] ??
-    request.event.headers?.['content-type']
-  if (!contentTypeHeader) return
-  const { type } = contentType.parse(contentTypeHeader)
+const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 
-  if (type === 'application/x-www-form-urlencoded') {
-    const body = request.event.isBase64Encoded
-      ? Buffer.from(request.event.body, 'base64').toString()
-      : request.event.body
-    request.event.body = parse(body)
+const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
+  const { headers, body } = request.event
+  const contentTypeHeader =
+    headers?.['Content-Type'] ?? headers?.['content-type']
+
+  if (mimePattern.test(contentTypeHeader)) {
+    const data = request.event.isBase64Encoded
+      ? Buffer.from(body, 'base64').toString()
+      : body
+    request.event.body = parse(data)
   }
 }
 
