@@ -1,7 +1,10 @@
 const { normalizeHttpResponse } = require('@middy/util')
 const Accept = require('@hapi/accept')
 
-const defaults = {}
+const defaults = {
+  serializers: [],
+  default: undefined
+}
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
@@ -18,40 +21,32 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     // find accept value(s)
     let types
 
-    const requestEvent = request.event
-    if (requestEvent?.requiredContentType) {
-      types = [].concat(requestEvent.requiredContentType)
+    if (request.event?.requiredContentType) {
+      types = [request.event.requiredContentType]
     } else {
-      const acceptHeader =
-        request.event?.headers?.accept ?? request.event?.headers?.Accept
-      types = [].concat(
-        (acceptHeader && Accept.mediaTypes(acceptHeader)) ?? [],
-        requestEvent.preferredContentType ?? [],
-        options.default ?? []
-      )
+      const acceptHeader = request.event?.headers?.accept ?? request.event?.headers?.Accept
+      types = [
+        ...(acceptHeader && Accept.mediaTypes(acceptHeader)) ?? [],
+        request.event.preferredContentType,
+        options.default
+      ]
     }
 
-    // dont bother finding a serializer if no types are given
-    if (!types.length) return
-
-    // find in order of first preferred type that has a matching serializer
-    types.find((type) =>
-      options.serializers.find((s) => {
-        const test = s.regex.test(type)
-
-        if (!test) {
-          return false
+    for (const type of types) {
+      let breakTypes
+      for (const s of options.serializers) {
+        if (!s.regex.test(type)) {
+          continue
         }
 
-        // set header
         request.response.headers['Content-Type'] = type
-
-        // run serializer
         request.response.body = s.serializer(request.response)
 
-        return true
-      })
-    )
+        breakTypes = true
+        break
+      }
+      if (breakTypes) break
+    }
   }
   const httpResponseSerializerMiddlewareOnError = httpResponseSerializerMiddlewareAfter
   return {
