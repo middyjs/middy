@@ -113,17 +113,18 @@ test('It normalizes keys in a s3 event from sqs', async (t) => {
 
   const handler = middy((event, context) => event)
 
-  handler
-    .use(sqsJsonBodyParser())
-    .use(s3KeyNormalizer())
+  handler.use(sqsJsonBodyParser()).use(s3KeyNormalizer())
 
   const response = await handler(event)
 
-  t.is(response.Records[0].body.Records[0].s3.object.key, 'This is a picture.jpg')
+  t.is(
+    response.Records[0].body.Records[0].s3.object.key,
+    'This is a picture.jpg'
+  )
 })
 
 // TODO requires `sns-json-body-parser`
-/*test('It normalizes keys in a s3 event from sns', async (t) => {
+/* test('It normalizes keys in a s3 event from sns', async (t) => {
   const event =
     {
       Records: [
@@ -206,7 +207,7 @@ test('It normalizes keys in a s3 event from sqs', async (t) => {
   const response = await handler(event)
 console.log(JSON.stringify(response, null, 2))
   t.is(response.Records[0].Sns.Message.Records[0].s3.object.key, 'This is a picture.jpg')
-})*/
+}) */
 
 test('It should not normalize the event if the event version is not 2.x', async (t) => {
   const event = {
@@ -246,7 +247,7 @@ test('It should not normalize the event if the event version is not 2.x', async 
       }
     ]
   }
-  const eventOriginalCopy = {...event}
+  const eventOriginalCopy = { ...event }
   const handler = middy((event, context) => event)
 
   handler.use(s3KeyNormalizer())
@@ -269,7 +270,7 @@ test("It should not normalize the event if it doesn't look like an S3 event", as
     }
   }
 
-  const eventOriginalCopy = {...alexaEvent}
+  const eventOriginalCopy = { ...alexaEvent }
 
   const handler = middy((event, context) => event)
 
