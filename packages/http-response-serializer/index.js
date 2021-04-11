@@ -8,7 +8,11 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
   const httpResponseSerializerMiddlewareAfter = async (request) => {
     request.response = normalizeHttpResponse(request.response)
     // skip serialization when content-type is already set
-    if (request.response.headers['Content-Type'] || request.response.headers['content-type']) return
+    if (
+      request.response.headers['Content-Type'] ||
+      request.response.headers['content-type']
+    )
+      return
 
     // find accept value(s)
     let types
@@ -17,7 +21,8 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     if (requestEvent?.requiredContentType) {
       types = [].concat(requestEvent.requiredContentType)
     } else {
-      const acceptHeader = request.event?.headers?.accept ?? request.event?.headers?.Accept
+      const acceptHeader =
+        request.event?.headers?.accept ?? request.event?.headers?.Accept
       types = [].concat(
         (acceptHeader && Accept.mediaTypes(acceptHeader)) ?? [],
         requestEvent.preferredContentType ?? [],

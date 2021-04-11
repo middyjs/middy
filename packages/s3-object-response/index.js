@@ -22,7 +22,8 @@ const defaults = {
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  if (!['stream', 'promise'].includes(options.bodyType)) throw new Error('bodyType is invalid.')
+  if (!['stream', 'promise'].includes(options.bodyType))
+    throw new Error('bodyType is invalid.')
 
   let client
   if (canPrefetch(options)) {
@@ -30,7 +31,11 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    const { inputS3Url, outputRoute, outputToken } = request.event.getObjectContext
+    const {
+      inputS3Url,
+      outputRoute,
+      outputToken
+    } = request.event.getObjectContext
 
     request.internal.s3ObjectResponse = {
       RequestRoute: outputRoute,
@@ -58,11 +63,13 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    return client.writeGetObjectResponse({
-      ...request.response,
-      ...request.internal.s3ObjectResponse,
-      Body: request.response.Body ?? request.response.body
-    }).promise()
+    return client
+      .writeGetObjectResponse({
+        ...request.response,
+        ...request.internal.s3ObjectResponse,
+        Body: request.response.Body ?? request.response.body
+      })
+      .promise()
       .then(() => ({ statusCode: 200 })) // TODO test if needed
   }
 
@@ -80,9 +87,11 @@ const fetchPromise = (options) => {
   return new Promise((resolve, reject) => {
     let data = ''
     const stream = fetchStream(options)
-    stream.on('data', chunk => { data += chunk })
+    stream.on('data', (chunk) => {
+      data += chunk
+    })
     stream.on('end', () => resolve(data))
-    stream.on('error', error => reject(error))
+    stream.on('error', (error) => reject(error))
   })
 }
 
