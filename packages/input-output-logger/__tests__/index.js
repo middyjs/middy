@@ -33,7 +33,7 @@ test('It should throw error when invalid logger', async (t) => {
   } catch (e) {
     t.is(
       e.message,
-      'Middleware must contain at least one key among "before", "after", "onError"'
+      'Middleware must an object containing at least one key among "before", "after", "onError"'
     )
   }
 })
