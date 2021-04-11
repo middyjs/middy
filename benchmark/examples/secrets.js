@@ -1,5 +1,4 @@
 
-
 /**
  * Pull Secrets or Configuration details from AWS services
  */
@@ -15,18 +14,18 @@ const handler = middy((event) => {
 })
   .use(
     secretsManagerMiddleware({
-      //AwsClient: SecretsManager
+      // AwsClient: SecretsManager
     })
   )
   .use(
     ssm({
-      //AwsClient: SSM
+      // AwsClient: SSM
     })
   )
   .use(
     sts({
-      //AwsClient: STS
+      // AwsClient: STS
     })
   )
 
-module.exports = { handler, event }
+module.exports = { handler }

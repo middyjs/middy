@@ -2,7 +2,7 @@ import resolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 import { terser } from 'rollup-plugin-terser'
 
-function onwarn(warning, warn) {
+function onwarn (warning, warn) {
   if (warning.code === 'CIRCULAR_DEPENDENCY') return
   warn(warning)
 }
