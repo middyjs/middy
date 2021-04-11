@@ -1,6 +1,8 @@
 const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
-const defaults = {}
+const defaults = {
+  reviver: undefined
+}
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
