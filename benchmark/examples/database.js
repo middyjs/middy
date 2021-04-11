@@ -7,30 +7,34 @@ const rdsMiddleware = require('middy-rds')
 
 const handler = middy()
   .use(doNotWaitForEmptyEventLoopMiddleware())
-  .use(rdsSignerMiddleware({
-    fetchData: {
-      rdsToken: {
-        region: process.env.AWS_REGION,
-        hostname: process.env.rdsHostname,
-        username: 'iam_api',
-        database: 'database',
-        port: 5432
+  .use(
+    rdsSignerMiddleware({
+      fetchData: {
+        rdsToken: {
+          region: process.env.AWS_REGION,
+          hostname: process.env.rdsHostname,
+          username: 'iam_api',
+          database: 'database',
+          port: 5432
+        }
       }
-    }
-  }))
-  .use(rdsMiddleware({
-    internalData: {
-      password: 'rdsToken'
-    },
-    client: knex,
-    config: {
-      client: 'pg',
-      connection: {
-        host: process.env.rdsHostname,
-        user: 'iam_api',
-        database: 'database'
+    })
+  )
+  .use(
+    rdsMiddleware({
+      internalData: {
+        password: 'rdsToken'
+      },
+      client: knex,
+      config: {
+        client: 'pg',
+        connection: {
+          host: process.env.rdsHostname,
+          user: 'iam_api',
+          database: 'database'
+        }
       }
-    }
-  }))
+    })
+  )
 
 module.exports = { handler }

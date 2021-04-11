@@ -33,10 +33,12 @@ const handler = middy(() => {
 })
   .use(httpEventNormalizerMiddleware())
   .use(httpHeaderNormalizerMiddleware())
-  .use(httpContentNegotiationMiddleware({
-    availableLanguages: ['en-CA', 'fr-CA'],
-    availableMediaTypes: ['application/json']
-  }))
+  .use(
+    httpContentNegotiationMiddleware({
+      availableLanguages: ['en-CA', 'fr-CA'],
+      availableMediaTypes: ['application/json']
+    })
+  )
   .use(httpUrlencodePathParametersParserMiddleware())
   // Start oneOf
   .use(httpUrlencodeBodyParserMiddleware())
@@ -45,13 +47,17 @@ const handler = middy(() => {
   // End oneOf
   .use(httpSecurityHeadersMiddleware())
   .use(httpCorsMiddleware())
-  .use(httpResponseSerializerMiddleware({
-    serializers:[{
-      regex: /^application\/json$/,
-      serializer: ({ body }) => JSON.stringify(body)
-    }],
-    default: 'application/json'
-  }))
+  .use(
+    httpResponseSerializerMiddleware({
+      serializers: [
+        {
+          regex: /^application\/json$/,
+          serializer: ({ body }) => JSON.stringify(body)
+        }
+      ],
+      default: 'application/json'
+    })
+  )
   .use(httpPartialResponseMiddleware())
   .use(httpErrorHandlerMiddleware())
 
