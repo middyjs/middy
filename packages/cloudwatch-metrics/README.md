@@ -61,10 +61,9 @@ npm install --save @middy/metrics
 const middy = require('@middy/core')
 const metrics = require('@middy/metrics')
 
-const handler = middy((event, context, cb) => {
+const handler = middy((event, context) => {
     context.metrics.putMetric("ProcessingLatency", 100, "Milliseconds");
     context.metrics.setProperty("RequestId", "422b1569-16f6-4a03-b8f0-fe3fd9b100f8")
-    cb(null, {})
 })
 
 handler.use(metrics({
