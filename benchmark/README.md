@@ -3,7 +3,7 @@
 ## Examples
 - `baseline`: Just runs `@middy/core`
 - `api-gateway`: `@middy/http-*` middleware
-- `database`: 
+- `rds-connection`: 
 - `logging`: logging middleware
 - `s3-event`: middleware for S3 events
 - `sqs-event`: 

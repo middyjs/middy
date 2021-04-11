@@ -5,8 +5,11 @@ process.env.AWS_NODEJS_CONNECTION_REUSE_ENABLED = 1
 const endpoints = {
   '/': require('./examples/baseline'),
   '/api-gateway': require('./examples/api-gateway'),
-  '/database': require('./examples/database'),
+  //'/dynamodb-event': require('./examples/dynamodb-event'),
+  //'/kinesis-firehose-event': require('./examples/kinesis-firehose-event'),
+  //'/kinesis-stream-event': require('./examples/kinesis-stream-event'),
   '/logging': require('./examples/logging'),
+  '/rds-connection': require('./examples/rds-connection'),
   '/s3-event': require('./examples/s3-event'),
   // '/s3-get-promise': require('./examples/s3-get-promise'),
   // '/s3-get-stream': require('./examples/s3-get-stream'),

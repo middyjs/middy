@@ -56,7 +56,10 @@
     "@middy/http-urlencode-path-parser": "2.0.1",
     "@middy/rds-signer": "2.0.1",
     "@middy/s3-key-normalizer": "2.0.1",
+    "@middy/secrets-manager": "2.0.1",
     "@middy/sqs-partial-batch-failure": "2.0.1",
+    "@middy/ssm": "2.0.1",
+    "@middy/sts": "2.0.1",
     "middy-rds": "*"
   },
   "devDependencies": {

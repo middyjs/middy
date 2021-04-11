@@ -1,3 +1,5 @@
+// ** Not supported at this time. See #647 ** //
+
 // Mock out event
 const event = {
   Records: [
