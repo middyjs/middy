@@ -7,15 +7,26 @@ const defaults = {
 const sqsJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const sqsJsonBodyParserMiddlewareBefore = async (request) => {
-    const { event: { Records = [] } = { Records: [] } } = request
+  const parseEvent = (event) => {
+    if (!Array.isArray(event?.Records)) return
 
-    for (const record of Records) {
-      record.body = jsonSafeParse(record.body, options.reviver)
+    for (const record of event.Records) {
+      if (record.eventSource === 'aws:sqs') {
+        record.body = jsonSafeParse(record.body, options.reviver)
+      } else if (record.eventSource === 'aws:sns') {
+        parseEvent(record.Sns.Message)
+      }
     }
+  }
+
+  const sqsJsonBodyParserMiddlewareBefore = async (request) => {
+    parseEvent(request.event)
   }
   return {
     before: sqsJsonBodyParserMiddlewareBefore
   }
 }
+
+
+
 module.exports = sqsJsonBodyParserMiddleware
