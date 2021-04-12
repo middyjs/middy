@@ -1,6 +1,7 @@
 const event = {
   headers: {
-    Accept: 'application/json'
+    'Accept-Language':'en',
+    Accept: 'application/json',
   },
   queryStringParameters: {
     fields: 'hello'
@@ -36,7 +37,8 @@ const handler = middy(() => {
   .use(
     httpContentNegotiationMiddleware({
       availableLanguages: ['en-CA', 'fr-CA'],
-      availableMediaTypes: ['application/json']
+      availableMediaTypes: ['application/json'],
+      failOnMismatch: false
     })
   )
   .use(httpUrlencodePathParametersParserMiddleware())
