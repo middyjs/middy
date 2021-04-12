@@ -28,7 +28,7 @@ const httpUrlencodePathParametersParserMiddleware = require('@middy/http-urlenco
 const handler = middy(() => {
   return {
     statusCode: 200,
-    body: {"hello":"world", "secret":"password"}
+    body: { hello: 'world', secret: 'password' }
   }
 })
   .use(httpEventNormalizerMiddleware())

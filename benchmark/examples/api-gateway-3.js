@@ -1,7 +1,7 @@
 const event = {
   headers: {
-    'Accept-Language':'en',
-    Accept: 'application/json',
+    'Accept-Language': 'en',
+    Accept: 'application/json'
   },
   queryStringParameters: {
     fields: 'hello'
@@ -29,7 +29,7 @@ const httpUrlencodePathParametersParserMiddleware = require('../../packages/http
 const handler = middy(() => {
   return {
     statusCode: 200,
-    body: {"hello":"world", "secret":"password"}
+    body: { hello: 'world', secret: 'password' }
   }
 })
   .use(httpEventNormalizerMiddleware())

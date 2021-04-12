@@ -1,5 +1,3 @@
-
-
 const option1 = (string, reviver) => {
   try {
     return JSON.parse(string, reviver)
@@ -19,7 +17,7 @@ const option2 = (string, reviver) => {
 
 const option3 = (string, reviver) => {
   if (typeof string !== 'string') return string
-  const firstChar = string.charAt(0,1)
+  const firstChar = string.charAt(0, 1)
   if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
   try {
     return JSON.parse(string, reviver)
@@ -50,13 +48,13 @@ new Benchmark.Suite('JSON.parse', {})
     option3('hello world')
   })
   .add('option1 object', async () => {
-    option1({hello:'world'})
+    option1({ hello: 'world' })
   })
   .add('option2 object', async () => {
-    option2({hello:'world'})
+    option2({ hello: 'world' })
   })
   .add('option3 object', async () => {
-    option3({hello:'world'})
+    option3({ hello: 'world' })
   })
   // add listeners
   .on('cycle', (event) => {

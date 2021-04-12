@@ -1,5 +1,3 @@
-
-
 const option1 = (string) => {
   return string + ' world'
 }

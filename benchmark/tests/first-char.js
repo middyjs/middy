@@ -1,15 +1,13 @@
-
-
 const option1 = (string) => {
   return string.charAt(0)
 }
 
 const option2 = (string) => {
-  return string.substr(0,1)
+  return string.substr(0, 1)
 }
 
 const option3 = (string) => {
-  return string.slice(0,1)
+  return string.slice(0, 1)
 }
 
 const Benchmark = require('benchmark')
