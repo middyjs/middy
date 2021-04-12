@@ -14,7 +14,7 @@ const middy = (handler = () => {}, plugin) => {
       internal: {}
     }
 
-    return runMiddy(
+    return runRequest(
       request,
       [...beforeMiddlewares],
       handler,
@@ -73,7 +73,7 @@ const middy = (handler = () => {}, plugin) => {
   return instance
 }
 
-const runMiddy = async (
+const runRequest = async (
   request,
   beforeMiddlewares,
   handler,
