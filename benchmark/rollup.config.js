@@ -1,5 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
+import json from '@rollup/plugin-json'
 import { terser } from 'rollup-plugin-terser'
 
 function onwarn(warning, warn) {
@@ -11,12 +12,12 @@ export default [
   {
     input: 'examples/baseline.js'
   },
-  {
-    input: 'examples/s3-event.js'
-  },
-  {
-    input: 'examples/sqs-event.js'
-  }
+  // {
+  //   input: 'examples/s3-event.js'
+  // },
+  // {
+  //   input: 'examples/sqs-event.js'
+  // }
 ].map((bundle) => ({
   input: bundle.input,
   output: {
@@ -25,6 +26,7 @@ export default [
     format: 'cjs'
   },
   plugins: [
+    json(),
     resolve(),
     commonjs(),
     terser({
