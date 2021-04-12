@@ -4,10 +4,10 @@ const language = require('negotiator/lib/language.js')
 const mediaType = require('negotiator/lib/mediaType.js')
 
 const parseFn = {
-  Charset:charset,
-  Encoding:encoding,
-  Language:language,
-  MediaType:mediaType
+  Charset: charset,
+  Encoding: encoding,
+  Language: language,
+  MediaType: mediaType
 }
 
 const defaults = {

@@ -273,7 +273,7 @@ test('It should fail when mismatching', async (t) => {
   } catch (err) {
     t.is(
       err.message,
-      'Unsupported mediaType. Acceptable values: text/plain, text/x-dvi'
+      'Unsupported MediaType. Acceptable values: text/plain, text/x-dvi'
     )
   }
 })
