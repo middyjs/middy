@@ -14,7 +14,7 @@ const parseEvent = (event) => {
       normalizeS3Key(record)
     } else if (record.eventSource === 'aws:sqs') {
       parseEvent(record.body)
-    } else if (record.eventSource === 'aws:sns') {
+    } else if (record.EventSource === 'aws:sns') {
       parseEvent(record.Sns.Message)
     }
   }
