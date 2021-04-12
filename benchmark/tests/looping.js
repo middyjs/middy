@@ -8,7 +8,7 @@ const forIncrement = (arr) => {
 }
 
 const forDecrement = (arr) => {
-  for (let idx = arr.length; --idx;) {
+  for (let idx = arr.length; --idx; ) {
     const item = arr[idx]
     if (item) {
     }
@@ -76,7 +76,7 @@ const recursionPop = (arr, idx = 0) => {
   return recursionPop(arr, idx++)
 }
 
-let arr = [...Array(10).keys()]
+const arr = [...Array(10).keys()]
 const Benchmark = require('benchmark')
 new Benchmark.Suite('Get First Char', {})
   .add('forIncrement', async () => {

@@ -11,7 +11,7 @@ function onwarn(warning, warn) {
 export default [
   {
     input: 'examples/baseline.js'
-  },
+  }
   // {
   //   input: 'examples/s3-event.js'
   // },
