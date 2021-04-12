@@ -19,7 +19,7 @@ const option2 = (string, reviver) => {
 
 const option3 = (string, reviver) => {
   if (typeof string !== 'string') return string
-  const firstChar = string.substr(0,1)
+  const firstChar = string.charAt(0,1)
   if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
   try {
     return JSON.parse(string, reviver)

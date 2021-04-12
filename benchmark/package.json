@@ -14,7 +14,7 @@
     "test": "npm run rollup && npm run test:benchmark",
     "test:benchmark": "node suite.js $EXAMPLE",
     "test:doctor": "clinic doctor --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
-    "test:flame": "clinic flame --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "test:flame": "clinic flame --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node --no-turbo-inlining server.js",
     "test:bubbleprof": "clinic bubbleprof --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
     "rollup": "rollup --config rollup.config.js --environment INCLUDE_DEPS,BUILD:production",
     "terser": "terser --compress --mangle -- examples/test.js"
