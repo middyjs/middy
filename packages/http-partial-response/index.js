@@ -1,4 +1,5 @@
 const mask = require('json-mask')
+const { jsonSafeParse } = require('@middy/util')
 
 const defaults = {
   filteringKeyName: 'fields'
@@ -9,25 +10,19 @@ const httpPartialResponseMiddleware = (opts = {}) => {
   const { filteringKeyName } = options
 
   const httpPartialResponseMiddlewareAfter = async (request) => {
-    let body = request.response?.body
+    const body = request.response?.body
     if (!body) return
 
     const fields = request.event?.queryStringParameters?.[filteringKeyName]
     if (!fields) return
 
-    let isBodyStringified
-    try {
-      body = JSON.parse(body)
-      isBodyStringified = true
-    } catch (e) {
-      if (typeof body !== 'object') return
-    }
+    const parsedBody = jsonSafeParse(body)
+    if (typeof parsedBody !== 'object') return
 
-    const filteredBody = mask(body, fields)
+    const filteredBody = mask(parsedBody, fields)
 
-    request.response.body = isBodyStringified
-      ? JSON.stringify(filteredBody)
-      : filteredBody
+    request.response.body =
+      typeof body === 'object' ? filteredBody : JSON.stringify(filteredBody)
   }
   return {
     after: httpPartialResponseMiddlewareAfter

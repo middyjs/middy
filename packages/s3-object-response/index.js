@@ -50,13 +50,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       path: parsedInputS3Url.pathname
     }
 
-    let s3Object
-    if (options.bodyType === 'stream') {
-      s3Object = fetchStream(fetchOptions)
-    } else if (options.bodyType === 'promise') {
-      s3Object = fetchPromise(fetchOptions)
-    }
-    request.context.s3Object = s3Object
+    request.context.s3Object = fetchType(options.bodyType, fetchOptions)
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
@@ -64,11 +58,13 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
+    request.response.Body = request.response.Body ?? request.response.body
+    delete request.response.body
+
     return client
       .writeGetObjectResponse({
         ...request.response,
-        ...request.internal.s3ObjectResponse,
-        Body: request.response.Body ?? request.response.body
+        ...request.internal.s3ObjectResponse
       })
       .promise()
       .then(() => ({ statusCode: 200 })) // TODO test if needed
@@ -78,6 +74,15 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     before: s3ObjectResponseMiddlewareBefore,
     after: s3ObjectResponseMiddlewareAfter
   }
+}
+
+const fetchType = (type, fetchOptions) => {
+  if (type === 'stream') {
+    return fetchStream(fetchOptions)
+  } else if (type === 'promise') {
+    return fetchPromise(fetchOptions)
+  }
+  return null
 }
 
 const fetchStream = (options) => {
