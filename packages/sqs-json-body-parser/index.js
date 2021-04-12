@@ -27,6 +27,4 @@ const sqsJsonBodyParserMiddleware = (opts = {}) => {
   }
 }
 
-
-
 module.exports = sqsJsonBodyParserMiddleware

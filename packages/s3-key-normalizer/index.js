@@ -10,14 +10,12 @@ const parseEvent = (event) => {
   if (!Array.isArray(event?.Records)) return
 
   for (const record of event.Records) {
-    for (const record of event.Records) {
-      if (record.eventSource === 'aws:s3') {
-        normalizeS3Key(record)
-      } else if (record.eventSource === 'aws:sqs') {
-        parseEvent(record.body)
-      } else if (record.eventSource === 'aws:sns') {
-        parseEvent(record.Sns.Message)
-      }
+    if (record.eventSource === 'aws:s3') {
+      normalizeS3Key(record)
+    } else if (record.eventSource === 'aws:sqs') {
+      parseEvent(record.body)
+    } else if (record.eventSource === 'aws:sns') {
+      parseEvent(record.Sns.Message)
     }
   }
 }
