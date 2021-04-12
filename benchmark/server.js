@@ -1,15 +1,17 @@
 'use strict'
 
 process.env.AWS_NODEJS_CONNECTION_REUSE_ENABLED = 1
+process.env.AWS_REGION = 'ca-central-1'
 
 const endpoints = {
   '/': require('./examples/baseline'),
   '/api-gateway': require('./examples/api-gateway'),
+  '/api-gateway-3': require('./examples/api-gateway-3'),
   // '/dynamodb-event': require('./examples/dynamodb-event'),
   // '/kinesis-firehose-event': require('./examples/kinesis-firehose-event'),
   // '/kinesis-stream-event': require('./examples/kinesis-stream-event'),
   '/logging': require('./examples/logging'),
-  '/rds-connection': require('./examples/rds-connection'),
+  //'/rds-connection': require('./examples/rds-connection'),
   '/s3-event': require('./examples/s3-event'),
   // '/s3-get-promise': require('./examples/s3-get-promise'),
   // '/s3-get-stream': require('./examples/s3-get-stream'),
@@ -18,12 +20,12 @@ const endpoints = {
   '/sqs-event': require('./examples/sqs-event')
 }
 
-const requestListener = async (req, res) => {
-  await endpoints[req.url].handler(
-    endpoints[req.url].event,
-    endpoints[req.url].context
-  )
-  res.end()
-}
-
-require('http').createServer(requestListener).listen(3000)
+require('http')
+  .createServer(async (req, res) => {
+    await endpoints[req.url].handler(
+      endpoints[req.url].event,
+      endpoints[req.url].context
+    )
+    res.end()
+  })
+  .listen(3000)

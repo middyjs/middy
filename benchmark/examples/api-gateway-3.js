@@ -11,19 +11,19 @@ const event = {
 /**
  * Lambda triggered from API Gateway Proxy
  */
-const middy = require('@middy/core')
-const httpContentNegotiationMiddleware = require('@middy/http-content-negotiation')
-const httpCorsMiddleware = require('@middy/http-cors')
-const httpErrorHandlerMiddleware = require('@middy/http-error-handler')
-const httpEventNormalizerMiddleware = require('@middy/http-event-normalizer')
-const httpHeaderNormalizerMiddleware = require('@middy/http-header-normalizer')
-const httpJsonBodyParserMiddleware = require('@middy/http-json-body-parser')
-const httpMultipartBodyParserMiddleware = require('@middy/http-multipart-body-parser')
-const httpPartialResponseMiddleware = require('@middy/http-partial-response')
-const httpResponseSerializerMiddleware = require('@middy/http-response-serializer')
-const httpSecurityHeadersMiddleware = require('@middy/http-security-headers')
-const httpUrlencodeBodyParserMiddleware = require('@middy/http-urlencode-body-parser')
-const httpUrlencodePathParametersParserMiddleware = require('@middy/http-urlencode-path-parser')
+const middy = require('../../packages/core')
+const httpContentNegotiationMiddleware = require('../../packages/http-content-negotiation')
+const httpCorsMiddleware = require('../../packages/http-cors')
+const httpErrorHandlerMiddleware = require('../../packages/http-error-handler')
+const httpEventNormalizerMiddleware = require('../../packages/http-event-normalizer')
+const httpHeaderNormalizerMiddleware = require('../../packages/http-header-normalizer')
+const httpJsonBodyParserMiddleware = require('../../packages/http-json-body-parser')
+const httpMultipartBodyParserMiddleware = require('../../packages/http-multipart-body-parser')
+const httpPartialResponseMiddleware = require('../../packages/http-partial-response')
+const httpResponseSerializerMiddleware = require('../../packages/http-response-serializer')
+const httpSecurityHeadersMiddleware = require('../../packages/http-security-headers')
+const httpUrlencodeBodyParserMiddleware = require('../../packages/http-urlencode-body-parser')
+const httpUrlencodePathParametersParserMiddleware = require('../../packages/http-urlencode-path-parser')
 
 const handler = middy(() => {
   return {

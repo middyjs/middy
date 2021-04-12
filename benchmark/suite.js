@@ -1,6 +1,7 @@
 const Benchmark = require('benchmark')
 
 process.env.AWS_NODEJS_CONNECTION_REUSE_ENABLED = 1
+process.env.AWS_REGION = 'ca-central-1'
 
 // node suite.js {example}
 const example = process.argv[2] ?? 'baseline'

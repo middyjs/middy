@@ -16,7 +16,8 @@
     "test:doctor": "clinic doctor --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
     "test:flame": "clinic flame --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
     "test:bubbleprof": "clinic bubbleprof --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
-    "rollup": "rollup --config rollup.config.js --environment INCLUDE_DEPS,BUILD:production"
+    "rollup": "rollup --config rollup.config.js --environment INCLUDE_DEPS,BUILD:production",
+    "terser": "terser --compress --mangle -- examples/test.js"
   },
   "license": "MIT",
   "keywords": [
@@ -40,8 +41,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
+    "@middy/cloudwatch-metrics": "2.0.1",
     "@middy/core": "2.0.1",
     "@middy/do-not-wait-for-empty-event-loop": "2.0.1",
+    "@middy/error-logger": "2.0.1",
     "@middy/http-content-negotiation": "2.0.1",
     "@middy/http-cors": "2.0.1",
     "@middy/http-error-handler": "2.0.1",
@@ -54,12 +57,16 @@
     "@middy/http-security-headers": "2.0.1",
     "@middy/http-urlencode-body-parser": "2.0.1",
     "@middy/http-urlencode-path-parser": "2.0.1",
+    "@middy/input-output-logger": "2.0.1",
     "@middy/rds-signer": "2.0.1",
     "@middy/s3-key-normalizer": "2.0.1",
     "@middy/secrets-manager": "2.0.1",
+    "@middy/sqs-json-body-parser": "2.0.1",
     "@middy/sqs-partial-batch-failure": "2.0.1",
     "@middy/ssm": "2.0.1",
     "@middy/sts": "2.0.1",
+    "aws-sdk": "2.884.0",
+    "knex": "0.95.4",
     "middy-rds": "*"
   },
   "devDependencies": {
