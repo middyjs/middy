@@ -10,9 +10,9 @@ const sqsJsonBodyParserMiddleware = (opts = {}) => {
   const sqsJsonBodyParserMiddlewareBefore = async (request) => {
     const { event: { Records = [] } = { Records: [] } } = request
 
-    Records.forEach((record) => {
-      record.body = jsonSafeParse(record.body ?? '{}', options.reviver)
-    })
+    for (const record of Records) {
+      record.body = jsonSafeParse(record.body, options.reviver)
+    }
   }
   return {
     before: sqsJsonBodyParserMiddlewareBefore

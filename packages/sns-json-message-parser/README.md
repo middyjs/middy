@@ -1,17 +1,17 @@
-# Middy sqs json body parsing middleware
+# Middy SNS json message parsing middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>SQS batch json body parsing middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>SNS batch json body parsing middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsqs-json-body-parser">
-    <img src="https://badge.fury.io/js/%40middy%2Fsqs-json-body-parser.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%sns-json-message-parser">
+    <img src="https://badge.fury.io/js/%40middy%2Fsns-json-message-parser.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -25,14 +25,14 @@
 </p>
 </div>
 
-Middleware for iterating through a SQS batch of records and parsing the string body to a JSON body.
+Middleware for iterating through a SNS batch of records and parsing the string message to a JSON message.
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/sqs-json-body-parser
+npm install --save @middy/sns-json-message-parser
 ```
 
 ## Options
@@ -43,14 +43,14 @@ npm install --save @middy/sqs-json-body-parser
 
 ```javascript
 import middy from '@middy/core'
-import sqsJsonBodyParser from '@middy/sqs-json-body-parser'
+import snsJsonMessageParser from '@middy/sns-json-message-parser'
 
 const baseHandler = (event, context) => {
   const { Records } = event
   return Promise.all(Records.map(async (record, index) => { /* your message processing logic */ }))
 }
 
-const handler = middy(baseHandler).use(sqsJsonBodyParser())
+const handler = middy(baseHandler).use(snsJsonMessageParser())
 ```
 
 ## Middy documentation and examples

@@ -1,7 +1,7 @@
 {
-  "name": "@middy/sqs-json-body-parser",
+  "name": "@middy/sns-json-message-parser",
   "version": "2.0.1",
-  "description": "SQS batch json body parser middleware for the middy framework",
+  "description": "SNS batch json message parser middleware for the middy framework",
   "type": "commonjs",
   "engines": {
     "node": ">=12"
@@ -28,9 +28,7 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "SQS",
-    "Batch",
-    "Error"
+    "SNS"
   ],
   "author": {
     "name": "Middy contributors",
@@ -39,7 +37,7 @@
   "repository": {
     "type": "git",
     "url": "github:middyjs/middy",
-    "directory": "packages/sqs-json-body-parser"
+    "directory": "packages/sns-json-message-parser"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
