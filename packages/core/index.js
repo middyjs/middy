@@ -16,8 +16,8 @@ const middy = (handler = () => {}, plugin) => {
 
     return runMiddy(
       request,
-      handler,
       [...beforeMiddlewares],
+      handler,
       [...afterMiddlewares],
       [...onErrorMiddlewares],
       plugin
@@ -26,7 +26,9 @@ const middy = (handler = () => {}, plugin) => {
 
   instance.use = (middlewares) => {
     if (Array.isArray(middlewares)) {
-      middlewares.forEach((middleware) => instance.applyMiddleware(middleware))
+      for (const middleware of middlewares) {
+        instance.applyMiddleware(middleware)
+      }
       return instance
     }
     return instance.applyMiddleware(middlewares)
@@ -73,15 +75,15 @@ const middy = (handler = () => {}, plugin) => {
 
 const runMiddy = async (
   request,
-  handler,
   beforeMiddlewares,
+  handler,
   afterMiddlewares,
   onErrorMiddlewares,
   plugin
 ) => {
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
-    // Check if before stack doesn't need to exit early
+    // Check if before stack hasn't exit early
     if (request.response === undefined) {
       plugin?.beforeHandler?.()
       request.response = await handler(request.event, request.context)
@@ -109,17 +111,16 @@ const runMiddy = async (
 }
 
 const runMiddlewares = async (request, middlewares, plugin) => {
-  if (!middlewares.length) return
-  const nextMiddleware = middlewares.shift()
-  plugin?.beforeMiddleware?.(nextMiddleware?.name)
-  const res = await nextMiddleware?.(request)
-  plugin?.afterMiddleware?.(nextMiddleware?.name)
-  if (res !== undefined) {
+  for (const nextMiddleware of middlewares) {
+    plugin?.beforeMiddleware?.(nextMiddleware?.name)
+    const res = await nextMiddleware?.(request)
+    plugin?.afterMiddleware?.(nextMiddleware?.name)
     // short circuit chaining and respond early
-    request.response = res
-    return
+    if (res !== undefined) {
+      request.response = res
+      return
+    }
   }
-  return runMiddlewares(request, middlewares, plugin)
 }
 
 module.exports = middy
