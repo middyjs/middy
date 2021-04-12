@@ -80,20 +80,20 @@ const runMiddy = async (
   plugin
 ) => {
   try {
-    await runMiddlewares(beforeMiddlewares, request, plugin)
+    await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack doesn't need to exit early
     if (request.response === undefined) {
       plugin?.beforeHandler?.()
       request.response = await handler(request.event, request.context)
       plugin?.afterHandler?.()
-      await runMiddlewares(afterMiddlewares, request, plugin)
+      await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
     // Reset response changes made by after stack before error thrown
     request.response = undefined
     request.error = e
     try {
-      await runMiddlewares(onErrorMiddlewares, request, plugin)
+      await runMiddlewares(request, onErrorMiddlewares, plugin)
       // Catch if onError stack hasn't handled the error
       if (request.response === undefined) throw request.error
     } catch (e) {
@@ -108,7 +108,7 @@ const runMiddy = async (
   return request.response
 }
 
-const runMiddlewares = async (middlewares, request, plugin) => {
+const runMiddlewares = async (request, middlewares, plugin) => {
   if (!middlewares.length) return
   const nextMiddleware = middlewares.shift()
   plugin?.beforeMiddleware?.(nextMiddleware?.name)
@@ -119,7 +119,7 @@ const runMiddlewares = async (middlewares, request, plugin) => {
     request.response = res
     return
   }
-  return runMiddlewares(middlewares, request, plugin)
+  return runMiddlewares(request, middlewares, plugin)
 }
 
 module.exports = middy
