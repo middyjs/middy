@@ -3,7 +3,12 @@ const encoding = require('negotiator/lib/encoding.js')
 const language = require('negotiator/lib/language.js')
 const mediaType = require('negotiator/lib/mediaType.js')
 
-const parseFn = { charset, encoding, language, mediaType }
+const parseFn = {
+  Charset:charset,
+  Encoding:encoding,
+  Language:language,
+  MediaType:mediaType
+}
 
 const defaults = {
   parseCharsets: true,
@@ -26,7 +31,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
     if (options.parseCharsets) {
       parseHeader(
         'Accept-Charset',
-        'charset',
+        'Charset',
         options.availableCharsets,
         options.failOnMismatch,
         event
@@ -36,7 +41,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
     if (options.parseEncodings) {
       parseHeader(
         'Accept-Encoding',
-        'encoding',
+        'Encoding',
         options.availableEncodings,
         options.failOnMismatch,
         event
@@ -46,7 +51,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
     if (options.parseLanguages) {
       parseHeader(
         'Accept-Language',
-        'language',
+        'Language',
         options.availableLanguages,
         options.failOnMismatch,
         event
@@ -56,7 +61,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
     if (options.parseMediaTypes) {
       parseHeader(
         'Accept',
-        'mediaType',
+        'MediaType',
         options.availableMediaTypes,
         options.failOnMismatch,
         event
@@ -76,16 +81,14 @@ const parseHeader = (
   failOnMismatch,
   event
 ) => {
-  const singular = type.charAt(0).toUpperCase() + type.slice(1)
-  const plural = singular + 's'
-  const resultsName = `preferred${plural}`
-  const resultName = `preferred${singular}`
+  const resultsName = `preferred${type}s`
+  const resultName = `preferred${type}`
   const headerValue =
     event.headers[headerName] ?? event.headers[headerName.toLowerCase()]
   event[resultsName] = parseFn[type](headerValue, availableValues)
   event[resultName] = event[resultsName][0]
 
-  if (typeof event[resultName] === 'undefined' && failOnMismatch) {
+  if (failOnMismatch && event[resultName] === undefined) {
     const createError = require('http-errors')
     throw new createError.NotAcceptable(
       `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`

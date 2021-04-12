@@ -42,7 +42,7 @@ test('It should filter a response with default opts (string)', async (t) => {
   t.deepEqual(response.body, 'response')
 })
 
-test('It should filter a response with default opts (json)', async (t) => {
+test('It should filter a response with default opts (object)', async (t) => {
   const handler = middy((event, context) => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse())
