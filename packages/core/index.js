@@ -26,7 +26,9 @@ const middy = (handler = () => {}, plugin) => {
 
   instance.use = (middlewares) => {
     if (Array.isArray(middlewares)) {
-      for(const middleware of middlewares) { instance.applyMiddleware(middleware) }
+      for (const middleware of middlewares) {
+        instance.applyMiddleware(middleware)
+      }
       return instance
     }
     return instance.applyMiddleware(middlewares)
