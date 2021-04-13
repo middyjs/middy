@@ -6,8 +6,8 @@ const sinon = require('sinon')
 const rewire = require('rewire')
 const middy = require('../../core/index.js')
 const { clearCache } = require('../../util')
-const S3 = require('aws-sdk/clients/sts.js') // v2
-// const { S3 } = require('@aws-sdk/client-sts') // v3
+const S3 = require('aws-sdk/clients/s3.js') // v2
+// const { S3 } = require('@aws-sdk/client-s3') // v3
 const s3ObejctResponse = rewire('../index.js')
 
 let sandbox
