@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs'
 import json from '@rollup/plugin-json'
 import { terser } from 'rollup-plugin-terser'
 
-function onwarn(warning, warn) {
+const onwarn = (warning, warn) => {
   if (warning.code === 'CIRCULAR_DEPENDENCY') return
   warn(warning)
 }
