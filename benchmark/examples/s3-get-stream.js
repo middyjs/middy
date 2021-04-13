@@ -8,14 +8,14 @@ const event = {
 }
 
 const https = require('https')
+const { PassThrough } = require('stream')
 const sinon = require('sinon')
 const S3 = require('aws-sdk/clients/s3.js')
 S3.prototype.writeGetObjectResponse = sinon
   .createSandbox()
   .stub()
   .returns({
-    promise: () =>
-      Promise.resolve({ statusCode: 200 })
+    promise: () => Promise.resolve({ statusCode: 200 })
   })
 
 const mockHttps = (mockResponse) => {

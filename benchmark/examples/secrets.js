@@ -1,4 +1,3 @@
-
 process.env.rdsHostname = ''
 
 const sinon = require('sinon')
@@ -52,6 +51,7 @@ STS.prototype.assumeRole = sinon
  * Pull Secrets or Configuration details from AWS services
  */
 const middy = require('@middy/core')
+const { getInternal } = require('@middy/util')
 // const dynamodb = require('@middy/dynamodb') # See #595
 const rdsSignerMiddleware = require('@middy/rds-signer')
 // const s3 = require('@middy/s3') # See #594
@@ -79,7 +79,7 @@ const handler = middy((event) => {
   .use(
     secretsManagerMiddleware({
       AwsClient: SecretsManager,
-      fetchData:{
+      fetchData: {
         key: '/dev/service_name/key_name'
       }
     })
@@ -87,7 +87,7 @@ const handler = middy((event) => {
   .use(
     ssm({
       AwsClient: SSM,
-      fetchData:{
+      fetchData: {
         key: '/dev/service_name/key_name'
       }
     })
@@ -102,5 +102,8 @@ const handler = middy((event) => {
       }
     })
   )
+  .before(async (request) => {
+    request.context.secrets = await getInternal(true, request)
+  })
 
 module.exports = { handler }
