@@ -8,9 +8,10 @@ const snsJsonMessageParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const parseEvent = (event) => {
-    if (!Array.isArray(event?.Records)) return
+    const records = event?.Records
+    if (!Array.isArray(records)) return
 
-    for (const record of event.Records) {
+    for (const record of records) {
       if (record.EventSource === 'aws:sns') {
         record.Sns.Message = jsonSafeParse(record.Sns.Message, options.reviver)
       }

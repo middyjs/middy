@@ -7,15 +7,16 @@ const s3KeyNormalizerMiddlewareBefore = async (request) => {
 }
 
 const parseEvent = (event) => {
-  if (!Array.isArray(event?.Records)) return
+  const records = event?.Records
+  if (!Array.isArray(records)) return
 
-  for (const record of event.Records) {
+  for (const record of records) {
     if (record.eventSource === 'aws:s3') {
       normalizeS3Key(record)
-    } else if (record.eventSource === 'aws:sqs') {
-      parseEvent(record.body)
     } else if (record.EventSource === 'aws:sns') {
       parseEvent(record.Sns.Message)
+    } else if (record.eventSource === 'aws:sqs') {
+      parseEvent(record.body)
     }
   }
 }

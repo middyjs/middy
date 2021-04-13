@@ -8,9 +8,10 @@ const sqsJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const parseEvent = (event) => {
-    if (!Array.isArray(event?.Records)) return
+    const records = event?.Records
+    if (!Array.isArray(records)) return
 
-    for (const record of event.Records) {
+    for (const record of records) {
       if (record.eventSource === 'aws:sqs') {
         record.body = jsonSafeParse(record.body, options.reviver)
       } else if (record.EventSource === 'aws:sns') {
