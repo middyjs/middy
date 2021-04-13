@@ -10,7 +10,7 @@ test('Middleware attached with "use" must be an object or array[object]', async 
   })
   t.is(
     error.message,
-    'Middleware must an object containing at least one key among "before", "after", "onError"'
+    'Middleware must be an object containing at least one key among "before", "after", "onError"'
   )
 
   error = t.throws(() => {
@@ -18,7 +18,7 @@ test('Middleware attached with "use" must be an object or array[object]', async 
   })
   t.is(
     error.message,
-    'Middleware must an object containing at least one key among "before", "after", "onError"'
+    'Middleware must be an object containing at least one key among "before", "after", "onError"'
   )
 
   error = t.throws(() => {
@@ -26,7 +26,7 @@ test('Middleware attached with "use" must be an object or array[object]', async 
   })
   t.is(
     error.message,
-    'Middleware must an object containing at least one key among "before", "after", "onError"'
+    'Middleware must be an object containing at least one key among "before", "after", "onError"'
   )
 })
 

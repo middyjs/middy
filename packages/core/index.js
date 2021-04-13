@@ -1,4 +1,4 @@
-const middy = (handler = () => {}, plugin) => {
+const middy = (baseHandler = () => {}, plugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -17,7 +17,7 @@ const middy = (handler = () => {}, plugin) => {
     return runRequest(
       request,
       [...beforeMiddlewares],
-      handler,
+      baseHandler,
       [...afterMiddlewares],
       [...onErrorMiddlewares],
       plugin
@@ -39,7 +39,7 @@ const middy = (handler = () => {}, plugin) => {
 
     if (!before && !after && !onError) {
       throw new Error(
-        'Middleware must an object containing at least one key among "before", "after", "onError"'
+        'Middleware must be an object containing at least one key among "before", "after", "onError"'
       )
     }
 
@@ -76,7 +76,7 @@ const middy = (handler = () => {}, plugin) => {
 const runRequest = async (
   request,
   beforeMiddlewares,
-  handler,
+  baseHandler,
   afterMiddlewares,
   onErrorMiddlewares,
   plugin
@@ -86,7 +86,7 @@ const runRequest = async (
     // Check if before stack hasn't exit early
     if (request.response === undefined) {
       plugin?.beforeHandler?.()
-      request.response = await handler(request.event, request.context)
+      request.response = await baseHandler(request.event, request.context)
       plugin?.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
