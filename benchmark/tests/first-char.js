@@ -9,6 +9,9 @@ const option2 = (string) => {
 const option3 = (string) => {
   return string.slice(0, 1)
 }
+const option4 = (string) => {
+  return string[0]
+}
 
 const Benchmark = require('benchmark')
 
@@ -21,6 +24,9 @@ new Benchmark.Suite('Get First Char', {})
   })
   .add('option3', async () => {
     option3('hello')
+  })
+  .add('option4', async () => {
+    option4('hello')
   })
   // add listeners
   .on('cycle', (event) => {
