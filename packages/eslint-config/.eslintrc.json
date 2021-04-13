@@ -1,0 +1,17 @@
+{
+  "extends": ["standard", "plugin:prettier/recommended"],
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "script"
+  },
+  "plugins": ["sort-destructure-keys"],
+  "env": {
+    "browser": false,
+    "jest": true,
+    "node": true
+  },
+  "rules": {
+    "strict": ["error", "global"],
+    "sort-destructure-keys/sort-destructure-keys": 2
+  }
+}

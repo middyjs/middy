@@ -1,0 +1,58 @@
+{
+  "name": "@middy/eslint-config",
+  "private": true,
+  "version": "2.0.1",
+  "description": "Shareable @middy eslint configuration",
+  "keywords": [
+    "eslint",
+    "middy",
+    "verify",
+    "style",
+    "code",
+    "checker",
+    "standard",
+    "prettier",
+    "configuration"
+  ],
+  "author": "Nicolás Fantone <nfantone@gmail.com>",
+  "homepage": "https://middy.js.org/packages/eslint-config",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nfantone/middy.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy"
+  },
+  "peerDependencies": {
+    "eslint": "^7.24.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-sort-destructure-keys": "^1.3.5",
+    "eslint-plugin-standard": "^4.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.13.15",
+    "eslint": "^7.24.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-sort-destructure-keys": "^1.3.5",
+    "eslint-plugin-standard": "^4.1.0"
+  }
+}

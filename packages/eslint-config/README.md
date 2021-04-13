@@ -1,0 +1,1 @@
+# `@middy/eslint-config`

@@ -1,0 +1,4 @@
+{
+  "extends": "@middy/eslint-config",
+  "parser": "@babel/eslint-parser"
+}
