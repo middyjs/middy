@@ -8,7 +8,7 @@ const forIncrement = (arr) => {
 }
 
 const forDecrement = (arr) => {
-  for (let idx = arr.length; --idx; ) {
+  for (let idx = arr.length; --idx; idx) {
     const item = arr[idx]
     if (item) {
     }
