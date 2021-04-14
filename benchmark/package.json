@@ -1,0 +1,83 @@
+{
+  "name": "@middy/benchmark",
+  "version": "2.0.0",
+  "description": "Performance benchmarks for middy",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=12"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "npm run rollup && npm run test:benchmark",
+    "test:benchmark": "node suite.js $EXAMPLE",
+    "test:doctor": "clinic doctor --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "test:flame": "clinic flame --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node --no-turbo-inlining server.js",
+    "test:bubbleprof": "clinic bubbleprof --on-port 'autocannon -c 100 -d 40 -p 10 localhost:3000/$EXAMPLE' -- node server.js",
+    "rollup": "rollup --config rollup.config.js --environment INCLUDE_DEPS,BUILD:production",
+    "terser": "terser --compress --mangle -- examples/test.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/middyjs/middy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "@middy/cloudwatch-metrics": "2.0.1",
+    "@middy/core": "2.0.1",
+    "@middy/do-not-wait-for-empty-event-loop": "2.0.1",
+    "@middy/error-logger": "2.0.1",
+    "@middy/http-content-negotiation": "2.0.1",
+    "@middy/http-cors": "2.0.1",
+    "@middy/http-error-handler": "2.0.1",
+    "@middy/http-event-normalizer": "2.0.1",
+    "@middy/http-header-normalizer": "2.0.1",
+    "@middy/http-json-body-parser": "2.0.1",
+    "@middy/http-multipart-body-parser": "2.0.1",
+    "@middy/http-partial-response": "2.0.1",
+    "@middy/http-response-serializer": "2.0.1",
+    "@middy/http-security-headers": "2.0.1",
+    "@middy/http-urlencode-body-parser": "2.0.1",
+    "@middy/http-urlencode-path-parser": "2.0.1",
+    "@middy/input-output-logger": "2.0.1",
+    "@middy/rds-signer": "2.0.1",
+    "@middy/s3-key-normalizer": "2.0.1",
+    "@middy/secrets-manager": "2.0.1",
+    "@middy/sqs-json-body-parser": "2.0.1",
+    "@middy/sqs-partial-batch-failure": "2.0.1",
+    "@middy/ssm": "2.0.1",
+    "@middy/sts": "2.0.1",
+    "aws-sdk": "2.884.0",
+    "knex": "0.95.4",
+    "middy-rds": "*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "18.0.0",
+    "@rollup/plugin-json": "4.1.0",
+    "@rollup/plugin-node-resolve": "11.2.1",
+    "autocannon": "6.5.0",
+    "benchmark": "^2.1.4",
+    "clinic": "8.0.1",
+    "rollup": "2.45.1",
+    "rollup-plugin-terser": "7.0.2"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
