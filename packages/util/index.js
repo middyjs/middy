@@ -139,7 +139,7 @@ const clearCache = (keys = null) => {
 
 const jsonSafeParse = (string, reviver) => {
   if (typeof string !== 'string') return string
-  const firstChar = string.charAt(0)
+  const firstChar = string[0]
   if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
   try {
     return JSON.parse(string, reviver)

@@ -10,7 +10,7 @@
   "scripts": {
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
-    "test:lint": "ts-standard --fix && prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
+    "test:lint": "ts-standard --fix && prettier --write --loglevel=warn \"./**/*.js\"",
     "test:lint:ci": "ts-standard",
     "test:unit": "cd packages/$PACKAGE && npm run test:unit",
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
@@ -20,7 +20,7 @@
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:lock",
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
-    "lerna:install": "lerna exec --bail --concurrency 5 npm update",
+    "lerna:install": "lerna exec --bail --concurrency 5 npm install",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update",
     "lerna:outdated": "lerna exec --concurrency 2 npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
