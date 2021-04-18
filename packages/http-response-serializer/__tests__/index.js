@@ -257,7 +257,22 @@ test('It should work with `http-error-handler` middleware', async (t) => {
   })
 })
 
-test('It should not crash if the response is undefined', async (t) => {
+test('It should skip if the response is undefined form 502 error', async (t) => {
+  const handler = middy((event, context) => {
+    throw new Error('test')
+  })
+
+  handler.use(httpResponseSerializer(standardConfiguration))
+
+  try {
+    await handler()
+  } catch(e) {
+    t.deepEqual(e.message, 'test')
+  }
+
+})
+
+test('It should skip if the response is undefined', async (t) => {
   const handler = middy((event, context) => undefined)
 
   handler.use(httpResponseSerializer(standardConfiguration))
@@ -270,12 +285,7 @@ test('It should not crash if the response is undefined', async (t) => {
 
   const response = await handler(event)
 
-  t.deepEqual(response, {
-    headers: {
-      'Content-Type': standardConfiguration.default
-    },
-    body: '{}'
-  })
+  t.deepEqual(response, undefined)
 })
 
 test('It should return false when response body is falsey', async (t) => {

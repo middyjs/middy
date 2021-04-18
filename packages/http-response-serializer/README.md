@@ -94,7 +94,6 @@ All options allow for multiple types to be specified in your order of preference
 ```javascript
 import middy from '@middy/core'
 import httpResponseSerializer from '@middy/http-response-serializer'
-import httpErrorHandler from '@middy/http-error-handler'
 
 const handler = middy((event, context) => {
   const body = 'Hello World'
@@ -123,7 +122,6 @@ handler
     ],
     default: 'application/json'
   }))
-  .use(httpErrorHandler())
 
 const event = {
   headers: {

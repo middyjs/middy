@@ -346,9 +346,9 @@ test('normalizeHttpResponse should update headers in response', async (t) => {
 
 test('normalizeHttpResponse should update nullish response', async (t) => {
   let value = util.normalizeHttpResponse(null)
-  t.deepEqual(value, { headers: {} })
+  t.deepEqual(value, { headers: {}, body: null })
   value = util.normalizeHttpResponse()
-  t.deepEqual(value, { headers: {} })
+  t.deepEqual(value, { headers: {}, body: undefined })
 })
 
 test('normalizeHttpResponse should update string response', async (t) => {
