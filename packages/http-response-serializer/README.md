@@ -104,6 +104,7 @@ Thie middleware does not rely on any other middlewares.
 ```javascript
 import middy from '@middy/core'
 import httpResponseSerializer from '@middy/http-response-serializer'
+import httpErrorHandler from '@middy/http-error-handler'
 
 const handler = middy((event, context) => {
   const body = 'Hello World'
@@ -132,6 +133,7 @@ handler
     ],
     default: 'application/json'
   }))
+  .use(httpErrorHandler())
 
 const event = {
   headers: {
