@@ -1,20 +1,6 @@
 const test = require('ava')
-const sinon = require('sinon')
 const createEvent = require('@serverless/event-mocks')
-const middy = require('../../core/index.js')
 const eventNormalizer = require('../index.js')
-
-let event
-
-let sandbox
-test.beforeEach((t) => {
-  sandbox = sinon.createSandbox()
-})
-
-test.afterEach((t) => {
-  sandbox.restore()
-  event = undefined
-})
 
 test.serial('It should skip when empty event', async (t) => {
   const request = { event: {} }
@@ -94,7 +80,7 @@ test.serial('It should parse DynamoDB event keys/images', async (t) => {
     OldImage: {},
     SequenceNumber: '111',
     SizeBytes: 26,
-    StreamViewType: 'NEW_AND_OLD_IMAGES',
+    StreamViewType: 'NEW_AND_OLD_IMAGES'
   })
 })
 
@@ -102,7 +88,10 @@ test.serial('It should parse DynamoDB event keys/images', async (t) => {
 test.serial('It should parse Kinesis Stream event data', async (t) => {
   const data = { hello: 'world' }
   const request = { event: createEvent.default('aws:kinesis') }
-  request.event.Records[0].kinesis.data = Buffer.from(JSON.stringify(data), 'utf-8').toString('base64')
+  request.event.Records[0].kinesis.data = Buffer.from(
+    JSON.stringify(data),
+    'utf-8'
+  ).toString('base64')
 
   await eventNormalizer().before(request)
 
@@ -112,7 +101,8 @@ test.serial('It should parse Kinesis Stream event data', async (t) => {
 // Kinesis Firehose
 test.serial('It should parse Kinesis Firehose event data', async (t) => {
   const data = { hello: 'world' }
-  const request = { event: {
+  const request = {
+    event: {
       invocationId: 'invoked123',
       deliveryStreamArn: 'aws:lambda:events',
       region: 'us-west-2',

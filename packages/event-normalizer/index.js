@@ -1,9 +1,8 @@
 const { Converter } = require('aws-sdk/clients/dynamodb') // v2
-//const { unmarshall } = require('@aws-sdk/util-dynamodb') // v3
+// const { unmarshall } = require('@aws-sdk/util-dynamodb') // v3
 const { jsonSafeParse } = require('@middy/util')
 
 const eventNormalizerMiddleware = () => {
-
   const eventNormalizerMiddlewareBefore = async (request) => {
     parseEventRecords(request.event)
   }
@@ -14,7 +13,7 @@ const eventNormalizerMiddleware = () => {
 
 const normalizeS3KeyReplacePlus = /\+/g
 const parseEventRecords = (event) => {
-  const records = event?.Records ?? event?.records
+  const records = event?.Records ?? event?.records // lowercase records is for Kinesis Firehose
   if (!Array.isArray(records)) return
 
   for (const record of records) {
@@ -33,10 +32,15 @@ const parseEventRecords = (event) => {
         record.s3.object.key.replace(normalizeS3KeyReplacePlus, ' ')
       )
     } else if (record.eventSource === 'aws:kinesis') {
-      record.kinesis.data = jsonSafeParse(Buffer.from(record.kinesis.data, 'base64').toString('utf-8'))
+      // Kinesis Stream
+      record.kinesis.data = jsonSafeParse(
+        Buffer.from(record.kinesis.data, 'base64').toString('utf-8')
+      )
     } else if (record.kinesisRecordMetadata) {
       // Kinesis Firehose
-      record.data = jsonSafeParse(Buffer.from(record.data, 'base64').toString('utf-8'))
+      record.data = jsonSafeParse(
+        Buffer.from(record.data, 'base64').toString('utf-8')
+      )
     }
   }
 }
