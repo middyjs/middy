@@ -266,10 +266,9 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
 
   try {
     await handler()
-  } catch(e) {
+  } catch (e) {
     t.deepEqual(e.message, 'test')
   }
-
 })
 
 test('It should skip if the response is undefined', async (t) => {
