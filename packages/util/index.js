@@ -148,10 +148,9 @@ const jsonSafeParse = (string, reviver) => {
   return string
 }
 
-const normalizeHttpResponse = (response, fallbackResponse = {}) => {
-  response = response ?? fallbackResponse
+const normalizeHttpResponse = (response) => {
   // May require updating to catch other types
-  if (Array.isArray(response) || typeof response !== 'object') {
+  if (Array.isArray(response) || typeof response !== 'object' || response === null) {
     response = { body: response }
   }
   response.headers = response?.headers ?? {}

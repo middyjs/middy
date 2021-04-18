@@ -9,6 +9,7 @@ const defaults = {
 const httpResponseSerializerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (request) => {
+    if (request.response === undefined) return
     request.response = normalizeHttpResponse(request.response)
     // skip serialization when content-type is already set
     if (
