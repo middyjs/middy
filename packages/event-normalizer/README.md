@@ -27,7 +27,7 @@
 
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.
 
-**AWS Events:**
+**AWS Events Transformations:**
 - `API Gateway (HTTP, REST, Websocket)`: None, see middleware prefixed with `http-`
 - `CloudWatch`: None
 - `Cognito Pool`: None
@@ -35,6 +35,7 @@ Middleware for iterating through an AWS event records, parsing and normalizing n
 - `IoT`: None
 - `Kinesis Stream`: Base64 decode and JSON parse
 - `Kinesis Firehose`: Base64 decode and JSON parse
+- `RDS`: None
 - `S3`: URI decode key name
 - `SNS`: JSON parse
 - `SQS`: JSON parse
