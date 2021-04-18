@@ -1,7 +1,7 @@
 {
-  "name": "@middy/sns-json-message-parser",
+  "name": "@middy/event-normalizer",
   "version": "2.0.1",
-  "description": "SNS batch json message parser middleware for the middy framework",
+  "description": "Parse and normalize AWS events middleware for the middy framework",
   "type": "commonjs",
   "engines": {
     "node": ">=12"
@@ -28,7 +28,11 @@
     "AWS",
     "AWS Lambda",
     "Middy",
-    "SNS"
+    "DynamoDB",
+    "Kinesis",
+    "SQS",
+    "SNS",
+    "S3,"
   ],
   "author": {
     "name": "Middy contributors",
@@ -37,7 +41,7 @@
   "repository": {
     "type": "git",
     "url": "github:middyjs/middy",
-    "directory": "packages/sns-json-message-parser"
+    "directory": "packages/sqs-json-body-parser"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -48,7 +52,8 @@
   },
   "devDependencies": {
     "@middy/core": "^2.0.1",
-    "@serverless/event-mocks": "^1.1.1"
+    "@serverless/event-mocks": "^1.1.1",
+    "aws-sdk": "^2.888.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
