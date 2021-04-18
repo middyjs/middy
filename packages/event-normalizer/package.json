@@ -41,7 +41,7 @@
   "repository": {
     "type": "git",
     "url": "github:middyjs/middy",
-    "directory": "packages/sqs-json-body-parser"
+    "directory": "packages/event-normalizer"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"

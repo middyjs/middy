@@ -1,9 +1,6 @@
 import middy from '@middy/core'
 
-interface Options {
-  reviver?: (key: string, value: any) => any
-}
 
-declare function sqsJsonBodyParser (options?: Options): middy.MiddlewareObj
+declare function eventNormalizer (): middy.MiddlewareObj
 
-export default sqsJsonBodyParser
+export default eventNormalizer
