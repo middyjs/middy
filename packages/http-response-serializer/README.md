@@ -89,16 +89,6 @@ The content type is determined in the following order:
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
 
 
-## Error Handling
-
-This middleware does work with `http-error-handler`. To serialize error responses, ensure the `httpErrorHandler` middleware is configured before `httpResponseSerializer`.
-
-
-## Dependencies
-
-Thie middleware does not rely on any other middlewares.
-
-
 ## Sample usage
 
 ```javascript
