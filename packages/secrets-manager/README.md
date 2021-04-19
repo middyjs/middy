@@ -71,17 +71,21 @@ const handler = middy((event, context) => {
   return {}
 })
 
- handler.use(secretsManager({
-   fetchData: {
+handler.use(secretsManager({
+  fetchData: {
     apiToken: 'dev/api_token'
-  }
+  },
+  awsClientOptions: {
+    region: 'us-east-1',
+  },
+  setToContext: true,
 }))
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
-  // assuming the dev/rds_login has two keys, 'Username' and 'Password'
-  t.is(context.RDS_LOGIN.Username,'username')
-  t.is(context.RDS_LOGIN.Password,'password')
+  // assuming the dev/api_token has two keys, 'Username' and 'Password'
+  t.is(context.apiToken.Username,'username')
+  t.is(context.apiToken.Password,'password')
 })
 ```
 

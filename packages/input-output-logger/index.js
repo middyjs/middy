@@ -8,7 +8,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   if (typeof logger !== 'function') logger = null
 
   const omitAndLog = (message) => {
-    const redactedMessage = omit(message, omitPaths)
+    const redactedMessage = omit(JSON.parse(JSON.stringify(message)), omitPaths) // Full clone to prevent nested mutations
     logger(redactedMessage)
   }
 

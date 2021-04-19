@@ -10,8 +10,8 @@
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsecrets-manager">
-    <img src="https://badge.fury.io/js/%40middy%2Fsecrets-manager.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fcloudwatch-metrics">
+    <img src="https://badge.fury.io/js/%40middy%2Fcloudwatch-metrics.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -39,7 +39,7 @@ You can explore all the MetricLogger APIs following [aws-embedded-metrics](https
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/metrics
+npm install --save @middy/cloudwatch-metrics
 ```
 
 ## Options
@@ -59,14 +59,14 @@ npm install --save @middy/metrics
 
 ```javascript
 const middy = require('@middy/core')
-const metrics = require('@middy/metrics')
+const cloudwatchMetrics = require('@middy/cloudwatch-metrics')
 
 const handler = middy((event, context) => {
     context.metrics.putMetric("ProcessingLatency", 100, "Milliseconds");
     context.metrics.setProperty("RequestId", "422b1569-16f6-4a03-b8f0-fe3fd9b100f8")
 })
 
-handler.use(metrics({
+handler.use(cloudwatchMetrics({
     namspace: "myAppliction",
     dimensions: [
         { "Action": "Buy" }
