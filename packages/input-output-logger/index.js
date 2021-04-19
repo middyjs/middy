@@ -26,7 +26,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 // move to util, if ever used elsewhere
 const omit = (originalObject = {}, keysToOmit = []) => {
-  const clonedObject = { ...originalObject }
+  const clonedObject = JSON.parse(JSON.stringify(originalObject)) // Full clone to prevent nested mutations
   for (const path of keysToOmit) {
     deleteKey(clonedObject, path)
   }
