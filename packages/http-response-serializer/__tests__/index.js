@@ -119,6 +119,33 @@ test('It should use the default when no accept preferences are given', async (t)
   })
 })
 
+test('It should allow the return of the entire response', async (t) => {
+  const handler = middy((event, context) => createHttpResponse())
+
+  handler.use(httpResponseSerializer({
+    serializers: [
+      {
+        regex: /^application\/json$/,
+        serializer: (response) => {
+          response.body = JSON.stringify({message:response.body})
+          return response
+        }
+      }
+    ],
+    default: 'application/json'
+  }))
+
+  const response = await handler()
+
+  t.deepEqual(response, {
+    statusCode: 200,
+    headers: {
+      'Content-Type': standardConfiguration.default
+    },
+    body: '{"message":"Hello World"}'
+  })
+})
+
 test('It should use the default when no matching accept preferences are found', async (t) => {
   const handler = middy((event, context) => {
     event.preferredContentType = 'text/java'

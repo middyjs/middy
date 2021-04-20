@@ -42,7 +42,13 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
         }
 
         request.response.headers['Content-Type'] = type
-        request.response.body = s.serializer(request.response)
+        const result = s.serializer(request.response)
+        if (result?.body) {
+          request.response = result
+        } else {
+          // otherwise only replace the body attribute
+          request.response.body = result
+        }
 
         breakTypes = true
         break
