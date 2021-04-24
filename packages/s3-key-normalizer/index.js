@@ -7,19 +7,16 @@ const s3KeyNormalizerMiddlewareBefore = async (request) => {
 }
 
 const parseEvent = (event) => {
-  if (!Array.isArray(event?.Records)) return
+  const records = event?.Records
+  if (!Array.isArray(records)) return
 
-  for (const record of event.Records) {
-    switch (record.eventSource) {
-      case 'aws:sns':
-        parseEvent(record.Sns.Message)
-        break
-      case 'aws:sqs':
-        parseEvent(record.body)
-        break
-      case 'aws:s3':
-        normalizeS3Key(record)
-        break
+  for (const record of records) {
+    if (record.eventSource === 'aws:s3') {
+      normalizeS3Key(record)
+    } else if (record.EventSource === 'aws:sns') {
+      parseEvent(record.Sns.Message)
+    } else if (record.eventSource === 'aws:sqs') {
+      parseEvent(record.body)
     }
   }
 }
@@ -32,7 +29,6 @@ const normalizeS3Key = (record) => {
       record.s3.object.key.replace(normalizeS3KeyReplacePlus, ' ')
     )
   }
-  return record
 }
 
 module.exports = s3KeyNormalizerMiddleware

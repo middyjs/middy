@@ -1,17 +1,17 @@
-# Middy sqs json body parsing middleware
+# Middy AWS event parse and normalization middleware
 
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
 </div>
 
 <div align="center">
-  <p><strong>SQS batch json body parsing middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>AWS event parsing and normalization middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsqs-json-body-parser">
-    <img src="https://badge.fury.io/js/%40middy%2Fsqs-json-body-parser.svg" alt="npm version" style="max-width:100%;">
+  <a href="http://badge.fury.io/js/%40middy%2Fevent-normalizer">
+    <img src="https://badge.fury.io/js/%40middy%2Fevent-normalizer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
@@ -25,32 +25,44 @@
 </p>
 </div>
 
-Middleware for iterating through a SQS batch of records and parsing the string body to a JSON body.
+Middleware for iterating through an AWS event records, parsing and normalizing nested events.
+
+**AWS Events Transformations:**
+- `API Gateway (HTTP, REST, Websocket)`: None, see middleware prefixed with `http-`
+- `CloudWatch`: None
+- `Cognito Pool`: None
+- `DynamoDB`: Unmarshall `Keys`, `OldImage`, and `NewImage`
+- `IoT`: None
+- `Kinesis Stream`: Base64 decode and JSON parse
+- `Kinesis Firehose`: Base64 decode and JSON parse
+- `RDS`: None
+- `S3`: URI decode key name
+- `SNS`: JSON parse
+- `SQS`: JSON parse
+
 
 ## Install
 
 To install this middleware you can use NPM:
 
 ```bash
-npm install --save @middy/sqs-json-body-parser
+npm install --save @middy/event-normalizer
 ```
-
-## Options
-
- - `reviver` (function) (optional): A function to be passed as the reviver for [JSON.parse(text[, reviver])](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON). If safeParse is provided then reviver will be passed to it and it is up the provided safeParse function to use it or ignore it.
 
 ## Sample usage
 
 ```javascript
 import middy from '@middy/core'
-import sqsJsonBodyParser from '@middy/sqs-json-body-parser'
+import eventNormalizer from '@middy/event-normalizer'
 
 const baseHandler = (event, context) => {
   const { Records } = event
-  return Promise.all(Records.map(async (record, index) => { /* your message processing logic */ }))
+  for(const record of Records) {
+    // ...
+  }
 }
 
-const handler = middy(baseHandler).use(sqsJsonBodyParser())
+const handler = middy(baseHandler).use(eventNormalizer())
 ```
 
 ## Middy documentation and examples

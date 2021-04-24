@@ -67,13 +67,18 @@ const event = {
 }
 
 /**
- * Trigger Lambda from DynamoDB Event
- * https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html
+ * Trigger Lambda from AWS Event
+ * DynamoDB: https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html
+ * Kinesis Firehose: https://docs.aws.amazon.com/lambda/latest/dg/services-kinesisfirehose.html
+ * Kinesis Stream: https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html
+ * RDS: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL-Lambda.html
+ * S3: https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html
+ * SNS: https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html
  **/
 const middy = require('@middy/core')
-// const dynamodbNormalizerMiddleware = require('@middy/dynamodb-normalizer') // convert nested structure to more useful json, see s3-key-normalizer
+// const eventNormalizerMiddleware = require('@middy/event-normalizer') // convert nested structure to more useful json, see s3-key-normalizer
 
 const handler = middy(() => {})
-//  .use(dynamodbNormalizerMiddleware())
+//  .use(eventNormalizerMiddleware())
 
 module.exports = { handler, event }

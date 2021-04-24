@@ -19,8 +19,8 @@ test.afterEach((t) => {
 test.serial('parses each body payload', async (t) => {
   const request = { event }
   const bodys = [{ one: 1 }, { two: 2 }, { three: 3 }]
-  event.Records.push({ ...event.Records[0] })
-  event.Records.push({ ...event.Records[0] })
+  event.Records.push(JSON.parse(JSON.stringify(event.Records[0])))
+  event.Records.push(JSON.parse(JSON.stringify(event.Records[0])))
 
   bodys.forEach((body, idx) => {
     event.Records[idx].body = JSON.stringify(body)
@@ -48,7 +48,7 @@ test.serial('returns default body when nullish', async (t) => {
   request.event.Records[0].body = body
   await sqsJsonBodyParser().before(request)
 
-  t.deepEqual(request.event.Records[0].body, {})
+  t.deepEqual(request.event.Records[0].body, null)
 })
 
 test.serial('It should parse the body', async (t) => {
@@ -64,7 +64,7 @@ test.serial('It should parse the body', async (t) => {
 test.serial('It should parse all bodys', async (t) => {
   const handler = middy().use(sqsJsonBodyParser())
   const bodys = [{ one: 1 }, { two: 2 }]
-  event.Records.push({ ...event.Records[0] })
+  event.Records.push(JSON.parse(JSON.stringify(event.Records[0])))
 
   bodys.forEach((body, idx) => {
     event.Records[idx].body = JSON.stringify(body)

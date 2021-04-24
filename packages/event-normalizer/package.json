@@ -1,7 +1,7 @@
 {
-  "name": "@middy/sqs-json-body-parser",
+  "name": "@middy/event-normalizer",
   "version": "2.0.1",
-  "description": "SQS batch json body parser middleware for the middy framework",
+  "description": "Parse and normalize AWS events middleware for the middy framework",
   "type": "commonjs",
   "engines": {
     "node": ">=12"
@@ -28,9 +28,11 @@
     "AWS",
     "AWS Lambda",
     "Middy",
+    "DynamoDB",
+    "Kinesis",
     "SQS",
-    "Batch",
-    "Error"
+    "SNS",
+    "S3,"
   ],
   "author": {
     "name": "Middy contributors",
@@ -39,7 +41,7 @@
   "repository": {
     "type": "git",
     "url": "github:middyjs/middy",
-    "directory": "packages/sqs-json-body-parser"
+    "directory": "packages/event-normalizer"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
@@ -50,7 +52,8 @@
   },
   "devDependencies": {
     "@middy/core": "^2.0.1",
-    "@serverless/event-mocks": "^1.1.1"
+    "@serverless/event-mocks": "^1.1.1",
+    "aws-sdk": "^2.888.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
