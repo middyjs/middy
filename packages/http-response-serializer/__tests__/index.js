@@ -122,18 +122,20 @@ test('It should use the default when no accept preferences are given', async (t)
 test('It should allow the return of the entire response', async (t) => {
   const handler = middy((event, context) => createHttpResponse())
 
-  handler.use(httpResponseSerializer({
-    serializers: [
-      {
-        regex: /^application\/json$/,
-        serializer: (response) => {
-          response.body = JSON.stringify({message:response.body})
-          return response
+  handler.use(
+    httpResponseSerializer({
+      serializers: [
+        {
+          regex: /^application\/json$/,
+          serializer: (response) => {
+            response.body = JSON.stringify({ message: response.body })
+            return response
+          }
         }
-      }
-    ],
-    default: 'application/json'
-  }))
+      ],
+      default: 'application/json'
+    })
+  )
 
   const response = await handler()
 
