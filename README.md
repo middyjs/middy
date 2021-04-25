@@ -349,7 +349,7 @@ async (request) => {
 
 Where:
 
-- `handler`: is a reference to the current context and allows access to (and modification of)
+- `request`: is a reference to the current context and allows access to (and modification of)
   the current `event` (request), the `response` (in the _after_ phase), and `error`
   (in case of an error).
 
