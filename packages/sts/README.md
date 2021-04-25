@@ -43,7 +43,7 @@ npm install --save @middy/sts
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `sts`): Internal cache key for the fetched data responses.
+- `cacheKey` (string) (default `sts`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 

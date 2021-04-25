@@ -51,7 +51,7 @@ npm install --save @middy/secrets-manager
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `secrets-manager`): Internal cache key for the fetched data responses.
+- `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store secrets to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
 - `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
