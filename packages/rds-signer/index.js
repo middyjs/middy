@@ -2,7 +2,8 @@ const {
   canPrefetch,
   createClient,
   getInternal,
-  processCache
+  processCache,
+  clearCache
 } = require('@middy/util')
 const RDS = require('aws-sdk/clients/rds.js') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
@@ -38,14 +39,19 @@ const rdsSignerMiddleware = (opts = {}) => {
 
       // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
-        createClient(awsClientOptions, request).then((client) => {
-          client.getAuthToken({}, (err, token) => {
-            if (err) {
-              return reject(err)
-            }
-            resolve(token)
+        createClient(awsClientOptions, request)
+          .then((client) => {
+            return client.getAuthToken({}, (err, token) => {
+              if (err) {
+                return reject(err)
+              }
+              resolve(token)
+            })
           })
-        })
+          .catch((e) => {
+            clearCache(options.cacheKey)
+            reject(e)
+          })
       })
       // aws-sdk v3
       // values[internalKey] = createClient(awsClientOptions, request).then(client => client.getAuthToken())

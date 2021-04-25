@@ -3,6 +3,7 @@ const {
   createPrefetchClient,
   createClient,
   processCache,
+  clearCache,
   jsonSafeParse,
   getInternal,
   sanitizeKey
@@ -65,6 +66,10 @@ const ssmMiddleware = (opts = {}) => {
             })
           )
         })
+        .catch((e) => {
+          clearCache(options.cacheKey)
+          throw e
+        })
 
       for (const fetchKey of batch) {
         const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
@@ -108,6 +113,10 @@ const ssmMiddleware = (opts = {}) => {
         )
         if (resp.NextToken) return fetchPath(path, resp.NextToken, values)
         return values
+      })
+      .catch((e) => {
+        clearCache(options.cacheKey)
+        throw e
       })
   }
 

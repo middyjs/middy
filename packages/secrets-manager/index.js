@@ -3,6 +3,7 @@ const {
   createPrefetchClient,
   createClient,
   processCache,
+  clearCache,
   jsonSafeParse,
   getInternal
 } = require('@middy/util')
@@ -37,6 +38,10 @@ const secretsManagerMiddleware = (opts = {}) => {
         .getSecretValue({ SecretId: options.fetchData[internalKey] })
         .promise() // Required for aws-sdk v2
         .then((resp) => jsonSafeParse(resp.SecretString))
+        .catch((e) => {
+          clearCache(options.cacheKey)
+          throw e
+        })
     }
     return values
   }

@@ -3,7 +3,8 @@ const {
   createPrefetchClient,
   createClient,
   getInternal,
-  processCache
+  processCache,
+  clearCache
 } = require('@middy/util')
 const STS = require('aws-sdk/clients/sts.js') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
@@ -41,6 +42,10 @@ const stsMiddleware = (opts = {}) => {
           secretAccessKey: resp.Credentials.SecretAccessKey,
           sessionToken: resp.Credentials.SessionToken
         }))
+        .catch((e) => {
+          clearCache(options.cacheKey)
+          throw e
+        })
     }
 
     return values
