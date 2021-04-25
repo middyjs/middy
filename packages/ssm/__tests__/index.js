@@ -358,7 +358,8 @@ test.serial(
 
 test('It should throw error if InvalidParameters returned', async (t) => {
   mockService(SSM, {
-    InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
+    InvalidParameters: ['invalid-ssm-param-name', 'another-invalid-ssm-param'],
+    Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
   const handler = middy(() => {})
@@ -367,19 +368,22 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     ssm({
       AwsClient: SSM,
       fetchData: {
-        key: '/dev/service_name/key_name'
+        a: 'invalid-ssm-param-name',
+        b: 'another-invalid-ssm-param',
+        key: '/dev/service_name/key_name',
       },
+      disablePrefetch: true,
       setToContext: true
     })
   )
 
   try {
     await handler()
-    t.true(true)
+    t.true(false)
   } catch (e) {
     t.is(
       e.message,
-      'InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param'
+      '["ssm.InvalidParameter invalid-ssm-param-name","ssm.InvalidParameter another-invalid-ssm-param"]'
     )
   }
 })

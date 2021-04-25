@@ -3,7 +3,8 @@ const {
   createClient,
   getInternal,
   processCache,
-  clearCache
+  getCache,
+  modifyCache
 } = require('@middy/util')
 const RDS = require('aws-sdk/clients/rds.js') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
@@ -24,9 +25,11 @@ const defaults = {
 const rdsSignerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (request) => {
+  const fetch = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
+      if (cachedValues[internalKey]) continue
+
       const awsClientOptions = {
         AwsClient: options.AwsClient,
         awsClientOptions: {
@@ -49,7 +52,9 @@ const rdsSignerMiddleware = (opts = {}) => {
             })
           })
           .catch((e) => {
-            clearCache(options.cacheKey)
+            const value = getCache(options.cacheKey)?.value ?? {}
+            value[internalKey] = undefined
+            modifyCache(options.cacheKey, value)
             reject(e)
           })
       })

@@ -89,6 +89,38 @@ handler
   })
 ```
 
+```javascript
+import middy from '@middy/core'
+import {getInternal} from '@middy/util'
+import ssm from '@middy/ssm'
+
+const handler = middy((event, context) => {
+  return {}
+})
+
+let globalDefaults = {}
+handler
+  .use(ssm({
+    fetchData: {
+      defaults: '/dev/defaults'
+    },
+    cacheKey: 'ssm-defaults'
+  }))
+  .use(ssm({
+    fetchData: {
+      accessToken: '/dev/service_name/access_token',  // single value
+      dbParams: '/dev/service_name/database/',         // object of values, key for each path
+    },
+    cacheExpiry: 15*60*1000,
+    cacheKey: 'ssm-secrets'
+  }))
+  // ... other middleware that fetch
+  .before(async (request) => {
+    const data = await getInternal(['accessToken','dbParams','defaults'], request)
+    Object.assign(request.context, data)
+  })
+```
+
 
 ## Middy documentation and examples
 

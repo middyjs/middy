@@ -93,10 +93,13 @@ const getInternal = async (variables, request) => {
   }
   // ensure promise has resolved by the time it's needed
   // If one of the promises throws it will bubble up to @middy/core
-  values = await Promise.all(promises)
-
+  values = await Promise.allSettled(promises)
+  const errors = values
+    .filter((res) => res.status === 'rejected')
+    .map((res) => res.reason.message)
+  if (errors.length) throw new Error(JSON.stringify(errors))
   return keys.reduce(
-    (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index] }),
+    (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),
     {}
   )
 }
@@ -109,18 +112,30 @@ const sanitizeKey = (key) => {
 }
 
 // fetch Cache
-const cache = {} // key: { value, expiry }
+const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 const processCache = (options, fetch = () => undefined, request) => {
-  if (options.cacheExpiry) {
-    const cached = getCache(options.cacheKey)
-    if (cached && (cache.expiry >= Date.now() || options.cacheExpiry < 0)) {
+  const { cacheExpiry, cacheKey } = options
+  if (cacheExpiry) {
+    const cached = getCache(cacheKey)
+    const unexpired = cached && (cacheExpiry < 0 || cached.expiry > Date.now())
+
+    if (unexpired && cached.modified) {
+      const value = fetch(request, cached.value)
+      cache[cacheKey] = {
+        value: { ...cached.value, ...value },
+        expiry: cached.expiry
+      }
+      return cache[cacheKey]
+    }
+    if (unexpired) {
       return { ...cached, cache: true }
     }
   }
   const value = fetch(request)
-  const expiry = Date.now() + options.cacheExpiry
-  if (options.cacheExpiry) {
-    cache[options.cacheKey] = { value, expiry }
+
+  const expiry = Date.now() + cacheExpiry
+  if (cacheExpiry) {
+    cache[cacheKey] = { value, expiry }
   }
   return { value, expiry }
 }
@@ -129,11 +144,17 @@ const getCache = (key) => {
   return cache[key]
 }
 
+// Used to remove parts of a cache
+const modifyCache = (cacheKey, value) => {
+  if (!cache[cacheKey]) return
+  cache[cacheKey] = { ...cache[cacheKey], value, modified: true }
+}
+
 const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
-    delete cache[cacheKey]
+    cache[cacheKey] = undefined
   }
 }
 
@@ -171,6 +192,7 @@ module.exports = {
   sanitizeKey,
   processCache,
   getCache,
+  modifyCache,
   clearCache,
   jsonSafeParse,
   normalizeHttpResponse
