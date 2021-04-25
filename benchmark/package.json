@@ -65,7 +65,7 @@
     "@middy/sqs-partial-batch-failure": "2.0.1",
     "@middy/ssm": "2.0.1",
     "@middy/sts": "2.0.1",
-    "aws-sdk": "2.884.0",
+    "aws-sdk": "2.892.0",
     "knex": "0.95.4",
     "middy-rds": "*"
   },
