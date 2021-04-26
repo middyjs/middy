@@ -669,6 +669,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 #### Version 2.x
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using knex
+- [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
