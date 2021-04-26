@@ -43,7 +43,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 
         request.response.headers['Content-Type'] = type
         const result = s.serializer(request.response)
-        if (result?.body) {
+        if (typeof result === 'object' && 'body' in result) {
           request.response = result
         } else {
           // otherwise only replace the body attribute
