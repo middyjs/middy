@@ -234,7 +234,7 @@ test('It should not pass-through when request content-type is set', async (t) =>
   })
 })
 
-test('It should replace the response object when the serializer returns an object', async (t) => {
+test('It should replace the response object when the serializer returns an object with a "body" attribute', async (t) => {
   const handler = middy((event, context) => createHttpResponse())
 
   handler.use(
@@ -242,12 +242,11 @@ test('It should replace the response object when the serializer returns an objec
       serializers: [
         {
           regex: /^text\/plain$/,
-          serializer: (response) => {
-            Object.assign(response, {
-              isBase64Encoded: true
+          serializer: (response) =>
+            Object.assign({}, response, {
+              statusCode: 204,
+              body: null
             })
-            return Buffer.from(response.body).toString('base64')
-          }
         }
       ],
       default: 'text/plain'
@@ -257,12 +256,11 @@ test('It should replace the response object when the serializer returns an objec
   const response = await handler()
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Content-Type': 'text/plain'
     },
-    body: 'SGVsbG8gV29ybGQ=',
-    isBase64Encoded: true
+    body: null
   })
 })
 

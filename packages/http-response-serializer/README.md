@@ -72,7 +72,7 @@ The function is passed the entire `response` object, and should return either a 
 
 If a string is returned, the `body` attribute of the response is updated.
 
-If an object is returned, the entire response object is replaced. This is useful if you want to manipulate headers or add additional attributes in the Lambda response.
+If an object with a `body` attribute is returned, the entire response object is replaced. This is useful if you want to manipulate headers or add additional attributes in the Lambda response.
 
 
 ## Content Type Negotiation
