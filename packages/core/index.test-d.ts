@@ -1,4 +1,4 @@
-import { expectType } from 'tsd'
+import { expectError, expectType } from 'tsd'
 import middy from '.'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 
@@ -10,7 +10,7 @@ async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProx
 }
 
 type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
-type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>
 
 // initialize
 let handler = middy(baseHandler)
@@ -156,3 +156,34 @@ expectType<{
   after: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
   onError: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
 }>(handler.__middlewares)
+
+interface MutableContext extends Context {
+  name: string
+}
+
+type MutableContextHandler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type MutableContextRequest = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
+
+async function mutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): Promise<APIGatewayProxyResult> {
+  return {
+    statusCode: 200,
+    body: `Hello from ${context.name}`
+  }
+}
+
+handler = middy(mutableContextDependantHandler)
+
+const mutableContextMiddleware = {
+  before: (request: MutableContextRequest) => {
+    request.context.name = 'Foo'
+  },
+  after: (request: MutableContextRequest) => {
+    request.context.name = 'Baz'
+  },
+  onError: (request: MutableContextRequest) => {
+    request.context.name = 'Bar'
+  },
+}
+
+handler = handler.use(mutableContextMiddleware)
+expectType<MutableContextHandler>(handler)
