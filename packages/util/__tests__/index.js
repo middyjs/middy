@@ -232,7 +232,7 @@ test.serial(
       b: new Promise(() => {
         throw new Error('error')
       }).catch((e) => {
-        const value = util.getCache(options.cacheKey) || {value:{}}
+        const value = util.getCache(options.cacheKey) || { value: {} }
         const internalKey = 'b'
         value[internalKey] = undefined
         util.modifyCache(options.cacheKey, value.value)
