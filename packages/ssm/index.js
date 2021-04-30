@@ -3,6 +3,8 @@ const {
   createPrefetchClient,
   createClient,
   processCache,
+  getCache,
+  modifyCache,
   jsonSafeParse,
   getInternal,
   sanitizeKey
@@ -27,20 +29,27 @@ const defaults = {
 const ssmMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = () => {
-    return { ...fetchSingle(), ...fetchByPath() }
+  const fetch = (request, cachedValues) => {
+    return {
+      ...fetchSingle(request, cachedValues),
+      ...fetchByPath(request, cachedValues)
+    }
   }
 
-  const fetchSingle = () => {
+  const fetchSingle = (request, cachedValues = {}) => {
     const values = {}
-    let request = null
-    let batch = []
+    let batchReq = null
+    let batchInternalKeys = []
+    let batchFetchKeys = []
 
     const internalKeys = Object.keys(options.fetchData)
     const fetchKeys = Object.values(options.fetchData)
-    for (const [idx, fetchKey] of fetchKeys.entries()) {
+    for (const [idx, internalKey] of internalKeys.entries()) {
+      if (cachedValues[internalKey]) continue
+      const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) === '/') continue // Skip path passed in
-      batch.push(fetchKey)
+      batchInternalKeys.push(internalKey)
+      batchFetchKeys.push(fetchKey)
       // from the first to the batch size skip, unless it's the last entry
       if (
         (!idx || (idx + 1) % awsRequestLimit !== 0) &&
@@ -49,41 +58,55 @@ const ssmMiddleware = (opts = {}) => {
         continue
       }
 
-      request = client
-        .getParameters({ Names: batch, WithDecryption: true })
+      batchReq = client
+        .getParameters({ Names: batchFetchKeys, WithDecryption: true })
         .promise() // Required for aws-sdk v2
         .then((resp) => {
-          if (resp.InvalidParameters?.length) {
-            throw new Error(
-              `InvalidParameters present: ${resp.InvalidParameters.join(', ')}`
-            )
-          }
+          // Don't sanitize key, mapped to set value in options
           return Object.assign(
-            ...resp.Parameters.map((param) => {
-              // Don't sanitize key, mapped to set value in options
+            ...(resp.InvalidParameters ?? []).map((fetchKey) => {
+              return {
+                [fetchKey]: new Promise(() => {
+                  const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
+                  const value = getCache(options.cacheKey)?.value ?? {}
+                  value[internalKey] = undefined
+                  modifyCache(options.cacheKey, value)
+                  throw new Error('ssm.InvalidParameter ' + fetchKey)
+                })
+              }
+            }),
+            ...(resp.Parameters ?? []).map((param) => {
               return { [param.Name]: parseValue(param) }
             })
           )
         })
 
-      for (const fetchKey of batch) {
-        const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
-        values[internalKey] = request.then((params) => params[fetchKey])
+      for (const internalKey of batchInternalKeys) {
+        values[internalKey] = batchReq.then((params) => {
+          return params[options.fetchData[internalKey]]
+        })
       }
 
-      batch = []
-      request = null
+      batchInternalKeys = []
+      batchFetchKeys = []
+      batchReq = null
     }
 
     return values
   }
 
-  const fetchByPath = () => {
+  const fetchByPath = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey in options.fetchData) {
+      if (cachedValues[internalKey]) continue
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
-      values[internalKey] = fetchPath(fetchKey)
+      values[internalKey] = fetchPath(fetchKey).catch((e) => {
+        const value = getCache(options.cacheKey)?.value ?? {}
+        value[internalKey] = undefined
+        modifyCache(options.cacheKey, value)
+        throw e
+      })
     }
     return values
   }

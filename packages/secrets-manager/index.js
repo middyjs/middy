@@ -3,6 +3,8 @@ const {
   createPrefetchClient,
   createClient,
   processCache,
+  getCache,
+  modifyCache,
   jsonSafeParse,
   getInternal
 } = require('@middy/util')
@@ -25,7 +27,7 @@ const defaults = {
 const secretsManagerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = () => {
+  const fetch = (request, cachedValues = {}) => {
     const values = {}
 
     // Multiple secrets can be requested in a single requests,
@@ -33,10 +35,17 @@ const secretsManagerMiddleware = (opts = {}) => {
     // and will require recursive promise resolution impacting performance.
     // See https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SecretsManager.html#listSecrets-property
     for (const internalKey of Object.keys(options.fetchData)) {
+      if (cachedValues[internalKey]) continue
       values[internalKey] = client
         .getSecretValue({ SecretId: options.fetchData[internalKey] })
         .promise() // Required for aws-sdk v2
         .then((resp) => jsonSafeParse(resp.SecretString))
+        .catch((e) => {
+          const value = getCache(options.cacheKey)?.value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
     }
     return values
   }

@@ -3,7 +3,9 @@ const {
   createPrefetchClient,
   createClient,
   getInternal,
-  processCache
+  processCache,
+  getCache,
+  modifyCache
 } = require('@middy/util')
 const STS = require('aws-sdk/clients/sts.js') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
@@ -24,10 +26,11 @@ const defaults = {
 const stsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = () => {
+  const fetch = (request, cachedValues = {}) => {
     const values = {}
 
     for (const internalKey of Object.keys(options.fetchData)) {
+      if (cachedValues[internalKey]) continue
       const assumeRoleOptions = options.fetchData[internalKey]
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
       assumeRoleOptions.RoleSessionName =
@@ -41,6 +44,12 @@ const stsMiddleware = (opts = {}) => {
           secretAccessKey: resp.Credentials.SecretAccessKey,
           sessionToken: resp.Credentials.SessionToken
         }))
+        .catch((e) => {
+          const value = getCache(options.cacheKey)?.value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
     }
 
     return values

@@ -286,6 +286,39 @@ test.serial(
 )
 
 test.serial(
+  'It should not call aws-sdk again if parameter is cached forever',
+  async (t) => {
+    const stub = mockService(SSM, {
+      Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+    })
+
+    const handler = middy(() => {})
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.key, 'key-value')
+    }
+
+    handler
+      .use(
+        ssm({
+          AwsClient: SSM,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          },
+          cacheExpiry: -1
+        })
+      )
+      .before(middleware)
+
+    await handler()
+    await handler()
+
+    t.is(stub.callCount, 1)
+  }
+)
+
+test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
     const stub = mockService(SSM, {
@@ -305,7 +338,8 @@ test.serial(
           AwsClient: SSM,
           fetchData: {
             key: '/dev/service_name/key_name'
-          }
+          },
+          cacheExpiry: 1000
         })
       )
       .before(middleware)
@@ -358,7 +392,8 @@ test.serial(
 
 test('It should throw error if InvalidParameters returned', async (t) => {
   mockService(SSM, {
-    InvalidParameters: ['invalid-smm-param-name', 'another-invalid-ssm-param']
+    InvalidParameters: ['invalid-ssm-param-name', 'another-invalid-ssm-param'],
+    Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
   const handler = middy(() => {})
@@ -367,19 +402,22 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     ssm({
       AwsClient: SSM,
       fetchData: {
+        a: 'invalid-ssm-param-name',
+        b: 'another-invalid-ssm-param',
         key: '/dev/service_name/key_name'
       },
+      disablePrefetch: true,
       setToContext: true
     })
   )
 
   try {
     await handler()
-    t.true(true)
+    t.true(false)
   } catch (e) {
     t.is(
       e.message,
-      'InvalidParameters present: invalid-smm-param-name, another-invalid-ssm-param'
+      '["ssm.InvalidParameter invalid-ssm-param-name","ssm.InvalidParameter another-invalid-ssm-param"]'
     )
   }
 })
