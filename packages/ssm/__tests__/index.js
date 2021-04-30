@@ -286,6 +286,39 @@ test.serial(
 )
 
 test.serial(
+  'It should not call aws-sdk again if parameter is cached forever',
+  async (t) => {
+    const stub = mockService(SSM, {
+      Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+    })
+
+    const handler = middy(() => {})
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.key, 'key-value')
+    }
+
+    handler
+      .use(
+        ssm({
+          AwsClient: SSM,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          },
+          cacheExpiry: -1,
+        })
+      )
+      .before(middleware)
+
+    await handler()
+    await handler()
+
+    t.is(stub.callCount, 1)
+  }
+)
+
+test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
     const stub = mockService(SSM, {
@@ -305,7 +338,8 @@ test.serial(
           AwsClient: SSM,
           fetchData: {
             key: '/dev/service_name/key_name'
-          }
+          },
+          cacheExpiry: 1000,
         })
       )
       .before(middleware)
