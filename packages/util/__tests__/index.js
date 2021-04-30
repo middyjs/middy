@@ -220,61 +220,64 @@ test.serial('processCache should cache forever', async (t) => {
   util.clearCache()
 })
 
-test.serial('processCache should clear and re-fetch modified cache', async (t) => {
-  const options = {
-    cacheKey: 'key',
-    cacheExpiry: -1
-  }
-  const fetch = sinon.stub().returns({
-    a:'value',
-    b:new Promise(() => {
-      throw new Error('error')
-    }).catch((e) => {
-      const value = util.getCache(options.cacheKey)?.value ?? {}
-      const internalKey = 'b'
-      value[internalKey] = undefined
-      util.modifyCache(options.cacheKey, value)
-      throw e
-    })
-  })
-  const fetchCached = (request, cached) => {
-    t.deepEqual(cached, {
-      a: 'value',
-      b: undefined
-    })
-    return {
-      b: 'value'
+test.serial(
+  'processCache should clear and re-fetch modified cache',
+  async (t) => {
+    const options = {
+      cacheKey: 'key',
+      cacheExpiry: -1
     }
-  }
-
-  let cached = util.processCache(options, fetch, cacheRequest)
-  let request = {
-    internal: cached.value
-  }
-  try {
-    await util.getInternal(true, request)
-    t.true(false)
-  } catch (e) {
-    let cache = util.getCache(options.cacheKey)
-
-    t.true(cache.modified)
-    t.deepEqual(cache.value, {
+    const fetch = sinon.stub().returns({
       a: 'value',
-      b: undefined
+      b: new Promise(() => {
+        throw new Error('error')
+      }).catch((e) => {
+        const value = util.getCache(options.cacheKey)?.value ?? {}
+        const internalKey = 'b'
+        value[internalKey] = undefined
+        util.modifyCache(options.cacheKey, value)
+        throw e
+      })
     })
-    t.is(e.message, '["error"]')
+    const fetchCached = (request, cached) => {
+      t.deepEqual(cached, {
+        a: 'value',
+        b: undefined
+      })
+      return {
+        b: 'value'
+      }
+    }
 
-    util.processCache(options, fetchCached, cacheRequest)
-    cache = util.getCache(options.cacheKey)
+    const cached = util.processCache(options, fetch, cacheRequest)
+    const request = {
+      internal: cached.value
+    }
+    try {
+      await util.getInternal(true, request)
+      t.true(false)
+    } catch (e) {
+      let cache = util.getCache(options.cacheKey)
 
-    t.is(cache.modified, undefined)
-    t.deepEqual(cache.value, {
-      a: 'value',
-      b: 'value'
-    })
+      t.true(cache.modified)
+      t.deepEqual(cache.value, {
+        a: 'value',
+        b: undefined
+      })
+      t.is(e.message, '["error"]')
+
+      util.processCache(options, fetchCached, cacheRequest)
+      cache = util.getCache(options.cacheKey)
+
+      t.is(cache.modified, undefined)
+      t.deepEqual(cache.value, {
+        a: 'value',
+        b: 'value'
+      })
+    }
+    util.clearCache()
   }
-  util.clearCache()
-})
+)
 
 test.serial('processCache should cache and expire', async (t) => {
   const fetch = sinon.stub().resolves('value')

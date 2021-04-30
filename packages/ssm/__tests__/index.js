@@ -306,7 +306,7 @@ test.serial(
           fetchData: {
             key: '/dev/service_name/key_name'
           },
-          cacheExpiry: -1,
+          cacheExpiry: -1
         })
       )
       .before(middleware)
@@ -339,7 +339,7 @@ test.serial(
           fetchData: {
             key: '/dev/service_name/key_name'
           },
-          cacheExpiry: 1000,
+          cacheExpiry: 1000
         })
       )
       .before(middleware)
@@ -404,7 +404,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
       fetchData: {
         a: 'invalid-ssm-param-name',
         b: 'another-invalid-ssm-param',
-        key: '/dev/service_name/key_name',
+        key: '/dev/service_name/key_name'
       },
       disablePrefetch: true,
       setToContext: true

@@ -30,7 +30,10 @@ const ssmMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = (request, cachedValues) => {
-    return { ...fetchSingle(request, cachedValues), ...fetchByPath(request, cachedValues) }
+    return {
+      ...fetchSingle(request, cachedValues),
+      ...fetchByPath(request, cachedValues)
+    }
   }
 
   const fetchSingle = (request, cachedValues = {}) => {
@@ -68,14 +71,14 @@ const ssmMiddleware = (opts = {}) => {
                   const value = getCache(options.cacheKey)?.value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
-                  throw new Error('ssm.InvalidParameter '+fetchKey)
+                  throw new Error('ssm.InvalidParameter ' + fetchKey)
                 })
-
               }
             }),
             ...(resp.Parameters ?? []).map((param) => {
               return { [param.Name]: parseValue(param) }
-            }))
+            })
+          )
         })
 
       for (const internalKey of batchInternalKeys) {
@@ -98,13 +101,12 @@ const ssmMiddleware = (opts = {}) => {
       if (cachedValues[internalKey]) continue
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
-      values[internalKey] = fetchPath(fetchKey)
-        .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
-          value[internalKey] = undefined
-          modifyCache(options.cacheKey, value)
-          throw e
-        })
+      values[internalKey] = fetchPath(fetchKey).catch((e) => {
+        const value = getCache(options.cacheKey)?.value ?? {}
+        value[internalKey] = undefined
+        modifyCache(options.cacheKey, value)
+        throw e
+      })
     }
     return values
   }
@@ -130,7 +132,6 @@ const ssmMiddleware = (opts = {}) => {
         if (resp.NextToken) return fetchPath(path, resp.NextToken, values)
         return values
       })
-
   }
 
   const parseValue = (param) => {
