@@ -35,7 +35,9 @@ interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error, TContext exte
   onError?: MiddlewareFn<TEvent, TResult, TErr>
 }
 
-interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> {
+type MiddyInputHandler<TEvent, TResult, TContext extends LambdaContext> = (event: TEvent, context: TContext) => Promise<TResult> | void;
+
+interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> extends MiddyInputHandler<TEvent, TResult, TContext> {
   use: UseFn<TEvent, TResult, TErr, TContext>
   applyMiddleware: AttachMiddlewareObj<TEvent, TResult, TErr, TContext>
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
