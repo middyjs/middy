@@ -161,7 +161,7 @@ interface MutableContext extends Context {
   name: string
 }
 
-type MutableContextHandler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type MutableContextHandler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
 type MutableContextRequest = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
 
 async function mutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): Promise<APIGatewayProxyResult> {
@@ -171,7 +171,10 @@ async function mutableContextDependantHandler (event: APIGatewayProxyEvent, cont
   }
 }
 
-handler = middy(mutableContextDependantHandler)
+// @ts-expect-error
+handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(mutableContextDependantHandler)
+
+handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(mutableContextDependantHandler)
 
 const mutableContextMiddleware = {
   before: (request: MutableContextRequest) => {
@@ -180,7 +183,7 @@ const mutableContextMiddleware = {
 }
 
 handler = handler.use(mutableContextMiddleware)
-expectType<MutableContextHandler>(handler)
+expectType<Handler>(handler)
 
 const typeErrorMiddleware = {
   before: (request: MutableContextRequest) => {
