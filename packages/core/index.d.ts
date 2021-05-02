@@ -62,8 +62,6 @@ declare type UseFn<TEvent = any, TResult = any, TErr = Error, TContext extends L
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param handler your original AWS Lambda function
  * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
- *
- * NOTE: LambdaHandler<TEvent, TResult, TContext> depends on update to @types/aws-lambda
  */
 declare function middy<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> (handler?: LambdaHandler<TEvent, TResult, TContext>, plugin?: PluginObject): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
 

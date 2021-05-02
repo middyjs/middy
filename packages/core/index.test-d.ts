@@ -176,14 +176,17 @@ handler = middy(mutableContextDependantHandler)
 const mutableContextMiddleware = {
   before: (request: MutableContextRequest) => {
     request.context.name = 'Foo'
-  },
-  after: (request: MutableContextRequest) => {
-    request.context.name = 'Baz'
-  },
-  onError: (request: MutableContextRequest) => {
-    request.context.name = 'Bar'
-  },
+  }
 }
 
 handler = handler.use(mutableContextMiddleware)
 expectType<MutableContextHandler>(handler)
+
+const typeErrorMiddleware = {
+  before: (request: MutableContextRequest) => {
+    // @ts-expect-error
+    request.context.test = 'Bar'
+  }
+}
+
+handler = handler.use(typeErrorMiddleware)
