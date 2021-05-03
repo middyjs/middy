@@ -29,13 +29,13 @@ interface Request<TEvent = any, TResult = any, TErr = Error> {
 
 declare type MiddlewareFn<TEvent = any, TResult = any, TErr = Error> = (request: Request<TEvent, TResult, TErr>) => any
 
-interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error> {
+export interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error> {
   before?: MiddlewareFn<TEvent, TResult, TErr>
   after?: MiddlewareFn<TEvent, TResult, TErr>
   onError?: MiddlewareFn<TEvent, TResult, TErr>
 }
 
-interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error> {
+export interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error> {
   use: UseFn<TEvent, TResult, TErr>
   applyMiddleware: AttachMiddlewareObj<TEvent, TResult, TErr>
   before: AttachMiddlewareFn<TEvent, TResult, TErr>
