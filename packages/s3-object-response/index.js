@@ -1,4 +1,4 @@
-const https = require('https')
+let https = require('https')
 const { URL } = require('url')
 
 const {
@@ -15,6 +15,7 @@ const defaults = {
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
+  httpsCapture: undefined,
   disablePrefetch: false,
   bodyType: undefined
 }
@@ -24,6 +25,10 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
   if (!['stream', 'promise'].includes(options.bodyType)) {
     throw new Error('bodyType is invalid.')
+  }
+
+  if (options.httpsCapture) {
+    https = options.httpsCapture(https)
   }
 
   let client
@@ -85,14 +90,14 @@ const fetchType = (type, fetchOptions) => {
   return null
 }
 
-const fetchStream = (options) => {
-  return https.request(options)
+const fetchStream = (fetchOptions) => {
+  return https.request(fetchOptions)
 }
 
-const fetchPromise = (options) => {
+const fetchPromise = (fetchOptions) => {
   return new Promise((resolve, reject) => {
     let data = ''
-    const stream = fetchStream(options)
+    const stream = fetchStream(fetchOptions)
     stream.on('data', (chunk) => {
       data += chunk
     })
