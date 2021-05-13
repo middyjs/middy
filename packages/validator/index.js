@@ -78,7 +78,7 @@ const compile = (schema, ajvOptions, ajvInstance = null) => {
     formats(ajv)
     formatsDraft2019(ajv)
   } else {
-    ajv.opts = {...ajv.opts, ...options};
+    ajv.opts = { ...ajv.opts, ...options }
   }
   return ajv.compile(schema)
 }
