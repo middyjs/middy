@@ -77,7 +77,8 @@ const compile = (schema, ajvOptions, ajvInstance = null) => {
     ajv = ajvInstance ?? new Ajv(options)
     formats(ajv)
     formatsDraft2019(ajv)
-  } else {
+  } else if (!ajvInstance) {
+    // Update options when initializing the middleware multiple times
     ajv.opts = { ...ajv.opts, ...options }
   }
   return ajv.compile(schema)
