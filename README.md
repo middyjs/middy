@@ -667,6 +667,7 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x
+- [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using knex
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
