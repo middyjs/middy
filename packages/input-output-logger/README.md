@@ -41,8 +41,9 @@ npm install --save @middy/input-output-logger
 
 ## Options
 
-- `logger` property accept a function (default `console.log`)
-- `omitPaths` property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
+- `logger` function (default `console.log`): logging function that accepts an object
+- `awsContext` boolean (default `false`): Include [AWS Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html) to the logger
+- `omitPaths` string[] (default `[]`): property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
 
 
 ## Sample usage

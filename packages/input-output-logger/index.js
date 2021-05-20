@@ -1,21 +1,26 @@
 const inputOutputLoggerMiddleware = (opts = {}) => {
   const defaults = {
     logger: (data) => console.log(JSON.stringify(data, null, 2)),
+    awsContext: false,
     omitPaths: []
   }
 
-  let { logger, omitPaths } = { ...defaults, ...opts }
+  let { logger, awsContext, omitPaths } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
-  const omitAndLog = (message) => {
+  const omitAndLog = (param, request) => {
+    const message = {
+      [param]: request[param],
+    }
+    if (awsContext) {
+      message.context = pick(request.context, awsContextKeys)
+    }
     const redactedMessage = omit(JSON.parse(JSON.stringify(message)), omitPaths) // Full clone to prevent nested mutations
     logger(redactedMessage)
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (request) =>
-    omitAndLog({ event: request.event })
-  const inputOutputLoggerMiddlewareAfter = async (request) =>
-    omitAndLog({ response: request.response })
+  const inputOutputLoggerMiddlewareBefore = async (request) => omitAndLog('event', request)
+  const inputOutputLoggerMiddlewareAfter = async (request) => omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return {
     before: logger ? inputOutputLoggerMiddlewareBefore : null,
@@ -24,7 +29,31 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   }
 }
 
+// https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
+const awsContextKeys = [
+  'functionName',
+  'functionVersion',
+  'invokedFunctionArn',
+  'memoryLimitInMB',
+  'awsRequestId',
+  'logGroupName',
+  'logStreamName',
+  'identity',
+  'clientContext',
+  'callbackWaitsForEmptyEventLoop'
+]
+
 // move to util, if ever used elsewhere
+const pick = (originalObject = {}, keysToPick = []) => {
+  const newObject = { }
+  for (const path of keysToPick) {
+    // only supports first level
+    if (originalObject[path] !== undefined) {
+      newObject[path] = originalObject[path]
+    }
+  }
+  return newObject
+}
 const omit = (originalObject = {}, keysToOmit = []) => {
   const clonedObject = { ...originalObject }
   for (const path of keysToOmit) {
