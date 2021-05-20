@@ -65,6 +65,26 @@ handler
   .use(inputOutputLogger())
 ```
 
+```javascript
+import middy from '@middy/core'
+import inputOutputLogger from '@middy/input-output-logger'
+import pino from 'pino'
+const logger = pino()
+
+const handler = middy((event, context) => {
+  // ...
+  return response
+})
+
+handler
+  .use(inputOutputLogger({
+    logger: (request) => {
+      const child = logger.child(request.context)
+      child.info(request.event ?? request.response)
+    },
+    awsContext: true
+  }))
+```
 
 ## Middy documentation and examples
 

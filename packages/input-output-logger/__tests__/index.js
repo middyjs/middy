@@ -105,13 +105,25 @@ test('Should include the AWS lambda context', async (t) => {
     return event
   })
 
-  handler.use(inputOutputLogger({ logger, awsContext:true }))
+  handler.use(inputOutputLogger({ logger, awsContext: true }))
 
-  const response = await handler({ foo: 'bar', fuu: 'baz' }, {functionName: 'test', awsRequestId:'xxxxx'})
+  const response = await handler(
+    { foo: 'bar', fuu: 'baz' },
+    { functionName: 'test', awsRequestId: 'xxxxx' }
+  )
 
   t.deepEqual(response, { foo: 'bar', fuu: 'baz' })
 
-  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' }, context: {functionName: 'test', awsRequestId:'xxxxx'} }))
-  t.true(logger.calledWith({ response: { foo: 'bar', fuu: 'baz' }, context: {functionName: 'test', awsRequestId:'xxxxx'} }))
-
+  t.true(
+    logger.calledWith({
+      event: { foo: 'bar', fuu: 'baz' },
+      context: { functionName: 'test', awsRequestId: 'xxxxx' }
+    })
+  )
+  t.true(
+    logger.calledWith({
+      response: { foo: 'bar', fuu: 'baz' },
+      context: { functionName: 'test', awsRequestId: 'xxxxx' }
+    })
+  )
 })

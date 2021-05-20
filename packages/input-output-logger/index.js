@@ -10,7 +10,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
   const omitAndLog = (param, request) => {
     const message = {
-      [param]: request[param],
+      [param]: request[param]
     }
     if (awsContext) {
       message.context = pick(request.context, awsContextKeys)
@@ -19,8 +19,10 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     logger(redactedMessage)
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (request) => omitAndLog('event', request)
-  const inputOutputLoggerMiddlewareAfter = async (request) => omitAndLog('response', request)
+  const inputOutputLoggerMiddlewareBefore = async (request) =>
+    omitAndLog('event', request)
+  const inputOutputLoggerMiddlewareAfter = async (request) =>
+    omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return {
     before: logger ? inputOutputLoggerMiddlewareBefore : null,
@@ -45,7 +47,7 @@ const awsContextKeys = [
 
 // move to util, if ever used elsewhere
 const pick = (originalObject = {}, keysToPick = []) => {
-  const newObject = { }
+  const newObject = {}
   for (const path of keysToPick) {
     // only supports first level
     if (originalObject[path] !== undefined) {
