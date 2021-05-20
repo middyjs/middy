@@ -669,6 +669,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 #### Version 2.x
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
+- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using knex
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
 
@@ -691,7 +692,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
 - [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
-- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
+- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog/v/legacy): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 
 ## Middy's Influence
 - .Net port [Voxel.MiddyNet](https://github.com/VoxelGroup/Voxel.MiddyNet) [@vgaltes
