@@ -32,14 +32,14 @@ test('It should create a response for HTTP errors (json)', async (t) => {
   })
 
   handler.use(
-    httpErrorHandler({ logger: false, fallbackMessage: '{"json":"error"}' })
+    httpErrorHandler({ logger: false, fallbackMessage: '{ "json": "error" }' })
   )
 
   const response = await handler()
 
   t.deepEqual(response, {
     statusCode: 500,
-    body: { json: 'error' },
+    body: '{ "json": "error" }',
     headers: {
       'Content-Type': 'application/json'
     }
