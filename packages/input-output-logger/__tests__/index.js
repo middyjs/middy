@@ -97,3 +97,33 @@ test('Skipped parts should be present in the response', async (t) => {
 
   t.deepEqual(response, { foo: [{ foo: 'bar', fuu: 'baz' }] })
 })
+
+test('Should include the AWS lambda context', async (t) => {
+  const logger = sinon.spy()
+
+  const handler = middy((event, context) => {
+    return event
+  })
+
+  handler.use(inputOutputLogger({ logger, awsContext: true }))
+
+  const response = await handler(
+    { foo: 'bar', fuu: 'baz' },
+    { functionName: 'test', awsRequestId: 'xxxxx' }
+  )
+
+  t.deepEqual(response, { foo: 'bar', fuu: 'baz' })
+
+  t.true(
+    logger.calledWith({
+      event: { foo: 'bar', fuu: 'baz' },
+      context: { functionName: 'test', awsRequestId: 'xxxxx' }
+    })
+  )
+  t.true(
+    logger.calledWith({
+      response: { foo: 'bar', fuu: 'baz' },
+      context: { functionName: 'test', awsRequestId: 'xxxxx' }
+    })
+  )
+})
