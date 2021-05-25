@@ -72,7 +72,7 @@ Let's assume you are building a JSON API to process a payment:
 
 // import core
 import middy from '@middy/core' // esm Node v14+
-//const middy require('@middy/core') // commonjs Node v12+
+//const middy = require('@middy/core') // commonjs Node v12+
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
