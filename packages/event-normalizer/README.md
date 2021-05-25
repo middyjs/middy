@@ -40,6 +40,20 @@ Middleware for iterating through an AWS event records, parsing and normalizing n
 - `SNS`: JSON parse
 - `SQS`: JSON parse
 
+**Test Events**
+Some events send test events after set, you will need to handle these.
+
+```js
+// S3 Test Event
+{
+  Service: 'Amazon S3',
+  Event: 's3:TestEvent',
+  Time: '2020-01-01T00:00:00.000Z',
+  Bucket: 'bucket-name',
+  RequestId: '***********',
+  HostId: '***/***/***='
+}
+```
 
 ## Install
 
