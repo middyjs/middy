@@ -1,6 +1,6 @@
 {
   "name": "@middy/core",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "type": "commonjs",
   "engines": {
@@ -43,7 +43,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.76",
-    "@types/node": "^15.0.1"
+    "@types/node": "^15.9.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
