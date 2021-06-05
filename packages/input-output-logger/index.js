@@ -25,9 +25,9 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
   return {
-    before: logger ? inputOutputLoggerMiddlewareBefore : null,
-    after: logger ? inputOutputLoggerMiddlewareAfter : null,
-    onError: logger ? inputOutputLoggerMiddlewareOnError : null
+    before: logger ? inputOutputLoggerMiddlewareBefore : undefined,
+    after: logger ? inputOutputLoggerMiddlewareAfter : undefined,
+    onError: logger ? inputOutputLoggerMiddlewareOnError : undefined
   }
 }
 

@@ -62,8 +62,8 @@ const validatorMiddleware = (opts = {}) => {
     }
   }
   return {
-    before: inputSchema ? validatorMiddlewareBefore : null,
-    after: outputSchema ? validatorMiddlewareAfter : null
+    before: inputSchema ? validatorMiddlewareBefore : undefined,
+    after: outputSchema ? validatorMiddlewareAfter : undefined
   }
 }
 
