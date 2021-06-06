@@ -45,9 +45,11 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
+  "dependencies": {
+    "@middy/util": "2.3.0"
+  },
   "devDependencies": {
     "@middy/core": "^2.3.0",
-    "@middy/util": "^2.3.0",
     "aws-sdk": "^2.920.0",
     "aws-xray-sdk": "^3.3.3"
   },

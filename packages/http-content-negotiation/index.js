@@ -89,10 +89,9 @@ const parseHeader = (
   event[resultName] = event[resultsName][0]
 
   if (failOnMismatch && event[resultName] === undefined) {
-    const createError = require('http-errors')
-    throw new createError.NotAcceptable(
-      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
-    )
+    const {createError} = require('@middy/util')
+    // NotAcceptable
+    throw createError(406, `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`)
   }
 }
 

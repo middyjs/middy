@@ -20,10 +20,9 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 
         request.event.body = JSON.parse(data, options.reviver)
       } catch (err) {
-        const createError = require('http-errors')
-        throw new createError.UnprocessableEntity(
-          'Content type defined as JSON but an invalid JSON was provided'
-        )
+        const {createError} = require('@middy/util')
+        // UnprocessableEntity
+        throw createError(422, 'Content type defined as JSON but an invalid JSON was provided')
       }
     }
   }

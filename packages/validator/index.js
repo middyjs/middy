@@ -1,4 +1,4 @@
-const createError = require('http-errors')
+const {createError} = require('@middy/util')
 const _ajv = require('ajv/dist/2019.js')
 const localize = require('ajv-i18n')
 const formats = require('ajv-formats')
@@ -38,7 +38,8 @@ const validatorMiddleware = (opts = {}) => {
     const valid = inputSchema(request.event)
 
     if (!valid) {
-      const error = new createError.BadRequest('Event object failed validation')
+      // Bad Request
+      const error = createError(400, 'Event object failed validation')
       request.event.headers = { ...request.event.headers }
 
       const language = chooseLanguage(request.event, defaultLanguage)
@@ -53,9 +54,8 @@ const validatorMiddleware = (opts = {}) => {
     const valid = outputSchema(request.response)
 
     if (!valid) {
-      const error = new createError.InternalServerError(
-        'Response object failed validation'
-      )
+      // Internal Server Error
+      const error = createError(500, 'Response object failed validation')
       error.details = outputSchema.errors
       error.response = request.response
       throw error

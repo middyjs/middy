@@ -184,6 +184,59 @@ const normalizeHttpResponse = (response) => {
   return response
 }
 
+// smaller version of `http-errors`
+const statuses = require('./codes.json')
+const {inherits} = require('util')
+
+const createErrorRegexp = /[^a-zA-Z]/g
+const createError = (code, message, properties = {}) => {
+  const name = statuses[code].replace(createErrorRegexp, '')
+  const className = name.substr(-5) !== 'Error' ? name + 'Error' : name
+
+  function HttpError (message) {
+    // create the error object
+    const msg = message ?? statuses[code]
+    const err = new Error(msg)
+
+    // capture a stack trace to the construction point
+    Error.captureStackTrace(err, HttpError)
+
+    // adjust the [[Prototype]]
+    Object.setPrototypeOf(err, HttpError.prototype)
+
+    // redefine the error message
+    Object.defineProperty(err, 'message', {
+      enumerable: true,
+      configurable: true,
+      value: msg,
+      writable: true
+    })
+
+    // redefine the error name
+    Object.defineProperty(err, 'name', {
+      enumerable: false,
+      configurable: true,
+      value: className,
+      writable: true
+    })
+
+    return err
+  }
+
+  inherits(HttpError, Error)
+  const desc = Object.getOwnPropertyDescriptor(HttpError, 'name')
+  desc.value = className
+  Object.defineProperty(HttpError, 'name', desc)
+
+  Object.assign(HttpError.prototype, {
+    status: code,
+    statusCode: code,
+    expose: code < 500
+  }, properties)
+
+  return new HttpError(message)
+}
+
 module.exports = {
   createPrefetchClient,
   createClient,
@@ -195,5 +248,6 @@ module.exports = {
   modifyCache,
   clearCache,
   jsonSafeParse,
-  normalizeHttpResponse
+  normalizeHttpResponse,
+  createError
 }
