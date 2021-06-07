@@ -6,7 +6,7 @@ const {
   getCache,
   modifyCache
 } = require('@middy/util')
-const RDS = require('aws-sdk/clients/rds.js') // v2
+const RDS = require('aws-sdk/clients/rds') // v2
 // const { RDS } = require('@aws-sdk/client-rds') // v3
 
 const defaults = {
@@ -47,6 +47,10 @@ const rdsSignerMiddleware = (opts = {}) => {
             return client.getAuthToken({}, (err, token) => {
               if (err) {
                 return reject(err)
+              }
+              // Catch Missing token, this usually means their is something wrong with the credentials
+              if (!token.includes('X-Amz-Security-Token=')) {
+                return reject('X-Amz-Security-Token Missing');
               }
               resolve(token)
             })
