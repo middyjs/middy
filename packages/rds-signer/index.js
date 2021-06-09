@@ -41,27 +41,27 @@ const rdsSignerMiddleware = (opts = {}) => {
       }
 
       values[internalKey] = createClient(awsClientOptions, request)
-          .then((client) => {
-            // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
-            return new Promise((resolve, reject) => {
-              client.getAuthToken({}, (err, token) => {
-                if (err) {
-                  reject(err)
-                }
-                // Catch Missing token, this usually means their is something wrong with the credentials
-                if (!token.includes('X-Amz-Security-Token=')) {
-                  reject('X-Amz-Security-Token Missing')
-                }
-                resolve(token)
-              })
+        .then((client) => {
+          // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
+          return new Promise((resolve, reject) => {
+            client.getAuthToken({}, (err, token) => {
+              if (err) {
+                reject(err)
+              }
+              // Catch Missing token, this usually means their is something wrong with the credentials
+              if (!token.includes('X-Amz-Security-Token=')) {
+                reject(new Error('X-Amz-Security-Token Missing'))
+              }
+              resolve(token)
             })
           })
-          .catch((e) => {
-            const value = getCache(options.cacheKey)?.value ?? {}
-            value[internalKey] = undefined
-            modifyCache(options.cacheKey, value)
-            throw e
-          })
+        })
+        .catch((e) => {
+          const value = getCache(options.cacheKey)?.value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
       // aws-sdk v3
       // values[internalKey] = createClient(awsClientOptions, request).then(client => client.getAuthToken())
     }

@@ -186,7 +186,7 @@ const normalizeHttpResponse = (response) => {
 
 // smaller version of `http-errors`
 const statuses = require('./codes.json')
-const {inherits} = require('util')
+const { inherits } = require('util')
 
 const createErrorRegexp = /[^a-zA-Z]/g
 const createError = (code, message, properties = {}) => {

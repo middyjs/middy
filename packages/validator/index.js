@@ -1,4 +1,4 @@
-const {createError} = require('@middy/util')
+const { createError } = require('@middy/util')
 const _ajv = require('ajv/dist/2019.js')
 const localize = require('ajv-i18n')
 const formats = require('ajv-formats')

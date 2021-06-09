@@ -295,4 +295,3 @@ test.serial(
     t.is(stub.callCount, 2)
   }
 )
-
