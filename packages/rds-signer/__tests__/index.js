@@ -34,12 +34,12 @@ const mockService = (client, responseOne, responseTwo) => {
 }
 
 test.serial('It should set token to internal storage (token)', async (t) => {
-  mockService(RDS.Signer, 'token')
+  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   const handler = middy(() => {})
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
-    t.is(values.token, 'token')
+    t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   }
 
   handler
@@ -63,14 +63,14 @@ test.serial('It should set token to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
-  mockService(RDS.Signer, 'token1', 'token2')
+  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1', 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
 
   const handler = middy(() => {})
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
-    t.is(values.token1, 'token1')
-    t.is(values.token2, 'token2')
+    t.is(values.token1, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1')
+    t.is(values.token2, 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
   }
 
   handler
@@ -103,13 +103,13 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
 test.serial(
   'It should set RDS.Signer token to internal storage without prefetch',
   async (t) => {
-    mockService(RDS.Signer, 'token')
+    mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
     const handler = middy(() => {})
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
-      t.is(values.token, 'token')
+      t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     }
 
     handler
@@ -135,12 +135,12 @@ test.serial(
 )
 
 test.serial('It should set RDS.Signer token to context', async (t) => {
-  mockService(RDS.Signer, 'token')
+  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
   const handler = middy(() => {})
 
   const middleware = async (request) => {
-    t.is(request.context.token, 'token')
+    t.is(request.context.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   }
 
   handler
@@ -165,11 +165,11 @@ test.serial('It should set RDS.Signer token to context', async (t) => {
 })
 
 test.serial('It should set RDS.Signer token to process.env', async (t) => {
-  mockService(RDS.Signer, 'token')
+  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   const handler = middy(() => {})
 
   const middleware = async () => {
-    t.is(process.env.token, 'token')
+    t.is(process.env.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   }
 
   handler
@@ -196,12 +196,12 @@ test.serial('It should set RDS.Signer token to process.env', async (t) => {
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
-    const stub = mockService(RDS.Signer, 'token')
+    const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     const handler = middy(() => {})
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
-      t.is(values.token, 'token')
+      t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     }
 
     handler
@@ -228,16 +228,47 @@ test.serial(
   }
 )
 
+// test.serial(
+//   'It should catch missing X-Amz-Security-Token',
+//   async (t) => {
+//     const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com')
+//     const handler = middy(() => {})
+//
+//     handler
+//       .use(
+//         rdsSigner({
+//           AwsClient: RDS.Signer,
+//           fetchData: {
+//             token: {
+//               region: 'us-east-1',
+//               hostname: 'hostname',
+//               username: 'username',
+//               database: 'database',
+//               port: 5432
+//             }
+//           }
+//         })
+//       )
+//
+//     try {
+//       await handler()
+//     } catch(e) {
+//       t.is( e.message, 'X-Amz-Security-Token Missing')
+//     }
+//     t.is(stub.callCount, 1)
+//   }
+// )
+
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
-    const stub = mockService(RDS.Signer, 'token', 'token')
+    const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token', 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
     const handler = middy(() => {})
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
-      t.is(values.token, 'token')
+      t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     }
 
     handler
@@ -264,3 +295,4 @@ test.serial(
     t.is(stub.callCount, 2)
   }
 )
+

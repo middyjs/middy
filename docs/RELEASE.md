@@ -61,5 +61,7 @@ This step will happen automatically from GitHub actions after a new release has 
 
 ## Setting up new major release
 
-- Add ` --dist-tag next` to `lerna:publish` script in `package.json`
+- `package.json`
+  - Update `engines` versions
+  - Add ` --dist-tag next` to `lerna:publish` script
 - Update `build.yml` and `tests.yml` to use current AWS lambda nodejs runtimes
