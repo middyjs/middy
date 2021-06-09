@@ -9,6 +9,7 @@
   "engineStrict": true,
   "scripts": {
     "install": "lerna bootstrap",
+    "pre-commit": "lint-staged",
     "test": "npm run test:lint && npm run test:packages",
     "test:style": "prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
     "test:lint": "ts-standard --fix",
@@ -55,14 +56,14 @@
     "ava": "^3.15.0",
     "c8": "^7.6.0",
     "eslint-plugin-import": "^2.22.1",
-    "husky": "^5.2.0",
+    "husky": "^6.0.0",
     "lerna": "^4.0.0",
-    "lint-staged": "^10.5.4",
+    "lint-staged": "^11.0.0",
     "prettier": "^2.2.1",
     "rewire": "^5.0.0",
-    "sinon": "^10.0.0",
+    "sinon": "^11.1.1",
     "ts-standard": "^10.0.0",
-    "tsd": "^0.14.0",
+    "tsd": "^0.17.0",
     "typescript": "^4.2.3"
   },
   "husky": {

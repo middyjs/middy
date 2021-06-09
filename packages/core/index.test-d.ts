@@ -58,6 +58,7 @@ async function invokeHandler (): Promise<APIGatewayProxyResult> {
         apiKey: '',
         apiKeyId: '',
         caller: '',
+        clientCert: null,
         cognitoAuthenticationProvider: '',
         cognitoAuthenticationType: '',
         cognitoIdentityId: '',
