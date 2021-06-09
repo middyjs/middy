@@ -58,3 +58,8 @@ At a given point in time, if you want to draft a new release, you need to follow
 ### 4. Publish release on NPM
 
 This step will happen automatically from GitHub actions after a new release has been drafted. Make sure to double check the action and see if it completed successfully.
+
+## Setting up new major release
+
+- Add ` --dist-tag next` to `lerna:publish` script in `package.json`
+- Update `build.yml` and `tests.yml` to use current AWS lambda nodejs runtimes
