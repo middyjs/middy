@@ -1,6 +1,6 @@
 {
   "name": "@middy/util",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
   "type": "commonjs",
   "engines": {
@@ -13,7 +13,8 @@
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
-    "index.d.ts"
+    "index.d.ts",
+    "codes.json"
   ],
   "scripts": {
     "test": "npm run test:unit",
@@ -43,7 +44,7 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "devDependencies": {
-    "@middy/core": "^2.4.0",
+    "@middy/core": "^2.4.1",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^15.9.0",
     "aws-sdk": "^2.920.0",
