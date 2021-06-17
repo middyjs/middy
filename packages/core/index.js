@@ -96,8 +96,6 @@ const runRequest = async (
     request.error = e
     try {
       await runMiddlewares(request, onErrorMiddlewares, plugin)
-      // Catch if onError stack hasn't handled the error
-      if (request.response === undefined) throw request.error
     } catch (e) {
       // Save error that wasn't handled
       e.originalError = request.error
@@ -107,6 +105,8 @@ const runRequest = async (
   } finally {
     await plugin?.requestEnd?.()
   }
+  // Catch if onError stack hasn't handled the error
+  if (request.response === undefined) throw request.error
   return request.response
 }
 
