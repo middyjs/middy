@@ -16,8 +16,8 @@ const ajvDefaults = {
 }
 
 const defaults = {
-  inputSchema: null,
-  outputSchema: null,
+  inputSchema: undefined,
+  outputSchema: undefined,
   ajvOptions: {},
   ajvInstance: undefined,
   defaultLanguage: 'en'

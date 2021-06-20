@@ -13,7 +13,6 @@ const defaults = {
   AwsClient: RDS.Signer,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
-  awsClientCapture: undefined,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',
@@ -36,8 +35,7 @@ const rdsSignerMiddleware = (opts = {}) => {
           ...options.awsClientOptions,
           ...options.fetchData[internalKey]
         },
-        awsClientAssumeRole: options.awsClientAssumeRole,
-        awsClientCapture: options.awsClientCapture
+        awsClientAssumeRole: options.awsClientAssumeRole
       }
 
       values[internalKey] = createClient(awsClientOptions, request)
