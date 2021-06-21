@@ -626,20 +626,19 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
   }
 })
 
-
 // https://github.com/middyjs/middy/pull/687
 test('It should throw unhandled exceptions without wrapping', async (t) => {
-  const e =  new Error('something bad happened');
+  const e = new Error('something bad happened')
   const handler = middy((event, context) => {
-    throw e;
+    throw e
   })
 
   try {
     await handler()
   } catch (err) {
-     // Can we stringify
-     JSON.stringify(err)
-    t.is(e, err)   
+    // Can we stringify
+    JSON.stringify(err)
+    t.is(e, err)
   }
 })
 
