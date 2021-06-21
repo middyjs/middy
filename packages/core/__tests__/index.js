@@ -639,9 +639,9 @@ test('It should throw unhandled exceptions without wrapping', async (t) => {
   try {
     await handler()
   } catch (err) {
-    t.is(e, err)
-    // Can we stringify
-    JSON.stringify(err)
+     // Can we stringify
+     JSON.stringify(err)
+    t.is(e, err)   
   }
 })
 
