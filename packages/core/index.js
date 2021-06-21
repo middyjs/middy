@@ -107,7 +107,7 @@ const runRequest = async (
     await plugin?.requestEnd?.()
   }
   // Catch if onError stack hasn't handled the error
-  if (request.response === undefined) throw request.error
+  if (request.error && request.response === undefined) throw request.error
   return request.response
 }
 
