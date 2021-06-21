@@ -100,6 +100,7 @@ const runRequest = async (
       // Save error that wasn't handled
       e.originalError = request.error
       request.error = e
+
       throw request.error
     }
   } finally {

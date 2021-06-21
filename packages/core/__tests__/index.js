@@ -572,7 +572,10 @@ test('It should be able to short circuit a before middleware', async (t) => {
 
 test('It should run mutiple times', async (t) => {
   const before = sinon.spy(() => {})
-  const handler = middy().before(before)
+  const handler = middy(() => {
+    return { foo: 'bar' }
+  })
+  .before(before)
   await handler()
   await handler()
   t.is(before.callCount, 2)
@@ -626,6 +629,22 @@ test('It will stop invoking all the onError handlers if one of them returns a pr
   }
 })
 
+// https://github.com/middyjs/middy/pull/687
+test('It should throw unhandled exceptions without wrapping', async (t) => {
+  const e =  new Error('something bad happened');
+  const handler = middy((event, context) => {
+    throw e;
+  })
+
+  try {
+    await handler()
+  } catch (err) {
+    t.is(e, err)
+    // Can we stringify
+    JSON.stringify(err)
+  }
+})
+
 // Plugin
 test('Should trigger all plugin hooks', async (t) => {
   const plugin = {
@@ -638,7 +657,9 @@ test('Should trigger all plugin hooks', async (t) => {
     requestEnd: sinon.spy()
   }
   const beforeMiddleware = sinon.spy()
-  const baseHandler = sinon.spy()
+  const baseHandler = middy((event, context) => {
+    return { foo: 'bar' }
+  })
   const afterMiddleware = sinon.spy()
 
   const handler = middy(baseHandler, plugin)
