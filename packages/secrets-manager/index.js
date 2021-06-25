@@ -8,7 +8,7 @@ const {
   jsonSafeParse,
   getInternal
 } = require('@middy/util')
-const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
+const SecretsManager = require('aws-sdk/clients/secretsmanager') // v2
 // const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 
 const defaults = {

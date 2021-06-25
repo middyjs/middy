@@ -3,7 +3,7 @@ const {
   createPrefetchClient,
   createClient
 } = require('@middy/util')
-const SQS = require('aws-sdk/clients/sqs.js') // v2
+const SQS = require('aws-sdk/clients/sqs') // v2
 // const { SQS } = require('@aws-sdk/client-sqs') // v3
 
 const defaults = {

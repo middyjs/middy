@@ -7,7 +7,7 @@ const {
   createClient
 } = require('@middy/util')
 
-const S3 = require('aws-sdk/clients/s3.js') // v2
+const S3 = require('aws-sdk/clients/s3') // v2
 // const { S3 } = require('@aws-sdk/client-s3') // v3
 
 const defaults = {

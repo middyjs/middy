@@ -7,7 +7,7 @@ const {
   getCache,
   modifyCache
 } = require('@middy/util')
-const STS = require('aws-sdk/clients/sts.js') // v2
+const STS = require('aws-sdk/clients/sts') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
 
 const defaults = {
