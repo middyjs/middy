@@ -9,7 +9,7 @@ const {
   getInternal,
   sanitizeKey
 } = require('@middy/util')
-const SSM = require('aws-sdk/clients/ssm.js') // v2
+const SSM = require('aws-sdk/clients/ssm') // v2
 // const { SSM } = require('@aws-sdk/client-ssm') // v3
 
 const awsRequestLimit = 10

@@ -1,22 +1,29 @@
 const defaults = {
-  logger: console.log
+  logger: console.log,
+  enabled: true
 }
 
 const timePlugin = (opts = {}) => {
-  const { logger } = { ...defaults, ...opts }
+  const { logger, enabled } = { ...defaults, ...opts }
   const store = {}
 
   const start = (id) => {
-    store[id] = process.hrtime()
+    store[id] = process.hrtime.bigint()
   }
   const stop = (id) => {
-    logger(id, process.hrtime(store[id])[1] / 1000000, 'ms')
+    if (!enabled) return
+    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString()) / 1000000, 'ms')
   }
 
+  // Only run during cold start
   const beforePrefetch = () => start('total')
   const requestStart = () => {
-    store.init = store.total
-    stop('init')
+    if (!store.init) {
+      store.init = store.total
+      stop('init')
+    } else {
+      start('total')
+    }
   }
   const beforeMiddleware = start
   const afterMiddleware = stop

@@ -1,5 +1,5 @@
 const { createError } = require('@middy/util')
-const _ajv = require('ajv/dist/2019.js')
+const _ajv = require('ajv/dist/2019')
 const localize = require('ajv-i18n')
 const formats = require('ajv-formats')
 const formatsDraft2019 = require('ajv-formats-draft2019')
@@ -16,8 +16,8 @@ const ajvDefaults = {
 }
 
 const defaults = {
-  inputSchema: null,
-  outputSchema: null,
+  inputSchema: undefined,
+  outputSchema: undefined,
   ajvOptions: {},
   ajvInstance: undefined,
   defaultLanguage: 'en'
