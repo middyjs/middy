@@ -642,6 +642,24 @@ test('It should throw unhandled exceptions without wrapping', async (t) => {
   }
 })
 
+test('It should throw the error set by middleware if not handled', async (t) => {
+  const updatedError = new Error('something bad happened')
+  const handler = middy((event, context) => {
+    throw new Error('original error')
+  }).use({
+    onError: (request) => {
+     request.error = updatedError;
+    }
+  }
+)
+
+  try {
+    await handler()
+  } catch (err) {
+    t.is(updatedError, err)
+  }
+})
+
 // Plugin
 test('Should trigger all plugin hooks', async (t) => {
   const plugin = {
