@@ -1,6 +1,6 @@
 {
   "name": "@middy/s3-object-response",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "S3 object response handling middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -46,10 +46,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.4.1"
+    "@middy/util": "^2.4.2"
   },
   "devDependencies": {
-    "@middy/core": "^2.4.1",
+    "@middy/core": "^2.4.2",
     "aws-sdk": "^2.920.0",
     "aws-xray-sdk": "^3.3.3"
   },
