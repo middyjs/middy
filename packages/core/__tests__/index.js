@@ -648,10 +648,10 @@ test('It should throw the error set by middleware if not handled', async (t) => 
     throw new Error('original error')
   }).use({
     onError: (request) => {
-     request.error = updatedError;
+      request.error = updatedError
     }
   }
-)
+  )
 
   try {
     await handler()
