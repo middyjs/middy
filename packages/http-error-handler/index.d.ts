@@ -2,7 +2,7 @@ import { HttpError } from 'http-errors'
 import middy from '@middy/core'
 
 interface Options {
-  logger?: (error: HttpError) => void
+  logger?: (error: any) => void
   fallbackMessage?: string
 }
 
