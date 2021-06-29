@@ -41,7 +41,7 @@ npm install --save @middy/http-cors
 
 ## Options
 
- - `credentials` (bool) (optional): if true, sets the `Access-Control-Allow-Origin` as request header `Origin`, if present (default `false`)
+ - `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
  - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
  - `methods` (string) (optional): value to put in `Access-Control-Allow-Mehtods` (default: `false`)
  - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
