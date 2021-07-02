@@ -63,7 +63,7 @@ const canPrefetch = (options) => {
 
 // Internal Context
 const getInternal = async (variables, request) => {
-  if (!variables) return {}
+  if (!variables || !request) return {}
   let keys = []
   let values = []
   if (variables === true) {

@@ -1,6 +1,5 @@
 const {
   canPrefetch,
-  createClient,
   getInternal,
   processCache,
   getCache,
@@ -12,7 +11,6 @@ const RDS = require('aws-sdk/clients/rds') // v2
 const defaults = {
   AwsClient: RDS.Signer,
   awsClientOptions: {},
-  awsClientAssumeRole: undefined,
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
   cacheKey: 'rds-signer',
@@ -29,37 +27,28 @@ const rdsSignerMiddleware = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
 
-      const awsClientOptions = {
-        AwsClient: options.AwsClient,
-        awsClientOptions: {
-          ...options.awsClientOptions,
-          ...options.fetchData[internalKey]
-        },
-        awsClientAssumeRole: options.awsClientAssumeRole
-      }
-
-      values[internalKey] = createClient(awsClientOptions, request)
-        .then((client) => {
-          // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
-          return new Promise((resolve, reject) => {
-            client.getAuthToken({}, (err, token) => {
-              if (err) {
-                reject(err)
-              }
-              // Catch Missing token, this usually means their is something wrong with the credentials
-              if (!token.includes('X-Amz-Security-Token=')) {
-                reject(new Error('X-Amz-Security-Token Missing'))
-              }
-              resolve(token)
-            })
-          })
+      const client = new options.AwsClient({
+        ...options.awsClientOptions,
+        ...options.fetchData[internalKey]
+      })
+      // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
+      values[internalKey] = new Promise((resolve, reject) => {
+        client.getAuthToken({}, (err, token) => {
+          if (err) {
+            reject(err)
+          }
+          // Catch Missing token, this usually means their is something wrong with the credentials
+          if (!token.includes('X-Amz-Security-Token=')) {
+            reject(new Error('X-Amz-Security-Token Missing'))
+          }
+          resolve(token)
         })
-        .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
-          value[internalKey] = undefined
-          modifyCache(options.cacheKey, value)
-          throw e
-        })
+      }).catch((e) => {
+        const value = getCache(options.cacheKey)?.value ?? {}
+        value[internalKey] = undefined
+        modifyCache(options.cacheKey, value)
+        throw e
+      })
       // aws-sdk v3
       // values[internalKey] = createClient(awsClientOptions, request).then(client => client.getAuthToken())
     }
