@@ -2,8 +2,8 @@ const test = require('ava')
 const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const { getInternal, clearCache } = require('../../util')
-const RDS = require('aws-sdk/clients/rds.js') // v2
-// const {RDS} = require('@aws-sdk/client-rds') // v3
+const {Signer} = require('aws-sdk/clients/rds.js') // v2
+// const {RDS:{Signer}} = require('@aws-sdk/client-rds') // v3
 const rdsSigner = require('../index.js')
 
 let sandbox
@@ -34,7 +34,7 @@ const mockService = (client, responseOne, responseTwo) => {
 }
 
 test.serial('It should set token to internal storage (token)', async (t) => {
-  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   const handler = middy(() => {})
 
   const middleware = async (request) => {
@@ -45,7 +45,7 @@ test.serial('It should set token to internal storage (token)', async (t) => {
   handler
     .use(
       rdsSigner({
-        AwsClient: RDS.Signer,
+        AwsClient: Signer,
         fetchData: {
           token: {
             region: 'us-east-1',
@@ -63,7 +63,7 @@ test.serial('It should set token to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
-  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1', 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
+  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1', 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
 
   const handler = middy(() => {})
 
@@ -76,7 +76,7 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
   handler
     .use(
       rdsSigner({
-        AwsClient: RDS.Signer,
+        AwsClient: Signer,
         fetchData: {
           token1: {
             region: 'us-east-1',
@@ -101,9 +101,9 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
 })
 
 test.serial(
-  'It should set RDS.Signer token to internal storage without prefetch',
+  'It should set Signer token to internal storage without prefetch',
   async (t) => {
-    mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
     const handler = middy(() => {})
 
@@ -115,7 +115,7 @@ test.serial(
     handler
       .use(
         rdsSigner({
-          AwsClient: RDS.Signer,
+          AwsClient: Signer,
           fetchData: {
             token: {
               region: 'us-east-1',
@@ -134,8 +134,8 @@ test.serial(
   }
 )
 
-test.serial('It should set RDS.Signer token to context', async (t) => {
-  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+test.serial('It should set Signer token to context', async (t) => {
+  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
   const handler = middy(() => {})
 
@@ -146,7 +146,7 @@ test.serial('It should set RDS.Signer token to context', async (t) => {
   handler
     .use(
       rdsSigner({
-        AwsClient: RDS.Signer,
+        AwsClient: Signer,
         fetchData: {
           token: {
             region: 'us-east-1',
@@ -164,8 +164,8 @@ test.serial('It should set RDS.Signer token to context', async (t) => {
   await handler()
 })
 
-test.serial('It should set RDS.Signer token to process.env', async (t) => {
-  mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+test.serial('It should set Signer token to process.env', async (t) => {
+  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   const handler = middy(() => {})
 
   const middleware = async () => {
@@ -175,7 +175,7 @@ test.serial('It should set RDS.Signer token to process.env', async (t) => {
   handler
     .use(
       rdsSigner({
-        AwsClient: RDS.Signer,
+        AwsClient: Signer,
         fetchData: {
           token: {
             region: 'us-east-1',
@@ -196,7 +196,7 @@ test.serial('It should set RDS.Signer token to process.env', async (t) => {
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
-    const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    const stub = mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     const handler = middy(() => {})
 
     const middleware = async (request) => {
@@ -207,7 +207,7 @@ test.serial(
     handler
       .use(
         rdsSigner({
-          AwsClient: RDS.Signer,
+          AwsClient: Signer,
           fetchData: {
             token: {
               region: 'us-east-1',
@@ -231,13 +231,13 @@ test.serial(
 // test.serial(
 //   'It should catch missing X-Amz-Security-Token',
 //   async (t) => {
-//     const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com')
+//     const stub = mockService(Signer, 'https://rds.amazonaws.com')
 //     const handler = middy(() => {})
 //
 //     handler
 //       .use(
 //         rdsSigner({
-//           AwsClient: RDS.Signer,
+//           AwsClient: Signer,
 //           fetchData: {
 //             token: {
 //               region: 'us-east-1',
@@ -262,7 +262,7 @@ test.serial(
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
-    const stub = mockService(RDS.Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token', 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    const stub = mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token', 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
 
     const handler = middy(() => {})
 
@@ -274,7 +274,7 @@ test.serial(
     handler
       .use(
         rdsSigner({
-          AwsClient: RDS.Signer,
+          AwsClient: Signer,
           fetchData: {
             token: {
               region: 'us-east-1',

@@ -5,11 +5,11 @@ const {
   getCache,
   modifyCache
 } = require('@middy/util')
-const RDS = require('aws-sdk/clients/rds') // v2
-// const { RDS } = require('@aws-sdk/client-rds') // v3
+const {Signer} = require('aws-sdk/clients/rds') // v2
+// const { RDS:{Signer} } = require('@aws-sdk/client-rds') // v3
 
 const defaults = {
-  AwsClient: RDS.Signer,
+  AwsClient: Signer,
   awsClientOptions: {},
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,

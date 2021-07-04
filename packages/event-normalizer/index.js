@@ -1,4 +1,4 @@
-const { Converter } = require('aws-sdk/clients/dynamodb') // v2
+const { Converter: {unmarshall} } = require('aws-sdk/clients/dynamodb') // v2
 // const { unmarshall } = require('@aws-sdk/util-dynamodb') // v3
 const { jsonSafeParse } = require('@middy/util')
 
@@ -24,9 +24,9 @@ const parseEventRecords = (event) => {
       record.body = jsonSafeParse(record.body)
       parseEventRecords(record.body)
     } else if (record.eventSource === 'aws:dynamodb') {
-      record.dynamodb.Keys = Converter.unmarshall(record.dynamodb.Keys)
-      record.dynamodb.OldImage = Converter.unmarshall(record.dynamodb.OldImage)
-      record.dynamodb.NewImage = Converter.unmarshall(record.dynamodb.NewImage)
+      record.dynamodb.Keys = unmarshall(record.dynamodb.Keys)
+      record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage)
+      record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage)
     } else if (record.eventSource === 'aws:s3') {
       record.s3.object.key = decodeURIComponent(
         record.s3.object.key.replace(normalizeS3KeyReplacePlus, ' ')
