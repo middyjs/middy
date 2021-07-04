@@ -9,7 +9,7 @@ on:
   pull_request: {}
 
 jobs:
-  tests:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
