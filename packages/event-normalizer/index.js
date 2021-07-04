@@ -1,4 +1,4 @@
-const { Converter: {unmarshall} } = require('aws-sdk/clients/dynamodb') // v2
+const { Converter: { unmarshall } } = require('aws-sdk/clients/dynamodb') // v2
 // const { unmarshall } = require('@aws-sdk/util-dynamodb') // v3
 const { jsonSafeParse } = require('@middy/util')
 

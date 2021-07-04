@@ -2,7 +2,7 @@ const test = require('ava')
 const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const { getInternal, clearCache } = require('../../util')
-const {Signer} = require('aws-sdk/clients/rds.js') // v2
+const { Signer } = require('aws-sdk/clients/rds.js') // v2
 // const {RDS:{Signer}} = require('@aws-sdk/client-rds') // v3
 const rdsSigner = require('../index.js')
 

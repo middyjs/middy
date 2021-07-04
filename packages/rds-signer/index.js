@@ -5,7 +5,7 @@ const {
   getCache,
   modifyCache
 } = require('@middy/util')
-const {Signer} = require('aws-sdk/clients/rds') // v2
+const { Signer } = require('aws-sdk/clients/rds') // v2
 // const { RDS:{Signer} } = require('@aws-sdk/client-rds') // v3
 
 const defaults = {
