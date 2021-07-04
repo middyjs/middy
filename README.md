@@ -671,6 +671,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 
 #### Version 2.x
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
+- [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility

@@ -1,10 +1,11 @@
-const inputOutputLoggerMiddleware = (opts = {}) => {
-  const defaults = {
-    logger: (data) => console.log(JSON.stringify(data, null, 2)),
-    awsContext: false,
-    omitPaths: []
-  }
 
+const defaults = {
+  logger: (data) => console.log(JSON.stringify(data, null, 2)),
+  awsContext: false,
+  omitPaths: []
+}
+
+const inputOutputLoggerMiddleware = (opts = {}) => {
   let { logger, awsContext, omitPaths } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
