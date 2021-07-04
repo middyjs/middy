@@ -1,6 +1,6 @@
 {
   "name": "@middy/sqs-json-body-parser",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "SQS batch json body parser middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -46,10 +46,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.4.2"
+    "@middy/util": "^2.4.3"
   },
   "devDependencies": {
-    "@middy/core": "^2.4.2",
+    "@middy/core": "^2.4.3",
     "@serverless/event-mocks": "^1.1.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
