@@ -691,7 +691,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [@sharecover-co/middy-http-response-serializer](https://www.npmjs.com/package/@sharecover-co/middy-http-response-serializer): This middleware serializes the response to JSON and wraps it in a 200 HTTP response
 - [@seedrs/middyjs-middleware](https://www.npmjs.com/package/@seedrs/middyjs-middleware): Collection of useful middlewares
 - [middy-autoproxyresponse](https://www.npmjs.com/package/middy-autoproxyresponse): A middleware that lets you return simple JavaScript objects from Lambda function handlers and converts them into LAMBDA_PROXY responses
-- [`jwt-auth`](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
+- [jwt-auth](https://www.npmjs.com/package/middy-middleware-jwt-auth): JSON web token authorization middleware based on `express-jwt`
 - [middy-mongoose-connector](https://www.npmjs.com/package/middy-mongoose-connector): MongoDB connection middleware for [mongoose.js](https://mongoosejs.com/)
 - [@ematipico/middy-request-response](https://www.npmjs.com/package/@ematipico/middy-request-response): a middleware that creates a pair of request/response objects
 - [@marcosantonocito/middy-cognito-permission](https://www.npmjs.com/package/@marcosantonocito/middy-cognito-permission): Authorization and roles permission management for the Middy framework that works with Amazon Cognito
@@ -700,8 +700,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog/v/legacy): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 
 ## Middy's Influence
-- .Net port [Voxel.MiddyNet](https://github.com/VoxelGroup/Voxel.MiddyNet) [@vgaltes
-  ](https://twitter.com/vgaltes/status/1366371605337825284)
+- .Net port [Voxel.MiddyNet](https://github.com/VoxelGroup/Voxel.MiddyNet) [@vgaltes](https://twitter.com/vgaltes/status/1366371605337825284)
 - GoLang port [Vesper](https://github.com/mefellows/vesper)
 
 Have a similar project? Let us know.
