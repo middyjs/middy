@@ -9,6 +9,7 @@ expectType<middy.MiddlewareObj>(middleware)
 // use with all options
 middleware = inputOutputLogger({
   logger: console.log,
+  awsContext: true,
   omitPaths: ['a', 'b', 'c']
 })
 expectType<middy.MiddlewareObj>(middleware)
