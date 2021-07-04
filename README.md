@@ -674,7 +674,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
-- [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using knex
+- [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
 
 #### Version 1.x
