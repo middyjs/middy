@@ -626,6 +626,9 @@ Likely your event loop is not empty. This happens when you have a database conne
 
 
 ## Available middlewares
+These middleware focus on common use cases when using Lambda with other AWS services. Each middleware
+should do a single task. We try to balance each to be as performant as possible while meeting the majority of developer needs.
+
 
 ### Misc
 - [`error-logger`](/packages/error-logger): Logs errors
@@ -667,6 +670,7 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x
+- [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility

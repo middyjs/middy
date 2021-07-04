@@ -1,4 +1,3 @@
-import { HttpError } from 'http-errors'
 import middy from '@middy/core'
 
 interface Options {
