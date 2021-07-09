@@ -29,7 +29,7 @@ This middleware fetches parameters from [AWS Systems Manager Parameter Store](ht
 
 Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/).
 
-By default parameters are assigned to the Node.js `process.env` object. They can instead be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
+Parameters can be assigned to the Node.js `process.env` object by setting the `setToEnv` flag to `true`. They can also be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
 
 The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
 
