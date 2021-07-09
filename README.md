@@ -87,7 +87,8 @@ const baseHandler = async (event, context, callback) => {
  // do stuff with this data
  // ...
 
- return { result: 'success', message: 'payment processed correctly'}
+ response = { result: 'success', message: 'payment processed correctly'}
+ return {statusCode: 200, body: JSON.stringify(response)}
 }
 
 // Notice that in the handler you only added base business logic (no deserialization,
