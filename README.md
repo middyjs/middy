@@ -87,7 +87,7 @@ const baseHandler = async (event, context, callback) => {
  // do stuff with this data
  // ...
 
- response = { result: 'success', message: 'payment processed correctly'}
+ const response = { result: 'success', message: 'payment processed correctly'}
  return {statusCode: 200, body: JSON.stringify(response)}
 }
 
