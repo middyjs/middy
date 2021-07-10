@@ -21,7 +21,7 @@ test('It should create a response for HTTP errors (string)', async (t) => {
     statusCode: 422,
     body: 'Unprocessable Entity',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -74,7 +74,7 @@ test('It should handle non HTTP errors when fallback set', async (t) => {
     statusCode: 500,
     body: 'Error: unknown',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -109,7 +109,7 @@ test('It should create a response for HTTP errors created with a generic error',
     statusCode: 412,
     body: 'A server error',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -130,7 +130,7 @@ test('It should expose of error to user', async (t) => {
     statusCode: 404,
     body: 'NotFound',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -151,7 +151,7 @@ test('It should be possible to prevent expose of error to user', async (t) => {
     statusCode: 500,
     body: 'Error: unknown',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -172,7 +172,7 @@ test('It should not send error to user', async (t) => {
     statusCode: 500,
     body: 'Error: unknown',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
@@ -193,7 +193,7 @@ test('It should be possible to force expose of error to user', async (t) => {
     statusCode: 500,
     body: 'OkayError',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })
