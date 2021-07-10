@@ -279,7 +279,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
     statusCode: 422,
     body: 'Unprocessable Entity',
     headers: {
-      'Content-Type': 'plain/text'
+      'Content-Type': 'text/plain'
     }
   })
 })

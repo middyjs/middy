@@ -36,7 +36,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
       request.response.body = request.error?.message
       request.response.headers['Content-Type'] =
         typeof jsonSafeParse(request.response.body) === 'string'
-          ? 'plain/text'
+          ? 'text/plain'
           : 'application/json'
 
       return request.response
