@@ -35,7 +35,7 @@ export interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error, TConte
   onError?: MiddlewareFn<TEvent, TResult, TErr>
 }
 
-type MiddyInputHandler<TEvent, TResult, TContext> = (event: TEvent, context: TContext) => Promise<TResult> | void;
+type MiddyInputHandler<TEvent, TResult, TContext> = (event: TEvent, context: TContext) => Promise<TResult>
 
 export interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> extends MiddyInputHandler<TEvent, TResult, TContext> {
   use: UseFn<TEvent, TResult, TErr, TContext>
@@ -61,14 +61,14 @@ declare type UseFn<TEvent = any, TResult = any, TErr = Error, TContext extends L
 declare type MiddlewareHandler<THandler extends LambdaHandler<any, any>, TContext> =
   THandler extends LambdaHandler<infer TEvent, infer TResult> // always true
     ? (event: TEvent, context: TContext) => Promise<TResult>
-    : never;
+    : never
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
  * @param handler your original AWS Lambda function
  * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
  */
-declare function middy<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> (handler?: MiddlewareHandler<LambdaHandler<TEvent,TResult>, TContext>, plugin?: PluginObject): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+declare function middy<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = any> (handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>, plugin?: PluginObject): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
 
 declare namespace middy {
   export {

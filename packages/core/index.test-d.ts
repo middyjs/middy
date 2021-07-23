@@ -1,4 +1,4 @@
-import { expectError, expectType } from 'tsd'
+import { expectType } from 'tsd'
 import middy from '.'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 
@@ -171,10 +171,11 @@ async function mutableContextDependantHandler (event: APIGatewayProxyEvent, cont
   }
 }
 
-// @ts-expect-error
-handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(mutableContextDependantHandler)
+let customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(mutableContextDependantHandler)
+expectType<MutableContextHandler>(customCtxHandler)
 
-handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(mutableContextDependantHandler)
+// @ts-expect-error
+customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(mutableContextDependantHandler)
 
 const mutableContextMiddleware = {
   before: (request: MutableContextRequest) => {
@@ -182,8 +183,8 @@ const mutableContextMiddleware = {
   }
 }
 
-handler = handler.use(mutableContextMiddleware)
-expectType<Handler>(handler)
+customCtxHandler = customCtxHandler.use(mutableContextMiddleware)
+expectType<MutableContextHandler>(customCtxHandler)
 
 const typeErrorMiddleware = {
   before: (request: MutableContextRequest) => {
@@ -192,4 +193,4 @@ const typeErrorMiddleware = {
   }
 }
 
-handler = handler.use(typeErrorMiddleware)
+customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
