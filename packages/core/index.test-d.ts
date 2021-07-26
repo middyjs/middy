@@ -194,3 +194,4 @@ const typeErrorMiddleware = {
 }
 
 customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
+expectType<MutableContextHandler>(customCtxHandler)
