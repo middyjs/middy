@@ -10,7 +10,7 @@ async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProx
 }
 
 type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
-type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
+type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>
 
 // initialize
 let handler = middy(baseHandler)
@@ -156,3 +156,42 @@ expectType<{
   after: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
   onError: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
 }>(handler.__middlewares)
+
+interface MutableContext extends Context {
+  name: string
+}
+
+type MutableContextHandler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
+type MutableContextRequest = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
+
+async function mutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): Promise<APIGatewayProxyResult> {
+  return {
+    statusCode: 200,
+    body: `Hello from ${context.name}`
+  }
+}
+
+let customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(mutableContextDependantHandler)
+expectType<MutableContextHandler>(customCtxHandler)
+
+// @ts-expect-error
+customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(mutableContextDependantHandler)
+
+const mutableContextMiddleware = {
+  before: (request: MutableContextRequest) => {
+    request.context.name = 'Foo'
+  }
+}
+
+customCtxHandler = customCtxHandler.use(mutableContextMiddleware)
+expectType<MutableContextHandler>(customCtxHandler)
+
+const typeErrorMiddleware = {
+  before: (request: MutableContextRequest) => {
+    // @ts-expect-error
+    request.context.test = 'Bar'
+  }
+}
+
+customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
+expectType<MutableContextHandler>(customCtxHandler)
