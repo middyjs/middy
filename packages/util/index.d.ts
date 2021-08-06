@@ -14,6 +14,14 @@ interface Options<Client, ClientOptions> {
   setToContext?: boolean
 }
 
+type HttpError = Error & {
+  status: number
+  statusCode: number
+  expose: boolean
+  [key: string]: any
+  [key: number]: any
+}
+
 declare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
 
 declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Client
@@ -33,3 +41,5 @@ declare function clearCache (keys?: string | string[] | null): void
 declare function jsonSafeParse (string: string, reviver?: (key: string, value: any) => any): any
 
 declare function normalizeHttpResponse (response: any, fallbackResponse?: any): any
+
+declare function createError (code: number, message: string, properties?: Record<string, any>): HttpError
