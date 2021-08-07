@@ -2,6 +2,8 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const httpContentEncoding = require('../index.js')
 
+const { brotliCompressSync, gzipSync, deflateSync } = require('zlib')
+
 const compressibleBody = JSON.stringify(new Array(100).fill(0))
 
 test('It should encode using br', async (t) => {
@@ -18,7 +20,7 @@ test('It should encode using br', async (t) => {
   const response = await handler(event)
 
   t.deepEqual(response, {
-    body: 'G8gA+KVZYLa6lCKahQH/xA==',
+    body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
   })
@@ -38,7 +40,7 @@ test('It should encode using gzip', async (t) => {
   const response = await handler(event)
 
   t.deepEqual(response, {
-    body: 'H4sIAAAAAAAAE4s20BkWMBYAa63RJckAAAA=',
+    body: gzipSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'gzip' },
     isBase64Encoded: true
   })
@@ -58,7 +60,7 @@ test('It should encode using deflate', async (t) => {
   const response = await handler(event)
 
   t.deepEqual(response, {
-    body: 'eJyLNtAZFjAWAGW/JH0=',
+    body: deflateSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'deflate' },
     isBase64Encoded: true
   })
@@ -81,7 +83,7 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
   const response = await handler(event)
 
   t.deepEqual(response, {
-    body: 'G8gA+KVZYLa6lCKahQH/xA==',
+    body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
   })
