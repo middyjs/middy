@@ -3,7 +3,7 @@ const middy = require('../../core/index.js')
 const httpContentNegotiation = require('../index.js')
 
 test('It should parse charset, encoding, language and media type', async (t) => {
-  const handler = middy((event, context, callback) => event)
+  const handler = middy((event, context) => event)
   handler.use(
     httpContentNegotiation({
       availableCharsets: ['utf-8'],

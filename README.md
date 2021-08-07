@@ -80,7 +80,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
-const baseHandler = async (event, context, callback) => {
+const baseHandler = async (event, context) => {
  // we don't need to deserialize the body ourself as a middleware will be used to do that
  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
