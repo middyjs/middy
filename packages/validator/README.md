@@ -133,38 +133,7 @@ handler({}, {}, (err, response) => {
 })
 ```
 
-Example for plugins applied with `ajv-bsontype`:
 
-```javascript
-import middy from '@middy/core'
-import validator from '@middy/validator'
-
-const handler = middy((event, context) => {
-  return {}
-})
-
-const schema = {
-  required: ["name", "gpa"],
-  properties: {
-    name: {
-      bsonType: "string"
-    },
-    gpa: {
-      bsonType: [ "double" ]
-    }
-  }
-}
-
-handler.use(validator({ inputSchema: schema, ajvPlugins: { bsontype: null } }))
-
-// invokes the handler, note that property foo is string and should be integer
-const event = {
-  body: JSON.stringify({ name: "Leo", gpa: "4" })
-}
-handler(event, {}, (err, response) => {
-  t.is(err.details[0].message,'should be double got 4')
-})
-```
 
 ## Middy documentation and examples
 

@@ -65,15 +65,5 @@
     "ts-standard": "^10.0.0",
     "tsd": "^0.17.0",
     "typescript": "^4.2.3"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.{js,ts}": [
-      "npm run test:lint:ci"
-    ]
   }
 }
