@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "type": "commonjs",
   "engines": {
@@ -50,10 +50,10 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@hapi/accept": "5.0.2",
-    "@middy/util": "^2.4.3"
+    "@middy/util": "^2.5.0"
   },
   "devDependencies": {
-    "@middy/core": "^2.4.3",
+    "@middy/core": "^2.5.0",
     "http-errors": "^1.8.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
