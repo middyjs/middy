@@ -35,11 +35,19 @@ const httpContentEncodingMiddleware = (opts) => {
   const httpContentEncodingMiddlewareAfter = async (request) => {
     const { event, response } = request
     if (!event.preferredEncoding) { return }
+    request.response = normalizeHttpResponse(request.response)
     if (response.isBase64Encoded) { return }
-    if (typeof response?.body !== 'string') { return }
 
-    const contentLength = response.body.length
-    const readStream = Readable.from(response.body, { objectMode: false })
+    let contentLength, readStream
+    if (typeof response.body == 'string') {
+      contentLength = response.body.length
+      readStream = Readable.from(response.body, { objectMode: false })
+    }/*else if (isReadableStream(response.body)) {
+      contentLength = 0 // will need Transform stream to calculate
+      readStream = response.body
+    }*/ else {
+      return
+    }
 
     let contentEncodingStream = contentEncodingStreams[event.preferredEncoding](options[event.preferredEncoding])
     let contentEncoding = event.preferredEncoding
@@ -68,7 +76,6 @@ const httpContentEncodingMiddleware = (opts) => {
 
     // Only apply encoding if it's smaller
     if (body.length < contentLength) {
-      request.response = normalizeHttpResponse(request.response)
       response.headers['Content-Encoding'] = contentEncoding
       response.body = body
       response.isBase64Encoded = true
@@ -79,5 +86,12 @@ const httpContentEncodingMiddleware = (opts) => {
     after: httpContentEncodingMiddlewareAfter
   }
 }
+
+/*const isReadableStream = (stream) =>
+  typeof stream?.pipe === 'function' &&
+  stream.readable !== false &&
+  typeof stream._read === 'function' &&
+  typeof stream._readableState === 'object'
+*/
 
 module.exports = httpContentEncodingMiddleware

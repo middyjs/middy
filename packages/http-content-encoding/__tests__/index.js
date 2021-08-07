@@ -114,7 +114,7 @@ test('It should not encode when response.isBase64Encoded is already set to true'
 
   const response = await handler(event)
 
-  t.deepEqual(response, { body, isBase64Encoded: true })
+  t.deepEqual(response, { body, headers: {}, isBase64Encoded: true })
 })
 
 test('It should not encode when response.body is not a string', async (t) => {
@@ -130,7 +130,7 @@ test('It should not encode when response.body is not a string', async (t) => {
 
   const response = await handler(event)
 
-  t.deepEqual(response, { body })
+  t.deepEqual(response, { body, headers: {} })
 })
 
 test('It should not encode when response.body is empty', async (t) => {
@@ -146,6 +146,6 @@ test('It should not encode when response.body is empty', async (t) => {
 
   const response = await handler(event)
 
-  t.deepEqual(response, { body })
+  t.deepEqual(response, { body, headers: {} })
 })
 
