@@ -98,10 +98,10 @@ import httpResponseSerializer from '@middy/http-response-serializer'
 const handler = middy((event, context) => {
   const body = 'Hello World'
 
-  return cb(null, {
+  return {
     statusCode: 200,
     body
-  })
+  }
 })
 
 handler
