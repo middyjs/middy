@@ -49,6 +49,3 @@ test('Should not exit with \'warmup\' if event.source !== \'serverless-plugin-wa
 
   t.is(response, undefined)
 })
-
-
-

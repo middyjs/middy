@@ -4,7 +4,7 @@ const defaults = {
 }
 
 const warmupMiddleware = (opt) => {
-  const options = {...defaults, ...opt}
+  const options = { ...defaults, ...opt }
 
   const warmupMiddlewareBefore = (request) => {
     if (options.isWarmingUp(request.event)) {
