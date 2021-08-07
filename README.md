@@ -636,6 +636,7 @@ should do a single task. We try to balance each to be as performant as possible 
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`warmup`](/packages/warmup): Used to pre-warm a lambda function
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
