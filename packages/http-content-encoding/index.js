@@ -39,13 +39,14 @@ const httpContentEncodingMiddleware = (opts) => {
     if (response.isBase64Encoded) { return }
 
     let contentLength, readStream
-    if (typeof response.body == 'string') {
+    if (typeof response.body === 'string') {
       contentLength = response.body.length
       readStream = Readable.from(response.body, { objectMode: false })
-    }/*else if (isReadableStream(response.body)) {
+    /* } else if (isReadableStream(response.body)) {
       contentLength = 0 // will need Transform stream to calculate
       readStream = response.body
-    }*/ else {
+     */
+    } else {
       return
     }
 
@@ -87,7 +88,7 @@ const httpContentEncodingMiddleware = (opts) => {
   }
 }
 
-/*const isReadableStream = (stream) =>
+/* const isReadableStream = (stream) =>
   typeof stream?.pipe === 'function' &&
   stream.readable !== false &&
   typeof stream._read === 'function' &&

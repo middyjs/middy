@@ -148,4 +148,3 @@ test('It should not encode when response.body is empty', async (t) => {
 
   t.deepEqual(response, { body, headers: {} })
 })
-
