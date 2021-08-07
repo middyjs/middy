@@ -101,10 +101,10 @@ const handler = middy((event, context) => {
       body = message
   }
 
-  return cb(null, {
+  return {
     statusCode: 200,
     body
-  })
+  }
 })
 
 handler

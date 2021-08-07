@@ -80,7 +80,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
-const baseHandler = async (event, context, callback) => {
+const baseHandler = async (event, context) => {
  // we don't need to deserialize the body ourself as a middleware will be used to do that
  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
@@ -636,6 +636,7 @@ should do a single task. We try to balance each to be as performant as possible 
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
 - [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`warmup`](/packages/warmup): Used to pre-warm a lambda function
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
