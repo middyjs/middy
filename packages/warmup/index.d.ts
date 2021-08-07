@@ -1,10 +1,10 @@
 import middy from '@middy/core'
 
-interface IWarmupOptions {
+interface Options {
   isWarmingUp?: (event: any) => boolean
   onWarmup?: (event: any) => void
 }
 
-declare const warmup: middy.Middleware<IWarmupOptions, any, any>
+declare function warmup (options?: Options): middy.MiddlewareObj
 
 export default warmup
