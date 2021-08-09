@@ -44,6 +44,7 @@ handler = middy(baseHandler, {
 expectType<Handler>(handler)
 
 // invokes the handler to test that it is callable
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 async function invokeHandler (): Promise<void | APIGatewayProxyResult> {
   const sampleEvent: APIGatewayProxyEvent = {
     resource: '/',
