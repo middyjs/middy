@@ -1,6 +1,6 @@
 {
   "name": "@middy/util",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
   "type": "commonjs",
   "engines": {
@@ -44,7 +44,7 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "devDependencies": {
-    "@middy/core": "^2.5.0",
+    "@middy/core": "^2.5.1",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^16.0.0",
     "aws-sdk": "^2.939.0",
