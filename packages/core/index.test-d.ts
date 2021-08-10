@@ -1,8 +1,13 @@
 import { expectType } from 'tsd'
 import middy from '.'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  Context,
+  Handler as LambdaHandler
+} from 'aws-lambda'
 
-async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+const baseHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
@@ -39,7 +44,8 @@ handler = middy(baseHandler, {
 expectType<Handler>(handler)
 
 // invokes the handler to test that it is callable
-async function invokeHandler (): Promise<APIGatewayProxyResult> {
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+async function invokeHandler (): Promise<void | APIGatewayProxyResult> {
   const sampleEvent: APIGatewayProxyEvent = {
     resource: '/',
     path: '/',
@@ -110,7 +116,7 @@ async function invokeHandler (): Promise<APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  return await handler(sampleEvent, sampleContext)
+  return await handler(sampleEvent, sampleContext, () => {})
 }
 invokeHandler().catch(console.error)
 
