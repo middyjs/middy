@@ -269,7 +269,7 @@ const storage = {}
 // middleware
 const cacheMiddleware = options => {
   let cacheKey
-  
+
   const cacheMiddlewareBefore = async (request) => {
     cacheKey = options.calculateCacheId(request.event)
     if (options.storage.hasOwnProperty(cacheKey)) {
@@ -277,12 +277,12 @@ const cacheMiddleware = options => {
       return options.storage[cacheKey]
     }
   }
-  
+
   const cacheMiddlewareAfter = async (request) => {
     // stores the calculated response in the cache
     options.storage[cacheKey] = request.response
   }
-  
+
   return {
     before: cacheMiddlewareBefore,
     after: cacheMiddlewareAfter
@@ -374,12 +374,12 @@ module.exports = (opts = {}) => {
     // might read options
   }
   const customMiddlewareAfter = async (request) => {
-    // might read options 
+    // might read options
   }
   const customMiddlewareOnError = async (request) => {
     // might read options
   }
-  
+
   return {
     // Having descriptive function names will allow for easier tracking of perormance bottlenecks using @middy/core/profiler
     before: customMiddlewareBefore,
@@ -447,10 +447,10 @@ As you can see above, a middy instance also exposes the `before`, `after` and `o
 methods to allow you to quickly hook in simple inline middlewares.
 
 ### Request caching & Internal storage
-The handler also contains an `internal` object that can be used to store values securely between middlewares that 
+The handler also contains an `internal` object that can be used to store values securely between middlewares that
 expires when the event ends. To compliment this there is also a cache where middleware can store request promises.
-During `before` these promises can be stored into `internal` then resolved only when needed. This pattern is useful to 
-take advantage of the async nature of node especially when you have multiple middleware that require reaching out the 
+During `before` these promises can be stored into `internal` then resolved only when needed. This pattern is useful to
+take advantage of the async nature of node especially when you have multiple middleware that require reaching out the
 external APIs.
 
 Here is a middleware boilerplate using this pattern:
@@ -537,6 +537,34 @@ handler
 export default handler
 ```
 
+And here's an example of how you can write a custom middleware for a Lambda receiving events from API Gateway:
+
+```typescript
+import middy from '@middy/core'
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+
+const middleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxyResult> => {
+  const before: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
+    request
+  ): Promise<void> => {
+    // Your middleware logic
+  }
+
+  const after: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
+    request
+  ): Promise<void> => {
+    // Your middleware logic
+  }
+
+  return {
+    before,
+    after
+  }
+}
+
+export default middleware
+```
+
 **Note**: the Middy core team does not use TypeScript often and we can't certainly claim that we are TypeScript experts. We tried our best to come up
 with type definitions that should give TypeScript users a good experience. There is certainly room for improvement, so we would be more than happy to receive contributions 😊
 
@@ -545,7 +573,7 @@ with type definitions that should give TypeScript users a good experience. There
 Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
 
 ### ENV variables
-Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse 
+Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse
 the first connection established. See [Reusing Connections with Keep-Alive in Node.js](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/node-reusing-connections.html)
 
 ### Adding internal values to context
@@ -566,13 +594,13 @@ middy(baseHandler)
   .use(secretsManager(...))
   .before(async (request) => {
     // internal == { key: 'value' }
-    
+
     // Map with same name
     Object.assign(request.context, await getInternal(['key'], request)) // context == { key: 'value'}
-    
+
     // Map to new name
     Object.assign(request.context, await getInternal({'newKey':'key'}, request)) // context == { newKey: 'value'}
-    
+
     // get all the values, only if you really need to, but you should only request what you need for the handler
     Object.assign(request.context, await getInternal(true, request)) // context == { key: 'value'}
   })
@@ -609,11 +637,11 @@ connectionOptions = {
 Corresponding `RDS.ParameterGroups` values should be set to enforce TLS connections.
 
 ### Bundling Lambda packages
-If you're using serverless, checkout [`serverless-bundle`](https://www.npmjs.com/package/serverless-bundle). 
+If you're using serverless, checkout [`serverless-bundle`](https://www.npmjs.com/package/serverless-bundle).
 It's a wrapper around webpack, babel, and a bunch of other dependencies.
 
 ### Keeping Lambda node_modules small
-Using a bundler is the optimal solution, but can be complex depending on your setup. In this case you should remove 
+Using a bundler is the optimal solution, but can be complex depending on your setup. In this case you should remove
 excess files from your `node_modules` directory to ensure it doesn't have anything excess shipped to AWS. We put together
 a [`.yarnclean`](/docs/.yarnclean) file you can check out and use as part of your CI/CD process.
 
@@ -668,7 +696,7 @@ should do a single task. We try to balance each to be as performant as possible 
 
 ### Community generated middleware
 
-The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality. 
+The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x
@@ -708,7 +736,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 Have a similar project? Let us know.
 
 ## A brief history of Middy
-- Middy was started in the early beginning of AWS Lambda. 
+- Middy was started in the early beginning of AWS Lambda.
 - 2017-08-03: First commit
 - 2017-09-04: v0.2.1 First release
 - 2018-05-20: v1.0.0-alpha
