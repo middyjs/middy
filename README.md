@@ -319,7 +319,7 @@ to the user.
 If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
 ```javascript
-// Initailaize response
+// Initialize response
 request.response = request.response ?? {}
 
 // Add to response
