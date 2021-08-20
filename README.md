@@ -381,7 +381,7 @@ module.exports = (opts = {}) => {
   }
 
   return {
-    // Having descriptive function names will allow for easier tracking of perormance bottlenecks using @middy/core/profiler
+    // Having descriptive function names will allow for easier tracking of performance bottlenecks using @middy/core/profiler
     before: customMiddlewareBefore,
     after: customMiddlewareAfter,
     onError: customMiddlewareOnError
