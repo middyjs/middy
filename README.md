@@ -319,7 +319,7 @@ to the user.
 If no middleware manages the error, the Lambda execution fails reporting the unmanaged error.
 
 ```javascript
-// Initailaize response
+// Initialize response
 request.response = request.response ?? {}
 
 // Add to response
@@ -381,7 +381,7 @@ module.exports = (opts = {}) => {
   }
 
   return {
-    // Having descriptive function names will allow for easier tracking of perormance bottlenecks using @middy/core/profiler
+    // Having descriptive function names will allow for easier tracking of performance bottlenecks using @middy/core/profiler
     before: customMiddlewareBefore,
     after: customMiddlewareAfter,
     onError: customMiddlewareOnError
