@@ -43,3 +43,5 @@ declare function jsonSafeParse (string: string, reviver?: (key: string, value: a
 declare function normalizeHttpResponse (response: any, fallbackResponse?: any): any
 
 declare function createError (code: number, message: string, properties?: Record<string, any>): HttpError
+
+declare function modifyCache (cacheKey: string, value: any): void
