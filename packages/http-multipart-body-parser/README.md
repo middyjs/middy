@@ -56,7 +56,7 @@ If you really have to deal with big files, then you might also want to consider 
 
 ```javascript
 import middy from '@middy/core'
-import { httpMultipartBodyParser } from '@middy/http-multipart-body-parser'
+import httpMultipartBodyParser from '@middy/http-multipart-body-parser'
 const handler = middy((event, context) => {
   return {}
 })
