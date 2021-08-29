@@ -60,8 +60,7 @@ const s3DownloadRecordsMiddleware = (opts = {}) => {
       /**
        * @type {import("aws-lambda").S3Event}
        */
-      const event = request.event;
-      Promise.all(event.Records.map(record => {
+      await Promise.all(event.Records.map(record => {
         return download(record)
       }));
     }
