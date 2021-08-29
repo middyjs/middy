@@ -44,36 +44,13 @@ npm install --save @middy/s3-download-record
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `directory` (string) (option): The directory where the file will be downloaded, defaults to `/tmp`
 - `prefixBucketName`: Defines whether or not to add the bucket name before the object key
-NOTES:
-- The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
-- Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
 
 ## Sample usage
-### Stream
+
 ```javascript
-import zlib from 'zlib'
 import middy from '@middy/core'
-import s3ObjectResponse from '@middy/s3-download-record'
-
-const handler = middy((event, context) => {
-  const readStream = context.s3Object
-  const transformStream = zlib.createBrotliCompress()
-  return {
-    Body: readStream.pipe(transformStream)
-  }
-})
-
-handler
-  .use(s3ObjectResponse({
-    bodyType: 'stream'
-  }))
-```
-
-### Promise
-```javascript
-import zlib from 'zlib'
-import middy from '@middy/core'
-import s3ObjectResponse from '@middy/s3-download-record'
+import s3KeyNormalizer from '@middy/s3-key-normalizer'
+import s3DownloadRecord from '@middy/s3-download-record'
 
 const handler = middy(async (event, context) => {
   let body = await context.s3Object
@@ -84,9 +61,9 @@ const handler = middy(async (event, context) => {
 })
 
 handler
-  .use(s3ObjectResponse({
-    bodyType: 'promise'
-  }))
+  .use(s3KeyNormalizer())
+  .use(s3DownloadRecord()))
+  
 ```
 
 
