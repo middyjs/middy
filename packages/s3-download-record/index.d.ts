@@ -7,12 +7,12 @@ export interface Options<S = S3> {
   awsClientOptions?: Partial<S3.Types.ClientConfiguration>
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient
-  disablePrefetch?: boolean,
+  disablePrefetch?: boolean
   /**
    * The directory where the file will be downloaded
    * Defaults to `/tmp`
    */
-  directory?: string,
+  directory?: string
   /**
    * Whether or not to prefix the file with the bucket name
    * Defaults to true

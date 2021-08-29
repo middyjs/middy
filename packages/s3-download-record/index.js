@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 const {
   canPrefetch,
   createPrefetchClient
@@ -22,8 +22,7 @@ const defaults = {
 }
 
 /**
- * 
- * @param {import("./index").Options} opts 
+ * @param {import("./index").Options} opts
  * @returns {import("@middy/core").MiddlewareObj}
  */
 const s3DownloadRecordsMiddleware = (opts = {}) => {
@@ -40,11 +39,11 @@ const s3DownloadRecordsMiddleware = (opts = {}) => {
    * Downloads the S3 object to drive
    * @param {import("aws-lambda").S3EventRecord} record
    */
-  async function download(record) {
+  async function download (record) {
     const obj = await client.getObject({
       Key: record.s3.object.key,
       Bucket: record.s3.bucket.name
-    }).promise();
+    }).promise()
     await fs.promises.writeFile(path.join(
       ...[
         options.directory,
@@ -60,9 +59,10 @@ const s3DownloadRecordsMiddleware = (opts = {}) => {
       /**
        * @type {import("aws-lambda").S3Event}
        */
+      const event = request.event
       await Promise.all(event.Records.map(record => {
         return download(record)
-      }));
+      }))
     }
   }
 }
