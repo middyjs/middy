@@ -1,6 +1,3 @@
-const { PassThrough } = require('stream')
-const eventEmitter = require('events')
-const https = require('https')
 const test = require('ava')
 const sinon = require('sinon')
 const rewire = require('rewire')
@@ -12,7 +9,7 @@ const s3DownloadRecord = rewire('../index.js')
 /**
  * @type {sinon.SinonSandbox}
  */
-let sandbox = sinon.createSandbox()
+const sandbox = sinon.createSandbox()
 
 /**
  * @param {typeof S3} client
@@ -28,7 +25,7 @@ const mockService = (client, responses) => {
       })
     })
   })
-  client.prototype.getObject = mock;
+  client.prototype.getObject = mock
   // aws-sdk v3
   // const mock = sandbox.stub(client.prototype, 'writeGetObjectResponse')
   // mock.onFirstCall().resolves(responseOne)
@@ -40,24 +37,24 @@ const mockService = (client, responses) => {
 const mockFs = {
   promises: {
     filesWritten: {},
-    async writeFile(path, data) {
-      this.filesWritten[path] = data;
+    async writeFile (path, data) {
+      this.filesWritten[path] = data
     }
   }
 }
 
 /**
- * @type {import("aws-lambda").S3Event}
+ * @type {import('aws-lambda').S3Event}
  */
 const event = {
   Records: [
     {
       s3: {
         object: {
-          key: "obj1",
+          key: 'obj1'
         },
         bucket: {
-          name: "bucket1"
+          name: 'bucket1'
         }
       }
     }
@@ -65,12 +62,12 @@ const event = {
 }
 
 mockService(S3, [
-  "obj1Response1",
+  'obj1Response1'
 ])
 s3DownloadRecord.__set__('fs', mockFs)
 test.serial('It should download the first object along with default name', async (t) => {
   const handler = middy((event, context) => {
-    t.true(mockFs.promises.filesWritten["/tmp/bucket1/obj1"] === "obj1Response1")
+    t.true(mockFs.promises.filesWritten['/tmp/bucket1/obj1'] === 'obj1Response1')
   })
 
   handler.use(
@@ -79,5 +76,5 @@ test.serial('It should download the first object along with default name', async
     })
   )
 
-  const response = await handler(event)
+  await handler(event)
 })
