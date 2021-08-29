@@ -42,7 +42,8 @@ npm install --save @middy/s3-download-record
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `httpsCapture` (function) (optional): Enable XRay by passing `captureHTTPsGlobal` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-
+- `directory` (string) (option): The directory where the file will be downloaded, defaults to `/tmp`
+- `prefixBucketName`: Defines whether or not to add the bucket name before the object key
 NOTES:
 - The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`

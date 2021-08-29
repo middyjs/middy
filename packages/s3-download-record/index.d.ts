@@ -8,8 +8,16 @@ export interface Options<S = S3> {
   awsClientAssumeRole?: string
   awsClientCapture?: typeof captureAWSClient
   disablePrefetch?: boolean,
-  directory?: string = '/tmp',
-  prefixBucketName?: boolean = true
+  /**
+   * The directory where the file will be downloaded
+   * Defaults to `/tmp`
+   */
+  directory?: string,
+  /**
+   * Whether or not to prefix the file with the bucket name
+   * Defaults to true
+   */
+  prefixBucketName?: boolean
 }
 
 declare function s3DownloadRecordsMiddleware (options?: Options): middy.MiddlewareObj
