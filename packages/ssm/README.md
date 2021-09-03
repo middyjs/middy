@@ -47,16 +47,16 @@ npm install --save @middy/ssm
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SSM`): AWS.SSM class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `AWS.SSM`): AWS.SSM class constructor (e.g. that has been instrumented with AWS X-Ray). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.SSM class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
-- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
+- `awsClientCapture` (function) (optional): Enable AWS X-Ray by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `Names`/`Path`. `SecureString` are automatically decrypted.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `ssm`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToEnv` (boolean) (default `false`): Store role tokens to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
-- `setToContext` (boolean) (default `false`): Store role tokes to `request.context`.
+- `setToContext` (boolean) (default `false`): Store role tokens to `request.context`.
 
 NOTES:
 - Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting.
@@ -79,7 +79,7 @@ handler
   .use(ssm({
     fetchData: {
       accessToken: '/dev/service_name/access_token',  // single value
-      dbParams: '/dev/service_name/database/',         // object of values, key for each path
+      dbParams: '/dev/service_name/database/',        // object of values, key for each path
       defaults: '/dev/defaults'
     },
     setToContext: true
@@ -109,7 +109,7 @@ handler
   .use(ssm({
     fetchData: {
       accessToken: '/dev/service_name/access_token',  // single value
-      dbParams: '/dev/service_name/database/',         // object of values, key for each path
+      dbParams: '/dev/service_name/database/',        // object of values, key for each path
     },
     cacheExpiry: 15*60*1000,
     cacheKey: 'ssm-secrets'
