@@ -173,3 +173,42 @@ test.serial('Should throw with failure reasons', async (t) => {
     // }))
   }
 })
+
+test.serial(
+  'Should chunk delete message requests.',
+  async (t) => {
+    const resolves = Array(11).fill({
+      receiptHandle: 'successfulMessageReceiptHandle',
+      eventSourceARN: 'test',
+      messageAttributes: {
+        resolveOrReject: {
+          stringValue: 'resolve'
+        }
+      }
+    })
+
+    const Records = [{
+      eventSourceARN: 'test',
+      messageAttributes: {
+        resolveOrReject: {
+          stringValue: 'reject'
+        }
+      }
+    }].concat(resolves)
+
+    const event = createEvent.default('aws:sqs', {
+      Records
+    })
+    mockService(SQS, {}, {})
+
+    const handler = middy(baseHandler).use(
+      sqsPartialBatchFailure({
+        AwsClient: SQS
+      })
+    )
+
+    return handler(event).catch(e => {
+      t.is(SQS.prototype.deleteMessageBatch.callCount, 2)
+    })
+  }
+)
