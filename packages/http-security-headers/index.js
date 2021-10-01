@@ -3,6 +3,9 @@ const { normalizeHttpResponse } = require('@middy/util')
 // Code and Defaults heavily based off https://helmetjs.github.io/
 
 const defaults = {
+  // contentDisposition: {
+  //   filename: undefined
+  // },
   dnsPrefetchControl: {
     allow: false
   },
@@ -41,6 +44,13 @@ const defaults = {
 
 const helmet = {}
 const helmetHtmlOnly = {}
+
+// OWASP ASVS 14.4.2
+// API Gateway strips out this header :(
+// helmet.content = (headers, config) => {
+//   const filename = config.filename ?? `api.${headers?.['Content-Type'].split(/[/;]/)[1] ?? 'json'}`
+//   headers['Content-Disposition'] = `attachment; filename="${filename}"`
+// }
 
 // contentSecurityPolicy - N/A - no HTML
 // featurePolicy - N/A - no HTML
