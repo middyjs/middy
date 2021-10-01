@@ -33,8 +33,8 @@ const httpCorsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpCorsMiddlewareAfter = async (request) => {
-    // API Gateway v1 && v2
-    if (!request.event?.httpMethod && !request.event?.requestContext.http.method) return
+    // API Gateway v1 & v2
+    if (!request.event?.httpMethod && !request.event?.requestContext?.http?.method) return
 
     request.response = normalizeHttpResponse(request.response)
 
