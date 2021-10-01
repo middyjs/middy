@@ -62,6 +62,7 @@ NOTES:
 - At least one of `inputSchema` or `outputSchema` is required.
 - **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 - Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`
+- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.details`, the original response can be found at `request.error.response`. 
 
 ## Sample usage
 
