@@ -568,9 +568,10 @@ const middleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxy
 export default middleware
 ```
 
-**Note**: the Middy core team does not use TypeScript often and we can't certainly claim that we are TypeScript experts. We tried our best to come up
+**Note**: The Middy core team does not use TypeScript often and we can't certainly claim that we are TypeScript experts. We tried our best to come up
 with type definitions that should give TypeScript users a good experience. There is certainly room for improvement, so we would be more than happy to receive contributions 😊
 
+See `devDependencies` for each middleware for list of dependencies that may be required with transpiling TypeScript.
 
 ## Common Patterns and Best Practice
 Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
