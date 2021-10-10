@@ -6,7 +6,7 @@ import {
 
 declare type PluginHook = () => void
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void
-declare type PluginHookPromise = () => Promise<any>
+declare type PluginHookPromise = (request: Request) => Promise<any>
 
 interface PluginObject {
   beforePrefetch?: PluginHook
