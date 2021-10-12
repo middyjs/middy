@@ -1,6 +1,6 @@
 {
   "name": "@middy/rds-signer",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "RDS (Relational Database Service) credentials middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -46,10 +46,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.5.1"
+    "@middy/util": "^2.5.2"
   },
   "devDependencies": {
-    "@middy/core": "^2.5.1",
+    "@middy/core": "^2.5.2",
     "@types/node": "^16.0.0",
     "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"

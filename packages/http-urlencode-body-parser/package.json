@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-body-parser",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "Urlencode body parser middleware for the middy framework",
   "type": "commonjs",
   "engines": {
@@ -50,7 +50,7 @@
     "qs": "6.10.1"
   },
   "devDependencies": {
-    "@middy/core": "^2.5.1"
+    "@middy/core": "^2.5.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
