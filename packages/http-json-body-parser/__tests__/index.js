@@ -5,7 +5,7 @@ const jsonBodyParser = require('../index.js')
 
 test('It should parse a JSON request', async (t) => {
   const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
+    return event // propagates the processed event as a response
   })
 
   handler.use(jsonBodyParser())
@@ -18,14 +18,15 @@ test('It should parse a JSON request', async (t) => {
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const processedEvent = await handler(event)
 
-  t.deepEqual(body, { foo: 'bar' })
+  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  t.deepEqual(processedEvent.rawBody, event.body)
 })
 
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
   const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
+    return event // propagates the processed event as a response
   })
 
   handler.use(jsonBodyParser())
@@ -38,9 +39,10 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const processedEvent = await handler(event)
 
-  t.deepEqual(body, { foo: 'bar' })
+  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  t.deepEqual(processedEvent.rawBody, event.body)
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {

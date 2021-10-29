@@ -18,6 +18,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
           ? Buffer.from(body, 'base64').toString()
           : body
 
+        request.event.rawBody = request.event.body
         request.event.body = JSON.parse(data, options.reviver)
       } catch (err) {
         const { createError } = require('@middy/util')
