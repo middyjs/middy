@@ -15,13 +15,13 @@ test('It should parse a JSON request', async (t) => {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ foo: 'bar' })
+    body: '{ "foo" :   "bar"   }'
   }
 
   const processedEvent = await handler(event)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
-  t.deepEqual(processedEvent.rawBody, event.body)
+  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
@@ -36,13 +36,13 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
     headers: {
       'Content-Type': 'application/vnd+json'
     },
-    body: JSON.stringify({ foo: 'bar' })
+    body: '{ "foo" :   "bar"   }'
   }
 
   const processedEvent = await handler(event)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
-  t.deepEqual(processedEvent.rawBody, event.body)
+  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
