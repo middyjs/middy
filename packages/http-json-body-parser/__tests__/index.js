@@ -5,7 +5,7 @@ const jsonBodyParser = require('../index.js')
 
 test('It should parse a JSON request', async (t) => {
   const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
+    return event // propagates the processed event as a response
   })
 
   handler.use(jsonBodyParser())
@@ -15,17 +15,18 @@ test('It should parse a JSON request', async (t) => {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ foo: 'bar' })
+    body: '{ "foo" :   "bar"   }'
   }
 
-  const body = await handler(event)
+  const processedEvent = await handler(event)
 
-  t.deepEqual(body, { foo: 'bar' })
+  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
   const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
+    return event // propagates the processed event as a response
   })
 
   handler.use(jsonBodyParser())
@@ -35,12 +36,13 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
     headers: {
       'Content-Type': 'application/vnd+json'
     },
-    body: JSON.stringify({ foo: 'bar' })
+    body: '{ "foo" :   "bar"   }'
   }
 
-  const body = await handler(event)
+  const processedEvent = await handler(event)
 
-  t.deepEqual(body, { foo: 'bar' })
+  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
