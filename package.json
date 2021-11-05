@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "type": "commonjs",
   "engines": {
@@ -63,7 +63,7 @@
     "rewire": "^5.0.0",
     "sinon": "^11.1.1",
     "ts-standard": "^10.0.0",
-    "tsd": "^0.17.0",
+    "tsd": "^0.18.0",
     "typescript": "^4.2.3"
   }
 }
