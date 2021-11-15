@@ -1,19 +1,8 @@
 import { SSM } from 'aws-sdk'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { Options as MiddyOptions } from '@middy/util'
 import middy from '@middy/core'
 
-interface Options<S = SSM> {
-  AwsClient?: new() => S
-  awsClientOptions?: Partial<SSM.Types.ClientConfiguration>
-  awsClientAssumeRole?: string
-  awsClientCapture?: typeof captureAWSClient
-  fetchData?: { [key: string]: string }
-  disablePrefetch?: boolean
-  cacheKey?: string
-  cacheExpiry?: number
-  setToEnv?: boolean
-  setToContext?: boolean
-}
+interface Options<S = SSM> extends MiddyOptions<S, SSM.Types.ClientConfiguration> {}
 
 declare function ssm (options?: Options): middy.MiddlewareObj
 

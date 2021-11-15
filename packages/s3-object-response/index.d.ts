@@ -1,13 +1,10 @@
 import { S3 } from 'aws-sdk'
-import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
+import { Options as MiddyOptions } from '@middy/util'
 
-interface Options<S = S3> {
-  AwsClient?: new() => S
-  awsClientOptions?: Partial<S3.Types.ClientConfiguration>
-  awsClientAssumeRole?: string
-  awsClientCapture?: typeof captureAWSClient
-  disablePrefetch?: boolean
+interface Options<S = S3>
+  extends Pick<MiddyOptions<S, S3.Types.ClientConfiguration>,
+  'AwsClient' | 'awsClientOptions' | 'awsClientAssumeRole' | 'awsClientCapture' | 'disablePrefetch'> {
   bodyType?: string
 }
 
