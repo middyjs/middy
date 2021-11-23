@@ -43,14 +43,14 @@ npm install --save @middy/http-cors
 
  - `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
  - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
- - `methods` (string) (optional): value to put in `Access-Control-Allow-Mehtods` (default: `false`)
+ - `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
  - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
  - `origin` (string) (optional): origin to put in the header (default: "`*`")
  - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
  - `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
  - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
  - `requestHeaders` (string) (optional): value to put in `Access-Control-Request-Headers` (default: `false`)
- - `requestMethods` (string) (optional): value to put in `Access-Control-Request-Mehtods` (default: `false`)
+ - `requestMethods` (string) (optional): value to put in `Access-Control-Request-Methods` (default: `false`)
  - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
 
 ```javascript
