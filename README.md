@@ -714,6 +714,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-event-loop-tracer](https://github.com/serkan-ozal/middy-event-loop-tracer): Middleware for dumping active tasks with their stacktraces in the event queue just before AWS Lambda function timeouts. So you can understand what was going on in the function when timeout happens.
 - [middy-console-logger](https://github.com/serkan-ozal/middy-console-logger): Middleware for filtering logs printed over console logging methods. If the level of the console logging method is equal or bigger than configured level, the log is printed, Otherwise, it is ignored.
 - [middy-invocation](https://github.com/serkan-ozal/middy-invocation): Middleware for accessing current AWS Lambda invocation event and context from anywhere without need to passing event and context as arguments through your code.
+- [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
