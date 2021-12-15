@@ -33,7 +33,7 @@ declare type MiddlewareFn<TEvent = any, TResult = any, TErr = Error, TContext ex
 export interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> {
   before?: MiddlewareFn<TEvent, TResult, TErr, TContext>
   after?: MiddlewareFn<TEvent, TResult, TErr, TContext>
-  onError?: MiddlewareFn<TEvent, TResult, TErr>
+  onError?: MiddlewareFn<TEvent, TResult, TErr, TContext>
 }
 
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
