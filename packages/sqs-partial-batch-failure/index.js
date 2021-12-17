@@ -87,7 +87,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 
 const getRejectedReasons = (response) => {
   const rejected = response.filter((r) => r.status === 'rejected')
-  const rejectedReasons = rejected.map((r) => r.reason?.message)
+  const rejectedReasons = rejected.map((r) => `${r.reason?.message} ${r.reason?.stack}`)
 
   return rejectedReasons
 }
