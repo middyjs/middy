@@ -21,10 +21,10 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
       .then((multipartData) => {
         request.event.body = multipartData
       })
-      .catch(() => {
+      .catch((e) => {
         const { createError } = require('@middy/util')
         // UnprocessableEntity
-        throw createError(422, 'Invalid or malformed multipart/form-data was provided')
+        throw createError(422, 'Invalid or malformed multipart/form-data was provided - '+e.message)
       })
   }
 
@@ -72,10 +72,10 @@ const parseMultipartData = (event, options) => {
           multipartData[matches[1]].push(value)
         }
       })
-      .on('finish', () => resolve(multipartData))
+      .on('close', () => resolve(multipartData))
       .on('error', (err) => reject(err))
 
-    bb.write(event.body, event.isBase64Encoded ? 'base64' : 'binary')
+    bb.write(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
     bb.end()
   })
 }

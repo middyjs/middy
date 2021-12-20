@@ -90,7 +90,7 @@ test('It should handle invalid form data as an UnprocessableEntity', async (t) =
   try {
     await handler(event)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
+    t.is(e.message, 'Invalid or malformed multipart/form-data was provided - May not write null values to stream')
   }
 })
 
@@ -115,7 +115,7 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
   try {
     await handler(event)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
+    t.is(e.message, 'Invalid or malformed multipart/form-data was provided - Unexpected end of form')
   }
 })
 
@@ -207,7 +207,7 @@ test('It should parse an array from a multipart/form-data request (base64)', asy
   t.is(response.foo.length, 2)
 })
 
-test('It should parse an array from a multipart/form-data request (binary)', async (t) => {
+test('It should parse an array from a multipart/form-data request with ASCII dash (utf8)', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -217,15 +217,34 @@ test('It should parse an array from a multipart/form-data request (binary)', asy
   const event = {
     headers: {
       'content-type':
-        'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+        'multipart/form-data; boundary=TEST'
     },
-    body: '',
+    body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar-"}\r\n--TEST--',
     isBase64Encoded: false
   }
   const response = await handler(event)
 
-  // TODO add in better test for binary
-  t.deepEqual(response, {})
+  t.deepEqual(response, {PartName:'{"foo":"bar-"}'})
+})
+
+test('It should parse an array from a multipart/form-data request en dash (utf8)', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(httpMultipartBodyParser())
+
+  const event = {
+    headers: {
+      'content-type':
+        'multipart/form-data; boundary=TEST'
+    },
+    body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar–"}\r\n--TEST--',
+    isBase64Encoded: false
+  }
+  const response = await handler(event)
+
+  t.deepEqual(response, {PartName:'{"foo":"bar–"}'})
 })
 
 test('It should parse a field with multiple files successfully', async (t) => {

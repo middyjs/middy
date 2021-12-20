@@ -47,7 +47,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "qs": "6.10.1"
+    "qs": "6.10.2"
   },
   "devDependencies": {
     "@middy/core": "^2.5.3"

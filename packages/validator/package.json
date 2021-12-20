@@ -46,16 +46,16 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@middy/util": "^2.5.3",
-    "ajv": "8.6.3",
+    "ajv": "8.8.2",
     "ajv-formats": "2.1.1",
     "ajv-formats-draft2019": "1.6.1",
-    "ajv-i18n": "4.1.0"
+    "ajv-i18n": "4.2.0"
   },
   "devDependencies": {
     "@middy/core": "^2.5.3",
     "@types/http-errors": "^1.8.1",
     "ajv-bsontype": "^1.0.7",
-    "http-errors": "^1.8.0"
+    "http-errors": "^2.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
