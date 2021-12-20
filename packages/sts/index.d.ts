@@ -1,18 +1,11 @@
 import { STS } from 'aws-sdk'
-import { captureAWSClient } from 'aws-xray-sdk'
 import middy from '@middy/core'
+import { Options as MiddyOptions } from '@middy/util'
 
-interface Options<S = STS> {
-  AwsClient?: new() => S
-  awsClientOptions?: Partial<STS.Types.ClientConfiguration>
-  // awsClientAssumeRole?: string,
-  awsClientCapture?: typeof captureAWSClient
-  fetchData?: { [key: string]: string }
-  disablePrefetch?: boolean
-  cacheKey?: string
-  cacheExpiry?: number
-  // setToEnv?: boolean,
-  setToContext?: boolean
+interface Options<S = STS>
+  extends Pick<MiddyOptions<S, STS.Types.ClientConfiguration>,
+  'AwsClient' | 'awsClientOptions' | 'awsClientCapture' |
+  'fetchData' | 'disablePrefetch' | 'cacheKey' | 'cacheExpiry' | 'setToContext'> {
 }
 
 declare function sts (options?: Options): middy.MiddlewareObj

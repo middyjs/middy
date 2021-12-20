@@ -1,13 +1,9 @@
 import middy from '@middy/core'
 import { SQS } from 'aws-sdk'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { Options as MiddyOptions } from '@middy/util'
 
-interface Options<S = SQS> {
-  AwsClient?: new() => S
-  awsClientOptions?: Partial<SQS.Types.ClientConfiguration>
-  awsClientAssumeRole?: string
-  awsClientCapture?: typeof captureAWSClient
-  disablePrefetch?: boolean
+interface Options<S = SQS> extends Pick<MiddyOptions<S, SQS.Types.ClientConfiguration>,
+'AwsClient' | 'awsClientOptions' | 'awsClientAssumeRole' | 'awsClientCapture' | 'disablePrefetch'> {
 }
 
 declare function sqsPartialBatchFailure (options?: Options): middy.MiddlewareObj

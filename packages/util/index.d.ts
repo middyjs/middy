@@ -1,11 +1,10 @@
 import middy from '@middy/core'
-import { captureAWSClient } from 'aws-xray-sdk'
 
 interface Options<Client, ClientOptions> {
   AwsClient?: new() => Client
   awsClientOptions?: Partial<ClientOptions>
   awsClientAssumeRole?: string
-  awsClientCapture?: typeof captureAWSClient
+  awsClientCapture?: (service: Client) => Client
   fetchData?: { [key: string]: string }
   disablePrefetch?: boolean
   cacheKey?: string
