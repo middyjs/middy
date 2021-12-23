@@ -77,7 +77,9 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     await deleteSqsMessages(fulfilledRecords)
 
     const errorMessage = getErrorMessage(rejectedReasons)
-    throw new Error(errorMessage)
+    const error = new Error(errorMessage)
+    error.originalErrors = rejectedReasons
+    throw error
   }
 
   return {
@@ -86,10 +88,11 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 }
 
 const getRejectedReasons = (response) => {
-  const rejected = response.filter((r) => r.status === 'rejected')
-  const rejectedReasons = rejected.map((r) => `${r.reason?.message} ${r.reason?.stack}`)
+  const filteredRes = response
+    .filter((r) => r.status === 'rejected')
+    .map((r) => r.reason)
 
-  return rejectedReasons
+  return filteredRes
 }
 
 const getFulfilledRecords = (records, response) => {
@@ -108,6 +111,6 @@ const getEntries = (fulfilledRecords) => {
 }
 
 const getErrorMessage = (rejectedReasons) => {
-  return rejectedReasons.join('\n')
+  return rejectedReasons.map(error => error.message).join('\n')
 }
 module.exports = sqsPartialBatchFailureMiddleware
