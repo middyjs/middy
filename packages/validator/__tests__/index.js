@@ -130,25 +130,33 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     })
   )
 
-  // invokes the handler, note that property foo is missing
-  const event = {
-    preferredLanguage: 'fr',
-    body: JSON.stringify({ something: 'somethingelse' })
-  }
+  const cases = [
+    { lang: 'fr', message: 'requiert la propriété foo' },
+    { lang: 'zh', message: '应当有必需属性 foo' },
+    { lang: 'zh-TW', message: '應該有必須屬性 foo' }
+  ]
 
-  try {
-    await handler(event)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
-      {
-        instancePath: '',
-        keyword: 'required',
-        message: 'requiert la propriété foo',
-        params: { missingProperty: 'foo' },
-        schemaPath: '#/required'
-      }
-    ])
+  for (const c of cases) {
+    // invokes the handler, note that property foo is missing
+    const event = {
+      preferredLanguage: c.lang,
+      body: JSON.stringify({ something: 'somethingelse' })
+    }
+
+    try {
+      await handler(event)
+    } catch (err) {
+      t.is(err.message, 'Event object failed validation')
+      t.deepEqual(err.details, [
+        {
+          instancePath: '',
+          keyword: 'required',
+          message: c.message,
+          params: { missingProperty: 'foo' },
+          schemaPath: '#/required'
+        }
+      ])
+    }
   }
 })
 
