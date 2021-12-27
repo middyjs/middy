@@ -90,7 +90,6 @@ const languageNormalizationMap = {
   'pt-br': 'pt-BR',
   pt_BR: 'pt-BR',
   pt_br: 'pt-BR',
-  zh: 'zh',
   'zh-tw': 'zh-TW',
   zh_TW: 'zh-TW',
   zh_tw: 'zh-TW'
