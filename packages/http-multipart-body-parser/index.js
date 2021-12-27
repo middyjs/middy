@@ -24,7 +24,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
       .catch((e) => {
         const { createError } = require('@middy/util')
         // UnprocessableEntity
-        throw createError(422, 'Invalid or malformed multipart/form-data was provided - '+e.message)
+        throw createError(422, 'Invalid or malformed multipart/form-data was provided - ' + e.message)
       })
   }
 
