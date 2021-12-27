@@ -224,7 +224,7 @@ test('It should parse an array from a multipart/form-data request with ASCII das
   }
   const response = await handler(event)
 
-  t.deepEqual(response, {PartName:'{"foo":"bar-"}'})
+  t.deepEqual(response, { PartName: '{"foo":"bar-"}' })
 })
 
 test('It should parse an array from a multipart/form-data request en dash (utf8)', async (t) => {
@@ -244,7 +244,7 @@ test('It should parse an array from a multipart/form-data request en dash (utf8)
   }
   const response = await handler(event)
 
-  t.deepEqual(response, {PartName:'{"foo":"bar–"}'})
+  t.deepEqual(response, { PartName: '{"foo":"bar–"}' })
 })
 
 test('It should parse a field with multiple files successfully', async (t) => {

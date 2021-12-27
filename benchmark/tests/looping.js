@@ -1,3 +1,5 @@
+/* eslint-disable no-empty */
+
 'use strict'
 const forIncrement = (arr) => {
   for (let idx = 0, l = arr.length; idx < l; idx++) {

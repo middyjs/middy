@@ -39,7 +39,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 
     // deleteMessageBatch only supports 10 messages at a time
     // https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessageBatch.html
-    var i; var j; var chunk = 10
+    let i; let j; const chunk = 10
     for (i = 0, j = Entries.length; i < j; i += chunk) {
       const chunkedEntries = Entries.slice(i, i + chunk)
       promises.push(client.deleteMessageBatch({ Entries: chunkedEntries, QueueUrl }).promise())
