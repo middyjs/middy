@@ -80,6 +80,12 @@ const ssmMiddleware = (opts = {}) => {
             })
           )
         })
+        .catch((e) => {
+          const value = getCache(options.cacheKey)?.value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
 
       for (const internalKey of batchInternalKeys) {
         values[internalKey] = batchReq.then((params) => {
