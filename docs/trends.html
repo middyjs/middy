@@ -3,14 +3,14 @@
 </head>
 <body>
 
+<!-- <canvas id="2022" width="16" height="9" style="width:90%; height:90%"></canvas> -->
 <canvas id="2021" width="16" height="9" style="width:90%; height:90%"></canvas>
 <canvas id="2020" width="16" height="9" style="width:90%; height:90%"></canvas>
 <canvas id="2019" width="16" height="9" style="width:90%; height:90%"></canvas>
 <canvas id="2018" width="16" height="9" style="width:90%; height:90%"></canvas>
 
-<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@1.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@next/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
 <script type="module">
     //import Chart from 'https://cdnjs.com/libraries/Chart.js'
@@ -35,16 +35,15 @@
       '@middy/http-urlencode-body-parser',
       '@middy/http-urlencode-path-parser',
       '@middy/input-output-logger',
-      //'@middy/rds-signer',    // v2.x
+      '@middy/rds-signer',    // v2.x
       '@middy/s3-key-normalizer',
       '@middy/secrets-manager',
       '@middy/sqs-json-body-parser',
       '@middy/sqs-partial-batch-failure',
       '@middy/ssm',
-      //'@middy/ssm-path',  // v2.x
-      //'@middy/sts',   // v2.x
+      '@middy/sts',   // v2.x
       '@middy/validator',
-      '@middy/warmup',  // v1.x
+      '@middy/warmup',
     ]
     const colors = {
       'middy':'#003f5c',
@@ -120,9 +119,8 @@
         },
         elements:{},
         options: {
-
           scales: {
-            xAxes: [{
+            x: {
               type: 'time',
               scaleLabel:{
                 display: true,
@@ -131,13 +129,13 @@
               time: {
                 minUnit: 'day'
               }
-            }],
-            yAxes: [{
+            },
+            y: {
               scaleLabel:{
                 display: true,
                 labelString:'Downloads'
               }
-            }]
+            }
           },
           layout: {
             padding: {
@@ -145,6 +143,13 @@
               right: 25,
               top: 10,
               bottom: 10
+            }
+          },
+          cubicInterpolationMode: 'monotone',
+          spanGaps: true,
+          plugins: {
+            tooltip: {
+              mode: 'index'
             }
           }
         }
