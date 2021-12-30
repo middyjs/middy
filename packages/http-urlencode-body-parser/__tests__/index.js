@@ -84,3 +84,22 @@ test('It should handle base64 body', async (t) => {
 
   t.deepEqual(body, { a: 'a', b: 'b' })
 })
+
+test('It should process the body if header name is mixed-case', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser())
+
+  const event = {
+    headers: {
+      'cOnTeNt-TyPe': 'application/x-www-form-urlencoded; charset=UTF-8'
+    },
+    body: 'a=a&b=b'
+  }
+
+  const body = await handler(event)
+
+  t.deepEqual(body, { a: 'a', b: 'b' })
+})

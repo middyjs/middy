@@ -87,6 +87,26 @@ test('It should parse a JSON request with lowercase header', async (t) => {
   t.deepEqual(body, { foo: 'bar' })
 })
 
+test('It should parse a JSON request with mixed-case header', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(jsonBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'cOnTeNt-TyPe': 'application/json'
+    },
+    body: JSON.stringify({ foo: 'bar' })
+  }
+
+  const body = await handler(event)
+
+  t.deepEqual(body, { foo: 'bar' })
+})
+
 test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response

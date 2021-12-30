@@ -9,8 +9,8 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
 
-    const contentTypeHeader =
-      headers?.['Content-Type'] ?? headers?.['content-type']
+    const contentTypeHeaderName = Object.keys(headers || {}).find(header => header.toLowerCase() === 'content-type');
+    const contentTypeHeader = contentTypeHeaderName ? headers[contentTypeHeaderName] : undefined;
 
     if (mimePattern.test(contentTypeHeader)) {
       try {
