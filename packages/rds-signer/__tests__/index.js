@@ -164,35 +164,6 @@ test.serial('It should set Signer token to context', async (t) => {
   await handler()
 })
 
-test.serial('It should set Signer token to process.env', async (t) => {
-  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
-  const handler = middy(() => {})
-
-  const middleware = async () => {
-    t.is(process.env.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
-  }
-
-  handler
-    .use(
-      rdsSigner({
-        AwsClient: Signer,
-        fetchData: {
-          token: {
-            region: 'us-east-1',
-            hostname: 'hostname',
-            username: 'username',
-            database: 'database',
-            port: 5432
-          }
-        },
-        setToEnv: true
-      })
-    )
-    .before(middleware)
-
-  await handler()
-})
-
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {

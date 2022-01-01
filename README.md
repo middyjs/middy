@@ -465,7 +465,6 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'custom',
   cacheExpiry: -1,
-  setToEnv: false,
   setToContext: false
 }
 
@@ -497,7 +496,6 @@ module.exports = (opts = {}) => {
     }
 
     Object.assign(request.internal, cached)
-    if (options.setToEnv) Object.assign(process.env, await getInternal(Object.keys(options.fetchData), request))
     if (options.setToContext) Object.assign(request.context, await getInternal(Object.keys(options.fetchData), request))
 
     else init = false

@@ -20,7 +20,6 @@ middleware = rdsSigner({
   disablePrefetch: true,
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
-  setToEnv: true,
   setToContext: true
 })
 expectType<middy.MiddlewareObj>(middleware)

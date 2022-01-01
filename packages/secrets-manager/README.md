@@ -53,13 +53,10 @@ npm install --save @middy/secrets-manager
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToEnv` (boolean) (default `false`): Store secrets to `process.env`. **Storing secrets in `process.env` is considered security bad practice**
 - `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
 
 NOTES:
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
-- `setToEnv` and `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
-- `setToEnv` can only assign secrets of type string
 
 ## Sample usage
 

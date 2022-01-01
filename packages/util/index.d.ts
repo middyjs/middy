@@ -9,7 +9,6 @@ interface Options<Client, ClientOptions> {
   disablePrefetch?: boolean
   cacheKey?: string
   cacheExpiry?: number
-  setToEnv?: boolean
   setToContext?: boolean
 }
 

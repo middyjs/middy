@@ -20,7 +20,6 @@ const defaults = {
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
   cacheExpiry: -1,
-  setToEnv: false, // can return object when requesting db credentials, cannot set to process.env
   setToContext: false
 }
 
@@ -65,10 +64,9 @@ const secretsManagerMiddleware = (opts = {}) => {
 
     Object.assign(request.internal, value)
 
-    if (options.setToContext || options.setToEnv) {
+    if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
-      if (options.setToEnv) Object.assign(process.env, data)
-      if (options.setToContext) Object.assign(request.context, data)
+      Object.assign(request.context, data)
     }
 
     prefetch = null

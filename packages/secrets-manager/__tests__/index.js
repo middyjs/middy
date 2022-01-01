@@ -177,32 +177,6 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   await handler()
 })
 
-test.serial('It should set SecretsManager secret to process.env', async (t) => {
-  mockService(SecretsManager, {
-    SecretString: 'token'
-  })
-
-  const handler = middy(() => {})
-
-  const middleware = async () => {
-    t.is(process.env.token, 'token')
-  }
-
-  handler
-    .use(
-      secretsManager({
-        AwsClient: SecretsManager,
-        fetchData: {
-          token: 'api_key'
-        },
-        setToEnv: true
-      })
-    )
-    .before(middleware)
-
-  await handler()
-})
-
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
