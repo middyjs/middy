@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  <p><strong>HTTP URLencode body parser middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>HTTP URL encode body parser middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 </div>
 
 <div align="center">
@@ -41,13 +41,16 @@ npm install --save @middy/http-urlencode-body-parser
 
 ```javascript
 import middy from '@middy/core'
+import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpUrlEncodeBodyParser from '@middy/http-urlencode-body-parser'
 
 const handler = middy((event, context) => {
   return event.body // propagates the body as response
 })
 
-handler.use(httpUrlEncodeBodyParser())
+handler
+  .use(httpHeaderNormalizer())
+  .use(httpUrlEncodeBodyParser())
 
 // When Lambda runs the handler with a sample event...
 const event = {

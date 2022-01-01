@@ -53,13 +53,16 @@ npm install --save @middy/http-json-body-parser
 
 ```javascript
 import middy from '@middy/core'
+import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpJsonBodyParser from '@middy/http-json-body-parser'
 
 const handler = middy((event, context) => {
   return {}
 })
 
-handler.use(httpJsonBodyParser())
+handler
+  .use(httpHeaderNormalizer())
+  .use(httpJsonBodyParser())
 
 // invokes the handler
 const event = {

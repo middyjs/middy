@@ -56,15 +56,19 @@ If you really have to deal with big files, then you might also want to consider 
 
 ```javascript
 import middy from '@middy/core'
+import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpMultipartBodyParser from '@middy/http-multipart-body-parser'
 const handler = middy((event, context) => {
   return {}
 })
-handler.use(httpMultipartBodyParser())
+handler
+  .use(httpHeaderNormalizer())
+  .use(httpMultipartBodyParser())
+
 // invokes the handler
 const event = {
   headers: {
-    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+    'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
   },
   body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
   isBase64Encoded: true
