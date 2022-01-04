@@ -13,8 +13,7 @@ test('It should parse a non-file field from a multipart/form-data request', asyn
   // Base64 encoded form data with field 'foo' of value 'bar'
   const event = {
     headers: {
-      'content-type':
-        'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+      'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
     },
     body:
       'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
@@ -34,8 +33,7 @@ test('parseMultipartData should resolve with valid data', async (t) => {
 
   const event = {
     headers: {
-      'content-type':
-        'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+      'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
     },
     body:
       'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
@@ -56,8 +54,7 @@ test('It should parse a file field from a multipart/form-data request', async (t
   // Base64 encoded form data with a file with fieldname 'attachment', filename 'test.txt', and contents 'hello world!'
   const event = {
     headers: {
-      'content-type':
-        'multipart/form-data; boundary=------------------------4f0e69e6c2513684'
+      'Content-Type': 'multipart/form-data; boundary=------------------------4f0e69e6c2513684'
     },
     body:
       'LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImF0dGFjaG1lbnQiOyBmaWxlbmFtZT0idGVzdC50eHQiDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KaGVsbG8gd29ybGQhCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0LS0NCg==',
@@ -80,8 +77,7 @@ test('It should handle invalid form data as an UnprocessableEntity', async (t) =
   // invokes the handler
   const event = {
     headers: {
-      'content-type':
-        'multipart/form-data; boundary=------WebKitFormBoundaryfdmza9FgfefwkQzA'
+      'Content-Type': 'multipart/form-data; boundary=------WebKitFormBoundaryfdmza9FgfefwkQzA'
     },
     body: null,
     isBase64Encoded: true
@@ -104,7 +100,7 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
 
   const event = {
     headers: {
-      'content-type':
+      'Content-Type':
         'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
     },
     body:
@@ -150,7 +146,7 @@ test("It shouldn't process the body if the content type is not multipart/form-da
   // invokes the handler
   const event = {
     headers: {
-      'content-type': 'application/json'
+      'Content-Type': 'application/json'
     },
     body:
       'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
@@ -194,7 +190,7 @@ test('It should parse an array from a multipart/form-data request (base64)', asy
 
   const event = {
     headers: {
-      'content-type':
+      'Content-Type':
         'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
     },
     body:
@@ -216,7 +212,7 @@ test('It should parse an array from a multipart/form-data request with ASCII das
 
   const event = {
     headers: {
-      'content-type':
+      'Content-Type':
         'multipart/form-data; boundary=TEST'
     },
     body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar-"}\r\n--TEST--',
@@ -236,7 +232,7 @@ test('It should parse an array from a multipart/form-data request en dash (utf8)
 
   const event = {
     headers: {
-      'content-type':
+      'Content-Type':
         'multipart/form-data; boundary=TEST'
     },
     body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar–"}\r\n--TEST--',
@@ -256,7 +252,7 @@ test('It should parse a field with multiple files successfully', async (t) => {
 
   const event = {
     headers: {
-      'content-type':
+      'Content-Type':
         'multipart/form-data; boundary=---------------------------237588144631607450464127370583'
     },
     body:
