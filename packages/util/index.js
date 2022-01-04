@@ -96,8 +96,12 @@ const getInternal = async (variables, request) => {
   values = await Promise.allSettled(promises)
   const errors = values
     .filter((res) => res.status === 'rejected')
-    .map((res) => res.reason.message)
-  if (errors.length) throw new Error(JSON.stringify(errors))
+    .map((res) => res.reason)
+  if (errors.length) {
+    const error = new Error('Failed to resolve internal values')
+    error.nestedErrors = errors
+    throw error
+  }
   return keys.reduce(
     (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),
     {}
