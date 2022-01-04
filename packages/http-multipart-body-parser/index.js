@@ -35,7 +35,8 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 const parseMultipartData = (event, options) => {
   const multipartData = {}
-  const bb = BusBoy({ ...options, headers: event.headers })
+  // header must be lowercase
+  const bb = BusBoy({ ...options, headers: { 'content-type': event.headers['Content-Type'] } })
 
   return new Promise((resolve, reject) => {
     bb.on('file', (fieldname, file, filename, encoding, mimetype) => {
