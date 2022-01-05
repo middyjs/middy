@@ -96,7 +96,7 @@ Deprecated `setToEnv` option
 Deprecated in favour of `event-normalizer`
 
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
-Refactored to be faster and returns `nestedErrors` as part of the error.
+Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/
 
 ### [ssm](/packages/ssm/README.md)
 Deprecated `setToEnv` option.
@@ -106,14 +106,14 @@ Add in catch for not found paths.
 No change
 
 ### [validator](/packages/validator/README.md)
-No change
+Added in new `i18nEnabled` option
 
 ### [warmup](/packages/warmup/README.md)
 No change
 
 ## Notes
 
-If you still need `setToEnv` you can do it like so:
+If you still need `setToEnv` you can do something like so:
 ```javascript
 middy(baseHandler)
   .before(async (request) => {

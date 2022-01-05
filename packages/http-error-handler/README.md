@@ -44,7 +44,7 @@ npm install --save @middy/http-error-handler
 
 ## Options
 
-- `logger` (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
+- `logger` function (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
 - `fallbackMessage` (default to null) - When non-http errors occur you can catch them by setting a fallback message to be used. These will be returned with a 500 status code.
 
 ## Sample usage

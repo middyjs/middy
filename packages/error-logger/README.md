@@ -45,7 +45,7 @@ npm install --save @middy/error-logger
 
 ## Options
 
-- `logger` property: a function (default `console.error`) that is used to define the logging logic. It receives the Error object as first and only parameter.
+- `logger` function (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
 
 
 ## Sample usage

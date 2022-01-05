@@ -13,6 +13,7 @@ Focus this version was on error handling and improve consistency.
 - The order `onError` being called is now reversed to match `after`
 - Change default charset from `binary`/`latin1` to `utf-8` within `http-multipart-body-parser`
 - Deprecated `setToEnv` option from all middleware
+- `sqs-partial-batch-failure` completely rewritten
 
 ## Maintenance
 - Better error reporting when dealing with Promise arrays
