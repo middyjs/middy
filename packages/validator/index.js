@@ -21,7 +21,7 @@ const defaults = {
   ajvOptions: {},
   ajvInstance: undefined,
   defaultLanguage: 'en',
-  isI18NEnabled: true
+  i18nEnabled: true
 }
 
 const validatorMiddleware = (opts = {}) => {
@@ -31,7 +31,7 @@ const validatorMiddleware = (opts = {}) => {
     ajvOptions,
     ajvInstance,
     defaultLanguage,
-    isI18NEnabled
+    i18nEnabled
   } = { ...defaults, ...opts }
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
@@ -44,7 +44,7 @@ const validatorMiddleware = (opts = {}) => {
       const error = createError(400, 'Event object failed validation')
       request.event.headers = { ...request.event.headers }
 
-      if (isI18NEnabled) {
+      if (i18nEnabled) {
         const language = chooseLanguage(request.event, defaultLanguage)
         localize[language](inputSchema.errors)  
       }

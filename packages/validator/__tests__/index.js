@@ -231,7 +231,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
   handler.use(
     validator({
       inputSchema: schema,
-      isI18NEnabled: false
+      i18nEnabled: false
     })
   )
 

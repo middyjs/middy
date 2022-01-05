@@ -18,6 +18,6 @@ middleware = validator({
   },
   ajvInstance: new Ajv(),
   defaultLanguage: 'en',
-  isI18NEnabled: false
+  i18nEnabled: false
 })
 expectType<middy.MiddlewareObj>(middleware)
