@@ -20,7 +20,8 @@ const defaults = {
   outputSchema: undefined,
   ajvOptions: {},
   ajvInstance: undefined,
-  defaultLanguage: 'en'
+  defaultLanguage: 'en',
+  i18nEnabled: true
 }
 
 const validatorMiddleware = (opts = {}) => {
@@ -29,7 +30,8 @@ const validatorMiddleware = (opts = {}) => {
     outputSchema,
     ajvOptions,
     ajvInstance,
-    defaultLanguage
+    defaultLanguage,
+    i18nEnabled
   } = { ...defaults, ...opts }
   inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
   outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
@@ -42,8 +44,10 @@ const validatorMiddleware = (opts = {}) => {
       const error = createError(400, 'Event object failed validation')
       request.event.headers = { ...request.event.headers }
 
-      const language = chooseLanguage(request.event, defaultLanguage)
-      localize[language](inputSchema.errors)
+      if (i18nEnabled) {
+        const language = chooseLanguage(request.event, defaultLanguage)
+        localize[language](inputSchema.errors)  
+      }
 
       error.details = inputSchema.errors
       throw error

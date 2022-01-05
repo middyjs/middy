@@ -208,6 +208,54 @@ test('It should handle invalid schema as a BadRequest in a different language (w
   }
 })
 
+test('It should handle invalid schema as a BadRequest without i18n', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  const schema = {
+    type: 'object',
+    required: ['body', 'foo'],
+    properties: {
+      // this will pass validation
+      body: {
+        type: 'string'
+      },
+      // this won't as it won't be in the event
+      foo: {
+        type: 'string'
+      }
+    }
+  }
+
+  handler.use(
+    validator({
+      inputSchema: schema,
+      i18nEnabled: false
+    })
+  )
+
+  // invokes the handler, note that property foo is missing
+  const event = {
+    preferredLanguage: 'pt',
+    body: JSON.stringify({ something: 'somethingelse' })
+  }
+
+  try {
+    await handler(event)
+  } catch (err) {
+    t.is(err.message, 'Event object failed validation')
+    t.deepEqual(err.details, [
+      {
+        instancePath: '',
+        keyword: 'required',
+        params: { missingProperty: 'foo' },
+        schemaPath: '#/required'
+      }
+    ])
+  }
+})
+
 test('It should validate response', async (t) => {
   const expectedResponse = {
     body: 'Hello world',
