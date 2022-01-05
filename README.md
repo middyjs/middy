@@ -723,6 +723,7 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 #### Version 2.x - 3.x
+- [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
@@ -734,6 +735,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-console-logger](https://github.com/serkan-ozal/middy-console-logger): Middleware for filtering logs printed over console logging methods. If the level of the console logging method is equal or bigger than configured level, the log is printed, Otherwise, it is ignored.
 - [middy-invocation](https://github.com/serkan-ozal/middy-invocation): Middleware for accessing current AWS Lambda invocation event and context from anywhere without need to passing event and context as arguments through your code.
 - [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
+
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
