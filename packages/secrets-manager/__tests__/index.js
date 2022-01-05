@@ -47,6 +47,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
         }
@@ -80,6 +81,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token1: 'api_key1',
           token2: 'api_key2'
@@ -111,6 +113,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           credentials: 'rds_login'
         }
@@ -139,6 +142,7 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
           },
@@ -166,6 +170,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
         },
@@ -195,6 +200,7 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: -1,
           fetchData: {
             token: 'api_key'
           }
@@ -233,10 +239,10 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
-          },
-          cacheExpiry: 0
+          }
         })
       )
       .before(middleware)

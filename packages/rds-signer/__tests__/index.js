@@ -46,6 +46,7 @@ test.serial('It should set token to internal storage (token)', async (t) => {
     .use(
       rdsSigner({
         AwsClient: Signer,
+        cacheExpiry: 0,
         fetchData: {
           token: {
             region: 'us-east-1',
@@ -64,7 +65,6 @@ test.serial('It should set token to internal storage (token)', async (t) => {
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
   mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1', 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
-
   const handler = middy(() => {})
 
   const middleware = async (request) => {
@@ -77,6 +77,7 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
     .use(
       rdsSigner({
         AwsClient: Signer,
+        cacheExpiry: 0,
         fetchData: {
           token1: {
             region: 'us-east-1',
@@ -116,6 +117,7 @@ test.serial(
       .use(
         rdsSigner({
           AwsClient: Signer,
+          cacheExpiry: 0,
           fetchData: {
             token: {
               region: 'us-east-1',
@@ -147,6 +149,7 @@ test.serial('It should set Signer token to context', async (t) => {
     .use(
       rdsSigner({
         AwsClient: Signer,
+        cacheExpiry: 0,
         fetchData: {
           token: {
             region: 'us-east-1',
@@ -164,9 +167,7 @@ test.serial('It should set Signer token to context', async (t) => {
   await handler()
 })
 
-test.serial(
-  'It should not call aws-sdk again if parameter is cached',
-  async (t) => {
+test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
     const stub = mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
     const handler = middy(() => {})
 
@@ -179,6 +180,7 @@ test.serial(
       .use(
         rdsSigner({
           AwsClient: Signer,
+          cacheExpiry: -1,
           fetchData: {
             token: {
               region: 'us-east-1',
@@ -246,6 +248,7 @@ test.serial(
       .use(
         rdsSigner({
           AwsClient: Signer,
+          cacheExpiry: 0,
           fetchData: {
             token: {
               region: 'us-east-1',
@@ -254,8 +257,7 @@ test.serial(
               database: 'database',
               port: 5432
             }
-          },
-          cacheExpiry: 0
+          }
         })
       )
       .before(middleware)
