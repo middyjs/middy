@@ -17,6 +17,7 @@ middleware = validator({
     strictTuples: true
   },
   ajvInstance: new Ajv(),
-  defaultLanguage: 'en'
+  defaultLanguage: 'en',
+  isI18NEnabled: false
 })
 expectType<middy.MiddlewareObj>(middleware)

@@ -8,6 +8,7 @@ interface Options {
   ajvOptions?: Partial<AjvOptions>
   ajvInstance?: Ajv
   defaultLanguage?: string
+  isI18NEnabled?: boolean
 }
 
 declare function validator (options?: Options): middy.MiddlewareObj
