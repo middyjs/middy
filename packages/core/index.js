@@ -1,4 +1,10 @@
-const middy = (baseHandler = () => {}, plugin) => {
+
+const defaultPlugin = {
+  timeoutEarlyInMillis: 0,
+  timeoutEarlyResponse: () => { throw new Error('Timeout') }
+}
+
+const middy = (baseHandler = () => {}, plugin = defaultPlugin) => {
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -11,7 +17,7 @@ const middy = (baseHandler = () => {}, plugin) => {
       context,
       response: undefined,
       error: undefined,
-      internal: {}
+      internal: plugin?.internal ?? {}
     }
 
     return runRequest(
@@ -25,28 +31,22 @@ const middy = (baseHandler = () => {}, plugin) => {
   }
 
   instance.use = (middlewares) => {
-    if (Array.isArray(middlewares)) {
-      for (const middleware of middlewares) {
-        instance.applyMiddleware(middleware)
+    if (!Array.isArray(middlewares)) {
+      middlewares = [middlewares]
+    }
+    for (const middleware of middlewares) {
+      const { before, after, onError } = middleware
+
+      if (!before && !after && !onError) {
+        throw new Error(
+          'Middleware must be an object containing at least one key among "before", "after", "onError"'
+        )
       }
-      return instance
+
+      if (before) instance.before(before)
+      if (after) instance.after(after)
+      if (onError) instance.onError(onError)
     }
-    return instance.applyMiddleware(middlewares)
-  }
-
-  instance.applyMiddleware = (middleware) => {
-    const { before, after, onError } = middleware
-
-    if (!before && !after && !onError) {
-      throw new Error(
-        'Middleware must be an object containing at least one key among "before", "after", "onError"'
-      )
-    }
-
-    if (before) instance.before(before)
-    if (after) instance.after(after)
-    if (onError) instance.onError(onError)
-
     return instance
   }
 
@@ -60,14 +60,8 @@ const middy = (baseHandler = () => {}, plugin) => {
     return instance
   }
   instance.onError = (onErrorMiddleware) => {
-    onErrorMiddlewares.push(onErrorMiddleware)
+    onErrorMiddlewares.unshift(onErrorMiddleware)
     return instance
-  }
-
-  instance.__middlewares = {
-    before: beforeMiddlewares,
-    after: afterMiddlewares,
-    onError: onErrorMiddlewares
   }
 
   return instance
@@ -86,7 +80,21 @@ const runRequest = async (
     // Check if before stack hasn't exit early
     if (request.response === undefined) {
       plugin?.beforeHandler?.()
-      request.response = await baseHandler(request.event, request.context)
+
+      const handlerAbort = new AbortController()
+      const timeoutAbort = new AbortController()
+      request.response = await Promise.race([
+        baseHandler(request.event, request.context, { signal: handlerAbort.signal }),
+        plugin.timeoutEarlyInMillis
+          ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
+            .then(() => {
+              handlerAbort.abort()
+              return plugin?.timeoutEarlyResponse()
+            })
+          : Promise.race([])
+      ])
+      timeoutAbort.abort()  // baseHandler may not be a promise
+
       plugin?.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
@@ -124,5 +132,31 @@ const runMiddlewares = async (request, middlewares, plugin) => {
     }
   }
 }
+
+// Start Polyfill (node v14)
+const { AbortController } = require('node-abort-controller')
+
+const setTimeoutPromise = (ms, { signal }) => {
+  if (signal?.aborted) {
+    return Promise.reject(new Error('Aborted', 'AbortError'))
+  }
+  return new Promise((resolve, reject) => {
+
+    let timeout
+    const abortHandler = () => {
+      clearTimeout(timeout)
+      reject(new Error('Aborted', 'AbortError'))
+    }
+    // start async operation
+    timeout = setTimeout(() => {
+      resolve()
+      signal?.removeEventListener('abort', abortHandler)
+    }, ms)
+    signal?.addEventListener('abort', abortHandler)
+  })
+}
+// Replace Polyfill
+// const {setTimeout} = require('timers/promises')
+// End Polyfill
 
 module.exports = middy

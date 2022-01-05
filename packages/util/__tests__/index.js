@@ -264,7 +264,8 @@ test.serial(
         a: 'value',
         b: undefined
       })
-      t.is(e.message, '["error"]')
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.nestedErrors, [new Error('error')])
 
       util.processCache(options, fetchCached, cacheRequest)
       cache = util.getCache(options.cacheKey)
