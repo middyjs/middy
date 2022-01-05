@@ -1,8 +1,132 @@
+
+# Upgrade 2.x -> 3.x
+
+See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
+
+Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
+
+## TODO
+- [ ] update middleware to handle `Streams` (ie `http-content-encoding`, `s3-object-response`)
+- [ ] update `http-*` middleware to better handle response normalization (ie `http-partial-response`)
+  - [ ] new middleware for `http-response-normalizer`?
+  - [ ] new middleware for `http-response-stringify`?
+
+## Core
+- `onError` middleware stack order reversed to match `after`
+- baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
+- `plugin` argument now supports:
+  - `internal`: Allow the use of `new Proxy()` for smarter triggering
+  - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit
+  - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value
+- Deprecate:
+  - `applyMiddleware()`
+  - `__middlewares`
+
+## Util
+- `getInternal` error now includes `nestedErrors`
+- Catch when `X-Ray` is applied outside of handler invocation scope
+
+## Middleware
+
+### [cloudwatch-metrics](/packages/cloudwatch-metrics/README.md)
+No change
+
+### [do-not-wait-for-empty-event-loop](/packages/do-not-wait-for-empty-event-loop/README.md)
+No change
+
+### [error-logger](/packages/error-logger/README.md)
+No change
+
+### [http-content-encoding](/packages/http-content-encoding/README.md)
+- New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
+
+### [http-content-negotiation](/packages/http-content-negotiation/README.md)
+No change
+
+### [http-cors](/packages/http-cors/README.md)
+No change
+
+### [http-error-handler](/packages/http-error-handler/README.md)
+No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
+
+### [http-event-normalizer](/packages/http-event-normalizer/README.md)
+No change
+
+### [http-header-normalizer](/packages/http-header-normalizer/README.md)
+No change
+
+### [http-json-body-parser](/packages/http-json-body-parser/README.md)
+Requires pairing with `http-header-normalizer`.
+
+### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
+Change default charset from `binary`/`latin1` to `utf-8`. 
+Requires pairing with `http-header-normalizer`.
+
+### [http-partial-response](/packages/http-partial-response/README.md)
+No change
+
+### [http-response-serializer](/packages/http-response-serializer/README.md)
+No change
+
+### [http-security-headers](/packages/http-security-headers/README.md)
+No change
+
+### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
+Requires pairing with `http-header-normalizer`.
+
+### [http-urlencode-path-parser](/packages/http-urlencode-path-parser/README.md)
+No change
+
+### [input-output-logger](/packages/input-output-logger/README.md)
+No change
+
+### [rds-signer](/packages/rds-signer/README.md)
+Deprecated `setToEnv` option
+
+### s3-key-normalizer
+Deprecated in favour of `event-normalizer`
+
+### [s3-object-response](/packages/s3-object-response/README.md)
+No change
+
+### [secrets-manager](/packages/secrets-manager/README.md)
+Deprecated `setToEnv` option
+
+### sqs-json-body-parser
+Deprecated in favour of `event-normalizer`
+
+### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
+Refactored to be faster and returns `nestedErrors` as part of the error.
+
+### [ssm](/packages/ssm/README.md)
+Deprecated `setToEnv` option.
+Add in catch for not found paths.
+
+### [sts](/packages/sts/README.md)
+No change
+
+### [validator](/packages/validator/README.md)
+No change
+
+### [warmup](/packages/warmup/README.md)
+No change
+
+## Notes
+
+If you still need `setToEnv` you can do it like so:
+```javascript
+middy(baseHandler)
+  .before(async (request) => {
+    const values = await getInternal(['environment'], request)
+    process.env.NODE_ENV = value.environment
+  })
+```
+
 # Upgrade 1.x -> 2.x
 
 See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 
-Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly encouraged to move to Node.js 14, 
+Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly encouraged to move to Node.js 14.x, 
 which support ES6 modules by default (`export`), optional chaining (`?.`) and nullish coalescing operator (`??`) natively.
 
 ## Core

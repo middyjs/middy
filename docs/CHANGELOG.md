@@ -1,3 +1,22 @@
+# 3.0.0
+
+Checkout [`UPGRADE.md`](/docs/UPGRADE.md) to see what are the main breaking changes and how to migrate to this new version if coming from `2.x`.
+
+Focus this version was on error handling and improve consistency.
+
+## Additions
+- New middleware (`http-content-encoding`)
+- baseHandler can now be passed an `AbortController` signal
+- internal events can now be monitored using `Proxy`
+
+## Breaking Changes
+- The order `onError` being called is now reversed to match `after`
+- Change default charset from `binary`/`latin1` to `utf-8` within `http-multipart-body-parser`
+- Deprecated `setToEnv` option from all middleware
+
+## Maintenance
+- Better error reporting when dealing with Promise arrays
+
 # 2.0.1
 - #640 `sms` bug fix where infinite loop happens when pulling >10 values @garnertb
 - #643 improve performance of `http-json-body-parser` @nponeccop

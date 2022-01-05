@@ -11,7 +11,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
   const httpResponseSerializerMiddlewareAfter = async (request) => {
     if (request.response === undefined) return
     request.response = normalizeHttpResponse(request.response)
-    // skip serialization when content-type is already set
+    // skip serialization when Content-Type is already set
     if (request.response?.headers?.['Content-Type']) return
 
     // find accept value(s)

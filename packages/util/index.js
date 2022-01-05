@@ -27,8 +27,10 @@ const createPrefetchClient = (options) => {
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
-  if (options.awsClientCapture) {
+  if (options.awsClientCapture && options.disablePrefetch) {
     return options.awsClientCapture(client)
+  } else if (options.awsClientCapture) {
+    console.warn('Unable to apply X-Ray outside of handler invocation scope.')
   }
 
   return client

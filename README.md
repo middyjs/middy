@@ -41,7 +41,7 @@
 </div>
 
 
-⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
+⚠️ NOTE: if you are upgrading from [Middy 2.x](https://github.com/middyjs/middy/tree/2.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
 
 ## What is Middy
 
@@ -136,7 +136,7 @@ error handling, etc.
 Very often, all this necessary code ends up polluting the pure business logic code in
 your handlers, making the code harder to read and to maintain.
 
-In other contexts, like generic web frameworks ([fastify](http://fastify.io), [hapi](https://hapijs.com/), [express](http://expressjs.com/), etc.), this
+In other contexts, like generic web frameworks (fastify, express, etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into
@@ -309,7 +309,7 @@ But, what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
 moved back to all the middlewares that implemented a special phase called `onError`, following
-the order they have been attached.
+the reverse order they have been attached similar to `after`.
 
 Every `onError` middleware can decide to handle the error and create a proper response or
 to delegate the error to the next middleware.
@@ -468,7 +468,7 @@ const defaults = {
   setToContext: false
 }
 
-module.exports = (opts = {}) => {
+export default (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -497,7 +497,6 @@ module.exports = (opts = {}) => {
 
     Object.assign(request.internal, cached)
     if (options.setToContext) Object.assign(request.context, await getInternal(Object.keys(options.fetchData), request))
-
     else init = false
   }
 
@@ -505,6 +504,29 @@ module.exports = (opts = {}) => {
     before: customMiddlewareBefore
   }
 }
+```
+
+### Handling Lambda Timeouts
+When a lambda times out it throws an error that cannot be caught by middy. To work around this middy maintains an `AbortController` that can be signalled early to allow time to clean up and log the error properly.
+
+```javascript
+import middy from '@middy/core'
+
+const baseHandler = (event, context, {signal}) => {
+  signal.onabort = () => {
+    // cancel events
+  }
+  // ... 
+}
+
+export const handler = middy(baseHandler, {
+  timeoutEarlyInMillis: 50,
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+})
 ```
 
 ### More details on creating middlewares
@@ -676,11 +698,10 @@ should do a single task. We try to balance each to be as performant as possible 
 - [`http-multipart-body-parser`](/packages/http-multipart-body-parser): Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an object.
 - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
-- [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
-- [`sqs-json-body-parser`](/packages/sqs-json-body-parser): Parse body from SQS events
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 
 ### Response Transformation
+- [`http-content-encoding`](/packages/http-content-encoding): Sets HTTP Content-Encoding headers on response and compresses response body
 - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
 - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
 - [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
@@ -701,7 +722,7 @@ should do a single task. We try to balance each to be as performant as possible 
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-#### Version 2.x
+#### Version 2.x - 3.x
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
@@ -754,7 +775,7 @@ Have a similar project? Let us know.
 - 2021-01-24: v2.0.0-alpha
 - 2021-03-12: v2.0.0-beta
 - 2021-04-01: v2.0.0
-
+- 2022-01-??: v3.0.0-alpha
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
 
@@ -766,7 +787,7 @@ Before contributing to the project, make sure to have a look at our [Code of Con
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">
