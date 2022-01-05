@@ -93,7 +93,7 @@ const runRequest = async (
             })
           : Promise.race([])
       ])
-      timeoutAbort.abort()  // baseHandler may not be a promise
+      timeoutAbort.abort() // baseHandler may not be a promise
 
       plugin?.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
@@ -141,14 +141,12 @@ const setTimeoutPromise = (ms, { signal }) => {
     return Promise.reject(new Error('Aborted', 'AbortError'))
   }
   return new Promise((resolve, reject) => {
-
-    let timeout
     const abortHandler = () => {
       clearTimeout(timeout)
       reject(new Error('Aborted', 'AbortError'))
     }
     // start async operation
-    timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       resolve()
       signal?.removeEventListener('abort', abortHandler)
     }, ms)

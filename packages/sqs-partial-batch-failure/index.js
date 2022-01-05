@@ -44,7 +44,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
       })
       .promise()
 
-    const error = new Error(`Failed to process SQS messages`)
+    const error = new Error('Failed to process SQS messages')
     error.nestedErrors = rejectedRecordErrors
     throw error
   }
@@ -68,7 +68,6 @@ const splitRecords = (response) => {
     }
   })
   return { fulfilledRecordEntries, rejectedRecordErrors }
-
 }
 
 // needs to be async for aws-sdk v3
