@@ -39,7 +39,6 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
           ? 'text/plain'
           : 'application/json'
 
-      return request.response
     }
   }
 
