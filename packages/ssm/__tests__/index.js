@@ -52,6 +52,7 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
     .use(
       ssm({
         AwsClient: SSM,
+        cacheExpiry: 0,
         fetchData: {
           key: '/dev/service_name/key_name'
         }
@@ -84,6 +85,7 @@ test.serial('It should set SSM param path to internal storage', async (t) => {
     .use(
       ssm({
         AwsClient: SSM,
+        cacheExpiry: 0,
         fetchData: {
           key: '/dev/service_name/'
         }
@@ -121,6 +123,7 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: 0,
           fetchData: {
             key: '/dev/service_name/'
           }
@@ -150,6 +153,7 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: 0,
           fetchData: {
             key: '/dev/service_name/key_name'
           },
@@ -177,6 +181,7 @@ test.serial('It should set SSM param value to context', async (t) => {
     .use(
       ssm({
         AwsClient: SSM,
+        cacheExpiry: 0,
         fetchData: {
           key: '/dev/service_name/key_name'
         },
@@ -234,6 +239,7 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: 0,
           fetchData: {
             key0: '/dev/service_name/key_name0',
             key1: '/dev/service_name/key_name1',
@@ -277,10 +283,10 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: -1,
           fetchData: {
             key: '/dev/service_name/key_name'
-          },
-          cacheExpiry: -1
+          }
         })
       )
       .before(middleware)
@@ -310,10 +316,10 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: 1000,
           fetchData: {
             key: '/dev/service_name/key_name'
-          },
-          cacheExpiry: 1000
+          }
         })
       )
       .before(middleware)
@@ -349,10 +355,10 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSM,
+          cacheExpiry: 0,
           fetchData: {
             key: '/dev/service_name/key_name'
-          },
-          cacheExpiry: 0
+          }
         })
       )
       .before(middleware)
@@ -375,6 +381,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
   handler.use(
     ssm({
       AwsClient: SSM,
+      cacheExpiry: 0,
       fetchData: {
         a: 'invalid-ssm-param-name',
         b: 'another-invalid-ssm-param',
@@ -389,9 +396,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     await handler()
     t.true(false)
   } catch (e) {
-    t.is(
-      e.message,
-      '["ssm.InvalidParameter invalid-ssm-param-name","ssm.InvalidParameter another-invalid-ssm-param"]'
-    )
+    t.is(e.message, 'Failed to resolve internal values')
+    t.deepEqual(e.nestedErrors, [new Error('ssm.InvalidParameter invalid-ssm-param-name'), new Error('ssm.InvalidParameter another-invalid-ssm-param')])
   }
 })

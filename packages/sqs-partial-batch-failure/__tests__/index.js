@@ -36,12 +36,13 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const messageError = new Error('Error message...')
 const baseHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
     if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') {
       return r.messageId
     }
-    throw new Error('Error message...')
+    throw messageError
   })
   return Promise.allSettled(processedRecords)
 }
@@ -69,7 +70,8 @@ test.serial('Should throw when there are only failed messages', async (t) => {
   try {
     await handler(event)
   } catch (e) {
-    t.is(e.message, 'Error message...')
+    t.is(e.message, 'Failed to process SQS messages')
+    t.deepEqual(e.nestedErrors, [messageError])
   }
 })
 
@@ -164,7 +166,8 @@ test.serial('Should throw with failure reasons', async (t) => {
   try {
     await handler(event)
   } catch (e) {
-    t.is(e.message, 'Error message...')
+    t.is(e.message, 'Failed to process SQS messages')
+    t.deepEqual(e.nestedErrors, [messageError])
     t.is(mock.callCount, 1)
     // returns false on CI, unknown why yet.
     // t.true(mock.calledWith({
@@ -173,42 +176,3 @@ test.serial('Should throw with failure reasons', async (t) => {
     // }))
   }
 })
-
-test.serial(
-  'Should chunk delete message requests.',
-  async (t) => {
-    const resolves = Array(11).fill({
-      receiptHandle: 'successfulMessageReceiptHandle',
-      eventSourceARN: 'test',
-      messageAttributes: {
-        resolveOrReject: {
-          stringValue: 'resolve'
-        }
-      }
-    })
-
-    const Records = [{
-      eventSourceARN: 'test',
-      messageAttributes: {
-        resolveOrReject: {
-          stringValue: 'reject'
-        }
-      }
-    }].concat(resolves)
-
-    const event = createEvent.default('aws:sqs', {
-      Records
-    })
-    mockService(SQS, {}, {})
-
-    const handler = middy(baseHandler).use(
-      sqsPartialBatchFailure({
-        AwsClient: SQS
-      })
-    )
-
-    return handler(event).catch(e => {
-      t.is(SQS.prototype.deleteMessageBatch.callCount, 2)
-    })
-  }
-)

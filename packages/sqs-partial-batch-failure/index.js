@@ -37,6 +37,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     // If all messages were processed successfully, continue and let the messages be deleted by Lambda's native functionality
     if (!rejectedRecordErrors.length) return
 
+    // batch chunking not needed because the max ingest == max delete batch
     await client
       .deleteMessageBatch({
         Entries: fulfilledRecordEntries,

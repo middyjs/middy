@@ -56,6 +56,7 @@ test.serial('It should set credential to internal storage', async (t) => {
     .use(
       sts({
         AwsClient: STS,
+        cacheExpiry: 0,
         fetchData: {
           role: {
             RoleArn: '.../role'
@@ -94,6 +95,7 @@ test.serial(
       .use(
         sts({
           AwsClient: STS,
+          cacheExpiry: 0,
           fetchData: {
             role: {
               RoleArn: '.../role'
@@ -131,6 +133,7 @@ test.serial('It should set STS secret to context', async (t) => {
     .use(
       sts({
         AwsClient: STS,
+        cacheExpiry: 0,
         fetchData: {
           role: {
             RoleArn: '.../role'
@@ -170,6 +173,7 @@ test.serial(
       .use(
         sts({
           AwsClient: STS,
+          cacheExpiry: -1,
           fetchData: {
             role: {
               RoleArn: '.../role'
@@ -222,12 +226,12 @@ test.serial(
       .use(
         sts({
           AwsClient: STS,
+          cacheExpiry: 0,
           fetchData: {
             role: {
               RoleArn: '.../role'
             }
-          },
-          cacheExpiry: 0
+          }
         })
       )
       .before(middleware)
