@@ -36,32 +36,27 @@ npm install --save @middy/sqs-partial-batch-failure
 ```
 
 ## Options
-
-- `AwsClient` (object) (default `AWS.SQS`): AWS.SQS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (optional): Options to pass to AWS.SQS class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
-- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
-- `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
+- `logger` function (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
 
 NOTES:
-- Lambda is required to have IAM permission for `sqs:DeleteMessage`
+- Include the value `ReportBatchItemFailures` in the Lambda `FunctionResponseTypes` list
+- If you're using this feature with a FIFO queue, your function should stop processing messages after the first failure and return all failed and unprocessed messages. This helps preserve the ordering of messages in your queue.
 
 ## Sample usage
 
 ```javascript
 import middy from '@middy/core'
-import sqsBatch from '@middy/sqs-partial-batch-failure'
+import sqsPartialBatchFailureMiddleware from '@middy/sqs-partial-batch-failure'
 
 const baseHandler = (event, context) => {
   const recordPromises = event.Records.map(async (record, index) => { 
     /* Custom message processing logic */
-    return record
   })
   return Promise.allSettled(recordPromises)
 }
 
 const handler = middy(baseHandler)
-  .use(sqsBatch())
+  .use(sqsPartialBatchFailureMiddleware())
 ```
 
 ## Middy documentation and examples
