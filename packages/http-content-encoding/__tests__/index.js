@@ -2,7 +2,11 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const httpContentEncoding = require('../index.js')
 
+const { Readable, Writable } = require('stream')
 const { brotliCompressSync, gzipSync, deflateSync } = require('zlib')
+const { promisify } = require('util')
+const { pipeline: pipelineCallback } = require('stream')
+const pipeline = promisify(pipelineCallback)
 
 const compressibleBody = JSON.stringify(new Array(100).fill(0))
 
@@ -144,4 +148,37 @@ test('It should not encode when response.body is empty', async (t) => {
   const response = await handler(event)
 
   t.deepEqual(response, { body, headers: {} })
+})
+
+test('It should pipe encoding stream when passed a stream', async (t) => {
+  const body = Readable.from(compressibleBody, { objectMode: false })
+  const handler = middy((event, context) => ({ body }))
+    .use(httpContentEncoding())
+
+  const event = {
+    preferredEncoding: 'br'
+  }
+
+  const response = await handler(event)
+
+  const chunks = []
+  const writeStream = new Writable({
+    write (chunk, encoding, callback) {
+      chunks.push(chunk)
+      callback()
+    }
+  })
+
+  await pipeline(
+    response.body,
+    writeStream
+  )
+
+  response.body = Buffer.concat(chunks).toString('base64')
+
+  t.deepEqual(response, {
+    body: brotliCompressSync(compressibleBody).toString('base64'),
+    headers: { 'Content-Encoding': 'br' },
+    isBase64Encoded: true
+  })
 })

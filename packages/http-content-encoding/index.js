@@ -8,8 +8,8 @@ const { Readable, Writable } = require('stream')
 // const {pipeline} = require('stream/promises')  // available in node >=15
 const { promisify } = require('util')
 const { pipeline: pipelineCallback } = require('stream')
-
 const pipeline = promisify(pipelineCallback)
+
 const { createBrotliCompress, createGzip, createDeflate } = require('zlib')
 // const {ZSTDCompress: createZstdCompress} = require('simple-zstd')
 

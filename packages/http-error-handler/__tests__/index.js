@@ -80,7 +80,7 @@ test('It should handle non HTTP errors when fallback set', async (t) => {
 })
 
 test('It should be possible to pass a custom logger function', async (t) => {
-  const expectedError = createError(422, 'UnprocessableEntity')
+  const expectedError = createError(422)
   const logger = sinon.spy()
 
   const handler = middy(() => {
@@ -194,6 +194,29 @@ test('It should be possible to force expose of error to user', async (t) => {
     body: 'OkayError',
     headers: {
       'Content-Type': 'text/plain'
+    }
+  })
+})
+
+test('It should allow later middleware to modify the response', async (t) => {
+  const handler = middy(() => {
+    throw createError(422)
+  })
+
+  handler
+    .onError((request) => {
+      request.response.headers['X-DNS-Prefetch-Control'] = 'off'
+    })
+    .use(httpErrorHandler({ logger: false }))
+
+  const response = await handler(null)
+
+  t.deepEqual(response, {
+    statusCode: 422,
+    body: 'Unprocessable Entity',
+    headers: {
+      'Content-Type': 'text/plain',
+      'X-DNS-Prefetch-Control':'off'
     }
   })
 })

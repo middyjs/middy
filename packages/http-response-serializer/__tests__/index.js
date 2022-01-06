@@ -266,7 +266,7 @@ test('It should replace the response object when the serializer returns an objec
 
 test('It should work with `http-error-handler` middleware', async (t) => {
   const handler = middy((event, context) => {
-    throw createError(422, 'UnprocessableEntity')
+    throw createError(422)
   })
 
   handler
@@ -277,7 +277,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
 
   t.deepEqual(response, {
     statusCode: 422,
-    body: 'UnprocessableEntity',
+    body: 'Unprocessable Entity',
     headers: {
       'Content-Type': 'text/plain'
     }
