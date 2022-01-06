@@ -5,12 +5,13 @@ import {
 } from 'aws-lambda'
 
 declare type PluginHook = () => void
+declare type PluginHookWithRequest = (request: Request) => void
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void
 declare type PluginHookPromise = (request: Request) => Promise<unknown> | unknown
 
 interface PluginObject {
   beforePrefetch?: PluginHook
-  requestStart?: PluginHook
+  requestStart?: PluginHookWithRequest
   beforeMiddleware?: PluginHookWithMiddlewareName
   afterMiddleware?: PluginHookWithMiddlewareName
   beforeHandler?: PluginHook
