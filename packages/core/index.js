@@ -1,10 +1,18 @@
 
+const defaultBaseHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 0,
   timeoutEarlyResponse: () => { throw new Error('Timeout') }
 }
 
-const middy = (baseHandler = () => {}, plugin = defaultPlugin) => {
+const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
+  /*
+  // Allow base handler to be set using .handler()
+  if (typeof baseHandler !== 'function') {
+    plugin = baseHandler
+    baseHandler = defaultBaseHandler
+  }
+  */
   plugin?.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -63,6 +71,11 @@ const middy = (baseHandler = () => {}, plugin = defaultPlugin) => {
     onErrorMiddlewares.unshift(onErrorMiddleware)
     return instance
   }
+  /*
+  instance.handler = (replaceBaseHandler) => {
+    baseHandler = replaceBaseHandler
+  }
+  */
 
   return instance
 }

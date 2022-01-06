@@ -114,7 +114,7 @@ No change
 If you still need `setToEnv` you can do something like so:
 ```javascript
 middy(baseHandler)
-  .use(...)
+  .use(/*...*/)
   .before(async (request) => {
     const values = await getInternal(['NODE_ENV'], request)
     process.env.NODE_ENV = values.NODE_ENV
