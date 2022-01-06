@@ -56,11 +56,10 @@ No change
 No change
 
 ### [http-json-body-parser](/packages/http-json-body-parser/README.md)
-Requires pairing with `http-header-normalizer`.
+No change
 
 ### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
-Change default charset from `binary`/`latin1` to `utf-8`. 
-Requires pairing with `http-header-normalizer`.
+Change default charset from `binary`/`latin1` to `utf-8`.
 
 ### [http-partial-response](/packages/http-partial-response/README.md)
 No change
@@ -72,7 +71,7 @@ No change
 No change
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
-Requires pairing with `http-header-normalizer`.
+No change
 
 ### [http-urlencode-path-parser](/packages/http-urlencode-path-parser/README.md)
 No change

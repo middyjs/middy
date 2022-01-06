@@ -13,7 +13,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
     const { headers } = request.event
 
-    const contentType = headers?.['Content-Type']
+    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
 
     if (!mimePattern.test(contentType)) return
 
@@ -35,8 +35,8 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 const parseMultipartData = (event, options) => {
   const multipartData = {}
-  // header must be lowercase
-  const bb = BusBoy({ ...options, headers: { 'content-type': event.headers['Content-Type'] } })
+  // header must be lowercase (content-type)
+  const bb = BusBoy({ ...options, headers: { 'content-type': event.headers['Content-Type'] ?? event.headers['content-type'] } })
 
   return new Promise((resolve, reject) => {
     bb.on('file', (fieldname, file, filename, encoding, mimetype) => {
