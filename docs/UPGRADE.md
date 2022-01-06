@@ -5,9 +5,6 @@ See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 
 Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
 
-## TODO
-- [ ] update middleware to handle `Streams` (ie `http-content-encoding`, `s3-object-response`)
-
 ## Core
 - `onError` middleware stack order reversed to match `after`
 - baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
@@ -64,7 +61,7 @@ No change
 
 ### [http-response-serializer](/packages/http-response-serializer/README.md)
 `onError` will not modify response unless error has been handled
-Renamed `default` option to `defaultContentType`
+Renamed `default` option to `defaultContentType` to improve maintainability
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
 `onError` will not modify response unless error has been handled

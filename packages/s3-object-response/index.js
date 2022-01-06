@@ -11,7 +11,7 @@ const S3 = require('aws-sdk/clients/s3') // v2
 // const { S3 } = require('@aws-sdk/client-s3') // v3
 
 const defaults = {
-  AwsClient: S3, // Allow for XRay
+  AwsClient: S3,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -63,7 +63,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    request.response.Body = request.response.Body ?? request.response.body
+    request.response.Body ??= request.response.body
     delete request.response.body
 
     return client

@@ -9,16 +9,13 @@ const compressibleBody = JSON.stringify(new Array(100).fill(0))
 test('It should encode using br', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+    .use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
   }
 
   const response = await handler(event)
-
   t.deepEqual(response, {
     body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
@@ -29,9 +26,7 @@ test('It should encode using br', async (t) => {
 test('It should encode using gzip', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+    .use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'gzip'
