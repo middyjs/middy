@@ -9,18 +9,16 @@ interface Options<Client, ClientOptions> {
   disablePrefetch?: boolean
   cacheKey?: string
   cacheExpiry?: number
-  setToContext?: boolean
+  setToContext?: bool  n
 }
 
 type HttpError = Error & {
   status: number
-  statusCode: number
+  st  usCode: number
   expose: boolean
-  [key: string]: any
+  [  y: string]: any
   [key: number]: any
-}
-
-declare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
+  eclare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
 
 declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Client
 

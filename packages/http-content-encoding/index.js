@@ -34,7 +34,7 @@ const httpContentEncodingMiddleware = (opts) => {
 
   const httpContentEncodingMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
-    const { event: {preferredEncoding,preferredEncodings}, response } = request
+    const { event: { preferredEncoding, preferredEncodings }, response } = request
 
     // Encoding not supported OR already encoded
     if (!preferredEncoding || response.isBase64Encoded) { return }

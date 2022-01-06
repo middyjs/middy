@@ -79,7 +79,7 @@ No change
 No change
 
 ### [rds-signer](/packages/rds-signer/README.md)
-Deprecated `setToEnv` option
+Deprecated `setToEnv` option due to possible security misuse
 
 ### s3-key-normalizer
 Deprecated in favour of `event-normalizer`
@@ -88,13 +88,13 @@ Deprecated in favour of `event-normalizer`
 No change
 
 ### [secrets-manager](/packages/secrets-manager/README.md)
-Deprecated `setToEnv` option
+Deprecated `setToEnv` option due to possible security misuse
 
 ### sqs-json-body-parser
 Deprecated in favour of `event-normalizer`
 
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
-Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/
+Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails
 
 ### [ssm](/packages/ssm/README.md)
 Deprecated `setToEnv` option.

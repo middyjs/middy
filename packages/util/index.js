@@ -176,7 +176,7 @@ const jsonSafeParse = (string, reviver) => {
 }
 
 const normalizeHttpResponse = (request) => {
-  let {response} = request
+  let { response } = request
   if (response === undefined) {
     response = {}
   } else if (response?.statusCode === undefined && response?.body === undefined && response?.headers === undefined) {

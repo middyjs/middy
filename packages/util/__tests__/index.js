@@ -400,20 +400,20 @@ test('normalizeHttpResponse should not change response', async (t) => {
     response: { headers: {} }
   }
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {} }})
+  t.deepEqual(request, { response: { headers: {} } })
 })
 test('normalizeHttpResponse should update headers in response', async (t) => {
   const request = {
     response: {}
   }
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {}, body: {} }})
+  t.deepEqual(request, { response: { headers: {}, body: {} } })
 })
 
 test('normalizeHttpResponse should update undefined response', async (t) => {
   const request = {}
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {} }})
+  t.deepEqual(request, { response: { headers: {} } })
 })
 
 test('normalizeHttpResponse should update nullish response', async (t) => {
@@ -421,7 +421,7 @@ test('normalizeHttpResponse should update nullish response', async (t) => {
     response: null
   }
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {}, body: null  }})
+  t.deepEqual(request, { response: { headers: {}, body: null } })
 })
 
 test('normalizeHttpResponse should update string response', async (t) => {
@@ -429,12 +429,12 @@ test('normalizeHttpResponse should update string response', async (t) => {
     response: ''
   }
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {}, body: ''}})
+  t.deepEqual(request, { response: { headers: {}, body: '' } })
 })
 test('normalizeHttpResponse should update array response', async (t) => {
   const request = {
     response: []
   }
   util.normalizeHttpResponse(request)
-  t.deepEqual(request, {response:{ headers: {}, body: []  }})
+  t.deepEqual(request, { response: { headers: {}, body: [] } })
 })

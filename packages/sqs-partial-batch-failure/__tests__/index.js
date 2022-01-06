@@ -31,7 +31,7 @@ test('Should return when there are only failed messages', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy(baseHandler)
-    .use(sqsPartialBatchFailure({  logger  }))
+    .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event)
 
@@ -55,7 +55,7 @@ test('Should resolve when there are no failed messages', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy(baseHandler)
-    .use(sqsPartialBatchFailure({  logger  }))
+    .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event)
   t.deepEqual(response, { batchItemFailures: [] })
@@ -86,7 +86,7 @@ test('Should return only the rejected messageIds', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy(baseHandler)
-    .use(sqsPartialBatchFailure({  logger  }))
+    .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event)
   t.deepEqual(response, { batchItemFailures: event.Records.filter(r => r.messageAttributes.resolveOrReject.stringValue === 'reject').map(r => ({ itemIdentifier: r.messageId })) })

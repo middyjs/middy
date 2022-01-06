@@ -3,7 +3,7 @@ const defaults = {
 }
 
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
-  const {logger} = { ...defaults, ...opts }
+  const { logger } = { ...defaults, ...opts }
 
   const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
     const {
@@ -64,7 +64,6 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
       event: { Records },
       response
     } = request
-
 
     const { fulfilledRecordEntries, rejectedRecordErrors } = splitRecords(response)
 

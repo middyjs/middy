@@ -1,6 +1,6 @@
 const test = require('ava')
 const middy = require('../../core/index.js')
-const {createError} = require('../../util/index.js')
+const { createError } = require('../../util/index.js')
 
 const httpErrorHandler = require('../../http-error-handler/index.js')
 const httpResponseSerializer = require('../index.js')

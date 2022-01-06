@@ -7,7 +7,7 @@ const defaults = {
 }
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
-  const {serializers, defaultContentType} = { ...defaults, ...opts }
+  const { serializers, defaultContentType } = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
 

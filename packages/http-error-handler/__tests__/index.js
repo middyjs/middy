@@ -3,7 +3,7 @@ const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const httpErrorHandler = require('../index.js')
 
-const {createError} = require('../../util/index.js')
+const { createError } = require('../../util/index.js')
 
 // Silence logging
 // console.error = () => {}

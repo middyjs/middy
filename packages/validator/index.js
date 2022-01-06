@@ -46,7 +46,7 @@ const validatorMiddleware = (opts = {}) => {
 
       if (i18nEnabled) {
         const language = chooseLanguage(request.event, defaultLanguage)
-        localize[language](inputSchema.errors)  
+        localize[language](inputSchema.errors)
       }
 
       error.details = inputSchema.errors

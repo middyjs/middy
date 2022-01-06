@@ -45,8 +45,8 @@ test('It should not override already declared Access-Control-Allow-Origin header
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    },
-    
+    }
+
   })
 })
 
@@ -68,8 +68,8 @@ test('It should use custom getOrigin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://species.com'
-    },
-    
+    }
+
   })
 })
 
@@ -92,8 +92,8 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://incoming.com'
-    },
-    
+    }
+
   })
 })
 
@@ -115,8 +115,8 @@ test('It should use origin specified in options', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    },
-    
+    }
+
   })
 })
 
@@ -139,8 +139,8 @@ test('It should return whitelisted origin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://another-example.com'
-    },
-    
+    }
+
   })
 })
 
@@ -163,8 +163,8 @@ test('It should return first origin as default if no match', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    },
-    
+    }
+
   })
 })
 
@@ -178,7 +178,7 @@ test('It should add headers even onError', async (t) => {
       origin: 'https://example.com'
     }))
     .onError((request) => {
-      request.response = {statusCode:500}
+      request.response = { statusCode: 500 }
     })
 
   const event = {
@@ -238,8 +238,8 @@ test('It should not override already declared Access-Control-Allow-Headers heade
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
-    },
-    
+    }
+
   })
 })
 
@@ -262,8 +262,8 @@ test('It should use allowed headers specified in options', async (t) => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
-    },
-    
+    }
+
   })
 })
 
@@ -295,8 +295,8 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     headers: {
       'Access-Control-Allow-Credentials': 'false',
       'Access-Control-Allow-Origin': '*'
-    },
-    
+    }
+
   })
 })
 
@@ -311,7 +311,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     .use({
       after: (request) => {
         request.response = {
-          headers:{
+          headers: {
             'Access-Control-Allow-Credentials': 'true'
           }
         }
@@ -327,8 +327,8 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': 'true'
-    },
-    
+    }
+
   })
 })
 
@@ -354,8 +354,8 @@ test('It should use change credentials as specified in options (true)', async (t
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'http://example.com'
-    },
-    
+    }
+
   })
 })
 
@@ -381,8 +381,8 @@ test('It should use change credentials as specified in options (true) with lower
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'http://example-lowercase.com'
-    },
-    
+    }
+
   })
 })
 
@@ -400,8 +400,8 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,PUT'
-    },
-    
+    }
+
   })
 })
 
@@ -439,8 +439,8 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'X-Middleware'
-    },
-    
+    }
+
   })
 })
 
@@ -478,8 +478,8 @@ test('it should set Access-Control-Max-Age header if present in config', async (
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Max-Age': '3600'
-    },
-    
+    }
+
   })
 })
 
@@ -517,8 +517,8 @@ test('it should set Access-Control-Request-Headers header if present in config',
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Headers': 'X-Middleware'
-    },
-    
+    }
+
   })
 })
 
@@ -556,8 +556,8 @@ test('it should set Access-Control-Request-Methods header if present in config',
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Methods': 'GET,PUT'
-    },
-    
+    }
+
   })
 })
 
@@ -597,8 +597,8 @@ test('it should set Cache-Control header if present in config and http method OP
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
-    },
-    
+    }
+
   })
 })
 
@@ -616,8 +616,8 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
     t.deepEqual(response, {
       headers: {
         'Access-Control-Allow-Origin': '*'
-      },
-      
+      }
+
     })
   })
 }
