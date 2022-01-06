@@ -32,6 +32,9 @@ No change
 ### [error-logger](/packages/error-logger/README.md)
 No change
 
+### [event-normalizer](/packages/event-normalizer/README.md)
+No change
+
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
 New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
@@ -79,7 +82,7 @@ No change
 Deprecated `setToEnv` option due to possible security misuse
 
 ### s3-key-normalizer
-Deprecated in favour of `event-normalizer`
+Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md)
 
 ### [s3-object-response](/packages/s3-object-response/README.md)
 No change
@@ -88,14 +91,14 @@ No change
 Deprecated `setToEnv` option due to possible security misuse
 
 ### sqs-json-body-parser
-Deprecated in favour of `event-normalizer`
+Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md)
 
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
 Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails
 
 ### [ssm](/packages/ssm/README.md)
-Deprecated `setToEnv` option.
-Not found paths will not throw a proper error.
+Deprecated `setToEnv` option
+Not found paths will now throw a proper error
 
 ### [sts](/packages/sts/README.md)
 No change

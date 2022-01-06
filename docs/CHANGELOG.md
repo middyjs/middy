@@ -14,9 +14,12 @@ Focus this version was on error handling and improve consistency.
 - Change default charset from `binary`/`latin1` to `utf-8` within `http-multipart-body-parser`
 - Deprecated `setToEnv` option from all middleware
 - `sqs-partial-batch-failure` completely rewritten
+- Renamed `default` option to `defaultContentType` `http-response-serializer`
+- `normalizeHttpResponse` now takes `request` and mutates response
 
 ## Maintenance
 - Better error reporting when dealing with Promise arrays
+
 
 # 2.0.1
 - #640 `sms` bug fix where infinite loop happens when pulling >10 values @garnertb
