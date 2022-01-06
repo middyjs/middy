@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import httpCors from '.'
+import httpCors, { Options } from '.'
 
 // use with default options
 let middleware = httpCors()
@@ -17,6 +17,9 @@ middleware = httpCors({
   maxAge: 600, // Access-Control-Max-Age
   requestHeaders: 'X-PINGOTHER, Content-Type', // Access-Control-Request-Headers
   requestMethods: 'POST', // Access-Control-Request-Methods
-  cacheControl: 'proxy-revalidate' // Cache-Control
+  cacheControl: 'proxy-revalidate', // Cache-Control,
+  getOrigin: (incomingOrigin: string, options: Options) => {
+    return "foo.bar.com"
+  }
 })
 expectType<middy.MiddlewareObj>(middleware)
