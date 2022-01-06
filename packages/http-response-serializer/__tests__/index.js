@@ -20,7 +20,7 @@ const standardConfiguration = {
       serializer: ({ body }) => body
     }
   ],
-  default: 'application/json'
+  defaultContentType: 'application/json'
 }
 
 const createHttpResponse = () => ({
@@ -103,7 +103,7 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
   })
 })
 
-test('It should use the default when no accept preferences are given', async (t) => {
+test('It should use the defaultContentType when no accept preferences are given', async (t) => {
   const handler = middy((event, context) => createHttpResponse())
 
   handler.use(httpResponseSerializer(standardConfiguration))
@@ -113,7 +113,7 @@ test('It should use the default when no accept preferences are given', async (t)
   t.deepEqual(response, {
     statusCode: 200,
     headers: {
-      'Content-Type': standardConfiguration.default
+      'Content-Type': standardConfiguration.defaultContentType
     },
     body: '{"message":"Hello World"}'
   })
@@ -133,7 +133,7 @@ test('It should allow the return of the entire response', async (t) => {
           }
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
 
@@ -142,13 +142,13 @@ test('It should allow the return of the entire response', async (t) => {
   t.deepEqual(response, {
     statusCode: 200,
     headers: {
-      'Content-Type': standardConfiguration.default
+      'Content-Type': standardConfiguration.defaultContentType
     },
     body: '{"message":"Hello World"}'
   })
 })
 
-test('It should use the default when no matching accept preferences are found', async (t) => {
+test('It should use the defaultContentType when no matching accept preferences are found', async (t) => {
   const handler = middy((event, context) => {
     event.preferredContentType = 'text/java'
 
@@ -168,13 +168,13 @@ test('It should use the default when no matching accept preferences are found', 
   t.deepEqual(response, {
     statusCode: 200,
     headers: {
-      'Content-Type': standardConfiguration.default
+      'Content-Type': standardConfiguration.defaultContentType
     },
     body: '{"message":"Hello World"}'
   })
 })
 
-test('It should use `event.preferredContentType` instead of the default', async (t) => {
+test('It should use `event.preferredContentType` instead of the defaultContentType', async (t) => {
   const handler = middy((event, context) => {
     event.preferredContentType = 'text/plain'
 
@@ -194,7 +194,7 @@ test('It should use `event.preferredContentType` instead of the default', async 
   })
 })
 
-test('It should pass-through when no preference or default is found', async (t) => {
+test('It should pass-through when no preference or defaultContentType is found', async (t) => {
   const handler = middy((event, context) => createHttpResponse())
 
   handler.use(
@@ -228,7 +228,7 @@ test('It should not pass-through when request content-type is set', async (t) =>
   t.deepEqual(response, {
     statusCode: 200,
     headers: {
-      'Content-Type': standardConfiguration.default
+      'Content-Type': standardConfiguration.defaultContentType
     },
     body: '{"message":"Hello World"}'
   })
@@ -249,7 +249,7 @@ test('It should replace the response object when the serializer returns an objec
             })
         }
       ],
-      default: 'text/plain'
+      defaultContentType: 'text/plain'
     })
   )
 
@@ -277,7 +277,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
 
   t.deepEqual(response, {
     statusCode: 422,
-    body: 'Unprocessable Entity',
+    body: 'UnprocessableEntity',
     headers: {
       'Content-Type': 'text/plain'
     }

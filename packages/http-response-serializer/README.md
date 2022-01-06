@@ -61,7 +61,7 @@ The middleware is configured by defining some `serializers`.
 }
 ```
 
-The `default` (optional) option is used if the request and handler don't specify what type is wanted.
+The `defaultContentType` (optional) option is used if the request and handler don't specify what type is wanted.
 
 
 ## Serializer Functions
@@ -84,7 +84,7 @@ The content type is determined in the following order:
  * `event.requiredContentType` -- allows the handler to override everything else
  * The `Accept` header via [accept](https://www.npmjs.com/package/accept)
  * `event.preferredContentType` -- allows the handler to override the default, but lets the request ask first
- * `default` middleware configuration
+ * `defaultContentType` middleware option
 
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
 
@@ -120,7 +120,7 @@ handler
         serializer: ({ body }) => body
       }
     ],
-    default: 'application/json'
+    defaultContentType: 'application/json'
   }))
 
 const event = {
