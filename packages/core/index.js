@@ -5,7 +5,6 @@ const middy = (baseHandler = () => {}, plugin) => {
   const onErrorMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
-    plugin?.requestStart?.()
     const request = {
       event,
       context,
@@ -13,6 +12,7 @@ const middy = (baseHandler = () => {}, plugin) => {
       error: undefined,
       internal: {}
     }
+    plugin?.requestStart?.(request)
 
     return runRequest(
       request,
