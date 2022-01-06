@@ -1,6 +1,6 @@
 const test = require('ava')
 const middy = require('../../core/index.js')
-const createError = require('http-errors')
+const {createError} = require('../../util/index.js')
 
 const httpErrorHandler = require('../../http-error-handler/index.js')
 const httpResponseSerializer = require('../index.js')
@@ -266,7 +266,7 @@ test('It should replace the response object when the serializer returns an objec
 
 test('It should work with `http-error-handler` middleware', async (t) => {
   const handler = middy((event, context) => {
-    throw new createError.UnprocessableEntity()
+    throw createError(422, 'UnprocessableEntity')
   })
 
   handler

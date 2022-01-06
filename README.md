@@ -684,14 +684,15 @@ should do a single task. We try to balance each to be as performant as possible 
 
 
 ### Misc
+- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets `callbackWaitsForEmptyEventLoop` property to `false`
 - [`error-logger`](/packages/error-logger): Logs errors
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
-- [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
-- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
 - [`warmup`](/packages/warmup): Used to pre-warm a lambda function
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
@@ -701,10 +702,9 @@ should do a single task. We try to balance each to be as performant as possible 
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 
 ### Response Transformation
-- [`http-content-encoding`](/packages/http-content-encoding): Sets HTTP Content-Encoding headers on response and compresses response body
+- [`http-content-encoding`](/packages/http-content-encoding): Sets HTTP Content-Encoding header on response and compresses response body
 - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
 - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
-- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/packages/http-response-serializer): HTTP response serializer.

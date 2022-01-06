@@ -1,7 +1,7 @@
 const test = require('ava')
 const sinon = require('sinon')
 const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../util')
+const { getInternal, clearCache } = require('../../util/index.js')
 const STS = require('aws-sdk/clients/sts.js') // v2
 // const { STS } = require('@aws-sdk/client-sts') // v3
 const sts = require('../index.js')

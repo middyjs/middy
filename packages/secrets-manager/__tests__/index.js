@@ -1,7 +1,7 @@
 const test = require('ava')
 const sinon = require('sinon')
 const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../util')
+const { getInternal, clearCache } = require('../../util/index.js')
 const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
 // const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
 const secretsManager = require('../index.js')
