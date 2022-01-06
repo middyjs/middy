@@ -7,7 +7,7 @@ interface SerializerHandler {
 
 interface Options {
   serializers: SerializerHandler[]
-  default?: string
+  defaultContentType?: string
 }
 
 declare function httpResponseSerializer (options?: Options): middy.MiddlewareObj

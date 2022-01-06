@@ -9,11 +9,14 @@ declare type PluginHookWithMiddlewareName = (middlewareName: string) => void
 declare type PluginHookPromise = (request: Request) => Promise<unknown> | unknown
 
 interface PluginObject {
+  internal?: any
   beforePrefetch?: PluginHook
   requestStart?: PluginHook
   beforeMiddleware?: PluginHookWithMiddlewareName
   afterMiddleware?: PluginHookWithMiddlewareName
   beforeHandler?: PluginHook
+  timeoutEarlyInMillis?: number
+  timeoutEarlyResponse?: PluginHook
   afterHandler?: PluginHook
   requestEnd?: PluginHookPromise
 }
@@ -42,15 +45,9 @@ type MiddyInputHandler<TEvent, TResult, TContext extends LambdaContext = LambdaC
 
 export interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> extends MiddyInputHandler<TEvent, TResult, TContext> {
   use: UseFn<TEvent, TResult, TErr, TContext>
-  applyMiddleware: AttachMiddlewareObj<TEvent, TResult, TErr, TContext>
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
-  __middlewares: {
-    before: Array<MiddlewareFn<TEvent, TResult, TErr, TContext>>
-    after: Array<MiddlewareFn<TEvent, TResult, TErr, TContext>>
-    onError: Array<MiddlewareFn<TEvent, TResult, TErr, TContext>>
-  }
 }
 
 declare type AttachMiddlewareFn<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> = (middleware: MiddlewareFn) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
