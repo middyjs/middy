@@ -15,35 +15,46 @@
 <script type="module">
     //import Chart from 'https://cdnjs.com/libraries/Chart.js'
     const pkgs = [
-      // v0.x
-      'middy',
-      // v1.x
-      '@middy/core',
-      '@middy/cache',   // v1.x
-      '@middy/db-manager',  // v1.x
-      '@middy/do-not-wait-for-empty-event-loop',
-      '@middy/error-logger',
-      '@middy/function-shield', // v1.x
-      '@middy/http-content-negotiation',
-      '@middy/http-cors',
-      '@middy/http-error-handler',
-      '@middy/http-event-normalizer',
-      '@middy/http-json-body-parser',
-      '@middy/http-multipart-body-parser',
-      '@middy/http-partial-response',
-      '@middy/http-security-headers',
-      '@middy/http-urlencode-body-parser',
-      '@middy/http-urlencode-path-parser',
-      '@middy/input-output-logger',
-      '@middy/rds-signer',    // v2.x
-      '@middy/s3-key-normalizer',
-      '@middy/secrets-manager',
-      '@middy/sqs-json-body-parser',
-      '@middy/sqs-partial-batch-failure',
-      '@middy/ssm',
-      '@middy/sts',   // v2.x
-      '@middy/validator',
-      '@middy/warmup',
+      '@middy/core', // v1-
+
+      '@middy/cloudwatch-metrics', // v2-
+      '@middy/do-not-wait-for-empty-event-loop', // v1-
+      '@middy/error-logger', // v1-
+      '@middy/event-normalizer', // v2-
+      //'@middy/http-content-encoding', // v3-
+      '@middy/http-content-negotiation', // v1-
+      '@middy/http-cors', // v1-
+      '@middy/http-error-handler', // v1-
+      '@middy/http-event-normalizer', // v1-
+      '@middy/http-header-normalizer', // v1-
+      '@middy/http-json-body-parser', // v1-
+      '@middy/http-multipart-body-parser', // v1-
+      '@middy/http-partial-response', // v1-
+      '@middy/http-response-serializer', // v1-
+      '@middy/http-security-headers', // v1-
+      '@middy/http-urlencode-body-parser', // v1-
+      '@middy/http-urlencode-path-parser', // v1-
+      '@middy/input-output-logger', // v1-
+      '@middy/rds-signer', // v2-
+      '@middy/s3-object-response', // v2-
+      '@middy/secrets-manager', // v1-
+      '@middy/sqs-partial-batch-failure', // v1-
+      '@middy/ssm', // v1-
+      '@middy/sts', // v2-
+      '@middy/validator', // v1-
+      '@middy/warmup', // v1-
+
+      '@middy/util', // v2-
+
+      // deprecated
+      '@middy/cache', // v1
+      '@middy/db-manager',  // v1
+      '@middy/function-shield', // v1
+
+      '@middy/s3-key-normalizer', // v1-2
+      '@middy/sqs-json-body-parser', // v1-2
+
+      'middy', // v0
     ]
     const colors = {
       'middy':'#003f5c',
