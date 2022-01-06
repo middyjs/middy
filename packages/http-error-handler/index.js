@@ -32,13 +32,14 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 
     if (request.error?.expose) {
       normalizeHttpResponse(request)
+
       request.response = {
         ...request.response,
-        statusCode: request.error?.statusCode,
-        body: request.error?.message,
+        statusCode: request.error.statusCode,
+        body: request.error.message,
         headers: {
           ...request.response.headers,
-          'Content-Type': typeof jsonSafeParse(request.response.body) === 'string'
+          'Content-Type': typeof jsonSafeParse(request.error.message) === 'string'
             ? 'text/plain'
             : 'application/json'
         }

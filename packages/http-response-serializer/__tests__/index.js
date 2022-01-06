@@ -298,22 +298,6 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
   }
 })
 
-test('It should skip if the response is undefined', async (t) => {
-  const handler = middy((event, context) => undefined)
-
-  handler.use(httpResponseSerializer(standardConfiguration))
-
-  const event = {
-    headers: {
-      'Content-Type': 'application/xml'
-    }
-  }
-
-  const response = await handler(event)
-
-  t.deepEqual(response, undefined)
-})
-
 test('It should return false when response body is falsey', async (t) => {
   const handler = middy((event, context) => {
     return false

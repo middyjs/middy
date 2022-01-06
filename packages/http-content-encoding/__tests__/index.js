@@ -100,7 +100,7 @@ test('It should not encode when missing event.preferredEncoding', async (t) => {
 
   const response = await handler(event)
 
-  t.deepEqual(response, { body })
+  t.deepEqual(response, { body, headers: {} })
 })
 
 test('It should not encode when response.isBase64Encoded is already set to true', async (t) => {
