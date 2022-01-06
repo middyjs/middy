@@ -1,5 +1,5 @@
 const defaults = {
-  logger: (e, record) => { console.error(record.messageId, e.message) }
+  logger: console.error
 }
 
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
