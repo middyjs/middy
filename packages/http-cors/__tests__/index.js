@@ -3,7 +3,7 @@ const middy = require('../../core/index.js')
 const cors = require('../index.js')
 
 test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors())
 
@@ -21,12 +21,13 @@ test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
 })
 
 test('It should not override already declared Access-Control-Allow-Origin header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   // other middleware that puts the cors header
   handler.use({
     after: (request) => {
       request.response = {
+        ...request.response,
         headers: {
           'Access-Control-Allow-Origin': 'https://example.com'
         }
@@ -44,12 +45,13 @@ test('It should not override already declared Access-Control-Allow-Origin header
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    }
+    },
+    
   })
 })
 
 test('It should use custom getOrigin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -66,12 +68,13 @@ test('It should use custom getOrigin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://species.com'
-    }
+    },
+    
   })
 })
 
 test('It should use pass incoming origin to custom getOrigin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -89,12 +92,13 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://incoming.com'
-    }
+    },
+    
   })
 })
 
 test('It should use origin specified in options', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -111,12 +115,13 @@ test('It should use origin specified in options', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    }
+    },
+    
   })
 })
 
 test('It should return whitelisted origin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -134,7 +139,8 @@ test('It should return whitelisted origin', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://another-example.com'
-    }
+    },
+    
   })
 })
 
@@ -157,24 +163,23 @@ test('It should return first origin as default if no match', async (t) => {
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
-    }
+    },
+    
   })
 })
 
 test('It should add headers even onError', async (t) => {
   const handler = middy((event, context) => {
-    throw new Error('')
+    throw new Error('handler')
   })
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       origin: 'https://example.com'
+    }))
+    .onError((request) => {
+      request.response = {statusCode:500}
     })
-  )
-
-  handler.use({
-    onError: () => {}
-  })
 
   const event = {
     httpMethod: 'GET'
@@ -183,6 +188,7 @@ test('It should add headers even onError', async (t) => {
   const response = await handler(event)
 
   t.deepEqual(response, {
+    statusCode: 500,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com'
     }
@@ -191,20 +197,21 @@ test('It should add headers even onError', async (t) => {
 
 test('It should not swallow errors', async (t) => {
   const handler = middy(() => {
-    throw new Error('some-error')
+    throw new Error('handler')
   })
 
-  handler.use(cors())
+  handler
+    .use(cors())
 
   try {
     await handler()
-  } catch (error) {
-    t.is(error.message, 'some-error')
+  } catch (e) {
+    t.is(e.message, 'handler')
   }
 })
 
 test('It should not override already declared Access-Control-Allow-Headers header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   // other middleware that puts the cors header
   handler.use({
@@ -231,7 +238,8 @@ test('It should not override already declared Access-Control-Allow-Headers heade
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
-    }
+    },
+    
   })
 })
 
@@ -254,7 +262,8 @@ test('It should use allowed headers specified in options', async (t) => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
-    }
+    },
+    
   })
 })
 
@@ -286,7 +295,8 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     headers: {
       'Access-Control-Allow-Credentials': 'false',
       'Access-Control-Allow-Origin': '*'
-    }
+    },
+    
   })
 })
 
@@ -300,9 +310,11 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     // other middleware that puts the cors header
     .use({
       after: (request) => {
-        request.response = request.response || {}
-        request.response.headers = request.response.headers || {}
-        request.response.headers['Access-Control-Allow-Credentials'] = 'true'
+        request.response = {
+          headers:{
+            'Access-Control-Allow-Credentials': 'true'
+          }
+        }
       }
     })
 
@@ -315,12 +327,13 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': 'true'
-    }
+    },
+    
   })
 })
 
 test('It should use change credentials as specified in options (true)', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -341,12 +354,13 @@ test('It should use change credentials as specified in options (true)', async (t
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'http://example.com'
-    }
+    },
+    
   })
 })
 
 test('It should use change credentials as specified in options (true) with lowercase header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({
@@ -367,24 +381,13 @@ test('It should use change credentials as specified in options (true) with lower
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'http://example-lowercase.com'
-    }
+    },
+    
   })
 })
 
-test('It should not change anything if HTTP method is not present in the request', async (t) => {
-  const handler = middy((event, context) => ({}))
-
-  handler.use(cors())
-
-  const event = {}
-
-  const response = await handler(event)
-
-  t.deepEqual(response, {})
-})
-
 test('it should set Access-Control-Allow-Methods header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors({ methods: 'GET,PUT' }))
 
@@ -397,7 +400,8 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,PUT'
-    }
+    },
+    
   })
 })
 
@@ -422,7 +426,7 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
 })
 
 test('it should set Access-Control-Expose-Headers header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors({ exposeHeaders: 'X-Middleware' }))
 
@@ -435,7 +439,8 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'X-Middleware'
-    }
+    },
+    
   })
 })
 
@@ -460,7 +465,7 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
 })
 
 test('it should set Access-Control-Max-Age header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors({ maxAge: '3600' }))
 
@@ -473,7 +478,8 @@ test('it should set Access-Control-Max-Age header if present in config', async (
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Max-Age': '3600'
-    }
+    },
+    
   })
 })
 
@@ -498,7 +504,7 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
 })
 
 test('it should set Access-Control-Request-Headers header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors({ requestHeaders: 'X-Middleware' }))
 
@@ -511,7 +517,8 @@ test('it should set Access-Control-Request-Headers header if present in config',
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Headers': 'X-Middleware'
-    }
+    },
+    
   })
 })
 
@@ -536,7 +543,7 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
 })
 
 test('it should set Access-Control-Request-Methods header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(cors({ requestMethods: 'GET,PUT' }))
 
@@ -549,7 +556,8 @@ test('it should set Access-Control-Request-Methods header if present in config',
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Methods': 'GET,PUT'
-    }
+    },
+    
   })
 })
 
@@ -574,7 +582,7 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
 })
 
 test('it should set Cache-Control header if present in config and http method OPTIONS', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   handler.use(
     cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' })
@@ -589,13 +597,14 @@ test('it should set Cache-Control header if present in config and http method OP
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
-    }
+    },
+    
   })
 })
 
 for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
   test(`it should not set Cache-Control header on ${httpMethod}`, async (t) => {
-    const handler = middy((event, context) => ({}))
+    const handler = middy((event, context) => {})
 
     handler.use(
       cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' })
@@ -607,7 +616,8 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
     t.deepEqual(response, {
       headers: {
         'Access-Control-Allow-Origin': '*'
-      }
+      },
+      
     })
   })
 }

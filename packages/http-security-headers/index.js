@@ -137,7 +137,7 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpSecurityHeadersMiddlewareAfter = async (request) => {
-    request.response = normalizeHttpResponse(request.response)
+    normalizeHttpResponse(request)
 
     Object.keys(helmet).forEach((key) => {
       const config = { ...defaults[key], ...options[key] }
@@ -154,9 +154,10 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
       })
     }
   }
-
-  const httpSecurityHeadersMiddlewareOnError = httpSecurityHeadersMiddlewareAfter
-
+  const httpSecurityHeadersMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return httpSecurityHeadersMiddlewareAfter(request)
+  }
   return {
     after: httpSecurityHeadersMiddlewareAfter,
     onError: httpSecurityHeadersMiddlewareOnError

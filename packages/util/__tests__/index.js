@@ -396,26 +396,45 @@ test('jsonSafeParse should not parse number', async (t) => {
 
 // normalizeHttpResponse
 test('normalizeHttpResponse should not change response', async (t) => {
-  const value = util.normalizeHttpResponse({ headers: {} })
-  t.deepEqual(value, { headers: {} })
+  const request = {
+    response: { headers: {} }
+  }
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {} }})
 })
 test('normalizeHttpResponse should update headers in response', async (t) => {
-  const value = util.normalizeHttpResponse({})
-  t.deepEqual(value, { headers: {} })
+  const request = {
+    response: {}
+  }
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {}, body: {} }})
+})
+
+test('normalizeHttpResponse should update undefined response', async (t) => {
+  const request = {}
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {} }})
 })
 
 test('normalizeHttpResponse should update nullish response', async (t) => {
-  let value = util.normalizeHttpResponse(null)
-  t.deepEqual(value, { headers: {}, body: null })
-  value = util.normalizeHttpResponse()
-  t.deepEqual(value, { headers: {} })
+  const request = {
+    response: null
+  }
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {}, body: null  }})
 })
 
 test('normalizeHttpResponse should update string response', async (t) => {
-  const value = util.normalizeHttpResponse('')
-  t.deepEqual(value, { body: '', headers: {} })
+  const request = {
+    response: ''
+  }
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {}, body: ''}})
 })
 test('normalizeHttpResponse should update array response', async (t) => {
-  const value = util.normalizeHttpResponse([])
-  t.deepEqual(value, { body: [], headers: {} })
+  const request = {
+    response: []
+  }
+  util.normalizeHttpResponse(request)
+  t.deepEqual(request, {response:{ headers: {}, body: []  }})
 })

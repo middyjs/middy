@@ -7,9 +7,6 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
 
 ## TODO
 - [ ] update middleware to handle `Streams` (ie `http-content-encoding`, `s3-object-response`)
-- [ ] update `http-*` middleware to better handle response normalization (ie `http-partial-response`)
-  - [ ] new middleware for `http-response-normalizer`?
-  - [ ] new middleware for `http-response-stringify`?
 
 ## Core
 - `onError` middleware stack order reversed to match `after`
@@ -25,6 +22,7 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
 ## Util
 - `getInternal` error now includes `nestedErrors`
 - Catch when `X-Ray` is applied outside of handler invocation scope
+- `normalizeHttpResponse` now takes `request` and mutates response
 
 ## Middleware
 
@@ -38,13 +36,13 @@ No change
 No change
 
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
-- New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
+New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
 ### [http-content-negotiation](/packages/http-content-negotiation/README.md)
 No change
 
 ### [http-cors](/packages/http-cors/README.md)
-No change
+`onError` will not modify response unless error has been handled
 
 ### [http-error-handler](/packages/http-error-handler/README.md)
 No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
@@ -65,10 +63,11 @@ Change default charset from `binary`/`latin1` to `utf-8`.
 No change
 
 ### [http-response-serializer](/packages/http-response-serializer/README.md)
-No change
+`onError` will not modify response unless error has been handled
+Renamed `default` option to `defaultContentType`
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
-No change
+`onError` will not modify response unless error has been handled
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
 No change
@@ -99,7 +98,7 @@ Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new
 
 ### [ssm](/packages/ssm/README.md)
 Deprecated `setToEnv` option.
-Add in catch for not found paths.
+Not found paths will not throw a proper error.
 
 ### [sts](/packages/sts/README.md)
 No change
@@ -115,9 +114,10 @@ No change
 If you still need `setToEnv` you can do something like so:
 ```javascript
 middy(baseHandler)
+  .use(...)
   .before(async (request) => {
-    const values = await getInternal(['environment'], request)
-    process.env.NODE_ENV = value.environment
+    const values = await getInternal(['NODE_ENV'], request)
+    process.env.NODE_ENV = values.NODE_ENV
   })
 ```
 

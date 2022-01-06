@@ -33,10 +33,7 @@ const httpCorsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpCorsMiddlewareAfter = async (request) => {
-    // API Gateway v1 & v2
-    if (!request.event?.httpMethod && !request.event?.requestContext?.http?.method) return
-
-    request.response = normalizeHttpResponse(request.response)
+    normalizeHttpResponse(request)
 
     const existingHeaders = Object.keys(request.response.headers)
 
@@ -109,13 +106,18 @@ const httpCorsMiddleware = (opts = {}) => {
         options.requestMethods
     }
 
-    if (request.event.httpMethod === 'OPTIONS') {
+    // API Gateway v2 & v1
+    const httpMethod = request.event?.requestContext?.http?.method ?? request.event?.httpMethod
+    if (httpMethod === 'OPTIONS') {
       if (options.cacheControl && !existingHeaders.includes('Cache-Control')) {
         request.response.headers['Cache-Control'] = String(options.cacheControl)
       }
     }
   }
-  const httpCorsMiddlewareOnError = httpCorsMiddlewareAfter
+  const httpCorsMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return httpCorsMiddlewareAfter(request)
+  }
   return {
     after: httpCorsMiddlewareAfter,
     onError: httpCorsMiddlewareOnError

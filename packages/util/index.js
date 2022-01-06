@@ -175,18 +175,15 @@ const jsonSafeParse = (string, reviver) => {
   return string
 }
 
-const normalizeHttpResponse = (response) => {
-  // May require updating to catch other types
+const normalizeHttpResponse = (request) => {
+  let {response} = request
   if (response === undefined) {
     response = {}
-  } else if (
-    Array.isArray(response) ||
-    typeof response !== 'object' ||
-    response === null
-  ) {
+  } else if (response?.statusCode === undefined && response?.body === undefined && response?.headers === undefined) {
     response = { body: response }
   }
-  response.headers = response?.headers ?? {}
+  response.headers ??= {}
+  request.response = response
   return response
 }
 

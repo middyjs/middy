@@ -33,10 +33,11 @@ const httpContentEncodingMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
 
   const httpContentEncodingMiddlewareAfter = async (request) => {
-    const { event, response } = request
-    if (!event.preferredEncoding) { return }
-    request.response = normalizeHttpResponse(request.response)
-    if (response.isBase64Encoded) { return }
+    normalizeHttpResponse(request)
+    const { event: {preferredEncoding,preferredEncodings}, response } = request
+
+    // Encoding not supported OR already encoded
+    if (!preferredEncoding || response.isBase64Encoded) { return }
 
     let contentLength, readStream
     if (typeof response.body === 'string') {
@@ -50,10 +51,10 @@ const httpContentEncodingMiddleware = (opts) => {
       return
     }
 
-    let contentEncodingStream = contentEncodingStreams[event.preferredEncoding](options[event.preferredEncoding])
-    let contentEncoding = event.preferredEncoding
+    let contentEncodingStream = contentEncodingStreams[preferredEncoding](options[preferredEncoding])
+    let contentEncoding = preferredEncoding
     for (const encoding of options.overridePreferredEncoding) {
-      if (!event.preferredEncodings.includes(encoding)) continue
+      if (!preferredEncodings.includes(encoding)) continue
       contentEncodingStream = contentEncodingStreams[encoding](options[encoding])
       contentEncoding = encoding
       break
@@ -83,8 +84,14 @@ const httpContentEncodingMiddleware = (opts) => {
     }
   }
 
+  const httpContentEncodingMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return httpContentEncodingMiddlewareAfter(request)
+  }
+
   return {
-    after: httpContentEncodingMiddlewareAfter
+    after: httpContentEncodingMiddlewareAfter,
+    onError: httpContentEncodingMiddlewareOnError
   }
 }
 

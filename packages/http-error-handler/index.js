@@ -31,14 +31,18 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     }
 
     if (request.error?.expose) {
-      request.response = normalizeHttpResponse(request.response)
-      request.response.statusCode = request.error?.statusCode
-      request.response.body = request.error?.message
-      request.response.headers['Content-Type'] =
-        typeof jsonSafeParse(request.response.body) === 'string'
-          ? 'text/plain'
-          : 'application/json'
-
+      normalizeHttpResponse(request)
+      request.response = {
+        ...request.response,
+        statusCode: request.error?.statusCode,
+        body: request.error?.message,
+        headers: {
+          ...request.response.headers,
+          'Content-Type': typeof jsonSafeParse(request.response.body) === 'string'
+            ? 'text/plain'
+            : 'application/json'
+        }
+      }
     }
   }
 

@@ -9,11 +9,10 @@ const defaults = {
 const httpResponseSerializerMiddleware = (opts = {}) => {
   const {serializers, defaultContentType} = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (request) => {
-    if (request.response === undefined) return
-    request.response = normalizeHttpResponse(request.response)
+    normalizeHttpResponse(request)
 
     // skip serialization when Content-Type is already set
-    if (request.response?.headers?.['Content-Type']) return
+    if (request.response.headers['Content-Type']) return
 
     // find accept value(s)
     let types
@@ -51,7 +50,11 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
       if (breakTypes) break
     }
   }
-  const httpResponseSerializerMiddlewareOnError = httpResponseSerializerMiddlewareAfter
+
+  const httpResponseSerializerMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return httpResponseSerializerMiddlewareAfter(request)
+  }
   return {
     after: httpResponseSerializerMiddlewareAfter,
     onError: httpResponseSerializerMiddlewareOnError
