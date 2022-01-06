@@ -76,8 +76,8 @@ helmet.hidePoweredBy = (headers, config) => {
   if (config.setTo) {
     headers['X-Powered-By'] = config.setTo
   } else {
-    Reflect.deleteProperty(headers, 'Server')
-    Reflect.deleteProperty(headers, 'X-Powered-By')
+    delete headers['Server']
+    delete headers['X-Powered-By']
   }
   return headers
 }
