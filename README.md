@@ -724,6 +724,9 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 
 #### Version 2.x - 3.x
 - [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
+  - [logger](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/logger): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
+  - [metrics](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/metrics): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
+  - [tracing](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/tracing): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
