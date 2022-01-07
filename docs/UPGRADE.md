@@ -6,20 +6,22 @@ See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
 
 ## Core
-- `onError` middleware stack order reversed to match `after`
+- `onError` middleware stack order reversed to match `after` [Breaking Change]
+  - This change has trickle down effects on middlewares with `onError` (see below for details)
+  - If you're handling errors yourself here are some things to review:
+    - Attach near the end so it is triggered first (likely already done)
+    - Remove `return response`, this will short circuit the response and block later middleware from modifying the response
 - baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
 - `plugin` argument now supports:
   - `internal`: Allow the use of `new Proxy()` for smarter triggering
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit
   - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value
-- Deprecate:
-  - `applyMiddleware()`
-  - `__middlewares`
+- Deprecate `applyMiddleware()` and `__middlewares`  [Breaking Change]
 
 ## Util
 - `getInternal` error now includes `nestedErrors`
 - Catch when `X-Ray` is applied outside of handler invocation scope
-- `normalizeHttpResponse` now takes `request` and mutates response
+- `normalizeHttpResponse` now takes `request` and mutates response [Breaking Change]
 
 ## Middleware
 
@@ -36,16 +38,16 @@ No change
 No change
 
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
-New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
+- New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
 ### [http-content-negotiation](/packages/http-content-negotiation/README.md)
 No change
 
 ### [http-cors](/packages/http-cors/README.md)
-`onError` will not modify response unless error has been handled
+- `onError` will not modify response unless error has been handled
 
 ### [http-error-handler](/packages/http-error-handler/README.md)
-No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
+- No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
 
 ### [http-event-normalizer](/packages/http-event-normalizer/README.md)
 No change
@@ -63,11 +65,11 @@ Change default charset from `binary`/`latin1` to `utf-8`.
 No change
 
 ### [http-response-serializer](/packages/http-response-serializer/README.md)
-`onError` will not modify response unless error has been handled
-Renamed `default` option to `defaultContentType` to improve maintainability
+- Renamed `default` option to `defaultContentType` to improve maintainability [Breaking Change]
+- `onError` will not modify response unless error has been handled
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
-`onError` will not modify response unless error has been handled
+- `onError` will not modify response unless error has been handled
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
 No change
@@ -79,32 +81,32 @@ No change
 No change
 
 ### [rds-signer](/packages/rds-signer/README.md)
-Deprecated `setToEnv` option due to possible security misuse
+- Deprecated `setToEnv` option due to possible security misuse [Breaking Change]
 
 ### s3-key-normalizer
-Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md)
+- Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
 
 ### [s3-object-response](/packages/s3-object-response/README.md)
 No change
 
 ### [secrets-manager](/packages/secrets-manager/README.md)
-Deprecated `setToEnv` option due to possible security misuse
+- Deprecated `setToEnv` option due to possible security misuse [Breaking Change]
 
 ### sqs-json-body-parser
-Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md)
+- Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
 
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
-Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails
+- Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails [Breaking Change]
 
 ### [ssm](/packages/ssm/README.md)
-Deprecated `setToEnv` option
-Not found paths will now throw a proper error
+- Deprecated `setToEnv` option [Breaking Change]
+- Not found paths will now throw a proper error
 
 ### [sts](/packages/sts/README.md)
 No change
 
 ### [validator](/packages/validator/README.md)
-Added in new `i18nEnabled` option
+- Added in new `i18nEnabled` option
 
 ### [warmup](/packages/warmup/README.md)
 No change
