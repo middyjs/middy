@@ -22,7 +22,7 @@
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:lock",
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
-    "lerna:update": "lerna exec --bail --concurrency 5 npm update",
+    "lerna:update": "lerna exec --bail --concurrency 5 npm update && npm install",
     "lerna:outdated": "lerna exec --concurrency 5 npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
     "lerna:sync": "lerna exec --bail --concurrency 2 npm install && lerna publish --yes --skip-npm --skip-git --repo-version $npm_package_version",

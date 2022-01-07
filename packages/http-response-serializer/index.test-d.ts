@@ -8,7 +8,7 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = httpResponseSerializer({
-  default: 'application/json',
+  defaultContentType: 'application/json',
   serializers: [{
     regex: /^application\/xml$/,
     serializer: (data) => data

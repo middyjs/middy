@@ -140,10 +140,6 @@ expectType<Handler>(handler)
 handler = handler.use([middlewareObj])
 expectType<Handler>(handler)
 
-// applyMiddleware
-handler = handler.applyMiddleware(middlewareObj)
-expectType<Handler>(handler)
-
 // before
 handler = handler.before((request: Request) => { console.log('Before', request) })
 expectType<Handler>(handler)
@@ -155,13 +151,6 @@ expectType<Handler>(handler)
 // error
 handler = handler.onError((request: Request) => { console.log('OnError', request) })
 expectType<Handler>(handler)
-
-// check middlewares list
-expectType<{
-  before: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-  after: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-  onError: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-}>(handler.__middlewares)
 
 interface MutableContext extends Context {
   name: string
