@@ -23,7 +23,6 @@ const handler = middy(baseHandler, config)
   .use(inputOutputLoggerMiddleware())
   .use(eventNormalizerMiddleware())
   .use(validatorMiddleware({ inputSchema, outputSchema }))
-  // Start On
   .use(sqsPartialBatchFailureMiddleware())
 
 module.exports = { handler }

@@ -54,7 +54,7 @@
     "@babel/cli": "^7.13.10",
     "@babel/core": "^7.13.13",
     "@babel/preset-env": "^7.13.12",
-    "ava": "^3.15.0",
+    "ava": "^4.0.0",
     "c8": "^7.6.0",
     "eslint-plugin-import": "^2.22.1",
     "husky": "^7.0.0",
