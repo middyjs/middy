@@ -13,6 +13,10 @@ const warmupMiddleware = require('warmup')
 const inputSchema = require('./requestEvent.json')
 const outputSchema = require('./response.json')
 
+const baseHandler = () => {
+  return true
+}
+
 const config = {
   timeoutEarlyInMillis: 50
 }
