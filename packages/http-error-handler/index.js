@@ -9,6 +9,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpErrorHandlerMiddlewareOnError = async (request) => {
+    if (request.response !== undefined) return
     if (typeof options.logger === 'function') {
       options.logger(request.error)
     }
