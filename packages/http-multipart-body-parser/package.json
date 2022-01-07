@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.5.4",
+    "@middy/util": "2.5.4",
     "busboy": "1.0.0"
   },
   "devDependencies": {

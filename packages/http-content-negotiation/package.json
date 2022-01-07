@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^2.5.4",
+    "@middy/util": "2.5.4",
     "negotiator": "0.6.2"
   },
   "devDependencies": {
