@@ -17,4 +17,4 @@ const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
     onError: options.runOnError ? doNotWaitForEmptyEventLoop : undefined
   }
 }
-module.exports = doNotWaitForEmptyEventLoopMiddleware
+export default doNotWaitForEmptyEventLoopMiddleware

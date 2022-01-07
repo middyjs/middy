@@ -92,4 +92,4 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = httpHeaderNormalizerMiddleware
+export default httpHeaderNormalizerMiddleware

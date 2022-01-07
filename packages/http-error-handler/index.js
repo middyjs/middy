@@ -1,4 +1,4 @@
-const { jsonSafeParse, normalizeHttpResponse } = require('@middy/util')
+import { jsonSafeParse, normalizeHttpResponse } from '@middy/util'
 
 const defaults = {
   logger: console.error,
@@ -52,4 +52,4 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     onError: httpErrorHandlerMiddlewareOnError
   }
 }
-module.exports = httpErrorHandlerMiddleware
+export default httpErrorHandlerMiddleware

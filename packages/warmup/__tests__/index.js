@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const warmup = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import warmup from '../index.js'
 
 test('Should exit with \'warmup\' if provided warmup check function is provide and returns true', async (t) => {
   const handler = middy((event, context) => {})

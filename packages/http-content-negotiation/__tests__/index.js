@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpContentNegotiation = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpContentNegotiation from '../index.js'
 
 test('It should parse charset, encoding, language and media type', async (t) => {
   const handler = middy((event, context) => event)
@@ -270,9 +270,9 @@ test('It should fail when mismatching', async (t) => {
 
   try {
     await handler(event)
-  } catch (err) {
+  } catch (e) {
     t.is(
-      err.message,
+      e.message,
       'Unsupported MediaType. Acceptable values: text/plain, text/x-dvi'
     )
   }

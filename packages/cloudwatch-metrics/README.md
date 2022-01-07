@@ -58,8 +58,8 @@ npm install --save @middy/cloudwatch-metrics
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const cloudwatchMetrics = require('@middy/cloudwatch-metrics')
+import middy from '@middy/core'
+import cloudwatchMetrics from '@middy/cloudwatch-metrics'
 
 const handler = middy((event, context) => {
     context.metrics.putMetric("ProcessingLatency", 100, "Milliseconds");

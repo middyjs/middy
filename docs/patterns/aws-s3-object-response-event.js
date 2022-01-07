@@ -2,15 +2,15 @@
  * Trigger Lambda from AWS Event
  * S3 Object: https://docs.aws.amazon.com/lambda/latest/dg/services-s3-object-lambda.html
  **/
-const middy = require('@middy/core')
-const errorLoggerMiddleware = require('@middy/error-logger')
-const inputOutputLoggerMiddleware = require('@middy/input-output-logger')
-const s3ObjectResponseMiddleware = require('@middy/s3-object-response')
-const validatorMiddleware = require('validator') // or `middy-ajv`
-const warmupMiddleware = require('warmup')
+import middy from '@middy/core'
+import errorLoggerMiddleware from '@middy/error-logger'
+import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import s3ObjectResponseMiddleware from '@middy/s3-object-response'
+import validatorMiddleware from 'validator' // or `middy-ajv`
+import warmupMiddleware from 'warmup'
 
-const inputSchema = require('./requestEvent.json')
-const outputSchema = require('./response.json')
+import inputSchema from './requestEvent.json' assert { type: 'json' }
+import outputSchema from './response.json' assert { type: 'json' }
 
 const baseHandler = async (event, context) => {
   const body = await context.s3Object
@@ -32,4 +32,4 @@ const handler = middy(baseHandler, config)
     bodyType: 'promise'
   }))
 
-module.exports = { handler }
+export default { handler }

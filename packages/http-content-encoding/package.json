@@ -2,7 +2,7 @@
   "name": "@middy/http-content-encoding",
   "version": "2.5.0",
   "description": "Http content encoding middleware for the middy framework",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=12"
   },
@@ -10,7 +10,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "index.js",
+  "exports": "./index.js",
   "types": "index.d.ts",
   "files": [
     "index.d.ts"

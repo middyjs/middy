@@ -10,4 +10,4 @@ const httpUrlencodePathParserMiddlewareBefore = async (request) => {
 const httpUrlencodePathParserMiddleware = () => ({
   before: httpUrlencodePathParserMiddlewareBefore
 })
-module.exports = httpUrlencodePathParserMiddleware
+export default httpUrlencodePathParserMiddleware

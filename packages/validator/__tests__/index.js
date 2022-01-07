@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const validator = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import validator from '../index.js'
 
 test('It should validate an incoming object', async (t) => {
   const handler = middy((event, context) => {
@@ -90,9 +90,9 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
   try {
     await handler(event)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -145,9 +145,9 @@ test('It should handle invalid schema as a BadRequest in a different language', 
 
     try {
       await handler(event)
-    } catch (err) {
-      t.is(err.message, 'Event object failed validation')
-      t.deepEqual(err.details, [
+    } catch (e) {
+      t.is(e.message, 'Event object failed validation')
+      t.deepEqual(e.details, [
         {
           instancePath: '',
           keyword: 'required',
@@ -194,9 +194,9 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   try {
     await handler(event)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -392,9 +392,9 @@ test('It should error when unsupported keywords used (output)', async (t) => {
 
   try {
     await handler({ foo: 'a' })
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [{
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [{
       instancePath: '',
       keyword: 'errorMessage',
       params: {

@@ -1,4 +1,4 @@
-const { normalizeHttpResponse } = require('@middy/util')
+import { normalizeHttpResponse } from '@middy/util'
 
 const getOrigin = (incomingOrigin, options) => {
   if (options?.origins.length > 0) {
@@ -123,4 +123,4 @@ const httpCorsMiddleware = (opts = {}) => {
     onError: httpCorsMiddlewareOnError
   }
 }
-module.exports = httpCorsMiddleware
+export default httpCorsMiddleware

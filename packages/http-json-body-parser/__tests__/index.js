@@ -1,7 +1,7 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const jsonBodyParser = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import jsonBodyParser from '../index.js'
 
 test('It should parse a JSON request', async (t) => {
   const handler = middy((event, context) => {
@@ -104,9 +104,9 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
 
   try {
     await handler(event)
-  } catch (err) {
+  } catch (e) {
     t.is(
-      err.message,
+      e.message,
       'Content type defined as JSON but an invalid JSON was provided'
     )
   }
@@ -172,9 +172,9 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
 
   try {
     await handler(event)
-  } catch (err) {
+  } catch (e) {
     t.is(
-      err.message,
+      e.message,
       'Content type defined as JSON but an invalid JSON was provided'
     )
   }

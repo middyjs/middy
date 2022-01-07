@@ -1,4 +1,4 @@
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient,
@@ -7,9 +7,9 @@ const {
   modifyCache,
   jsonSafeParse,
   getInternal
-} = require('@middy/util')
-const AWSService = require('aws-sdk/clients/aws-service') // v2
-// const { AWSService } = require('@aws-sdk/client-aws-service')  // v3
+} from '@middy/util'
+import AWSService from 'aws-sdk/clients/aws-service.js' // v2
+// import { AWSService } from '@aws-sdk/client-aws-service'  // v3
 
 const defaults = {
   AwsClient: AWSService,
@@ -73,4 +73,4 @@ const awsServiceMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = awsServiceMiddleware
+export default awsServiceMiddleware

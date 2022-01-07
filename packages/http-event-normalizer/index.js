@@ -34,4 +34,4 @@ const isHttpEvent = (payloadFormatVersion, event) => {
   )
 }
 
-module.exports = httpEventNormalizerMiddleware
+export default httpEventNormalizerMiddleware

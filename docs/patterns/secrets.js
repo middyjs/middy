@@ -1,12 +1,12 @@
 /**
  * Pull Secrets or Configuration details from AWS services
  */
-const middy = require('@middy/core')
-const { getInternal } = require('@middy/util')
-const rdsSignerMiddleware = require('@middy/rds-signer')
-const secretsManagerMiddleware = require('@middy/secrets-manager')
-const ssmMiddleware = require('@middy/ssm')
-const stsMiddleware = require('@middy/sts')
+import middy from '@middy/core'
+import { getInternal } from '@middy/util'
+import rdsSignerMiddleware from '@middy/rds-signer'
+import secretsManagerMiddleware from '@middy/secrets-manager'
+import ssmMiddleware from '@middy/ssm'
+import stsMiddleware from '@middy/sts'
 
 const baseHandler = (event) => {
   return Promise.allSettled(event.Records.map(async (record) => record))
@@ -52,4 +52,4 @@ const handler = middy(baseHandler)
     request.context.secrets = await getInternal(true, request)
   })
 
-module.exports = { handler }
+export default { handler }

@@ -147,7 +147,7 @@ const runMiddlewares = async (request, middlewares, plugin) => {
 }
 
 // Start Polyfill (node v14)
-const { AbortController } = require('node-abort-controller')
+import { AbortController } from 'node-abort-controller'
 
 const setTimeoutPromise = (ms, { signal }) => {
   if (signal?.aborted) {
@@ -167,7 +167,7 @@ const setTimeoutPromise = (ms, { signal }) => {
   })
 }
 // Replace Polyfill
-// const {setTimeout} = require('timers/promises')
+// import {setTimeout} from 'timers/promises'
 // End Polyfill
 
-module.exports = middy
+export default middy

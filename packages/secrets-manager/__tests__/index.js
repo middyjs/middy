@@ -1,10 +1,10 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../util/index.js')
-const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
-// const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
-const secretsManager = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import { getInternal, clearCache } from '../../util/index.js'
+import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
+// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+import secretsManager from '../index.js'
 
 let sandbox
 test.beforeEach((t) => {

@@ -2,24 +2,24 @@
  * Trigger Lambda from AWS Event
  * API Gateway: https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html
  **/
-const middy = require('@middy/core')
-const errorLoggerMiddleware = require('@middy/error-logger')
-const inputOutputLoggerMiddleware = require('@middy/input-output-logger')
-const httpContentNegotiationMiddleware = require('@middy/http-content-negotiation')
-const httpContentEncodingMiddleware = require('@middy/http-content-encoding')
-const httpCorsMiddleware = require('@middy/http-cors')
-const httpErrorHandlerMiddleware = require('@middy/http-error-handler')
-const httpEventNormalizerMiddleware = require('@middy/http-event-normalizer')
-const httpHeaderNormalizerMiddleware = require('@middy/http-header-normalizer')
-const httpJsonBodyParserMiddleware = require('@middy/http-json-body-parser')
-const httpMultipartBodyParserMiddleware = require('@middy/http-multipart-body-parser')
-const httpPartialResponseMiddleware = require('@middy/http-partial-response')
-const httpResponseSerializerMiddleware = require('@middy/http-response-serializer')
-const httpSecurityHeadersMiddleware = require('@middy/http-security-headers')
-const httpUrlencodeBodyParserMiddleware = require('@middy/http-urlencode-body-parser')
-const httpUrlencodePathParametersParserMiddleware = require('@middy/http-urlencode-path-parser')
-const validatorMiddleware = require('validator') // or `middy-ajv`
-const warmupMiddleware = require('warmup')
+import middy from '@middy/core'
+import errorLoggerMiddleware from '@middy/error-logger'
+import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
+import httpContentEncodingMiddleware from '@middy/http-content-encoding'
+import httpCorsMiddleware from '@middy/http-cors'
+import httpErrorHandlerMiddleware from '@middy/http-error-handler'
+import httpEventNormalizerMiddleware from '@middy/http-event-normalizer'
+import httpHeaderNormalizerMiddleware from '@middy/http-header-normalizer'
+import httpJsonBodyParserMiddleware from '@middy/http-json-body-parser'
+import httpMultipartBodyParserMiddleware from '@middy/http-multipart-body-parser'
+import httpPartialResponseMiddleware from '@middy/http-partial-response'
+import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
+import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
+import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
+import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
+import validatorMiddleware from 'validator' // or `middy-ajv`
+import warmupMiddleware from 'warmup'
 
 const baseHandler = () => {
   return {
@@ -28,8 +28,8 @@ const baseHandler = () => {
   }
 }
 
-const inputSchema = require('./requestEvent.json')
-const outputSchema = require('./response.json')
+import inputSchema from './requestEvent.json' assert { type: 'json' }
+import outputSchema from './response.json' assert { type: 'json' }
 
 const config = {
   timeoutEarlyInMillis: 50,
@@ -76,4 +76,4 @@ const handler = middy(baseHandler, config)
   .use(validatorMiddleware({ inputSchema, outputSchema }))
   .use(httpErrorHandlerMiddleware())
 
-module.exports = { handler }
+export default { handler }

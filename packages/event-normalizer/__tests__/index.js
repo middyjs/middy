@@ -1,6 +1,6 @@
-const test = require('ava')
-const createEvent = require('@serverless/event-mocks')
-const eventNormalizer = require('../index.js')
+import test from 'ava'
+import createEvent from '@serverless/event-mocks'
+import eventNormalizer from '../index.js'
 
 test.serial('It should skip when empty event', async (t) => {
   const request = { event: {} }

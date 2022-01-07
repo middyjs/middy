@@ -1,4 +1,4 @@
-const { normalizeHttpResponse } = require('@middy/util')
+import { normalizeHttpResponse } from '@middy/util'
 
 const defaults = {
   logger: console.log // example
@@ -34,4 +34,4 @@ const basicMiddleware = (opts) => {
   }
 }
 
-module.exports = basicMiddleware
+export default basicMiddleware

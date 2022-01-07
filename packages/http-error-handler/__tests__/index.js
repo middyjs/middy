@@ -1,9 +1,9 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const httpErrorHandler = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import httpErrorHandler from '../index.js'
 
-const { createError } = require('../../util/index.js')
+import { createError } from '../../util/index.js'
 
 // Silence logging
 // console.error = () => {}

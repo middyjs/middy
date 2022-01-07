@@ -2,7 +2,7 @@
   "name": "@middy/plugin",
   "version": "2.0.0",
   "description": "Performance profiling plugins for middy",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=14"
   },

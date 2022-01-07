@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const urlEncodeBodyParser = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import urlEncodeBodyParser from '../index.js'
 
 test('It should decode complex url encoded requests', async (t) => {
   const handler = middy((event, context) => {

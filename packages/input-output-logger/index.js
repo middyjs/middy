@@ -76,4 +76,4 @@ const deleteKey = (obj, key) => {
   return obj
 }
 
-module.exports = inputOutputLoggerMiddleware
+export default inputOutputLoggerMiddleware

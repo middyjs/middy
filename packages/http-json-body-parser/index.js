@@ -1,3 +1,4 @@
+import { createError } from '@middy/util'
 const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
 const defaults = {
@@ -19,8 +20,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 
         request.event.rawBody = body
         request.event.body = JSON.parse(data, options.reviver)
-      } catch (err) {
-        const { createError } = require('@middy/util')
+      } catch (e) {
         // UnprocessableEntity
         throw createError(422, 'Content type defined as JSON but an invalid JSON was provided')
       }
@@ -31,4 +31,4 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
     before: httpJsonBodyParserMiddlewareBefore
   }
 }
-module.exports = httpJsonBodyParserMiddleware
+export default httpJsonBodyParserMiddleware

@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpHeaderNormalizer = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpHeaderNormalizer from '../index.js'
 
 // Headers
 

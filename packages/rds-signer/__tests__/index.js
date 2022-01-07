@@ -1,10 +1,11 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../util/index.js')
-const { Signer } = require('aws-sdk/clients/rds.js') // v2
-// const {RDS:{Signer}} = require('@aws-sdk/client-rds') // v3
-const rdsSigner = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import { getInternal, clearCache } from '../../util/index.js'
+import RDS from 'aws-sdk/clients/rds.js' // v2
+const Signer = RDS.Signer
+// import {RDS:{Signer}} from '@aws-sdk/client-rds' // v3
+import rdsSigner from '../index.js'
 
 let sandbox
 test.beforeEach((t) => {
@@ -226,7 +227,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 //     try {
 //       await handler()
 //     } catch(e) {
-//       t.is( e.message, 'X-Amz-Security-Token Missing')
+//       t.is(e.message, 'X-Amz-Security-Token Missing')
 //     }
 //     t.is(stub.callCount, 1)
 //   }

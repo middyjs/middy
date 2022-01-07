@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpMultipartBodyParser = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpMultipartBodyParser from '../index.js'
 
 test('It should parse a non-file field from a multipart/form-data request', async (t) => {
   const handler = middy((event, context) => {

@@ -1,16 +1,13 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpEventNormalizer = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpEventNormalizer from '../index.js'
 
-const handlerRestApi = middy((event, context) => event).use(
-  httpEventNormalizer()
-)
-const handlerHttpApi = middy((event, context) => event).use(
-  httpEventNormalizer({ payloadFormatVersion: 2 })
-)
-const handlerNextGenApi = middy((event, context) => event).use(
-  httpEventNormalizer({ payloadFormatVersion: 3 })
-)
+const handlerRestApi = middy((event, context) => event)
+  .use(httpEventNormalizer({ payloadFormatVersion: 1 }))
+const handlerHttpApi = middy((event, context) => event)
+  .use(httpEventNormalizer({ payloadFormatVersion: 2 }))
+const handlerNextGenApi = middy((event, context) => event)
+  .use(httpEventNormalizer({ payloadFormatVersion: 3 }))
 
 test('It should throw error when invalid version', async (t) => {
   const nonEvent = {
@@ -160,3 +157,4 @@ test('It should not overwrite pathParameters with HTTP API', async (t) => {
 
   t.deepEqual(normalizedEvent.pathParameters, { param: '123' })
 })
+

@@ -117,7 +117,7 @@ handler
   }))
   .use(httpErrorHandler())
 
-module.exports = { handler }
+export default { handler }
 ```
 
 

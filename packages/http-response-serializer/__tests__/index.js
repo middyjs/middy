@@ -1,9 +1,9 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const { createError } = require('../../util/index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import { createError } from '../../util/index.js'
 
-const httpErrorHandler = require('../../http-error-handler/index.js')
-const httpResponseSerializer = require('../index.js')
+import httpErrorHandler from '../../http-error-handler/index.js'
+import httpResponseSerializer from '../index.js'
 
 const standardConfiguration = {
   serializers: [

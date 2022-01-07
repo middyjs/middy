@@ -1,4 +1,6 @@
-const BusBoy = require('busboy')
+import BusBoy from 'busboy'
+import { createError } from '@middy/util'
+
 const mimePattern = /^multipart\/form-data(;.*)?$/
 const fieldnamePattern = /(.+)\[(.*)]$/
 
@@ -22,7 +24,6 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         request.event.body = multipartData
       })
       .catch((e) => {
-        const { createError } = require('@middy/util')
         // UnprocessableEntity
         throw createError(422, 'Invalid or malformed multipart/form-data was provided - ' + e.message)
       })
@@ -74,10 +75,10 @@ const parseMultipartData = (event, options) => {
         }
       })
       .on('close', () => resolve(multipartData))
-      .on('error', (err) => reject(err))
+      .on('error', (e) => reject(e))
 
     bb.write(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
     bb.end()
   })
 }
-module.exports = httpMultipartBodyParserMiddleware
+export default httpMultipartBodyParserMiddleware

@@ -23,4 +23,4 @@ const errorHandlerMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = errorHandlerMiddleware
+export default errorHandlerMiddleware

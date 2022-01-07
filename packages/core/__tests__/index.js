@@ -1,6 +1,6 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../index.js'
 
 // Middleware structure
 test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError"', async (t) => {

@@ -1,8 +1,8 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const awsEmbeddedMetrics = require('aws-embedded-metrics')
-const metrics = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import awsEmbeddedMetrics from 'aws-embedded-metrics'
+import metrics from '../index.js'
 
 const sandbox = sinon.createSandbox()
 const flushStub = sandbox.stub()

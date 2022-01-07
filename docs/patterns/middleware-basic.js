@@ -32,4 +32,4 @@ const basicMiddleware = (opts) => {
   }
 }
 
-module.exports = basicMiddleware
+export default basicMiddleware
