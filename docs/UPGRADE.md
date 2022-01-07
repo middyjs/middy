@@ -16,7 +16,7 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
 - [ ] `config` argument now supports:
   - `internal`: Allow the use of `new Proxy()` for smarter triggering
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit
-  - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value
+  - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
 - Deprecate `applyMiddleware()` and `__middlewares`  [Breaking Change]
 
 ## Util
