@@ -18,7 +18,8 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const instance = (event = {}, context = {}) => {
+  // pattern to allow terser to compress
+  const lambdaHandler = (event = {}, context = {}) => {
     plugin?.requestStart?.()
     const request = {
       event,
@@ -37,47 +38,42 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
       plugin
     )
   }
-
-  instance.use = (middlewares) => {
-    if (!Array.isArray(middlewares)) {
-      middlewares = [middlewares]
-    }
-    for (const middleware of middlewares) {
-      const { before, after, onError } = middleware
-
-      if (!before && !after && !onError) {
-        throw new Error(
-          'Middleware must be an object containing at least one key among "before", "after", "onError"'
-        )
+  return Object.assign(lambdaHandler, {
+    use (middlewares) {
+      if (!Array.isArray(middlewares)) {
+        middlewares = [middlewares]
       }
+      for (const middleware of middlewares) {
+        const { before, after, onError } = middleware
 
-      if (before) instance.before(before)
-      if (after) instance.after(after)
-      if (onError) instance.onError(onError)
+        if (!before && !after && !onError) {
+          throw new Error(
+            'Middleware must be an object containing at least one key among "before", "after", "onError"'
+          )
+        }
+
+        if (before) this.before(before)
+        if (after) this.after(after)
+        if (onError) this.onError(onError)
+      }
+      return this
+    },
+    before (beforeMiddleware) {
+      beforeMiddlewares.push(beforeMiddleware)
+      return this
+    },
+    after (afterMiddleware) {
+      afterMiddlewares.unshift(afterMiddleware)
+      return this
+    },
+    onError (onErrorMiddleware) {
+      onErrorMiddlewares.unshift(onErrorMiddleware)
+      return this
     }
-    return instance
-  }
-
-  // Inline Middlewares
-  instance.before = (beforeMiddleware) => {
-    beforeMiddlewares.push(beforeMiddleware)
-    return instance
-  }
-  instance.after = (afterMiddleware) => {
-    afterMiddlewares.unshift(afterMiddleware)
-    return instance
-  }
-  instance.onError = (onErrorMiddleware) => {
-    onErrorMiddlewares.unshift(onErrorMiddleware)
-    return instance
-  }
-  /*
-  instance.handler = (replaceBaseHandler) => {
-    baseHandler = replaceBaseHandler
-  }
-  */
-
-  return instance
+    // handler (replaceBaseHandler) => {
+    //   baseHandler = replaceBaseHandler
+    // }
+  })
 }
 
 const runRequest = async (
@@ -133,6 +129,7 @@ const runRequest = async (
   return request.response
 }
 
+// Called more than once, breaks terser :( https://github.com/terser/terser/issues/977
 const runMiddlewares = async (request, middlewares, plugin) => {
   for (const nextMiddleware of middlewares) {
     plugin?.beforeMiddleware?.(nextMiddleware?.name)
