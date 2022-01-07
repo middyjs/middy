@@ -3,9 +3,9 @@ import sinon from 'sinon'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
 import RDS from 'aws-sdk/clients/rds.js' // v2
-const Signer = RDS.Signer
 // import {RDS:{Signer}} from '@aws-sdk/client-rds' // v3
 import rdsSigner from '../index.js'
+const Signer = RDS.Signer
 
 let sandbox
 test.beforeEach((t) => {

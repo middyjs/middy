@@ -2,10 +2,9 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpContentEncoding from '../index.js'
 
-import { Readable, Writable } from 'stream'
+import { Readable, Writable, pipeline as pipelineCallback } from 'stream'
 import { brotliCompressSync, gzipSync, deflateSync } from 'zlib'
 import { promisify } from 'util'
-import { pipeline as pipelineCallback } from 'stream'
 const pipeline = promisify(pipelineCallback)
 
 const compressibleBody = JSON.stringify(new Array(100).fill(0))

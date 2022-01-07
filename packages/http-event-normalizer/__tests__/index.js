@@ -157,4 +157,3 @@ test('It should not overwrite pathParameters with HTTP API', async (t) => {
 
   t.deepEqual(normalizedEvent.pathParameters, { param: '123' })
 })
-

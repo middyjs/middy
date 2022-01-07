@@ -10,8 +10,8 @@ import sqsPartialBatchFailureMiddleware from '@middy/sqs-partial-batch-failure-m
 import validatorMiddleware from 'validator' // or `middy-ajv`
 import warmupMiddleware from 'warmup'
 
-import inputSchema from './requestEvent.json' assert { type: 'json' }
-import outputSchema from './response.json' assert { type: 'json' }
+import inputSchema from './requestEvent.json' // assert { type: 'json' }
+import outputSchema from './response.json' // assert { type: 'json' }
 
 const baseHandler = () => {
   return true

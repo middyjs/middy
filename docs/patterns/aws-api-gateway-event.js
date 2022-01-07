@@ -21,15 +21,15 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator' // or `middy-ajv`
 import warmupMiddleware from 'warmup'
 
+import inputSchema from './requestEvent.json' // assert { type: 'json' }
+import outputSchema from './response.json' // assert { type: 'json' }
+
 const baseHandler = () => {
   return {
     statusCode: 200,
     body: { hello: 'world' }
   }
 }
-
-import inputSchema from './requestEvent.json' assert { type: 'json' }
-import outputSchema from './response.json' assert { type: 'json' }
 
 const config = {
   timeoutEarlyInMillis: 50,

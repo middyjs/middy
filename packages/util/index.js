@@ -1,4 +1,8 @@
 import { Agent } from 'https'
+
+// smaller version of `http-errors`
+import statuses from './codes.js'
+import { inherits } from 'util'
 // import { NodeHttpHandler } from '@aws-sdk/node-http-handler' // aws-sdk v3
 
 export const awsClientDefaultOptions = {
@@ -186,10 +190,6 @@ export const normalizeHttpResponse = (request) => {
   request.response = response
   return response
 }
-
-// smaller version of `http-errors`
-import statuses from './codes.js'
-import { inherits } from 'util'
 
 const createErrorRegexp = /[^a-zA-Z]/g
 export const createError = (code, message, properties = {}) => {

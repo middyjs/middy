@@ -23,7 +23,6 @@ const defaults = {
   __https
 }
 
-
 let https = __https
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }

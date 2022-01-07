@@ -1,7 +1,7 @@
-import DynamoDB from 'aws-sdk/clients/dynamodb.js' // v2
-const { unmarshall } = DynamoDB.Converter
+import DynamoDB from 'aws-sdk/clients/dynamodb.js'
 // import { unmarshall } from '@aws-sdk/util-dynamodb' // v3
-import { jsonSafeParse } from '@middy/util'
+import { jsonSafeParse } from '@middy/util' // v2
+const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
   const eventNormalizerMiddlewareBefore = async (request) => {

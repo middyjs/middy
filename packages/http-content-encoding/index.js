@@ -4,16 +4,15 @@
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
-import { Readable, Writable } from 'stream'
+import { Readable, Writable, pipeline as pipelineCallback } from 'stream'
 // import {pipeline} from 'stream/promises'  // available in node >=15
 import { promisify } from 'util'
-import { pipeline as pipelineCallback } from 'stream'
-const pipeline = promisify(pipelineCallback)
 
 import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
 // import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
 
 import { normalizeHttpResponse } from '@middy/util'
+const pipeline = promisify(pipelineCallback)
 
 const contentEncodingStreams = {
   br: (opts = {}) => createBrotliCompress(opts),
