@@ -594,7 +594,7 @@ with type definitions that should give TypeScript users a good experience. There
 See `devDependencies` for each middleware for list of dependencies that may be required with transpiling TypeScript.
 
 ## Common Patterns and Best Practice
-Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
+Tips and tricks to ensure you don't hit any performance or security issues. We've included a [collection of patterns](https://github.com/middyjs/middy/tree/main/docs/patterns) that can help you get started. Did we miss something? Let us know.
 
 ### ENV variables
 Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse
