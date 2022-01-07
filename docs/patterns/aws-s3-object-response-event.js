@@ -4,7 +4,6 @@
  **/
 const middy = require('@middy/core')
 const errorLoggerMiddleware = require('@middy/error-logger')
-//const eventNormalizerMiddleware = require('@middy/event-normalizer')
 const inputOutputLoggerMiddleware = require('@middy/input-output-logger')
 const s3ObjectResponseMiddleware = require('@middy/s3-object-response')
 const validatorMiddleware = require('validator') // or `middy-ajv`
@@ -24,11 +23,9 @@ const handler = middy(baseHandler)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())
-  //.use(eventNormalizerMiddleware())
   .use(validatorMiddleware({ inputSchema, outputSchema }))
   .use(s3ObjectResponseMiddleware({
     bodyType: 'promise'
-  })
-)
+  }))
 
 module.exports = { handler }

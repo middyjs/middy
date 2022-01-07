@@ -19,7 +19,7 @@ middleware = httpCors({
   requestMethods: 'POST', // Access-Control-Request-Methods
   cacheControl: 'proxy-revalidate', // Cache-Control,
   getOrigin: (incomingOrigin: string, options: Options) => {
-    return "foo.bar.com"
+    return 'foo.bar.com'
   }
 })
 expectType<middy.MiddlewareObj>(middleware)

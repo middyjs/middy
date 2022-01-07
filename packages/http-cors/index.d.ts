@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 export interface Options {
-  getOrigin?: (incomingOrigin: string, options: Options) => string;
+  getOrigin?: (incomingOrigin: string, options: Options) => string
   credentials?: boolean | string
   headers?: string
   methods?: string

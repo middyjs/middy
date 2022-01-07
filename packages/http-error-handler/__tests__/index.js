@@ -216,7 +216,7 @@ test('It should allow later middleware to modify the response', async (t) => {
     body: 'Unprocessable Entity',
     headers: {
       'Content-Type': 'text/plain',
-      'X-DNS-Prefetch-Control':'off'
+      'X-DNS-Prefetch-Control': 'off'
     }
   })
 })

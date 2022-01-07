@@ -75,7 +75,6 @@ const httpContentEncodingMiddleware = (opts) => {
         response.headers['Content-Encoding'] = contentEncoding
         response.body = body
         response.isBase64Encoded = true
-
       }
     } else if (isReadableStream(response.body)) {
       // Note: body to not cast to string to allow stream chaining
@@ -102,6 +101,5 @@ const isReadableStream = (stream) =>
   stream.readable !== false &&
   typeof stream._read === 'function' &&
   typeof stream._readableState === 'object'
-
 
 module.exports = httpContentEncodingMiddleware

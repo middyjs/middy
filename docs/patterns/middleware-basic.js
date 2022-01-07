@@ -1,6 +1,6 @@
 
 const defaults = {
-
+  logger: console.log // example
 }
 
 const basicMiddleware = (opts) => {
@@ -9,6 +9,9 @@ const basicMiddleware = (opts) => {
   const basicMiddlewareBefore = async (request) => {
     const { event, context } = request
     // ...
+    if (typeof options.logger === 'function') {
+      options.logger(event, context)
+    }
   }
 
   const basicMiddlewareAfter = async (request) => {
