@@ -31,7 +31,16 @@ const baseHandler = () => {
 const inputSchema = require('./requestEvent.json')
 const outputSchema = require('./response.json')
 
-const handler = middy(baseHandler)
+const config = {
+  timeoutEarlyInMillis: 50,
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+}
+
+const handler = middy(baseHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())

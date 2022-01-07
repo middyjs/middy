@@ -13,11 +13,11 @@ const warmupMiddleware = require('warmup')
 const inputSchema = require('./requestEvent.json')
 const outputSchema = require('./response.json')
 
-const baseHandler = () => {
-  return true
+const config = {
+  timeoutEarlyInMillis: 50
 }
 
-const handler = middy(baseHandler)
+const handler = middy(baseHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())

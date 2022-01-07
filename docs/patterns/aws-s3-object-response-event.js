@@ -19,7 +19,11 @@ const baseHandler = async (event, context) => {
   }
 }
 
-const handler = middy(baseHandler)
+const config = {
+  timeoutEarlyInMillis: 50
+}
+
+const handler = middy(baseHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())

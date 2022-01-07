@@ -23,7 +23,11 @@ const baseHandler = () => {
   return true
 }
 
-const handler = middy(baseHandler)
+const config = {
+  timeoutEarlyInMillis: 50
+}
+
+const handler = middy(baseHandler, config)
   .use(cloudWatchMetricsMiddleware())
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
