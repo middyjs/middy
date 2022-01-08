@@ -23,15 +23,15 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Use npm 7.5
+      - name: Use npm 8
         run: |
-          npm install -g npm@7.5
+          npm install -g npm@8
       - name: Install dependencies
         run: |
           npm install
         env:
           CI: true
-      - name: Build as Commonjs for Node.js v14
+      - name: Build as Commonjs for Node.js ${{ matrix.node-version }}
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Unit tests
