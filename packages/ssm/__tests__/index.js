@@ -397,6 +397,6 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     t.true(false)
   } catch (e) {
     t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.nestedErrors, [new Error('ssm.InvalidParameter invalid-ssm-param-name'), new Error('ssm.InvalidParameter another-invalid-ssm-param')])
+    t.deepEqual(e.cause, [new Error('ssm.InvalidParameter invalid-ssm-param-name'), new Error('ssm.InvalidParameter another-invalid-ssm-param')])
   }
 })
