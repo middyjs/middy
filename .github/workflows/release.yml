@@ -16,9 +16,9 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 14.0.0
-      - name: Use npm 7.5
+      - name: Use npm 8
         run: |
-          npm install -g npm@7.5
+          npm install -g npm@8
       - name: Create .npmrc
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-      - name: Build as Commonjs for Node.js v14
+      - name: Build as ESM for Node.js v14
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Release
