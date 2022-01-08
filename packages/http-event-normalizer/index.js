@@ -9,11 +9,11 @@ const httpEventNormalizerMiddleware = (opts = {}) => {
     const { event } = request
 
     if (isHttpEvent(options.payloadFormatVersion, event)) {
-      event.queryStringParameters = event.queryStringParameters ?? {}
-      event.pathParameters = event.pathParameters ?? {}
+      // event.headers ??= {} // Will always have at least on header
+      event.queryStringParameters ??= {}
+      event.pathParameters ??= {}
       if (options.payloadFormatVersion === 1) {
-        event.multiValueQueryStringParameters =
-          event.multiValueQueryStringParameters ?? {}
+        event.multiValueQueryStringParameters ??= {}
       }
     }
   }
@@ -25,9 +25,9 @@ const httpEventNormalizerMiddleware = (opts = {}) => {
 
 const isHttpEvent = (payloadFormatVersion, event) => {
   if (payloadFormatVersion === 1) {
-    return event?.httpMethod !== undefined
+    return event.httpMethod !== undefined
   } else if (payloadFormatVersion === 2) {
-    return event?.requestContext?.http?.method !== undefined
+    return event.requestContext?.http?.method !== undefined
   }
   throw new Error(
     'Unknown API Gateway Payload format. Please use value 1 or 2.'

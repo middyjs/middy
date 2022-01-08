@@ -96,7 +96,7 @@ const httpContentEncodingMiddleware = (opts) => {
 }
 
 const isReadableStream = (stream) =>
-  typeof stream?.pipe === 'function' &&
+  typeof stream.pipe === 'function' &&
   stream.readable !== false &&
   typeof stream._read === 'function' &&
   typeof stream._readableState === 'object'

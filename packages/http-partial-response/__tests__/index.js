@@ -32,6 +32,7 @@ test('It should filter a response with default opts (string)', async (t) => {
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
@@ -48,6 +49,7 @@ test('It should filter a response with default opts (object)', async (t) => {
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
@@ -64,6 +66,7 @@ test('It should filter a response with defined filter key name in opts', async (
   handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
 
   const event = {
+    headers: {},
     queryStringParameters: {
       filter: 'lastname'
     }
@@ -80,6 +83,7 @@ test('It should filter a stringified response with default opts', async (t) => {
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
@@ -95,7 +99,10 @@ test('It should return the initial response if response body is empty', async (t
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.is(response, '')
 })

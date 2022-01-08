@@ -14,7 +14,7 @@ const eventNormalizerMiddleware = () => {
 
 const normalizeS3KeyReplacePlus = /\+/g
 const parseEventRecords = (event) => {
-  const records = event?.Records ?? event?.records // lowercase records is for Kinesis Firehose
+  const records = event.Records ?? event.records // lowercase records is for Kinesis Firehose
   if (!Array.isArray(records)) return
 
   for (const record of records) {

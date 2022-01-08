@@ -63,8 +63,8 @@ export const createClient = async (options, request) => {
   })
 }
 
-export const canPrefetch = (options) => {
-  return !options?.awsClientAssumeRole && !options?.disablePrefetch
+export const canPrefetch = (options = {}) => {
+  return !options.awsClientAssumeRole && !options.disablePrefetch
 }
 
 // Internal Context
@@ -88,7 +88,7 @@ export const getInternal = async (variables, request) => {
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
     let valuePromise = request.internal[rootOptionKey]
-    if (typeof valuePromise?.then !== 'function') {
+    if (typeof valuePromise.then !== 'function') {
       valuePromise = Promise.resolve(valuePromise)
     }
     promises.push(
@@ -127,7 +127,7 @@ export const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
-    const unexpired = cached && (cacheExpiry < 0 || cached.expiry > Date.now())
+    const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
@@ -151,6 +151,7 @@ export const processCache = (options, fetch = () => undefined, request) => {
 }
 
 export const getCache = (key) => {
+  if (!cache[key]) return {}
   return cache[key]
 }
 

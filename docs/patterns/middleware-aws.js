@@ -36,7 +36,7 @@ const awsServiceMiddleware = (opts = {}) => {
         .promise() // Required for aws-sdk v2
         .then((resp) => jsonSafeParse(resp.ValueString)) // <--
         .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
+          const value = getCache(options.cacheKey).value ?? {}
           value[internalKey] = undefined
           modifyCache(options.cacheKey, value)
           throw e

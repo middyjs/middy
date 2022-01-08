@@ -39,7 +39,10 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
 
     handler.use(httpResponseSerializer(standardConfiguration))
 
-    const response = await handler()
+    const event = {
+      headers: {}
+    }
+    const response = await handler(event)
 
     t.is(response, handlerResponse)
   })
@@ -108,7 +111,10 @@ test('It should use the defaultContentType when no accept preferences are given'
 
   handler.use(httpResponseSerializer(standardConfiguration))
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -137,7 +143,10 @@ test('It should allow the return of the entire response', async (t) => {
     })
   )
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -183,7 +192,10 @@ test('It should use `event.preferredContentType` instead of the defaultContentTy
 
   handler.use(httpResponseSerializer(standardConfiguration))
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -203,7 +215,10 @@ test('It should pass-through when no preference or defaultContentType is found',
     })
   )
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -253,7 +268,10 @@ test('It should replace the response object when the serializer returns an objec
     })
   )
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 204,
@@ -273,7 +291,10 @@ test('It should work with `http-error-handler` middleware', async (t) => {
     .use(httpResponseSerializer(standardConfiguration))
     .use(httpErrorHandler({ logger: false }))
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event)
 
   t.deepEqual(response, {
     statusCode: 422,
@@ -291,8 +312,11 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
 
   handler.use(httpResponseSerializer(standardConfiguration))
 
+  const event = {
+    headers: {}
+  }
   try {
-    await handler()
+    await handler(event)
   } catch (e) {
     t.deepEqual(e.message, 'test')
   }

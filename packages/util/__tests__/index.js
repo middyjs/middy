@@ -200,7 +200,7 @@ test.serial('processCache should not cache', async (t) => {
   }
   util.processCache(options, fetch, cacheRequest)
   const cache = util.getCache('key')
-  t.is(cache, undefined)
+  t.deepEqual(cache, {})
   util.clearCache()
 })
 
@@ -212,8 +212,8 @@ test.serial('processCache should cache forever', async (t) => {
   }
   util.processCache(options, fetch, cacheRequest)
   await delay(100)
-  const cacheValue = util.getCache('key')
-  t.not(cacheValue, undefined)
+  const cacheValue = util.getCache('key').value
+  t.is(await cacheValue, 'value')
   const { value, cache } = util.processCache(options, fetch, cacheRequest)
   t.is(await value, 'value')
   t.true(cache)
@@ -255,7 +255,6 @@ test.serial(
     }
     try {
       await util.getInternal(true, request)
-      t.true(false)
     } catch (e) {
       let cache = util.getCache(options.cacheKey)
 
@@ -315,8 +314,8 @@ test.serial('processCache should clear single key cache', async (t) => {
     cacheRequest
   )
   util.clearCache('other')
-  t.not(util.getCache('key'), undefined)
-  t.is(util.getCache('other'), undefined)
+  t.not(util.getCache('key').value, undefined)
+  t.deepEqual(util.getCache('other'), {})
   util.clearCache()
 })
 
@@ -339,8 +338,8 @@ test.serial('processCache should clear multi key cache', async (t) => {
     cacheRequest
   )
   util.clearCache(['key', 'other'])
-  t.is(util.getCache('key'), undefined)
-  t.is(util.getCache('other'), undefined)
+  t.deepEqual(util.getCache('key'), {})
+  t.deepEqual(util.getCache('other'), {})
   util.clearCache()
 })
 
@@ -363,8 +362,8 @@ test.serial('processCache should clear all cache', async (t) => {
     cacheRequest
   )
   util.clearCache()
-  t.is(util.getCache('key'), undefined)
-  t.is(util.getCache('other'), undefined)
+  t.deepEqual(util.getCache('key'), {})
+  t.deepEqual(util.getCache('other'), {})
   util.clearCache()
 })
 

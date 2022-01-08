@@ -67,7 +67,7 @@ const ssmMiddleware = (opts = {}) => {
               return {
                 [fetchKey]: new Promise(() => {
                   const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
-                  const value = getCache(options.cacheKey)?.value ?? {}
+                  const value = getCache(options.cacheKey).value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
                   throw new Error('ssm.InvalidParameter ' + fetchKey)
@@ -80,7 +80,7 @@ const ssmMiddleware = (opts = {}) => {
           )
         })
         .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
+          const value = getCache(options.cacheKey).value ?? {}
           value[internalKey] = undefined
           modifyCache(options.cacheKey, value)
           throw e
@@ -107,7 +107,7 @@ const ssmMiddleware = (opts = {}) => {
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
       values[internalKey] = fetchPath(fetchKey).catch((e) => {
-        const value = getCache(options.cacheKey)?.value ?? {}
+        const value = getCache(options.cacheKey).value ?? {}
         value[internalKey] = undefined
         modifyCache(options.cacheKey, value)
         throw e
