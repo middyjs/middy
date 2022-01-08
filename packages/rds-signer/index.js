@@ -43,7 +43,7 @@ const rdsSignerMiddleware = (opts = {}) => {
           resolve(token)
         })
       }).catch((e) => {
-        const value = getCache(options.cacheKey)?.value ?? {}
+        const value = getCache(options.cacheKey).value ?? {}
         value[internalKey] = undefined
         modifyCache(options.cacheKey, value)
         throw e

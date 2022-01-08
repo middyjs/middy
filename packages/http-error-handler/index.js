@@ -15,14 +15,14 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     }
 
     // Set default expose value, only passes in when there is an override
-    if (request.error?.statusCode && request.error?.expose === undefined) {
+    if (request.error.statusCode && request.error.expose === undefined) {
       request.error.expose = request.error.statusCode < 500
     }
 
     // Non-http error OR expose set to false
     if (
       options.fallbackMessage &&
-      (!request.error?.statusCode || !request.error?.expose)
+      (!request.error.statusCode || !request.error.expose)
     ) {
       request.error = {
         statusCode: 500,
@@ -31,7 +31,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
       }
     }
 
-    if (request.error?.expose) {
+    if (request.error.expose) {
       normalizeHttpResponse(request)
 
       request.response = {

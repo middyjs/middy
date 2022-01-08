@@ -39,6 +39,7 @@ test('It should not process the body if no headers are passed', async (t) => {
 
   // invokes the handler
   const event = {
+    headers: {},
     body: JSON.stringify({ foo: 'bar' })
   }
 

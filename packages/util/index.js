@@ -59,8 +59,8 @@ const createClient = async (options, request) => {
   })
 }
 
-const canPrefetch = (options) => {
-  return !options?.awsClientAssumeRole && !options?.disablePrefetch
+const canPrefetch = (options = {}) => {
+  return !options.awsClientAssumeRole && !options.disablePrefetch
 }
 
 // Internal Context
@@ -84,7 +84,7 @@ const getInternal = async (variables, request) => {
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
     let valuePromise = request.internal[rootOptionKey]
-    if (typeof valuePromise?.then !== 'function') {
+    if (typeof valuePromise.then !== 'function') {
       valuePromise = Promise.resolve(valuePromise)
     }
     promises.push(
@@ -123,7 +123,7 @@ const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
-    const unexpired = cached && (cacheExpiry < 0 || cached.expiry > Date.now())
+    const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
@@ -147,6 +147,7 @@ const processCache = (options, fetch = () => undefined, request) => {
 }
 
 const getCache = (key) => {
+  if (!cache[key]) return {}
   return cache[key]
 }
 
@@ -188,7 +189,7 @@ const normalizeHttpResponse = (request) => {
 }
 
 // smaller version of `http-errors`
-const statuses = require('./codes.json')
+const statuses = require('./codes.js')
 const { inherits } = require('util')
 
 const createErrorRegexp = /[^a-zA-Z]/g

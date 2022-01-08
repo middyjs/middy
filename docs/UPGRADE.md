@@ -23,6 +23,7 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
 - `getInternal` error now includes `nestedErrors`
 - Catch when `X-Ray` is applied outside of handler invocation scope
 - `normalizeHttpResponse` now takes `request` and mutates response [Breaking Change]
+- `getCache` will return `{}` instead of `undefined` when not found [Breaking Change]
 
 ## Middleware
 

@@ -14,7 +14,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
     if (!fields) return
 
     normalizeHttpResponse(request)
-    const body = request.response?.body
+    const body = request.response.body
     const bodyIsString = typeof body === 'string'
 
     const parsedBody = jsonSafeParse(body)

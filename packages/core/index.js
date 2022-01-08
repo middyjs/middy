@@ -13,19 +13,19 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
     baseHandler = defaultBaseHandler
   }
   */
-  plugin?.beforePrefetch?.()
+  plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
   const instance = (event = {}, context = {}) => {
-    plugin?.requestStart?.()
+    plugin.requestStart?.()
     const request = {
       event,
       context,
       response: undefined,
       error: undefined,
-      internal: plugin?.internal ?? {}
+      internal: plugin.internal ?? {}
     }
 
     return runRequest(
@@ -92,7 +92,7 @@ const runRequest = async (
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early
     if (request.response === undefined) {
-      plugin?.beforeHandler?.()
+      plugin.beforeHandler?.()
 
       const handlerAbort = new AbortController()
       const timeoutAbort = new AbortController()
@@ -102,13 +102,13 @@ const runRequest = async (
           ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
             .then(() => {
               handlerAbort.abort()
-              return plugin?.timeoutEarlyResponse()
+              return plugin.timeoutEarlyResponse()
             })
           : Promise.race([])
       ])
       timeoutAbort.abort() // baseHandler may not be a promise
 
-      plugin?.afterHandler?.()
+      plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
@@ -127,7 +127,7 @@ const runRequest = async (
     // Catch if onError stack hasn't handled the error
     if (request.response === undefined) throw request.error
   } finally {
-    await plugin?.requestEnd?.(request)
+    await plugin.requestEnd?.(request)
   }
 
   return request.response
@@ -135,9 +135,9 @@ const runRequest = async (
 
 const runMiddlewares = async (request, middlewares, plugin) => {
   for (const nextMiddleware of middlewares) {
-    plugin?.beforeMiddleware?.(nextMiddleware?.name)
-    const res = await nextMiddleware?.(request)
-    plugin?.afterMiddleware?.(nextMiddleware?.name)
+    plugin.beforeMiddleware?.(nextMiddleware.name)
+    const res = await nextMiddleware(request)
+    plugin.afterMiddleware?.(nextMiddleware.name)
     // short circuit chaining and respond early
     if (res !== undefined) {
       request.response = res
@@ -150,7 +150,7 @@ const runMiddlewares = async (request, middlewares, plugin) => {
 const { AbortController } = require('node-abort-controller')
 
 const setTimeoutPromise = (ms, { signal }) => {
-  if (signal?.aborted) {
+  if (signal.aborted) {
     return Promise.reject(new Error('Aborted', 'AbortError'))
   }
   return new Promise((resolve, reject) => {
@@ -161,9 +161,9 @@ const setTimeoutPromise = (ms, { signal }) => {
     // start async operation
     const timeout = setTimeout(() => {
       resolve()
-      signal?.removeEventListener('abort', abortHandler)
+      signal.removeEventListener('abort', abortHandler)
     }, ms)
-    signal?.addEventListener('abort', abortHandler)
+    signal.addEventListener('abort', abortHandler)
   })
 }
 // Replace Polyfill

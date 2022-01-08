@@ -1,7 +1,7 @@
 const { normalizeHttpResponse } = require('@middy/util')
 
-const getOrigin = (incomingOrigin, options) => {
-  if (options?.origins.length > 0) {
+const getOrigin = (incomingOrigin, options = {}) => {
+  if (options.origins.length > 0) {
     if (incomingOrigin && options.origins.includes(incomingOrigin)) {
       return incomingOrigin
     } else {
@@ -66,7 +66,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
     // Check if already setup the header Access-Control-Allow-Origin
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
-      const eventHeaders = request.event?.headers ?? {}
+      const eventHeaders = request.event.headers ?? {}
       const incomingOrigin = eventHeaders.origin ?? eventHeaders.Origin
       request.response.headers[
         'Access-Control-Allow-Origin'
@@ -99,15 +99,14 @@ const httpCorsMiddleware = (opts = {}) => {
 
     // Check if already setup Access-Control-Request-Methods
     if (
-      options?.requestMethods &&
+      options.requestMethods &&
       !existingHeaders.includes('Access-Control-Request-Methods')
     ) {
-      request.response.headers['Access-Control-Request-Methods'] =
-        options.requestMethods
+      request.response.headers['Access-Control-Request-Methods'] = options.requestMethods
     }
 
     // API Gateway v2 & v1
-    const httpMethod = request.event?.requestContext?.http?.method ?? request.event?.httpMethod
+    const httpMethod = request.event.requestContext?.http?.method ?? request.event.httpMethod
     if (httpMethod === 'OPTIONS') {
       if (options.cacheControl && !existingHeaders.includes('Cache-Control')) {
         request.response.headers['Cache-Control'] = String(options.cacheControl)
