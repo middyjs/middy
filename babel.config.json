@@ -3,6 +3,7 @@
     [
       "@babel/preset-env",
       {
+        "modules": true,
         "targets": {
           "node": "14"
         }
