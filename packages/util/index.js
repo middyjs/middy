@@ -104,9 +104,7 @@ export const getInternal = async (variables, request) => {
     .filter((res) => res.status === 'rejected')
     .map((res) => res.reason)
   if (errors.length) {
-    const error = new Error('Failed to resolve internal values')
-    error.nestedErrors = errors
-    throw error
+    throw new Error('Failed to resolve internal values', {cause:errors})
   }
   return keys.reduce(
     (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),
