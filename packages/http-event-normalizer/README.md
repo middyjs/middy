@@ -54,7 +54,7 @@ npm install --save @middy/http-event-normalizer
 
 ## Options
 
-- payloadFormatVersion (number) (optional): Defaults to `1 `. Set it to `2` to use API Gateway HTTP API v2.0 event payload (https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html).
+- payloadFormatVersion (number) (optional): Defaults to `1 ` for API Gateway REST API v1 or Application Load Balancer (ALB) event payload. Set it to `2` to use API Gateway HTTP API v2 event payload.
 
 
 ## Sample usage

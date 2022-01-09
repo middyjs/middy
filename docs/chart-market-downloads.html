@@ -1,0 +1,148 @@
+<html>
+<head>
+</head>
+<body>
+<a id="npmtrends" href="">View on npm trends</a>
+<canvas id="main" width="16" height="9" style="width:90%; height:90%"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@next/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script type="module">
+  //import Chart from 'https://cdnjs.com/libraries/Chart.js'
+  
+  // Requirements:
+  // - >500 Stars on github
+  // - >10k downloads/week
+  const pkgs = [
+    '@middy/core',
+
+    // APIs Only
+    '@vendia/serverless-express',
+    'lambda-api',
+    
+    // >1y since update (Deprecated)
+    'serverless-http', // merged intpo `@vendia/serverless-express`
+    'aws-serverless-express', // merged intpo `@vendia/serverless-express`
+    
+    // Don't meet requirements
+    // serverless-express
+    // ts-lambda-api
+  ]
+  document.getElementById('npmtrends').setAttribute('href', `https://www.npmtrends.com/${pkgs.join('-vs-')}`)
+  // AWS Middlwares
+  const pkgAws = [
+    '@aws-lambda-powertools/tracer',
+    '@aws-lambda-powertools/logger',
+    '@aws-lambda-powertools/metrics',
+    '@aws-lambda-powertools/commons'
+  ]
+  const colors = {
+    '@middy/core':'#ffa600'
+  }
+  const pickColor = function(str) {
+    if (colors[str]) return colors[str]
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return `hsl(${hash % 360}, 80%, 65%)`;
+  }
+
+  const d = new Date()
+  const period = `${d.toISOString().substr(0,10).replace(d.getFullYear(), d.getFullYear()-1)}:${d.toISOString().substr(0,10)}`
+  const dailyStats = {}
+  const weeklyStats = {}
+  const yearlyStats = {}
+  
+  for(const pkg of pkgs.concat(pkgAws)) {
+    const pkgColor = pickColor(pkg)
+    // https://github.com/npm/registry/blob/master/docs/download-counts.md
+    const dailyData = await fetch(`https://api.npmjs.org/downloads/range/${period}/${pkg}`)
+      .then(res => res.json())
+      .then(res => res.downloads.map(point => ({
+        x:point.day,
+        //x: new Date(point.day),
+        y:point.downloads
+      })))
+
+    dailyStats[pkg] = {
+      label: pkg,
+      fill: false,
+      borderColor: pkgColor,
+      backgroundColor: pkgColor,
+      data: dailyData
+    }
+    weeklyStats[pkg] = {
+      label: pkg,
+      fill: false,
+      borderColor: pkgColor,
+      backgroundColor: pkgColor,
+      data: []
+    }
+    let sum = 0
+    for(const [idx, dailyStat] of dailyData.entries()) {
+      if ((idx+1) % 7 === 0) {
+        weeklyStats[pkg].data.push({
+          x: dailyStat.x,
+          y: sum
+        })
+        sum = 0
+      }
+      sum += dailyStat.y
+    }
+
+  }
+  //console.log('dailyStats', dailyStats)
+  //console.log('weeklyStats', weeklyStats)
+//    console.log('yearlyStats', year, yearlyStats)
+//    console.log('Total', year, yearlyStats['middy'] + yearlyStats['@middy/core'])
+
+  const ctx = document.getElementById('main');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: Object.values(weeklyStats)
+    },
+    elements:{},
+    options: {
+      scales: {
+        x: {
+          type: 'time',
+          scaleLabel:{
+            display: true,
+            labelString:period.substr(0,4)
+          },
+          time: {
+            minUnit: 'day'
+          }
+        },
+        y: {
+          scaleLabel:{
+            display: true,
+            labelString:'Downloads'
+          }
+        }
+      },
+      layout: {
+        padding: {
+          left: 10,
+          right: 25,
+          top: 10,
+          bottom: 10
+        }
+      },
+      cubicInterpolationMode: 'monotone',
+      spanGaps: true,
+      plugins: {
+        tooltip: {
+          mode: 'index'
+        }
+      }
+    }
+  });
+
+
+</script>
+</body>
+</html>
