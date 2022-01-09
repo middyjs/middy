@@ -24,10 +24,10 @@ const httpEventNormalizerMiddleware = (opts = {}) => {
 }
 
 const isHttpEvent = (payloadFormatVersion, event) => {
-  if (payloadFormatVersion === 1) {
-    return event.httpMethod !== undefined
-  } else if (payloadFormatVersion === 2) {
+  if (payloadFormatVersion === 2) {
     return event.requestContext?.http?.method !== undefined
+  } else if (payloadFormatVersion === 1) {
+    return event.httpMethod !== undefined
   }
   throw new Error(
     'Unknown API Gateway Payload format. Please use value 1 or 2.'
