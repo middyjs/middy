@@ -4,7 +4,7 @@ const httpEventNormalizerMiddleware = () => {
     const { event } = request
 
     const version = event.version ?? '1.0'
-    const isHttpEvent = isVersionHttpEvent[version]?.(event) ?? false
+    const isHttpEvent = isVersionHttpEvent[version]?.(event)
     if (!isHttpEvent) {
       throw new Error('Unknown API Gateway Payload format')
     }

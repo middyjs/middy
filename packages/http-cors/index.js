@@ -105,7 +105,7 @@ const httpCorsMiddleware = (opts = {}) => {
       request.response.headers['Access-Control-Request-Methods'] = options.requestMethods
     }
 
-    const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event) ?? false
+    const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event)
     if (!httpMethod) {
       throw new Error('Unknown API Gateway Payload format')
     }
