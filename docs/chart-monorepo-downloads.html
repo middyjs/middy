@@ -3,19 +3,24 @@
 </head>
 <body>
 
+<div id="table"></div>
 <!-- <canvas id="2022" width="16" height="9" style="width:90%; height:90%"></canvas> -->
-<canvas id="2021" width="16" height="9" style="width:90%; height:90%"></canvas>
-<canvas id="2020" width="16" height="9" style="width:90%; height:90%"></canvas>
-<canvas id="2019" width="16" height="9" style="width:90%; height:90%"></canvas>
-<canvas id="2018" width="16" height="9" style="width:90%; height:90%"></canvas>
+<canvas id="2021" width="16" height="9"></canvas>
+<canvas id="2020" width="16" height="9"></canvas>
+  <canvas id="2019" width="16" height="9"></canvas>
+  <canvas id="2018" width="16" height="9"></canvas>
+  <canvas id="2017" width="16" height="9"></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@next/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
 <script type="module">
     //import Chart from 'https://cdnjs.com/libraries/Chart.js'
+  
+  const years = [2017,2018,2019,2020,2021,2022]
     const pkgs = [
       '@middy/core', // v1-
+      '@middy/util', // v2-
 
       '@middy/cloudwatch-metrics', // v2-
       '@middy/do-not-wait-for-empty-event-loop', // v1-
@@ -31,6 +36,7 @@
       '@middy/http-multipart-body-parser', // v1-
       '@middy/http-partial-response', // v1-
       '@middy/http-response-serializer', // v1-
+      //'@middy/http-router', // v3-
       '@middy/http-security-headers', // v1-
       '@middy/http-urlencode-body-parser', // v1-
       '@middy/http-urlencode-path-parser', // v1-
@@ -44,9 +50,7 @@
       '@middy/validator', // v1-
       '@middy/warmup', // v1-
 
-      '@middy/util', // v2-
-
-      // deprecated
+      // Deprecated
       '@middy/cache', // v1
       '@middy/db-manager',  // v1
       '@middy/function-shield', // v1
@@ -69,6 +73,9 @@
       return `hsl(${hash % 360}, 80%, 65%)`;
     }
 
+  const formatNumber = (num) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  }
 
     const run = async(year) => {
       const period = `${year}-01-01:${year}-12-31`
@@ -117,10 +124,6 @@
         }
 
       }
-      //console.log('dailyStats', dailyStats)
-      //console.log('weeklyStats', weeklyStats)
-      console.log('yearlyStats', year, yearlyStats)
-      console.log('Total', year, yearlyStats['middy'] + yearlyStats['@middy/core'])
 
       const ctx = document.getElementById(year);
       new Chart(ctx, {
@@ -166,14 +169,62 @@
         }
       });
 
-
+      return yearlyStats
     }
-    run(2018)
-    run(2019)
-    run(2020)
-    run(2021)
+  
+  const table = document.createElement('table')
+  let thead = document.createElement('thead')
+  
+  const thead_tr = document.createElement('tr')
+  const th = document.createElement('th')
+  th.innerHTML = 'Package'
+  thead_tr.appendChild(th)
+  
+  const tbody_tr = {}
+  for(const pkg of pkgs) {
+    tbody_tr[pkg] = document.createElement('tr')
+    const td = document.createElement('th')
+    td.innerHTML = pkg // TODO link?
+    tbody_tr[pkg].appendChild(td)
+  }
+  thead.appendChild(thead_tr)
+  table.appendChild(thead)
+  
+  let tbody = document.createElement('tbody')
+  for(const year of years) {
+    const stats = await run(year)
+    
+    const th = document.createElement('th')
+    th.innerHTML = year
+    thead_tr.appendChild(th)
+    for(const pkg of pkgs) {
+      const td = document.createElement('td')
+      td.innerHTML = formatNumber(stats[pkg])
+      tbody_tr[pkg].appendChild(td)
+    }
+    
+    console.log('Total', year, formatNumber(stats['middy'] + stats['@middy/core']))
+  }
+  for(const pkg of pkgs) {
+    tbody.appendChild(tbody_tr[pkg])
+  }
+  
+  table.appendChild(tbody)
+  document.getElementById('table').appendChild(table)
 
 
 </script>
+  <style>
+    td {
+      text-align: right;
+    }
+    th {
+      text-align: left;
+    }
+    canvas {
+      width:90%;
+      height:90%;
+    }
+  </style>
 </body>
 </html>
