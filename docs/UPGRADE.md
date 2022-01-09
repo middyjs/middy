@@ -52,7 +52,8 @@ No change
 - No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
 
 ### [http-event-normalizer](/packages/http-event-normalizer/README.md)
-No change
+Option `payloadFormatVersion` no longer needed
+Will now throw error if not an http event [Breaking Change]
 
 ### [http-header-normalizer](/packages/http-header-normalizer/README.md)
 No change
