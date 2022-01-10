@@ -12,8 +12,7 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
     - Attach near the end so it is triggered first (likely already done)
     - Remove `return response`, this will short circuit the response and block later middleware from modifying the response
 - baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
-- [ ] `plugin` becomes a property of `config`, which is now passed in instead
-- [ ] `config` argument now supports:
+- `plugin` argument now supports:
   - `internal`: Allow the use of `new Proxy()` for smarter triggering
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit
   - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
@@ -40,7 +39,7 @@ No change
 No change
 
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
-- New Middleware - Applies `brotli`, `gzip`, ands `deflate` compression to response body
+- [New] Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
 ### [http-content-negotiation](/packages/http-content-negotiation/README.md)
 No change
