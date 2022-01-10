@@ -91,7 +91,7 @@ test('It should default pathParameters', async (t) => {
 
 test('It should default pathParameters with HTTP API', async (t) => {
   const event = {
-    version:'2.0',
+    version: '2.0',
     requestContext: {
       http: {
         method: 'GET'
@@ -113,7 +113,7 @@ test('It should not overwrite queryStringParameters', async (t) => {
   }
 
   const handler = middy((event) => event)
-      .use(httpEventNormalizer())
+    .use(httpEventNormalizer())
   const normalizedEvent = await handler(event)
 
   t.deepEqual(normalizedEvent.queryStringParameters, { param: 'hello' })
@@ -121,7 +121,7 @@ test('It should not overwrite queryStringParameters', async (t) => {
 
 test('It should not overwrite queryStringParameters with HTTP API', async (t) => {
   const event = {
-    version:'2.0',
+    version: '2.0',
     requestContext: {
       http: {
         method: 'GET'

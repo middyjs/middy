@@ -26,7 +26,7 @@ const defaults = {
   maxAge: undefined,
   requestHeaders: undefined,
   requestMethods: undefined,
-  cacheControl: undefined,
+  cacheControl: undefined
 }
 
 const httpCorsMiddleware = (opts = {}) => {

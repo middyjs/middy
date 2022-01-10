@@ -22,15 +22,16 @@
     'lambda-api',
     
     // >1y since update (Deprecated)
-    'serverless-http', // merged intpo `@vendia/serverless-express`
-    'aws-serverless-express', // merged intpo `@vendia/serverless-express`
+    'serverless-http', // merged into `@vendia/serverless-express`
+    'aws-serverless-express', // merged into `@vendia/serverless-express`
     
     // Don't meet requirements
     // serverless-express
     // ts-lambda-api
+    // vandium
   ]
   document.getElementById('npmtrends').setAttribute('href', `https://www.npmtrends.com/${pkgs.join('-vs-')}`)
-  // AWS Middlwares
+  // AWS Middlewares
   const pkgAws = [
     '@aws-lambda-powertools/tracer',
     '@aws-lambda-powertools/logger',
