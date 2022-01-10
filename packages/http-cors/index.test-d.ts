@@ -17,6 +17,9 @@ middleware = httpCors({
   maxAge: 600, // Access-Control-Max-Age
   requestHeaders: 'X-PINGOTHER, Content-Type', // Access-Control-Request-Headers
   requestMethods: 'POST', // Access-Control-Request-Methods
-  cacheControl: 'proxy-revalidate' // Cache-Control
+  cacheControl: 'proxy-revalidate', // Cache-Control
+  getOrigin: (incomingOrigin) => {
+    return incomingOrigin
+  }
 })
 expectType<middy.MiddlewareObj>(middleware)

@@ -1,6 +1,7 @@
 import middy from '@middy/core'
 
 interface Options {
+  getOrigin?: (incommingOrigin: string, options: Options) => string
   credentials?: boolean | string
   headers?: string
   methods?: string
@@ -13,6 +14,6 @@ interface Options {
   cacheControl?: string
 }
 
-declare function httpCors (options?: Options): middy.MiddlewareObj
+declare function httpCors(options?: Options): middy.MiddlewareObj
 
 export default httpCors
