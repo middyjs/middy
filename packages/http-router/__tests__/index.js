@@ -101,7 +101,6 @@ test('It should thrown 404 when route not found', async (t) => {
     t.is(e.message, 'Route does not exist')
     t.is(e.statusCode, 404)
   }
-
 })
 
 // route methods
@@ -176,7 +175,7 @@ test('It should route to a v2 event', async (t) => {
     requestContext: {
       http: {
         method: 'GET',
-        path:'/'
+        path: '/'
       }
     }
   }
@@ -190,7 +189,6 @@ test('It should route to a v2 event', async (t) => {
   const response = await handler(event)
   t.true(response)
 })
-
 
 // with middleware
 test('It should run middleware that are part of path hander', async (t) => {
@@ -230,4 +228,3 @@ test('It should middleware part of router', async (t) => {
   const response = await handler(event)
   t.true(response)
 })
-

@@ -37,7 +37,7 @@ const getHandler = middy((event, context) => {
     body: '{...}'
   }
 }, config)
-  .use(validatorMiddleware({inputSchema: {} }))
+  .use(validatorMiddleware({ inputSchema: {} }))
 
 const postHandler = middy((event, context) => {
   return {
@@ -45,18 +45,18 @@ const postHandler = middy((event, context) => {
     body: '{...}'
   }
 }, config)
-  .use(validatorMiddleware({inputSchema: {} }))
+  .use(validatorMiddleware({ inputSchema: {} }))
 
 const routes = [{
   method: 'GET',
   path: '/user/{id}',
   handler: getHandler
 },
-  {
-    method: 'POST',
-    path: '/user',
-    handler: postHandler
-  }]
+{
+  method: 'POST',
+  path: '/user',
+  handler: postHandler
+}]
 
 const handler = middy(httpRouterHandler(routes))
   .use(errorLoggerMiddleware())
