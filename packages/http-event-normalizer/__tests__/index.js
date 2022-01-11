@@ -2,7 +2,6 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpEventNormalizer from '../index.js'
 
-
 test('It should throw error when invalid version', async (t) => {
   const nonEvent = {
     version: '3.0'
