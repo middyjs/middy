@@ -1,7 +1,6 @@
 import { expectType } from 'tsd'
-//import middy from '@middy/core'
-import httpRouterHandler from ".";
+// import middy from '@middy/core'
+import httpRouterHandler from '.'
 
-let middleware = httpRouterHandler()
+const middleware = httpRouterHandler()
 expectType<any>(middleware)
-
