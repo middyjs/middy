@@ -105,8 +105,10 @@ const httpCorsMiddleware = (opts = {}) => {
       request.response.headers['Access-Control-Request-Methods'] = options.requestMethods
     }
 
-    // API Gateway v2 & v1
-    const httpMethod = request.event.requestContext?.http?.method ?? request.event.httpMethod
+    const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event)
+    if (!httpMethod) {
+      throw new Error('Unknown API Gateway Payload format')
+    }
     if (httpMethod === 'OPTIONS') {
       if (options.cacheControl && !existingHeaders.includes('Cache-Control')) {
         request.response.headers['Cache-Control'] = String(options.cacheControl)
@@ -122,4 +124,10 @@ const httpCorsMiddleware = (opts = {}) => {
     onError: httpCorsMiddlewareOnError
   }
 }
+
+const getVersionHttpMethod = {
+  '1.0': (event) => event.httpMethod,
+  '2.0': (event) => event.requestContext.http.method
+}
+
 export default httpCorsMiddleware

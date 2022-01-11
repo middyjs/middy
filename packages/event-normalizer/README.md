@@ -28,17 +28,28 @@
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.
 
 **AWS Events Transformations:**
-- `API Gateway (HTTP, REST, Websocket)`: None, see middleware prefixed with `http-`
-- `CloudWatch`: None
-- `Cognito Pool`: None
-- `DynamoDB`: Unmarshall `Keys`, `OldImage`, and `NewImage`
-- `IoT`: None
-- `Kinesis Stream`: Base64 decode and JSON parse
-- `Kinesis Firehose`: Base64 decode and JSON parse
-- `RDS`: None
-- `S3`: URI decode key name
-- `SNS`: JSON parse
-- `SQS`: JSON parse
+
+Event Source       | Included | Comments
+-------------------|----------|-----------------------------------------------
+API Gateway (REST) | No       | See middleware prefixed with `http-`
+API Gateway (HTTP) | No       | See middleware prefixed with `http-`
+API Gateway (WS)   | No       | #602
+CloudTrail         | No       | Normalization not required
+CloudWatch Logs    | No       | Normalization not required
+Cognito            | No       | Normalization not required
+DynamoDB           | Yes      | Unmarshall `Keys`, `OldImage`, and `NewImage`
+EC2                | No       | Normalization not required
+Elastic LB         | No       | See middleware prefixed with `http-`
+EventBridge        | No       | Normalization not required
+IoT                | No       | Normalization not required
+Kinesis Stream     | Yes      | Base64 decode and JSON parse
+Kinesis Firehose   | Yes      | Base64 decode and JSON parse
+RDS                | No       | Normalization not required
+S3                 | Yes      | URI decode key name
+Secrets Manager    | No       | Normalization not required
+SES                | No       | Normalization not required
+SNS                | Yes      | JSON parse
+SQS                | Yes      | JSON parse
 
 **Test Events**
 Some events send test events after set, you will need to handle these.
