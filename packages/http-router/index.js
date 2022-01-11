@@ -4,10 +4,12 @@ const { createError } = require('@middy/util')
 const httpRouteHandler = (routes) => {
   const routesStatic = {}
   const routesDynamic = {}
+  const enumMethods = methods.concat('ANY')
   for (const route of routes) {
     let { method, path, handler } = route
 
-    if (!methods.concat('ANY').includes(method)) {
+    // Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
+    if (!enumMethods.includes(method)) {
       throw new Error('method not allowed')
     }
 
@@ -63,7 +65,7 @@ const attachStaticRoute = (method, path, handler, routesType) => {
   if (!routesType[method]) {
     routesType[method] = {}
   }
-  routesType[method][path] = handler // This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
+  routesType[method][path] = handler
 }
 
 const attachDynamicRoute = (method, path, handler, routesType) => {
