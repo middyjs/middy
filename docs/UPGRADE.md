@@ -37,7 +37,7 @@ No change
 No change
 
 ### [event-normalizer](/packages/event-normalizer/README.md)
-No change
+- Refactored for performance improvements
 
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
 - [New] Applies `brotli`, `gzip`, ands `deflate` compression to response body
@@ -46,14 +46,15 @@ No change
 No change
 
 ### [http-cors](/packages/http-cors/README.md)
-- `onError` will not modify response unless error has been handled
+- `onError` will not modify response unless error has been handled 
+- Small refactor for performance improvements
 
 ### [http-error-handler](/packages/http-error-handler/README.md)
 - No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
 
 ### [http-event-normalizer](/packages/http-event-normalizer/README.md)
-Option `payloadFormatVersion` no longer needed
-Will now throw error if not an http event [Breaking Change]
+- Option `payloadFormatVersion` no longer needed
+- Will now throw error if not an http event [Breaking Change]
 
 ### [http-header-normalizer](/packages/http-header-normalizer/README.md)
 No change
@@ -62,7 +63,7 @@ No change
 No change
 
 ### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
-Change default charset from `binary`/`latin1` to `utf-8`.
+- Change default charset from `binary`/`latin1` to `utf-8`.
 
 ### [http-partial-response](/packages/http-partial-response/README.md)
 No change
