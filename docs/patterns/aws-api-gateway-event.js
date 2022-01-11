@@ -44,7 +44,7 @@ const handler = middy(baseHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())
-  .use(httpEventNormalizerMiddleware({ payloadFormatVersion: 2 }))
+  .use(httpEventNormalizerMiddleware())
   .use(httpHeaderNormalizerMiddleware())
   .use(
     httpContentNegotiationMiddleware({
