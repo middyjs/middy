@@ -191,7 +191,7 @@ test('It should route to a v2 event', async (t) => {
 })
 
 // with middleware
-test('It should run middleware that are part of path hander', async (t) => {
+test('It should run middleware that are part of route handler', async (t) => {
   const event = {
     httpMethod: 'GET',
     path: '/'
