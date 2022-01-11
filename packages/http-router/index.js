@@ -7,6 +7,10 @@ const httpRouteHandler = (routes) => {
   for (const route of routes) {
     let { method, path, handler } = route
 
+    if (!methods.concat('ANY').includes(method)) {
+      throw new Error('method not allowed')
+    }
+
     // remove trailing slash, but not if it's the first one
     if (path.endsWith('/') && path !== '/') {
       path = path.substr(0, path.length - 1)
@@ -46,7 +50,7 @@ const httpRouteHandler = (routes) => {
   }
 }
 
-const regexpDynamicParameters = /\{.+\}/g
+const regexpDynamicParameters = /\/\{.+\}\//g
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
 const attachStaticRoute = (method, path, handler, routesType) => {
@@ -59,7 +63,7 @@ const attachStaticRoute = (method, path, handler, routesType) => {
   if (!routesType[method]) {
     routesType[method] = {}
   }
-  routesType[method][path] = handler
+  routesType[method][path] = handler // This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
 }
 
 const attachDynamicRoute = (method, path, handler, routesType) => {
@@ -73,8 +77,8 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
     routesType[method] = []
   }
   path = path
-    .replaceAll('{proxy+}', '?.*') // ? for previous `/` to make it optional
-    .replace(regexpDynamicParameters, '.+')
+    .replaceAll('/{proxy+}', '/?.*')
+    .replace(regexpDynamicParameters, '/.+/')
   path = new RegExp(`^${path}$`)
   routesType[method].push({ path, handler })
 }
