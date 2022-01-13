@@ -2,18 +2,18 @@ import { AbortController } from 'node-abort-controller'
 
 const defaultBaseHandler = () => {}
 const defaultPlugin = {
-  timeoutEarlyInMillis: 0,
+  timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => { throw new Error('Timeout') }
 }
 
-const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
-  /*
+const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
   // Allow base handler to be set using .handler()
   if (typeof baseHandler !== 'function') {
     plugin = baseHandler
     baseHandler = defaultBaseHandler
   }
-  */
+  plugin = { ...defaultPlugin, ...plugin }
+
   plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
@@ -72,11 +72,9 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
     onErrorMiddlewares.unshift(onErrorMiddleware)
     return instance
   }
-  /*
   instance.handler = (replaceBaseHandler) => {
     baseHandler = replaceBaseHandler
   }
-  */
 
   return instance
 }
@@ -99,7 +97,7 @@ const runRequest = async (
       const timeoutAbort = new AbortController()
       request.response = await Promise.race([
         baseHandler(request.event, request.context, { signal: handlerAbort.signal }),
-        plugin.timeoutEarlyInMillis
+        plugin.timeoutEarlyInMillis > 0
           ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
             .then(() => {
               handlerAbort.abort()

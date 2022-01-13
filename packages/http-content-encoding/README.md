@@ -60,7 +60,7 @@ const handler = middy((event, context) => {
 })
 
 handler
-  .use(httpHeaderNormalizer())
+  .use(httpContentNegotiation())
   .use(httpCompressMiddleware({
     br: {
       params: {
