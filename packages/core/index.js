@@ -2,24 +2,24 @@ import { AbortController } from 'node-abort-controller'
 
 const defaultBaseHandler = () => {}
 const defaultPlugin = {
-  timeoutEarlyInMillis: 0,
+  timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => { throw new Error('Timeout') }
 }
 
-const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
-  /*
+const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
   // Allow base handler to be set using .handler()
   if (typeof baseHandler !== 'function') {
     plugin = baseHandler
     baseHandler = defaultBaseHandler
   }
-  */
+  plugin = { ...defaultPlugin, ...plugin }
+
   plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const instance = (event = {}, context = {}) => {
+  const middy = (event = {}, context = {}) => {
     plugin.requestStart?.()
     const request = {
       event,
@@ -39,7 +39,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
     )
   }
 
-  instance.use = (middlewares) => {
+  middy.use = (middlewares) => {
     if (!Array.isArray(middlewares)) {
       middlewares = [middlewares]
     }
@@ -52,33 +52,31 @@ const middy = (baseHandler = defaultBaseHandler, plugin = defaultPlugin) => {
         )
       }
 
-      if (before) instance.before(before)
-      if (after) instance.after(after)
-      if (onError) instance.onError(onError)
+      if (before) middy.before(before)
+      if (after) middy.after(after)
+      if (onError) middy.onError(onError)
     }
-    return instance
+    return middy
   }
 
   // Inline Middlewares
-  instance.before = (beforeMiddleware) => {
+  middy.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
-    return instance
+    return middy
   }
-  instance.after = (afterMiddleware) => {
+  middy.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware)
-    return instance
+    return middy
   }
-  instance.onError = (onErrorMiddleware) => {
+  middy.onError = (onErrorMiddleware) => {
     onErrorMiddlewares.unshift(onErrorMiddleware)
-    return instance
+    return middy
   }
-  /*
-  instance.handler = (replaceBaseHandler) => {
+  middy.handler = (replaceBaseHandler) => {
     baseHandler = replaceBaseHandler
   }
-  */
 
-  return instance
+  return middy
 }
 
 const runRequest = async (
@@ -99,7 +97,7 @@ const runRequest = async (
       const timeoutAbort = new AbortController()
       request.response = await Promise.race([
         baseHandler(request.event, request.context, { signal: handlerAbort.signal }),
-        plugin.timeoutEarlyInMillis
+        plugin.timeoutEarlyInMillis > 0
           ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
             .then(() => {
               handlerAbort.abort()

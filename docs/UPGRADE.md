@@ -14,9 +14,10 @@ With the Node.js version change all packages are now ECMAScript Modules instead 
     - Remove `return response`, this will short circuit the response and block later middleware from modifying the response
 - baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
 - `plugin` argument now supports:
-  - `internal`: Allow the use of `new Proxy()` for smarter triggering
-  - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit
+  - `internal`: Allow the use of `new Proxy()` for smarter triggering in advanced use cases.
+  - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit. Default `5`
   - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
+- Added `.handler()` method to allow easier understanding of the execution cycle
 - Deprecate `applyMiddleware()` and `__middlewares`  [Breaking Change]
 
 ## Util

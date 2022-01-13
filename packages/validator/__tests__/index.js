@@ -2,6 +2,11 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import validator from '../index.js'
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should validate an incoming object', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
@@ -47,7 +52,7 @@ test('It should validate an incoming object', async (t) => {
     }
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, {
     boolean: true,
@@ -89,7 +94,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
     t.deepEqual(e.details, [
@@ -144,7 +149,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     }
 
     try {
-      await handler(event)
+      await handler(event, context)
     } catch (e) {
       t.is(e.message, 'Event object failed validation')
       t.deepEqual(e.details, [
@@ -193,9 +198,9 @@ test('It should handle invalid schema as a BadRequest in a different language (w
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Event object failed validation')
+    t.is(err.message, 'Event object failed validation')
     t.deepEqual(e.details, [
       {
         instancePath: '',
@@ -242,10 +247,10 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
   }
 
   try {
-    await handler(event)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -281,7 +286,7 @@ test('It should validate response', async (t) => {
 
   handler.use(validator({ outputSchema: schema }))
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.deepEqual(response, expectedResponse)
 })
@@ -309,10 +314,10 @@ test('It should make requests with invalid responses fail with an Internal Serve
   let response
 
   try {
-    response = await handler()
-  } catch (err) {
-    t.not(err, null)
-    t.is(err.message, 'Response object failed validation')
+    response = await handler(event, context)
+  } catch (e) {
+    t.not(e, null)
+    t.is(e.message, 'Response object failed validation')
     t.not(response, null) // it doesn't destroy the response so it gets logged
   }
 })
@@ -329,11 +334,12 @@ test('It should not allow bad email format', async (t) => {
 
   handler.use(validator({ inputSchema: schema }))
 
+  const event = { email: 'abc@abc' }
   try {
     // This same email is not a valid one in 'full' validation mode
-    await handler({ email: 'abc@abc' })
-  } catch (err) {
-    t.is(err.details[0].message, 'must match format "email"')
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.details[0].message, 'must match format "email"')
   }
 })
 
@@ -347,11 +353,12 @@ test('It should error when unsupported keywords used (input)', async (t) => {
     return {}
   })
 
+  const event = { foo: 'a' }
   try {
     handler.use(validator({ inputSchema: schema }))
-    await handler({ foo: 'a' })
-  } catch (err) {
-    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -365,11 +372,12 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     return {}
   })
 
+  const event = { foo: 'a' }
   try {
     handler.use(validator({ outputSchema: schema }))
-    await handler({ foo: 'a' })
-  } catch (err) {
-    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
+    await handler(event. context)
+  } catch (e) {
+    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 

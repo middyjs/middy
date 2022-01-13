@@ -47,16 +47,19 @@ const mockHttps = (mockResponse) => {
   return https
 }
 
-const isReadableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.read === 'function'
-}
-
 const event = {
   getObjectContext: {
     inputS3Url: 'https://s3.amazonservices.com/key?signature',
     outputRoute: 'https://s3.amazonservices.com/key',
     outputToken: 'token'
   }
+}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
+const isReadableStream = (body) => {
+  return body instanceof eventEmitter && typeof body.read === 'function'
 }
 
 test.serial('It should pass a stream to handler', async (t) => {
@@ -79,7 +82,7 @@ test.serial('It should pass a stream to handler', async (t) => {
     })
   )
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(200, response.statusCode)
 })
 
@@ -103,6 +106,6 @@ test.serial('It should pass a promise to handler', async (t) => {
     })
   )
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(200, response.statusCode)
 })

@@ -7,7 +7,5 @@ let middleware = httpEventNormalizer()
 expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
-middleware = httpEventNormalizer({
-  payloadFormatVersion: 2
-})
+middleware = httpEventNormalizer()
 expectType<middy.MiddlewareObj>(middleware)

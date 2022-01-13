@@ -1,77 +1,95 @@
 import test from 'ava'
 import createEvent from '@serverless/event-mocks'
 import eventNormalizer from '../index.js'
+import middy from '../../core/index.js'
+
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
 
 test.serial('It should skip when empty event', async (t) => {
-  const request = { event: {} }
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
 
-  const res = await eventNormalizer().before(request)
+  const event = {}
+  const response = await handler(event, context)
 
-  t.is(res, undefined)
-  t.deepEqual(request, { event: {} })
+  t.deepEqual(response, event)
 })
 
 test.serial('It should skip when unknown event', async (t) => {
-  const request = { event: { Records: [{ eventSource: 'aws:new' }] } }
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
 
-  const res = await eventNormalizer().before(request)
+  const event = { Records: [{ eventSource: 'aws:new' }] }
+  const response = await handler(event, context)
 
-  t.is(res, undefined)
-  t.deepEqual(request, { event: { Records: [{ eventSource: 'aws:new' }] } })
+  t.deepEqual(response, { Records: [{ eventSource: 'aws:new' }] })
 })
 
 test.serial('It should parse nested events', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
   const s3Event = createEvent.default('aws:s3')
   const sqsEvent = createEvent.default('aws:sqs')
   sqsEvent.Records[0].body = JSON.stringify(s3Event)
   const snsEvent = createEvent.default('aws:sns')
   snsEvent.Records[0].Sns.Message = JSON.stringify(sqsEvent)
-  const request = { event: snsEvent }
+  const event = snsEvent
+  const response = await handler(event, context)
 
-  await eventNormalizer().before(request)
-
-  t.deepEqual(request.event.Records[0].Sns.Message.Records[0].body, s3Event)
+  t.deepEqual(response.Records[0].Sns.Message.Records[0].body, s3Event)
 })
 
 // SNS
 test.serial('It should parse SNS event message', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
   const message = { hello: 'world' }
-  const request = { event: createEvent.default('aws:sns') }
-  request.event.Records[0].Sns.Message = JSON.stringify(message)
+  const event = createEvent.default('aws:sns')
+  event.Records[0].Sns.Message = JSON.stringify(message)
+  const response = await handler(event, context)
 
-  await eventNormalizer().before(request)
-
-  t.deepEqual(request.event.Records[0].Sns.Message, message)
+  t.deepEqual(response.Records[0].Sns.Message, message)
 })
 
 // SQS
 test.serial('It should parse SQS event body', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
   const body = { hello: 'world' }
-  const request = { event: createEvent.default('aws:sqs') }
-  request.event.Records[0].body = JSON.stringify(body)
+  const event = createEvent.default('aws:sqs')
+  event.Records[0].body = JSON.stringify(body)
+  const response = await handler(event, context)
 
-  await eventNormalizer().before(request)
-
-  t.deepEqual(request.event.Records[0].body, body)
+  t.deepEqual(response.Records[0].body, body)
 })
 
 // S3
 test.serial('It should normalize S3 event key', async (t) => {
-  const request = { event: createEvent.default('aws:s3') }
-  request.event.Records[0].s3.object.key = 'This+is+a+picture.jpg'
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
 
-  await eventNormalizer().before(request)
+  const event = createEvent.default('aws:s3')
+  event.Records[0].s3.object.key = 'This+is+a+picture.jpg'
+  const response = await handler(event, context)
 
-  t.is(request.event.Records[0].s3.object.key, 'This is a picture.jpg')
+  t.is(response.Records[0].s3.object.key, 'This is a picture.jpg')
 })
 
 // DynamoDB
 test.serial('It should parse DynamoDB event keys/images', async (t) => {
-  const request = { event: createEvent.default('aws:dynamo') }
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
 
-  await eventNormalizer().before(request)
+  const event = createEvent.default('aws:dynamo')
+  const response = await handler(event, context)
 
-  t.deepEqual(request.event.Records[0].dynamodb, {
+  t.deepEqual(response.Records[0].dynamodb, {
     Keys: { Id: 101 },
     NewImage: {
       Message: 'New item!',
@@ -86,23 +104,27 @@ test.serial('It should parse DynamoDB event keys/images', async (t) => {
 
 // Kinesis Stream
 test.serial('It should parse Kinesis Stream event data', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
   const data = { hello: 'world' }
-  const request = { event: createEvent.default('aws:kinesis') }
-  request.event.Records[0].kinesis.data = Buffer.from(
+  const event = createEvent.default('aws:kinesis')
+  event.Records[0].kinesis.data = Buffer.from(
     JSON.stringify(data),
     'utf-8'
   ).toString('base64')
+  const response = await handler(event, context)
 
-  await eventNormalizer().before(request)
-
-  t.deepEqual(request.event.Records[0].kinesis.data, data)
+  t.deepEqual(response.Records[0].kinesis.data, data)
 })
 
 // Kinesis Firehose
 test.serial('It should parse Kinesis Firehose event data', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
   const data = { hello: 'world' }
-  const request = {
-    event: {
+  const event = {
       invocationId: 'invoked123',
       deliveryStreamArn: 'aws:lambda:events',
       region: 'us-west-2',
@@ -134,10 +156,9 @@ test.serial('It should parse Kinesis Firehose event data', async (t) => {
           }
         }
       ]
-    }
+
   }
+  const response = await handler(event, context)
 
-  await eventNormalizer().before(request)
-
-  t.deepEqual(request.event.records[0].data, data)
+  t.deepEqual(response.records[0].data, data)
 })

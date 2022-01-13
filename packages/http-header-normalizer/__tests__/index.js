@@ -2,8 +2,12 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpHeaderNormalizer from '../index.js'
 
-// Headers
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
 
+// Headers
 test('It should normalize (lowercase) all the headers and create a copy in rawHeaders', async (t) => {
   const handler = middy((event, context) => event)
 
@@ -29,7 +33,7 @@ test('It should normalize (lowercase) all the headers and create a copy in rawHe
 
   const originalHeaders = { ...event.headers }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.headers, expectedHeaders)
   t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
@@ -60,7 +64,7 @@ test('It should normalize (canonical) all the headers and create a copy in rawHe
 
   const originalHeaders = { ...event.headers }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.headers, expectedHeaders)
   t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
@@ -95,9 +99,9 @@ test('It can use custom normalization function', async (t) => {
     FOO: 'bar'
   }
 
-  const originalHeaders = Object.assign({}, event.headers)
+  const originalHeaders = {...event.headers}
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.headers, expectedHeaders)
   t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
@@ -120,9 +124,9 @@ test('It should normalize (lowercase) all the headers and create a copy in rawMu
     cookie: ['123456', '654321']
   }
 
-  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+  const originalHeaders = {...event.multiValueHeaders}
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
   t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
@@ -143,9 +147,9 @@ test('It should normalize (canonical) all the headers and create a copy in rawMu
     Cookie: ['123456', '654321']
   }
 
-  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+  const originalHeaders = {...event.multiValueHeaders}
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
   t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
@@ -172,9 +176,9 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
     COOKIE: ['123456', '654321']
   }
 
-  const originalHeaders = Object.assign({}, event.multiValueHeaders)
+  const originalHeaders = {...event.multiValueHeaders}
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
   t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
@@ -194,7 +198,7 @@ test('It should not fail if the event does not contain headers', async (t) => {
     foo: 'bar'
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, expectedEvent)
   t.deepEqual(resultingEvent.rawHeaders, undefined)
