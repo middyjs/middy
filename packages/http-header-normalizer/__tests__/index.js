@@ -2,7 +2,7 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpHeaderNormalizer from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
@@ -99,7 +99,7 @@ test('It can use custom normalization function', async (t) => {
     FOO: 'bar'
   }
 
-  const originalHeaders = {...event.headers}
+  const originalHeaders = { ...event.headers }
 
   const resultingEvent = await handler(event, context)
 
@@ -124,7 +124,7 @@ test('It should normalize (lowercase) all the headers and create a copy in rawMu
     cookie: ['123456', '654321']
   }
 
-  const originalHeaders = {...event.multiValueHeaders}
+  const originalHeaders = { ...event.multiValueHeaders }
 
   const resultingEvent = await handler(event, context)
 
@@ -147,7 +147,7 @@ test('It should normalize (canonical) all the headers and create a copy in rawMu
     Cookie: ['123456', '654321']
   }
 
-  const originalHeaders = {...event.multiValueHeaders}
+  const originalHeaders = { ...event.multiValueHeaders }
 
   const resultingEvent = await handler(event, context)
 
@@ -176,7 +176,7 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
     COOKIE: ['123456', '654321']
   }
 
-  const originalHeaders = {...event.multiValueHeaders}
+  const originalHeaders = { ...event.multiValueHeaders }
 
   const resultingEvent = await handler(event, context)
 

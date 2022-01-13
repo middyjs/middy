@@ -6,7 +6,7 @@ import inputOutputLogger from '../index.js'
 // Silence logging
 console.log = () => {}
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
@@ -18,7 +18,6 @@ test('It should log event and response', async (t) => {
   const handler = middy((event, context) => {
     return { message: 'hello world' }
   })
-
 
   handler
     .use(inputOutputLogger({ logger }))
@@ -114,7 +113,7 @@ test('Should include the AWS lambda context', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy((event, context) => {
-    t.true(logger.calledWith({ event, context: {functionName: 'test', awsRequestId: 'xxxxx' } }))
+    t.true(logger.calledWith({ event, context: { functionName: 'test', awsRequestId: 'xxxxx' } }))
     return event
   })
 
@@ -126,5 +125,5 @@ test('Should include the AWS lambda context', async (t) => {
 
   t.deepEqual(response, event)
 
-  t.true(logger.calledWith({ response: event, context: {functionName: 'test', awsRequestId: 'xxxxx' } }))
+  t.true(logger.calledWith({ response: event, context: { functionName: 'test', awsRequestId: 'xxxxx' } }))
 })

@@ -1,8 +1,8 @@
 import test from 'ava'
 import middy from '../../core/index.js'
-import httpRouter from'../index.js'
+import httpRouter from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

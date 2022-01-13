@@ -375,7 +375,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
   const event = { foo: 'a' }
   try {
     handler.use(validator({ outputSchema: schema }))
-    await handler(event. context)
+    await handler(event.context)
   } catch (e) {
     t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }

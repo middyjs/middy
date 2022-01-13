@@ -5,7 +5,7 @@ import { createError } from '../../util/index.js'
 import httpErrorHandler from '../../http-error-handler/index.js'
 import httpResponseSerializer from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

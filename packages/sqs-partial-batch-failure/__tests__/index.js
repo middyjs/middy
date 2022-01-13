@@ -15,7 +15,7 @@ const baseHandler = async (e) => {
   return Promise.allSettled(processedRecords)
 }
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

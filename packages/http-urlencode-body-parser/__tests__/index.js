@@ -2,7 +2,7 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import urlEncodeBodyParser from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

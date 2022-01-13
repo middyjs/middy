@@ -12,7 +12,7 @@ test('It should set callbackWaitsForEmptyEventLoop to false by default', async (
     doNotWaitForEmptyEventLoop()
   )
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   await handler(event, context)
 
   t.false(context.callbackWaitsForEmptyEventLoop)
@@ -23,7 +23,7 @@ test('callbackWaitsForEmptyEventLoop should remain true if was overridden by use
     context.callbackWaitsForEmptyEventLoop = true
   }).use(doNotWaitForEmptyEventLoop())
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   await handler(event, context)
 
   t.true(context.callbackWaitsForEmptyEventLoop)
@@ -36,7 +36,7 @@ test('callbackWaitsForEmptyEventLoop should stay false if handler has error', as
 
   handler.use(doNotWaitForEmptyEventLoop())
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   try {
     await handler(event, context)
   } catch (e) {}
@@ -55,7 +55,7 @@ test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
     })
   )
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   await handler(event, context)
 
   t.false(context.callbackWaitsForEmptyEventLoop)
@@ -73,7 +73,7 @@ test('callbackWaitsForEmptyEventLoop should remain true when error occurs even i
     })
   )
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   try {
     await handler(event, context)
   } catch (e) {}
@@ -94,7 +94,7 @@ test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
     })
   )
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   try {
     await handler(event, context)
   } catch (e) {}
@@ -115,7 +115,7 @@ test('thrown error should be propagated when it occurs & runOnError is true', as
     })
   )
 
-  const context = {...defaultContext}
+  const context = { ...defaultContext }
   try {
     await handler(event, context)
   } catch (error) {
@@ -135,7 +135,7 @@ test('callbackWaitsForEmptyEventLoop should be false in handler but true after i
     })
   )
 
-  const context = {...defaultContext, callbackWaitsForEmptyEventLoop: true}
+  const context = { ...defaultContext, callbackWaitsForEmptyEventLoop: true }
   await handler(event, context)
 
   t.false(context.callbackWaitsForEmptyEventLoop)

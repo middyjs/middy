@@ -40,7 +40,7 @@ test.serial(
       .use(metrics())
       .before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -56,7 +56,7 @@ test.serial(
 
     handler.use(metrics()).after(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -72,7 +72,7 @@ test.serial(
 
     handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -108,7 +108,7 @@ test.serial(
       )
       .before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )

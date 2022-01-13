@@ -3,7 +3,7 @@ import sinon from 'sinon'
 import middy from '../../core/index.js'
 import jsonBodyParser from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
