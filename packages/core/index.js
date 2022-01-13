@@ -18,7 +18,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const instance = (event = {}, context = {}) => {
+  const middy = (event = {}, context = {}) => {
     plugin.requestStart?.()
     const request = {
       event,
@@ -38,7 +38,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
     )
   }
 
-  instance.use = (middlewares) => {
+  middy.use = (middlewares) => {
     if (!Array.isArray(middlewares)) {
       middlewares = [middlewares]
     }
@@ -51,31 +51,31 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
         )
       }
 
-      if (before) instance.before(before)
-      if (after) instance.after(after)
-      if (onError) instance.onError(onError)
+      if (before) middy.before(before)
+      if (after) middy.after(after)
+      if (onError) middy.onError(onError)
     }
-    return instance
+    return middy
   }
 
   // Inline Middlewares
-  instance.before = (beforeMiddleware) => {
+  middy.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
-    return instance
+    return middy
   }
-  instance.after = (afterMiddleware) => {
+  middy.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware)
-    return instance
+    return middy
   }
-  instance.onError = (onErrorMiddleware) => {
+  middy.onError = (onErrorMiddleware) => {
     onErrorMiddlewares.unshift(onErrorMiddleware)
-    return instance
+    return middy
   }
-  instance.handler = (replaceBaseHandler) => {
+  middy.handler = (replaceBaseHandler) => {
     baseHandler = replaceBaseHandler
   }
 
-  return instance
+  return middy
 }
 
 const runRequest = async (
