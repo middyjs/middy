@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-event-normalizer",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0-alpha.2",
   "description": "Http event normalizer middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -48,6 +48,6 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.1"
+    "@middy/core": "^3.0.0-alpha.2"
   }
 }
