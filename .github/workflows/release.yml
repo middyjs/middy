@@ -35,6 +35,6 @@ jobs:
         run: |
           npm run lerna:publish:next
       - name: Release
-        if: !contains(${{GITHUB_REF}}, 'alpha') && !contains(${{GITHUB_REF}}, 'beta') && !contains(${{GITHUB_REF}}, 'rc')
+        if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
         run: |
           npm run lerna:publish:next
