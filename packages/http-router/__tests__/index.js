@@ -2,6 +2,11 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const httpRouter = require('../index.js')
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 // Types of routes
 test('It should route to a static route', async (t) => {
   const event = {
@@ -15,7 +20,7 @@ test('It should route to a static route', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -31,7 +36,7 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -47,7 +52,7 @@ test('It should route to a dynamic route (/) with `{proxy+}`', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -63,7 +68,7 @@ test('It should route to a dynamic route (/path) with `{proxy+}`', async (t) => 
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -79,7 +84,7 @@ test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) 
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -96,7 +101,7 @@ test('It should thrown 404 when route not found', async (t) => {
     }
   ])
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (e) {
     t.is(e.message, 'Route does not exist')
     t.is(e.statusCode, 404)
@@ -116,7 +121,7 @@ test('It should route to a static POST method', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -132,7 +137,7 @@ test('It should route to a static ANY method', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -148,7 +153,7 @@ test('It should route to a dynamic POST method', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -164,7 +169,7 @@ test('It should route to a dynamic ANY method', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -186,7 +191,7 @@ test('It should route to a v2 event', async (t) => {
       handler: () => true
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -206,7 +211,7 @@ test('It should run middleware that are part of route handler', async (t) => {
         })
     }
   ])
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })
 
@@ -225,6 +230,6 @@ test('It should middleware part of router', async (t) => {
     .after((request) => {
       request.response = true
     })
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.true(response)
 })

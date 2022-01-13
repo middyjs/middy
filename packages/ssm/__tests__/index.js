@@ -36,6 +36,11 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test.serial('It should set SSM param value to internal storage', async (t) => {
   mockService(SSM, {
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
@@ -60,7 +65,7 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set SSM param path to internal storage', async (t) => {
@@ -93,7 +98,7 @@ test.serial('It should set SSM param path to internal storage', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 test.serial(
   'It should set SSM param path to internal storage when nextToken is returned',
@@ -131,7 +136,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -162,7 +167,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -190,7 +195,7 @@ test.serial('It should set SSM param value to context', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -261,7 +266,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -291,8 +296,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 1)
   }
@@ -324,8 +329,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 1)
   }
@@ -363,8 +368,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 2)
   }
@@ -393,7 +398,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
   )
 
   try {
-    await handler()
+    await handler(event, context)
     t.true(false)
   } catch (e) {
     t.is(e.message, 'Failed to resolve internal values')

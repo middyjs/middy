@@ -2,6 +2,10 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const cors = require('../index.js')
 
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
   const handler = middy((event, context) => {})
 
@@ -11,7 +15,7 @@ test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -40,7 +44,7 @@ test('It should not override already declared Access-Control-Allow-Origin header
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -63,7 +67,7 @@ test('It should use custom getOrigin', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -87,7 +91,7 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
     headers: { Origin: 'https://incoming.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -110,7 +114,7 @@ test('It should use origin specified in options', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -134,7 +138,7 @@ test('It should return whitelisted origin', async (t) => {
     headers: { Origin: 'https://another-example.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -158,7 +162,7 @@ test('It should return first origin as default if no match', async (t) => {
     headers: { Origin: 'https://unknown.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -185,7 +189,7 @@ test('It should add headers even onError', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 500,
@@ -232,7 +236,7 @@ test('It should not override already declared Access-Control-Allow-Headers heade
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -256,7 +260,7 @@ test('It should use allowed headers specified in options', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -289,7 +293,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -322,7 +326,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -348,7 +352,7 @@ test('It should use change credentials as specified in options (true)', async (t
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -375,7 +379,7 @@ test('It should use change credentials as specified in options (true) with lower
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -395,7 +399,7 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -416,7 +420,7 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -434,7 +438,7 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -455,7 +459,7 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -473,7 +477,7 @@ test('it should set Access-Control-Max-Age header if present in config', async (
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -494,7 +498,7 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -512,7 +516,7 @@ test('it should set Access-Control-Request-Headers header if present in config',
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -533,7 +537,7 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -551,7 +555,7 @@ test('it should set Access-Control-Request-Methods header if present in config',
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -572,7 +576,7 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -592,7 +596,7 @@ test('it should set Cache-Control header if present in config and http method OP
     httpMethod: 'OPTIONS'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -612,7 +616,7 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
 
     const event = { httpMethod }
 
-    const response = await handler(event)
+    const response = await handler(event, context)
     t.deepEqual(response, {
       headers: {
         'Access-Control-Allow-Origin': '*'
@@ -635,7 +639,7 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
     httpMethod: 'OPTIONS'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',

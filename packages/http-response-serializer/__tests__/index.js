@@ -5,6 +5,11 @@ const { createError } = require('../../util/index.js')
 const httpErrorHandler = require('../../http-error-handler/index.js')
 const httpResponseSerializer = require('../index.js')
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 const standardConfiguration = {
   serializers: [
     {
@@ -42,7 +47,7 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
     const event = {
       headers: {}
     }
-    const response = await handler(event)
+    const response = await handler(event, context)
 
     t.is(response, handlerResponse)
   })
@@ -74,7 +79,7 @@ for (const [accept, result] of [
       }
     }
 
-    const response = await handler(event)
+    const response = await handler(event, context)
 
     t.is(response.body, result)
   })
@@ -95,7 +100,7 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -114,7 +119,7 @@ test('It should use the defaultContentType when no accept preferences are given'
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -146,7 +151,7 @@ test('It should allow the return of the entire response', async (t) => {
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -172,7 +177,7 @@ test('It should use the defaultContentType when no matching accept preferences a
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -195,7 +200,7 @@ test('It should use `event.preferredContentType` instead of the defaultContentTy
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -218,7 +223,7 @@ test('It should pass-through when no preference or defaultContentType is found',
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -238,7 +243,7 @@ test('It should not pass-through when request content-type is set', async (t) =>
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -271,7 +276,7 @@ test('It should replace the response object when the serializer returns an objec
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 204,
@@ -294,7 +299,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 422,
@@ -316,7 +321,7 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
     headers: {}
   }
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (e) {
     t.deepEqual(e.message, 'test')
   }
@@ -333,7 +338,7 @@ test('It should return false when response body is falsey', async (t) => {
     }
   }
   handler.use(httpResponseSerializer(standardConfiguration))
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {

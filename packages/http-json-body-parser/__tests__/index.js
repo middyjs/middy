@@ -3,6 +3,11 @@ const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const jsonBodyParser = require('../index.js')
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should parse a JSON request', async (t) => {
   const handler = middy((event, context) => {
     return event // propagates the processed event as a response
@@ -18,7 +23,7 @@ test('It should parse a JSON request', async (t) => {
     body: '{ "foo" :   "bar"   }'
   }
 
-  const processedEvent = await handler(event)
+  const processedEvent = await handler(event, context)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
@@ -39,7 +44,7 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
     body: '{ "foo" :   "bar"   }'
   }
 
-  const processedEvent = await handler(event)
+  const processedEvent = await handler(event, context)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
@@ -62,7 +67,7 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
   }
   const jsonParseSpy = sinon.spy(JSON, 'parse')
 
-  await handler(event)
+  await handler(event, context)
 
   t.true(jsonParseSpy.calledWith(jsonString, reviver))
 })
@@ -82,7 +87,7 @@ test('It should parse a JSON request with lowercase header', async (t) => {
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, { foo: 'bar' })
 })
@@ -103,7 +108,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (err) {
     t.is(
       err.message,
@@ -125,7 +130,7 @@ test("It shouldn't process the body if no header is passed", async (t) => {
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.is(body, '{"foo":"bar"}')
 })
@@ -148,7 +153,7 @@ test('It should handle a base64 body', async (t) => {
     body: base64Data
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, { foo: 'bar' })
 })
@@ -172,7 +177,7 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (err) {
     t.is(
       err.message,

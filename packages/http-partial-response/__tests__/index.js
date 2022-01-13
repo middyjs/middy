@@ -23,6 +23,11 @@ const createDefaultStringifiedResponse = () =>
     }
   )
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should filter a response with default opts (string)', async (t) => {
   const handler = middy((event, context) => ({
     statusCode: 200,
@@ -38,7 +43,7 @@ test('It should filter a response with default opts (string)', async (t) => {
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response.body, 'response')
 })
@@ -55,7 +60,7 @@ test('It should filter a response with default opts (object)', async (t) => {
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response.body, { firstname: 'john' })
 })
@@ -72,7 +77,7 @@ test('It should filter a response with defined filter key name in opts', async (
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response.body, { lastname: 'doe' })
 })
@@ -89,7 +94,7 @@ test('It should filter a stringified response with default opts', async (t) => {
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response.body, JSON.stringify({ firstname: 'john' }))
 })
@@ -102,7 +107,7 @@ test('It should return the initial response if response body is empty', async (t
   const event = {
     headers: {}
   }
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response, '')
 })
@@ -115,7 +120,7 @@ test('It should return the initial response if response body is not an object ne
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.is(response.body, 'success response')
 })
@@ -125,7 +130,7 @@ test('It should return the initial response if there is no queryStringParameters
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.deepEqual(response.body, {
     firstname: 'john',

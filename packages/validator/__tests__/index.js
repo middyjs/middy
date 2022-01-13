@@ -2,6 +2,11 @@ const test = require('ava')
 const middy = require('../../core/index.js')
 const validator = require('../index.js')
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should validate an incoming object', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
@@ -47,7 +52,7 @@ test('It should validate an incoming object', async (t) => {
     }
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, {
     boolean: true,
@@ -89,7 +94,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
@@ -144,7 +149,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
     }
 
     try {
-      await handler(event)
+      await handler(event, context)
     } catch (err) {
       t.is(err.message, 'Event object failed validation')
       t.deepEqual(err.details, [
@@ -193,7 +198,7 @@ test('It should handle invalid schema as a BadRequest in a different language (w
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
@@ -242,7 +247,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (err) {
     t.is(err.message, 'Event object failed validation')
     t.deepEqual(err.details, [
@@ -281,7 +286,7 @@ test('It should validate response', async (t) => {
 
   handler.use(validator({ outputSchema: schema }))
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.deepEqual(response, expectedResponse)
 })
@@ -309,7 +314,7 @@ test('It should make requests with invalid responses fail with an Internal Serve
   let response
 
   try {
-    response = await handler()
+    response = await handler(event, context)
   } catch (err) {
     t.not(err, null)
     t.is(err.message, 'Response object failed validation')
@@ -329,9 +334,10 @@ test('It should not allow bad email format', async (t) => {
 
   handler.use(validator({ inputSchema: schema }))
 
+  const event = { email: 'abc@abc' }
   try {
     // This same email is not a valid one in 'full' validation mode
-    await handler({ email: 'abc@abc' })
+    await handler(event, context)
   } catch (err) {
     t.is(err.details[0].message, 'must match format "email"')
   }
@@ -347,9 +353,10 @@ test('It should error when unsupported keywords used (input)', async (t) => {
     return {}
   })
 
+  const event = { foo: 'a' }
   try {
     handler.use(validator({ inputSchema: schema }))
-    await handler({ foo: 'a' })
+    await handler(event, conext)
   } catch (err) {
     t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
   }
@@ -365,9 +372,10 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     return {}
   })
 
+  const event = { foo: 'a' }
   try {
     handler.use(validator({ outputSchema: schema }))
-    await handler({ foo: 'a' })
+    await handler(event. context)
   } catch (err) {
     t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
   }

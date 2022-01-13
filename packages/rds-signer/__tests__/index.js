@@ -33,6 +33,11 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test.serial('It should set token to internal storage (token)', async (t) => {
   mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
   const handler = middy(() => {})
@@ -60,7 +65,7 @@ test.serial('It should set token to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
@@ -98,7 +103,7 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -132,7 +137,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -164,7 +169,7 @@ test.serial('It should set Signer token to context', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
@@ -194,8 +199,8 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     )
     .before(middleware)
 
-  await handler()
-  await handler()
+  await handler(event, context)
+  await handler(event, context)
 
   t.is(stub.callCount, 1)
 }
@@ -224,7 +229,7 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 //       )
 //
 //     try {
-//       await handler()
+//       await handler(event, context)
 //     } catch(e) {
 //       t.is( e.message, 'X-Amz-Security-Token Missing')
 //     }
@@ -262,8 +267,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 2)
   }
