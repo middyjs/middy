@@ -40,42 +40,49 @@ npm install --save @middy/http-router
   - `method` (string) (required): One of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` and `ANY` that will match to any method passed in
   - `path` (string) (required): AWS formatted path starting with `/`. Variable: `/{id}/`, Wildcard: `/{proxy+}`
   - `handler` (function) (required): Any `handler(event, context)` function
-  
+
+NOTES:
+- Errors should be handled as part of the router middleware stack **or** the baseHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
+- Shared middlewares, connected to the router middleware stack, can only be run before the baseHandler middleware stack.
+
 ## Sample usage
 
 ```javascript
 import middy from '@middy/core'
 import validatorMiddleware from '@middy/validator'
 
-const getHandler = middy((event, context) => {
-  return {
-    statusCode: 200,
-    body: '{...}'
-  }
-})
+const getHandler = middy()
   .use(validatorMiddleware({inputSchema: {...} }))
+  .handler((event, context) => {
+    return {
+      statusCode: 200,
+      body: '{...}'
+    }
+  })
 
-const postHandler = middy((event, context) => {
-  return {
-    statusCode: 200,
-    body: '{...}'
-  }
-})
+const postHandler = middy()
   .use(validatorMiddleware({inputSchema: {...} }))
+  .handler((event, context) => {
+    return {
+      statusCode: 200,
+      body: '{...}'
+    }
+  })
 
-handler = middy(httpRouterHandler([
-  {
-    method: 'GET',
-    path: '/user/{id}',
-    handler: getHandler
-  },
-  {
-    method: 'POST',
-    path: '/user',
-    handler: postHandler
-  }
-]))
+handler = middy()
   .use(httpHeaderNormalizer())
+  .handler(httpRouterHandler([
+    {
+      method: 'GET',
+      path: '/user/{id}',
+      handler: getHandler
+    },
+    {
+      method: 'POST',
+      path: '/user',
+      handler: postHandler
+    }
+  ]))
   
 
 module.exports = { handler }
