@@ -9,7 +9,7 @@ const typeDefs = gql(graphqlFileToStr)
 const server = new ApolloServer({
   schema: buildFederatedSchema({
     typeDefs,
-    resolvers,
+    resolvers
   })
 })
 
