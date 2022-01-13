@@ -11,8 +11,8 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
     plugin = baseHandler
     baseHandler = defaultBaseHandler
   }
-  plugin = {...defaultPlugin, ...plugin}
-  
+  plugin = { ...defaultPlugin, ...plugin }
+
   plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
