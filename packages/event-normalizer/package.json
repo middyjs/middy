@@ -1,6 +1,6 @@
 {
   "name": "@middy/event-normalizer",
-  "version": "3.0.0-alpha.0",
+  "version": "3.0.0-alpha.1",
   "description": "Parse and normalize AWS events middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -13,6 +13,7 @@
   "exports": "./index.js",
   "types": "index.d.ts",
   "files": [
+    "index.js",
     "index.d.ts"
   ],
   "scripts": {
@@ -48,10 +49,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.0"
+    "@middy/util": "^3.0.0-alpha.1"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.0",
+    "@middy/core": "^3.0.0-alpha.1",
     "@serverless/event-mocks": "^1.1.1",
     "aws-sdk": "^2.939.0"
   },

@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-multipart-body-parser",
-  "version": "3.0.0-alpha.0",
+  "version": "3.0.0-alpha.1",
   "description": "Http event normalizer middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -13,6 +13,7 @@
   "exports": "./index.js",
   "types": "index.d.ts",
   "files": [
+    "index.js",
     "index.d.ts"
   ],
   "scripts": {
@@ -46,11 +47,11 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.0",
+    "@middy/util": "^3.0.0-alpha.1",
     "busboy": "1.3.0"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.0"
+    "@middy/core": "^3.0.0-alpha.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
