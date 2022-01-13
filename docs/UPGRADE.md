@@ -73,6 +73,9 @@ No change
 - Renamed `default` option to `defaultContentType` to improve maintainability [Breaking Change]
 - `onError` will not modify response unless error has been handled
 
+### [http-router](/packages/http-router/README.md)
+- [New] Allow re-routing of events to different handlers
+
 ### [http-security-headers](/packages/http-security-headers/README.md)
 - `onError` will not modify response unless error has been handled
 

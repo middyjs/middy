@@ -273,13 +273,8 @@ test('It should fail when mismatching', async (t) => {
   }
 
   try {
-<<<<<<< HEAD
-    await handler(event)
-  } catch (e) {
-=======
     await handler(event, context)
-  } catch (err) {
->>>>>>> release/3.x
+  } catch (e) {
     t.is(
       e.message,
       'Unsupported MediaType. Acceptable values: text/plain, text/x-dvi'

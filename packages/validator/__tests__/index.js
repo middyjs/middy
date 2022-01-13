@@ -200,7 +200,7 @@ test('It should handle invalid schema as a BadRequest in a different language (w
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(err.message, 'Event object failed validation')
+    t.is(e.message, 'Event object failed validation')
     t.deepEqual(e.details, [
       {
         instancePath: '',
