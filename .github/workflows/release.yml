@@ -31,10 +31,10 @@ jobs:
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Pre-Release
-        if: contains($GITHUB_REF, 'alpha') || contains($GITHUB_REF, 'beta') || contains($GITHUB_REF, 'rc')
+        if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
         run: |
           npm run lerna:publish:next
       - name: Release
-        if: !contains($GITHUB_REF, 'alpha') && !contains($GITHUB_REF, 'beta') && !contains($GITHUB_REF, 'rc')
+        if: !contains(${{GITHUB_REF}}, 'alpha') && !contains(${{GITHUB_REF}}, 'beta') && !contains(${{GITHUB_REF}}, 'rc')
         run: |
           npm run lerna:publish:next
