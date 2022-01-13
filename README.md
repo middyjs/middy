@@ -114,11 +114,21 @@ const inputSchema = {
  }
 }
 
+// When a Timeout happends, return a proper response
+const plugin = {
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+}
+
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
-const handler = middy(baseHandler)
+const handler = middy(plugin)
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
+  .handler(baseHandler)
 
 export default { handler }
 ```
@@ -172,7 +182,7 @@ const baseHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(baseHandler)
+const handler = middy(baseHandler) // `baseHandler` can alternatively be attached using `.handler(baseHandler)` after all middleware are attached
 
 handler
   .use(middleware1())
@@ -321,16 +331,13 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ```javascript
 // Initialize response
-request.response = request.response ?? {}
+request.response ??= {}
 
 // Add to response
 request.response.add = 'more'
 
 // Override an error
 request.error = new Error('...')
-
-// handle the error
-return request.response
 ```
 
 ## Writing a middleware
