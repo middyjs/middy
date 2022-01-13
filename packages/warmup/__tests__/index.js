@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const warmup = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import warmup from '../index.js'
 
 const event = {}
 const context = {

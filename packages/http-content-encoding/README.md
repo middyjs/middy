@@ -71,7 +71,7 @@ handler
     overridePreferredEncoding: ['br', 'gzip', 'deflate']
   }))
 
-module.exports = { handler }
+export default { handler }
 ```
 
 

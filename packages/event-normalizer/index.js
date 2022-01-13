@@ -1,6 +1,7 @@
-const { Converter: { unmarshall } } = require('aws-sdk/clients/dynamodb') // v2
-// const { unmarshall } = require('@aws-sdk/util-dynamodb') // v3
-const { jsonSafeParse } = require('@middy/util')
+import DynamoDB from 'aws-sdk/clients/dynamodb.js'
+// import { unmarshall } from '@aws-sdk/util-dynamodb' // v3
+import { jsonSafeParse } from '@middy/util' // v2
+const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
   const eventNormalizerMiddlewareBefore = async (request) => {
@@ -52,4 +53,4 @@ const parseEvent = {
   }
 }
 
-module.exports = eventNormalizerMiddleware
+export default eventNormalizerMiddleware

@@ -1,7 +1,8 @@
-const charset = require('negotiator/lib/charset.js')
-const encoding = require('negotiator/lib/encoding.js')
-const language = require('negotiator/lib/language.js')
-const mediaType = require('negotiator/lib/mediaType.js')
+import charset from 'negotiator/lib/charset.js'
+import encoding from 'negotiator/lib/encoding.js'
+import language from 'negotiator/lib/language.js'
+import mediaType from 'negotiator/lib/mediaType.js'
+import { createError } from '@middy/util'
 
 const parseFn = {
   Charset: charset,
@@ -89,10 +90,9 @@ const parseHeader = (
   event[resultName] = event[resultsName][0]
 
   if (failOnMismatch && event[resultName] === undefined) {
-    const { createError } = require('@middy/util')
     // NotAcceptable
     throw createError(406, `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`)
   }
 }
 
-module.exports = httpContentNegotiationMiddleware
+export default httpContentNegotiationMiddleware

@@ -1,7 +1,7 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const errorLogger = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import errorLogger from '../index.js'
 
 const event = {}
 const context = {
@@ -22,10 +22,10 @@ test('It should log errors and propagate the error', async (t) => {
 
   try {
     response = await handler(event, context)
-  } catch (err) {
+  } catch (e) {
     t.true(logger.calledWith(error))
     t.is(response, undefined)
-    t.deepEqual(err, error)
+    t.deepEqual(e, error)
   }
 })
 
@@ -37,15 +37,12 @@ test('It should throw error when invalid logger', async (t) => {
     throw error
   })
 
-  let response
-
   try {
     handler.use(errorLogger({ logger }))
-    response = await handler(event, context)
-  } catch (err) {
-    t.is(response, undefined)
+    await handler(event, context)
+  } catch (e) {
     t.is(
-      err.message,
+      e.message,
       'Middleware must be an object containing at least one key among "before", "after", "onError"'
     )
   }

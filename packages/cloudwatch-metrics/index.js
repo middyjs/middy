@@ -1,4 +1,4 @@
-const awsEmbeddedMetrics = require('aws-embedded-metrics')
+import awsEmbeddedMetrics from 'aws-embedded-metrics'
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
   const defaults = {}
@@ -29,4 +29,4 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = cloudwatchMetricsMiddleware
+export default cloudwatchMetricsMiddleware

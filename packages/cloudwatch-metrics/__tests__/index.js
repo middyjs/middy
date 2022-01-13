@@ -1,8 +1,8 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const awsEmbeddedMetrics = require('aws-embedded-metrics')
-const metrics = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import awsEmbeddedMetrics from 'aws-embedded-metrics'
+import metrics from '../index.js'
 
 const sandbox = sinon.createSandbox()
 const flushStub = sandbox.stub()
@@ -40,7 +40,7 @@ test.serial(
       .use(metrics())
       .before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -56,7 +56,7 @@ test.serial(
 
     handler.use(metrics()).after(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -72,7 +72,7 @@ test.serial(
 
     handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )
@@ -108,7 +108,7 @@ test.serial(
       )
       .before(middleware)
 
-    const context = {...defaultContext}
+    const context = { ...defaultContext }
     await handler(event, context)
   }
 )

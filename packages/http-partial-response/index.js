@@ -1,5 +1,5 @@
-const mask = require('json-mask')
-const { normalizeHttpResponse, jsonSafeParse } = require('@middy/util')
+import mask from 'json-mask'
+import { normalizeHttpResponse, jsonSafeParse } from '@middy/util'
 
 const defaults = {
   filteringKeyName: 'fields'
@@ -29,4 +29,4 @@ const httpPartialResponseMiddleware = (opts = {}) => {
     after: httpPartialResponseMiddlewareAfter
   }
 }
-module.exports = httpPartialResponseMiddleware
+export default httpPartialResponseMiddleware

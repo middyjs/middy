@@ -1,3 +1,4 @@
+import { AbortController } from 'node-abort-controller'
 
 const defaultBaseHandler = () => {}
 const defaultPlugin = {
@@ -144,9 +145,7 @@ const runMiddlewares = async (request, middlewares, plugin) => {
   }
 }
 
-// Start Polyfill (node v14)
-const { AbortController } = require('node-abort-controller')
-
+// Start Polyfill (Nodejs v14)
 const setTimeoutPromise = (ms, { signal }) => {
   if (signal.aborted) {
     return Promise.reject(new Error('Aborted', 'AbortError'))
@@ -165,7 +164,7 @@ const setTimeoutPromise = (ms, { signal }) => {
   })
 }
 // Replace Polyfill
-// const {setTimeout} = require('timers/promises')
+// import {setTimeout} from 'timers/promises'
 // End Polyfill
 
-module.exports = middy
+export default middy

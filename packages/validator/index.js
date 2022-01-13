@@ -1,8 +1,8 @@
-const { createError } = require('@middy/util')
-const _ajv = require('ajv/dist/2019')
-const localize = require('ajv-i18n')
-const formats = require('ajv-formats')
-const formatsDraft2019 = require('ajv-formats-draft2019')
+import { createError } from '@middy/util'
+import _ajv from 'ajv/dist/2019.js'
+import localize from 'ajv-i18n'
+import formats from 'ajv-formats'
+import formatsDraft2019 from 'ajv-formats-draft2019'
 
 const Ajv = _ajv.default // esm workaround for linting
 
@@ -114,4 +114,4 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   return defaultLanguage
 }
 
-module.exports = validatorMiddleware
+export default validatorMiddleware

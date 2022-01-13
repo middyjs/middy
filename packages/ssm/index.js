@@ -1,4 +1,4 @@
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient,
@@ -8,9 +8,9 @@ const {
   jsonSafeParse,
   getInternal,
   sanitizeKey
-} = require('@middy/util')
-const SSM = require('aws-sdk/clients/ssm') // v2
-// const { SSM } = require('@aws-sdk/client-ssm') // v3
+} from '@middy/util'
+import SSM from 'aws-sdk/clients/ssm.js' // v2
+// import { SSM } from '@aws-sdk/client-ssm' // v3
 
 const awsRequestLimit = 10
 const defaults = {
@@ -173,4 +173,4 @@ const ssmMiddleware = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
-module.exports = ssmMiddleware
+export default ssmMiddleware

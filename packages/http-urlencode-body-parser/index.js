@@ -1,4 +1,4 @@
-const { parse } = require('qs')
+import { parse } from 'qs'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 
@@ -17,4 +17,4 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
 const httpUrlencodeBodyParserMiddleware = () => ({
   before: httpUrlencodeBodyParserMiddlewareBefore
 })
-module.exports = httpUrlencodeBodyParserMiddleware
+export default httpUrlencodeBodyParserMiddleware

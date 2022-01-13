@@ -74,8 +74,7 @@ Let's assume you are building a JSON API to process a payment:
 //# handler.js #
 
 // import core
-import middy from '@middy/core' // esm Node v14+
-//const middy = require('@middy/core') // commonjs Node v14+
+import middy from '@middy/core'
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
@@ -115,13 +114,23 @@ const inputSchema = {
  }
 }
 
+// When a Timeout happends, return a proper response
+const plugin = {
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+}
+
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
-const handler = middy(baseHandler)
+const handler = middy(plugin)
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
+  .handler(baseHandler)
 
-module.exports = { handler }
+export default { handler }
 ```
 
 ## Why?
@@ -173,14 +182,14 @@ const baseHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(baseHandler)
+const handler = middy(baseHandler) // `baseHandler` can alternatively be attached using `.handler(baseHandler)` after all middleware are attached
 
 handler
   .use(middleware1())
   .use(middleware2())
   .use(middleware3())
 
-module.exports = { handler }
+export default { handler }
 ```
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
@@ -196,11 +205,10 @@ const baseHandler = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(baseHandler);
+const handler = middy(baseHandler)
+  .use(middlewares)
 
-handler.use(middlewares)
-
-module.exports = { handler };
+export default { handler }
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
@@ -323,16 +331,13 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ```javascript
 // Initialize response
-request.response = request.response ?? {}
+request.response ??= {}
 
 // Add to response
 request.response.add = 'more'
 
 // Override an error
 request.error = new Error('...')
-
-// handle the error
-return request.response
 ```
 
 ## Writing a middleware
@@ -370,7 +375,7 @@ E.g.
 
 const defaults = {}
 
-module.exports = (opts = {}) => {
+const customMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const customMiddlewareBefore = async (request) => {
@@ -390,6 +395,7 @@ module.exports = (opts = {}) => {
     onError: customMiddlewareOnError
   }
 }
+export default customMiddleware
 ```
 
 With this convention in mind, using a middleware will always look like the following example:
@@ -410,7 +416,7 @@ handler.use(
   })
 )
 
-module.exports = { handler }
+export default { handler }
 ```
 
 ### Inline middlewares
@@ -443,7 +449,7 @@ handler.onError(async (request) => {
   // do something in the on error phase
 })
 
-module.exports = { handler }
+export default { handler }
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`

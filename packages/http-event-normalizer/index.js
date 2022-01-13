@@ -26,4 +26,4 @@ const isVersionHttpEvent = {
   '2.0': (event) => event.requestContext?.http?.method !== undefined
 }
 
-module.exports = httpEventNormalizerMiddleware
+export default httpEventNormalizerMiddleware

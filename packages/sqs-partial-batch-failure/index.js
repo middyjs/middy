@@ -31,13 +31,13 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 }
 
 /*
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient
-} = require('@middy/util')
-const SQS = require('aws-sdk/clients/sqs') // v2
-// const { SQS } = require('@aws-sdk/client-sqs') // v3
+} =from '@middy/util'
+import SQS from 'aws-sdk/clients/sqs.js' // v2
+// import { SQS } from '@aws-sdk/client-sqs' // v3
 
 const defaults = {
   AwsClient: SQS,
@@ -115,4 +115,4 @@ const getQueueUrl = (client, eventSourceARN) => {
   return `${urlParts.protocol}//${urlParts.hostname}${urlParts.path}${accountId}/${queueName}`
 }
 */
-module.exports = sqsPartialBatchFailureMiddleware
+export default sqsPartialBatchFailureMiddleware

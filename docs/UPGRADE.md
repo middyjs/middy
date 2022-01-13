@@ -4,6 +4,7 @@
 See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 
 Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
+With the Node.js version change all packages are now ECMAScript Modules instead of CommonJS Modules.
 
 ## Core
 - `onError` middleware stack order reversed to match `after` [Breaking Change]
@@ -71,6 +72,9 @@ No change
 ### [http-response-serializer](/packages/http-response-serializer/README.md)
 - Renamed `default` option to `defaultContentType` to improve maintainability [Breaking Change]
 - `onError` will not modify response unless error has been handled
+
+### [http-router](/packages/http-router/README.md)
+- [New] Allow re-routing of events to different handlers
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
 - `onError` will not modify response unless error has been handled

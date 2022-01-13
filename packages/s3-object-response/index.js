@@ -1,14 +1,14 @@
-let https = require('https')
-const { URL } = require('url')
+import __https from 'https'
+import { URL } from 'url'
 
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient
-} = require('@middy/util')
+} from '@middy/util'
 
-const S3 = require('aws-sdk/clients/s3') // v2
-// const { S3 } = require('@aws-sdk/client-s3') // v3
+import S3 from 'aws-sdk/clients/s3.js' // v2
+// import { S3 } from '@aws-sdk/client-s3' // v3
 
 const defaults = {
   AwsClient: S3,
@@ -17,9 +17,13 @@ const defaults = {
   awsClientCapture: undefined,
   httpsCapture: undefined,
   disablePrefetch: false,
-  bodyType: undefined
+  bodyType: undefined,
+
+  // For mocking out only, rewire doesn't support ES Modules :(
+  __https
 }
 
+let https = __https
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
@@ -28,7 +32,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   if (options.httpsCapture) {
-    https = options.httpsCapture(https)
+    https = options.httpsCapture(options.__https)
   }
 
   let client
@@ -106,4 +110,4 @@ const fetchPromise = (fetchOptions) => {
   })
 }
 
-module.exports = s3ObjectResponseMiddleware
+export default s3ObjectResponseMiddleware

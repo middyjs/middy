@@ -1,9 +1,9 @@
-const test = require('ava')
-const sinon = require('sinon')
-const createEvent = require('@serverless/event-mocks')
+import test from 'ava'
+import sinon from 'sinon'
+import createEvent from '@serverless/event-mocks'
 
-const middy = require('../../core/index.js')
-const sqsPartialBatchFailure = require('../index.js')
+import middy from '../../core/index.js'
+import sqsPartialBatchFailure from '../index.js'
 
 const baseHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
@@ -15,7 +15,7 @@ const baseHandler = async (e) => {
   return Promise.allSettled(processedRecords)
 }
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

@@ -2,25 +2,25 @@
  * Trigger Lambda from AWS Event
  * Elastic Load Balancer: https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html
  **/
-const middy = require('@middy/core')
-const httpRouterHandler = require('@middy/http-router')
-const errorLoggerMiddleware = require('@middy/error-logger')
-const inputOutputLoggerMiddleware = require('@middy/input-output-logger')
-const httpContentNegotiationMiddleware = require('@middy/http-content-negotiation')
-const httpContentEncodingMiddleware = require('@middy/http-content-encoding')
-const httpCorsMiddleware = require('@middy/http-cors')
-const httpErrorHandlerMiddleware = require('@middy/http-error-handler')
-const httpEventNormalizerMiddleware = require('@middy/http-event-normalizer')
-const httpHeaderNormalizerMiddleware = require('@middy/http-header-normalizer')
-const httpJsonBodyParserMiddleware = require('@middy/http-json-body-parser')
-const httpMultipartBodyParserMiddleware = require('@middy/http-multipart-body-parser')
-const httpPartialResponseMiddleware = require('@middy/http-partial-response')
-const httpResponseSerializerMiddleware = require('@middy/http-response-serializer')
-const httpSecurityHeadersMiddleware = require('@middy/http-security-headers')
-const httpUrlencodeBodyParserMiddleware = require('@middy/http-urlencode-body-parser')
-const httpUrlencodePathParametersParserMiddleware = require('@middy/http-urlencode-path-parser')
-const validatorMiddleware = require('validator') // or `middy-ajv`
-const warmupMiddleware = require('warmup')
+import middy from '@middy/core'
+import httpRouterHandler from '@middy/http-router'
+import errorLoggerMiddleware from '@middy/error-logger'
+import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
+import httpContentEncodingMiddleware from '@middy/http-content-encoding'
+import httpCorsMiddleware from '@middy/http-cors'
+import httpErrorHandlerMiddleware from '@middy/http-error-handler'
+import httpEventNormalizerMiddleware from '@middy/http-event-normalizer'
+import httpHeaderNormalizerMiddleware from '@middy/http-header-normalizer'
+import httpJsonBodyParserMiddleware from '@middy/http-json-body-parser'
+import httpMultipartBodyParserMiddleware from '@middy/http-multipart-body-parser'
+import httpPartialResponseMiddleware from '@middy/http-partial-response'
+import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
+import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
+import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
+import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
+import validatorMiddleware from 'validator' // or `middy-ajv`
+import warmupMiddleware from 'warmup'
 
 const config = {
   timeoutEarlyInMillis: 50,
@@ -93,4 +93,4 @@ const handler = middy(httpRouterHandler(routes))
   .use(httpPartialResponseMiddleware())
   .use(httpErrorHandlerMiddleware())
 
-module.exports = { handler }
+export default { handler }

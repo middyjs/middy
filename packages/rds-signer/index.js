@@ -1,15 +1,15 @@
-const {
+import {
   canPrefetch,
   getInternal,
   processCache,
   getCache,
   modifyCache
-} = require('@middy/util')
-const { Signer } = require('aws-sdk/clients/rds.js') // v2
-// const { RDS:{Signer} } = require('@aws-sdk/client-rds') // v3
+} from '@middy/util'
+import RDS from 'aws-sdk/clients/rds.js' // v2
+// import { RDS:{Signer} } from '@aws-sdk/client-rds' // v3
 
 const defaults = {
-  AwsClient: Signer,
+  AwsClient: RDS.Signer,
   awsClientOptions: {},
   fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
   disablePrefetch: false,
@@ -32,9 +32,9 @@ const rdsSignerMiddleware = (opts = {}) => {
       })
       // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
       values[internalKey] = new Promise((resolve, reject) => {
-        client.getAuthToken({}, (err, token) => {
-          if (err) {
-            reject(err)
+        client.getAuthToken({}, (e, token) => {
+          if (e) {
+            reject(e)
           }
           // Catch Missing token, this usually means their is something wrong with the credentials
           if (!token.includes('X-Amz-Security-Token=')) {
@@ -77,4 +77,4 @@ const rdsSignerMiddleware = (opts = {}) => {
     before: rdsSignerMiddlewareBefore
   }
 }
-module.exports = rdsSignerMiddleware
+export default rdsSignerMiddleware

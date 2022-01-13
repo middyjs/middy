@@ -1,4 +1,4 @@
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient,
@@ -6,9 +6,9 @@ const {
   processCache,
   getCache,
   modifyCache
-} = require('@middy/util')
-const STS = require('aws-sdk/clients/sts') // v2
-// const { STS } = require('@aws-sdk/client-sts') // v3
+} from '@middy/util'
+import STS from 'aws-sdk/clients/sts.js' // v2
+// import { STS } from '@aws-sdk/client-sts' // v3
 
 const defaults = {
   AwsClient: STS,
@@ -78,4 +78,4 @@ const stsMiddleware = (opts = {}) => {
     before: stsMiddlewareBefore
   }
 }
-module.exports = stsMiddleware
+export default stsMiddleware

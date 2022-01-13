@@ -1,5 +1,4 @@
-// import { createError } from '@middy/util'
-const { createError } = require('@middy/util')
+import { createError } from '@middy/util'
 
 const httpRouteHandler = (routes) => {
   const routesStatic = {}
@@ -97,5 +96,4 @@ const getVersionRoute = {
   })
 }
 
-// export default httpRouteHandler
-module.exports = httpRouteHandler
+export default httpRouteHandler

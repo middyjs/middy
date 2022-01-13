@@ -4,16 +4,15 @@
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
-const { Readable, Writable } = require('stream')
-// const {pipeline} = require('stream/promises')  // available in node >=15
-const { promisify } = require('util')
-const { pipeline: pipelineCallback } = require('stream')
+import { Readable, Writable, pipeline as pipelineCallback } from 'stream'
+// import {pipeline} from 'stream/promises'  // available in node >=15
+import { promisify } from 'util'
+
+import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
+// import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
+
+import { normalizeHttpResponse } from '@middy/util'
 const pipeline = promisify(pipelineCallback)
-
-const { createBrotliCompress, createGzip, createDeflate } = require('zlib')
-// const {ZSTDCompress: createZstdCompress} = require('simple-zstd')
-
-const { normalizeHttpResponse } = require('@middy/util')
 
 const contentEncodingStreams = {
   br: (opts = {}) => createBrotliCompress(opts),
@@ -102,4 +101,4 @@ const isReadableStream = (stream) =>
   typeof stream._read === 'function' &&
   typeof stream._readableState === 'object'
 
-module.exports = httpContentEncodingMiddleware
+export default httpContentEncodingMiddleware

@@ -13,4 +13,4 @@ const errorLoggerMiddleware = (opts = {}) => {
     onError: logger ? errorLoggerMiddlewareOnError : null
   }
 }
-module.exports = errorLoggerMiddleware
+export default errorLoggerMiddleware

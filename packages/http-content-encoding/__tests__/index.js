@@ -1,11 +1,10 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpContentEncoding = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpContentEncoding from '../index.js'
 
-const { Readable, Writable } = require('stream')
-const { brotliCompressSync, gzipSync, deflateSync } = require('zlib')
-const { promisify } = require('util')
-const { pipeline: pipelineCallback } = require('stream')
+import { Readable, Writable, pipeline as pipelineCallback } from 'stream'
+import { brotliCompressSync, gzipSync, deflateSync } from 'zlib'
+import { promisify } from 'util'
 const pipeline = promisify(pipelineCallback)
 
 const context = {

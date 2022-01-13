@@ -1,7 +1,11 @@
-const { Agent } = require('https')
-// const { NodeHttpHandler } = require('@aws-sdk/node-http-handler') // aws-sdk v3
+import { Agent } from 'https'
 
-const awsClientDefaultOptions = {
+// smaller version of `http-errors`
+import statuses from './codes.js'
+import { inherits } from 'util'
+// import { NodeHttpHandler } from '@aws-sdk/node-http-handler' // aws-sdk v3
+
+export const awsClientDefaultOptions = {
   // AWS SDK v3
   // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
   /* requestHandler: new NodeHttpHandler({
@@ -19,7 +23,7 @@ const awsClientDefaultOptions = {
   }
 }
 
-const createPrefetchClient = (options) => {
+export const createPrefetchClient = (options) => {
   const awsClientOptions = {
     ...awsClientDefaultOptions,
     ...options.awsClientOptions
@@ -36,7 +40,7 @@ const createPrefetchClient = (options) => {
   return client
 }
 
-const createClient = async (options, request) => {
+export const createClient = async (options, request) => {
   let awsClientCredentials = {}
 
   // Role Credentials
@@ -59,12 +63,12 @@ const createClient = async (options, request) => {
   })
 }
 
-const canPrefetch = (options = {}) => {
+export const canPrefetch = (options = {}) => {
   return !options.awsClientAssumeRole && !options.disablePrefetch
 }
 
 // Internal Context
-const getInternal = async (variables, request) => {
+export const getInternal = async (variables, request) => {
   if (!variables || !request) return {}
   let keys = []
   let values = []
@@ -112,7 +116,7 @@ const getInternal = async (variables, request) => {
 }
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
-const sanitizeKey = (key) => {
+export const sanitizeKey = (key) => {
   return key
     .replace(sanitizeKeyPrefixLeadingNumber, '_$1')
     .replace(sanitizeKeyRemoveDisallowedChar, '_')
@@ -120,7 +124,7 @@ const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
-const processCache = (options, fetch = () => undefined, request) => {
+export const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
@@ -147,18 +151,18 @@ const processCache = (options, fetch = () => undefined, request) => {
   return { value, expiry }
 }
 
-const getCache = (key) => {
+export const getCache = (key) => {
   if (!cache[key]) return {}
   return cache[key]
 }
 
 // Used to remove parts of a cache
-const modifyCache = (cacheKey, value) => {
+export const modifyCache = (cacheKey, value) => {
   if (!cache[cacheKey]) return
   cache[cacheKey] = { ...cache[cacheKey], value, modified: true }
 }
 
-const clearCache = (keys = null) => {
+export const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
@@ -166,7 +170,7 @@ const clearCache = (keys = null) => {
   }
 }
 
-const jsonSafeParse = (string, reviver) => {
+export const jsonSafeParse = (string, reviver) => {
   if (typeof string !== 'string') return string
   const firstChar = string[0]
   if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
@@ -177,7 +181,7 @@ const jsonSafeParse = (string, reviver) => {
   return string
 }
 
-const normalizeHttpResponse = (request) => {
+export const normalizeHttpResponse = (request) => {
   let { response } = request
   if (response === undefined) {
     response = {}
@@ -189,12 +193,8 @@ const normalizeHttpResponse = (request) => {
   return response
 }
 
-// smaller version of `http-errors`
-const statuses = require('./codes.js')
-const { inherits } = require('util')
-
 const createErrorRegexp = /[^a-zA-Z]/g
-const createError = (code, message, properties = {}) => {
+export const createError = (code, message, properties = {}) => {
   const name = statuses[code].replace(createErrorRegexp, '')
   const className = name.substr(-5) !== 'Error' ? name + 'Error' : name
 
@@ -242,7 +242,7 @@ const createError = (code, message, properties = {}) => {
   return new HttpError(message)
 }
 
-module.exports = {
+export default {
   createPrefetchClient,
   createClient,
   canPrefetch,

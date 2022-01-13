@@ -17,4 +17,4 @@ const warmupMiddleware = (opt) => {
   }
 }
 
-module.exports = warmupMiddleware
+export default warmupMiddleware

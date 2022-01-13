@@ -1,4 +1,4 @@
-const { normalizeHttpResponse } = require('@middy/util')
+import { normalizeHttpResponse } from '@middy/util'
 
 // Code and Defaults heavily based off https://helmetjs.github.io/
 
@@ -163,4 +163,4 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
     onError: httpSecurityHeadersMiddlewareOnError
   }
 }
-module.exports = httpSecurityHeadersMiddleware
+export default httpSecurityHeadersMiddleware

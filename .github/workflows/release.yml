@@ -16,9 +16,9 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 14.0.0
-      - name: Use npm 7.5
+      - name: Use npm 8
         run: |
-          npm install -g npm@7.5
+          npm install -g npm@8
       - name: Create .npmrc
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
@@ -27,9 +27,14 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-      - name: Build as Commonjs for Node.js v14
+      - name: Build as ESM for Node.js v14
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+      - name: Pre-Release
+        if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
+        run: |
+          npm run lerna:publish:next
       - name: Release
+        if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
         run: |
           npm run lerna:publish:next

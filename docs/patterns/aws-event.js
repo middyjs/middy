@@ -8,16 +8,16 @@
  * SES: https://docs.aws.amazon.com/lambda/latest/dg/services-ses.html
  * SNS: https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html
  **/
-const middy = require('@middy/core')
-const cloudWatchMetricsMiddleware = require('@middy/cloudwatch-metrics')
-const errorLoggerMiddleware = require('@middy/error-logger')
-const eventNormalizerMiddleware = require('@middy/event-normalizer')
-const inputOutputLoggerMiddleware = require('@middy/input-output-logger')
-const validatorMiddleware = require('validator') // or `middy-ajv`
-const warmupMiddleware = require('warmup')
+import middy from '@middy/core'
+import cloudWatchMetricsMiddleware from '@middy/cloudwatch-metrics'
+import errorLoggerMiddleware from '@middy/error-logger'
+import eventNormalizerMiddleware from '@middy/event-normalizer'
+import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import validatorMiddleware from 'validator' // or `middy-ajv`
+import warmupMiddleware from 'warmup'
 
-const inputSchema = require('./requestEvent.json')
-const outputSchema = require('./response.json')
+import inputSchema from './requestEvent.json' // assert { type: 'json' }
+import outputSchema from './response.json' // assert { type: 'json' }
 
 const baseHandler = () => {
   return true
@@ -35,4 +35,4 @@ const handler = middy(baseHandler, config)
   .use(eventNormalizerMiddleware()) // not required for SES
   .use(validatorMiddleware({ inputSchema, outputSchema }))
 
-module.exports = { handler }
+export default { handler }

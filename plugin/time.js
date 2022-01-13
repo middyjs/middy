@@ -41,4 +41,4 @@ const timePlugin = (opts = {}) => {
     requestEnd
   }
 }
-module.exports = timePlugin
+export default timePlugin

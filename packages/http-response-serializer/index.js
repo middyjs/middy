@@ -1,5 +1,5 @@
-const { normalizeHttpResponse } = require('@middy/util')
-const Accept = require('@hapi/accept')
+import { normalizeHttpResponse } from '@middy/util'
+import Accept from '@hapi/accept'
 
 const defaults = {
   serializers: [],
@@ -61,4 +61,4 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = httpResponseSerializerMiddleware
+export default httpResponseSerializerMiddleware

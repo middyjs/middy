@@ -1,8 +1,8 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpSecurityHeaders = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpSecurityHeaders from '../index.js'
 
-const event = {}
+// const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }

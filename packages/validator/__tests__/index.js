@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const validator = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import validator from '../index.js'
 
 const event = {}
 const context = {
@@ -95,9 +95,9 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
   try {
     await handler(event, context)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -150,9 +150,9 @@ test('It should handle invalid schema as a BadRequest in a different language', 
 
     try {
       await handler(event, context)
-    } catch (err) {
-      t.is(err.message, 'Event object failed validation')
-      t.deepEqual(err.details, [
+    } catch (e) {
+      t.is(e.message, 'Event object failed validation')
+      t.deepEqual(e.details, [
         {
           instancePath: '',
           keyword: 'required',
@@ -199,9 +199,9 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   try {
     await handler(event, context)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -248,9 +248,9 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
 
   try {
     await handler(event, context)
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [
       {
         instancePath: '',
         keyword: 'required',
@@ -315,9 +315,9 @@ test('It should make requests with invalid responses fail with an Internal Serve
 
   try {
     response = await handler(event, context)
-  } catch (err) {
-    t.not(err, null)
-    t.is(err.message, 'Response object failed validation')
+  } catch (e) {
+    t.not(e, null)
+    t.is(e.message, 'Response object failed validation')
     t.not(response, null) // it doesn't destroy the response so it gets logged
   }
 })
@@ -338,8 +338,8 @@ test('It should not allow bad email format', async (t) => {
   try {
     // This same email is not a valid one in 'full' validation mode
     await handler(event, context)
-  } catch (err) {
-    t.is(err.details[0].message, 'must match format "email"')
+  } catch (e) {
+    t.is(e.details[0].message, 'must match format "email"')
   }
 })
 
@@ -356,9 +356,9 @@ test('It should error when unsupported keywords used (input)', async (t) => {
   const event = { foo: 'a' }
   try {
     handler.use(validator({ inputSchema: schema }))
-    await handler(event, conext)
-  } catch (err) {
-    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -375,9 +375,9 @@ test('It should error when unsupported keywords used (output)', async (t) => {
   const event = { foo: 'a' }
   try {
     handler.use(validator({ outputSchema: schema }))
-    await handler(event. context)
-  } catch (err) {
-    t.is(err.message, 'strict mode: unknown keyword: "somethingnew"')
+    await handler(event.context)
+  } catch (e) {
+    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -400,9 +400,9 @@ test('It should error when unsupported keywords used (output)', async (t) => {
 
   try {
     await handler({ foo: 'a' })
-  } catch (err) {
-    t.is(err.message, 'Event object failed validation')
-    t.deepEqual(err.details, [{
+  } catch (e) {
+    t.is(e.message, 'Event object failed validation')
+    t.deepEqual(e.details, [{
       instancePath: '',
       keyword: 'errorMessage',
       params: {
