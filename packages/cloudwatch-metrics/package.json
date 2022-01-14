@@ -1,6 +1,6 @@
 {
   "name": "@middy/cloudwatch-metrics",
-  "version": "2.5.4",
+  "version": "3.0.0-alpha.2",
   "description": "Embedded CloudWatch metrics middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -13,6 +13,7 @@
   "exports": "./index.js",
   "types": "index.d.ts",
   "files": [
+    "index.js",
     "index.d.ts"
   ],
   "scripts": {
@@ -52,7 +53,7 @@
     "aws-embedded-metrics": "2.0.4"
   },
   "devDependencies": {
-    "@middy/core": "^2.5.4"
+    "@middy/core": "^3.0.0-alpha.2"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

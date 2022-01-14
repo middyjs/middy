@@ -32,6 +32,11 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test.serial('It should set secret to internal storage (token)', async (t) => {
   mockService(SecretsManager, {
     SecretString: 'token'
@@ -55,7 +60,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set secrets to internal storage (token)', async (t) => {
@@ -90,7 +95,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set secrets to internal storage (json)', async (t) => {
@@ -121,7 +126,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -151,7 +156,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -179,7 +184,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -208,8 +213,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 1)
   }
@@ -247,8 +252,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 2)
   }

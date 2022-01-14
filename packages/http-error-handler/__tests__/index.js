@@ -8,6 +8,11 @@ import { createError } from '../../util/index.js'
 // Silence logging
 // console.error = () => {}
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should create a response for HTTP errors (string)', async (t) => {
   const handler = middy(() => {
     throw createError(422)
@@ -15,7 +20,7 @@ test('It should create a response for HTTP errors (string)', async (t) => {
 
   handler.use(httpErrorHandler({ logger: false }))
 
-  const response = await handler(null)
+  const response = await handler(null, context)
 
   t.deepEqual(response, {
     statusCode: 422,
@@ -35,7 +40,7 @@ test('It should create a response for HTTP errors (json)', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: '{ "json": "error" }' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 500,
@@ -54,7 +59,7 @@ test('It should NOT handle non HTTP errors', async (t) => {
   handler.use(httpErrorHandler({ logger: false }))
 
   try {
-    await handler()
+    await handler(event, context)
   } catch (error) {
     t.is(error.message, 'non-http error')
   }
@@ -69,7 +74,7 @@ test('It should handle non HTTP errors when fallback set', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
   t.deepEqual(response, {
     statusCode: 500,
     body: 'Error: unknown',
@@ -89,7 +94,7 @@ test('It should be possible to pass a custom logger function', async (t) => {
 
   handler.use(httpErrorHandler({ logger }))
 
-  await handler()
+  await handler(event, context)
 
   t.true(logger.calledWith(expectedError))
 })
@@ -103,7 +108,7 @@ test('It should create a response for HTTP errors created with a generic error',
 
   handler.use(httpErrorHandler({ logger: false }))
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     statusCode: 412,
@@ -125,7 +130,7 @@ test('It should expose of error to user', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
   t.deepEqual(response, {
     statusCode: 404,
     body: 'NotFound',
@@ -146,7 +151,7 @@ test('It should be possible to prevent expose of error to user', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
   t.deepEqual(response, {
     statusCode: 500,
     body: 'Error: unknown',
@@ -167,7 +172,7 @@ test('It should not send error to user', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
   t.deepEqual(response, {
     statusCode: 500,
     body: 'Error: unknown',
@@ -188,7 +193,7 @@ test('It should be possible to force expose of error to user', async (t) => {
     httpErrorHandler({ logger: false, fallbackMessage: 'Error: unknown' })
   )
 
-  const response = await handler()
+  const response = await handler(event, context)
   t.deepEqual(response, {
     statusCode: 500,
     body: 'OkayError',
@@ -209,7 +214,7 @@ test('It should allow later middleware to modify the response', async (t) => {
     })
     .use(httpErrorHandler({ logger: false }))
 
-  const response = await handler(null)
+  const response = await handler(null, context)
 
   t.deepEqual(response, {
     statusCode: 422,

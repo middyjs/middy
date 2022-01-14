@@ -1,7 +1,7 @@
 {
-  "name": "@middy/http-event-normalizer",
+  "name": "@middy/http-router",
   "version": "3.0.0-alpha.2",
-  "description": "Http event normalizer middleware for the middy framework",
+  "description": "http event router for the middy framework",
   "type": "module",
   "engines": {
     "node": ">=14"
@@ -31,7 +31,8 @@
     "Middy",
     "HTTP",
     "API",
-    "Event normalizer"
+    "Urlencode",
+    "Body Parser"
   ],
   "author": {
     "name": "Middy contributors",
@@ -40,14 +41,17 @@
   "repository": {
     "type": "git",
     "url": "github:middyjs/middy",
-    "directory": "packages/http-event-normalizer"
+    "directory": "packages/http-router"
   },
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://github.com/middyjs/middy#readme",
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
+  "dependencies": {
+    "@middy/util": "^3.0.0-alpha.2"
+  },
   "devDependencies": {
     "@middy/core": "^3.0.0-alpha.2"
-  }
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

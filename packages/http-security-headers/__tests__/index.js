@@ -2,6 +2,11 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpSecurityHeaders from '../index.js'
 
+// const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 const createDefaultObjectResponse = () =>
   Object.assign(
     {},
@@ -47,7 +52,7 @@ test('It should return default security headers', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response.statusCode, 200)
   t.is(response.headers['X-DNS-Prefetch-Control'], 'off')
@@ -74,7 +79,7 @@ test('It should return default security headers when HTML', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response.headers['X-DNS-Prefetch-Control'], 'off')
   t.is(response.headers['X-Powered-By'], undefined)
@@ -100,7 +105,7 @@ test('It should modify default security headers', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response.statusCode, 200)
   t.is(response.headers.Server, undefined)
@@ -135,7 +140,7 @@ test('It should modify default security headers with config set', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.is(response.statusCode, 200)
   t.is(response.headers['X-Permitted-Cross-Domain-Policies'], 'all')
@@ -157,7 +162,7 @@ test('It should support array responses', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response.body, [{ firstname: 'john', lastname: 'doe' }])
   t.is(response.statusCode, undefined)

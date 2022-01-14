@@ -2,6 +2,10 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpContentNegotiation from '../index.js'
 
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should parse charset, encoding, language and media type', async (t) => {
   const handler = middy((event, context) => event)
   handler.use(
@@ -22,7 +26,7 @@ test('It should parse charset, encoding, language and media type', async (t) => 
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -62,7 +66,7 @@ test('It should parse charset, encoding, language and media type with lowercase 
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -97,7 +101,7 @@ test('It should skip the middleware if no headers are sent', async (t) => {
     foo: 'bar'
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, { foo: 'bar' })
 })
@@ -122,7 +126,7 @@ test('It should not parse charset if disabled', async (t) => {
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -160,7 +164,7 @@ test('It should not parse encoding if disabled', async (t) => {
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -198,7 +202,7 @@ test('It should not parse language if disabled', async (t) => {
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -236,7 +240,7 @@ test('It should not parse media types if disabled', async (t) => {
     }
   }
 
-  const resultingEvent = await handler(event)
+  const resultingEvent = await handler(event, context)
 
   t.deepEqual(resultingEvent, {
     headers: {
@@ -269,7 +273,7 @@ test('It should fail when mismatching', async (t) => {
   }
 
   try {
-    await handler(event)
+    await handler(event, context)
   } catch (e) {
     t.is(
       e.message,

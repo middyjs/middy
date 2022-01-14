@@ -2,6 +2,11 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import warmup from '../index.js'
 
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('Should exit with \'warmup\' if provided warmup check function is provide and returns true', async (t) => {
   const handler = middy((event, context) => {})
 
@@ -9,7 +14,7 @@ test('Should exit with \'warmup\' if provided warmup check function is provide a
     isWarmingUp: (event) => true
   }))
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.is(response, 'warmup')
 })
@@ -21,7 +26,7 @@ test('Should exit not with \'warmup\' if provided warmup check function is provi
     isWarmingUp: (event) => false
   }))
 
-  const response = await handler()
+  const response = await handler(event, context)
 
   t.is(response, undefined)
 })
@@ -31,9 +36,10 @@ test('Should exit with \'warmup\' if event.source === \'serverless-plugin-warmup
 
   handler.use(warmup())
 
-  const response = await handler({
+  const event = {
     source: 'serverless-plugin-warmup'
-  })
+  }
+  const response = await handler(event, context)
 
   t.is(response, 'warmup')
 })
@@ -43,9 +49,10 @@ test('Should not exit with \'warmup\' if event.source !== \'serverless-plugin-wa
 
   handler.use(warmup())
 
-  const response = await handler({
+  const event = {
     source: 'warmup'
-  })
+  }
+  const response = await handler(event, context)
 
   t.is(response, undefined)
 })

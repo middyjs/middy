@@ -6,6 +6,12 @@ import inputOutputLogger from '../index.js'
 // Silence logging
 console.log = () => {}
 
+// const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+const defaultContext = context
+
 test('It should log event and response', async (t) => {
   const logger = sinon.spy()
 
@@ -13,11 +19,13 @@ test('It should log event and response', async (t) => {
     return { message: 'hello world' }
   })
 
-  handler.use(inputOutputLogger({ logger }))
+  handler
+    .use(inputOutputLogger({ logger }))
 
-  await handler({ foo: 'bar', fuu: 'baz' })
+  const event = { foo: 'bar', fuu: 'baz' }
+  await handler(event, context)
 
-  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ event }))
   t.true(logger.calledWith({ response: { message: 'hello world' } }))
 })
 
@@ -29,7 +37,8 @@ test('It should throw error when invalid logger', async (t) => {
   })
 
   try {
-    handler.use(inputOutputLogger({ logger }))
+    handler
+      .use(inputOutputLogger({ logger }))
   } catch (e) {
     t.is(
       e.message,
@@ -45,11 +54,11 @@ test('It should omit paths', async (t) => {
     return { message: 'hello world', bar: 'bi' }
   })
 
-  handler.use(
-    inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] })
-  )
+  handler
+    .use(inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar'] }))
 
-  const response = await handler({ foo: 'bar', fuu: 'baz' })
+  const event = { foo: 'bar', fuu: 'baz' }
+  const response = await handler(event, context)
 
   t.true(logger.calledWith({ event: { fuu: 'baz' } }))
   t.true(logger.calledWith({ response: { message: 'hello world' } }))
@@ -70,9 +79,10 @@ test('It should skip paths that do not exist', async (t) => {
     })
   )
 
-  await handler({ foo: 'bar', fuu: 'baz' })
+  const event = { foo: 'bar', fuu: 'baz' }
+  await handler(event, context)
 
-  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ event }))
   t.true(logger.calledWith({ response: 'yo' }))
 })
 
@@ -90,9 +100,10 @@ test('Skipped parts should be present in the response', async (t) => {
     })
   )
 
-  const response = await handler({ foo: 'bar', fuu: 'baz' })
+  const event = { foo: 'bar', fuu: 'baz' }
+  const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event: { foo: 'bar', fuu: 'baz' } }))
+  t.true(logger.calledWith({ event }))
   t.true(logger.calledWith({ response: { foo: [{ foo: 'bar', fuu: 'baz' }] } }))
 
   t.deepEqual(response, { foo: [{ foo: 'bar', fuu: 'baz' }] })
@@ -102,28 +113,17 @@ test('Should include the AWS lambda context', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy((event, context) => {
+    t.true(logger.calledWith({ event, context: { functionName: 'test', awsRequestId: 'xxxxx' } }))
     return event
   })
 
   handler.use(inputOutputLogger({ logger, awsContext: true }))
 
-  const response = await handler(
-    { foo: 'bar', fuu: 'baz' },
-    { functionName: 'test', awsRequestId: 'xxxxx' }
-  )
+  const event = { foo: 'bar', fuu: 'baz' }
+  const context = { ...defaultContext, functionName: 'test', awsRequestId: 'xxxxx' }
+  const response = await handler(event, context)
 
-  t.deepEqual(response, { foo: 'bar', fuu: 'baz' })
+  t.deepEqual(response, event)
 
-  t.true(
-    logger.calledWith({
-      event: { foo: 'bar', fuu: 'baz' },
-      context: { functionName: 'test', awsRequestId: 'xxxxx' }
-    })
-  )
-  t.true(
-    logger.calledWith({
-      response: { foo: 'bar', fuu: 'baz' },
-      context: { functionName: 'test', awsRequestId: 'xxxxx' }
-    })
-  )
+  t.true(logger.calledWith({ response: event, context: { functionName: 'test', awsRequestId: 'xxxxx' } }))
 })
