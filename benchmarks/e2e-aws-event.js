@@ -8,7 +8,6 @@ const setupHandler = () => {
 
 const handler = setupHandler()
 
-
 new Benchmark.Suite('e2e/aws-event', {})
   .add('Cold Invocation', async () => {
     const handler = setupHandler()

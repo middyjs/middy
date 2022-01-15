@@ -17,6 +17,7 @@
     "test:unit": "cd packages/$PACKAGE && npm run test:unit",
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
     "test:packages:unit": "lerna exec --bail --concurrency 5 npm run test:unit",
+    "test:packages:benchmark": "lerna exec --bail --concurrency 1 npm run test:benchmark",
     "test:packages:typings": "lerna exec --bail --concurrency 5 tsd",
     "test:benchmark": "node benchmarks/index.js",
     "release:tag": "git tag $npm_package_version && git push --tags",

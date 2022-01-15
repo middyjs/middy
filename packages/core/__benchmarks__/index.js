@@ -8,7 +8,7 @@ const context = {
 }
 const setupHandler = (timeoutEarlyInMillis = 0) => {
   const baseHandler = () => {}
-  return middy(baseHandler, {timeoutEarlyInMillis})
+  return middy(baseHandler, { timeoutEarlyInMillis })
 }
 
 const warmHandler = setupHandler()
