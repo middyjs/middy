@@ -48,14 +48,14 @@ NOTES:
 import middy from '@middy/core'
 import sqsPartialBatchFailureMiddleware from '@middy/sqs-partial-batch-failure'
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   const recordPromises = event.Records.map(async (record, index) => { 
     /* Custom message processing logic */
   })
   return Promise.allSettled(recordPromises)
 }
 
-const handler = middy(baseHandler)
+const handler = middy(lambdaHandler)
   .use(sqsPartialBatchFailureMiddleware())
 ```
 

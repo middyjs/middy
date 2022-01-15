@@ -478,10 +478,10 @@ test('Should trigger all plugin hooks', async (t) => {
     requestEnd: sinon.spy()
   }
   const beforeMiddleware = sinon.spy()
-  const baseHandler = sinon.spy()
+  const lambdaHandler = sinon.spy()
   const afterMiddleware = sinon.spy()
 
-  const handler = middy(baseHandler, plugin)
+  const handler = middy(lambdaHandler, plugin)
     .before(beforeMiddleware)
     .after(afterMiddleware)
 

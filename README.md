@@ -82,7 +82,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
-const baseHandler = async (event, context) => {
+const lambdaHandler = async (event, context) => {
  // we don't need to deserialize the body ourself as a middleware will be used to do that
  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
@@ -128,7 +128,7 @@ const handler = middy(plugin)
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
-  .handler(baseHandler)
+  .handler(lambdaHandler)
 
 export default { handler }
 ```
@@ -178,11 +178,11 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(baseHandler) // `baseHandler` can alternatively be attached using `.handler(baseHandler)` after all middleware are attached
+const handler = middy(lambdaHandler) // `lambdaHandler` can alternatively be attached using `.handler(lambdaHandler)` after all middleware are attached
 
 handler
   .use(middleware1())
@@ -201,11 +201,11 @@ import middleware2 from "sample-middleware2";
 import middleware3 from "sample-middleware3";
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(baseHandler)
+const handler = middy(lambdaHandler)
   .use(middlewares)
 
 export default { handler }
@@ -518,14 +518,14 @@ When a lambda times out it throws an error that cannot be caught by middy. To wo
 ```javascript
 import middy from '@middy/core'
 
-const baseHandler = (event, context, {signal}) => {
+const lambdaHandler = (event, context, {signal}) => {
   signal.onabort = () => {
     // cancel events
   }
   // ... 
 }
 
-export const handler = middy(baseHandler, {
+export const handler = middy(lambdaHandler, {
   timeoutEarlyInMillis: 50,
   timeoutEarlyResponse: () => {
     return {
@@ -550,7 +550,7 @@ Here's an example of how you might be using Middy with TypeScript for a Lambda r
 import middy from '@middy/core'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 
-async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   // the returned response will be checked against the type `APIGatewayProxyResult`
   return {
     statusCode: 200,
@@ -558,7 +558,7 @@ async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProx
   }
 }
 
-let handler = middy(baseHandler)
+let handler = middy(lambdaHandler)
 handler
   .use(someMiddleware)
   .use(someOtherMiddleware)
@@ -611,7 +611,7 @@ When all of your middlewares are done, and you need a value or two for your hand
 ```javascript
 import {getInternal} from '@middy/util'
 
-middy(baseHandler)
+middy(lambdaHandler)
   // Incase you want to add values on to internal directly
   .before((async (request) => {
     request.internal = {

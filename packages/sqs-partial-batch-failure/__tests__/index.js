@@ -5,7 +5,7 @@ import createEvent from '@serverless/event-mocks'
 import middy from '../../core/index.js'
 import sqsPartialBatchFailure from '../index.js'
 
-const baseHandler = async (e) => {
+const lambdaHandler = async (e) => {
   const processedRecords = e.Records.map(async (r) => {
     if (r.messageAttributes.resolveOrReject.stringValue === 'resolve') {
       return r.messageId
@@ -35,7 +35,7 @@ test('Should return when there are only failed messages', async (t) => {
   })
   const logger = sinon.spy()
 
-  const handler = middy(baseHandler)
+  const handler = middy(lambdaHandler)
     .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
@@ -59,7 +59,7 @@ test('Should resolve when there are no failed messages', async (t) => {
   })
   const logger = sinon.spy()
 
-  const handler = middy(baseHandler)
+  const handler = middy(lambdaHandler)
     .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
@@ -90,7 +90,7 @@ test('Should return only the rejected messageIds', async (t) => {
   })
   const logger = sinon.spy()
 
-  const handler = middy(baseHandler)
+  const handler = middy(lambdaHandler)
     .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)

@@ -42,8 +42,8 @@ npm install --save @middy/http-router
   - `handler` (function) (required): Any `handler(event, context)` function
 
 NOTES:
-- Errors should be handled as part of the router middleware stack **or** the baseHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
-- Shared middlewares, connected to the router middleware stack, can only be run before the baseHandler middleware stack.
+- Errors should be handled as part of the router middleware stack **or** the lambdaHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
+- Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 
 ## Sample usage
 

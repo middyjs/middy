@@ -8,10 +8,10 @@ import secretsManagerMiddleware from '@middy/secrets-manager'
 import ssmMiddleware from '@middy/ssm'
 import stsMiddleware from '@middy/sts'
 
-const baseHandler = (event) => {
+const lambdaHandler = (event) => {
   return Promise.allSettled(event.Records.map(async (record) => record))
 }
-const handler = middy(baseHandler)
+const handler = middy(lambdaHandler)
   .use(
     rdsSignerMiddleware({
       fetchData: {

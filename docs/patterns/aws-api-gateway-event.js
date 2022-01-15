@@ -24,7 +24,7 @@ import warmupMiddleware from 'warmup'
 import inputSchema from './requestEvent.json' // assert { type: 'json' }
 import outputSchema from './response.json' // assert { type: 'json' }
 
-const baseHandler = () => {
+const lambdaHandler = () => {
   return {
     statusCode: 200,
     body: { hello: 'world' }
@@ -40,7 +40,7 @@ const config = {
   }
 }
 
-const handler = middy(baseHandler, config)
+const handler = middy(lambdaHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())
