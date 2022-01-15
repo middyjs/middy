@@ -9,7 +9,6 @@
   "engineStrict": true,
   "scripts": {
     "install": "lerna bootstrap",
-    "pre-commit": "lint-staged",
     "test": "npm run test:lint && npm run test:packages",
     "test:style": "prettier --write --loglevel=warn --no-semi --single-quote --trailing-comma none \"./**/*.js\"",
     "test:lint": "ts-standard --fix",

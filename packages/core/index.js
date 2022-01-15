@@ -1,4 +1,4 @@
-import { AbortController } from 'node-abort-controller'
+import { EventEmitter } from 'events'
 
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
@@ -149,6 +149,67 @@ const runMiddlewares = async (request, middlewares, plugin) => {
 }
 
 // Start Polyfill (Nodejs v14)
+/*
+MIT License
+
+Copyright (c) 2019 Steve Faulkner
+
+node-abort-controller
+ */
+
+class AbortSignal {
+  constructor () {
+    this.eventEmitter = new EventEmitter()
+    this.onabort = null
+    this.aborted = false
+  }
+
+  toString () {
+    return '[object AbortSignal]'
+  }
+
+  get [Symbol.toStringTag] () {
+    return 'AbortSignal'
+  }
+
+  removeEventListener (name, handler) {
+    this.eventEmitter.removeListener(name, handler)
+  }
+
+  addEventListener (name, handler) {
+    this.eventEmitter.on(name, handler)
+  }
+
+  dispatchEvent (type) {
+    const event = { type, target: this }
+    const handlerName = `on${type}`
+
+    if (typeof this[handlerName] === 'function') this[handlerName](event)
+
+    this.eventEmitter.emit(type, event)
+  }
+}
+class AbortController {
+  constructor () {
+    this.signal = new AbortSignal()
+  }
+
+  abort () {
+    if (this.signal.aborted) return
+
+    this.signal.aborted = true
+    this.signal.dispatchEvent('abort')
+  }
+
+  toString () {
+    return '[object AbortController]'
+  }
+
+  get [Symbol.toStringTag] () {
+    return 'AbortController'
+  }
+}
+
 const setTimeoutPromise = (ms, { signal }) => {
   if (signal.aborted) {
     return Promise.reject(new Error('Aborted', 'AbortError'))
