@@ -13,6 +13,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
     baseHandler = defaultBaseHandler
   }
   plugin = { ...defaultPlugin, ...plugin }
+  plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0
 
   plugin.beforePrefetch?.()
   const beforeMiddlewares = []
@@ -87,6 +88,7 @@ const runRequest = async (
   onErrorMiddlewares,
   plugin
 ) => {
+  const { timeoutEarly } = plugin
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early
@@ -94,10 +96,11 @@ const runRequest = async (
       plugin.beforeHandler?.()
 
       const handlerAbort = new AbortController()
-      const timeoutAbort = new AbortController()
+      let timeoutAbort
+      if (timeoutEarly) timeoutAbort = new AbortController()
       request.response = await Promise.race([
         baseHandler(request.event, request.context, { signal: handlerAbort.signal }),
-        plugin.timeoutEarlyInMillis > 0
+        timeoutEarly
           ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
             .then(() => {
               handlerAbort.abort()
@@ -105,7 +108,7 @@ const runRequest = async (
             })
           : Promise.race([])
       ])
-      timeoutAbort.abort() // baseHandler may not be a promise
+      if (timeoutEarly) timeoutAbort.abort() // baseHandler may not be a promise
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
@@ -164,7 +167,7 @@ const setTimeoutPromise = (ms, { signal }) => {
   })
 }
 // Replace Polyfill
-// import {setTimeout} from 'timers/promises'
+// import { setTimeout as setTimeoutPromise } from 'timers/promises'
 // End Polyfill
 
 export default middy
