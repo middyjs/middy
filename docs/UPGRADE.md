@@ -12,7 +12,7 @@ With the Node.js version change all packages are now ECMAScript Modules instead 
   - If you're handling errors yourself here are some things to review:
     - Attach near the end so it is triggered first (likely already done)
     - Remove `return response`, this will short circuit the response and block later middleware from modifying the response
-- baseHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
+- lambdaHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
 - `plugin` argument now supports:
   - `internal`: Allow the use of `new Proxy()` for smarter triggering in advanced use cases.
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit. Default `5`
@@ -123,7 +123,7 @@ No change
 
 If you still need `setToEnv` you can do something like so:
 ```javascript
-middy(baseHandler)
+middy(lambdaHandler)
   .use(/*...*/)
   .before(async (request) => {
     const values = await getInternal(['NODE_ENV'], request)
@@ -278,7 +278,7 @@ on 2019-12-03, removing the need for this work around.
 
 However, you can use the following if needed:
 ```javascript
-middy(baseHandler)
+middy(lambdaHandler)
   .before((request) => {
     if (request.event.source === 'serverless-plugin-warmup') {
       console.log('Exiting early via warmup Middleware')

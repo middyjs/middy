@@ -1,16 +1,16 @@
 import { AbortController } from 'node-abort-controller'
 
-const defaultBaseHandler = () => {}
+const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => { throw new Error('Timeout') }
 }
 
-const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
+const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   // Allow base handler to be set using .handler()
-  if (typeof baseHandler !== 'function') {
-    plugin = baseHandler
-    baseHandler = defaultBaseHandler
+  if (typeof lambdaHandler !== 'function') {
+    plugin = lambdaHandler
+    lambdaHandler = defaultLambdaHandler
   }
   plugin = { ...defaultPlugin, ...plugin }
   plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0
@@ -33,7 +33,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
     return runRequest(
       request,
       [...beforeMiddlewares],
-      baseHandler,
+      lambdaHandler,
       [...afterMiddlewares],
       [...onErrorMiddlewares],
       plugin
@@ -73,8 +73,8 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
     onErrorMiddlewares.unshift(onErrorMiddleware)
     return middy
   }
-  middy.handler = (replaceBaseHandler) => {
-    baseHandler = replaceBaseHandler
+  middy.handler = (replaceLambdaHandler) => {
+    lambdaHandler = replaceLambdaHandler
   }
 
   return middy
@@ -83,7 +83,7 @@ const middy = (baseHandler = defaultBaseHandler, plugin = {}) => {
 const runRequest = async (
   request,
   beforeMiddlewares,
-  baseHandler,
+  lambdaHandler,
   afterMiddlewares,
   onErrorMiddlewares,
   plugin
@@ -99,7 +99,7 @@ const runRequest = async (
       let timeoutAbort
       if (timeoutEarly) timeoutAbort = new AbortController()
       request.response = await Promise.race([
-        baseHandler(request.event, request.context, { signal: handlerAbort.signal }),
+        lambdaHandler(request.event, request.context, { signal: handlerAbort.signal }),
         timeoutEarly
           ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
             .then(() => {
@@ -108,7 +108,7 @@ const runRequest = async (
             })
           : Promise.race([])
       ])
-      if (timeoutEarly) timeoutAbort.abort() // baseHandler may not be a promise
+      if (timeoutEarly) timeoutAbort.abort() // lambdaHandler may not be a promise
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)

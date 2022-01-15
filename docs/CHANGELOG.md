@@ -6,7 +6,7 @@ Focus this version was on error handling and improve consistency.
 
 ## Additions
 - New middleware (`http-content-encoding`)
-- baseHandler can now be passed an `AbortController` signal
+- lambdaHandler can now be passed an `AbortController` signal
 - internal events can now be monitored using `Proxy`
 
 ## Breaking Changes

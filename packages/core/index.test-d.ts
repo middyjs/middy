@@ -7,7 +7,7 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-const baseHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
+const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
@@ -18,21 +18,21 @@ type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResul
 type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>
 
 // initialize
-let handler = middy(baseHandler)
+let handler = middy(lambdaHandler)
 expectType<Handler>(handler)
 
 // initialize with empty plugin
-handler = middy(baseHandler, {})
+handler = middy(lambdaHandler, {})
 expectType<Handler>(handler)
 
 // initialize with plugin with few hooks
-handler = middy(baseHandler, {
+handler = middy(lambdaHandler, {
   beforePrefetch () { console.log('beforePrefetch') }
 })
 expectType<Handler>(handler)
 
 // initialize with plugin with all hooks
-handler = middy(baseHandler, {
+handler = middy(lambdaHandler, {
   beforePrefetch () { console.log('beforePrefetch') },
   requestStart () { console.log('requestStart') },
   beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },

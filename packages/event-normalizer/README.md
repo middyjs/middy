@@ -80,14 +80,14 @@ npm install --save @middy/event-normalizer
 import middy from '@middy/core'
 import eventNormalizer from '@middy/event-normalizer'
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   const { Records } = event
   for(const record of Records) {
     // ...
   }
 }
 
-const handler = middy(baseHandler).use(eventNormalizer())
+const handler = middy(lambdaHandler).use(eventNormalizer())
 ```
 
 ## Middy documentation and examples

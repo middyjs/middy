@@ -12,7 +12,7 @@ import warmupMiddleware from 'warmup'
 import inputSchema from './requestEvent.json' // assert { type: 'json' }
 import outputSchema from './response.json' // assert { type: 'json' }
 
-const baseHandler = async (event, context) => {
+const lambdaHandler = async (event, context) => {
   const body = await context.s3Object
   return {
     Body: body
@@ -23,7 +23,7 @@ const config = {
   timeoutEarlyInMillis: 50
 }
 
-const handler = middy(baseHandler, config)
+const handler = middy(lambdaHandler, config)
   .use(errorLoggerMiddleware())
   .use(warmupMiddleware())
   .use(inputOutputLoggerMiddleware())
