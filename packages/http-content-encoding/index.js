@@ -37,7 +37,7 @@ const httpContentEncodingMiddleware = (opts) => {
     const { event: { preferredEncoding, preferredEncodings }, response } = request
 
     // Encoding not supported OR already encoded
-    if (!preferredEncoding || response.isBase64Encoded) { return }
+    if (response.isBase64Encoded || !preferredEncoding || preferredEncoding === 'identity') { return }
 
     const bodyIsString = typeof response.body === 'string'
 
