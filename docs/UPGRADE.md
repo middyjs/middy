@@ -64,7 +64,7 @@ No change
 No change
 
 ### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
-- Change default charset from `binary`/`latin1` to `utf-8`.
+- Change default charset from `binary`/`latin1` to `utf-8`. [Breaking Change]
 
 ### [http-partial-response](/packages/http-partial-response/README.md)
 No change
@@ -108,13 +108,11 @@ No change
 
 ### [ssm](/packages/ssm/README.md)
 - Deprecated `setToEnv` option [Breaking Change]
-- Not found paths will now throw a proper error
 
 ### [sts](/packages/sts/README.md)
 No change
 
-### [validator](/packages/validator/README.md)
-- Added in new `i18nEnabled` option
+### [validator](/packages/validator/README.md
 - Change where errors are stored, from `request.error.details` to `request.error.cause` [Breaking Change]
 
 ### [warmup](/packages/warmup/README.md)

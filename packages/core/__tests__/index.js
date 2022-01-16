@@ -515,7 +515,7 @@ test('Should abort handler', async (t) => {
   try {
     const response = await handler(event, context)
     t.true(response)
-  } catch(e) { console.log(e)}
+  } catch (e) { console.log(e) }
 })
 
 test('Should abort timeout', async (t) => {
