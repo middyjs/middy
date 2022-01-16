@@ -6,7 +6,7 @@ import httpMultipartBodyParser from '../index.js'
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
-/*
+
 test('It should parse a non-file field from a multipart/form-data request', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
@@ -94,7 +94,7 @@ test('It should handle invalid form data as an UnprocessableEntity', async (t) =
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided - May not write null values to stream')
   }
 })
-*/
+
 test('It should handle more invalid form data as an UnprocessableEntity', async (t) => {
   // Body contains LF instead of CRLF line endings, which cant be processed
   const handler = middy((event, context) => {
@@ -119,7 +119,7 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided - Unexpected end of form')
   }
 })
-/*
+
 test("It shouldn't process the body if no headers are passed", async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
@@ -269,4 +269,3 @@ test('It should parse a field with multiple files successfully', async (t) => {
   t.true(Object.keys(response).includes('files'))
   t.is(response.files.length, 3)
 })
-*/
