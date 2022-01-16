@@ -57,6 +57,7 @@ npm install --save @middy/validator
    to validate the output (`request.response`) of the Lambda handler.
  - `ajvOptions` (object) (optional): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
     class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: false, defaultLanguage: 'en' }`.
+ - `i18nEnabled` (boolean) (optional): Option to disable i18n default package. Defaults to `true`
 
 NOTES:
 - At least one of `inputSchema` or `outputSchema` is required.
