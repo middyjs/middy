@@ -24,7 +24,7 @@ const defaults = {
     // 'worker-src':'', // fallback child-src > script-src > default-src
     // Document directives
     'base-uri': "'none'",
-    'sandbox':'',
+    sandbox: '',
     // Navigation directives
     'form-action': "'none'",
     'frame-ancestors': "'none'",
