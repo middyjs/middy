@@ -115,6 +115,7 @@ No change
 
 ### [validator](/packages/validator/README.md)
 - Added in new `i18nEnabled` option
+- Change where errors are stored, from `request.error.details` to `request.error.cause` [Breaking Change]
 
 ### [warmup](/packages/warmup/README.md)
 No change
