@@ -36,18 +36,26 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-security-headers
 ```
 
-
 ## Options
+Setting an option to `false` to cause that rule to be ignored.
 
- - `dnsPrefetchControl` controls browser DNS prefetching
- - `expectCt` for handling Certificate Transparency (Future Feature)
- - `frameguard` to prevent clickjacking
- - `hidePoweredBy` to remove the Server/X-Powered-By header
- - `hsts` for HTTP Strict Transport Security
- - `ieNoOpen` sets X-Download-Options for IE8+
- - `noSniff` to keep clients from sniffing the MIME type
- - `referrerPolicy` to hide the Referer header
- - `xssFilter` adds some small XSS protections
+### All Responses
+- `originAgentCluster`: Default to `{}` to include
+- `referrerPolicy`: Default to `{ policy: 'no-referrer' }`
+- `strictTransportSecurity`: Default to `{ maxAge: 15552000, includeSubDomains: true, preload: true }`
+- X-`dnsPrefetchControl`: Default to `{ allow: false }`
+- X-`downloadOptions`: Default to `{ action: 'noopen' }`
+- X-`poweredBy`: Default to `{ server: '' }` to remove `Server` and `X-Powered-By`
+- X-`contentTypeOptions`: Default to `{ action: 'nosniff' }`
+### HTML Responses
+- `contentSecurityPolicy`: Default to `{ 'default-src': "'none'", 'base-uri':"'none'", 'sandbox':'', 'form-action':"'none'", 'frame-ancestors':"'none'", 'navigate-to':"'none'", 'report-to':'csp', 'require-trusted-types-for':"'script'", 'trusted-types':"'none'", 'upgrade-insecure-requests':'' }`
+- `crossOriginEmbedderPolicy`: Default to `{ policy: 'require-corp' }`
+- `crossOriginOpenerPolicy`: Default to `{ policy: 'same-origin' }`
+- `crossOriginResourcePolicy`: Default to `{ policy: 'same-origin' }`
+- `permissionsPolicy`: Default to `{ *:'', ... }` where all allowed values are set to disable
+- `reportTo`: Defaults to `{ maxAge: 31536000, default: '', includeSubdomains: true, csp: '', staple:'', xss: '' }` which won't report by default, needs setting
+- X-`frameOptions`: Default to `{ action: 'deny' }`
+- X-`xssProtection`: Defaults to `{ reportUri: '' }'`
 
 
 ## Sample usage

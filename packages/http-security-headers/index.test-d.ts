@@ -11,33 +11,29 @@ middleware = httpSecurityHeaders({
   dnsPrefetchControl: {
     allow: true
   },
-  expectCT: {
-    enforce: true,
-    maxAge: 60 * 60 * 5,
-    reportUri: 'http://example.com'
-  },
-  frameguard: {
+  frameOptions: {
     action: 'SAMEORIGIN'
   },
-  hidePoweredBy: {
-    setTo: 'middy'
+  poweredBy: {
+    server: 'middy'
   },
-  hsts: {
+  strictTransportSecurity: {
     maxAge: 60 * 60 * 10,
     includeSubDomains: true,
     preload: true
   },
-  ieNoOpen: {
+  downloadOptions: {
     action: 'noopen'
   },
-  noSniff: {
+  contentTypeOptions: {
     action: 'nosniff'
   },
+  originAgentCluster: true,
   referrerPolicy: {
     policy: 'same-origin'
   },
-  xssFilter: {
-    reportUri: 'http://example.com'
+  xssProtection: {
+    reportUri: 'xss'
   }
 })
 expectType<middy.MiddlewareObj>(middleware)

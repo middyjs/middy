@@ -78,6 +78,7 @@ No change
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
 - `onError` will not modify response unless error has been handled
+- Complete rewrite of options and inclusion of new HTML only headers [Breaking Change]
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
 No change
