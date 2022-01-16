@@ -103,4 +103,17 @@ const isReadableStream = (stream) =>
   typeof stream._read === 'function' &&
   typeof stream._readableState === 'object'
 
+const polyfillPipelinePromise = async () => {
+  if (process.version < 'v15.0.0') {
+    const pipelineCallback = await import('stream')
+    const util = await import('util')
+    return util.promisify(pipelineCallback)
+  } else {
+    const stream = await import('stream/promises')
+    return stream.pipeline
+  }
+}
+global.pipeline = await polyfillPipelinePromise()
+// import {pipeline} from 'stream/promises'
+
 export default httpContentEncodingMiddleware
