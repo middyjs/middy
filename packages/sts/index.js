@@ -2,9 +2,9 @@ import {
   canPrefetch,
   createPrefetchClient,
   createClient,
+  getCache,
   getInternal,
   processCache,
-  getCache,
   modifyCache
 } from '@middy/util'
 import STS from 'aws-sdk/clients/sts.js' // v2
