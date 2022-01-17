@@ -17,10 +17,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: 14.0.0
-      - name: Use npm 7.5
+          node-version: 16.0.0
+      - name: Use npm 8
         run: |
-          npm install -g npm@7.5
+          npm install -g npm@8
       - name: Create .npmrc
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
@@ -29,11 +29,8 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-      - name: Build as Commonjs for Node.js v14
-        run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Run benchmark
-        run: npm run test:benchmark > ./benchmarks/results.txt
+        run: test:packages:benchmark > ./benchmarks.txt
       - name: Download previous benchmark data
         uses: actions/cache@v1
         with:
@@ -44,8 +41,8 @@ jobs:
         with:
           name: @middy Benchmark
           tool: 'benchmarkjs'
-          output-file-path: ./benchmarks/results.txt
-          external-data-json-path: ./cache/benchmark-data.json
+          output-file-path: ./benchmarks.txt
+          external-data-json-path: ./cache/benchmarks.json
           alert-threshold: '105%'
           fail-on-alert: true
           # TODO enable
