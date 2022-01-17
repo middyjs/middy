@@ -70,13 +70,14 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     request.response.Body ??= request.response.body
     delete request.response.body
 
-    return client
+    await client
       .writeGetObjectResponse({
         ...request.response,
         ...request.internal.s3ObjectResponse
       })
       .promise()
-      .then(() => ({ statusCode: 200 })) // TODO test if needed
+
+    return { statusCode: 200 }
   }
 
   return {
