@@ -25,8 +25,6 @@
 </p>
 </div>
 
-** This middleware is a Proof of Concept and requires real world testing before use, not recommended for production **
-
 Fetches S3 object as a stream and writes back to s3 object response.
 
 ## Install
@@ -40,8 +38,9 @@ npm install --save @middy/s3-object-response
 
 ## Options
 - `bodyType` (string) (required): How to pass in the s3 object through the handler. Can be `stream` or `promise`.
-- `AwsClient` (object) (default `AWS.S3`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `AWS.S3`): AWS.S3 class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
+- `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `httpsCapture` (function) (optional): Enable XRay by passing `captureHTTPsGlobal` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
