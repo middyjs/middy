@@ -2,11 +2,11 @@ import {
   canPrefetch,
   createPrefetchClient,
   createClient,
-  processCache,
   getCache,
+  getInternal,
+  processCache,
   modifyCache,
-  jsonSafeParse,
-  getInternal
+  jsonSafeParse
 } from '@middy/util'
 import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
 // import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3

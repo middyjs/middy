@@ -4,32 +4,28 @@ interface Options {
   dnsPrefetchControl?: {
     allow?: boolean
   }
-  expectCT?: {
-    enforce?: boolean
-    maxAge?: number
-    reportUri?: string
-  }
-  frameguard?: {
+  frameOptions?: {
     action?: string
   }
-  hidePoweredBy?: {
-    setTo: string
+  poweredBy?: {
+    server: string
   }
-  hsts?: {
+  strictTransportSecurity?: {
     maxAge?: number
     includeSubDomains?: boolean
     preload?: boolean
   }
-  ieNoOpen?: {
+  downloadOptions?: {
     action?: string
   }
-  noSniff?: {
+  contentTypeOptions?: {
     action?: string
   }
+  originAgentCluster?: boolean
   referrerPolicy?: {
     policy?: string
   }
-  xssFilter?: {
+  xssProtection?: {
     reportUri?: string
   }
 }

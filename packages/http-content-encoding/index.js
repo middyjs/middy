@@ -32,12 +32,14 @@ const defaults = {
 const httpContentEncodingMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
 
+  const supportedContentEncodings = Object.keys(contentEncodingStreams)
+
   const httpContentEncodingMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
     const { event: { preferredEncoding, preferredEncodings }, response } = request
 
     // Encoding not supported OR already encoded
-    if (!preferredEncoding || response.isBase64Encoded) { return }
+    if (response.isBase64Encoded || !preferredEncoding || !supportedContentEncodings.includes(preferredEncoding)) { return }
 
     const bodyIsString = typeof response.body === 'string'
 
@@ -100,5 +102,18 @@ const isReadableStream = (stream) =>
   stream.readable !== false &&
   typeof stream._read === 'function' &&
   typeof stream._readableState === 'object'
+
+const polyfillPipelinePromise = async () => {
+  if (process.version < 'v15.0.0') {
+    const stream = await import('stream');
+    const util = await import('util');
+    return util.promisify(stream.pipeline);
+  } else {
+    const stream = await import('stream/promises')
+    return stream.pipeline
+  }
+}
+global.pipeline = await polyfillPipelinePromise()
+// import {pipeline} from 'stream/promises'
 
 export default httpContentEncodingMiddleware

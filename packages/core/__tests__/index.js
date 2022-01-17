@@ -512,8 +512,10 @@ test('Should abort handler', async (t) => {
     return Promise.race([])
   }, plugin)
 
-  const response = await handler(event, context)
-  t.true(response)
+  try {
+    const response = await handler(event, context)
+    t.true(response)
+  } catch (e) { console.log(e) }
 })
 
 test('Should abort timeout', async (t) => {

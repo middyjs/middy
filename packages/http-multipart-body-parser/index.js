@@ -4,12 +4,12 @@ import { createError } from '@middy/util'
 const mimePattern = /^multipart\/form-data(;.*)?$/
 const fieldnamePattern = /(.+)\[(.*)]$/
 
-const httpMultipartBodyParserMiddleware = (opts = {}) => {
-  const defaults = {
-    // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
-    busboy: {}
-  }
+const defaults = {
+  // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
+  busboy: {}
+}
 
+const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
@@ -37,10 +37,10 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 const parseMultipartData = (event, options) => {
   const multipartData = {}
   // header must be lowercase (content-type)
-  const bb = BusBoy({ ...options, headers: { 'content-type': event.headers['Content-Type'] ?? event.headers['content-type'] } })
+  const busboy = BusBoy({ ...options, headers: { 'content-type': event.headers['Content-Type'] ?? event.headers['content-type'] } })
 
   return new Promise((resolve, reject) => {
-    bb.on('file', (fieldname, file, filename, encoding, mimetype) => {
+    busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
       const attachment = {
         filename,
         mimetype,
@@ -77,8 +77,8 @@ const parseMultipartData = (event, options) => {
       .on('close', () => resolve(multipartData))
       .on('error', (e) => reject(e))
 
-    bb.write(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
-    bb.end()
+    busboy.write(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
+    busboy.end()
   })
 }
 export default httpMultipartBodyParserMiddleware

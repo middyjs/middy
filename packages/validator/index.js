@@ -40,17 +40,13 @@ const validatorMiddleware = (opts = {}) => {
     const valid = inputSchema(request.event)
 
     if (!valid) {
-      // Bad Request
-      const error = createError(400, 'Event object failed validation')
-      request.event.headers = { ...request.event.headers }
-
       if (i18nEnabled) {
         const language = chooseLanguage(request.event, defaultLanguage)
         localize[language](inputSchema.errors)
       }
 
-      error.details = inputSchema.errors
-      throw error
+      // Bad Request
+      throw createError(400, 'Event object failed validation', { cause: inputSchema.errors })
     }
   }
 
@@ -59,10 +55,7 @@ const validatorMiddleware = (opts = {}) => {
 
     if (!valid) {
       // Internal Server Error
-      const error = createError(500, 'Response object failed validation')
-      error.details = outputSchema.errors
-      error.response = request.response
-      throw error
+      throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
     }
   }
   return {

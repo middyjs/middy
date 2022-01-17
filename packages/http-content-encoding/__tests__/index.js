@@ -105,6 +105,23 @@ test('It should not encode when missing event.preferredEncoding', async (t) => {
   t.deepEqual(response, { body, headers: {} })
 })
 
+test('It should not encode when missing event.preferredEncoding === `identity`', async (t) => {
+  const body = 'test'
+  const handler = middy((event, context) => ({ body }))
+  handler.use(
+    httpContentEncoding()
+  )
+
+  const event = {
+    preferredEncoding: 'identity',
+    preferredEncodings: ['identity']
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, { body, headers: {} })
+})
+
 test('It should not encode when response.isBase64Encoded is already set to true', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ body, isBase64Encoded: true }))
