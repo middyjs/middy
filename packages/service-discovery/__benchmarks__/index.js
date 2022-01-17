@@ -19,13 +19,13 @@ const setupHandler = (options = {}) => {
     Instances: [
       {
         Attributes: {
-          "AWS_INSTANCE_IPV4": "172.2.1.3",
-          "AWS_INSTANCE_PORT": "808"
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
         },
-        HealthStatus: "UNKNOWN",
-        InstanceId: "myservice-53",
-        NamespaceName: "example.com",
-        ServiceName: "myservice"
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
       }
     ]
   })
@@ -37,7 +37,7 @@ const setupHandler = (options = {}) => {
     }))
 }
 
-const coldHandler = setupHandler({cacheExpiry: 0})
+const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
 suite

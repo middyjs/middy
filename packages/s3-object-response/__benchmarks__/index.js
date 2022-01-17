@@ -38,7 +38,7 @@ const setupHandler = (options = {}) => {
     }))
 }
 
-const coldHandler = setupHandler({cacheExpiry: 0})
+const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
 suite
