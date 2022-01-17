@@ -105,9 +105,9 @@ const isReadableStream = (stream) =>
 
 const polyfillPipelinePromise = async () => {
   if (process.version < 'v15.0.0') {
-    const pipelineCallback = await import('stream')
-    const util = await import('util')
-    return util.promisify(pipelineCallback)
+    const stream = await import('stream');
+    const util = await import('util');
+    return util.promisify(stream.pipeline);
   } else {
     const stream = await import('stream/promises')
     return stream.pipeline
