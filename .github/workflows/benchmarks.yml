@@ -1,0 +1,53 @@
+name: Benchmark
+on:
+  push:
+    branches:
+      - "main"
+    tags-ignore:
+      - "*.*.*"
+  pull_request:
+
+jobs:
+  benchmark:
+    name: Check performance regeression.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.0.0
+      - name: Use npm 8
+        run: |
+          npm install -g npm@8
+      - name: Create .npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install dependencies
+        run: |
+          npm install
+      - name: Run benchmark
+        run: test:packages:benchmark > ./benchmarks.txt
+      - name: Download previous benchmark data
+        uses: actions/cache@v1
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark
+      - name: Store benchmark result
+        uses: rhysd/github-action-benchmark@v1
+        with:
+          name: @middy Benchmark
+          tool: 'benchmarkjs'
+          output-file-path: ./benchmarks.txt
+          external-data-json-path: ./cache/benchmarks.json
+          alert-threshold: '105%'
+          fail-on-alert: true
+          # TODO enable
+          auto-push: false
+          benchmark-data-dir-path: ./benchmarks
+          comment-on-alert: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          #alert-comment-cc-users: '@willfarrell'
