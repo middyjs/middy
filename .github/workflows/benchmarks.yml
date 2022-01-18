@@ -1,4 +1,5 @@
-name: Benchmark
+name: Benchmarks
+
 on:
   push:
     branches:
@@ -8,29 +9,35 @@ on:
   pull_request:
 
 jobs:
-  benchmark:
-    name: Check performance regeression.
+  benchmarks:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 14.x, 16.x ]
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@master
-      - name: Set up Node.js
+        uses: actions/checkout@v2
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:
-          node-version: 16.0.0
+          node-version: ${{ matrix.node-version }}
       - name: Use npm 8
         run: |
           npm install -g npm@8
-      - name: Create .npmrc
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Install dependencies
         run: |
           npm install
+        env:
+          CI: true
+
+      - name: Build as ESM for Node.js ${{ matrix.node-version }}
+        run: |
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+
       - name: Run benchmark
-        run: test:packages:benchmark > ./benchmarks.txt
+        run: test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
       - name: Download previous benchmark data
         uses: actions/cache@v1
         with:
@@ -41,13 +48,13 @@ jobs:
         with:
           name: @middy Benchmark
           tool: 'benchmarkjs'
-          output-file-path: ./benchmarks.txt
-          external-data-json-path: ./cache/benchmarks.json
+          output-file-path: ./benchmarks-${{ matrix.node-version }}.txt
+          external-data-json-path: ./cache/benchmarks-${{ matrix.node-version }}.json
           alert-threshold: '105%'
           fail-on-alert: true
           # TODO enable
+          comment-on-alert: false
           auto-push: false
           benchmark-data-dir-path: ./benchmarks
-          comment-on-alert: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
           #alert-comment-cc-users: '@willfarrell'

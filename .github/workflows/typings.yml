@@ -1,15 +1,15 @@
-name: Lint
+name: Typings
 
 on:
   push:
     branches:
-      - "**"
+      - "main"
     tags-ignore:
       - "*.*.*"
   pull_request:
 
 jobs:
-  lint:
+  typings:
     runs-on: ubuntu-latest
 
     strategy:
@@ -31,7 +31,8 @@ jobs:
           npm install
         env:
           CI: true
-      - name: Linting
-        run: npm run test:lint:ci
+
+      - name: Check typings
+        run: npm run test:packages:typings
         env:
           CI: true
