@@ -8,7 +8,7 @@ const httpEventNormalizerMiddleware = () => {
       throw new Error('Unknown API Gateway Payload format')
     }
 
-    // event.headers ??= {} // Will always have at least on header
+    // event.headers ??= {} // Will always have at least one header
     event.queryStringParameters ??= {}
     event.pathParameters ??= {}
     if (version === '1.0') {

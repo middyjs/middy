@@ -14,7 +14,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [ 14.x, 16.x ]
+        node-version: [ 16.x ]
+        #node-version: [ 14.x, 16.x ]
 
     steps:
       - name: Checkout repository
@@ -32,9 +33,9 @@ jobs:
         env:
           CI: true
 
-      - name: Build as ESM for Node.js ${{ matrix.node-version }}
-        run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+      #- name: Build as ESM for Node.js ${{ matrix.node-version }}
+      #  run: |
+      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
 
       - name: Run benchmark
         run: test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
@@ -46,7 +47,7 @@ jobs:
       - name: Store benchmark result
         uses: rhysd/github-action-benchmark@v1
         with:
-          name: @middy Benchmark
+          name: Benchmark
           tool: 'benchmarkjs'
           output-file-path: ./benchmarks-${{ matrix.node-version }}.txt
           external-data-json-path: ./cache/benchmarks-${{ matrix.node-version }}.json
