@@ -1,7 +1,8 @@
 import awsEmbeddedMetrics from 'aws-embedded-metrics'
 
+const defaults = {}
+
 const cloudwatchMetricsMiddleware = (opts = {}) => {
-  const defaults = {}
   const options = { ...defaults, ...opts }
 
   const cloudwatchMetricsBefore = (request) => {

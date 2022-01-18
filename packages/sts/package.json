@@ -18,7 +18,8 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "ava"
+    "test:unit": "ava",
+    "test:benchmark": "node __benchmarks__/index.js"
   },
   "license": "MIT",
   "keywords": [
