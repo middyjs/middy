@@ -49,6 +49,11 @@ import middy from '@middy/core'
 import sqsPartialBatchFailureMiddleware from '@middy/sqs-partial-batch-failure'
 
 const lambdaHandler = (event, context) => {
+  if (event.Event === 's3:TestEvent') {
+    console.log('s3:TestEvent')
+    return null
+  }
+  
   const recordPromises = event.Records.map(async (record, index) => { 
     /* Custom message processing logic */
   })

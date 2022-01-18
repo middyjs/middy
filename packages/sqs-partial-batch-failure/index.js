@@ -12,7 +12,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     } = request
 
     // https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
-    // Requires: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
+    // Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
     const batchItemFailures = []
     for (const [idx, record] of Object.entries(Records)) {
       const { status, reason } = response[idx]
@@ -22,7 +22,8 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
         logger(reason, record)
       }
     }
-    return { batchItemFailures }
+
+    request.response = { batchItemFailures }
   }
 
   return {
