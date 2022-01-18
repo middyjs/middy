@@ -54,7 +54,7 @@ import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'
 
 const handler = middy((event, context) => {
-  throw new createError.UnprocessableEntity()
+  throw createError(422)
 })
 
 handler

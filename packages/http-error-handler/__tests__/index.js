@@ -3,14 +3,14 @@ const sinon = require('sinon')
 const middy = require('../../core/index.js')
 const httpErrorHandler = require('../index.js')
 
-const CreateError = require('http-errors')
+const { createError } = require('../../util/index.js')
 
 // Silence logging
 // console.error = () => {}
 
 test('It should create a response for HTTP errors (string)', async (t) => {
   const handler = middy(() => {
-    throw new CreateError.UnprocessableEntity()
+    throw createError(422)
   })
 
   handler.use(httpErrorHandler({ logger: false }))
@@ -80,7 +80,7 @@ test('It should handle non HTTP errors when fallback set', async (t) => {
 })
 
 test('It should be possible to pass a custom logger function', async (t) => {
-  const expectedError = new CreateError.UnprocessableEntity()
+  const expectedError = createError(422)
   const logger = sinon.spy()
 
   const handler = middy(() => {
@@ -115,7 +115,7 @@ test('It should create a response for HTTP errors created with a generic error',
 })
 
 test('It should expose of error to user', async (t) => {
-  const expectedError = new CreateError(404, 'NotFound')
+  const expectedError = createError(404, 'NotFound')
 
   const handler = middy(() => {
     throw expectedError
@@ -136,7 +136,7 @@ test('It should expose of error to user', async (t) => {
 })
 
 test('It should be possible to prevent expose of error to user', async (t) => {
-  const expectedError = new CreateError(404, 'NotFound', { expose: false })
+  const expectedError = createError(404, 'NotFound', { expose: false })
 
   const handler = middy(() => {
     throw expectedError
@@ -157,7 +157,7 @@ test('It should be possible to prevent expose of error to user', async (t) => {
 })
 
 test('It should not send error to user', async (t) => {
-  const expectedError = new CreateError(500, 'InternalError')
+  const expectedError = createError(500, 'InternalError')
 
   const handler = middy(() => {
     throw expectedError
@@ -178,7 +178,7 @@ test('It should not send error to user', async (t) => {
 })
 
 test('It should be possible to force expose of error to user', async (t) => {
-  const expectedError = new CreateError(500, 'OkayError', { expose: true })
+  const expectedError = createError(500, 'OkayError', { expose: true })
 
   const handler = middy(() => {
     throw expectedError

@@ -59,7 +59,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 import cors from '@middy/http-cors'
 
 const handler = middy((event, context) => {
-  throw new createError.UnprocessableEntity()
+  throw createError(422)
 })
 handler.use(httpErrorHandler())
        .use(cors())

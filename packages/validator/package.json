@@ -54,8 +54,7 @@
   "devDependencies": {
     "@middy/core": "^2.5.5",
     "@types/http-errors": "^1.8.1",
-    "ajv-bsontype": "^1.0.7",
-    "http-errors": "^1.8.0"
+    "ajv-bsontype": "^1.0.7"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

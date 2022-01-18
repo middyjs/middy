@@ -50,8 +50,7 @@
     "negotiator": "0.6.2"
   },
   "devDependencies": {
-    "@middy/core": "^2.5.5",
-    "http-errors": "^1.8.0"
+    "@middy/core": "^2.5.5"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
