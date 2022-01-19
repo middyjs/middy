@@ -154,7 +154,7 @@ test('It should not encode when response.body is not a string', async (t) => {
   t.deepEqual(response, { body, headers: {} })
 })
 
-test('It should not encode when response.body is empty', async (t) => {
+test('It should not encode when response.body is empty string', async (t) => {
   const body = ''
   const handler = middy((event, context) => ({ body }))
   handler.use(
@@ -168,6 +168,37 @@ test('It should not encode when response.body is empty', async (t) => {
   const response = await handler(event, context)
 
   t.deepEqual(response, { body, headers: {} })
+})
+
+test('It should not encode when response.body is different type', async (t) => {
+  const body = null
+  const handler = middy((event, context) => ({ body }))
+  handler.use(
+    httpContentEncoding()
+  )
+
+  const event = {
+    preferredEncoding: 'br'
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, { body, headers: {} })
+})
+
+test('It should not encode when response.body is undefined', async (t) => {
+  const handler = middy((event, context) => {})
+  handler.use(
+    httpContentEncoding()
+  )
+
+  const event = {
+    preferredEncoding: 'br'
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, { headers: {} })
 })
 
 test('It should pipe encoding stream when passed a stream', async (t) => {
