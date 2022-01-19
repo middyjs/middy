@@ -1,3 +1,6 @@
+// import { setTimeout } from 'timers/promises'
+import { EventEmitter } from 'events' // For polyfill
+
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
@@ -154,11 +157,8 @@ Copyright (c) 2019 Steve Faulkner
 
 node-abort-controller
  */
-import { EventEmitter } from 'events'
-
 const polyfillAbortController = () => {
   if (process.version < 'v15.0.0') {
-
     class AbortSignal {
       constructor () {
         this.eventEmitter = new EventEmitter()
@@ -218,7 +218,6 @@ const polyfillAbortController = () => {
 }
 global.AbortController = polyfillAbortController()
 
-// import { setTimeout } from 'timers/promises'
 const polyfillSetTimeoutPromise = () => {
   // if (process.version < 'v15.0.0') {
   return (ms, { signal }) => {

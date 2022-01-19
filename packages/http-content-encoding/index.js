@@ -4,7 +4,9 @@
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
-import { Readable, Writable } from 'stream'
+// import {pipeline} from 'stream/promises'
+import stream, { Readable, Writable } from 'stream'
+import { promisify } from 'util' // For polyfill
 
 import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
 // import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
@@ -100,10 +102,7 @@ const isReadableStream = (stream) =>
   typeof stream?._read === 'function' &&
   typeof stream?._readableState === 'object'
 
-// import {pipeline} from 'stream/promises'
 // START pipeline polyfill
-import stream from 'stream'
-import {promisify} from 'util'
 const polyfillPipelinePromise = () => {
   if (process.version < 'v15.0.0') {
     return promisify(stream.pipeline)
