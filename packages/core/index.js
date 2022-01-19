@@ -154,10 +154,10 @@ Copyright (c) 2019 Steve Faulkner
 
 node-abort-controller
  */
-const polyfillAbortController = async () => {
+import { EventEmitter } from 'events'
+
+const polyfillAbortController = () => {
   if (process.version < 'v15.0.0') {
-    const events = await import('events')
-    const { EventEmitter } = events
 
     class AbortSignal {
       constructor () {
@@ -216,35 +216,34 @@ const polyfillAbortController = async () => {
     return AbortController
   }
 }
-global.AbortController = await polyfillAbortController()
+global.AbortController = polyfillAbortController()
 
-const polyfillSetTimeoutPromise = async () => {
-
-  if (process.version < 'v15.0.0') {
-    return (ms, { signal }) => {
-      if (signal.aborted) {
-        return Promise.reject(new Error('Aborted', 'AbortError'))
-      }
-      return new Promise((resolve, reject) => {
-        const abortHandler = () => {
-          clearTimeout(timeout)
-          reject(new Error('Aborted', 'AbortError'))
-        }
-        // start async operation
-        const timeout = setTimeout(() => {
-          resolve()
-          signal.removeEventListener('abort', abortHandler)
-        }, ms)
-        signal.addEventListener('abort', abortHandler)
-      })
+// import { setTimeout } from 'timers/promises'
+const polyfillSetTimeoutPromise = () => {
+  // if (process.version < 'v15.0.0') {
+  return (ms, { signal }) => {
+    if (signal.aborted) {
+      return Promise.reject(new Error('Aborted', 'AbortError'))
     }
-  } else {
-    const timers = await import('timers/promises')
-    return timers.setTimeout
+    return new Promise((resolve, reject) => {
+      const abortHandler = () => {
+        clearTimeout(timeout)
+        reject(new Error('Aborted', 'AbortError'))
+      }
+      // start async operation
+      const timeout = setTimeout(() => {
+        resolve()
+        signal.removeEventListener('abort', abortHandler)
+      }, ms)
+      signal.addEventListener('abort', abortHandler)
+    })
   }
+  // } else {
+  //   return timers.promises.setTimeout
+  // }
 }
-global.setTimeoutPromise = await polyfillSetTimeoutPromise()
-// import { setTimeout as setTimeoutPromise } from 'timers/promises'
+const setTimeoutPromise = polyfillSetTimeoutPromise()
+
 // End Polyfill
 
 export default middy

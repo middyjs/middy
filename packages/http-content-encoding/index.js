@@ -4,15 +4,12 @@
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
-import { Readable, Writable, pipeline as pipelineCallback } from 'stream'
-// import {pipeline} from 'stream/promises'  // available in node >=15
-import { promisify } from 'util'
+import { Readable, Writable } from 'stream'
 
 import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
 // import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
 
 import { normalizeHttpResponse } from '@middy/util'
-const pipeline = promisify(pipelineCallback)
 
 const contentEncodingStreams = {
   br: (opts = {}) => createBrotliCompress(opts),
@@ -103,17 +100,18 @@ const isReadableStream = (stream) =>
   typeof stream?._read === 'function' &&
   typeof stream?._readableState === 'object'
 
-const polyfillPipelinePromise = async () => {
+// import {pipeline} from 'stream/promises'
+// START pipeline polyfill
+import stream from 'stream'
+import {promisify} from 'util'
+const polyfillPipelinePromise = () => {
   if (process.version < 'v15.0.0') {
-    const stream = await import('stream');
-    const util = await import('util');
-    return util.promisify(stream.pipeline);
+    return promisify(stream.pipeline)
   } else {
-    const stream = await import('stream/promises')
-    return stream.pipeline
+    return stream.promises.pipeline
   }
 }
-global.pipeline = await polyfillPipelinePromise()
-// import {pipeline} from 'stream/promises'
+const pipeline = polyfillPipelinePromise()
+// END pipeline polyfill
 
 export default httpContentEncodingMiddleware
