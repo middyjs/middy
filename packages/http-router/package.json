@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-router",
-  "version": "3.0.0-alpha.4",
+  "version": "3.0.0-alpha.5",
   "description": "http event router for the middy framework",
   "type": "module",
   "engines": {
@@ -49,10 +49,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.4"
+    "@middy/util": "^3.0.0-alpha.5"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.4"
+    "@middy/core": "^3.0.0-alpha.5"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
