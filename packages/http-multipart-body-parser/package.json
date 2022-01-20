@@ -49,7 +49,7 @@
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
     "@middy/util": "^3.0.0-alpha.5",
-    "busboy": "1.3.0"
+    "busboy": "1.4.0"
   },
   "devDependencies": {
     "@middy/core": "^3.0.0-alpha.5"
