@@ -113,11 +113,14 @@ No change
 ### [sts](/packages/sts/README.md)
 No change
 
-### [validator](/packages/validator/README.md
+### [validator](/packages/validator/README.md)
 - Change where errors are stored, from `request.error.details` to `request.error.cause` [Breaking Change]
 
 ### [warmup](/packages/warmup/README.md)
 No change
+
+### [ws-response](/packages/ws-response/README.md)
+- [New] Post responses to WebSocket API Gateway
 
 ## Notes
 
