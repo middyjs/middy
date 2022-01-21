@@ -1,7 +1,8 @@
 const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
 const defaults = {
-  reviver: undefined
+  reviver: undefined,
+  rejectMsg: 'Content type defined as JSON but an invalid JSON was provided'
 }
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
@@ -22,7 +23,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
       } catch (err) {
         const { createError } = require('@middy/util')
         // UnprocessableEntity
-        throw createError(422, 'Content type defined as JSON but an invalid JSON was provided')
+        throw createError(422, rejectMsg)
       }
     }
   }
