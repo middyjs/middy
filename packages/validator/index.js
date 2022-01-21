@@ -46,7 +46,7 @@ const validatorMiddleware = (opts = {}) => {
       }
 
       // Bad Request
-      //throw createError(400, 'Event object failed validation', { cause: inputSchema.errors })
+      // throw createError(400, 'Event object failed validation', { cause: inputSchema.errors })
       const error = createError(400, 'Event object failed validation')
       error.cause = inputSchema.errors
       throw error
@@ -58,7 +58,7 @@ const validatorMiddleware = (opts = {}) => {
 
     if (!valid) {
       // Internal Server Error
-      //throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
+      // throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
       const error = createError(500, 'Response object failed validation')
       error.cause = outputSchema.errors
       throw error
