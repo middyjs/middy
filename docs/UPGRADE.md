@@ -101,6 +101,9 @@ No change
 ### [secrets-manager](/packages/secrets-manager/README.md)
 - Deprecated `setToEnv` option due to possible security misuse [Breaking Change]
 
+### [service-discovery](/packages/service-discovery/README.md)
+- [New] Allow easy access to discoveryInstances
+
 ### sqs-json-body-parser
 - Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
 
