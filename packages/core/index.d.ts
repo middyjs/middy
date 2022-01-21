@@ -69,7 +69,7 @@ declare type MiddlewareHandler<THandler extends LambdaHandler<any, any>, TContex
  * @param handler your original AWS Lambda function
  * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
  */
-declare function middy<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> (handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>, plugin?: PluginObject): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+declare function middy<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> (handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>, plugin?: PluginObject): MiddyfiedHandler<any, TResult, TErr, any>
 
 declare namespace middy {
   export {
