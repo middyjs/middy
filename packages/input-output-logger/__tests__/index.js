@@ -56,6 +56,36 @@ test('It should omit paths', async (t) => {
 
   t.deepEqual(response, { message: 'hello world', bar: 'bi' })
 })
+
+test('It should omit paths and not stringify twice an existed stringify object', async (t) => {
+  const logger = sinon.spy()
+
+  const handler = middy((event, context) => {
+    return {
+      message: 'hello world',
+      bar: JSON.stringify({ fuu: 'bur', duu: 'bir' })
+    }
+  })
+
+  handler.use(
+    inputOutputLogger({ logger, omitPaths: ['event.foo', 'response.bar.fuu'] })
+  )
+
+  const response = await handler({ foo: 'bar', fuu: 'baz' })
+  t.log(logger)
+  t.true(logger.calledWith({ event: { fuu: 'baz' } }))
+  t.true(
+    logger.calledWith({
+      response: { message: 'hello world', bar: { duu: 'bir' } }
+    })
+  )
+
+  t.deepEqual(response, {
+    message: 'hello world',
+    bar: JSON.stringify({ fuu: 'bur', duu: 'bir' })
+  })
+})
+
 test('It should skip paths that do not exist', async (t) => {
   const logger = sinon.spy()
 

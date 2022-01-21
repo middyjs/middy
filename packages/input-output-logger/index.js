@@ -1,4 +1,3 @@
-
 const defaults = {
   logger: (data) => console.log(JSON.stringify(data, null, 2)),
   awsContext: false,
@@ -16,7 +15,10 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     if (awsContext) {
       message.context = pick(request.context, awsContextKeys)
     }
-    const redactedMessage = omit(JSON.parse(JSON.stringify(message)), omitPaths) // Full clone to prevent nested mutations
+    const redactedMessage = omit(
+      JSON.parse(JSON.stringify(message, replaceStringifyObjectValue)),
+      omitPaths
+    ) // Full clone to prevent nested mutations
     logger(redactedMessage)
   }
 
@@ -74,6 +76,15 @@ const deleteKey = (obj, key) => {
     delete obj[rootKey]
   }
   return obj
+}
+
+const replaceStringifyObjectValue = (key, value) => {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch (e) {}
+  }
+  return value
 }
 
 module.exports = inputOutputLoggerMiddleware
