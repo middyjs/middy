@@ -91,7 +91,8 @@ test('It should handle invalid form data as an UnprocessableEntity', async (t) =
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided - May not write null values to stream')
+    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
+    t.is(e.cause.message, 'May not write null values to stream')
   }
 })
 
@@ -116,7 +117,8 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided - Unexpected end of form')
+    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
+    t.is(e.cause.message, 'Unexpected end of form')
   }
 })
 
