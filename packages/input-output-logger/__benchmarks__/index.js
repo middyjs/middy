@@ -8,7 +8,7 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = () => {
-  const baseHandler = () => { }
+  const baseHandler = (event) => event
   return middy(baseHandler)
     .use(middleware({
       logger: () => {}
@@ -16,11 +16,23 @@ const setupHandler = () => {
 }
 
 const warmHandler = setupHandler()
+const shallowHandler = setupHandler({awsContext:['functionName'], omitPaths: ['event.zooloo', 'event.hoo']})
+const deepHandler = setupHandler({awsContext:['functionName'], omitPaths: ['event.foo.hoo', 'response.foo[0].foo']})
 
 suite
-  .add('Add Headers', async (event = { }) => {
+  .add('log objects', async (event = { }) => {
     try {
       await warmHandler(event, context)
+    } catch (e) {}
+  })
+  .add('omit shallow values', async (event = { foo: [{ foo: 'bar', fuu: {boo:'baz'} }], hoo:false }) => {
+    try {
+      await shallowHandler(event, context)
+    } catch (e) {}
+  })
+  .add('omit deep values', async (event = { foo: [{ foo: 'bar', fuu: {boo:'baz'} }], hoo:false }) => {
+    try {
+      await deepHandler(event, context)
     } catch (e) {}
   })
   .on('cycle', (event) => {
