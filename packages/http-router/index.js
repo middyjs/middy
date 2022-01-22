@@ -9,7 +9,7 @@ const httpRouteHandler = (routes) => {
 
     // Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
     if (!enumMethods.includes(method)) {
-      throw new Error('method not allowed')
+      throw new Error('Method not allowed')
     }
 
     // remove trailing slash, but not if it's the first one

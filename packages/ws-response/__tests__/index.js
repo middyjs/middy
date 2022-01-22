@@ -97,3 +97,19 @@ test.serial('It should not post when connection id is not set', async (t) => {
   const response = await handler(event, context)
   t.true(response.Data)
 })
+
+test.serial('It should not post when response not set', async (t) => {
+  mockService(ApiGatewayManagementApi, { statusCode: 200 })
+
+  const handler = middy((event, context) => {})
+
+  handler
+    .use(wsResponse({
+      AwsClient: ApiGatewayManagementApi
+    }))
+
+  const event = {}
+  const response = await handler(event, context)
+
+  t.deepEqual(response, { ConnectionId: undefined })
+})

@@ -190,6 +190,28 @@ test('"use" can add multiple object with all types of middlewares (async)', asyn
   t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1', 'e2', 'e1'])
 })
 
+// Attach handler
+test('"handler" should replace lambdaHandler', async (t) => {
+  const executed = []
+
+  const handler = middy(() => { executed.push('replace') })
+    .handler(() => { executed.push('handler') })
+  await handler(event, context)
+  t.deepEqual(executed, ['handler'])
+})
+
+test('"middy" should allow setting plugin as first arg', async (t) => {
+  const executed = []
+  const handler = middy({
+    beforePrefetch: () => {
+      executed.push('beforePrefetch')
+    }
+  })
+    .handler(() => { executed.push('handler') })
+  await handler(event, context)
+  t.deepEqual(executed, ['beforePrefetch','handler'])
+})
+
 // Throwing an error
 test('Thrown error from"before" middlewares should handled', async (t) => {
   const beforeError = new Error('before')

@@ -68,7 +68,7 @@ const deleteKey = (obj, key) => {
   const rootKey = key.shift()
   if (key.length && obj[rootKey]) {
     deleteKey(obj[rootKey], key)
-  } else {
+  } else if (rootKey !== '__proto__') {
     delete obj[rootKey]
   }
   return obj

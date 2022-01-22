@@ -233,3 +233,18 @@ test('It should pipe encoding stream when passed a stream', async (t) => {
     isBase64Encoded: true
   })
 })
+
+test('It should not encode when error is not handled', async (t) => {
+  const handler = middy((event, context) => { throw new Error('error')})
+  handler
+    .use(httpContentEncoding())
+
+  const event = {}
+
+  try {
+    await handler(event, context)
+  } catch(e) {
+    t.is(e.message, 'error')
+  }
+
+})

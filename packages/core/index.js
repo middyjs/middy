@@ -76,6 +76,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   }
   middy.handler = (replaceLambdaHandler) => {
     lambdaHandler = replaceLambdaHandler
+    return middy
   }
 
   return middy

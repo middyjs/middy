@@ -166,7 +166,7 @@ helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
 // https://www.permissionspolicy.com/
 helmetHtmlOnly.permissionsPolicy = (headers, config) => {
   headers['Permissions-Policy'] = Object.keys(config)
-    .map(policy => `${policy}=${policy === '*' ? '*' : `(${config[policy]})`}`)
+    .map(policy => `${policy}=${config[policy] === '*' ? '*' : `(${config[policy]})`}`)
     .join(', ')
 }
 

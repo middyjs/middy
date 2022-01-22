@@ -225,3 +225,19 @@ test('It should allow later middleware to modify the response', async (t) => {
     }
   })
 })
+
+test('It should not handle error is response is set', async (t) => {
+  const handler = middy(() => {
+    throw createError(422)
+  })
+
+  handler
+    .use(httpErrorHandler({ logger: false }))
+    .onError((request) => {
+      request.response = true
+    })
+
+  const response = await handler(null, context)
+
+  t.true(response)
+})

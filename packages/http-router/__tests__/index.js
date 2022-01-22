@@ -233,3 +233,40 @@ test('It should middleware part of router', async (t) => {
   const response = await handler(event, context)
   t.true(response)
 })
+
+// Errors
+test('It should throw when unknown method used ', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/'
+  }
+  try {
+    const handler = httpRouter([
+      {
+        method: 'ALL',
+        path: '/',
+        handler: () => true
+      }
+    ])
+  } catch (e) {
+    t.is(e.message, 'Method not allowed')
+  }
+})
+
+test('It should throw when not a http event', async (t) => {
+  const event = {
+    path: '/'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/',
+      handler: () => true
+    }
+  ])
+  try {
+    await handler(event, context)
+  } catch(e) {
+    t.is(e.message, 'Unknown API Gateway Payload format')
+  }
+})

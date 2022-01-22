@@ -12,13 +12,14 @@ test('It should parse a non-file field from a multipart/form-data request', asyn
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // invokes the handler
   // Base64 encoded form data with field 'foo' of value 'bar'
   const event = {
     headers: {
-      'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
+      'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M'
     },
     body:
       'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
@@ -34,7 +35,8 @@ test('parseMultipartData should resolve with valid data', async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
@@ -54,7 +56,8 @@ test('It should parse a file field from a multipart/form-data request', async (t
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // Base64 encoded form data with a file with fieldname 'attachment', filename 'test.txt', and contents 'hello world!'
   const event = {
@@ -77,7 +80,8 @@ test('It should handle invalid form data as an UnprocessableEntity', async (t) =
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // invokes the handler
   const event = {
@@ -102,7 +106,8 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
@@ -127,7 +132,8 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // invokes the handler
   const event = {
@@ -149,7 +155,8 @@ test("It shouldn't process the body if the content type is not multipart/form-da
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // invokes the handler
   const event = {
@@ -171,7 +178,8 @@ test("It shouldn't process the body if headers are passed without content type",
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   // invokes the handler
   const event = {
@@ -194,7 +202,8 @@ test('It should parse an array from a multipart/form-data request (base64)', asy
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
@@ -216,7 +225,8 @@ test('It should parse an array from a multipart/form-data request with ASCII das
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
@@ -236,7 +246,8 @@ test('It should parse an array from a multipart/form-data request en dash (utf8)
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
@@ -256,7 +267,8 @@ test('It should parse a field with multiple files successfully', async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler
+    .use(httpMultipartBodyParser())
 
   const event = {
     headers: {
