@@ -33,14 +33,14 @@ test.serial('It should parse nested events', async (t) => {
     .use(eventNormalizer())
 
   const s3Event = createEvent.default('aws:s3')
-  const sqsEvent = createEvent.default('aws:sqs')
-  sqsEvent.Records[0].body = JSON.stringify(s3Event)
   const snsEvent = createEvent.default('aws:sns')
-  snsEvent.Records[0].Sns.Message = JSON.stringify(sqsEvent)
-  const event = snsEvent
+  snsEvent.Records[0].Sns.Message = JSON.stringify(s3Event)
+  const sqsEvent = createEvent.default('aws:sqs')
+  sqsEvent.Records[0].body = JSON.stringify(snsEvent)
+  const event = sqsEvent
   const response = await handler(event, context)
 
-  t.deepEqual(response.Records[0].Sns.Message.Records[0].body, s3Event)
+  t.deepEqual(response.Records[0].body.Records[0].Sns.Message, s3Event)
 })
 
 // SNS
