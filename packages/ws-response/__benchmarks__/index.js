@@ -26,7 +26,7 @@ const setupHandler = (options = {}) => {
   return middy(baseHandler)
     .use(middleware({
       ...options,
-      AwsClient: ApiGatewayManagementApi,
+      AwsClient: ApiGatewayManagementApi
     }))
 }
 

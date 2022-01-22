@@ -42,13 +42,13 @@ test.serial('It should set instances to internal storage', async (t) => {
     Instances: [
       {
         Attributes: {
-          "AWS_INSTANCE_IPV4": "172.2.1.3",
-          "AWS_INSTANCE_PORT": "808"
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
         },
-        HealthStatus: "UNKNOWN",
-        InstanceId: "myservice-53",
-        NamespaceName: "example.com",
-        ServiceName: "myservice"
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
       }
     ]
   })
@@ -60,13 +60,13 @@ test.serial('It should set instances to internal storage', async (t) => {
     t.deepEqual(values.ec2, [
       {
         Attributes: {
-          "AWS_INSTANCE_IPV4": "172.2.1.3",
-          "AWS_INSTANCE_PORT": "808"
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
         },
-        HealthStatus: "UNKNOWN",
-        InstanceId: "myservice-53",
-        NamespaceName: "example.com",
-        ServiceName: "myservice"
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
       }
     ])
   }
@@ -79,7 +79,7 @@ test.serial('It should set instances to internal storage', async (t) => {
         fetchData: {
           ec2: {
             NamespaceName: 'example.com',
-            ServiceName:'example'
+            ServiceName: 'example'
           }
         }
       })
@@ -96,13 +96,13 @@ test.serial(
       Instances: [
         {
           Attributes: {
-            "AWS_INSTANCE_IPV4": "172.2.1.3",
-            "AWS_INSTANCE_PORT": "808"
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
           },
-          HealthStatus: "UNKNOWN",
-          InstanceId: "myservice-53",
-          NamespaceName: "example.com",
-          ServiceName: "myservice"
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
         }
       ]
     })
@@ -114,13 +114,13 @@ test.serial(
       t.deepEqual(values.ec2, [
         {
           Attributes: {
-            "AWS_INSTANCE_IPV4": "172.2.1.3",
-            "AWS_INSTANCE_PORT": "808"
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
           },
-          HealthStatus: "UNKNOWN",
-          InstanceId: "myservice-53",
-          NamespaceName: "example.com",
-          ServiceName: "myservice"
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
         }
       ])
     }
@@ -133,7 +133,7 @@ test.serial(
           fetchData: {
             ec2: {
               NamespaceName: 'example.com',
-              ServiceName:'example'
+              ServiceName: 'example'
             }
           },
           disablePrefetch: true
@@ -150,13 +150,13 @@ test.serial('It should set STS secret to context', async (t) => {
     Instances: [
       {
         Attributes: {
-          "AWS_INSTANCE_IPV4": "172.2.1.3",
-          "AWS_INSTANCE_PORT": "808"
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
         },
-        HealthStatus: "UNKNOWN",
-        InstanceId: "myservice-53",
-        NamespaceName: "example.com",
-        ServiceName: "myservice"
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
       }
     ]
   })
@@ -167,13 +167,13 @@ test.serial('It should set STS secret to context', async (t) => {
     t.deepEqual(request.context.ec2, [
       {
         Attributes: {
-          "AWS_INSTANCE_IPV4": "172.2.1.3",
-          "AWS_INSTANCE_PORT": "808"
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
         },
-        HealthStatus: "UNKNOWN",
-        InstanceId: "myservice-53",
-        NamespaceName: "example.com",
-        ServiceName: "myservice"
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
       }
     ])
   }
@@ -186,7 +186,7 @@ test.serial('It should set STS secret to context', async (t) => {
         fetchData: {
           ec2: {
             NamespaceName: 'example.com',
-            ServiceName:'example'
+            ServiceName: 'example'
           }
         },
         setToContext: true
@@ -204,13 +204,13 @@ test.serial(
       Instances: [
         {
           Attributes: {
-            "AWS_INSTANCE_IPV4": "172.2.1.3",
-            "AWS_INSTANCE_PORT": "808"
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
           },
-          HealthStatus: "UNKNOWN",
-          InstanceId: "myservice-53",
-          NamespaceName: "example.com",
-          ServiceName: "myservice"
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
         }
       ]
     })
@@ -222,13 +222,13 @@ test.serial(
       t.deepEqual(values.ec2, [
         {
           Attributes: {
-            "AWS_INSTANCE_IPV4": "172.2.1.3",
-            "AWS_INSTANCE_PORT": "808"
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
           },
-          HealthStatus: "UNKNOWN",
-          InstanceId: "myservice-53",
-          NamespaceName: "example.com",
-          ServiceName: "myservice"
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
         }
       ])
     }
@@ -241,7 +241,7 @@ test.serial(
           fetchData: {
             ec2: {
               NamespaceName: 'example.com',
-              ServiceName:'example'
+              ServiceName: 'example'
             }
           }
         })
@@ -264,13 +264,13 @@ test.serial(
         Instances: [
           {
             Attributes: {
-              "AWS_INSTANCE_IPV4": "172.2.1.3",
-              "AWS_INSTANCE_PORT": "808"
+              AWS_INSTANCE_IPV4: '172.2.1.3',
+              AWS_INSTANCE_PORT: '808'
             },
-            HealthStatus: "UNKNOWN",
-            InstanceId: "myservice-53",
-            NamespaceName: "example.com",
-            ServiceName: "myservice"
+            HealthStatus: 'UNKNOWN',
+            InstanceId: 'myservice-53',
+            NamespaceName: 'example.com',
+            ServiceName: 'myservice'
           }
         ]
       },
@@ -278,13 +278,13 @@ test.serial(
         Instances: [
           {
             Attributes: {
-              "AWS_INSTANCE_IPV4": "172.2.1.3",
-              "AWS_INSTANCE_PORT": "808"
+              AWS_INSTANCE_IPV4: '172.2.1.3',
+              AWS_INSTANCE_PORT: '808'
             },
-            HealthStatus: "UNKNOWN",
-            InstanceId: "myservice-53",
-            NamespaceName: "example.com",
-            ServiceName: "myservice"
+            HealthStatus: 'UNKNOWN',
+            InstanceId: 'myservice-53',
+            NamespaceName: 'example.com',
+            ServiceName: 'myservice'
           }
         ]
       }
@@ -297,13 +297,13 @@ test.serial(
       t.deepEqual(values.ec2, [
         {
           Attributes: {
-            "AWS_INSTANCE_IPV4": "172.2.1.3",
-            "AWS_INSTANCE_PORT": "808"
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
           },
-          HealthStatus: "UNKNOWN",
-          InstanceId: "myservice-53",
-          NamespaceName: "example.com",
-          ServiceName: "myservice"
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
         }
       ])
     }
@@ -316,7 +316,7 @@ test.serial(
           fetchData: {
             ec2: {
               NamespaceName: 'example.com',
-              ServiceName:'example'
+              ServiceName: 'example'
             }
           }
         })
