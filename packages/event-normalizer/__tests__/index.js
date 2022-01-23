@@ -62,22 +62,22 @@ test('It should parse SNS-> SQS event', async (t) => {
     .use(eventNormalizer())
 
   const event = {
-    "Records": [
+    Records: [
       {
-        "messageId": "07dee686-bfa4-40d0-a85f-4194e204dbaa",
-        "receiptHandle": "XNIOA7DA==",
-        "body": "{\n  \"Type\" : \"Notification\",\n  \"MessageId\" : \"06e1a25f-b7c9-5cdf-a548-f838aec1e14b\",\n  \"TopicArn\" : \"arn:aws:sns:ca-central-1:********:topic\",\n  \"Subject\" : \"Amazon S3 Notification\",\n  \"Message\" : \"{\\\"Records\\\":[{\\\"eventVersion\\\":\\\"2.1\\\",\\\"eventSource\\\":\\\"aws:s3\\\",\\\"awsRegion\\\":\\\"ca-central-1\\\",\\\"eventTime\\\":\\\"2022-01-23T08:50:15.375Z\\\",\\\"eventName\\\":\\\"ObjectCreated:Put\\\",\\\"userIdentity\\\":{\\\"principalId\\\":\\\"AWS:********\\\"},\\\"requestParameters\\\":{\\\"sourceIPAddress\\\":\\\"0.0.0.0\\\"},\\\"responseElements\\\":{\\\"x-amz-request-id\\\":\\\"*******\\\",\\\"x-amz-id-2\\\":\\\"*****\\\"},\\\"s3\\\":{\\\"s3SchemaVersion\\\":\\\"1.0\\\",\\\"configurationId\\\":\\\"dataset\\\",\\\"bucket\\\":{\\\"name\\\":\\\"s3-upload\\\",\\\"ownerIdentity\\\":{\\\"principalId\\\":\\\"********\\\"},\\\"arn\\\":\\\"arn:aws:s3:::s3-upload\\\"},\\\"object\\\":{\\\"key\\\":\\\"path/to/file.csv\\\",\\\"size\\\":9109,\\\"eTag\\\":\\\"*****\\\",\\\"sequencer\\\":\\\"0061ED16C7445880F0\\\"}}}]}\",\n  \"Timestamp\" : \"2022-01-23T08:50:16.906Z\",\n  \"SignatureVersion\" : \"1\",\n  \"Signature\" : \"********\",\n  \"SigningCertURL\" : \"https://sns.ca-central-1.amazonaws.com/SimpleNotificationService-*****.pem\",\n  \"UnsubscribeURL\" : \"https://sns.ca-central-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ca-central-1:*********:topic:cfa3ee69-92f9-4db8-9784-f647f868952d\"\n}",
-        "attributes": {
-          "ApproximateReceiveCount": "1",
-          "SentTimestamp": "1642927816967",
-          "SenderId": "AIDAJKASJ4",
-          "ApproximateFirstReceiveTimestamp": "1642927816972"
+        messageId: '07dee686-bfa4-40d0-a85f-4194e204dbaa',
+        receiptHandle: 'XNIOA7DA==',
+        body: '{\n  "Type" : "Notification",\n  "MessageId" : "06e1a25f-b7c9-5cdf-a548-f838aec1e14b",\n  "TopicArn" : "arn:aws:sns:ca-central-1:********:topic",\n  "Subject" : "Amazon S3 Notification",\n  "Message" : "{\\"Records\\":[{\\"eventVersion\\":\\"2.1\\",\\"eventSource\\":\\"aws:s3\\",\\"awsRegion\\":\\"ca-central-1\\",\\"eventTime\\":\\"2022-01-23T08:50:15.375Z\\",\\"eventName\\":\\"ObjectCreated:Put\\",\\"userIdentity\\":{\\"principalId\\":\\"AWS:********\\"},\\"requestParameters\\":{\\"sourceIPAddress\\":\\"0.0.0.0\\"},\\"responseElements\\":{\\"x-amz-request-id\\":\\"*******\\",\\"x-amz-id-2\\":\\"*****\\"},\\"s3\\":{\\"s3SchemaVersion\\":\\"1.0\\",\\"configurationId\\":\\"dataset\\",\\"bucket\\":{\\"name\\":\\"s3-upload\\",\\"ownerIdentity\\":{\\"principalId\\":\\"********\\"},\\"arn\\":\\"arn:aws:s3:::s3-upload\\"},\\"object\\":{\\"key\\":\\"path/to/file.csv\\",\\"size\\":9109,\\"eTag\\":\\"*****\\",\\"sequencer\\":\\"0061ED16C7445880F0\\"}}}]}",\n  "Timestamp" : "2022-01-23T08:50:16.906Z",\n  "SignatureVersion" : "1",\n  "Signature" : "********",\n  "SigningCertURL" : "https://sns.ca-central-1.amazonaws.com/SimpleNotificationService-*****.pem",\n  "UnsubscribeURL" : "https://sns.ca-central-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ca-central-1:*********:topic:cfa3ee69-92f9-4db8-9784-f647f868952d"\n}',
+        attributes: {
+          ApproximateReceiveCount: '1',
+          SentTimestamp: '1642927816967',
+          SenderId: 'AIDAJKASJ4',
+          ApproximateFirstReceiveTimestamp: '1642927816972'
         },
-        "messageAttributes": {},
-        "md5OfBody": "141dbdeb46110bc11a04210ac6b5efaf",
-        "eventSource": "aws:sqs",
-        "eventSourceARN": "arn:aws:sqs:ca-central-1:*********:queue",
-        "awsRegion": "ca-central-1"
+        messageAttributes: {},
+        md5OfBody: '141dbdeb46110bc11a04210ac6b5efaf',
+        eventSource: 'aws:sqs',
+        eventSourceARN: 'arn:aws:sqs:ca-central-1:*********:queue',
+        awsRegion: 'ca-central-1'
       }
     ]
   }
@@ -192,4 +192,3 @@ test('It should parse Kinesis Firehose event data', async (t) => {
 
   t.deepEqual(response.records[0].data, data)
 })
-
