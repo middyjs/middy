@@ -1,28 +1,34 @@
+import { jsonSafeParse, jsonSafeStringify } from '@middy/util'
 
 const defaults = {
-  logger: (data) => console.log(JSON.stringify(data, null, 2)),
+  logger: console.log,
   awsContext: false,
-  omitPaths: []
+  omitPaths: [],
+  replacer: undefined
 }
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
-  let { logger, awsContext, omitPaths } = { ...defaults, ...opts }
+  let { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
   if (typeof logger !== 'function') logger = null
 
+  const omitPathTree = buildPathOmitTree(omitPaths)
+
   const omitAndLog = (param, request) => {
-    const message = {
-      [param]: request[param]
-    }
+    const message = { [param]: request[param] }
     if (awsContext) {
       message.context = pick(request.context, awsContextKeys)
     }
-    const redactedMessage = omit(JSON.parse(JSON.stringify(message)), omitPaths) // Full clone to prevent nested mutations
-    logger(redactedMessage)
+    const cloneMessage = jsonSafeParse(jsonSafeStringify(message, replacer)) // Full clone to prevent nested mutations
+    omit(cloneMessage, { [param]: omitPathTree[param] })
+    logger(cloneMessage)
   }
 
   const inputOutputLoggerMiddlewareBefore = async (request) => omitAndLog('event', request)
   const inputOutputLoggerMiddlewareAfter = async (request) => omitAndLog('response', request)
-  const inputOutputLoggerMiddlewareOnError = inputOutputLoggerMiddlewareAfter
+  const inputOutputLoggerMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return omitAndLog('response', request)
+  }
   return {
     before: logger ? inputOutputLoggerMiddlewareBefore : undefined,
     after: logger ? inputOutputLoggerMiddlewareAfter : undefined,
@@ -55,23 +61,42 @@ const pick = (originalObject = {}, keysToPick = []) => {
   }
   return newObject
 }
-const omit = (originalObject = {}, keysToOmit = []) => {
-  const clonedObject = { ...originalObject }
-  for (const path of keysToOmit) {
-    deleteKey(clonedObject, path)
+
+const buildPathOmitTree = (paths) => {
+  const tree = {}
+  for (let path of paths.sort().reverse()) { // reverse to ensure conflicting paths don't cause issues
+    if (!Array.isArray(path)) path = path.split('.')
+    if (path.includes('__proto__')) continue
+    path
+      .slice(0) // clone
+      .reduce((a, b, idx) => {
+        if (idx < path.length - 1) {
+          a[b] ??= {}
+          return a[b]
+        }
+        a[b] = true
+        return true
+      }, tree)
   }
-  return clonedObject
+  return tree
 }
 
-const deleteKey = (obj, key) => {
-  if (!Array.isArray(key)) key = key.split('.')
-  const rootKey = key.shift()
-  if (key.length && obj[rootKey]) {
-    deleteKey(obj[rootKey], key)
-  } else if (rootKey !== '__proto__') {
-    delete obj[rootKey]
+const omit = (obj, pathTree = {}) => {
+  if (Array.isArray(obj) && pathTree['[]']) {
+    for (const value of obj) {
+      omit(value, pathTree['[]'])
+    }
+  } else if (isObject(obj)) {
+    for (const key in pathTree) {
+      if (pathTree[key] === true) {
+        delete obj[key]
+      } else {
+        omit(obj[key], pathTree[key])
+      }
+    }
   }
-  return obj
 }
+
+const isObject = (value) => value && typeof value === 'object' && value.constructor === Object
 
 export default inputOutputLoggerMiddleware
