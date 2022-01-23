@@ -1,8 +1,4 @@
 import { Agent } from 'https'
-
-// smaller version of `http-errors`
-import statuses from './codes.js'
-import { inherits } from 'util'
 // import { NodeHttpHandler } from '@aws-sdk/node-http-handler' // aws-sdk v3
 
 export const awsClientDefaultOptions = {
@@ -170,15 +166,23 @@ export const clearCache = (keys = null) => {
   }
 }
 
-export const jsonSafeParse = (string, reviver) => {
-  if (typeof string !== 'string') return string
-  const firstChar = string[0]
-  if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
+export const jsonSafeParse = (text, reviver) => {
+  if (typeof text !== 'string') return text
+  const firstChar = text[0]
+  if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return text
   try {
-    return JSON.parse(string, reviver)
+    return JSON.parse(text, reviver)
   } catch (e) {}
 
-  return string
+  return text
+}
+
+export const jsonSafeStringify = (value, replacer, space) => {
+  try {
+    return JSON.stringify(value, replacer, space)
+  } catch (e) {}
+
+  return value
 }
 
 export const normalizeHttpResponse = (request) => {
@@ -194,65 +198,93 @@ export const normalizeHttpResponse = (request) => {
 }
 
 const createErrorRegexp = /[^a-zA-Z]/g
-export const createError = (code, message, properties = {}) => {
-  const name = statuses[code].replace(createErrorRegexp, '')
-  const className = name.substr(-5) !== 'Error' ? name + 'Error' : name
+export class HttpError extends Error {
+  constructor (code, message, options = {}) {
+    if (message && typeof message !== 'string') {
+      options = message
+      message = undefined
+    }
+    message ??= httpErrorCodes[code]
+    super(message) // super(message, options)
 
-  function HttpError (message) {
-    // create the error object
-    const msg = message ?? statuses[code]
-    const err = new Error(msg)
+    // polyfill
+    this.cause = options.cause
 
-    // capture a stack trace to the construction point
-    Error.captureStackTrace(err, HttpError)
+    const name = httpErrorCodes[code].replace(createErrorRegexp, '')
+    this.name = name.substr(-5) !== 'Error' ? name + 'Error' : name
 
-    // adjust the [[Prototype]]
-    Object.setPrototypeOf(err, HttpError.prototype)
-
-    // redefine the error message
-    Object.defineProperty(err, 'message', {
-      enumerable: true,
-      configurable: true,
-      value: msg,
-      writable: true
-    })
-
-    // redefine the error name
-    Object.defineProperty(err, 'name', {
-      enumerable: false,
-      configurable: true,
-      value: className,
-      writable: true
-    })
-
-    return err
+    this.status = this.statusCode = code // setting `status` for backwards compatibility w/ `http-errors`
+    this.expose = options.expose ?? code < 500
   }
-
-  inherits(HttpError, Error)
-  const desc = Object.getOwnPropertyDescriptor(HttpError, 'name')
-  desc.value = className
-  Object.defineProperty(HttpError, 'name', desc)
-
-  Object.assign(HttpError.prototype, {
-    status: code,
-    statusCode: code,
-    expose: code < 500
-  }, properties)
-
-  return new HttpError(message)
 }
 
-export default {
-  createPrefetchClient,
-  createClient,
-  canPrefetch,
-  getInternal,
-  sanitizeKey,
-  processCache,
-  getCache,
-  modifyCache,
-  clearCache,
-  jsonSafeParse,
-  normalizeHttpResponse,
-  createError
+export const createError = (code, message, properties = {}) => {
+  return new HttpError(code, message, properties)
+}
+
+const httpErrorCodes = {
+  100: 'Continue',
+  101: 'Switching Protocols',
+  102: 'Processing',
+  103: 'Early Hints',
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  203: 'Non-Authoritative Information',
+  204: 'No Content',
+  205: 'Reset Content',
+  206: 'Partial Content',
+  207: 'Multi-Status',
+  208: 'Already Reported',
+  226: 'IM Used',
+  300: 'Multiple Choices',
+  301: 'Moved Permanently',
+  302: 'Found',
+  303: 'See Other',
+  304: 'Not Modified',
+  305: 'Use Proxy',
+  306: '(Unused)',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  402: 'Payment Required',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  406: 'Not Acceptable',
+  407: 'Proxy Authentication Required',
+  408: 'Request Timeout',
+  409: 'Conflict',
+  410: 'Gone',
+  411: 'Length Required',
+  412: 'Precondition Failed',
+  413: 'Payload Too Large',
+  414: 'URI Too Long',
+  415: 'Unsupported Media Type',
+  416: 'Range Not Satisfiable',
+  417: 'Expectation Failed',
+  418: "I'm a teapot",
+  421: 'Misdirected Request',
+  422: 'Unprocessable Entity',
+  423: 'Locked',
+  424: 'Failed Dependency',
+  425: 'Unordered Collection',
+  426: 'Upgrade Required',
+  428: 'Precondition Required',
+  429: 'Too Many Requests',
+  431: 'Request Header Fields Too Large',
+  451: 'Unavailable For Legal Reasons',
+  500: 'Internal Server Error',
+  501: 'Not Implemented',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+  505: 'HTTP Version Not Supported',
+  506: 'Variant Also Negotiates',
+  507: 'Insufficient Storage',
+  508: 'Loop Detected',
+  509: 'Bandwidth Limit Exceeded',
+  510: 'Not Extended',
+  511: 'Network Authentication Required'
 }
