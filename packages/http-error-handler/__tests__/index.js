@@ -15,7 +15,7 @@ const context = {
 
 test('It should create a response for HTTP errors (string)', async (t) => {
   const handler = middy(() => {
-    throw createError(422)
+    throw createError(422, 'Unprocessable Entity')
   })
 
   handler.use(httpErrorHandler({ logger: false }))
@@ -205,7 +205,7 @@ test('It should be possible to force expose of error to user', async (t) => {
 
 test('It should allow later middleware to modify the response', async (t) => {
   const handler = middy(() => {
-    throw createError(422)
+    throw createError(422, 'Unprocessable Entity')
   })
 
   handler

@@ -209,7 +209,7 @@ test('"middy" should allow setting plugin as first arg', async (t) => {
   })
     .handler(() => { executed.push('handler') })
   await handler(event, context)
-  t.deepEqual(executed, ['beforePrefetch','handler'])
+  t.deepEqual(executed, ['beforePrefetch', 'handler'])
 })
 
 // Throwing an error

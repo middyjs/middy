@@ -235,7 +235,7 @@ test('It should pipe encoding stream when passed a stream', async (t) => {
 })
 
 test('It should not encode when error is not handled', async (t) => {
-  const handler = middy((event, context) => { throw new Error('error')})
+  const handler = middy((event, context) => { throw new Error('error') })
   handler
     .use(httpContentEncoding())
 
@@ -243,8 +243,7 @@ test('It should not encode when error is not handled', async (t) => {
 
   try {
     await handler(event, context)
-  } catch(e) {
+  } catch (e) {
     t.is(e.message, 'error')
   }
-
 })
