@@ -343,7 +343,6 @@ test.serial(
   }
 )
 
-
 test.serial('It should catch if an error is returned from fetch', async (t) => {
   const stub = mockServiceError(ServiceDiscovery, new Error('timeout'))
 

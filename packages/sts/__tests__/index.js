@@ -266,15 +266,15 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
 
   const handler = middy(() => {})
     .use(sts({
-        AwsClient: STS,
-        cacheExpiry: 0,
-        fetchData: {
-          role: {
-            RoleArn: '.../role'
-          }
-        },
-        setToContext: true
-      }))
+      AwsClient: STS,
+      cacheExpiry: 0,
+      fetchData: {
+        role: {
+          RoleArn: '.../role'
+        }
+      },
+      setToContext: true
+    }))
 
   try {
     await handler(event, context)

@@ -129,7 +129,7 @@ test.serial(
       const values = await getInternal(true, request)
       t.deepEqual(values.key, {
         key_name: 'key-value',
-        key_pass: ['key','pass']
+        key_pass: ['key', 'pass']
       })
     }
 

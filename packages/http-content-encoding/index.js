@@ -98,9 +98,8 @@ const httpContentEncodingMiddleware = (opts) => {
 }
 
 const isReadableStream = (stream) => {
-  return stream instanceof eventEmitter && typeof stream.readable !== false
+  return stream instanceof eventEmitter && stream.readable !== false
 }
-
 
 // START pipeline polyfill
 const polyfillPipelinePromise = () => {

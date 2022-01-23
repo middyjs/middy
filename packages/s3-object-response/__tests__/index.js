@@ -59,7 +59,7 @@ const context = {
 }
 
 const isReadableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.readable !== false
+  return body instanceof eventEmitter && body.readable !== false
 }
 
 test.serial('It should throw when unknown bodyType used', async (t) => {
@@ -85,7 +85,6 @@ test.serial('It should throw when unknown bodyType used', async (t) => {
     t.is(e.message, '[s3-object-response] bodyType is invalid')
   }
 })
-
 
 test.serial('It should capture fetch', async (t) => {
   mockService(S3, { statusCode: 200 })
