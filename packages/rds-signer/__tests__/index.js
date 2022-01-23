@@ -34,6 +34,18 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const mockServiceError = (client, error) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().yields(error, null)
+  client.prototype.getAuthToken = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getAuthToken')
+  // mock.onFirstCall().rejects(error)
+
+  return mock
+}
+
 const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
@@ -207,37 +219,6 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
 }
 )
 
-// test.serial(
-//   'It should catch missing X-Amz-Security-Token',
-//   async (t) => {
-//     const stub = mockService(Signer, 'https://rds.amazonaws.com')
-//     const handler = middy(() => {})
-//
-//     handler
-//       .use(
-//         rdsSigner({
-//           AwsClient: Signer,
-//           fetchData: {
-//             token: {
-//               region: 'us-east-1',
-//               hostname: 'hostname',
-//               username: 'username',
-//               database: 'database',
-//               port: 5432
-//             }
-//           }
-//         })
-//       )
-//
-//     try {
-//       await handler(event, context)
-//     } catch(e) {
-//       t.is(e.message, 'X-Amz-Security-Token Missing')
-//     }
-//     t.is(stub.callCount, 1)
-//   }
-// )
-
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
@@ -272,5 +253,71 @@ test.serial(
     await handler(event, context)
 
     t.is(stub.callCount, 2)
+  }
+)
+
+test.serial(
+  'It should catch if an error is returned from fetch',
+  async (t) => {
+    const stub = mockServiceError(Signer, new Error('timeout'))
+
+    const handler = middy(() => {})
+      .use(
+        rdsSigner({
+          AwsClient: Signer,
+          cacheExpiry: 0,
+          fetchData: {
+            token: {
+              region: 'us-east-1',
+              hostname: 'hostname',
+              username: 'username',
+              database: 'database',
+              port: 5432
+            }
+          },
+          setToContext: true
+        })
+      )
+
+    try {
+      await handler(event, context)
+    } catch (e) {
+      t.is(stub.callCount, 1)
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('timeout')])
+    }
+  }
+)
+
+test.serial(
+  'It should catch if an invalid response is returned from fetch',
+  async (t) => {
+    const stub = mockService(Signer, 'https://rds.amazonaws.com')
+
+    const handler = middy(() => {})
+      .use(
+        rdsSigner({
+          AwsClient: Signer,
+          cacheExpiry: 0,
+          fetchData: {
+            token: {
+              region: 'us-east-1',
+              hostname: 'hostname',
+              username: 'username',
+              database: 'database',
+              port: 5432
+            }
+          },
+          setToContext: true
+        })
+      )
+
+    try {
+      await handler(event, context)
+    } catch (e) {
+      t.is(stub.callCount, 1)
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('[rds-signer] X-Amz-Security-Token Missing')])
+    }
   }
 )

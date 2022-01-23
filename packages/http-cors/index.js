@@ -107,7 +107,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
     const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event)
     if (!httpMethod) {
-      throw new Error('Unknown API Gateway Payload format')
+      throw new Error('[http-cors] Unknown http event format')
     }
     if (httpMethod === 'OPTIONS') {
       if (options.cacheControl && !existingHeaders.includes('Cache-Control')) {

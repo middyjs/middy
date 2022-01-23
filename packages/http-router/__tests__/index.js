@@ -245,7 +245,7 @@ test('It should throw when unknown method is used', async (t) => {
       }
     ])
   } catch (e) {
-    t.is(e.message, 'Method not allowed')
+    t.is(e.message, '[http-router] Method not allowed')
   }
 })
 
@@ -263,6 +263,6 @@ test('It should throw when not a http event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Unknown API Gateway Payload format')
+    t.is(e.message, '[http-router] Unknown http event format')
   }
 })

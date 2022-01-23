@@ -28,7 +28,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   if (!['stream', 'promise'].includes(options.bodyType)) {
-    throw new Error('bodyType is invalid.')
+    throw new Error('[s3-object-response] bodyType is invalid')
   }
 
   if (options.httpsCapture) {
@@ -92,7 +92,6 @@ const fetchType = (type, fetchOptions) => {
   } else if (type === 'promise') {
     return fetchPromise(fetchOptions)
   }
-  return null
 }
 
 const fetchStream = (fetchOptions) => {

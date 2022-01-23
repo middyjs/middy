@@ -32,6 +32,19 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const mockServiceError = (client, error) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.reject(error) })
+  client.prototype.assumeRole = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().resolves(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
 const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
@@ -247,3 +260,27 @@ test.serial(
     t.is(stub.callCount, 2)
   }
 )
+
+test.serial('It should catch if an error is returned from fetch', async (t) => {
+  const stub = mockServiceError(STS, new Error('timeout'))
+
+  const handler = middy(() => {})
+    .use(sts({
+        AwsClient: STS,
+        cacheExpiry: 0,
+        fetchData: {
+          role: {
+            RoleArn: '.../role'
+          }
+        },
+        setToContext: true
+      }))
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(stub.callCount, 1)
+    t.is(e.message, 'Failed to resolve internal values')
+    t.deepEqual(e.cause, [new Error('timeout')])
+  }
+})

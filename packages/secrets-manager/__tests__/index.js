@@ -32,6 +32,19 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const mockServiceError = (client, error) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.reject(error) })
+  client.prototype.getSecretValue = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().rejects(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
 const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
@@ -49,15 +62,13 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
   }
 
   handler
-    .use(
-      secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          token: 'api_key'
-        }
-      })
-    )
+    .use(secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        token: 'api_key'
+      }
+    }))
     .before(middleware)
 
   await handler(event, context)
@@ -83,16 +94,14 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
   }
 
   handler
-    .use(
-      secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          token1: 'api_key1',
-          token2: 'api_key2'
-        }
-      })
-    )
+    .use(secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        token1: 'api_key1',
+        token2: 'api_key2'
+      }
+    }))
     .before(middleware)
 
   await handler(event, context)
@@ -115,15 +124,13 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
   }
 
   handler
-    .use(
-      secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          credentials: 'rds_login'
-        }
-      })
-    )
+    .use(secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        credentials: 'rds_login'
+      }
+    }))
     .before(middleware)
 
   await handler(event, context)
@@ -144,16 +151,14 @@ test.serial(
     }
 
     handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManager,
-          cacheExpiry: 0,
-          fetchData: {
-            token: 'api_key'
-          },
-          disablePrefetch: true
-        })
-      )
+      .use(secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        },
+        disablePrefetch: true
+      }))
       .before(middleware)
 
     await handler(event, context)
@@ -172,16 +177,14 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   }
 
   handler
-    .use(
-      secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          token: 'api_key'
-        },
-        setToContext: true
-      })
-    )
+    .use(secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        token: 'api_key'
+      },
+      setToContext: true
+    }))
     .before(middleware)
 
   await handler(event, context)
@@ -202,15 +205,13 @@ test.serial(
     }
 
     handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManager,
-          cacheExpiry: -1,
-          fetchData: {
-            token: 'api_key'
-          }
-        })
-      )
+      .use(secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: -1,
+        fetchData: {
+          token: 'api_key'
+        }
+      }))
       .before(middleware)
 
     await handler(event, context)
@@ -241,15 +242,13 @@ test.serial(
     }
 
     handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManager,
-          cacheExpiry: 0,
-          fetchData: {
-            token: 'api_key'
-          }
-        })
-      )
+      .use(secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        }
+      }))
       .before(middleware)
 
     await handler(event, context)
@@ -258,3 +257,25 @@ test.serial(
     t.is(stub.callCount, 2)
   }
 )
+
+test.serial('It should catch if an error is returned from fetch', async (t) => {
+  const stub = mockServiceError(SecretsManager, new Error('timeout'))
+
+  const handler = middy(() => {})
+    .use(secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        token: 'api_key'
+      },
+      setToContext: true
+    }))
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(stub.callCount, 1)
+    t.is(e.message, 'Failed to resolve internal values')
+    t.deepEqual(e.cause, [new Error('timeout')])
+  }
+})

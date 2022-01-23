@@ -62,6 +62,58 @@ const isReadableStream = (body) => {
   return body instanceof eventEmitter && typeof body.read === 'function'
 }
 
+test.serial('It should throw when unknown bodyType used', async (t) => {
+  mockService(S3, { statusCode: 200 })
+
+  const handler = middy((event, context) => {
+    t.true(isReadableStream(context.s3Object))
+
+    return {
+      Body: context.s3Object
+    }
+  })
+
+  try {
+    handler
+      .use(s3ObejctResponse({
+        AwsClient: S3,
+        bodyType: 'string',
+
+        __https: mockHttps('hello world')
+      }))
+  } catch (e) {
+    t.is(e.message, '[s3-object-response] bodyType is invalid')
+  }
+})
+
+
+test.serial('It should capture fetch', async (t) => {
+  mockService(S3, { statusCode: 200 })
+  const httpsCapture = sinon.spy((a) => a)
+
+  const handler = middy(async (event, context) => {
+    t.true(typeof context.s3Object.then === 'function')
+
+    return {
+      Body: await context.s3Object
+    }
+  })
+
+  handler.use(
+    s3ObejctResponse({
+      AwsClient: S3,
+      httpsCapture,
+      bodyType: 'promise',
+
+      __https: mockHttps('hello world')
+    })
+  )
+
+  const response = await handler(event, context)
+  t.deepEqual(200, response.statusCode)
+  t.is(httpsCapture.callCount, 1)
+})
+
 test.serial('It should pass a stream to handler', async (t) => {
   mockService(S3, { statusCode: 200 })
 
@@ -77,6 +129,7 @@ test.serial('It should pass a stream to handler', async (t) => {
     s3ObejctResponse({
       AwsClient: S3,
       bodyType: 'stream',
+      disablePrefetch: true,
 
       __https: mockHttps('hello world')
     })

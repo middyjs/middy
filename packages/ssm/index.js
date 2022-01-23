@@ -70,7 +70,7 @@ const ssmMiddleware = (opts = {}) => {
                   const value = getCache(options.cacheKey).value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
-                  throw new Error('ssm.InvalidParameter ' + fetchKey)
+                  throw new Error('[ssm] InvalidParameter ' + fetchKey)
                 })
               }
             }),
@@ -96,7 +96,6 @@ const ssmMiddleware = (opts = {}) => {
       batchFetchKeys = []
       batchReq = null
     }
-
     return values
   }
 
@@ -106,12 +105,13 @@ const ssmMiddleware = (opts = {}) => {
       if (cachedValues[internalKey]) continue
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
-      values[internalKey] = fetchPath(fetchKey).catch((e) => {
-        const value = getCache(options.cacheKey).value ?? {}
-        value[internalKey] = undefined
-        modifyCache(options.cacheKey, value)
-        throw e
-      })
+      values[internalKey] = fetchPath(fetchKey)
+        .catch((e) => {
+          const value = getCache(options.cacheKey).value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
     }
     return values
   }

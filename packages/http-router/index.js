@@ -9,7 +9,7 @@ const httpRouteHandler = (routes) => {
 
     // Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
     if (!enumMethods.includes(method)) {
-      throw new Error('Method not allowed')
+      throw new Error('[http-router] Method not allowed')
     }
 
     // remove trailing slash, but not if it's the first one
@@ -30,7 +30,7 @@ const httpRouteHandler = (routes) => {
   return (event, context) => {
     const { method, path } = getVersionRoute[event.version ?? '1.0']?.(event)
     if (!method) {
-      throw new Error('Unknown API Gateway Payload format')
+      throw new Error('[http-router] Unknown http event format')
     }
 
     // Static

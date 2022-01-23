@@ -41,7 +41,9 @@ export const createClient = async (options, request) => {
 
   // Role Credentials
   if (options.awsClientAssumeRole) {
-    if (!request) throw new Error('Request required when assuming role')
+    if (!request) {
+      throw new Error('Request required when assuming role')
+    }
     awsClientCredentials = await getInternal(
       { credentials: options.awsClientAssumeRole },
       request

@@ -5,7 +5,7 @@ const httpEventNormalizerMiddleware = () => {
     const version = event.version ?? '1.0'
     const isHttpEvent = isVersionHttpEvent[version]?.(event)
     if (!isHttpEvent) {
-      throw new Error('Unknown API Gateway Payload format')
+      throw new Error('[http-event-normalizer] Unknown http event format')
     }
 
     // event.headers ??= {} // Will always have at least one header
