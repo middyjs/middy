@@ -1,6 +1,6 @@
 {
   "name": "@middy/ssm",
-  "version": "3.0.0-alpha.5",
+  "version": "3.0.0-alpha.6",
   "description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -48,10 +48,10 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "3.0.0-alpha.5"
+    "@middy/util": "^3.0.0-alpha.6"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.5",
+    "@middy/core": "^3.0.0-alpha.6",
     "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"
   },
