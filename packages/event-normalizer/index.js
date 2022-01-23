@@ -47,9 +47,18 @@ const parseEvent = {
     record.Sns.Message = jsonSafeParse(record.Sns.Message)
     parseEventRecords(record.Sns.Message)
   },
+  'aws:sns:sqs': (record) => {
+    record.Message = jsonSafeParse(record.Message)
+    parseEventRecords(record.Message)
+  },
   'aws:sqs': (record) => {
     record.body = jsonSafeParse(record.body)
-    parseEventRecords(record.body)
+    // SNS -> SQS Special Case
+    if (record.body.Type === 'Notification') {
+      parseEvent['aws:sns:sqs'](record.body)
+    } else {
+      parseEventRecords(record.body)
+    }
   }
 }
 

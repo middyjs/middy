@@ -8,7 +8,7 @@ const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
-test.serial('It should skip when empty event', async (t) => {
+test('It should skip when empty event', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -18,7 +18,7 @@ test.serial('It should skip when empty event', async (t) => {
   t.deepEqual(response, event)
 })
 
-test.serial('It should skip when unknown event', async (t) => {
+test('It should skip when unknown event', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -28,7 +28,7 @@ test.serial('It should skip when unknown event', async (t) => {
   t.deepEqual(response, { Records: [{ eventSource: 'aws:new' }] })
 })
 
-test.serial('It should parse nested events', async (t) => {
+test('It should parse nested events', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -44,7 +44,7 @@ test.serial('It should parse nested events', async (t) => {
 })
 
 // SNS
-test.serial('It should parse SNS event message', async (t) => {
+test('It should parse SNS event message', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -56,8 +56,38 @@ test.serial('It should parse SNS event message', async (t) => {
   t.deepEqual(response.Records[0].Sns.Message, message)
 })
 
+// SNS -> SQS
+test('It should parse SNS-> SQS event', async (t) => {
+  const handler = middy((event) => event)
+    .use(eventNormalizer())
+
+  const event = {
+    "Records": [
+      {
+        "messageId": "07dee686-bfa4-40d0-a85f-4194e204dbaa",
+        "receiptHandle": "XNIOA7DA==",
+        "body": "{\n  \"Type\" : \"Notification\",\n  \"MessageId\" : \"06e1a25f-b7c9-5cdf-a548-f838aec1e14b\",\n  \"TopicArn\" : \"arn:aws:sns:ca-central-1:********:topic\",\n  \"Subject\" : \"Amazon S3 Notification\",\n  \"Message\" : \"{\\\"Records\\\":[{\\\"eventVersion\\\":\\\"2.1\\\",\\\"eventSource\\\":\\\"aws:s3\\\",\\\"awsRegion\\\":\\\"ca-central-1\\\",\\\"eventTime\\\":\\\"2022-01-23T08:50:15.375Z\\\",\\\"eventName\\\":\\\"ObjectCreated:Put\\\",\\\"userIdentity\\\":{\\\"principalId\\\":\\\"AWS:********\\\"},\\\"requestParameters\\\":{\\\"sourceIPAddress\\\":\\\"0.0.0.0\\\"},\\\"responseElements\\\":{\\\"x-amz-request-id\\\":\\\"*******\\\",\\\"x-amz-id-2\\\":\\\"*****\\\"},\\\"s3\\\":{\\\"s3SchemaVersion\\\":\\\"1.0\\\",\\\"configurationId\\\":\\\"dataset\\\",\\\"bucket\\\":{\\\"name\\\":\\\"s3-upload\\\",\\\"ownerIdentity\\\":{\\\"principalId\\\":\\\"********\\\"},\\\"arn\\\":\\\"arn:aws:s3:::s3-upload\\\"},\\\"object\\\":{\\\"key\\\":\\\"path/to/file.csv\\\",\\\"size\\\":9109,\\\"eTag\\\":\\\"*****\\\",\\\"sequencer\\\":\\\"0061ED16C7445880F0\\\"}}}]}\",\n  \"Timestamp\" : \"2022-01-23T08:50:16.906Z\",\n  \"SignatureVersion\" : \"1\",\n  \"Signature\" : \"********\",\n  \"SigningCertURL\" : \"https://sns.ca-central-1.amazonaws.com/SimpleNotificationService-*****.pem\",\n  \"UnsubscribeURL\" : \"https://sns.ca-central-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ca-central-1:*********:topic:cfa3ee69-92f9-4db8-9784-f647f868952d\"\n}",
+        "attributes": {
+          "ApproximateReceiveCount": "1",
+          "SentTimestamp": "1642927816967",
+          "SenderId": "AIDAJKASJ4",
+          "ApproximateFirstReceiveTimestamp": "1642927816972"
+        },
+        "messageAttributes": {},
+        "md5OfBody": "141dbdeb46110bc11a04210ac6b5efaf",
+        "eventSource": "aws:sqs",
+        "eventSourceARN": "arn:aws:sqs:ca-central-1:*********:queue",
+        "awsRegion": "ca-central-1"
+      }
+    ]
+  }
+  const response = await handler(event, context)
+
+  t.deepEqual(response.Records[0].body.Message.Records[0].eventSource, 'aws:s3')
+})
+
 // SQS
-test.serial('It should parse SQS event body', async (t) => {
+test('It should parse SQS event body', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -70,7 +100,7 @@ test.serial('It should parse SQS event body', async (t) => {
 })
 
 // S3
-test.serial('It should normalize S3 event key', async (t) => {
+test('It should normalize S3 event key', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -82,7 +112,7 @@ test.serial('It should normalize S3 event key', async (t) => {
 })
 
 // DynamoDB
-test.serial('It should parse DynamoDB event keys/images', async (t) => {
+test('It should parse DynamoDB event keys/images', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -103,7 +133,7 @@ test.serial('It should parse DynamoDB event keys/images', async (t) => {
 })
 
 // Kinesis Stream
-test.serial('It should parse Kinesis Stream event data', async (t) => {
+test('It should parse Kinesis Stream event data', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -119,7 +149,7 @@ test.serial('It should parse Kinesis Stream event data', async (t) => {
 })
 
 // Kinesis Firehose
-test.serial('It should parse Kinesis Firehose event data', async (t) => {
+test('It should parse Kinesis Firehose event data', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
@@ -162,3 +192,4 @@ test.serial('It should parse Kinesis Firehose event data', async (t) => {
 
   t.deepEqual(response.records[0].data, data)
 })
+
