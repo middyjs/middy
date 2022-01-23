@@ -609,7 +609,7 @@ the first connection established. See [Reusing Connections with Keep-Alive in No
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
 ```javascript
-import {getInternal} from '@middy/util'
+import { getInternal } from '@middy/util'
 
 middy(lambdaHandler)
   // Incase you want to add values on to internal directly

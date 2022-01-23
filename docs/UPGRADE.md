@@ -247,7 +247,9 @@ Remove `extended` option. Only uses `qs` as the parser, formally enabled by opti
 No change
 
 ### [input-output-logger](/packages/input-output-logger/README.md)
-Now additionally logs response from the `onError` middleware stack
+- Now additionally logs response from the `onError` middleware stack
+- Support for omiting within nested arrays
+- Add in support for `replacer` to be passed into `JSON.stringify()`
 
 ### [rds-signer](/packages/rds-signer/README.md)
 New middleware to fetch RDS credential used when connecting with IAM roles. This was built into `db-manager`.
