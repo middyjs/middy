@@ -6,6 +6,7 @@
 
 // import {pipeline} from 'stream/promises'
 import stream, { Readable, Writable } from 'stream'
+import eventEmitter from 'events'
 import { promisify } from 'util' // For polyfill
 
 import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
@@ -96,11 +97,10 @@ const httpContentEncodingMiddleware = (opts) => {
   }
 }
 
-const isReadableStream = (stream) =>
-  typeof stream?.pipe === 'function' &&
-  stream?.readable !== false &&
-  typeof stream?._read === 'function' &&
-  typeof stream?._readableState === 'object'
+const isReadableStream = (stream) => {
+  return stream instanceof eventEmitter && typeof stream.readable !== false
+}
+
 
 // START pipeline polyfill
 const polyfillPipelinePromise = () => {

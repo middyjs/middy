@@ -59,7 +59,7 @@ const context = {
 }
 
 const isReadableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.read === 'function'
+  return body instanceof eventEmitter && typeof body.readable !== false
 }
 
 test.serial('It should throw when unknown bodyType used', async (t) => {

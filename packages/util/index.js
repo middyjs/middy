@@ -86,7 +86,7 @@ export const getInternal = async (variables, request) => {
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
     let valuePromise = request.internal[rootOptionKey]
-    if (typeof valuePromise.then !== 'function') {
+    if (!isPromise(valuePromise)) {
       valuePromise = Promise.resolve(valuePromise)
     }
     promises.push(
@@ -112,6 +112,9 @@ export const getInternal = async (variables, request) => {
     {}
   )
 }
+
+const isPromise = (promise) => typeof promise?.then === 'function'
+
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
 export const sanitizeKey = (key) => {
