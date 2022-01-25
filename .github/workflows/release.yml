@@ -9,13 +9,18 @@ jobs:
   release:
     name: release
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ 14.x]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@master
-      - name: Set up Node.js
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:
-          node-version: 14.0.0
+          node-version: ${{ matrix.node-version }}
       - name: Use npm 8
         run: |
           npm install -g npm@8
@@ -27,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-      - name: Build as ESM for Node.js v14
+      - name: Build as ESM for Node.js ${{ matrix.node-version }}
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
       - name: Pre-Release
