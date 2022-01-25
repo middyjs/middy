@@ -36,7 +36,7 @@ npm install --save @middy/sqs-partial-batch-failure
 ```
 
 ## Options
-- `logger` function (defaults to `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
+- `logger` (function) (default `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
 
 NOTES:
 - Include the value `ReportBatchItemFailures` in the Lambda `FunctionResponseTypes` list

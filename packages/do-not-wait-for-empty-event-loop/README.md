@@ -43,9 +43,9 @@ npm install --save @middy/do-not-wait-for-empty-event-loop
 By default the middleware sets the `callbackWaitsForEmptyEventLoop` property to `false` only in the `before` phase,
 meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
 
-- `runOnBefore` (defaults to `true`) - sets property before running your handler
-- `runOnAfter`  (defaults  to `false`)
-- `runOnError` (defaults to `false`)
+- `runOnBefore` (boolean) (default `true`) - sets property before running your handler
+- `runOnAfter` (boolean) (default `false`)
+- `runOnError` (boolean) (default `false`)
 
 
 ## Sample usage

@@ -53,9 +53,7 @@ npm install --save @middy/http-event-normalizer
 
 
 ## Options
-
-- payloadFormatVersion (number) (optional): Defaults to `1 ` for API Gateway REST API v1 or Application Load Balancer (ALB) event payload. Set it to `2` to use API Gateway HTTP API v2 event payload.
-
+None
 
 ## Sample usage
 

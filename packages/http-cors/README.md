@@ -38,20 +38,19 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-cors
 ```
 
-
 ## Options
 
- - `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
- - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
- - `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
- - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
- - `origin` (string) (optional): origin to put in the header (default: "`*`")
- - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
- - `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
- - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
- - `requestHeaders` (string) (optional): value to put in `Access-Control-Request-Headers` (default: `false`)
- - `requestMethods` (string) (optional): value to put in `Access-Control-Request-Methods` (default: `false`)
- - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
+ - `credentials` (boolean) (default `false`): if true, sets `Access-Control-Allow-Credentials`
+ - `headers` (string) (default `false`): value to put in `Access-Control-Allow-Headers`
+ - `methods` (string) (default `false`): value to put in `Access-Control-Allow-Methods`
+ - `getOrigin` (function(incomingOrigin:string, options)): take full control of the generating the returned origin. Defaults to using the origin or origins option.
+ - `origin` (string) (default `'*'`): origin to put in the header
+ - `origins` (array) (default `[]`): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
+ - `exposeHeaders` (string) (default `false`): value to put in `Access-Control-Expose-Headers`
+ - `maxAge` (string) (default `null`): value to put in Access-Control-Max-Age header
+ - `requestHeaders` (string) (default `false`): value to put in `Access-Control-Request-Headers`
+ - `requestMethods` (string) (default `false`): value to put in `Access-Control-Request-Methods`
+ - `cacheControl` (string) (default `null`): value to put in Cache-Control header on pre-flight (OPTIONS) requests
 
 ```javascript
 import middy from '@middy/core'

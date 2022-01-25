@@ -40,9 +40,7 @@ npm install --save @middy/http-partial-response
 
 
 ## Options
-
-This middleware does not have any option
-
+None
 
 ## Sample usage
 

@@ -54,15 +54,15 @@ npm install --save @middy/http-content-negotiation
 
 ## Options
 
-- `parseCharsets` (defaults to `true`) - Allows enabling/disabling the charsets parsing
-- `availableCharsets` (defaults to `undefined`) - Allows defining the list of charsets supported by the Lambda function
-- `parseEncodings` (defaults to `true`) - Allows enabling/disabling the encodings parsing
-- `availableEncodings` (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda function
-- `parseLanguages` (defaults to `true`) - Allows enabling/disabling the languages parsing
-- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function
-- `parseMediaTypes` (defaults to `true`) - Allows enabling/disabling the media types parsing
-- `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
-- `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
+- `parseCharsets` (boolean) (defaults to `true`) - Allows enabling/disabling the charsets parsing
+- `availableCharsets` (string) (defaults to `undefined`) - Allows defining the list of charsets supported by the Lambda function
+- `parseEncodings` (boolean) (defaults to `true`) - Allows enabling/disabling the encodings parsing
+- `availableEncodings` (string) (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda function
+- `parseLanguages` (boolean) (defaults to `true`) - Allows enabling/disabling the languages parsing
+- `availableLanguages` (string) (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function
+- `parseMediaTypes` (boolean) (defaults to `true`) - Allows enabling/disabling the media types parsing
+- `availableMediaTypes` (string) (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
+- `failOnMismatch` (boolean) (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
 
 
 ## Sample usage

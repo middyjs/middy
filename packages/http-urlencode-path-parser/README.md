@@ -38,9 +38,7 @@ npm install --save @middy/http-urlencode-path-parser
 
 
 ## Options
-
 None
-
 
 ## Sample usage
 

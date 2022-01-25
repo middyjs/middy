@@ -52,7 +52,7 @@ npm install --save @middy/warmup
 
 ## Options
 
- - `isWarmingUp`: a function that accepts the `event` object as a parameter
+ - `isWarmingUp`: (function) a function that accepts the `event` object as a parameter
    and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
 
 ## Sample usage

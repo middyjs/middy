@@ -46,9 +46,9 @@ npm install --save @middy/secrets-manager
 ## Options
 
 - `AwsClient` (object) (default `AWS.SecretsManager`): AWS.SecretsManager class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (optional): Options to pass to AWS.SecretsManager class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
-- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.SecretsManager class constructor.
+- `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
+- `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.

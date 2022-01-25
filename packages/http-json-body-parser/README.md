@@ -46,7 +46,7 @@ npm install --save @middy/http-json-body-parser
 
 ## Options
 
-- `reviver` function (optional): A [reviver](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#Parameters) parameter may be passed which will be used `JSON.parse`ing the body.
+- `reviver` (function) (default `undefined`): A [reviver](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#Parameters) parameter may be passed which will be used `JSON.parse`ing the body.
 
 
 ## Sample usage
