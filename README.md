@@ -786,7 +786,10 @@ Have a similar project? Let us know.
 - 2021-01-24: v2.0.0-alpha
 - 2021-03-12: v2.0.0-beta
 - 2021-04-01: v2.0.0
-- 2022-01-??: v3.0.0-alpha
+- 2022-01-04: v3.0.0-alpha
+- 2022-01-05: AWS Powertools TypeScript Beta Released
+- 2022-03-00: v3.0.0-beta
+- 2022-04-00: v3.0.0
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
 
