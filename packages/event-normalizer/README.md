@@ -76,8 +76,8 @@ RDS                | Yes      | See SNS event
 S3                 | Yes      | URI decode `key`
 S3 Batch           | Yes      | URI decode `s3Key`
 S3 Object Lambda   | Yes *    | See middleware `@middy/s3-object-response`
-Secrets Manager    | N/A      | Normalization not required
-SES                | N/A      | Normalization not required
+Secrets Manager    | Yes      | Normalization not required
+SES                | Yes      | Normalization not required
 SNS                | Yes      | JSON parse `Message`
 SQS                | Yes      | JSON parse `body`
 
