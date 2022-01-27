@@ -39,7 +39,7 @@
   </a>
 </p>
 
-<p>⚠️ If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the <a href="/docs/UPGRADE.md">upgrade instructions</a> ⚠️</p>
+<p>⚠️&nbsp;If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the <a href="/docs/UPGRADE.md">upgrade instructions</a>&nbsp;⚠️</p>
 </div>
 
 
@@ -126,13 +126,11 @@ const plugin = {
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
-const handler = middy(plugin)
+export const handler = middy(plugin)
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
   .handler(lambdaHandler)
-
-export default { handler }
 ```
 
 ## Why?
@@ -184,14 +182,10 @@ const lambdaHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(lambdaHandler) // `lambdaHandler` can alternatively be attached using `.handler(lambdaHandler)` after all middleware are attached
-
-handler
+export const handler = middy(lambdaHandler) // `lambdaHandler` can alternatively be attached using `.handler(lambdaHandler)` after all middleware are attached
   .use(middleware1())
   .use(middleware2())
   .use(middleware3())
-
-export default { handler }
 ```
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
@@ -207,10 +201,8 @@ const lambdaHandler = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(lambdaHandler)
+export const handler = middy(lambdaHandler)
   .use(middlewares)
-
-export default { handler }
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
@@ -406,19 +398,14 @@ With this convention in mind, using a middleware will always look like the follo
 import middy  from '@middy/core'
 import customMiddleware from 'customMiddleware.js'
 
-const handler = middy(async (event, context) => {
-  // do stuff
-  return {}
-})
-
-handler.use(
-  customMiddleware({
+export const handler = middy(async (event, context) => {
+    // do stuff
+    return {}
+  })
+  .use(customMiddleware({
     option1: 'foo',
     option2: 'bar'
-  })
-)
-
-export default { handler }
+  }))
 ```
 
 ### Inline middlewares
@@ -435,23 +422,18 @@ Let's see how inline middlewares work with a simple example:
 ```javascript
 import middy from '@middy/core'
 
-const handler = middy((event, context) => {
-  // do stuff
-})
-
-handler.before(async (request) => {
-  // do something in the before phase
-})
-
-handler.after(async (request) => {
-  // do something in the after phase
-})
-
-handler.onError(async (request) => {
-  // do something in the on error phase
-})
-
-export default { handler }
+export const handler = middy((event, context) => {
+    // do stuff
+  })
+  .before(async (request) => {
+    // do something in the before phase
+  })
+  .after(async (request) => {
+    // do something in the after phase
+  })
+  .onError(async (request) => {
+    // do something in the on error phase
+  })
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
@@ -560,12 +542,9 @@ async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 }
 
-let handler = middy(lambdaHandler)
-handler
+export const handler = middy(lambdaHandler)
   .use(someMiddleware)
   .use(someOtherMiddleware)
-
-export default handler
 ```
 
 And here's an example of how you can write a custom middleware for a Lambda receiving events from API Gateway:
