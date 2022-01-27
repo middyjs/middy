@@ -5,51 +5,84 @@ const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
   const eventNormalizerMiddlewareBefore = async (request) => {
-    parseEventRecords(request.event)
+    parseEvent(request.event)
   }
   return {
     before: eventNormalizerMiddlewareBefore
   }
 }
 
-const parseEventRecords = (event) => {
-  const records = event.Records ?? event.records // lowercase records is for Kinesis Firehose
-  if (!Array.isArray(records)) return
+const parseEvent = (event) => {
+  // event.eventSource => aws:amq, aws:kafka, aws:SelfManagedKafka
+  // event.deliveryStreamArn => aws:lambda:events
+  let eventSource = event.eventSource ?? event.deliveryStreamArn
 
-  let eventSource
+  // event.records => aws:lambda:events
+  // event.messages => aws:amq
+  // event.tasks => aws:s3:batch
+  const records = event.Records ?? event.records ?? event.messages ?? event.tasks
+
+  if (!Array.isArray(records)) {
+    // event.configRuleId => aws:config
+    eventSource ??= (event.configRuleId && 'aws:config')
+    if (eventSource) {
+      events[eventSource]?.(event)
+    }
+    return
+  }
+
   for (const record of records) {
-    // EventSource is for SNS
-    // deliveryStreamArn is for Kinesis Firehose
-    eventSource ??= record.eventSource ?? record.EventSource ?? event.deliveryStreamArn
-    parseEvent[eventSource]?.(record)
+    // record.EventSource => aws:sns
+    eventSource ??= record.eventSource ?? record.EventSource ?? (record.s3Key && 'aws:s3:batch')
+    events[eventSource]?.(record)
   }
 }
 
 const normalizeS3KeyReplacePlus = /\+/g
-const parseEvent = {
+const events = {
+  'aws:amq': (message) => {
+    message.data = base64Parse(message.data)
+  },
+  'aws:config': (event) => {
+    event.invokingEvent = jsonSafeParse(event.invokingEvent)
+    event.ruleParameters = jsonSafeParse(event.ruleParameters)
+  },
   'aws:dynamodb': (record) => {
     record.dynamodb.Keys = unmarshall(record.dynamodb.Keys)
     record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage)
     record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage)
   },
+  'aws:kafka': (event) => {
+    for(const record in event.records) {
+      for(const topic of event.records[record]){
+        topic.value = base64Parse(topic.value)
+      }
+    }
+  },
   // Kinesis Stream
   'aws:kinesis': (record) => {
-    record.kinesis.data = jsonSafeParse(Buffer.from(record.kinesis.data, 'base64').toString('utf-8'))
+    record.kinesis.data = base64Parse(record.kinesis.data)
   },
   // Kinesis Firehose
   'aws:lambda:events': (record) => {
-    record.data = jsonSafeParse(Buffer.from(record.data, 'base64').toString('utf-8'))
+    record.data = base64Parse(record.data)
   },
   'aws:s3': (record) => {
-    record.s3.object.key = decodeURIComponent(record.s3.object.key.replace(normalizeS3KeyReplacePlus, ' '))
+    record.s3.object.key = normalizeS3Key(record.s3.object.key)
+  },
+  'aws:s3:batch': (task) => {
+    task.s3Key = normalizeS3Key(task.s3Key)
+  },
+  'aws:SelfManagedKafka': (event) => {
+    events['aws.kafka'](event)
   },
   'aws:sns': (record) => {
     record.Sns.Message = jsonSafeParse(record.Sns.Message)
-    parseEventRecords(record.Sns.Message)
+    parseEvent(record.Sns.Message)
   },
   'aws:sns:sqs': (record) => {
     record.Message = jsonSafeParse(record.Message)
-    parseEventRecords(record.Message)
+    parseEvent(record.Message)
   },
   'aws:sqs': (record) => {
     record.body = jsonSafeParse(record.body)
@@ -57,9 +90,11 @@ const parseEvent = {
     if (record.body.Type === 'Notification') {
       parseEvent['aws:sns:sqs'](record.body)
     } else {
-      parseEventRecords(record.body)
+      parseEvent(record.body)
     }
   }
 }
+const base64Parse = (data) => jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
+const normalizeS3Key = key => decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' '))
 
 export default eventNormalizerMiddleware

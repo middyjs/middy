@@ -45,28 +45,43 @@
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.
 
 **AWS Events Transformations:**
+https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 
 Event Source       | Included | Comments
 -------------------|----------|-----------------------------------------------
-API Gateway (REST) | N/A      | See middleware prefixed with `http-`
-API Gateway (HTTP) | N/A      | See middleware prefixed with `http-`
-API Gateway (WS)   | No       | #602
+Alexa              | N/A      | Normalization not required
+API Gateway (REST) | Yes *    | See middleware prefixed with `@middy/http-`
+API Gateway (HTTP) | Yes *    | See middleware prefixed with `@middy/http-`
+API Gateway (WS)   | No       | Opportunity for new middleware
 CloudTrail         | N/A      | Normalization not required
-CloudWatch Logs    | N/A      | Normalization not required
-Cognito            | N/A      | Normalization not required
+CloudWatch Logs    | Yes      | Normalization not required
+CodeCommit         | Yes      | Normalization not required
+CodePipeline       | Yes      | Normalization not required
+Cognito            | Yes      | Normalization not required
+Config             | Yes      | JSON parse `invokingEvent` and `ruleParameters`
+Connect            | Yes      | Normalization not required
 DynamoDB           | Yes      | Unmarshall `Keys`, `OldImage`, and `NewImage`
-EC2                | N/A      | Normalization not required
-Elastic LB         | N/A      | See middleware prefixed with `http-`
-EventBridge        | N/A      | Normalization not required
-IoT                | N/A      | Normalization not required
-Kinesis Stream     | Yes      | Base64 decode and JSON parse
+EC2                | Yes      | Normalization not required
+Elastic LB         | Yes *    | See middleware prefixed with `@middy/http-`
+EventBridge        | Yes      | Normalization not required
+IoT                | Yes      | Normalization not required
+IoT Event          | Yes      | Normalization not required
+Apache Kafka       | Yes      | Base64 decode and JSON parse
 Kinesis Firehose   | Yes      | Base64 decode and JSON parse
-RDS                | N/A      | Normalization not required
+Kinesis Stream     | Yes      | Base64 decode and JSON parse
+Lex                | Yes      | Normalization not required
+MQ                 | Yes      | Base64 decode and JSON parse
+MSK                | Yes      | Base64 decode and JSON parse
+RDS                | Yes      | See SNS event
 S3                 | Yes      | URI decode key name
+S3 Batch           | Yes      | URI decode key name
+S3 Object Lambda   | Yes *    | See middleware `@middy/s3-object-response`
 Secrets Manager    | N/A      | Normalization not required
 SES                | N/A      | Normalization not required
-SNS                | Yes      | JSON parse
-SQS                | Yes      | JSON parse
+SNS                | Yes      | JSON parse `Message`
+SQS                | Yes      | JSON parse `body`
+
+\* Handled in another dedicated middleware(s)
 
 **Test Events**
 Some events send test events after set, you will need to handle these.
