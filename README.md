@@ -1,14 +1,8 @@
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>The stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fcore">
+  <a href="https://www.npmjs.com/package/@middy/core?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/core">
@@ -38,7 +32,6 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
-
 <p>⚠️&nbsp;If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the <a href="/docs/UPGRADE.md">upgrade instructions</a>&nbsp;⚠️</p>
 </div>
 

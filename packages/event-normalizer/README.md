@@ -1,16 +1,9 @@
-# Middy AWS event parse and normalization middleware
-
 <div align="center">
+  <h1>Middy AWS event parse and normalization middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>AWS event parsing and normalization middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fevent-normalizer">
+  <a href="https://www.npmjs.com/package/@middy/event-normalizer?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fevent-normalizer.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/event-normalizer">

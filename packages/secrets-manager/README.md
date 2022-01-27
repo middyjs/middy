@@ -1,16 +1,9 @@
-# Middy secrets-manager middleware
-
 <div align="center">
+  <h1>Middy secrets-manager middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>Secrets Manager middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fsecrets-manager">
+  <a href="https://www.npmjs.com/package/@middy/secrets-manager?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fsecrets-manager.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/secrets-manager">

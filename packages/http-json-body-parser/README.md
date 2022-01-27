@@ -1,16 +1,9 @@
-# Middy http-json-body-parser middleware
-
 <div align="center">
+  <h1>Middy http-json-body-parser middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>HTTP json body parser middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fhttp-json-body-parser">
+  <a href="https://www.npmjs.com/package/@middy/http-json-body-parser?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fhttp-json-body-parser.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/http-json-body-parser">

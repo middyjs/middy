@@ -1,16 +1,9 @@
-# Middy input-output-logger middleware
-
 <div align="center">
+  <h1>Middy input-output-logger middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>Input output logger middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Finput-output-logger">
+  <a href="https://www.npmjs.com/package/@middy/input-output-logger?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Finput-output-logger.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/input-output-logger">
