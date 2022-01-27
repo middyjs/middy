@@ -35,6 +35,9 @@ jobs:
       - name: Build as ESM for Node.js ${{ matrix.node-version }}
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+      - name: Find and update path to pre-bundled aws-sdk (AWS regression)
+        run: |
+          find . -name "*.js" -type f -not -path "*/docs/*" -not -path "*/node_modules/*" -not -path "*/__tests__/*" -not -path "*/__benchmarks__/*" -exec sed -i '' "s|from 'aws-sdk|from '/var/runtime/node_modules/aws-sdk|g" {} \;
       - name: Pre-Release
         if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
         run: |
