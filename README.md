@@ -39,7 +39,7 @@
   </a>
 </p>
 
-<p>⚠️ If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the [upgrade instructions](/docs/UPGRADE.md) ⚠️</p>
+<p>⚠️ If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the <a href="/docs/UPGRADE.md">upgrade instructions</a> ⚠️</p>
 </div>
 
 
