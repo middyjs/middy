@@ -1,5 +1,5 @@
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/release/3.x/docs/img/middy-logo.svg"/>
 </div>
 
 <div align="center">
