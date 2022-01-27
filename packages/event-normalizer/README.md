@@ -66,15 +66,15 @@ Elastic LB         | Yes *    | See middleware prefixed with `@middy/http-`
 EventBridge        | Yes      | Normalization not required
 IoT                | Yes      | Normalization not required
 IoT Event          | Yes      | Normalization not required
-Apache Kafka       | Yes      | Base64 decode and JSON parse
-Kinesis Firehose   | Yes      | Base64 decode and JSON parse
-Kinesis Stream     | Yes      | Base64 decode and JSON parse
+Apache Kafka       | Yes      | Base64 decode and JSON parse `value`
+Kinesis Firehose   | Yes      | Base64 decode and JSON parse `data`
+Kinesis Stream     | Yes      | Base64 decode and JSON parse `data`
 Lex                | Yes      | Normalization not required
-MQ                 | Yes      | Base64 decode and JSON parse
-MSK                | Yes      | Base64 decode and JSON parse
+MQ                 | Yes      | Base64 decode and JSON parse `data`
+MSK                | Yes      | Base64 decode and JSON parse `value`
 RDS                | Yes      | See SNS event
-S3                 | Yes      | URI decode key name
-S3 Batch           | Yes      | URI decode key name
+S3                 | Yes      | URI decode `key`
+S3 Batch           | Yes      | URI decode `s3Key`
 S3 Object Lambda   | Yes *    | See middleware `@middy/s3-object-response`
 Secrets Manager    | N/A      | Normalization not required
 SES                | N/A      | Normalization not required
