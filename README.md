@@ -1,5 +1,5 @@
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
 </div>
 
 <div align="center">
@@ -32,7 +32,7 @@
   </a>
   <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
   </a>
   <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
@@ -733,6 +733,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
   - [logger](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/logger): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
   - [metrics](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/metrics): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
   - [tracing](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/tracing): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
+- [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
