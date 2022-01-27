@@ -49,11 +49,11 @@ https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 
 Event Source       | Included | Comments
 -------------------|----------|-----------------------------------------------
-Alexa              | N/A      | Normalization not required
+Alexa              | Yes      | Normalization not required
 API Gateway (REST) | Yes *    | See middleware prefixed with `@middy/http-`
 API Gateway (HTTP) | Yes *    | See middleware prefixed with `@middy/http-`
 API Gateway (WS)   | No       | Opportunity for new middleware
-CloudTrail         | N/A      | Normalization not required
+CloudTrail         | Yes      | Normalization not required
 CloudWatch Logs    | Yes      | Normalization not required
 CodeCommit         | Yes      | Normalization not required
 CodePipeline       | Yes      | Normalization not required
