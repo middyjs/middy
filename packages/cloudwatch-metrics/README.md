@@ -1,7 +1,7 @@
 # Middy Cloudwatch metrics middleware
 
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/img/middy-logo.svg"/>
 </div>
 
 <div align="center">

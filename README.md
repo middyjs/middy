@@ -1,5 +1,5 @@
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/release/3.x/docs/img/middy-logo.svg"/>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
 </div>
 
 <div align="center">
@@ -38,10 +38,12 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+
+<p>⚠️ If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the [upgrade instructions](/docs/UPGRADE.md) ⚠️</p>
 </div>
 
 
-⚠️ NOTE: if you are upgrading from [Middy 2.x](https://github.com/middyjs/middy/tree/2.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
+
 
 ## What is Middy
 
