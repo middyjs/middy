@@ -4,8 +4,7 @@ xmlns:xlink="http://www.w3.org/1999/xlink">
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <g transform="translate(-366.000000, -201.000000)">
             <g transform="translate(639.999984, 373.333346) scale(-1, 1) rotate(-180.000000) translate(-639.999984, -373.333346) translate(0.000000, 0.000022)">
-                <g>
-                    <mask id="mask">
+                    <mask id="mask" fill="#FFF">
                         <polygon id="path-1" points="0 746.666648 1279.99997 746.666648 1279.99997 0 0 0"></polygon>
                     </mask>
                     <g id="draw" mask="url(#mask)">
@@ -64,7 +63,7 @@ xmlns:xlink="http://www.w3.org/1999/xlink">
                             </g>
                         </g>
                     </g>
-                </g>
+                
             </g>
         </g>
     </g>
