@@ -18,7 +18,7 @@ With the Node.js version change all packages are now ECMAScript Modules instead 
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit. Default `5`
   - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
 - Added `.handler()` method to allow easier understanding of the execution cycle
-- Deprecate `applyMiddleware()` and `__middlewares`  [Breaking Change]
+- Deprecate `applyMiddleware()` and `__middlewares` [Breaking Change]
 
 ## Util
 - `getInternal` error now includes `cause` set to an array of Errors
