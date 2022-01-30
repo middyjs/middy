@@ -33,10 +33,6 @@ jobs:
         env:
           CI: true
 
-      #- name: Build as ESM for Node.js ${{ matrix.node-version }}
-      #  run: |
-      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
-
       - name: Run benchmark
         run: test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
       - name: Download previous benchmark data

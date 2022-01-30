@@ -32,9 +32,13 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-      - name: Build as ESM for Node.js ${{ matrix.node-version }}
+
+      - name: Transpile to CommonJS for Node.js ${{ matrix.node-version }}
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- rm index.cjs
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- rm index.cjs.map
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.config.json --source-maps false index.js --out-file index.cjs
+
       - name: Pre-Release
         if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
         run: |
