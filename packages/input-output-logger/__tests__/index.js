@@ -2,7 +2,7 @@ import test from 'ava'
 import sinon from 'sinon'
 import middy from '../../core/index.js'
 import inputOutputLogger from '../index.js'
-import InvalidLoggerException from '../invalid-logger.exception'
+import InvalidLoggerException from '../invalid-logger.exception.js'
 
 // Silence logging
 console.log = () => {}
