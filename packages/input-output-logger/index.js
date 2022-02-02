@@ -9,17 +9,20 @@ const defaults = {
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
   let { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
-  if (typeof logger !== 'function') logger = null
+
+  assertValidLogger(logger)
 
   const omitPathTree = buildPathOmitTree(omitPaths)
-
   const omitAndLog = (param, request) => {
     const message = { [param]: request[param] }
+
     if (awsContext) {
       message.context = pick(request.context, awsContextKeys)
     }
+
     const cloneMessage = jsonSafeParse(jsonSafeStringify(message, replacer)) // Full clone to prevent nested mutations
     omit(cloneMessage, { [param]: omitPathTree[param] })
+
     logger(cloneMessage)
   }
 
@@ -29,10 +32,17 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     if (request.response === undefined) return
     return omitAndLog('response', request)
   }
+
   return {
-    before: logger ? inputOutputLoggerMiddlewareBefore : undefined,
-    after: logger ? inputOutputLoggerMiddlewareAfter : undefined,
-    onError: logger ? inputOutputLoggerMiddlewareOnError : undefined
+    before: inputOutputLoggerMiddlewareBefore,
+    after: inputOutputLoggerMiddlewareAfter,
+    onError: inputOutputLoggerMiddlewareOnError
+  }
+}
+
+const assertValidLogger = (logger) => {
+  if (typeof logger !== 'function') {
+    throw new Error('[input-output-middleware]: logger must be a function')
   }
 }
 
