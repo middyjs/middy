@@ -1,4 +1,5 @@
 import { jsonSafeParse, jsonSafeStringify } from '@middy/util'
+import InvalidLoggerException from './invalid-logger.exception'
 
 const defaults = {
   logger: console.log,
@@ -8,7 +9,7 @@ const defaults = {
 }
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
-  let { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
+  const { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
 
   assertValidLogger(logger)
 
@@ -42,7 +43,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 const assertValidLogger = (logger) => {
   if (typeof logger !== 'function') {
-    throw new Error('[input-output-middleware]: logger must be a function')
+    throw new InvalidLoggerException()
   }
 }
 
