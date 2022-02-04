@@ -25,8 +25,8 @@ test('It should normalize (lowercase) all the headers and create a copy in rawHe
 
   const expectedHeaders = {
     'x-api-key': '123456',
-    TCN: 'abc',
-    TE: 'cde',
+    tcn: 'abc',
+    te: 'cde',
     dns: 'd',
     foo: 'bar'
   }

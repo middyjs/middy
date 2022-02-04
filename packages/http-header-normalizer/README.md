@@ -74,7 +74,7 @@ const handler = middy((event, context) => {
 })
 
 handler
-  .use(httpHeaderNormalizer())
+  .use(httpHeaderNormalizer({canonical: true}))
 ```
 
 

@@ -58,7 +58,7 @@ No change
 - Will now throw error if not an http event [Breaking Change]
 
 ### [http-header-normalizer](/packages/http-header-normalizer/README.md)
-No change
+- Modified so that all headers are set to lowercase when `canonical:false` [Breaking Change]
 
 ### [http-json-body-parser](/packages/http-json-body-parser/README.md)
 No change
