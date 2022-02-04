@@ -90,7 +90,7 @@ const runRequest = async (
   onErrorMiddlewares,
   plugin
 ) => {
-  const { timeoutEarly } = plugin
+  const timeoutEarly = plugin.timeoutEarly && request.context.getRemainingTimeInMillis // disable when AWS context missing (tests, containers)
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early

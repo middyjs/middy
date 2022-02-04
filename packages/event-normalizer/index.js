@@ -1,6 +1,6 @@
-import DynamoDB from 'aws-sdk/clients/dynamodb.js'
+import DynamoDB from 'aws-sdk/clients/dynamodb.js' // v2
 // import { unmarshall } from '@aws-sdk/util-dynamodb' // v3
-import { jsonSafeParse } from '@middy/util' // v2
+import { jsonSafeParse } from '@middy/util'
 const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
@@ -31,9 +31,9 @@ const parseEvent = (event) => {
     return
   }
 
+  // record.EventSource => aws:sns
+  eventSource ??= records[0].eventSource ?? records[0].EventSource ?? (records[0].s3Key && 'aws:s3:batch')
   for (const record of records) {
-    // record.EventSource => aws:sns
-    eventSource ??= record.eventSource ?? record.EventSource ?? (record.s3Key && 'aws:s3:batch')
     events[eventSource]?.(record)
   }
 }
@@ -74,7 +74,7 @@ const events = {
     task.s3Key = normalizeS3Key(task.s3Key)
   },
   'aws:SelfManagedKafka': (event) => {
-    events['aws.kafka'](event)
+    events['aws:kafka'](event)
   },
   'aws:sns': (record) => {
     record.Sns.Message = jsonSafeParse(record.Sns.Message)
@@ -88,7 +88,7 @@ const events = {
     record.body = jsonSafeParse(record.body)
     // SNS -> SQS Special Case
     if (record.body.Type === 'Notification') {
-      parseEvent['aws:sns:sqs'](record.body)
+      events['aws:sns:sqs'](record.body)
     } else {
       parseEvent(record.body)
     }
