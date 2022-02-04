@@ -39,7 +39,6 @@ const httpCorsMiddleware = (opts = {}) => {
     const { headers } = request.response
     const existingHeaders = Object.keys(headers)
 
-
     // Check if already setup the header Access-Control-Allow-Credentials
     if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
       options.credentials = headers['Access-Control-Allow-Credentials'] === 'true'
@@ -63,8 +62,6 @@ const httpCorsMiddleware = (opts = {}) => {
     ) {
       headers['Access-Control-Allow-Methods'] = options.methods
     }
-
-
 
     // Check if already setup the header Access-Control-Allow-Origin
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
