@@ -26,18 +26,12 @@ test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
 })
 
 test('It should not override already declared Access-Control-Allow-Origin header', async (t) => {
-  const handler = middy((event, context) => {})
+  const handler = middy((event, context) => ({
+    headers: { 'Access-Control-Allow-Origin': 'https://example.com' }
+  }))
 
   // other middleware that puts the cors header
   handler
-    .after((request) => {
-      request.response = {
-        ...request.response,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      }
-    })
     .use(cors())
 
   const event = {
@@ -48,7 +42,8 @@ test('It should not override already declared Access-Control-Allow-Origin header
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -70,7 +65,8 @@ test('It should use custom getOrigin', async (t) => {
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://species.com'
+      'Access-Control-Allow-Origin': 'https://species.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -93,7 +89,8 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://incoming.com'
+      'Access-Control-Allow-Origin': 'https://incoming.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -115,7 +112,8 @@ test('It should use origin specified in options', async (t) => {
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -138,7 +136,8 @@ test('It should return whitelisted origin', async (t) => {
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://another-example.com'
+      'Access-Control-Allow-Origin': 'https://another-example.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -161,7 +160,8 @@ test('It should return first origin as default if no match', async (t) => {
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -189,7 +189,8 @@ test('It should add headers even onError', async (t) => {
   t.deepEqual(response, {
     statusCode: 500,
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Vary': 'Origin'
     }
   })
 })
@@ -327,7 +328,7 @@ test('It should use change credentials as specified in options (true)', async (t
   const event = {
     httpMethod: 'GET',
     headers: {
-      Origin: 'http://example.com'
+      Origin: 'https://example.com'
     }
   }
 
@@ -336,7 +337,8 @@ test('It should use change credentials as specified in options (true)', async (t
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': 'http://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -353,7 +355,7 @@ test('It should use change credentials as specified in options (true) with lower
   const event = {
     httpMethod: 'GET',
     headers: {
-      origin: 'http://example-lowercase.com'
+      origin: 'https://example-lowercase.com'
     }
   }
 
@@ -362,7 +364,8 @@ test('It should use change credentials as specified in options (true) with lower
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': 'http://example-lowercase.com'
+      'Access-Control-Allow-Origin': 'https://example-lowercase.com',
+      'Vary': 'Origin'
     }
 
   })
@@ -656,6 +659,51 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=1200'
     }
+  })
+})
+
+test('it should not overwrite Vary header if already set', async (t) => {
+  const handler = middy((event, context) => ({
+    headers: { 'Vary': 'Access-Control-Request-Headers' }
+  }))
+
+  handler
+    .use(cors({
+      vary: 'Access-Control-Request-Method'
+    }))
+
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Vary': 'Access-Control-Request-Headers'
+    }
+  })
+})
+
+test('it should set Vary header if present in config', async (t) => {
+  const handler = middy((event, context) => {})
+
+  handler
+    .use(cors({
+      vary: 'Access-Control-Request-Method'
+    }))
+
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Vary': 'Access-Control-Request-Method'
+    }
+
   })
 })
 

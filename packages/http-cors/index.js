@@ -26,7 +26,8 @@ const defaults = {
   maxAge: undefined,
   requestHeaders: undefined,
   requestMethods: undefined,
-  cacheControl: undefined
+  cacheControl: undefined,
+  vary: undefined
 }
 
 const httpCorsMiddleware = (opts = {}) => {
@@ -35,17 +36,16 @@ const httpCorsMiddleware = (opts = {}) => {
   const httpCorsMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
 
-    const existingHeaders = Object.keys(request.response.headers)
+    const { headers } = request.response
+    const existingHeaders = Object.keys(headers)
+
 
     // Check if already setup the header Access-Control-Allow-Credentials
     if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
-      options.credentials =
-        request.response.headers['Access-Control-Allow-Credentials'] === 'true'
+      options.credentials = headers['Access-Control-Allow-Credentials'] === 'true'
     }
     if (options.credentials) {
-      request.response.headers['Access-Control-Allow-Credentials'] = String(
-        options.credentials
-      )
+      headers['Access-Control-Allow-Credentials'] = String(options.credentials) // boolean
     }
 
     // Check if already setup Access-Control-Allow-Headers
@@ -53,7 +53,7 @@ const httpCorsMiddleware = (opts = {}) => {
       options.headers &&
       !existingHeaders.includes('Access-Control-Allow-Headers')
     ) {
-      request.response.headers['Access-Control-Allow-Headers'] = options.headers
+      headers['Access-Control-Allow-Headers'] = options.headers
     }
 
     // Check if already setup Access-Control-Allow-Methods
@@ -61,16 +61,24 @@ const httpCorsMiddleware = (opts = {}) => {
       options.methods &&
       !existingHeaders.includes('Access-Control-Allow-Methods')
     ) {
-      request.response.headers['Access-Control-Allow-Methods'] = options.methods
+      headers['Access-Control-Allow-Methods'] = options.methods
     }
+
+
 
     // Check if already setup the header Access-Control-Allow-Origin
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
       const eventHeaders = request.event.headers ?? {}
-      const incomingOrigin = eventHeaders.origin ?? eventHeaders.Origin
-      request.response.headers[
-        'Access-Control-Allow-Origin'
-      ] = options.getOrigin(incomingOrigin, options)
+      const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin
+      headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
+    }
+
+    let vary = options.vary
+    if (headers['Access-Control-Allow-Origin'] !== '*' && !vary) {
+      vary = 'Origin'
+    }
+    if (vary && !existingHeaders.includes('Vary')) {
+      headers.Vary = vary
     }
 
     // Check if already setup Access-Control-Expose-Headers
@@ -78,14 +86,11 @@ const httpCorsMiddleware = (opts = {}) => {
       options.exposeHeaders &&
       !existingHeaders.includes('Access-Control-Expose-Headers')
     ) {
-      request.response.headers['Access-Control-Expose-Headers'] =
-        options.exposeHeaders
+      headers['Access-Control-Expose-Headers'] = options.exposeHeaders
     }
 
     if (options.maxAge && !existingHeaders.includes('Access-Control-Max-Age')) {
-      request.response.headers['Access-Control-Max-Age'] = String(
-        options.maxAge
-      )
+      headers['Access-Control-Max-Age'] = String(options.maxAge) // number
     }
 
     // Check if already setup Access-Control-Request-Headers
@@ -93,8 +98,7 @@ const httpCorsMiddleware = (opts = {}) => {
       options.requestHeaders &&
       !existingHeaders.includes('Access-Control-Request-Headers')
     ) {
-      request.response.headers['Access-Control-Request-Headers'] =
-        options.requestHeaders
+      headers['Access-Control-Request-Headers'] = options.requestHeaders
     }
 
     // Check if already setup Access-Control-Request-Methods
@@ -102,18 +106,18 @@ const httpCorsMiddleware = (opts = {}) => {
       options.requestMethods &&
       !existingHeaders.includes('Access-Control-Request-Methods')
     ) {
-      request.response.headers['Access-Control-Request-Methods'] = options.requestMethods
+      headers['Access-Control-Request-Methods'] = options.requestMethods
     }
 
     const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event)
     if (!httpMethod) {
       throw new Error('[http-cors] Unknown http event format')
     }
-    if (httpMethod === 'OPTIONS') {
-      if (options.cacheControl && !existingHeaders.includes('Cache-Control')) {
-        request.response.headers['Cache-Control'] = String(options.cacheControl)
-      }
+    if (httpMethod === 'OPTIONS' && options.cacheControl && !existingHeaders.includes('Cache-Control')) {
+      headers['Cache-Control'] = options.cacheControl
     }
+
+    request.response.headers = headers
   }
   const httpCorsMiddlewareOnError = async (request) => {
     if (request.response === undefined) return

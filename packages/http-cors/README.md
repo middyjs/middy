@@ -50,17 +50,18 @@ npm install --save @middy/http-cors
 
 ## Options
 
- - `credentials` (boolean) (default `false`): if true, sets `Access-Control-Allow-Credentials`
- - `headers` (string) (default `false`): value to put in `Access-Control-Allow-Headers`
- - `methods` (string) (default `false`): value to put in `Access-Control-Allow-Methods`
+ - `credentials` (boolean) (default `undefined`): if true, sets `Access-Control-Allow-Credentials`
+ - `headers` (string) (default `undefined`): value to put in `Access-Control-Allow-Headers`
+ - `methods` (string) (default `undefined`): value to put in `Access-Control-Allow-Methods`
  - `getOrigin` (function(incomingOrigin:string, options)): take full control of the generating the returned origin. Defaults to using the origin or origins option.
  - `origin` (string) (default `'*'`): origin to put in the header
  - `origins` (array) (default `[]`): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
- - `exposeHeaders` (string) (default `false`): value to put in `Access-Control-Expose-Headers`
- - `maxAge` (string) (default `null`): value to put in Access-Control-Max-Age header
- - `requestHeaders` (string) (default `false`): value to put in `Access-Control-Request-Headers`
- - `requestMethods` (string) (default `false`): value to put in `Access-Control-Request-Methods`
- - `cacheControl` (string) (default `null`): value to put in Cache-Control header on pre-flight (OPTIONS) requests
+ - `exposeHeaders` (string) (default `undefined`): value to put in `Access-Control-Expose-Headers`
+ - `maxAge` (string) (default `undefined`): value to put in `Access-Control-Max-Age` header
+ - `requestHeaders` (string) (default `undefined`): value to put in `Access-Control-Request-Headers`
+ - `requestMethods` (string) (default `undefined`): value to put in `Access-Control-Request-Methods`
+ - `cacheControl` (string) (default `undefined`): value to put in `Cache-Control header` on pre-flight (OPTIONS) requests
+ - `vary` (string) (default `undefined`): value to put in `Vary`, will set to `Origin` if `Access-Control-Allow-Origin` is not `*` and option unset.
 
 ```javascript
 import middy from '@middy/core'
