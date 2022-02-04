@@ -1,5 +1,4 @@
 import { jsonSafeParse, jsonSafeStringify } from '@middy/util'
-import InvalidLoggerException from './invalid-logger.exception'
 
 const defaults = {
   logger: console.log,
@@ -11,7 +10,9 @@ const defaults = {
 const inputOutputLoggerMiddleware = (opts = {}) => {
   const { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
 
-  assertValidLogger(logger)
+  if (typeof logger !== 'function') {
+    throw new Error('[input-output-logger-middleware]: logger must be a function')
+  }
 
   const omitPathTree = buildPathOmitTree(omitPaths)
   const omitAndLog = (param, request) => {
@@ -38,12 +39,6 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     before: inputOutputLoggerMiddlewareBefore,
     after: inputOutputLoggerMiddlewareAfter,
     onError: inputOutputLoggerMiddlewareOnError
-  }
-}
-
-const assertValidLogger = (logger) => {
-  if (typeof logger !== 'function') {
-    throw new InvalidLoggerException()
   }
 }
 

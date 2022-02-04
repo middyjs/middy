@@ -2,7 +2,6 @@ import test from 'ava'
 import sinon from 'sinon'
 import middy from '../../core/index.js'
 import inputOutputLogger from '../index.js'
-import InvalidLoggerException from '../invalid-logger.exception.js'
 
 // Silence logging
 console.log = () => {}
@@ -40,7 +39,7 @@ test('It should throw error when invalid logger', async (t) => {
   } catch (e) {
     t.is(
       e.message,
-      InvalidLoggerException.prototype.message
+      '[input-output-logger-middleware]: logger must be a function'
     )
   }
 })
