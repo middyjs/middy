@@ -7,7 +7,7 @@ Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly en
 With the Node.js version change all packages are now ECMAScript Modules instead of CommonJS Modules.
 
 ## Core
-- `onError` middleware stack order reversed to match `after` [Breaking Change]
+- `onError` middleware stack order reversed to match `after` **[Breaking Change]**
   - This change has trickle down effects on middlewares with `onError` (see below for details)
   - If you're handling errors yourself here are some things to review:
     - Attach near the end so it is triggered first (likely already done)
@@ -18,13 +18,13 @@ With the Node.js version change all packages are now ECMAScript Modules instead 
   - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit. Default `5`
   - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
 - Added `.handler()` method to allow easier understanding of the execution cycle
-- Deprecate `applyMiddleware()` and `__middlewares` [Breaking Change]
+- Deprecate `applyMiddleware()` and `__middlewares` **[Breaking Change]**
 
 ## Util
 - `getInternal` error now includes `cause` set to an array of Errors
 - Catch when `X-Ray` is applied outside of handler invocation scope
-- `normalizeHttpResponse` now takes `request` and mutates response [Breaking Change]
-- `getCache` will return `{}` instead of `undefined` when not found [Breaking Change]
+- `normalizeHttpResponse` now takes `request` and mutates response **[Breaking Change]**
+- `getCache` will return `{}` instead of `undefined` when not found **[Breaking Change]**
 
 ## Middleware
 
@@ -55,22 +55,22 @@ No change
 
 ### [http-event-normalizer](/packages/http-event-normalizer/README.md)
 - Option `payloadFormatVersion` no longer needed
-- Will now throw error if not an http event [Breaking Change]
+- Will now throw error if not an http event **[Breaking Change]**
 
 ### [http-header-normalizer](/packages/http-header-normalizer/README.md)
-- Modified so that all headers are set to lowercase when `canonical:false` [Breaking Change]
+- Modified so that all headers are set to lowercase when `canonical:false` **[Breaking Change]**
 
 ### [http-json-body-parser](/packages/http-json-body-parser/README.md)
 No change
 
 ### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
-- Change default charset from `binary`/`latin1` to `utf-8`. [Breaking Change]
+- Change default charset from `binary`/`latin1` to `utf-8`. **[Breaking Change]**
 
 ### [http-partial-response](/packages/http-partial-response/README.md)
 No change
 
 ### [http-response-serializer](/packages/http-response-serializer/README.md)
-- Renamed `default` option to `defaultContentType` to improve maintainability [Breaking Change]
+- Renamed `default` option to `defaultContentType` to improve maintainability **[Breaking Change]**
 - `onError` will not modify response unless error has been handled
 
 ### [http-router](/packages/http-router/README.md)
@@ -78,7 +78,7 @@ No change
 
 ### [http-security-headers](/packages/http-security-headers/README.md)
 - `onError` will not modify response unless error has been handled
-- Complete rewrite of options and inclusion of new HTML only headers [Breaking Change]
+- Complete rewrite of options and inclusion of new HTML only headers **[Breaking Change]**
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
 No change
@@ -90,7 +90,7 @@ No change
 No change
 
 ### [rds-signer](/packages/rds-signer/README.md)
-- Deprecated `setToEnv` option due to possible security misuse [Breaking Change]
+- Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
 
 ### s3-key-normalizer
 - Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
@@ -99,7 +99,7 @@ No change
 No change
 
 ### [secrets-manager](/packages/secrets-manager/README.md)
-- Deprecated `setToEnv` option due to possible security misuse [Breaking Change]
+- Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
 
 ### [service-discovery](/packages/service-discovery/README.md)
 - [New] Allow easy access to discoveryInstances
@@ -108,16 +108,16 @@ No change
 - Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
 
 ### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
-- Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails [Breaking Change]
+- Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails **[Breaking Change]**
 
 ### [ssm](/packages/ssm/README.md)
-- Deprecated `setToEnv` option [Breaking Change]
+- Deprecated `setToEnv` option **[Breaking Change]**
 
 ### [sts](/packages/sts/README.md)
 No change
 
 ### [validator](/packages/validator/README.md)
-- Change where errors are stored, from `request.error.details` to `request.error.cause` [Breaking Change]
+- Change where errors are stored, from `request.error.details` to `request.error.cause` **[Breaking Change]**
 
 ### [warmup](/packages/warmup/README.md)
 No change
