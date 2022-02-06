@@ -38,6 +38,7 @@ No change
 No change
 
 ### [event-normalizer](/packages/event-normalizer/README.md)
+- Add support for all missing AWS events
 - Refactored for performance improvements
 
 ### [http-content-encoding](/packages/http-content-encoding/README.md)
