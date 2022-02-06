@@ -73,7 +73,7 @@ const config = {
               },
               {
                 label: 'Middlewares',
-                to: '/middlewares/intro',
+                to: '/docs/category/middlewares',
               },
             ],
           },
