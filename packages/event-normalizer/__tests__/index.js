@@ -35,49 +35,49 @@ test('It should parse CloudWatch logs event', async (t) => {
   const handler = middy((event) => event)
     .use(eventNormalizer())
 
-  const userParameters = {key:'value'}
+  const userParameters = { key: 'value' }
   const event = {
-    "CodePipeline.job": {
-      "id": "c0d76431-b0e7-xmpl-97e3-e8ee786eb6f6",
-      "accountId": "123456789012",
-      "data": {
-        "actionConfiguration": {
-          "configuration": {
-            "FunctionName": "my-function",
-            "UserParameters": JSON.stringify(userParameters)
+    'CodePipeline.job': {
+      id: 'c0d76431-b0e7-xmpl-97e3-e8ee786eb6f6',
+      accountId: '123456789012',
+      data: {
+        actionConfiguration: {
+          configuration: {
+            FunctionName: 'my-function',
+            UserParameters: JSON.stringify(userParameters)
           }
         },
-        "inputArtifacts": [
+        inputArtifacts: [
           {
-            "name": "my-pipeline-SourceArtifact",
-            "revision": "e0c7xmpl2308ca3071aa7bab414de234ab52eea",
-            "location": {
-              "type": "S3",
-              "s3Location": {
-                "bucketName": "us-west-2-123456789012-my-pipeline",
-                "objectKey": "my-pipeline/test-api-2/TdOSFRV"
+            name: 'my-pipeline-SourceArtifact',
+            revision: 'e0c7xmpl2308ca3071aa7bab414de234ab52eea',
+            location: {
+              type: 'S3',
+              s3Location: {
+                bucketName: 'us-west-2-123456789012-my-pipeline',
+                objectKey: 'my-pipeline/test-api-2/TdOSFRV'
               }
             }
           }
         ],
-        "outputArtifacts": [
+        outputArtifacts: [
           {
-            "name": "invokeOutput",
-            "revision": null,
-            "location": {
-              "type": "S3",
-              "s3Location": {
-                "bucketName": "us-west-2-123456789012-my-pipeline",
-                "objectKey": "my-pipeline/invokeOutp/D0YHsJn"
+            name: 'invokeOutput',
+            revision: null,
+            location: {
+              type: 'S3',
+              s3Location: {
+                bucketName: 'us-west-2-123456789012-my-pipeline',
+                objectKey: 'my-pipeline/invokeOutp/D0YHsJn'
               }
             }
           }
         ],
-        "artifactCredentials": {
-          "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
-          "secretAccessKey": "6CGtmAa3lzWtV7a...",
-          "sessionToken": "IQoJb3JpZ2luX2VjEA...",
-          "expirationTime": 1575493418000
+        artifactCredentials: {
+          accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
+          secretAccessKey: '6CGtmAa3lzWtV7a...',
+          sessionToken: 'IQoJb3JpZ2luX2VjEA...',
+          expirationTime: 1575493418000
         }
       }
     }
@@ -94,18 +94,18 @@ test('It should parse CodePipeline event', async (t) => {
     .use(eventNormalizer())
 
   const eventJSON = {
-    "messageType": "DATA_MESSAGE",
-    "owner": "123456789012",
-    "logGroup": "/aws/lambda/echo-nodejs",
-    "logStream": "2019/03/13/[$LATEST]94fa867e5374431291a7fc14e2f56ae7",
-    "subscriptionFilters": [
-      "LambdaStream_cloudwatchlogs-node"
+    messageType: 'DATA_MESSAGE',
+    owner: '123456789012',
+    logGroup: '/aws/lambda/echo-nodejs',
+    logStream: '2019/03/13/[$LATEST]94fa867e5374431291a7fc14e2f56ae7',
+    subscriptionFilters: [
+      'LambdaStream_cloudwatchlogs-node'
     ],
-    "logEvents": [
+    logEvents: [
       {
-        "id": "34622316099697884706540976068822859012661220141643892546",
-        "timestamp": 1552518348220,
-        "message": "REPORT RequestId: 6234bffe-149a-b642-81ff-2e8e376d8aff\tDuration: 46.84 ms\tBilled Duration: 47 ms \tMemory Size: 192 MB\tMax Memory Used: 72 MB\t\n"
+        id: '34622316099697884706540976068822859012661220141643892546',
+        timestamp: 1552518348220,
+        message: 'REPORT RequestId: 6234bffe-149a-b642-81ff-2e8e376d8aff\tDuration: 46.84 ms\tBilled Duration: 47 ms \tMemory Size: 192 MB\tMax Memory Used: 72 MB\t\n'
       }
     ]
   }
