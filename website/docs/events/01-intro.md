@@ -1,5 +1,5 @@
 ---
-title: Events
+title: AWS Events
 position: 1
 ---
 

@@ -1,5 +1,0 @@
----
-title: API Gateway
----
-
-TODO
