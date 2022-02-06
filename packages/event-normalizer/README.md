@@ -43,9 +43,12 @@ https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 Event Source       | Included | Comments
 -------------------|----------|-----------------------------------------------
 Alexa              | No       | Normalization not required
-API Gateway (REST) | No *     | See middleware prefixed with `@middy/http-`
 API Gateway (HTTP) | No *     | See middleware prefixed with `@middy/http-`
+API Gateway (REST) | No *     | See middleware prefixed with `@middy/http-`
 API Gateway (WS)   | No       | Opportunity for new middleware
+Application LB     | No *     | See middleware prefixed with `@middy/http-`
+CloudFormation     | No       | Normalization not required
+CloudFront         | No       | Normalization not required
 CloudTrail         | No       | Normalization not required
 CloudWatch Logs    | Yes      | Base64 decode and JSON parse `data`
 CodeCommit         | No       | Normalization not required
@@ -55,16 +58,15 @@ Config             | Yes      | JSON parse `invokingEvent` and `ruleParameters`
 Connect            | No       | Normalization not required
 DynamoDB           | Yes      | Unmarshall `Keys`, `OldImage`, and `NewImage`
 EC2                | No       | Normalization not required
-Elastic LB         | No *     | See middleware prefixed with `@middy/http-`
 EventBridge        | No       | Normalization not required
 IoT                | No       | Normalization not required
 IoT Event          | No       | Normalization not required
-Apache Kafka       | Yes      | Base64 decode and JSON parse `value`
+Kafka              | Yes      | Base64 decode and JSON parse `value`
+Kafka (MSK)        | Yes      | Base64 decode and JSON parse `value`
 Kinesis Firehose   | Yes      | Base64 decode and JSON parse `data`
 Kinesis Stream     | Yes      | Base64 decode and JSON parse `data`
 Lex                | No       | Normalization not required
 MQ                 | Yes      | Base64 decode and JSON parse `data`
-MSK                | Yes      | Base64 decode and JSON parse `value`
 RDS                | No       | Normalization not required
 S3                 | Yes      | URI decode `key`
 S3 Batch           | Yes      | URI decode `s3Key`
