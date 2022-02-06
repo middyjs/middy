@@ -65,6 +65,7 @@ NOTES:
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
+import {captureAWSClient, captureHTTPsGlobal} from 'aws-xray-sdk-core'
 
 const handler = middy((event, context) => {
   const readStream = context.s3Object
@@ -76,6 +77,8 @@ const handler = middy((event, context) => {
 
 handler
   .use(s3ObjectResponse({
+    awsClientCapture: captureAWSClient,
+    httpsCapture:captureHTTPsGlobal,
     bodyType: 'stream'
   }))
 ```
@@ -85,6 +88,7 @@ handler
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
+import {captureAWSClient, captureHTTPsGlobal} from 'aws-xray-sdk-core'
 
 const handler = middy(async (event, context) => {
   let body = await context.s3Object
@@ -96,6 +100,8 @@ const handler = middy(async (event, context) => {
 
 handler
   .use(s3ObjectResponse({
+    awsClientCapture: captureAWSClient,
+    httpsCapture:captureHTTPsGlobal,
     bodyType: 'promise'
   }))
 ```
