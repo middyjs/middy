@@ -24,7 +24,9 @@ const parseEvent = (event) => {
 
   if (!Array.isArray(records)) {
     // event.configRuleId => aws:config
-    eventSource ??= (event.configRuleId && 'aws:config')
+    // event.awslogs => aws:cloudwatch
+    // event['CodePipeline.job'] => aws: codepipeline
+    eventSource ??= (event.configRuleId && 'aws:config') ?? (event.awslogs && 'aws:cloudwatch') ?? (event['CodePipeline.job'] && 'aws:codepipeline')
     if (eventSource) {
       events[eventSource]?.(event)
     }
@@ -42,6 +44,12 @@ const normalizeS3KeyReplacePlus = /\+/g
 const events = {
   'aws:amq': (message) => {
     message.data = base64Parse(message.data)
+  },
+  'aws:cloudwatch': (event) => {
+    event.awslogs.data = base64Parse(event.awslogs.data)
+  },
+  'aws:codepipeline': (event) => {
+    event['CodePipeline.job'].data.actionConfiguration.configuration.UserParameters = jsonSafeParse(event['CodePipeline.job'].data.actionConfiguration.configuration.UserParameters)
   },
   'aws:config': (event) => {
     event.invokingEvent = jsonSafeParse(event.invokingEvent)
