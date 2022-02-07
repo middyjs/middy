@@ -4,6 +4,7 @@ title: API Gateway (WebSocket)
 
 ## AWS Documentation
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
+- [Working with WebSocket APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api.html)
 
 TODO
 
