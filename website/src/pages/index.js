@@ -13,11 +13,12 @@ function HomepageHeader () {
       <div className="container">
         <h1 className="hero__title">{siteConfig.title}</h1>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p>Organise your Lambda code, remove code duplication, focus on business logic!</p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/intro/intro">
-            Learn More
+            Get started
           </Link>
         </div>
       </div>

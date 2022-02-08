@@ -4,38 +4,70 @@ import styles from './HomepageFeatures.module.css';
 
 const FeatureList = [
   {
-    title: 'Easy to Use',
+    title: 'Simple but powerful',
     Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        A middleware engine makes your code more organised, removes duplication and uniforms
+        the hanlding of non-functional concerns like authentication,
+        authorization, validation, and serialization.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Focus on what matters',
+    Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
+    description: (
+      <>
+        By pushing all the non-functional code to middlewares, you can be productive
+        and focus on what matters the most: the business logic!
+      </>
+    ),
+  },
+  {
+    title: 'Small core',
     Svg: require('../../static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Middy comes with a very small core and an unobtrusive API to add the minimum
+        amount of overhead to your code.
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Batteries included',
     Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Middy comes with a large set of official middlewares and utilities that can be used
+        out of the box to address the most common non-functional use cases.
+      </>
+    ),
+  },
+  {
+    title: 'Blazing fast',
+    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    description: (
+      <>
+        Middy has been engineered to keep your lambda as fast as possible.
+        The minimal core keeps your lambda size small and your cold starts under control.
+        Add only what you need!
+      </>
+    ),
+  },
+  {
+    title: 'Extensible',
+    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    description: (
+      <>
+        Do you need to do more? It's really easy to write your own custom middlewares.
+        And, if that's not enough, you can even extend middy itself through its plugin system.
       </>
     ),
   },
 ];
 
-function Feature({Svg, title, description}) {
+function Feature ({ Svg, title, description }) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
@@ -49,7 +81,7 @@ function Feature({Svg, title, description}) {
   );
 }
 
-export default function HomepageFeatures() {
+export default function HomepageFeatures () {
   return (
     <section className={styles.features}>
       <div className="container">
