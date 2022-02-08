@@ -5,7 +5,7 @@ import styles from './HomepageFeatures.module.css';
 const FeatureList = [
   {
     title: 'Simple but powerful',
-    Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('../../static/img/powerful.svg').default,
     description: (
       <>
         A middleware engine makes your code more organised, removes duplication and uniforms
@@ -16,7 +16,7 @@ const FeatureList = [
   },
   {
     title: 'Focus on what matters',
-    Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('../../static/img/focus.svg').default,
     description: (
       <>
         By pushing all the non-functional code to middlewares, you can be productive
@@ -26,7 +26,7 @@ const FeatureList = [
   },
   {
     title: 'Small core',
-    Svg: require('../../static/img/undraw_docusaurus_tree.svg').default,
+    Svg: require('../../static/img/small-core.svg').default,
     description: (
       <>
         Middy comes with a very small core and an unobtrusive API to add the minimum
@@ -36,7 +36,7 @@ const FeatureList = [
   },
   {
     title: 'Batteries included',
-    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('../../static/img/batteries-included.svg').default,
     description: (
       <>
         Middy comes with a large set of official middlewares and utilities that can be used
@@ -46,7 +46,7 @@ const FeatureList = [
   },
   {
     title: 'Blazing fast',
-    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('../../static/img/blazing-fast.svg').default,
     description: (
       <>
         Middy has been engineered to keep your lambda as fast as possible.
@@ -57,7 +57,7 @@ const FeatureList = [
   },
   {
     title: 'Extensible',
-    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    Svg: require('../../static/img/extensible.svg').default,
     description: (
       <>
         Do you need to do more? It's really easy to write your own custom middlewares.
