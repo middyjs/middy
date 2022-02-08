@@ -5,9 +5,12 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
 import HomepageFeatures from '../components/HomepageFeatures';
+import Example from '../components/Example';
+import GetStartedHero from '../components/GetStartedHero';
 
 function HomepageHeader () {
   const { siteConfig } = useDocusaurusContext();
+
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
@@ -35,6 +38,8 @@ export default function Home () {
       <HomepageHeader />
       <main>
         <HomepageFeatures />
+        <Example />
+        <GetStartedHero />
       </main>
     </Layout>
   );
