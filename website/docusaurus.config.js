@@ -104,7 +104,7 @@ const config = {
             ]
           }
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Middy - Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Middy - Built with Docusaurus. - Icons by feathericons.com`,
       },
       prism: {
         theme: lightCodeTheme,
