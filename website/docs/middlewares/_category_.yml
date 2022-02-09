@@ -1,4 +1,4 @@
-position: 4 # float position is supported
+position: 2 # float position is supported
 label: "Middlewares"
 collapsible: true # make the category collapsible
 collapsed: true # keep the category open by default

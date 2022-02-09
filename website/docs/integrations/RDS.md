@@ -1,6 +1,5 @@
 ---
-title: Connecting to RDS securely
-sidebar_position: 4
+title: AWS Relational Database Service (RDS)
 ---
 
 First, you need to pass in a password. In order from most secure to least: `RDS.Signer`, `SecretsManager`, `SSM` using SecureString.
@@ -12,6 +11,7 @@ Additionally, you will want to verify the RDS certificate and the domain of your
 import tls from 'tls'
 
 // https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html
+// TODO test pulling from ENV process.env.NODE_EXTRA_CA_CERTS
 const ca = `-----BEGIN CERTIFICATE----- ...` 
 
 connectionOptions = {

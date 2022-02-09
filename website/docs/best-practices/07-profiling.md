@@ -3,41 +3,57 @@ title: Profiling
 sidebar_position: 7
 ---
 
-## Plugin hooks on core
-
 Inside of `@middy/core` we've added some hook before and after every middleware called, the handler and from start to end of it's execution.
 
-Let's take a look at a simple time plugin example:
+## Time
 
 ```javascript
 
-// Plugin, simplified version of /plugin/time.js
-const store = {}
-const start = (id) => {
-    store[id] = process.hrtime()
-}
-const stop = (id) => {
-    console.log(id, process.hrtime(store[id])[1] / 1000000, 'ms')
+const defaults = {
+  logger: console.log,
+  enabled: true
 }
 
-// one off hooks
-const beforePrefetch = () => start('total')
-const beforeMiddleware = start
-const afterMiddleware = stop
-const beforeHandler = () => start('handler')
-const afterHandler = () => stop('handler')
-const requestEnd = async () => stop('total') // This is the last run hook, it will resolve before the request ends.
+const timePlugin = (opts = {}) => {
+  const { logger, enabled } = { ...defaults, ...opts }
+  const store = {}
 
-const plugin = { 
-  beforePrefetch,
-  beforeMiddleware,
-  afterMiddleware,
-  beforeHandler,
-  afterHandler,
-  requestEnd
+  const start = (id) => {
+    store[id] = process.hrtime.bigint()
+  }
+  const stop = (id) => {
+    if (!enabled) return
+    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString()) / 1000000, 'ms')
+  }
+
+  // Only run during cold start
+  const beforePrefetch = () => start('total')
+  const requestStart = () => {
+    if (!store.init) {
+      store.init = store.total
+      stop('init')
+    } else {
+      start('total')
+    }
+  }
+  const beforeMiddleware = start
+  const afterMiddleware = stop
+  const beforeHandler = () => start('handler')
+  const afterHandler = () => stop('handler')
+  const requestEnd = () => stop('total')
+
+  return {
+    beforePrefetch,
+    requestStart,
+    beforeMiddleware,
+    afterMiddleware,
+    beforeHandler,
+    afterHandler,
+    requestEnd
+  }
 }
 
-middy(baseHandler, plugin)
+export const handler = middy(timePlugin())
   .use(eventLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
@@ -48,6 +64,7 @@ middy(baseHandler, plugin)
   .use(httpCors())
   .use(httpSecurityHeaders())
   .use(validator({inputSchema}))
+  .handler(()=>{})
   
 await handler()
 ```
@@ -83,4 +100,59 @@ Additionally, you'll notice that each middleware shows a descriptive name. This 
 If you've looked at the code for some the supported middlewares, you'll see these long descriptive variable names being set, then returned.
 This is why.
 
-Want more? Checkout our [benchmark exmaples](/docs/best-practices/benchmark).
+## Memory 
+```javascript
+import memwatch from '@airbnb/node-memwatch'
+
+const defaults = {
+  logger: console.log
+}
+
+const memoryPlugin = (opts = {}) => {
+  const { logger } = { ...defaults, ...opts }
+  const store = {}
+
+  const start = (id) => {
+    store[id] = new memwatch.HeapDiff()
+  }
+  const stop = (id) => {
+    logger(id, store[id].end())
+  }
+
+  const beforePrefetch = () => start('total')
+  const requestStart = () => {
+    store.init = store.total
+    stop('init')
+  }
+  const beforeMiddleware = start
+  const afterMiddleware = stop
+  const beforeHandler = () => start('handler')
+  const afterHandler = () => stop('handler')
+  const requestEnd = () => stop('total')
+
+  return {
+    beforePrefetch,
+    requestStart,
+    beforeMiddleware,
+    afterMiddleware,
+    beforeHandler,
+    afterHandler,
+    requestEnd
+  }
+}
+
+export const handler = middy(memoryPlugin())
+  .use(eventLogger())
+  .use(errorLogger())
+  .use(httpEventNormalizer())
+  .use(httpHeaderNormalizer())
+  .use(httpUrlencodePathParametersParser())
+  .use(httpUrlencodeBodyParser())
+  .use(httpJsonBodyParser())
+  .use(httpCors())
+  .use(httpSecurityHeaders())
+  .use(validator({inputSchema}))
+  .handler(()=>{})
+  
+await handler()
+```

@@ -3,12 +3,28 @@ title: Internal Context
 sidebar_position: 3
 ---
 
-When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
+Middy is built to be async even at it's core. Middlewares can set promises to `internal`. 
+This approach allows them to be resolved together just when you need them.
 
 ```javascript
+import middy from '@middy/core'
 import {getInternal} from '@middy/util'
 
-middy(baseHandler)
+const config = {
+  internal: new Proxy({}, {
+    get: (target, prop, receiver) => {
+      // ...
+      return Reflect.get(...arguments)
+    },
+    set: (obj, prop, value) => {
+      // ... ie if `prop` changes, trigger something
+      obj[prop] = value
+      return true
+    }
+  })
+}
+
+export const handler = middy()
   // Incase you want to add values on to internal directly
   .before((async (request) => {
     request.internal = {
@@ -34,5 +50,8 @@ middy(baseHandler)
     // but you should only request what you need for the handler
     Object.assign(request.context, await getInternal(true, request))
     // -> context == { key: 'value'}
+  })
+  .handler(async (event, context, { signal }) => {
+    
   })
 ```
