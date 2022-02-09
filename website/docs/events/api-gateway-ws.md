@@ -11,13 +11,32 @@ TODO
 ## Example
 ```javascript
 import middy from '@middy/core'
+import wsJsonBodyParserMiddleware from '@middy/ws-json-body-parser'
 import wsResponseMiddleware from '@middy/ws-response'
+import wsRouterHandler from '@middy/ws-router'
+
+import { handler as connectHandler } from './handlers/connect.js'
+import { handler as disconnectHandler } from './handlers/disconnect.js'
+import { handler as defaultHandler } from './handlers/default.js'
+
+const routes = [
+  {
+    routeKey: '$connect',
+    handler: connectHandler
+  },
+  {
+    routeKey: '$disconnect',
+    handler: disconnectHandler
+  },
+  {
+    routeKey: 'default',
+    handler: defaultHandler
+  }
+]
 
 export const handler = middy()
-  //.use(wsNormalizerMiddleware()) // Let use know if this would have value
+  .use(wsJsonBodyParserMiddleware())
   .use(wsResponseMiddleware())
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+  .handler(wsRouterHandler(routes))
 
 ```

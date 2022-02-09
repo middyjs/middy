@@ -12,7 +12,7 @@ Event Source       | Included | Comments
 Alexa              | No       | Normalization not required
 API Gateway (HTTP) | No *     | See middleware prefixed with `@middy/http-`
 API Gateway (REST) | No *     | See middleware prefixed with `@middy/http-`
-API Gateway (WS)   | No       | Opportunity for new middleware
+API Gateway (WS)   | No *     | See middleware `@middy/ws-json-body-parser`
 Application LB     | No *     | See middleware prefixed with `@middy/http-`
 CloudFormation     | No       | Normalization not required
 CloudFront         | No       | Normalization not required
