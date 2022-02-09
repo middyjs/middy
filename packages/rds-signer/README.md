@@ -50,7 +50,7 @@ npm install --save @middy/rds-signer
 
 - `AwsClient` (object) (default `AWS.RDS.Signer`): AWS.RDS.Signer class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.RDS.Signer class constructor.
-- `fetchData` (object) (required): Mapping of internal key name to API request parameters.
+- `fetchData` (object `{ contextKey: {region, hostname, username, database, port} }`) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `rds-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.

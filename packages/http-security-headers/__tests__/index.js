@@ -3,7 +3,7 @@ import middy from '../../core/index.js'
 import httpSecurityHeaders from '../index.js'
 
 // const event = {}
-const context = {
+const defaultContext = {
   getRemainingTimeInMillis: () => 1000
 }
 
@@ -44,7 +44,7 @@ const createHeaderObjectResponse = () =>
 const createArrayResponse = () => [{ firstname: 'john', lastname: 'doe' }]
 
 test('It should return default security headers', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse())
+  const handler = middy(() => createDefaultObjectResponse())
 
   handler.use(httpSecurityHeaders())
 
@@ -52,7 +52,7 @@ test('It should return default security headers', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.is(response.statusCode, 200)
 
@@ -70,7 +70,7 @@ test('It should return default security headers', async (t) => {
 })
 
 test('It should return default security headers when HTML', async (t) => {
-  const handler = middy((event, context) => createHtmlObjectResponse())
+  const handler = middy(() => createHtmlObjectResponse())
 
   handler.use(httpSecurityHeaders())
 
@@ -78,7 +78,7 @@ test('It should return default security headers when HTML', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.is(response.headers['Content-Security-Policy'], 'default-src \'none\'; base-uri \'none\'; form-action \'none\'; frame-ancestors \'none\'; navigate-to \'none\'; report-to csp; require-trusted-types-for \'script\'; trusted-types \'none\'; sandbox; upgrade-insecure-requests')
   t.is(response.headers['Cross-Origin-Embedder-Policy'], 'require-corp')
@@ -99,7 +99,7 @@ test('It should return default security headers when HTML', async (t) => {
 })
 
 test('It should modify default security headers', async (t) => {
-  const handler = middy((event, context) => createHeaderObjectResponse())
+  const handler = middy(() => createHeaderObjectResponse())
 
   handler.use(httpSecurityHeaders())
 
@@ -107,7 +107,7 @@ test('It should modify default security headers', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.is(response.statusCode, 200)
   t.is(response.headers.Server, undefined)
@@ -115,7 +115,7 @@ test('It should modify default security headers', async (t) => {
 })
 
 test('It should modify default security headers with config set', async (t) => {
-  const handler = middy((event, context) => createHtmlObjectResponse())
+  const handler = middy(() => createHtmlObjectResponse())
 
   handler.use(
     httpSecurityHeaders({
@@ -150,7 +150,7 @@ test('It should modify default security headers with config set', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.is(response.statusCode, 200)
 
@@ -166,7 +166,7 @@ test('It should modify default security headers with config set', async (t) => {
 })
 
 test('It should support array responses', async (t) => {
-  const handler = middy((event, context) => createArrayResponse())
+  const handler = middy(() => createArrayResponse())
 
   handler.use(httpSecurityHeaders())
 
@@ -174,7 +174,7 @@ test('It should support array responses', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.deepEqual(response.body, [{ firstname: 'john', lastname: 'doe' }])
   t.is(response.statusCode, undefined)
@@ -191,7 +191,7 @@ test('It should support array responses', async (t) => {
 })
 
 test('It should skip onError if error has not been handled', async (t) => {
-  const handler = middy((event, context) => { throw new Error('error') })
+  const handler = middy(() => { throw new Error('error') })
 
   handler
     .onError((request) => {
@@ -204,11 +204,11 @@ test('It should skip onError if error has not been handled', async (t) => {
     httpMethod: 'GET'
   }
 
-  await handler(event, context)
+  await handler(event, defaultContext)
 })
 
 test('It should apply security headers if error is handled', async (t) => {
-  const handler = middy((event, context) => { throw new Error('error') })
+  const handler = middy(() => { throw new Error('error') })
 
   handler
     .use(httpSecurityHeaders())
@@ -222,7 +222,7 @@ test('It should apply security headers if error is handled', async (t) => {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, defaultContext)
 
   t.is(response.statusCode, 500)
 

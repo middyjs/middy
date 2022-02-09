@@ -46,8 +46,8 @@ const mockServiceError = (client, error) => {
   return mock
 }
 
-const event = {}
-const context = {
+const defaultEvent = {}
+const defaultContext = {
   getRemainingTimeInMillis: () => 1000
 }
 
@@ -78,7 +78,7 @@ test.serial('It should set token to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler(event, context)
+  await handler(defaultEvent, defaultContext)
 })
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
@@ -116,7 +116,7 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler(event, context)
+  await handler(defaultEvent, defaultContext)
 })
 
 test.serial(
@@ -150,7 +150,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler(event, context)
+    await handler(defaultEvent, defaultContext)
   }
 )
 
@@ -182,7 +182,7 @@ test.serial('It should set Signer token to context', async (t) => {
     )
     .before(middleware)
 
-  await handler(event, context)
+  await handler(defaultEvent, defaultContext)
 })
 
 test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
@@ -212,8 +212,8 @@ test.serial('It should not call aws-sdk again if parameter is cached', async (t)
     )
     .before(middleware)
 
-  await handler(event, context)
-  await handler(event, context)
+  await handler(defaultEvent, defaultContext)
+  await handler(defaultEvent, defaultContext)
 
   t.is(stub.callCount, 1)
 }
@@ -249,8 +249,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler(event, context)
-    await handler(event, context)
+    await handler(defaultEvent, defaultContext)
+    await handler(defaultEvent, defaultContext)
 
     t.is(stub.callCount, 2)
   }
@@ -280,7 +280,7 @@ test.serial(
       )
 
     try {
-      await handler(event, context)
+      await handler(defaultEvent, defaultContext)
     } catch (e) {
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
@@ -313,7 +313,7 @@ test.serial(
       )
 
     try {
-      await handler(event, context)
+      await handler(defaultEvent, defaultContext)
     } catch (e) {
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')

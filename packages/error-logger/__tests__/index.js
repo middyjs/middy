@@ -3,8 +3,8 @@ import sinon from 'sinon'
 import middy from '../../core/index.js'
 import errorLogger from '../index.js'
 
-const event = {}
-const context = {
+const defaultEvent = {}
+const defaultContext = {
   getRemainingTimeInMillis: () => 1000
 }
 
@@ -12,7 +12,7 @@ test('It should log errors and propagate the error', async (t) => {
   const error = new Error('something bad happened')
   const logger = sinon.spy()
 
-  const handler = middy((event, context) => {
+  const handler = middy(() => {
     throw error
   })
 
@@ -21,7 +21,7 @@ test('It should log errors and propagate the error', async (t) => {
   let response
 
   try {
-    response = await handler(event, context)
+    response = await handler(defaultEvent, defaultContext)
   } catch (e) {
     t.true(logger.calledWith(error))
     t.is(response, undefined)
@@ -33,13 +33,13 @@ test('It should throw error when invalid logger', async (t) => {
   const error = new Error('something bad happened')
   const logger = false
 
-  const handler = middy((event, context) => {
+  const handler = middy(() => {
     throw error
   })
 
   try {
     handler.use(errorLogger({ logger }))
-    await handler(event, context)
+    await handler(defaultEvent, defaultContext)
   } catch (e) {
     t.is(
       e.message,

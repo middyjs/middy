@@ -11,7 +11,7 @@ import RDS from 'aws-sdk/clients/rds.js' // v2
 const defaults = {
   AwsClient: RDS.Signer,
   awsClientOptions: {},
-  fetchData: {}, // { contextKey: {region, hostname, username, database, port} }
+  fetchData: {},
   disablePrefetch: false,
   cacheKey: 'rds-signer',
   cacheExpiry: -1,

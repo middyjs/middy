@@ -47,14 +47,14 @@ const mockHttps = (mockResponse) => {
   return https
 }
 
-const event = {
+const defaultEvent = {
   getObjectContext: {
     inputS3Url: 'https://s3.amazonservices.com/key?signature',
     outputRoute: 'https://s3.amazonservices.com/key',
     outputToken: 'token'
   }
 }
-const context = {
+const defaultContext = {
   getRemainingTimeInMillis: () => 1000
 }
 
@@ -108,7 +108,7 @@ test.serial('It should capture fetch', async (t) => {
     })
   )
 
-  const response = await handler(event, context)
+  const response = await handler(defaultEvent, defaultContext)
   t.deepEqual(200, response.statusCode)
   t.is(httpsCapture.callCount, 1)
 })
@@ -134,7 +134,7 @@ test.serial('It should pass a stream to handler', async (t) => {
     })
   )
 
-  const response = await handler(event, context)
+  const response = await handler(defaultEvent, defaultContext)
   t.deepEqual(200, response.statusCode)
 })
 
@@ -158,6 +158,6 @@ test.serial('It should pass a promise to handler', async (t) => {
     })
   )
 
-  const response = await handler(event, context)
+  const response = await handler(defaultEvent, defaultContext)
   t.deepEqual(200, response.statusCode)
 })

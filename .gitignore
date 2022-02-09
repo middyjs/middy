@@ -63,6 +63,10 @@ typings/
 .tern-port
 .DS_Store
 
+# SAST
+.scannerwork
+
+# IDE
 *.iml
 .idea/
 .vscode/

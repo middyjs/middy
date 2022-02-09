@@ -1,6 +1,6 @@
 
 const defaults = {
-  logger: console.log // example
+  logger: console.log
 }
 
 const basicMiddleware = (opts) => {

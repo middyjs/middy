@@ -160,13 +160,13 @@ helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
   headers['Cross-Origin-Resource-Policy'] = config.policy
 }
 
-// expectCt - DEPRECATED
-// hpkp - DEPRECATED
+// DEPRECATED: expectCt
+// DEPRECATED: hpkp
 
 // https://www.permissionspolicy.com/
 helmetHtmlOnly.permissionsPolicy = (headers, config) => {
   headers['Permissions-Policy'] = Object.keys(config)
-    .map(policy => `${policy}=${config[policy] === '*' ? '*' : `(${config[policy]})`}`)
+    .map(policy => `${policy}=${config[policy] === '*' ? '*' : '('+config[policy]+')'}`)
     .join(', ')
 }
 
@@ -181,7 +181,12 @@ helmet.referrerPolicy = (headers, config) => {
 
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
-    .map(group => (config[group] && group !== 'includeSubdomains') ? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${group === 'default' ? `, "include_subdomains": ${config.includeSubdomains}` : ''} }` : '')
+    .map(group => {
+      const includeSubdomains = group === 'default' ? `, "include_subdomains": ${config.includeSubdomains}` : ''
+      return (config[group] && group !== 'includeSubdomains')
+        ? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${includeSubdomains} }`
+        : ''
+    })
     .filter(str => str)
     .join(', ')
 }
