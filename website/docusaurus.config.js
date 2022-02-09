@@ -55,6 +55,12 @@ const config = {
             label: 'Middlewares',
           },
           {
+            type: 'doc',
+            docId: 'events/intro',
+            position: 'left',
+            label: 'AWS Events',
+          },
+          {
             href: 'https://github.com/middyjs/middy',
             label: 'GitHub',
             position: 'right',
