@@ -31,8 +31,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator' // or `middy-ajv`
 import warmupMiddleware from 'warmup'
 
-import inputSchema from './requestEvent.json' // assert { type: 'json' }
-import outputSchema from './response.json' // assert { type: 'json' }
+import inputSchema from './eventSchema.json' assert { type: 'json' }
+import outputSchema from './responseSchema.json' assert { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
