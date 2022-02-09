@@ -14,27 +14,33 @@ E.g.
 
 const defaults = {}
 
-module.exports = (opts = {}) => {
+const customMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
 
   const customMiddlewareBefore = async (request) => {
-    // might read options
+    const { event, context } = request
+    // ...
   }
+
   const customMiddlewareAfter = async (request) => {
-    // might read options
+    const { response } = request
+    // ...
+    request.response = response
   }
+
   const customMiddlewareOnError = async (request) => {
-    // might read options
+    if (request.response === undefined) return
+    return customMiddlewareAfter(request)
   }
 
   return {
-    // Having descriptive function names will allow for 
-    // easier tracking of performance bottlenecks using @middy/core/profiler
     before: customMiddlewareBefore,
     after: customMiddlewareAfter,
     onError: customMiddlewareOnError
   }
 }
+
+export default customMiddleware
 ```
 
 With this convention in mind, using a middleware will always look like the following example:
@@ -43,17 +49,14 @@ With this convention in mind, using a middleware will always look like the follo
 import middy  from '@middy/core'
 import customMiddleware from 'customMiddleware.js'
 
-const handler = middy(async (event, context) => {
+const lambdaHandler = async (event, context) => {
   // do stuff
   return {}
-})
+}
 
-handler.use(
-  customMiddleware({
+export const handler = middy(lambdaHandler)
+  .use(customMiddleware({
     option1: 'foo',
     option2: 'bar'
-  })
-)
-
-module.exports = { handler }
+  }))
 ```
