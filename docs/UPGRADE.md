@@ -123,8 +123,14 @@ No change
 ### [warmup](/packages/warmup/README.md)
 No change
 
+### [ws-json-body-parser](/packages/ws-json-body-parser/README.md)
+- [New] Parse body from WebSocket event
+
 ### [ws-response](/packages/ws-response/README.md)
 - [New] Post responses to WebSocket API Gateway
+- 
+### [ws-router](/packages/ws-router/README.md)
+- [New] Allow re-routing of events to different handlers
 
 ## Notes
 
