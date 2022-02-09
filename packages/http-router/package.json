@@ -1,7 +1,7 @@
 {
   "name": "@middy/http-router",
   "version": "3.0.0-alpha.7",
-  "description": "http event router for the middy framework",
+  "description": "HTTP event router for the middy framework",
   "type": "module",
   "engines": {
     "node": ">=14"
@@ -32,8 +32,7 @@
     "Middy",
     "HTTP",
     "API",
-    "Urlencode",
-    "Body Parser"
+    "router"
   ],
   "author": {
     "name": "Middy contributors",
@@ -49,7 +48,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.7"
+    "@middy/util": "3.0.0-alpha.7"
   },
   "devDependencies": {
     "@middy/core": "^3.0.0-alpha.7"

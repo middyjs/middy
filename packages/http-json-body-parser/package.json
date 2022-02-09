@@ -50,7 +50,7 @@
   },
   "homepage": "https://github.com/middyjs/middy#readme",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.7"
+    "@middy/util": "3.0.0-alpha.7"
   },
   "devDependencies": {
     "@middy/core": "^3.0.0-alpha.7"

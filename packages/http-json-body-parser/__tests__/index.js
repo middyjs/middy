@@ -81,7 +81,7 @@ test('It should parse a JSON request with lowercase header', async (t) => {
   // invokes the handler
   const event = {
     headers: {
-      'Content-Type': 'application/json'
+      'content-type': 'application/json'
     },
     body: JSON.stringify({ foo: 'bar' })
   }

@@ -27,7 +27,7 @@ const httpRouteHandler = (routes) => {
     attachDynamicRoute(method, path, handler, routesDynamic)
   }
 
-  return (event, context) => {
+  return (event, context, abort) => {
     const { method, path } = getVersionRoute[event.version ?? '1.0']?.(event)
     if (!method) {
       throw new Error('[http-router] Unknown http event format')
@@ -36,13 +36,13 @@ const httpRouteHandler = (routes) => {
     // Static
     const handler = routesStatic[method]?.[path]
     if (handler !== undefined) {
-      return handler(event, context)
+      return handler(event, context, abort)
     }
 
     // Dynamic
     for (const route of routesDynamic[method] ?? []) {
       if (route.path.test(path)) {
-        return route.handler(event, context)
+        return route.handler(event, context, abort)
       }
     }
 
