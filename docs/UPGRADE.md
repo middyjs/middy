@@ -128,7 +128,7 @@ No change
 
 ### [ws-response](/packages/ws-response/README.md)
 - [New] Post responses to WebSocket API Gateway
-- 
+
 ### [ws-router](/packages/ws-router/README.md)
 - [New] Allow re-routing of events to different handlers
 
