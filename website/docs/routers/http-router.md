@@ -26,6 +26,7 @@ NOTES:
 
 ```javascript
 import middy from '@middy/core'
+import httpRouterHandler from '@middy/http-router'
 import validatorMiddleware from '@middy/validator'
 
 const getHandler = middy()
@@ -46,21 +47,21 @@ const postHandler = middy()
     }
   })
 
-handler = middy()
-  .use(httpHeaderNormalizer())
-  .handler(httpRouterHandler([
-    {
-      method: 'GET',
-      path: '/user/{id}',
-      handler: getHandler
-    },
-    {
-      method: 'POST',
-      path: '/user',
-      handler: postHandler
-    }
-  ]))
-  
+const routes = [
+  {
+    method: 'GET',
+    path: '/user/{id}',
+    handler: getHandler
+  },
+  {
+    method: 'POST',
+    path: '/user',
+    handler: postHandler
+  }
+]
 
-module.exports = { handler }
+export const handler = middy()
+  .use(httpHeaderNormalizer())
+  .handler(httpRouterHandler(routes))
+
 ```
