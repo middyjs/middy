@@ -11,7 +11,7 @@ const defaults = {
   disablePrefetch: false
 }
 
-const wsResponderMiddleware = (opts) => {
+const wsResponseMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
 
   let client
@@ -19,7 +19,7 @@ const wsResponderMiddleware = (opts) => {
     client = createPrefetchClient(options)
   }
 
-  const wsResponderMiddlewareAfter = async (request) => {
+  const wsResponseMiddlewareAfter = async (request) => {
     normalizeWsResponse(request)
     const { response } = request
 
@@ -36,13 +36,11 @@ const wsResponderMiddleware = (opts) => {
       .postToConnection(response)
       .promise()
 
-    request.response = {
-      statusCode: 200
-    }
+    request.response.statusCode = 200
   }
 
   return {
-    after: wsResponderMiddlewareAfter
+    after: wsResponseMiddlewareAfter
   }
 }
 
@@ -59,4 +57,4 @@ const normalizeWsResponse = (request) => {
   return response
 }
 
-export default wsResponderMiddleware
+export default wsResponseMiddleware
