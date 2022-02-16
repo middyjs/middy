@@ -23,7 +23,8 @@ const defaults = {
   cacheKey: 'ssm',
   cacheExpiry: -1,
   setToEnv: false,
-  setToContext: false
+  setToContext: false,
+  shouldParseValues: true
 }
 
 const ssmMiddleware = (opts = {}) => {
@@ -141,6 +142,9 @@ const ssmMiddleware = (opts = {}) => {
   }
 
   const parseValue = (param) => {
+    if (!options.shouldParseValues) {
+      return param.Value
+    }
     if (param.Type === 'StringList') {
       return param.Value.split(',')
     }
