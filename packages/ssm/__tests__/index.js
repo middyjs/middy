@@ -216,7 +216,7 @@ test.serial('It should set SSM param value to process.env', async (t) => {
 
 test.serial('It should set SSM param object-like value to process.env', async (t) => {
   mockService(SSM, {
-    Parameters: [{ Name: '/dev/service_name/key_name', Value: '{"a": 1}' }]
+    Parameters: [{ Name: '/dev/service_name/object-key', Value: '{"a": 1}' }]
   })
 
   const handler = middy(() => { })
@@ -230,7 +230,7 @@ test.serial('It should set SSM param object-like value to process.env', async (t
       ssm({
         AwsClient: SSM,
         fetchData: {
-          objectLikeKey: '/dev/service_name/key_name'
+          objectLikeKey: '/dev/service_name/object-key'
         },
         setToEnv: true
       })
