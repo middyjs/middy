@@ -232,7 +232,8 @@ test.serial('It should set SSM param object-like value to process.env', async (t
         fetchData: {
           objectLikeKey: '/dev/service_name/object-key'
         },
-        setToEnv: true
+        setToEnv: true,
+        shouldParseValues: false
       })
     )
     .before(middleware)
