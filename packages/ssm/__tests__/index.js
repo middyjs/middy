@@ -41,7 +41,7 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
@@ -70,7 +70,7 @@ test.serial('It should set SSM param path to internal storage', async (t) => {
     ]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
@@ -107,7 +107,7 @@ test.serial(
       }
     )
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -139,7 +139,7 @@ test.serial(
       Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
     })
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -167,7 +167,7 @@ test.serial('It should set SSM param value to context', async (t) => {
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   const middleware = async (request) => {
     t.is(request.context.key, 'key-value')
@@ -193,7 +193,7 @@ test.serial('It should set SSM param value to process.env', async (t) => {
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   const middleware = async () => {
     t.is(process.env.key, 'key-value')
@@ -219,10 +219,10 @@ test.serial('It should set SSM param object-like value to process.env', async (t
     Parameters: [{ Name: '/dev/service_name/key_name', Value: '{"a": 1}' }]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   const middleware = async () => {
-    t.is(process.env.objectLikeKey, 'key-value')
+    t.is(process.env.objectLikeKey, '{"a": 1}')
   }
 
   handler
@@ -275,7 +275,7 @@ test.serial(
       }
     )
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -318,7 +318,7 @@ test.serial(
       Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
     })
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -351,7 +351,7 @@ test.serial(
       Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
     })
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -390,7 +390,7 @@ test.serial(
       }
     )
 
-    const handler = middy(() => {})
+    const handler = middy(() => { })
 
     const middleware = async (request) => {
       const values = await getInternal(true, request)
@@ -422,7 +422,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
   })
 
-  const handler = middy(() => {})
+  const handler = middy(() => { })
 
   handler.use(
     ssm({
