@@ -99,6 +99,23 @@
     }
 
   }
+
+  // join @middy/core & middy
+  const data = []
+  for(let i = 0, l = weeklyStats['@middy/core'].data.length; i<l; i++) {
+    data.push({
+      x: weeklyStats['@middy/core'].data[i].x,
+      y: weeklyStats['@middy/core'].data[i].y + weeklyStats['middy'].data[i].y
+    })
+  }
+  weeklyStats['@middy/core + middy'] = {
+    label: '@middy/core + middy',
+    fill: false,
+    borderColor: weeklyStats['@middy/core'],
+    backgroundColor: weeklyStats['@middy/core'],
+    data
+  }
+
   //console.log('dailyStats', dailyStats)
   //console.log('weeklyStats', weeklyStats)
 //    console.log('yearlyStats', year, yearlyStats)
