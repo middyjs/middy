@@ -39,7 +39,7 @@ const config = {
         title: 'Middy',
         logo: {
           alt: 'Middy Logo',
-          src: 'img/middy-logo.svg',
+          src: 'img/middy-logo-small.svg',
         },
         items: [
           {

@@ -7,6 +7,7 @@ import styles from './index.module.css';
 import HomepageFeatures from '../components/HomepageFeatures';
 import Example from '../components/Example';
 import GetStartedHero from '../components/GetStartedHero';
+import Logo from '../components/logo';
 
 function HomepageHeader () {
   const { siteConfig } = useDocusaurusContext();
@@ -14,8 +15,8 @@ function HomepageHeader () {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
-        <img src="/img/middy-logo.svg" />
-        <h1 className="hero__title">{siteConfig.title}</h1>
+        <Logo className={styles.logo} width="350" />
+        {/* <h1 className="hero__title">{siteConfig.title}</h1> */}
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <p>Organise your Lambda code, remove code duplication, focus on business logic!</p>
         <div className={styles.buttons}>
