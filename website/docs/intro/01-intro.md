@@ -17,9 +17,7 @@ Code is better than 10,000 words, so let's jump into an example.
 
 Let's assume you are building a JSON API to process a payment:
 
-```javascript
-//# handler.js #
-
+```javascript title="handler.js"
 // import core
 import middy from '@middy/core' // esm Node v14+
 //const middy = require('@middy/core') // commonjs Node v12+

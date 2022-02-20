@@ -10,9 +10,7 @@ In this case you should remove excess files from your `node_modules` directory t
 We put together a `.yarnclean` file you can check out and use as part of your CI/CD process:
 
 
-```git
-# .yarnclean
-
+```git title=".yarnclean"
 # -- Middy.js --
 
 # Dependencies

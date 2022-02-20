@@ -2,6 +2,12 @@
 title: AWS Relational Database Service (RDS)
 ---
 
+:::caution
+
+This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
+
+:::
+
 First, you need to pass in a password. In order from most secure to least: `RDS.Signer`, `SecretsManager`, `SSM` using SecureString.
 `SSM` can be considered equally secure to `SecretsManager` if you have your own password rotation system.
 

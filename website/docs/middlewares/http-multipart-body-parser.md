@@ -16,7 +16,7 @@ It can also be used in combination with validator so that the content can be val
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-multipart-body-parser
 ```
 

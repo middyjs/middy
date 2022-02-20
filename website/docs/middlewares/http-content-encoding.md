@@ -8,7 +8,7 @@ This middleware take the `preferredEncoding` output from `@middy/http-content-ne
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-content-encoding
 ```
 

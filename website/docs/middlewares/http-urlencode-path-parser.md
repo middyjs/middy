@@ -9,7 +9,7 @@ This middleware automatically parses HTTP requests with URL-encoded paths. This 
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-urlencode-path-parser
 ```
 

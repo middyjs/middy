@@ -10,7 +10,7 @@ of a form submit).
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-urlencode-body-parser
 ```
 

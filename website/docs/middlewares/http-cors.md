@@ -11,7 +11,7 @@ Sets headers in `after` and `onError` phases.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-cors
 ```
 

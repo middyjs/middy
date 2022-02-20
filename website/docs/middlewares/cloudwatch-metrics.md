@@ -12,7 +12,7 @@ You can explore all the MetricLogger APIs following [aws-embedded-metrics](https
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/cloudwatch-metrics
 ```
 

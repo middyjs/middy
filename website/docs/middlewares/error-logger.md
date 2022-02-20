@@ -15,7 +15,7 @@ By default, the logging operate by using the `console.error` function. You can p
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/error-logger
 ```
 

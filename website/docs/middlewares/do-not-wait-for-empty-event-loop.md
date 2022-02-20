@@ -10,7 +10,7 @@ This will prevent Lambda from timing out because of open database connections, e
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/do-not-wait-for-empty-event-loop
 ```
 

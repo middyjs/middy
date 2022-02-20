@@ -8,7 +8,7 @@ Fetches STS credentials to be used when connecting to other AWS services.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/sts
 ```
 

@@ -18,7 +18,7 @@ This middleware will copy the original headers in `event.rawHeaders`.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-header-normalizer
 ```
 

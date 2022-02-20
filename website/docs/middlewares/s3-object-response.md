@@ -10,7 +10,7 @@ Fetches S3 object as a stream and writes back to s3 object response.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/s3-object-response
 ```
 

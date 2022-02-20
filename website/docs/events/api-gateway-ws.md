@@ -2,6 +2,12 @@
 title: API Gateway (WebSocket)
 ---
 
+:::caution
+
+This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
+
+:::
+
 ## AWS Documentation
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
 - [Working with WebSocket APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api.html)

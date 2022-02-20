@@ -64,7 +64,7 @@ Some events send test events after set, you will need to handle these.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/event-normalizer
 ```
 

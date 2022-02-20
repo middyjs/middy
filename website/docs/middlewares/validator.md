@@ -21,7 +21,7 @@ Also, this middleware accepts an object with plugins to be applied to customize 
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/validator
 ```
 

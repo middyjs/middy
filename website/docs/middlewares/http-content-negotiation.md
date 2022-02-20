@@ -24,7 +24,7 @@ It also can throw an HTTP exception, so it can be convenient to use it in combin
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-content-negotiation
 ```
 

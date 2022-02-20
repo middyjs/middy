@@ -24,7 +24,7 @@ result in `undefined` when no path parameter is available, but not in an error.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-event-normalizer
 ```
 

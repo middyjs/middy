@@ -8,7 +8,7 @@ This handler can route to requests to one of a nested handler based on `method` 
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-router
 ```
 
