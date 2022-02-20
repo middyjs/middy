@@ -11,7 +11,7 @@ export default function GetStartedHero () {
       <div className={styles.buttons}>
         <Link
           className="button button--primary button--lg"
-          to="/docs/intro/intro">
+          to="/docs">
           Read the docs
         </Link>
       </div>

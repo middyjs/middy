@@ -25,6 +25,8 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          sidebarCollapsible: true,
+          showLastUpdateTime: true,
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl: 'https://github.com/middyjs/middy/tree/main/website/',
@@ -85,12 +87,16 @@ const config = {
             items: [
               {
                 label: 'Documentation',
-                to: '/docs/intro/intro',
+                to: '/docs',
               },
               {
                 label: 'Middlewares',
                 to: '/docs/category/middlewares',
               },
+              {
+                label: 'AWS Events',
+                to: '/docs/events/intro'
+              }
             ],
           },
           {
