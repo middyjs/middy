@@ -2,7 +2,6 @@ import React from 'react';
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import styles from './index.module.css';
 import HomepageFeatures from '../components/HomepageFeatures';
 import Example from '../components/Example';
@@ -11,14 +10,11 @@ import Logo from '../components/logo';
 import Head from '@docusaurus/Head'
 
 function HomepageHeader () {
-  const { siteConfig } = useDocusaurusContext();
-
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <Logo className={styles.logo} width="350" />
-        {/* <h1 className="hero__title">{siteConfig.title}</h1> */}
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p className="hero__subtitle">The stylish Node.js middleware engine for AWS Lambda</p>
         <p>Organise your Lambda code, remove code duplication, focus on business logic!</p>
         <div className={styles.buttons}>
           <Link
@@ -52,7 +48,6 @@ const SEO = () => {
 };
 
 export default function Home () {
-  const { siteConfig } = useDocusaurusContext();
   return (
     <Layout>
       <SEO />
