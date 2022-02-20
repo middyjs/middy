@@ -15,6 +15,10 @@ const config = {
   organizationName: 'middyjs',
   projectName: 'middy',
 
+  plugins: [
+    require.resolve('docusaurus-lunr-search')
+  ],
+
   presets: [
     [
       'classic',
