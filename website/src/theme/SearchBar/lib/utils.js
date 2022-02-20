@@ -22,7 +22,7 @@ const utils = {
   * @return {Object}
   * @throws Error when key is not an attribute of Object or is not an object itself
   */
-  mergeKeyWithParent(object, property) {
+  mergeKeyWithParent (object, property) {
     if (object[property] === undefined) {
       return object;
     }
@@ -64,7 +64,7 @@ const utils = {
   * @return {array}
   * @throws Error when one of the element does not have the specified property
   */
-  groupBy(collection, property) {
+  groupBy (collection, property) {
     const newCollection = {};
     $.each(collection, (index, item) => {
       if (item[property] === undefined) {
@@ -96,7 +96,7 @@ const utils = {
   * @param {object} object Object to extract values from
   * @return {array}
   */
-  values(object) {
+  values (object) {
     return Object.keys(object).map(key => object[key]);
   },
   /*
@@ -108,7 +108,7 @@ const utils = {
   * @param {array} array Array to flatten
   * @return {array}
   */
-  flatten(array) {
+  flatten (array) {
     const results = [];
     array.forEach(value => {
       if (!Array.isArray(value)) {
@@ -150,7 +150,7 @@ const utils = {
   * @param {string} flag Flag to set to true on first element of each group
   * @return {array}
   */
-  flattenAndFlagFirst(object, flag) {
+  flattenAndFlagFirst (object, flag) {
     const values = this.values(object).map(collection =>
       collection.map((item, index) => {
         // eslint-disable-next-line no-param-reassign
@@ -169,7 +169,7 @@ const utils = {
   * @param {array} array Array to compact
   * @return {array}
   */
-  compact(array) {
+  compact (array) {
     const results = [];
     array.forEach(value => {
       if (!value) {
@@ -197,7 +197,7 @@ const utils = {
    * @param {string} property Object key to look for
    * @return {string}
    **/
-  getHighlightedValue(object, property) {
+  getHighlightedValue (object, property) {
     if (
       object._highlightResult &&
       object._highlightResult.hierarchy_camel &&
@@ -209,7 +209,6 @@ const utils = {
       return object._highlightResult.hierarchy_camel[property].value;
     }
     if (
-      object._highlightResult &&
       object._highlightResult &&
       object._highlightResult[property] &&
       object._highlightResult[property].value
@@ -238,7 +237,7 @@ const utils = {
    * @param {string} property Object key to look for
    * @return {string}
    **/
-  getSnippetedValue(object, property) {
+  getSnippetedValue (object, property) {
     if (
       !object._snippetResult ||
       !object._snippetResult[property] ||
@@ -262,7 +261,7 @@ const utils = {
   * @param {object} object Object to clone
   * @return {object}
   */
-  deepClone(object) {
+  deepClone (object) {
     return JSON.parse(JSON.stringify(object));
   },
 };
