@@ -1,13 +1,16 @@
-name: Website
+name: Test Website
 
 on:
+  pull_request:
+    paths:
+      - "website/*"
   push:
     paths:
       - "website/*"
 
 jobs:
   website:
-    name: website
+    name: Test website
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -27,12 +30,3 @@ jobs:
         working-directory: website
         run: |
           npm run build
-      - name: Publish
-        working-directory: website
-        run: |
-          echo "todo - uncomment next step and remove this one"
-      # - name: Publish website
-      #   uses: peaceiris/actions-gh-pages@v3
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     publish_dir: ./website/build
