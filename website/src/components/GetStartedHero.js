@@ -8,7 +8,7 @@ export default function GetStartedHero () {
     <div className="container text--center margin-vert--xl">
       <h1 className="hero__title">Ready to get started?</h1>
       {/* <p className="hero__subtitle">{siteConfig.tagline}</p> */}
-      <div className={styles.buttons}>
+      <div>
         <Link
           className="button button--primary button--lg"
           to="/docs">
