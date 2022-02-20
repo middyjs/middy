@@ -7,16 +7,11 @@
 import React from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
-import Translate, { translate } from '@docusaurus/Translate';
-import styles from './NotFound.module.css'
 
 function NotFound () {
   return (
     <Layout
-      title={translate({
-        id: 'theme.NotFound.title',
-        message: 'Page Not Found',
-      })}>
+      title='Page Not Found'>
       <main className="container margin-vert--xl">
         <div className="row">
           <div className="col col--6 col--offset-3">
@@ -25,22 +20,14 @@ function NotFound () {
               <img src="/img/middy-404.gif" />
             </p>
             <p className='hero__subtitle'>
-              <Translate
-                id="theme.NotFound.p1"
-                description="The first paragraph of the 404 page">
-                Sorry, we could not find what you were looking for!
-              </Translate>
+              Sorry, we could not find what you were looking for!
             </p>
             <p>
-              <Translate
-                id="theme.NotFound.p2"
-                description="The 2nd paragraph of the 404 page">
-                Please contact the owner of the site that linked you to the
-                original URL and let them know their link is broken.
-              </Translate>
+              Please contact the owner of the site that linked you to the
+              original URL and let them know their link is broken.
             </p>
 
-            <p className={styles.buttons}>
+            <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'start', gap: '1em' }}>
               <Link
                 className="button button--primary button--lg"
                 to="/">
