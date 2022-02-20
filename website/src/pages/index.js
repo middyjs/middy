@@ -8,6 +8,7 @@ import HomepageFeatures from '../components/HomepageFeatures';
 import Example from '../components/Example';
 import GetStartedHero from '../components/GetStartedHero';
 import Logo from '../components/logo';
+import Head from '@docusaurus/Head'
 
 function HomepageHeader () {
   const { siteConfig } = useDocusaurusContext();
@@ -31,12 +32,30 @@ function HomepageHeader () {
   );
 }
 
+const SEO = () => {
+  const title = "Middy, the stylish Node.js middleware engine for AWS Lambda"
+  const description = "Middy is a Node.js middleware engine for AWS Lambda that lets you organise your Lambda code, remove code duplication, and focus on business logic!"
+
+  return (
+    <Head>
+      <meta charSet="utf-8" />
+      <title>{title}</title>
+      <meta name="description" content={description} />
+      <link rel="canonical" href="https://middy.js.org" />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content="https://middy.js.org/img/middy-og-image.png" />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+    </Head>
+  )
+};
+
 export default function Home () {
   const { siteConfig } = useDocusaurusContext();
   return (
-    <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
+    <Layout>
+      <SEO />
       <HomepageHeader />
       <main>
         <HomepageFeatures />
