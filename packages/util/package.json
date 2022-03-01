@@ -52,6 +52,6 @@
     "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"
   },
-  "homepage": "https://github.com/middyjs/middy#readme",
+  "homepage": "https://middy.js.org",
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

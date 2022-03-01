@@ -42,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
-  "homepage": "https://github.com/middyjs/middy#readme",
+  "homepage": "https://middy.js.org",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^17.0.0"

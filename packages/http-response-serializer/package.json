@@ -49,7 +49,7 @@
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
-  "homepage": "https://github.com/middyjs/middy#readme",
+  "homepage": "https://middy.js.org",
   "dependencies": {
     "@hapi/accept": "5.0.2",
     "@middy/util": "3.0.0-alpha.7"
