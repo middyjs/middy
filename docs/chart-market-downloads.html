@@ -6,8 +6,8 @@
 <a id="npmtrends" href="">View on npm trends</a>
 <canvas id="main" width="16" height="9" style="width:90%; height:90%"></canvas>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js" integrity="sha256-Y26AMvaIfrZ1EQU49pf6H4QzVTrOI8m9wQYKkftBt4s="></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha256-WPZ1QrSHppDzSrglmNWZIzjS92hyUff3ku01jfrLtXI="></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js" integrity="sha256-Y26AMvaIfrZ1EQU49pf6H4QzVTrOI8m9wQYKkftBt4s=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha256-xlxh4PaMDyZ72hWQ7f/37oYI0E2PrBbtzi1yhvnG+/E=" crossorigin="anonymous"></script>
 
 <script type="module">
   //import Chart from 'https://cdnjs.com/libraries/Chart.js'
@@ -99,6 +99,23 @@
     }
 
   }
+
+  // join @middy/core & middy
+  const data = []
+  for(let i = 0, l = weeklyStats['@middy/core'].data.length; i<l; i++) {
+    data.push({
+      x: weeklyStats['@middy/core'].data[i].x,
+      y: weeklyStats['@middy/core'].data[i].y + weeklyStats['middy'].data[i].y
+    })
+  }
+  weeklyStats['@middy/core + middy'] = {
+    label: '@middy/core + middy',
+    fill: false,
+    borderColor: weeklyStats['@middy/core'],
+    backgroundColor: weeklyStats['@middy/core'],
+    data
+  }
+
   //console.log('dailyStats', dailyStats)
   //console.log('weeklyStats', weeklyStats)
 //    console.log('yearlyStats', year, yearlyStats)

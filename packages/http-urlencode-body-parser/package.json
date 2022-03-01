@@ -47,7 +47,7 @@
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
-  "homepage": "https://github.com/middyjs/middy#readme",
+  "homepage": "https://middy.js.org",
   "dependencies": {
     "qs": "6.10.3"
   },
