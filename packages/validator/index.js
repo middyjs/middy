@@ -3,6 +3,7 @@ import _ajv from 'ajv/dist/2019.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 import formatsDraft2019 from 'ajv-formats-draft2019'
+import typeofKeyword from 'ajv-keywords/dist/definitions/typeof.js'
 
 const Ajv = _ajv.default // esm workaround for linting
 
@@ -12,12 +13,16 @@ const ajvDefaults = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: 'empty',
-  messages: false // allow i18n
+  messages: false, // allow i18n,
+  keywords: [ // allow `typeof` for identifying functions in `context`
+    typeofKeyword()
+  ]
 }
 
 const defaults = {
-  inputSchema: undefined,
-  outputSchema: undefined,
+  eventSchema: undefined,
+  contextSchema: undefined,
+  responseSchema: undefined,
   ajvOptions: {},
   ajvInstance: undefined,
   defaultLanguage: 'en',
@@ -26,47 +31,65 @@ const defaults = {
 
 const validatorMiddleware = (opts = {}) => {
   let {
-    inputSchema,
-    outputSchema,
+    inputSchema, // Deprecate v4
+    outputSchema, // Deprecate v4
+    eventSchema,
+    contextSchema,
+    responseSchema,
     ajvOptions,
     ajvInstance,
     defaultLanguage,
     i18nEnabled
   } = { ...defaults, ...opts }
-  inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
-  outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
+  eventSchema = compile(eventSchema ?? inputSchema, ajvOptions, ajvInstance)
+  contextSchema = compile(contextSchema, ajvOptions, ajvInstance)
+  responseSchema = compile(responseSchema ?? outputSchema, ajvOptions, ajvInstance)
 
   const validatorMiddlewareBefore = async (request) => {
-    const valid = inputSchema(request.event)
+    if (eventSchema) {
+      const validEvent = eventSchema(request.event)
 
-    if (!valid) {
-      if (i18nEnabled) {
-        const language = chooseLanguage(request.event, defaultLanguage)
-        localize[language](inputSchema.errors)
+      if (!validEvent) {
+        if (i18nEnabled) {
+          const language = chooseLanguage(request.event, defaultLanguage)
+          localize[language](eventSchema.errors)
+        }
+
+        // Bad Request
+        // throw createError(400, 'Event object failed validation', { cause: eventSchema.errors })
+        const error = createError(400, 'Event object failed validation')
+        error.cause = eventSchema.errors
+        throw error
       }
+    }
 
-      // Bad Request
-      // throw createError(400, 'Event object failed validation', { cause: inputSchema.errors })
-      const error = createError(400, 'Event object failed validation')
-      error.cause = inputSchema.errors
-      throw error
+    if (contextSchema) {
+      const validContext = contextSchema(request.context)
+
+      if (!validContext) {
+        // Internal Server Error
+        // throw createError(500, 'Context object failed validation', { cause: contextSchema.errors })
+        const error = createError(500, 'Context object failed validation')
+        error.cause = contextSchema.errors
+        throw error
+      }
     }
   }
 
   const validatorMiddlewareAfter = async (request) => {
-    const valid = outputSchema(request.response)
+    const valid = responseSchema(request.response)
 
     if (!valid) {
       // Internal Server Error
       // throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
       const error = createError(500, 'Response object failed validation')
-      error.cause = outputSchema.errors
+      error.cause = responseSchema.errors
       throw error
     }
   }
   return {
-    before: inputSchema ? validatorMiddlewareBefore : undefined,
-    after: outputSchema ? validatorMiddlewareAfter : undefined
+    before: eventSchema ?? inputSchema ?? contextSchema ? validatorMiddlewareBefore : undefined,
+    after: responseSchema ?? outputSchema ? validatorMiddlewareAfter : undefined
   }
 }
 
