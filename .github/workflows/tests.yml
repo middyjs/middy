@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         node-version: [14.x, 16.x]
-        node-module-type: [cjs, esm]
+        node-module-type: [esm]
 
     steps:
       - name: Checkout repository
@@ -40,7 +40,6 @@ jobs:
 
       - name: Unit tests
         run: |
-          cat packages/core/index.js
           npm run test:packages:unit
         env:
           CI: true
