@@ -13,7 +13,7 @@
     "pre-commit": "npm run test:lint",
     "install": "lerna bootstrap",
     "test": "npm run test:lint && npm run test:packages",
-    "test:lint": "ts-standard --fix",
+    "test:lint": "lint-staged",
     "test:lint:ci": "ts-standard",
     "test:unit": "cd packages/$PACKAGE && c8 npm run test:unit",
     "test:benchmark": "cd packages/$PACKAGE && npm run test:benchmark",

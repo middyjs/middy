@@ -1,18 +1,18 @@
 {
-  "jsc":{
-    "parser":{
+  "jsc": {
+    "parser": {
       "syntax": "ecmascript"
     },
     "target": "es2020",
-    "minify":{
-      "compress":false,
-      "mangle":false
+    "minify": {
+      "compress": false,
+      "mangle": false
     }
   },
   "module": {
-    "type": "es6"
+    "type": "commonjs"
   },
-  "minify":true,
+  "minify": true,
   "sourceMaps": false,
   "inlineSourcesContent": false
 }

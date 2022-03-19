@@ -3,9 +3,9 @@ name: Unit Tests
 on:
   push:
     branches:
-      - "main"
+      - 'main'
     tags-ignore:
-      - "*.*.*"
+      - '*.*.*'
   pull_request:
 
 jobs:
@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         node-version: [14.x, 16.x]
+        type: [cjs, esm]
 
     steps:
       - name: Checkout repository
@@ -33,11 +34,13 @@ jobs:
         env:
           CI: true
 
-      - name: Transpile for Node.js ${{ matrix.node-version }}
+      - name: Transpile for Node.js ${{ matrix.node-version }} (${{ metrix.type}})
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.config.json index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ metrix.type}}.config.json index.js --out-file index.js
 
       - name: Unit tests
-        run: npm run test:packages:unit
+        run: |
+          cat packages/core/index.js
+          npm run test:packages:unit
         env:
           CI: true
