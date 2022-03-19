@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         node-version: [14.x, 16.x]
-        type: [cjs, esm]
+        node-module-type: [cjs, esm]
 
     steps:
       - name: Checkout repository
@@ -34,9 +34,9 @@ jobs:
         env:
           CI: true
 
-      - name: Transpile for Node.js ${{ matrix.node-version }} (${{ metrix.type}})
+      - name: Transpile for Node.js ${{ matrix.node-version }} (${{ matrix.node-module-type}})
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ metrix.type}}.config.json index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ matrix.node-module-type}}.config.json index.js --out-file index.js
 
       - name: Unit tests
         run: |
