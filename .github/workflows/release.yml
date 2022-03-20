@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [ 14.x]
+        node-version: [14.x]
 
     steps:
       - name: Checkout repository
@@ -33,11 +33,10 @@ jobs:
         run: |
           npm install
 
-      - name: Transpile to CommonJS for Node.js ${{ matrix.node-version }}
+      - name: Transpile for Node.js ${{ matrix.node-version }}
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- rm index.cjs
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- rm index.cjs.map
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.config.json --source-maps false index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.cjs.config.json --source-maps false index.js --out-file index.cjs
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.esm.config.json --source-maps false index.js --out-file index.js
 
       - name: Pre-Release
         if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
