@@ -73,4 +73,4 @@ Additionally, you'll notice that each middleware shows a descriptive name. This 
 If you've looked at the code for some the supported middlewares, you'll see these long descriptive variable names being set, then returned.
 This is why.
 
-Want more? Checkout our [benchmark exmaples](/benchmarks).
+Want more? Checkout our [benchmark examples](/benchmarks).
