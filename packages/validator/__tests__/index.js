@@ -4,10 +4,98 @@ import validator from '../index.js'
 
 const event = {}
 const context = {
-  getRemainingTimeInMillis: () => 1000
+  getRemainingTimeInMillis: () => 1000,
+  callbackWaitsForEmptyEventLoop: true,
+  functionVersion: '$LATEST',
+  functionName: 'lambda',
+  memoryLimitInMB: '128',
+  logGroupName: '/aws/lambda/lambda',
+  logStreamName: '2022/04/01/[$LATEST]7a7ac3439a3b4635ba18460a3c7cea81',
+  clientContext: undefined,
+  identity: undefined,
+  invokedFunctionArn: 'arn:aws:lambda:ca-central-1:000000000000:function:lambda',
+  awsRequestId: '00000000-0000-0000-0000-0000000000000'
+}
+const contextSchema = {
+  type: 'object',
+  properties: {
+    getRemainingTimeInMillis: {
+      typeof: 'function'
+    },
+    functionVersion: {
+      type: 'string'
+    },
+    invokedFunctionArn: {
+      type: 'string'
+    },
+    memoryLimitInMB: {
+      type: 'string'
+    },
+    awsRequestId: {
+      type: 'string'
+    },
+    logGroupName: {
+      type: 'string'
+    },
+    logStreamName: {
+      type: 'string'
+    },
+    identity: {
+      type: 'object',
+      properties: {
+        cognitoIdentityId: {
+          type: 'string'
+        },
+        cognitoIdentityPoolId: {
+          type: 'string'
+        }
+      },
+      required: ['cognitoIdentityId', 'cognitoIdentityPoolId']
+    },
+    clientContext: {
+      type: 'object',
+      properties: {
+        'client.installation_id': {
+          type: 'string'
+        },
+        'client.app_title': {
+          type: 'string'
+        },
+        'client.app_version_name': {
+          type: 'string'
+        },
+        'client.app_version_code': {
+          type: 'string'
+        },
+        'client.app_package_name': {
+          type: 'string'
+        },
+        'env.platform_version': {
+          type: 'string'
+        },
+        'env.platform': {
+          type: 'string'
+        },
+        'env.make': {
+          type: 'string'
+        },
+        'env.model': {
+          type: 'string'
+        },
+        'env.locale': {
+          type: 'string'
+        }
+      },
+      required: ['client.installation_id', 'client.app_title', 'client.app_version_name', 'client.app_version_code', 'client.app_package_name', 'env.platform_version', 'env.platform', 'env.make', 'env.model', 'env.locale']
+    },
+    callbackWaitsForEmptyEventLoop: {
+      type: 'boolean'
+    }
+  },
+  required: ['getRemainingTimeInMillis', 'functionVersion', 'invokedFunctionArn', 'memoryLimitInMB', 'awsRequestId', 'logGroupName', 'logStreamName', 'callbackWaitsForEmptyEventLoop']
 }
 
-test('It should validate an incoming object', async (t) => {
+test('It should validate an event object', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -38,7 +126,7 @@ test('It should validate an incoming object', async (t) => {
 
   handler.use(
     validator({
-      inputSchema: schema
+      eventSchema: schema
     })
   )
 
@@ -84,7 +172,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
   handler.use(
     validator({
-      inputSchema: schema
+      eventSchema: schema
     })
   )
 
@@ -131,7 +219,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
 
   handler.use(
     validator({
-      inputSchema: schema
+      eventSchema: schema
     })
   )
 
@@ -187,7 +275,7 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   handler.use(
     validator({
-      inputSchema: schema
+      eventSchema: schema
     })
   )
 
@@ -235,7 +323,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
 
   handler.use(
     validator({
-      inputSchema: schema,
+      eventSchema: schema,
       i18nEnabled: false
     })
   )
@@ -261,7 +349,48 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
   }
 })
 
-test('It should validate response', async (t) => {
+test('It should validate context object', async (t) => {
+  const expectedResponse = {
+    body: 'Hello world',
+    statusCode: 200
+  }
+
+  const handler = middy((event, context) => {
+    console.log(context)
+    return expectedResponse
+  })
+
+  handler
+    .use(validator({ contextSchema }))
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, expectedResponse)
+})
+
+test('It should make requests with invalid context fails with an Internal Server Error', async (t) => {
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler
+    .before((request) => {
+      request.context.callbackWaitsForEmptyEventLoop = 'fail'
+    })
+    .use(validator({ contextSchema }))
+
+  let response
+
+  try {
+    response = await handler(event, context)
+  } catch (e) {
+    t.not(e, null)
+    t.is(e.message, 'Context object failed validation')
+    t.not(response, null) // it doesn't destroy the response so it gets logged
+  }
+})
+
+test('It should validate response object', async (t) => {
   const expectedResponse = {
     body: 'Hello world',
     statusCode: 200
@@ -284,7 +413,7 @@ test('It should validate response', async (t) => {
     }
   }
 
-  handler.use(validator({ outputSchema: schema }))
+  handler.use(validator({ responseSchema: schema }))
 
   const response = await handler(event, context)
 
@@ -309,7 +438,7 @@ test('It should make requests with invalid responses fail with an Internal Serve
     }
   }
 
-  handler.use(validator({ outputSchema: schema }))
+  handler.use(validator({ responseSchema: schema }))
 
   let response
 
@@ -332,7 +461,7 @@ test('It should not allow bad email format', async (t) => {
     return {}
   })
 
-  handler.use(validator({ inputSchema: schema }))
+  handler.use(validator({ eventSchema: schema }))
 
   const event = { email: 'abc@abc' }
   try {
@@ -355,7 +484,7 @@ test('It should error when unsupported keywords used (input)', async (t) => {
 
   const event = { foo: 'a' }
   try {
-    handler.use(validator({ inputSchema: schema }))
+    handler.use(validator({ eventSchema: schema }))
     await handler(event, context)
   } catch (e) {
     t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
@@ -374,7 +503,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
 
   const event = { foo: 'a' }
   try {
-    handler.use(validator({ outputSchema: schema }))
+    handler.use(validator({ responseSchema: schema }))
     await handler(event.context)
   } catch (e) {
     t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
@@ -396,7 +525,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     return {}
   })
 
-  handler.use(validator({ inputSchema: schema }))
+  handler.use(validator({ eventSchema: schema }))
 
   try {
     await handler({ foo: 'a' })

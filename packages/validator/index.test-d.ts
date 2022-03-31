@@ -9,8 +9,9 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = validator({
-  inputSchema: {},
-  outputSchema: {},
+  eventSchema: {},
+  contextSchema: {},
+  responseSchema: {},
   ajvOptions: {
     strict: true,
     strictTypes: true,
