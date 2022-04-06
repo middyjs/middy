@@ -4,14 +4,20 @@ const defaults = {
   logger: console.log,
   awsContext: false,
   omitPaths: [],
+  mask: undefined,
   replacer: undefined
 }
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
-  const { logger, awsContext, omitPaths, replacer } = { ...defaults, ...opts }
+  const { logger, awsContext, omitPaths, mask, replacer } = {
+    ...defaults,
+    ...opts
+  }
 
   if (typeof logger !== 'function') {
-    throw new Error('[input-output-logger-middleware]: logger must be a function')
+    throw new Error(
+      '[input-output-logger-middleware]: logger must be a function'
+    )
   }
 
   const omitPathTree = buildPathOmitTree(omitPaths)
@@ -28,8 +34,30 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     logger(cloneMessage)
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (request) => omitAndLog('event', request)
-  const inputOutputLoggerMiddlewareAfter = async (request) => omitAndLog('response', request)
+  const omit = (obj, pathTree = {}) => {
+    if (Array.isArray(obj) && pathTree['[]']) {
+      for (const value of obj) {
+        omit(value, pathTree['[]'])
+      }
+    } else if (isObject(obj)) {
+      for (const key in pathTree) {
+        if (pathTree[key] === true) {
+          if (mask) {
+            obj[key] = mask
+          } else {
+            delete obj[key]
+          }
+        } else {
+          omit(obj[key], pathTree[key])
+        }
+      }
+    }
+  }
+
+  const inputOutputLoggerMiddlewareBefore = async (request) =>
+    omitAndLog('event', request)
+  const inputOutputLoggerMiddlewareAfter = async (request) =>
+    omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
     return omitAndLog('response', request)
@@ -70,7 +98,8 @@ const pick = (originalObject = {}, keysToPick = []) => {
 
 const buildPathOmitTree = (paths) => {
   const tree = {}
-  for (let path of paths.sort().reverse()) { // reverse to ensure conflicting paths don't cause issues
+  for (let path of paths.sort().reverse()) {
+    // reverse to ensure conflicting paths don't cause issues
     if (!Array.isArray(path)) path = path.split('.')
     if (path.includes('__proto__')) continue
     path
@@ -87,22 +116,7 @@ const buildPathOmitTree = (paths) => {
   return tree
 }
 
-const omit = (obj, pathTree = {}) => {
-  if (Array.isArray(obj) && pathTree['[]']) {
-    for (const value of obj) {
-      omit(value, pathTree['[]'])
-    }
-  } else if (isObject(obj)) {
-    for (const key in pathTree) {
-      if (pathTree[key] === true) {
-        delete obj[key]
-      } else {
-        omit(obj[key], pathTree[key])
-      }
-    }
-  }
-}
-
-const isObject = (value) => value && typeof value === 'object' && value.constructor === Object
+const isObject = (value) =>
+  value && typeof value === 'object' && value.constructor === Object
 
 export default inputOutputLoggerMiddleware

@@ -88,7 +88,7 @@ No change
 No change
 
 ### [input-output-logger](/packages/input-output-logger/README.md)
-No change
+- Add in new option to mask instead of omit a path.
 
 ### [rds-signer](/packages/rds-signer/README.md)
 - Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
