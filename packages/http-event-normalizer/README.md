@@ -48,7 +48,7 @@ This middleware normalizes the API Gateway event, making sure that an object for
 `queryStringParameters`, `multiValueQueryStringParameters` and `pathParameters` is always available (resulting in empty objects
 when no parameter is available), this way you don't have to worry about adding extra `if`
 statements before trying to read a property and calling `event.pathParameters.userId` will
-result in `undefined` when no path parameter is available, but not in an error.
+result in `undefined` when no path parameter is available, but not return an error.
 
 > Important note : API Gateway HTTP API format 2.0 doesn't have `multiValueQueryStringParameters` fields. Duplicate query strings are combined with commas and included in the `queryStringParameters` field.
 
@@ -72,7 +72,7 @@ import middy from '@middy/core'
 import httpEventNormalizer from '@middy/http-event-normalizer'
 
 const handler = middy((event, context) => {
-  console.log(`Hello user ${event.pathParameters.userId}`) // might produce `Hello user undefined`, but not an error
+  console.log(`Hello user ${event.pathParameters.userId}`)
   return {}
 })
 

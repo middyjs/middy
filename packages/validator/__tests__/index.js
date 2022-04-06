@@ -13,7 +13,8 @@ const context = {
   logStreamName: '2022/04/01/[$LATEST]7a7ac3439a3b4635ba18460a3c7cea81',
   clientContext: undefined,
   identity: undefined,
-  invokedFunctionArn: 'arn:aws:lambda:ca-central-1:000000000000:function:lambda',
+  invokedFunctionArn:
+    'arn:aws:lambda:ca-central-1:000000000000:function:lambda',
   awsRequestId: '00000000-0000-0000-0000-0000000000000'
 }
 const contextSchema = {
@@ -86,13 +87,33 @@ const contextSchema = {
           type: 'string'
         }
       },
-      required: ['client.installation_id', 'client.app_title', 'client.app_version_name', 'client.app_version_code', 'client.app_package_name', 'env.platform_version', 'env.platform', 'env.make', 'env.model', 'env.locale']
+      required: [
+        'client.installation_id',
+        'client.app_title',
+        'client.app_version_name',
+        'client.app_version_code',
+        'client.app_package_name',
+        'env.platform_version',
+        'env.platform',
+        'env.make',
+        'env.model',
+        'env.locale'
+      ]
     },
     callbackWaitsForEmptyEventLoop: {
       type: 'boolean'
     }
   },
-  required: ['getRemainingTimeInMillis', 'functionVersion', 'invokedFunctionArn', 'memoryLimitInMB', 'awsRequestId', 'logGroupName', 'logStreamName', 'callbackWaitsForEmptyEventLoop']
+  required: [
+    'getRemainingTimeInMillis',
+    'functionVersion',
+    'invokedFunctionArn',
+    'memoryLimitInMB',
+    'awsRequestId',
+    'logGroupName',
+    'logStreamName',
+    'callbackWaitsForEmptyEventLoop'
+  ]
 }
 
 test('It should validate an event object', async (t) => {
@@ -356,12 +377,10 @@ test('It should validate context object', async (t) => {
   }
 
   const handler = middy((event, context) => {
-    console.log(context)
     return expectedResponse
   })
 
-  handler
-    .use(validator({ contextSchema }))
+  handler.use(validator({ contextSchema }))
 
   const response = await handler(event, context)
 
