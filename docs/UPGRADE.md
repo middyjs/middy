@@ -6,6 +6,13 @@ See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
 With the Node.js version change all packages are now ECMAScript Modules along side CommonJS Modules.
 
+## Notable changes
+- New WebSocket middlewares
+- HTTP & WebSocket Routers!
+- Better error handling
+- Timeout error handling
+- Errors now use `{ cause }` for better context
+
 ## Core
 - `onError` middleware stack order reversed to match `after` **[Breaking Change]**
   - This change has trickle down effects on middlewares with `onError` (see below for details)
