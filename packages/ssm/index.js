@@ -1,4 +1,4 @@
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient,
@@ -8,9 +8,9 @@ const {
   jsonSafeParse,
   getInternal,
   sanitizeKey
-} = require('@middy/util')
-const SSM = require('aws-sdk/clients/ssm') // v2
-// const { SSM } = require('@aws-sdk/client-ssm') // v3
+} from '@middy/util'
+import SSM from 'aws-sdk/clients/ssm.js' // v2
+// import { SSM } from '@aws-sdk/client-ssm' // v3
 
 const awsRequestLimit = 10
 const defaults = {
@@ -67,10 +67,10 @@ const ssmMiddleware = (opts = {}) => {
               return {
                 [fetchKey]: new Promise(() => {
                   const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)]
-                  const value = getCache(options.cacheKey)?.value ?? {}
+                  const value = getCache(options.cacheKey).value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
-                  throw new Error('ssm.InvalidParameter ' + fetchKey)
+                  throw new Error('[ssm] InvalidParameter ' + fetchKey)
                 })
               }
             }),
@@ -80,7 +80,7 @@ const ssmMiddleware = (opts = {}) => {
           )
         })
         .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
+          const value = getCache(options.cacheKey).value ?? {}
           value[internalKey] = undefined
           modifyCache(options.cacheKey, value)
           throw e
@@ -96,7 +96,6 @@ const ssmMiddleware = (opts = {}) => {
       batchFetchKeys = []
       batchReq = null
     }
-
     return values
   }
 
@@ -107,7 +106,7 @@ const ssmMiddleware = (opts = {}) => {
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
       values[internalKey] = fetchPath(fetchKey).catch((e) => {
-        const value = getCache(options.cacheKey)?.value ?? {}
+        const value = getCache(options.cacheKey).value ?? {}
         value[internalKey] = undefined
         modifyCache(options.cacheKey, value)
         throw e
@@ -173,4 +172,4 @@ const ssmMiddleware = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
-module.exports = ssmMiddleware
+export default ssmMiddleware

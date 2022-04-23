@@ -1,26 +1,36 @@
-# Middy http-multipart-body-parser middleware
-
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
-</div>
-
-<div align="center">
+  <h1>Middy http-multipart-body-parser middleware</h1>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP json body parser middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fhttp-json-body-parser">
-    <img src="https://badge.fury.io/js/%40middy%2Fhttp-json-body-parser.svg" alt="npm version" style="max-width:100%;">
+  <a href="https://www.npmjs.com/package/@middy/http-multipart-body-parser?activeTab=versions">
+    <img src="https://badge.fury.io/js/%40middy%2Fhttp-multipart-body-parser.svg" alt="npm version" style="max-width:100%;">
+  </a>
+  <a href="https://packagephobia.com/result?p=@middy/http-multipart-body-parser">
+    <img src="https://packagephobia.com/badge?p=@middy/http-multipart-body-parser" alt="npm install size" style="max-width:100%;">
+  </a>
+  <a href="https://github.com/middyjs/middy/actions">
+    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
+  </a>
+  <br/>
+   <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
   </a>
+  <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
+    <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">
+  </a>
+  <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
+  </a>
+  <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
 </div>
@@ -47,7 +57,7 @@ npm install --save @middy/http-multipart-body-parser
 
 ## Options
 
-- `busboy` (object) (optional): defaults to `{}` and it can be used to pass extraparameters to the internal `busboy` instance at creation time. Checkout [the official documentation](https://www.npmjs.com/package/busboy#busboy-methods) for more information on the supported options.
+- `busboy` (object) (default `{}`): it can be used to pass extraparameters to the internal `busboy` instance at creation time. Checkout [the official documentation](https://www.npmjs.com/package/busboy#busboy-methods) for more information on the supported options.
 
 **Note**: this middleware will buffer all the data as it is processed internally by `busboy`, so, if you are using this approach to parse significantly big volumes of data, keep in mind that all the data will be allocated in memory. This is somewhat inevitable with Lambdas (as the data is already encoded into the JSON in memory as Base64), but it's good to keep this in mind and evaluate the impact on you application.  
 If you really have to deal with big files, then you might also want to consider to allowing your users to [directly upload files to S3](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)
@@ -90,7 +100,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

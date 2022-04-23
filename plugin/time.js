@@ -12,7 +12,12 @@ const timePlugin = (opts = {}) => {
   }
   const stop = (id) => {
     if (!enabled) return
-    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString()) / 1000000, 'ms')
+    logger(
+      id,
+      Number.parseInt((process.hrtime.bigint() - store[id]).toString()) /
+        1000000,
+      'ms'
+    )
   }
 
   // Only run during cold start
@@ -41,4 +46,4 @@ const timePlugin = (opts = {}) => {
     requestEnd
   }
 }
-module.exports = timePlugin
+export default timePlugin

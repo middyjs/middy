@@ -1,10 +1,10 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const { getInternal, clearCache } = require('../../util')
-const SecretsManager = require('aws-sdk/clients/secretsmanager.js') // v2
-// const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
-const secretsManager = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import { getInternal, clearCache } from '../../util/index.js'
+import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
+// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+import secretsManager from '../index.js'
 
 let sandbox
 test.beforeEach((t) => {
@@ -32,6 +32,24 @@ const mockService = (client, responseOne, responseTwo) => {
   return mock
 }
 
+const mockServiceError = (client, error) => {
+  // aws-sdk v2
+  const mock = sandbox.stub()
+  mock.onFirstCall().returns({ promise: () => Promise.reject(error) })
+  client.prototype.getSecretValue = mock
+  // aws-sdk v3
+  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
+  // mock.onFirstCall().rejects(responseOne)
+  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+
+  return mock
+}
+
+const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test.serial('It should set secret to internal storage (token)', async (t) => {
   mockService(SecretsManager, {
     SecretString: 'token'
@@ -47,6 +65,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
         }
@@ -54,7 +73,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set secrets to internal storage (token)', async (t) => {
@@ -80,6 +99,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token1: 'api_key1',
           token2: 'api_key2'
@@ -88,7 +108,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial('It should set secrets to internal storage (json)', async (t) => {
@@ -111,6 +131,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           credentials: 'rds_login'
         }
@@ -118,7 +139,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -139,6 +160,7 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
           },
@@ -147,7 +169,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    await handler(event, context)
   }
 )
 
@@ -166,6 +188,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
     .use(
       secretsManager({
         AwsClient: SecretsManager,
+        cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
         },
@@ -174,7 +197,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
     )
     .before(middleware)
 
-  await handler()
+  await handler(event, context)
 })
 
 test.serial(
@@ -195,6 +218,7 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: -1,
           fetchData: {
             token: 'api_key'
           }
@@ -202,8 +226,8 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 1)
   }
@@ -233,17 +257,40 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManager,
+          cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
-          },
-          cacheExpiry: 0
+          }
         })
       )
       .before(middleware)
 
-    await handler()
-    await handler()
+    await handler(event, context)
+    await handler(event, context)
 
     t.is(stub.callCount, 2)
   }
 )
+
+test.serial('It should catch if an error is returned from fetch', async (t) => {
+  const stub = mockServiceError(SecretsManager, new Error('timeout'))
+
+  const handler = middy(() => {}).use(
+    secretsManager({
+      AwsClient: SecretsManager,
+      cacheExpiry: 0,
+      fetchData: {
+        token: 'api_key'
+      },
+      setToContext: true
+    })
+  )
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(stub.callCount, 1)
+    t.is(e.message, 'Failed to resolve internal values')
+    t.deepEqual(e.cause, [new Error('timeout')])
+  }
+})

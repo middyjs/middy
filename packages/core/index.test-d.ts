@@ -7,7 +7,7 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-const baseHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
+const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
@@ -18,21 +18,21 @@ type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResul
 type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>
 
 // initialize
-let handler = middy(baseHandler)
+let handler = middy(lambdaHandler)
 expectType<Handler>(handler)
 
 // initialize with empty plugin
-handler = middy(baseHandler, {})
+handler = middy(lambdaHandler, {})
 expectType<Handler>(handler)
 
 // initialize with plugin with few hooks
-handler = middy(baseHandler, {
+handler = middy(lambdaHandler, {
   beforePrefetch () { console.log('beforePrefetch') }
 })
 expectType<Handler>(handler)
 
 // initialize with plugin with all hooks
-handler = middy(baseHandler, {
+handler = middy(lambdaHandler, {
   beforePrefetch () { console.log('beforePrefetch') },
   requestStart () { console.log('requestStart') },
   beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },
@@ -140,10 +140,6 @@ expectType<Handler>(handler)
 handler = handler.use([middlewareObj])
 expectType<Handler>(handler)
 
-// applyMiddleware
-handler = handler.applyMiddleware(middlewareObj)
-expectType<Handler>(handler)
-
 // before
 handler = handler.before((request: Request) => { console.log('Before', request) })
 expectType<Handler>(handler)
@@ -155,13 +151,6 @@ expectType<Handler>(handler)
 // error
 handler = handler.onError((request: Request) => { console.log('OnError', request) })
 expectType<Handler>(handler)
-
-// check middlewares list
-expectType<{
-  before: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-  after: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-  onError: Array<middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult, Error>>
-}>(handler.__middlewares)
 
 interface MutableContext extends Context {
   name: string

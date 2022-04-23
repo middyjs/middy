@@ -1,26 +1,36 @@
-# Middy CORS middleware
-
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
-</div>
-
-<div align="center">
+  <h1>Middy CORS middleware</h1>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>CORS middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fhttp-cors">
+  <a href="https://www.npmjs.com/package/@middy/http-cors?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fhttp-cors.svg" alt="npm version" style="max-width:100%;">
+  </a>
+  <a href="https://packagephobia.com/result?p=@middy/http-cors">
+    <img src="https://packagephobia.com/badge?p=@middy/http-cors" alt="npm install size" style="max-width:100%;">
+  </a>
+  <a href="https://github.com/middyjs/middy/actions">
+    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
+  </a>
+  <br/>
+   <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
   </a>
+  <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
+    <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">
+  </a>
+  <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
+  </a>
+  <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
 </div>
@@ -38,20 +48,20 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-cors
 ```
 
-
 ## Options
 
- - `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
- - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
- - `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
- - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
- - `origin` (string) (optional): origin to put in the header (default: "`*`")
- - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
- - `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
- - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
- - `requestHeaders` (string) (optional): value to put in `Access-Control-Request-Headers` (default: `false`)
- - `requestMethods` (string) (optional): value to put in `Access-Control-Request-Methods` (default: `false`)
- - `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
+ - `credentials` (boolean) (default `undefined`): if true, sets `Access-Control-Allow-Credentials`
+ - `headers` (string) (default `undefined`): value to put in `Access-Control-Allow-Headers`
+ - `methods` (string) (default `undefined`): value to put in `Access-Control-Allow-Methods`
+ - `getOrigin` (function(incomingOrigin:string, options)): take full control of the generating the returned origin. Defaults to using the origin or origins option.
+ - `origin` (string) (default `'*'`): origin to put in the header
+ - `origins` (array) (default `[]`): An array of allowed origins. The incoming origin is matched against the list and is returned if present. 
+ - `exposeHeaders` (string) (default `undefined`): value to put in `Access-Control-Expose-Headers`
+ - `maxAge` (string) (default `undefined`): value to put in `Access-Control-Max-Age` header
+ - `requestHeaders` (string) (default `undefined`): value to put in `Access-Control-Request-Headers`
+ - `requestMethods` (string) (default `undefined`): value to put in `Access-Control-Request-Methods`
+ - `cacheControl` (string) (default `undefined`): value to put in `Cache-Control header` on pre-flight (OPTIONS) requests
+ - `vary` (string) (default `undefined`): value to put in `Vary`, will set to `Origin` if `Access-Control-Allow-Origin` is not `*` and option unset.
 
 ```javascript
 import middy from '@middy/core'
@@ -105,7 +115,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

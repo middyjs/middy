@@ -1,6 +1,5 @@
-
 const defaults = {
-  isWarmingUp: (event) => (event?.source === 'serverless-plugin-warmup')
+  isWarmingUp: (event) => event.source === 'serverless-plugin-warmup'
 }
 
 const warmupMiddleware = (opt) => {
@@ -17,4 +16,4 @@ const warmupMiddleware = (opt) => {
   }
 }
 
-module.exports = warmupMiddleware
+export default warmupMiddleware

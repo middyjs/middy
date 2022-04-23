@@ -1,34 +1,34 @@
-let https = require('https')
-const { URL } = require('url')
+import __https from 'https'
+import { URL } from 'url'
 
-const {
-  canPrefetch,
-  createPrefetchClient,
-  createClient
-} = require('@middy/util')
+import { canPrefetch, createPrefetchClient, createClient } from '@middy/util'
 
-const S3 = require('aws-sdk/clients/s3') // v2
-// const { S3 } = require('@aws-sdk/client-s3') // v3
+import S3 from 'aws-sdk/clients/s3.js' // v2
+// import { S3 } from '@aws-sdk/client-s3' // v3
 
 const defaults = {
-  AwsClient: S3, // Allow for XRay
+  AwsClient: S3,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   httpsCapture: undefined,
   disablePrefetch: false,
-  bodyType: undefined
+  bodyType: undefined,
+
+  // For mocking out only, rewire doesn't support ES Modules :(
+  __https
 }
 
+let https = __https
 const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   if (!['stream', 'promise'].includes(options.bodyType)) {
-    throw new Error('bodyType is invalid.')
+    throw new Error('[s3-object-response] bodyType is invalid')
   }
 
   if (options.httpsCapture) {
-    https = options.httpsCapture(https)
+    https = options.httpsCapture(options.__https)
   }
 
   let client
@@ -37,11 +37,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    const {
-      inputS3Url,
-      outputRoute,
-      outputToken
-    } = request.event.getObjectContext
+    const { inputS3Url, outputRoute, outputToken } =
+      request.event.getObjectContext
 
     request.internal.s3ObjectResponse = {
       RequestRoute: outputRoute,
@@ -63,16 +60,17 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    request.response.Body = request.response.Body ?? request.response.body
+    request.response.Body ??= request.response.body
     delete request.response.body
 
-    return client
+    await client
       .writeGetObjectResponse({
         ...request.response,
         ...request.internal.s3ObjectResponse
       })
       .promise()
-      .then(() => ({ statusCode: 200 })) // TODO test if needed
+
+    return { statusCode: 200 }
   }
 
   return {
@@ -87,7 +85,6 @@ const fetchType = (type, fetchOptions) => {
   } else if (type === 'promise') {
     return fetchPromise(fetchOptions)
   }
-  return null
 }
 
 const fetchStream = (fetchOptions) => {
@@ -106,4 +103,4 @@ const fetchPromise = (fetchOptions) => {
   })
 }
 
-module.exports = s3ObjectResponseMiddleware
+export default s3ObjectResponseMiddleware

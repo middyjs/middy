@@ -1,20 +1,22 @@
-name: Tests
+name: Unit Tests
 
 on:
   push:
     branches:
-      - "**"
+      - 'main'
     tags-ignore:
-      - "*.*.*"
-  pull_request: {}
+      - '*.*.*'
+  pull_request:
 
 jobs:
   tests:
+    name: Tests
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [12.x, 14.x]
+        node-version: [14.x, 16.x]
+        node-module-type: [esm]
 
     steps:
       - name: Checkout repository
@@ -23,22 +25,21 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Use npm 7.5
+      - name: Use npm 8
         run: |
-          npm install -g npm@7.5
+          npm install -g npm@8
       - name: Install dependencies
         run: |
           npm install
         env:
           CI: true
-      - name: Build as Commonjs for Node.js v12
+
+      - name: Transpile for Node.js ${{ matrix.node-version }} (${{ matrix.node-module-type}})
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/babel --root-mode upward index.js --out-file index.js
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ matrix.node-module-type}}.config.json index.js --out-file index.js
+
       - name: Unit tests
-        run: npm run test:packages:unit
-        env:
-          CI: true
-      - name: Check typings
-        run: npm run test:packages:typings
+        run: |
+          npm run test:packages:unit
         env:
           CI: true

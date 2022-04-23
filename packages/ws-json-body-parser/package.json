@@ -1,0 +1,66 @@
+{
+  "name": "@middy/ws-json-body-parser",
+  "version": "3.0.0-alpha.8",
+  "description": "WebSocket JSON body parser middleware for the middy framework",
+  "type": "module",
+  "engines": {
+    "node": ">=14"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.cjs",
+      "types": "./index.d.ts"
+    }
+  },
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "ava",
+    "test:benchmark": "node __benchmarks__/index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "WebSocket",
+    "WS",
+    "JSON",
+    "Body Parser",
+    "JSON Body Parser"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github:middyjs/middy",
+    "directory": "packages/ws-json-body-parser"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://middy.js.org",
+  "dependencies": {
+    "@middy/util": "^3.0.0-alpha.8"
+  },
+  "devDependencies": {
+    "@middy/core": "^3.0.0-alpha.8"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}

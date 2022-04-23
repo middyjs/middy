@@ -1,26 +1,36 @@
-# Middy AWS event parse and normalization middleware
-
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.png"/>
-</div>
-
-<div align="center">
+  <h1>Middy AWS event parse and normalization middleware</h1>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>AWS event parsing and normalization middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fevent-normalizer">
+  <a href="https://www.npmjs.com/package/@middy/event-normalizer?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fevent-normalizer.svg" alt="npm version" style="max-width:100%;">
+  </a>
+  <a href="https://packagephobia.com/result?p=@middy/event-normalizer">
+    <img src="https://packagephobia.com/badge?p=@middy/event-normalizer" alt="npm install size" style="max-width:100%;">
+  </a>
+  <a href="https://github.com/middyjs/middy/actions">
+    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
+  </a>
+  <br/>
+   <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
   </a>
+  <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
+    <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">
+  </a>
+  <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
+  </a>
+  <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
 </div>
@@ -28,17 +38,45 @@
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.
 
 **AWS Events Transformations:**
-- `API Gateway (HTTP, REST, Websocket)`: None, see middleware prefixed with `http-`
-- `CloudWatch`: None
-- `Cognito Pool`: None
-- `DynamoDB`: Unmarshall `Keys`, `OldImage`, and `NewImage`
-- `IoT`: None
-- `Kinesis Stream`: Base64 decode and JSON parse
-- `Kinesis Firehose`: Base64 decode and JSON parse
-- `RDS`: None
-- `S3`: URI decode key name
-- `SNS`: JSON parse
-- `SQS`: JSON parse
+https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
+
+Event Source       | Included | Comments
+-------------------|----------|-----------------------------------------------
+Alexa              | No       | Normalization not required
+API Gateway (HTTP) | No *     | See middleware prefixed with `@middy/http-`
+API Gateway (REST) | No *     | See middleware prefixed with `@middy/http-`
+API Gateway (WS)   | No       | Opportunity for new middleware
+Application LB     | No *     | See middleware prefixed with `@middy/http-`
+CloudFormation     | No       | Normalization not required
+CloudFront         | No       | Normalization not required
+CloudTrail         | No       | Normalization not required
+CloudWatch Logs    | Yes      | Base64 decode and JSON parse `data`
+CodeCommit         | No       | Normalization not required
+CodePipeline       | Yes      | JSON parse `UserParameters`
+Cognito            | No       | Normalization not required
+Config             | Yes      | JSON parse `invokingEvent` and `ruleParameters`
+Connect            | No       | Normalization not required
+DynamoDB           | Yes      | Unmarshall `Keys`, `OldImage`, and `NewImage`
+EC2                | No       | Normalization not required
+EventBridge        | No       | Normalization not required
+IoT                | No       | Normalization not required
+IoT Event          | No       | Normalization not required
+Kafka              | Yes      | Base64 decode and JSON parse `value`
+Kafka (MSK)        | Yes      | Base64 decode and JSON parse `value`
+Kinesis Firehose   | Yes      | Base64 decode and JSON parse `data`
+Kinesis Stream     | Yes      | Base64 decode and JSON parse `data`
+Lex                | No       | Normalization not required
+MQ                 | Yes      | Base64 decode and JSON parse `data`
+RDS                | No       | Normalization not required
+S3                 | Yes      | URI decode `key`
+S3 Batch           | Yes      | URI decode `s3Key`
+S3 Object Lambda   | No *     | See middleware `@middy/s3-object-response`
+Secrets Manager    | No       | Normalization not required
+SES                | No       | Normalization not required
+SNS                | Yes      | JSON parse `Message`
+SQS                | Yes      | JSON parse `body`
+
+\* Handled in another dedicated middleware(s)
 
 **Test Events**
 Some events send test events after set, you will need to handle these.
@@ -69,14 +107,14 @@ npm install --save @middy/event-normalizer
 import middy from '@middy/core'
 import eventNormalizer from '@middy/event-normalizer'
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   const { Records } = event
   for(const record of Records) {
     // ...
   }
 }
 
-const handler = middy(baseHandler).use(eventNormalizer())
+const handler = middy(lambdaHandler).use(eventNormalizer())
 ```
 
 ## Middy documentation and examples
@@ -91,7 +129,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

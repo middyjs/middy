@@ -1,10 +1,10 @@
-const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
-  const defaults = {
-    runOnBefore: true,
-    runOnAfter: false,
-    runOnError: false
-  }
+const defaults = {
+  runOnBefore: true,
+  runOnAfter: false,
+  runOnError: false
+}
 
+const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const doNotWaitForEmptyEventLoop = async (request) => {
@@ -17,4 +17,4 @@ const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
     onError: options.runOnError ? doNotWaitForEmptyEventLoop : undefined
   }
 }
-module.exports = doNotWaitForEmptyEventLoopMiddleware
+export default doNotWaitForEmptyEventLoopMiddleware

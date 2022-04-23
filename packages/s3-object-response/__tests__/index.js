@@ -1,14 +1,14 @@
-const { PassThrough } = require('stream')
-const eventEmitter = require('events')
-const https = require('https')
-const test = require('ava')
-const sinon = require('sinon')
-const rewire = require('rewire')
-const middy = require('../../core/index.js')
-const { clearCache } = require('../../util')
-const S3 = require('aws-sdk/clients/s3.js') // v2
-// const { S3 } = require('@aws-sdk/client-s3') // v3
-const s3ObejctResponse = rewire('../index.js')
+import { PassThrough } from 'stream'
+import eventEmitter from 'events'
+import https from 'https'
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import { clearCache } from '../../util/index.js'
+import S3 from 'aws-sdk/clients/s3.js' // v2
+// import { S3 } from '@aws-sdk/client-s3' // v3
+
+import s3ObejctResponse from '../index.js'
 
 let sandbox
 test.beforeEach((t) => {
@@ -47,21 +47,23 @@ const mockHttps = (mockResponse) => {
   return https
 }
 
-const isReadableStream = (body) => {
-  return body instanceof eventEmitter && typeof body.read === 'function'
-}
-
-const event = {
+const defaultEvent = {
   getObjectContext: {
     inputS3Url: 'https://s3.amazonservices.com/key?signature',
     outputRoute: 'https://s3.amazonservices.com/key',
     outputToken: 'token'
   }
 }
+const defaultContext = {
+  getRemainingTimeInMillis: () => 1000
+}
 
-test.serial('It should pass a stream to handler', async (t) => {
+const isReadableStream = (body) => {
+  return body instanceof eventEmitter && body.readable !== false
+}
+
+test.serial('It should throw when unknown bodyType used', async (t) => {
   mockService(S3, { statusCode: 200 })
-  s3ObejctResponse.__set__('https', mockHttps('hello world'))
 
   const handler = middy((event, context) => {
     t.true(isReadableStream(context.s3Object))
@@ -71,20 +73,23 @@ test.serial('It should pass a stream to handler', async (t) => {
     }
   })
 
-  handler.use(
-    s3ObejctResponse({
-      AwsClient: S3,
-      bodyType: 'stream'
-    })
-  )
+  try {
+    handler.use(
+      s3ObejctResponse({
+        AwsClient: S3,
+        bodyType: 'string',
 
-  const response = await handler(event)
-  t.deepEqual(200, response.statusCode)
+        __https: mockHttps('hello world')
+      })
+    )
+  } catch (e) {
+    t.is(e.message, '[s3-object-response] bodyType is invalid')
+  }
 })
 
-test.serial('It should pass a promise to handler', async (t) => {
+test.serial('It should capture fetch', async (t) => {
   mockService(S3, { statusCode: 200 })
-  s3ObejctResponse.__set__('https', mockHttps('hello world'))
+  const httpsCapture = sinon.spy((a) => a)
 
   const handler = middy(async (event, context) => {
     t.true(typeof context.s3Object.then === 'function')
@@ -97,10 +102,63 @@ test.serial('It should pass a promise to handler', async (t) => {
   handler.use(
     s3ObejctResponse({
       AwsClient: S3,
-      bodyType: 'promise'
+      httpsCapture,
+      bodyType: 'promise',
+
+      __https: mockHttps('hello world')
     })
   )
 
-  const response = await handler(event)
+  const response = await handler(defaultEvent, defaultContext)
+  t.deepEqual(200, response.statusCode)
+  t.is(httpsCapture.callCount, 1)
+})
+
+test.serial('It should pass a stream to handler', async (t) => {
+  mockService(S3, { statusCode: 200 })
+
+  const handler = middy((event, context) => {
+    t.true(isReadableStream(context.s3Object))
+
+    return {
+      Body: context.s3Object
+    }
+  })
+
+  handler.use(
+    s3ObejctResponse({
+      AwsClient: S3,
+      bodyType: 'stream',
+      disablePrefetch: true,
+
+      __https: mockHttps('hello world')
+    })
+  )
+
+  const response = await handler(defaultEvent, defaultContext)
+  t.deepEqual(200, response.statusCode)
+})
+
+test.serial('It should pass a promise to handler', async (t) => {
+  mockService(S3, { statusCode: 200 })
+
+  const handler = middy(async (event, context) => {
+    t.true(typeof context.s3Object.then === 'function')
+
+    return {
+      Body: await context.s3Object
+    }
+  })
+
+  handler.use(
+    s3ObejctResponse({
+      AwsClient: S3,
+      bodyType: 'promise',
+
+      __https: mockHttps('hello world')
+    })
+  )
+
+  const response = await handler(defaultEvent, defaultContext)
   t.deepEqual(200, response.statusCode)
 })

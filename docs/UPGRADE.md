@@ -1,8 +1,162 @@
+
+# Upgrade 2.x -> 3.x
+
+See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
+
+Version 3.x of Middy no longer supports Node.js versions 12.x. You are highly encouraged to move to Node.js 16.x.
+With the Node.js version change all packages are now ECMAScript Modules along side CommonJS Modules.
+
+## Notable changes
+- New WebSocket middlewares
+- HTTP & WebSocket Routers!
+- Better error handling
+- Timeout error handling
+- Errors now use `{ cause }` for better context
+
+## Core
+- `onError` middleware stack order reversed to match `after` **[Breaking Change]**
+  - This change has trickle down effects on middlewares with `onError` (see below for details)
+  - If you're handling errors yourself here are some things to review:
+    - Attach near the end so it is triggered first (likely already done)
+    - Remove `return response`, this will short circuit the response and block later middleware from modifying the response
+- lambdaHandler now passes `{signal}` from `AbortController` to allow for ending lambda early to handle timeout errors
+- `plugin` argument now supports:
+  - `internal`: Allow the use of `new Proxy()` for smarter triggering in advanced use cases.
+  - `timeoutEarlyInMillis`: When before lambda timeout to trigger early exit. Default `5`
+  - `timeoutEarlyResponse`: Function to throw a custom error or return a pre-set value. Default `() => { throw new Error('Timeout') }`
+- Added `.handler()` method to allow easier understanding of the execution cycle
+- Deprecate `applyMiddleware()` and `__middlewares` **[Breaking Change]**
+
+## Util
+- `getInternal` error now includes `cause` set to an array of Errors
+- Catch when `X-Ray` is applied outside of handler invocation scope
+- `normalizeHttpResponse` now takes `request` and mutates response **[Breaking Change]**
+- `getCache` will return `{}` instead of `undefined` when not found **[Breaking Change]**
+
+## Middleware
+
+### [cloudwatch-metrics](/packages/cloudwatch-metrics/README.md)
+No change
+
+### [do-not-wait-for-empty-event-loop](/packages/do-not-wait-for-empty-event-loop/README.md)
+No change
+
+### [error-logger](/packages/error-logger/README.md)
+No change
+
+### [event-normalizer](/packages/event-normalizer/README.md)
+- Add support for all missing AWS events
+- Refactored for performance improvements
+
+### [http-content-encoding](/packages/http-content-encoding/README.md)
+- [New] Applies `brotli`, `gzip`, ands `deflate` compression to response body
+
+### [http-content-negotiation](/packages/http-content-negotiation/README.md)
+No change
+
+### [http-cors](/packages/http-cors/README.md)
+- `onError` will not modify response unless error has been handled 
+- Small refactor for performance improvements
+
+### [http-error-handler](/packages/http-error-handler/README.md)
+- No longer returns the response to short circuit the middleware stack to allow for easier use now that `onError` is called in reverse order. 
+
+### [http-event-normalizer](/packages/http-event-normalizer/README.md)
+- Option `payloadFormatVersion` no longer needed
+- Will now throw error if not an http event **[Breaking Change]**
+
+### [http-header-normalizer](/packages/http-header-normalizer/README.md)
+- Modified so that all headers are set to lowercase when `canonical:false` **[Breaking Change]**
+
+### [http-json-body-parser](/packages/http-json-body-parser/README.md)
+No change
+
+### [http-multipart-body-parser](/packages/http-multipart-body-parser/README.md)
+- Change default charset from `binary`/`latin1` to `utf-8`. **[Breaking Change]**
+
+### [http-partial-response](/packages/http-partial-response/README.md)
+No change
+
+### [http-response-serializer](/packages/http-response-serializer/README.md)
+- Renamed `default` option to `defaultContentType` to improve maintainability **[Breaking Change]**
+- `onError` will not modify response unless error has been handled
+
+### [http-router](/packages/http-router/README.md)
+- [New] Allow re-routing of events to different handlers
+
+### [http-security-headers](/packages/http-security-headers/README.md)
+- `onError` will not modify response unless error has been handled
+- Complete rewrite of options and inclusion of new HTML only headers **[Breaking Change]**
+
+### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
+No change
+
+### [http-urlencode-path-parser](/packages/http-urlencode-path-parser/README.md)
+No change
+
+### [input-output-logger](/packages/input-output-logger/README.md)
+- Add in new option to mask instead of omit a path.
+
+### [rds-signer](/packages/rds-signer/README.md)
+- Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
+
+### s3-key-normalizer
+- Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
+
+### [s3-object-response](/packages/s3-object-response/README.md)
+No change
+
+### [secrets-manager](/packages/secrets-manager/README.md)
+- Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
+
+### [service-discovery](/packages/service-discovery/README.md)
+- [New] Allow easy access to discoveryInstances
+
+### sqs-json-body-parser
+- Deprecated in favour of [`event-normalizer`](/packages/event-normalizer/README.md), v2.x compatible with v3
+
+### [sqs-partial-batch-failure](/packages/sqs-partial-batch-failure/README.md)
+- Complete rewrite to take advantage of https://aws.amazon.com/about-aws/whats-new/2021/11/aws-lambda-partial-batch-response-sqs-event-source/, will no longer throw an error if any message fails **[Breaking Change]**
+
+### [ssm](/packages/ssm/README.md)
+- Deprecated `setToEnv` option **[Breaking Change]**
+
+### [sts](/packages/sts/README.md)
+No change
+
+### [validator](/packages/validator/README.md)
+- Change where errors are stored, from `request.error.details` to `request.error.cause` **[Breaking Change]**
+- Add new options `eventSchema`, `contextSchema`, `responseSchema`. `inputSchema` and `outputSchema` become aliases.
+
+### [warmup](/packages/warmup/README.md)
+No change
+
+### [ws-json-body-parser](/packages/ws-json-body-parser/README.md)
+- [New] Parse body from WebSocket event
+
+### [ws-response](/packages/ws-response/README.md)
+- [New] Post responses to WebSocket API Gateway
+
+### [ws-router](/packages/ws-router/README.md)
+- [New] Allow re-routing of events to different handlers
+
+## Notes
+
+If you still need `setToEnv` you can do something like so:
+```javascript
+middy(lambdaHandler)
+  .use(/*...*/)
+  .before(async (request) => {
+    const values = await getInternal(['NODE_ENV'], request)
+    process.env.NODE_ENV = values.NODE_ENV
+  })
+```
+
 # Upgrade 1.x -> 2.x
 
 See [CHANGELOG](/docs/CHANGELOG.md) for an overview of changes.
 
-Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly encouraged to move to Node.js 14, 
+Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly encouraged to move to Node.js 14.x, 
 which support ES6 modules by default (`export`), optional chaining (`?.`) and nullish coalescing operator (`??`) natively.
 
 ## Core
@@ -108,7 +262,9 @@ Remove `extended` option. Only uses `qs` as the parser, formally enabled by opti
 No change
 
 ### [input-output-logger](/packages/input-output-logger/README.md)
-Now additionally logs response from the `onError` middleware stack
+- Now additionally logs response from the `onError` middleware stack
+- Support for omiting within nested arrays
+- Add in support for `replacer` to be passed into `JSON.stringify()`
 
 ### [rds-signer](/packages/rds-signer/README.md)
 New middleware to fetch RDS credential used when connecting with IAM roles. This was built into `db-manager`.
@@ -145,7 +301,7 @@ on 2019-12-03, removing the need for this work around.
 
 However, you can use the following if needed:
 ```javascript
-middy(baseHandler)
+middy(lambdaHandler)
   .before((request) => {
     if (request.event.source === 'serverless-plugin-warmup') {
       console.log('Exiting early via warmup Middleware')

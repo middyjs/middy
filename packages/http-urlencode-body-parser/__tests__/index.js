@@ -1,6 +1,11 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const urlEncodeBodyParser = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import urlEncodeBodyParser from '../index.js'
+
+// const event = {}
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
 
 test('It should decode complex url encoded requests', async (t) => {
   const handler = middy((event, context) => {
@@ -17,7 +22,7 @@ test('It should decode complex url encoded requests', async (t) => {
     body: 'a[b][c][d]=i'
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, {
     a: {
@@ -39,10 +44,11 @@ test('It should not process the body if no headers are passed', async (t) => {
 
   // invokes the handler
   const event = {
+    headers: {},
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.is(body, '{"foo":"bar"}')
 })
@@ -60,7 +66,7 @@ test('It should not process the body if no header is passed', async (t) => {
     headers: {}
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.is(body, '{"foo":"bar"}')
 })
@@ -80,7 +86,7 @@ test('It should handle base64 body', async (t) => {
     isBase64Encoded: true
   }
 
-  const body = await handler(event)
+  const body = await handler(event, context)
 
   t.deepEqual(body, { a: 'a', b: 'b' })
 })

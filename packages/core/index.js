@@ -1,93 +1,126 @@
-const middy = (baseHandler = () => {}, plugin) => {
-  plugin?.beforePrefetch?.()
+// import { setTimeout } from 'timers/promises'
+import { EventEmitter } from 'events' // For polyfill
+
+const defaultLambdaHandler = () => {}
+const defaultPlugin = {
+  timeoutEarlyInMillis: 5,
+  timeoutEarlyResponse: () => {
+    throw new Error('Timeout')
+  }
+}
+
+const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
+  // Allow base handler to be set using .handler()
+  if (typeof lambdaHandler !== 'function') {
+    plugin = lambdaHandler
+    lambdaHandler = defaultLambdaHandler
+  }
+  plugin = { ...defaultPlugin, ...plugin }
+  plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0
+
+  plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const instance = (event = {}, context = {}) => {
-    plugin?.requestStart?.()
+  const middy = (event = {}, context = {}) => {
+    plugin.requestStart?.()
     const request = {
       event,
       context,
       response: undefined,
       error: undefined,
-      internal: {}
+      internal: plugin.internal ?? {}
     }
 
     return runRequest(
       request,
       [...beforeMiddlewares],
-      baseHandler,
+      lambdaHandler,
       [...afterMiddlewares],
       [...onErrorMiddlewares],
       plugin
     )
   }
 
-  instance.use = (middlewares) => {
-    if (Array.isArray(middlewares)) {
-      for (const middleware of middlewares) {
-        instance.applyMiddleware(middleware)
+  middy.use = (middlewares) => {
+    if (!Array.isArray(middlewares)) {
+      middlewares = [middlewares]
+    }
+    for (const middleware of middlewares) {
+      const { before, after, onError } = middleware
+
+      if (!before && !after && !onError) {
+        throw new Error(
+          'Middleware must be an object containing at least one key among "before", "after", "onError"'
+        )
       }
-      return instance
+
+      if (before) middy.before(before)
+      if (after) middy.after(after)
+      if (onError) middy.onError(onError)
     }
-    return instance.applyMiddleware(middlewares)
-  }
-
-  instance.applyMiddleware = (middleware) => {
-    const { before, after, onError } = middleware
-
-    if (!before && !after && !onError) {
-      throw new Error(
-        'Middleware must be an object containing at least one key among "before", "after", "onError"'
-      )
-    }
-
-    if (before) instance.before(before)
-    if (after) instance.after(after)
-    if (onError) instance.onError(onError)
-
-    return instance
+    return middy
   }
 
   // Inline Middlewares
-  instance.before = (beforeMiddleware) => {
+  middy.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
-    return instance
+    return middy
   }
-  instance.after = (afterMiddleware) => {
+  middy.after = (afterMiddleware) => {
     afterMiddlewares.unshift(afterMiddleware)
-    return instance
+    return middy
   }
-  instance.onError = (onErrorMiddleware) => {
-    onErrorMiddlewares.push(onErrorMiddleware)
-    return instance
+  middy.onError = (onErrorMiddleware) => {
+    onErrorMiddlewares.unshift(onErrorMiddleware)
+    return middy
   }
-
-  instance.__middlewares = {
-    before: beforeMiddlewares,
-    after: afterMiddlewares,
-    onError: onErrorMiddlewares
+  middy.handler = (replaceLambdaHandler) => {
+    lambdaHandler = replaceLambdaHandler
+    return middy
   }
 
-  return instance
+  return middy
 }
 
 const runRequest = async (
   request,
   beforeMiddlewares,
-  baseHandler,
+  lambdaHandler,
   afterMiddlewares,
   onErrorMiddlewares,
   plugin
 ) => {
+  const timeoutEarly =
+    plugin.timeoutEarly && request.context.getRemainingTimeInMillis // disable when AWS context missing (tests, containers)
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early
     if (request.response === undefined) {
-      plugin?.beforeHandler?.()
-      request.response = await baseHandler(request.event, request.context)
-      plugin?.afterHandler?.()
+      plugin.beforeHandler?.()
+
+      const handlerAbort = new AbortController()
+      let timeoutAbort
+      if (timeoutEarly) timeoutAbort = new AbortController()
+      request.response = await Promise.race([
+        lambdaHandler(request.event, request.context, {
+          signal: handlerAbort.signal
+        }),
+        timeoutEarly
+          ? setTimeoutPromise(
+            request.context.getRemainingTimeInMillis() -
+                plugin.timeoutEarlyInMillis,
+            { signal: timeoutAbort.signal }
+          ).then(() => {
+            handlerAbort.abort()
+            return plugin.timeoutEarlyResponse()
+          })
+          : Promise.race([])
+      ])
+      if (timeoutEarly) timeoutAbort.abort() // lambdaHandler may not be a promise
+
+      plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
@@ -106,7 +139,7 @@ const runRequest = async (
     // Catch if onError stack hasn't handled the error
     if (request.response === undefined) throw request.error
   } finally {
-    await plugin?.requestEnd?.(request)
+    await plugin.requestEnd?.(request)
   }
 
   return request.response
@@ -114,9 +147,9 @@ const runRequest = async (
 
 const runMiddlewares = async (request, middlewares, plugin) => {
   for (const nextMiddleware of middlewares) {
-    plugin?.beforeMiddleware?.(nextMiddleware?.name)
-    const res = await nextMiddleware?.(request)
-    plugin?.afterMiddleware?.(nextMiddleware?.name)
+    plugin.beforeMiddleware?.(nextMiddleware.name)
+    const res = await nextMiddleware(request)
+    plugin.afterMiddleware?.(nextMiddleware.name)
     // short circuit chaining and respond early
     if (res !== undefined) {
       request.response = res
@@ -125,4 +158,100 @@ const runMiddlewares = async (request, middlewares, plugin) => {
   }
 }
 
-module.exports = middy
+// Start Polyfill (Nodejs v14)
+/*
+MIT License
+
+Copyright (c) 2019 Steve Faulkner
+
+node-abort-controller
+ */
+const polyfillAbortController = () => {
+  if (process.version < 'v15.0.0') {
+    class AbortSignal {
+      constructor () {
+        this.eventEmitter = new EventEmitter()
+        this.onabort = null
+        this.aborted = false
+      }
+
+      toString () {
+        return '[object AbortSignal]'
+      }
+
+      get [Symbol.toStringTag] () {
+        return 'AbortSignal'
+      }
+
+      removeEventListener (name, handler) {
+        this.eventEmitter.removeListener(name, handler)
+      }
+
+      addEventListener (name, handler) {
+        this.eventEmitter.on(name, handler)
+      }
+
+      dispatchEvent (type) {
+        const event = { type, target: this }
+        const handlerName = `on${type}`
+
+        if (typeof this[handlerName] === 'function') this[handlerName](event)
+
+        this.eventEmitter.emit(type, event)
+      }
+    }
+
+    return class AbortController {
+      constructor () {
+        this.signal = new AbortSignal()
+      }
+
+      abort () {
+        if (this.signal.aborted) return
+
+        this.signal.aborted = true
+        this.signal.dispatchEvent('abort')
+      }
+
+      toString () {
+        return '[object AbortController]'
+      }
+
+      get [Symbol.toStringTag] () {
+        return 'AbortController'
+      }
+    }
+  } else {
+    return AbortController
+  }
+}
+global.AbortController = polyfillAbortController()
+
+const polyfillSetTimeoutPromise = () => {
+  // if (process.version < 'v15.0.0') {
+  return (ms, { signal }) => {
+    if (signal.aborted) {
+      return Promise.reject(new Error('Aborted', 'AbortError'))
+    }
+    return new Promise((resolve, reject) => {
+      const abortHandler = () => {
+        clearTimeout(timeout)
+        reject(new Error('Aborted', 'AbortError'))
+      }
+      // start async operation
+      const timeout = setTimeout(() => {
+        resolve()
+        signal.removeEventListener('abort', abortHandler)
+      }, ms)
+      signal.addEventListener('abort', abortHandler)
+    })
+  }
+  // } else {
+  //   return timers.promises.setTimeout
+  // }
+}
+const setTimeoutPromise = polyfillSetTimeoutPromise()
+
+// End Polyfill
+
+export default middy
