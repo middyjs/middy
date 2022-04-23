@@ -1,11 +1,12 @@
 ---
-title: Application Load Balancer
+title: Function URL
 ---
-Same as API Gateway (REST)
+Same as API Gateway (HTTP)
 
 ## AWS Documentation
 
-- [Using AWS Lambda with an Application Load Balancer](https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html)
+- [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
+- [Working with HTTP APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html)
 
 TODO
 
@@ -13,7 +14,6 @@ TODO
 
 ```javascript
 import middy from '@middy/core'
-import httpRouterHandler from '@middy/http-router'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
@@ -29,23 +29,11 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
+import validatorMiddleware from 'validator' // or `middy-ajv`
 import warmupMiddleware from 'warmup'
 
-import { handler as getHandler } from './handlers/get-user.js'
-import { handler as postHandler } from './handlers/get-user.js'
-
-const routes = [
-  {
-    method: 'GET',
-    path: '/user/{id}',
-    handler: getHandler
-  },
-  {
-    method: 'POST',
-    path: '/user',
-    handler: postHandler
-  }
-]
+import inputSchema from './eventSchema.json' assert { type: 'json' }
+import outputSchema from './responseSchema.json' assert { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -84,6 +72,9 @@ export const handler = middy({
     })
   )
   .use(httpPartialResponseMiddleware())
+  .use(validatorMiddleware({ inputSchema, outputSchema }))
   .use(httpErrorHandlerMiddleware())
-  .handler(httpRouterHandler(routes))
+  .handler((event, context, { signal }) => {
+    // ...
+  })
 ```
