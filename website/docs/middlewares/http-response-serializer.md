@@ -9,7 +9,7 @@ The Http Serializer middleware lets you define serialization mechanisms based on
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-response-serializer
 ```
 

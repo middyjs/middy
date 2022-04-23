@@ -8,7 +8,7 @@ Applies best practice security headers to responses. It's a simplified port of H
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-security-headers
 ```
 

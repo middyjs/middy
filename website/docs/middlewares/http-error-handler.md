@@ -14,7 +14,7 @@ This middleware should be set as the last error handler unless you also want to 
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-error-handler
 ```
 

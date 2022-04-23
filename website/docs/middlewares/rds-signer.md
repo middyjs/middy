@@ -8,7 +8,7 @@ Fetches RDS credentials to be used when connecting to RDS with IAM roles.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/rds-signer
 ```
 

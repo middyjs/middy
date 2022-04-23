@@ -16,7 +16,7 @@ For each secret, you also provide the name under which its value should be added
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/secrets-manager
 ```
 

@@ -15,15 +15,27 @@ const config = {
   organizationName: 'middyjs',
   projectName: 'middy',
 
+  plugins: [
+    require.resolve('docusaurus-lunr-search')
+  ],
+
   presets: [
     [
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          sidebarCollapsible: true,
+          showLastUpdateTime: true,
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl: 'https://github.com/middyjs/middy/tree/main/website/',
+          remarkPlugins: [
+            [require('@docusaurus/remark-plugin-npm2yarn'), { sync: true }],
+          ],
+        },
+        pages: {
+          remarkPlugins: [require('@docusaurus/remark-plugin-npm2yarn')],
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -39,7 +51,7 @@ const config = {
         title: 'Middy',
         logo: {
           alt: 'Middy Logo',
-          src: 'img/middy-logo.svg',
+          src: 'img/middy-logo-small.svg',
         },
         items: [
           {
@@ -75,12 +87,16 @@ const config = {
             items: [
               {
                 label: 'Documentation',
-                to: '/docs/intro/intro',
+                to: '/docs',
               },
               {
                 label: 'Middlewares',
                 to: '/docs/category/middlewares',
               },
+              {
+                label: 'AWS Events',
+                to: '/docs/events/intro'
+              }
             ],
           },
           {

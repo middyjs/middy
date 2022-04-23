@@ -11,7 +11,7 @@ By default, the logging operate by using the `console.log` function. You can pas
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/input-output-logger
 ```
 

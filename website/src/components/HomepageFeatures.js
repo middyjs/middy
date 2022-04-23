@@ -41,7 +41,7 @@ const FeatureList = [
     description: (
       <>
         Middy comes with a large set of <Link to="/docs/middlewares/intro">official middlewares</Link>
-        {' '}and <Link to="/docs/utilities/intro">utilities</Link> that can be used
+        {' '}and <Link to="/docs/intro/utilities">utilities</Link> that can be used
         out of the box to address the most common non-functional use cases.
       </>
     ),
@@ -63,7 +63,7 @@ const FeatureList = [
     description: (
       <>
         Do you need to do more? It's really easy to <Link to="/docs/writing-middlewares/intro">write your own custom middlewares</Link>.
-        And, if that's not enough, you can even extend middy itself through its <Link to="/docs/hooks/plugins">plugin system</Link>.
+        And, if that's not enough, you can even extend middy itself through its <Link to="/docs/intro/plugins">plugin system</Link>.
       </>
     ),
   },

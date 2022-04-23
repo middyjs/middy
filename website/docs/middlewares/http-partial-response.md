@@ -11,7 +11,7 @@ This middleware is based on the awesome `json-mask` package written by [Yuriy Ne
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-partial-response
 ```
 

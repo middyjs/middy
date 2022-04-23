@@ -7,13 +7,13 @@ position: 2
 
 To install middy, you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/core
 ```
 
 If you are using TypeScript, you will also want to make sure that you have installed the `@types/aws-lambda` peer-dependency:
 
-```bash
+```bash npm2yarn
 npm install --save-dev @types/aws-lambda
 ```
 

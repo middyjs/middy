@@ -8,7 +8,7 @@ Middleware for handling partially failed SQS batches.
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/sqs-partial-batch-failure
 ```
 

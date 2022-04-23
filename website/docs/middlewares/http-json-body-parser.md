@@ -16,7 +16,7 @@ If the body has been parsed as JSON, you can access the original body (e.g. for 
 
 To install this middleware you can use NPM:
 
-```bash
+```bash npm2yarn
 npm install --save @middy/http-json-body-parser
 ```
 
