@@ -52,7 +52,7 @@ No change
 - [New] Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
 ### [http-content-negotiation](/packages/http-content-negotiation/README.md)
-No change
+- Add in `defaultToFirstLanguage` to allow fallback to a safe language to use
 
 ### [http-cors](/packages/http-cors/README.md)
 - `onError` will not modify response unless error has been handled 
