@@ -51,7 +51,7 @@ test('It should parse charset, encoding, language and media type with lowercase 
   handler.use(
     httpContentNegotiation({
       availableCharsets: ['utf-16'],
-      availableEncodings: undefined,
+      availableEncodings: ['br', 'gzip'],
       availableLanguages: ['en-gb'],
       availableMediaTypes: ['text/plain', 'text/x-dvi']
     })
@@ -60,7 +60,7 @@ test('It should parse charset, encoding, language and media type with lowercase 
   const event = {
     headers: {
       'accept-charset': 'utf-16, iso-8859-5, unicode-1-1;q=0.8',
-      'accept-encoding': '*/*',
+      'accept-encoding': 'gzip, br, deflate',
       'accept-language': 'da, en-gb;q=0.8, en;q=0.7',
       accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     }
@@ -71,18 +71,62 @@ test('It should parse charset, encoding, language and media type with lowercase 
   t.deepEqual(resultingEvent, {
     headers: {
       'accept-charset': 'utf-16, iso-8859-5, unicode-1-1;q=0.8',
-      'accept-encoding': '*/*',
+      'accept-encoding': 'gzip, br, deflate',
       'accept-language': 'da, en-gb;q=0.8, en;q=0.7',
       accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     },
     preferredCharsets: ['utf-16'],
     preferredCharset: 'utf-16',
-    preferredEncodings: ['*/*', 'identity'],
-    preferredEncoding: '*/*',
+    preferredEncodings: ['gzip', 'br'],
+    preferredEncoding: 'gzip',
     preferredLanguages: ['en-gb'],
     preferredLanguage: 'en-gb',
     preferredMediaTypes: ['text/x-dvi', 'text/plain'],
     preferredMediaType: 'text/x-dvi'
+  })
+})
+
+test('It should default charset, encoding, language and media type when there is a mismatch', async (t) => {
+  const handler = middy((event, context) => event)
+  handler.use(
+    httpContentNegotiation({
+      availableCharsets: ['utf-16'],
+      defaultToFirstCharset: true,
+      availableEncodings: ['br', 'gzip'],
+      defaultToFirstEncoding: true,
+      availableLanguages: ['en'],
+      defaultToFirstLanguage: true,
+      availableMediaTypes: ['text/plain'],
+      defaultToFirstMediaType: true
+    })
+  )
+
+  const event = {
+    headers: {
+      'accept-charset': 'iso-8859-5, unicode-1-1;q=0.8',
+      'accept-encoding': 'deflate',
+      'accept-language': 'da, fr;q=0.8',
+      accept: 'text/html, text/x-dvi; q=0.8, text/x-c'
+    }
+  }
+
+  const resultingEvent = await handler(event, context)
+
+  t.deepEqual(resultingEvent, {
+    headers: {
+      'accept-charset': 'iso-8859-5, unicode-1-1;q=0.8',
+      'accept-encoding': 'deflate',
+      'accept-language': 'da, fr;q=0.8',
+      accept: 'text/html, text/x-dvi; q=0.8, text/x-c'
+    },
+    preferredCharsets: [],
+    preferredCharset: 'utf-16',
+    preferredEncodings: [],
+    preferredEncoding: 'br',
+    preferredLanguages: [],
+    preferredLanguage: 'en',
+    preferredMediaTypes: [],
+    preferredMediaType: 'text/plain'
   })
 })
 
