@@ -1,20 +1,18 @@
-const defaults = {
-  payloadFormatVersion: 1
-}
-
-const httpEventNormalizerMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-
+const httpEventNormalizerMiddleware = () => {
   const httpEventNormalizerMiddlewareBefore = async (request) => {
     const { event } = request
 
-    if (isHttpEvent(options.payloadFormatVersion, event)) {
-      event.queryStringParameters = event.queryStringParameters ?? {}
-      event.pathParameters = event.pathParameters ?? {}
-      if (options.payloadFormatVersion === 1) {
-        event.multiValueQueryStringParameters =
-          event.multiValueQueryStringParameters ?? {}
-      }
+    const version = event.version ?? '1.0'
+    const isHttpEvent = isVersionHttpEvent[version]?.(event)
+    if (!isHttpEvent) {
+      throw new Error('[http-event-normalizer] Unknown http event format')
+    }
+
+    // event.headers ??= {} // Will always have at least one header
+    event.queryStringParameters ??= {}
+    event.pathParameters ??= {}
+    if (version === '1.0') {
+      event.multiValueQueryStringParameters ??= {}
     }
   }
 
@@ -23,19 +21,9 @@ const httpEventNormalizerMiddleware = (opts = {}) => {
   }
 }
 
-const isHttpEvent = (payloadFormatVersion, event) => {
-  if (payloadFormatVersion === 1) {
-    return Object.prototype.hasOwnProperty.call(event, 'httpMethod')
-  } else if (payloadFormatVersion === 2) {
-    return (
-      Object.prototype.hasOwnProperty.call(event, 'requestContext') &&
-      Object.prototype.hasOwnProperty.call(event.requestContext, 'http') &&
-      Object.prototype.hasOwnProperty.call(event.requestContext.http, 'method')
-    )
-  }
-  throw new Error(
-    'Unknown API Gateway Payload format. Please use value 1 or 2.'
-  )
+const isVersionHttpEvent = {
+  '1.0': (event) => event.httpMethod !== undefined,
+  '2.0': (event) => event.requestContext.http.method !== undefined
 }
 
-module.exports = httpEventNormalizerMiddleware
+export default httpEventNormalizerMiddleware

@@ -1,15 +1,15 @@
-const {
+import {
   canPrefetch,
   createPrefetchClient,
   createClient,
-  processCache,
   getCache,
+  getInternal,
+  processCache,
   modifyCache,
-  jsonSafeParse,
-  getInternal
-} = require('@middy/util')
-const SecretsManager = require('aws-sdk/clients/secretsmanager') // v2
-// const { SecretsManager } = require('@aws-sdk/client-secrets-manager')  // v3
+  jsonSafeParse
+} from '@middy/util'
+import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
+// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
 
 const defaults = {
   AwsClient: SecretsManager,
@@ -40,7 +40,7 @@ const secretsManagerMiddleware = (opts = {}) => {
         .promise() // Required for aws-sdk v2
         .then((resp) => jsonSafeParse(resp.SecretString))
         .catch((e) => {
-          const value = getCache(options.cacheKey)?.value ?? {}
+          const value = getCache(options.cacheKey).value ?? {}
           value[internalKey] = undefined
           modifyCache(options.cacheKey, value)
           throw e
@@ -76,4 +76,4 @@ const secretsManagerMiddleware = (opts = {}) => {
     before: secretsManagerMiddlewareBefore
   }
 }
-module.exports = secretsManagerMiddleware
+export default secretsManagerMiddleware

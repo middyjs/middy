@@ -1,8 +1,8 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const awsEmbeddedMetrics = require('aws-embedded-metrics')
-const metrics = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import awsEmbeddedMetrics from 'aws-embedded-metrics'
+import metrics from '../index.js'
 
 const sandbox = sinon.createSandbox()
 const flushStub = sandbox.stub()
@@ -17,6 +17,11 @@ const createMetricsLoggerStub = sinon
   .stub(awsEmbeddedMetrics, 'createMetricsLogger')
   .returns(metricsLoggerMock)
 
+const event = {}
+const defaultContext = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test.afterEach((t) => {
   sandbox.restore()
 })
@@ -28,12 +33,15 @@ test.serial(
 
     const middleware = (request) => {
       t.true(createMetricsLoggerStub.called)
-      t.deepEqual(request.context, { metrics: metricsLoggerMock })
+      t.deepEqual(request.context, { ...defaultContext, metrics: metricsLoggerMock })
     }
 
-    handler.use(metrics()).before(middleware)
+    handler
+      .use(metrics())
+      .before(middleware)
 
-    await handler()
+    const context = { ...defaultContext }
+    await handler(event, context)
   }
 )
 
@@ -48,7 +56,8 @@ test.serial(
 
     handler.use(metrics()).after(middleware)
 
-    await handler()
+    const context = { ...defaultContext }
+    await handler(event, context)
   }
 )
 
@@ -63,7 +72,8 @@ test.serial(
 
     handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
 
-    await handler()
+    const context = { ...defaultContext }
+    await handler(event, context)
   }
 )
 
@@ -98,6 +108,7 @@ test.serial(
       )
       .before(middleware)
 
-    await handler()
+    const context = { ...defaultContext }
+    await handler(event, context)
   }
 )

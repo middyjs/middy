@@ -35,17 +35,18 @@ const exceptions = exceptionsList.reduce((acc, curr) => {
 }, {})
 
 const normalizeHeaderKey = (key, canonical) => {
-  if (exceptions[key.toLowerCase()]) {
-    return exceptions[key.toLowerCase()]
-  }
-
+  const lowerCaseKey = key.toLowerCase()
   if (!canonical) {
-    return key.toLowerCase()
+    return lowerCaseKey
   }
 
-  return key
+  if (exceptions[lowerCaseKey]) {
+    return exceptions[lowerCaseKey]
+  }
+
+  return lowerCaseKey
     .split('-')
-    .map((text) => text[0].toUpperCase() + text.substr(1).toLowerCase())
+    .map((text) => text[0].toUpperCase() + text.substr(1))
     .join('-')
 }
 
@@ -62,11 +63,11 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
       const rawHeaders = {}
       const headers = {}
 
-      Object.keys(request.event.headers).forEach((key) => {
+      for (const key of Object.keys(request.event.headers)) {
         rawHeaders[key] = request.event.headers[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
           request.event.headers[key]
-      })
+      }
 
       request.event.headers = headers
       request.event.rawHeaders = rawHeaders
@@ -76,11 +77,11 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
       const rawHeaders = {}
       const headers = {}
 
-      Object.keys(request.event.multiValueHeaders).forEach((key) => {
+      for (const key of Object.keys(request.event.multiValueHeaders)) {
         rawHeaders[key] = request.event.multiValueHeaders[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
           request.event.multiValueHeaders[key]
-      })
+      }
 
       request.event.multiValueHeaders = headers
       request.event.rawMultiValueHeaders = rawHeaders
@@ -92,4 +93,4 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
   }
 }
 
-module.exports = httpHeaderNormalizerMiddleware
+export default httpHeaderNormalizerMiddleware

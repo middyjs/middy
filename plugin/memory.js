@@ -1,4 +1,4 @@
-const memwatch = require('@airbnb/node-memwatch')
+import memwatch from '@airbnb/node-memwatch'
 
 const defaults = {
   logger: console.log
@@ -36,4 +36,4 @@ const memoryPlugin = (opts = {}) => {
     requestEnd
   }
 }
-module.exports = memoryPlugin
+export default memoryPlugin

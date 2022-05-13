@@ -27,7 +27,7 @@ const requestEnd = async () => stop('total') // This is the last run hook, it wi
 
 const plugin = { beforePrefetch, beforeMiddleware, afterMiddleware, beforeHandler, afterHandler, requestEnd }
 
-middy(baseHandler, plugin)
+middy(lambdaHandler, plugin)
   .use(eventLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
@@ -73,4 +73,4 @@ Additionally, you'll notice that each middleware shows a descriptive name. This 
 If you've looked at the code for some the supported middlewares, you'll see these long descriptive variable names being set, then returned.
 This is why.
 
-Want more? Checkout our [benchmark examples](/benchmark).
+Want more? Checkout our [benchmark examples](/benchmarks).

@@ -1,29 +1,36 @@
-# Middy warmup middleware
-
 <div align="center">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/master/img/middy-logo.png"/>
-</div>
-
-<div align="center">
+  <h1>Middy warmup middleware</h1>
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/img/middy-logo.svg"/>
   <p><strong>Warmup middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fwarmup">
+  <a href="https://www.npmjs.com/package/@middy/warmup?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fwarmup.svg" alt="npm version" style="max-width:100%;">
+  </a>
+  <a href="https://packagephobia.com/result?p=@middy/warmup">
+    <img src="https://packagephobia.com/badge?p=@middy/warmup" alt="npm install size" style="max-width:100%;">
+  </a>
+  <a href="https://github.com/middyjs/middy/actions">
+    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
+  </a>
+  <br/>
+   <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
+    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
   </a>
-  <a href="https://greenkeeper.io/">
-    <img src="https://badges.greenkeeper.io/middyjs/middy.svg" alt="Greenkeeper badge"  style="max-width:100%;">
+  <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
+    <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">
   </a>
+  <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
+  </a>
+  <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
 </div>
@@ -52,14 +59,14 @@ npm install --save @middy/warmup
 
 ## Options
 
- - `isWarmingUp`: a function that accepts the `event` object as a parameter
+ - `isWarmingUp`: (function) a function that accepts the `event` object as a parameter
    and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
 
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const warmup = require('@middy/warmup')
+import middy from '@middy/core'
+import warmup from '@middy/warmup'
 
 const isWarmingUp = (event) => event.isWarmingUp === true
 
@@ -84,7 +91,7 @@ Everyone is very welcome to contribute to this repository. Feel free to [raise i
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell, and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

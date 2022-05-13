@@ -38,7 +38,7 @@ declare function clearCache (keys?: string | string[] | null): void
 
 declare function jsonSafeParse (string: string, reviver?: (key: string, value: any) => any): any
 
-declare function normalizeHttpResponse (response: any, fallbackResponse?: any): any
+declare function normalizeHttpResponse (request: any, fallbackResponse?: any): any
 
 declare function createError (code: number, message: string, properties?: Record<string, any>): HttpError
 

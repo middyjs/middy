@@ -1,6 +1,6 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const httpPartialResponse = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import httpPartialResponse from '../index.js'
 
 const createDefaultObjectResponse = () =>
   Object.assign(
@@ -23,8 +23,13 @@ const createDefaultStringifiedResponse = () =>
     }
   )
 
+const defaultEvent = {}
+const defaultContext = {
+  getRemainingTimeInMillis: () => 1000
+}
+
 test('It should filter a response with default opts (string)', async (t) => {
-  const handler = middy((event, context) => ({
+  const handler = middy(() => ({
     statusCode: 200,
     body: 'response'
   }))
@@ -32,93 +37,100 @@ test('It should filter a response with default opts (string)', async (t) => {
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, defaultContext)
 
   t.deepEqual(response.body, 'response')
 })
 
 test('It should filter a response with default opts (object)', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse())
+  const handler = middy(() => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, defaultContext)
 
   t.deepEqual(response.body, { firstname: 'john' })
 })
 
 test('It should filter a response with defined filter key name in opts', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse())
+  const handler = middy(() => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse({ filteringKeyName: 'filter' }))
 
   const event = {
+    headers: {},
     queryStringParameters: {
       filter: 'lastname'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, defaultContext)
 
   t.deepEqual(response.body, { lastname: 'doe' })
 })
 
 test('It should filter a stringified response with default opts', async (t) => {
-  const handler = middy((event, context) => createDefaultStringifiedResponse())
+  const handler = middy(() => createDefaultStringifiedResponse())
 
   handler.use(httpPartialResponse())
 
   const event = {
+    headers: {},
     queryStringParameters: {
       fields: 'firstname'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, defaultContext)
 
   t.is(response.body, JSON.stringify({ firstname: 'john' }))
 })
 
 test('It should return the initial response if response body is empty', async (t) => {
-  const handler = middy((event, context) => '')
+  const handler = middy(() => '')
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const event = {
+    headers: {}
+  }
+  const response = await handler(event, defaultContext)
 
   t.is(response, '')
 })
 
 test('It should return the initial response if response body is not an object neither a json string', async (t) => {
-  const handler = middy((event, context) => ({
+  const handler = middy(() => ({
     statusCode: 200,
     body: 'success response'
   }))
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const response = await handler(defaultEvent, defaultContext)
 
   t.is(response.body, 'success response')
 })
 
 test('It should return the initial response if there is no queryStringParameters filtering key', async (t) => {
-  const handler = middy((event, context) => createDefaultObjectResponse())
+  const handler = middy(() => createDefaultObjectResponse())
 
   handler.use(httpPartialResponse())
 
-  const response = await handler()
+  const response = await handler(defaultEvent, defaultContext)
 
   t.deepEqual(response.body, {
     firstname: 'john',

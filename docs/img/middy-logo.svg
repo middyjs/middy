@@ -1,6 +1,6 @@
 <svg width="576" height="416" viewBox="0 0 576 416" version="1.1" xmlns="http://www.w3.org/2000/svg"
 xmlns:xlink="http://www.w3.org/1999/xlink">
-<defs><style>g{fill:#000;}@media(prefers-color-scheme:dark){g{fill:#FFF;}}</style></defs>
+<defs><style>[data-color-mode="light"] g{fill:#000;} [data-color-mode="dark"] g{fill:#FFF;} [data-color-mode="auto"] g{fill:#000;} @media(prefers-color-scheme:dark){[data-color-mode="auto"] g{fill:#FFF;}}</style></defs>
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <g transform="translate(-366.000000, -201.000000)">
             <g transform="translate(639.999984, 373.333346) scale(-1, 1) rotate(-180.000000) translate(-639.999984, -373.333346) translate(0.000000, 0.000022)">

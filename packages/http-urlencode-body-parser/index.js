@@ -1,10 +1,10 @@
-const { parse } = require('qs')
+import { parse } from 'qs'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 
 const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
   const { headers, body } = request.event
-  const contentTypeHeader = headers?.['Content-Type']
+  const contentTypeHeader = headers['Content-Type'] ?? headers['content-type']
 
   if (mimePattern.test(contentTypeHeader)) {
     const data = request.event.isBase64Encoded
@@ -17,4 +17,4 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
 const httpUrlencodeBodyParserMiddleware = () => ({
   before: httpUrlencodeBodyParserMiddlewareBefore
 })
-module.exports = httpUrlencodeBodyParserMiddleware
+export default httpUrlencodeBodyParserMiddleware

@@ -1,8 +1,9 @@
-const { createError } = require('@middy/util')
-const _ajv = require('ajv/dist/2019')
-const localize = require('ajv-i18n')
-const formats = require('ajv-formats')
-const formatsDraft2019 = require('ajv-formats-draft2019')
+import { createError } from '@middy/util'
+import _ajv from 'ajv/dist/2020.js'
+import localize from 'ajv-i18n'
+import formats from 'ajv-formats'
+import formatsDraft2019 from 'ajv-formats-draft2019'
+import typeofKeyword from 'ajv-keywords/dist/definitions/typeof.js'
 
 const Ajv = _ajv.default // esm workaround for linting
 
@@ -12,58 +13,91 @@ const ajvDefaults = {
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: 'empty',
-  messages: false // allow i18n
+  messages: false, // allow i18n,
+  keywords: [
+    // allow `typeof` for identifying functions in `context`
+    typeofKeyword()
+  ]
 }
 
 const defaults = {
-  inputSchema: undefined,
-  outputSchema: undefined,
+  eventSchema: undefined,
+  contextSchema: undefined,
+  responseSchema: undefined,
   ajvOptions: {},
   ajvInstance: undefined,
-  defaultLanguage: 'en'
+  defaultLanguage: 'en',
+  i18nEnabled: true
 }
 
 const validatorMiddleware = (opts = {}) => {
   let {
-    inputSchema,
-    outputSchema,
+    inputSchema, // Deprecate v4
+    outputSchema, // Deprecate v4
+    eventSchema,
+    contextSchema,
+    responseSchema,
     ajvOptions,
     ajvInstance,
-    defaultLanguage
+    defaultLanguage,
+    i18nEnabled
   } = { ...defaults, ...opts }
-  inputSchema = compile(inputSchema, ajvOptions, ajvInstance)
-  outputSchema = compile(outputSchema, ajvOptions, ajvInstance)
+  eventSchema = compile(eventSchema ?? inputSchema, ajvOptions, ajvInstance)
+  contextSchema = compile(contextSchema, ajvOptions, ajvInstance)
+  responseSchema = compile(
+    responseSchema ?? outputSchema,
+    ajvOptions,
+    ajvInstance
+  )
 
   const validatorMiddlewareBefore = async (request) => {
-    const valid = inputSchema(request.event)
+    if (eventSchema) {
+      const validEvent = await eventSchema(request.event)
 
-    if (!valid) {
-      // Bad Request
-      const error = createError(400, 'Event object failed validation')
-      request.event.headers = { ...request.event.headers }
+      if (!validEvent) {
+        if (i18nEnabled) {
+          const language = chooseLanguage(request.event, defaultLanguage)
+          localize[language](eventSchema.errors)
+        }
 
-      const language = chooseLanguage(request.event, defaultLanguage)
-      localize[language](inputSchema.errors)
+        // Bad Request
+        // throw createError(400, 'Event object failed validation', { cause: eventSchema.errors })
+        const error = createError(400, 'Event object failed validation')
+        error.cause = eventSchema.errors
+        throw error
+      }
+    }
 
-      error.details = inputSchema.errors
-      throw error
+    if (contextSchema) {
+      const validContext = await contextSchema(request.context)
+
+      if (!validContext) {
+        // Internal Server Error
+        // throw createError(500, 'Context object failed validation', { cause: contextSchema.errors })
+        const error = createError(500, 'Context object failed validation')
+        error.cause = contextSchema.errors
+        throw error
+      }
     }
   }
 
   const validatorMiddlewareAfter = async (request) => {
-    const valid = outputSchema(request.response)
+    const valid = await responseSchema(request.response)
 
     if (!valid) {
       // Internal Server Error
+      // throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
       const error = createError(500, 'Response object failed validation')
-      error.details = outputSchema.errors
-      error.response = request.response
+      error.cause = responseSchema.errors
       throw error
     }
   }
   return {
-    before: inputSchema ? validatorMiddlewareBefore : undefined,
-    after: outputSchema ? validatorMiddlewareAfter : undefined
+    before:
+      eventSchema ?? inputSchema ?? contextSchema
+        ? validatorMiddlewareBefore
+        : undefined,
+    after: responseSchema ?? outputSchema ? validatorMiddlewareAfter : undefined
   }
 }
 
@@ -110,4 +144,4 @@ const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   return defaultLanguage
 }
 
-module.exports = validatorMiddleware
+export default validatorMiddleware

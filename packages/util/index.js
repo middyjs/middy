@@ -1,7 +1,7 @@
-const { Agent } = require('https')
-// const { NodeHttpHandler } = require('@aws-sdk/node-http-handler') // aws-sdk v3
+import { Agent } from 'https'
+// import { NodeHttpHandler } from '@aws-sdk/node-http-handler' // aws-sdk v3
 
-const awsClientDefaultOptions = {
+export const awsClientDefaultOptions = {
   // AWS SDK v3
   // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
   /* requestHandler: new NodeHttpHandler({
@@ -19,7 +19,7 @@ const awsClientDefaultOptions = {
   }
 }
 
-const createPrefetchClient = (options) => {
+export const createPrefetchClient = (options) => {
   const awsClientOptions = {
     ...awsClientDefaultOptions,
     ...options.awsClientOptions
@@ -27,19 +27,23 @@ const createPrefetchClient = (options) => {
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
-  if (options.awsClientCapture) {
+  if (options.awsClientCapture && options.disablePrefetch) {
     return options.awsClientCapture(client)
+  } else if (options.awsClientCapture) {
+    console.warn('Unable to apply X-Ray outside of handler invocation scope.')
   }
 
   return client
 }
 
-const createClient = async (options, request) => {
+export const createClient = async (options, request) => {
   let awsClientCredentials = {}
 
   // Role Credentials
   if (options.awsClientAssumeRole) {
-    if (!request) throw new Error('Request required when assuming role')
+    if (!request) {
+      throw new Error('Request required when assuming role')
+    }
     awsClientCredentials = await getInternal(
       { credentials: options.awsClientAssumeRole },
       request
@@ -57,12 +61,12 @@ const createClient = async (options, request) => {
   })
 }
 
-const canPrefetch = (options) => {
-  return !options?.awsClientAssumeRole && !options?.disablePrefetch
+export const canPrefetch = (options = {}) => {
+  return !options.awsClientAssumeRole && !options.disablePrefetch
 }
 
 // Internal Context
-const getInternal = async (variables, request) => {
+export const getInternal = async (variables, request) => {
   if (!variables || !request) return {}
   let keys = []
   let values = []
@@ -82,7 +86,7 @@ const getInternal = async (variables, request) => {
     const pathOptionKey = internalKey.split('.')
     const rootOptionKey = pathOptionKey.shift()
     let valuePromise = request.internal[rootOptionKey]
-    if (typeof valuePromise?.then !== 'function') {
+    if (!isPromise(valuePromise)) {
       valuePromise = Promise.resolve(valuePromise)
     }
     promises.push(
@@ -98,8 +102,9 @@ const getInternal = async (variables, request) => {
     .filter((res) => res.status === 'rejected')
     .map((res) => res.reason)
   if (errors.length) {
+    // throw new Error('Failed to resolve internal values', { cause: errors })
     const error = new Error('Failed to resolve internal values')
-    error.nestedErrors = errors
+    error.cause = errors
     throw error
   }
   return keys.reduce(
@@ -107,9 +112,12 @@ const getInternal = async (variables, request) => {
     {}
   )
 }
+
+const isPromise = (promise) => typeof promise?.then === 'function'
+
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
-const sanitizeKey = (key) => {
+export const sanitizeKey = (key) => {
   return key
     .replace(sanitizeKeyPrefixLeadingNumber, '_$1')
     .replace(sanitizeKeyRemoveDisallowedChar, '_')
@@ -117,11 +125,11 @@ const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
-const processCache = (options, fetch = () => undefined, request) => {
+export const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
-    const unexpired = cached && (cacheExpiry < 0 || cached.expiry > Date.now())
+    const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
@@ -144,17 +152,18 @@ const processCache = (options, fetch = () => undefined, request) => {
   return { value, expiry }
 }
 
-const getCache = (key) => {
+export const getCache = (key) => {
+  if (!cache[key]) return {}
   return cache[key]
 }
 
 // Used to remove parts of a cache
-const modifyCache = (cacheKey, value) => {
+export const modifyCache = (cacheKey, value) => {
   if (!cache[cacheKey]) return
   cache[cacheKey] = { ...cache[cacheKey], value, modified: true }
 }
 
-const clearCache = (keys = null) => {
+export const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
@@ -162,96 +171,125 @@ const clearCache = (keys = null) => {
   }
 }
 
-const jsonSafeParse = (string, reviver) => {
-  if (typeof string !== 'string') return string
-  const firstChar = string[0]
-  if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return string
+export const jsonSafeParse = (text, reviver) => {
+  if (typeof text !== 'string') return text
+  const firstChar = text[0]
+  if (firstChar !== '{' && firstChar !== '[' && firstChar !== '"') return text
   try {
-    return JSON.parse(string, reviver)
+    return JSON.parse(text, reviver)
   } catch (e) {}
 
-  return string
+  return text
 }
 
-const normalizeHttpResponse = (response) => {
-  // May require updating to catch other types
+export const jsonSafeStringify = (value, replacer, space) => {
+  try {
+    return JSON.stringify(value, replacer, space)
+  } catch (e) {}
+
+  return value
+}
+
+export const normalizeHttpResponse = (request) => {
+  let { response } = request
   if (response === undefined) {
     response = {}
-  } else if (
-    Array.isArray(response) ||
-    typeof response !== 'object' ||
-    response === null
-  ) {
+  } else if (response?.statusCode === undefined && response?.body === undefined && response?.headers === undefined) {
     response = { body: response }
   }
-  response.headers = response?.headers ?? {}
+  response.headers ??= {}
+  request.response = response
   return response
 }
 
-// smaller version of `http-errors`
-const statuses = require('./codes.json')
-const { inherits } = require('util')
-
 const createErrorRegexp = /[^a-zA-Z]/g
-const createError = (code, message, properties = {}) => {
-  const name = statuses[code].replace(createErrorRegexp, '')
-  const className = name.substr(-5) !== 'Error' ? name + 'Error' : name
+export class HttpError extends Error {
+  constructor (code, message, options = {}) {
+    if (message && typeof message !== 'string') {
+      options = message
+      message = undefined
+    }
+    message ??= httpErrorCodes[code]
+    super(message) // super(message, options)
 
-  function HttpError (message) {
-    // create the error object
-    const msg = message ?? statuses[code]
-    const err = new Error(msg)
+    // polyfill
+    this.cause = options.cause
 
-    // capture a stack trace to the construction point
-    Error.captureStackTrace(err, HttpError)
+    const name = httpErrorCodes[code].replace(createErrorRegexp, '')
+    this.name = name.substr(-5) !== 'Error' ? name + 'Error' : name
 
-    // adjust the [[Prototype]]
-    Object.setPrototypeOf(err, HttpError.prototype)
-
-    // redefine the error message
-    Object.defineProperty(err, 'message', {
-      enumerable: true,
-      configurable: true,
-      value: msg,
-      writable: true
-    })
-
-    // redefine the error name
-    Object.defineProperty(err, 'name', {
-      enumerable: false,
-      configurable: true,
-      value: className,
-      writable: true
-    })
-
-    return err
+    this.status = this.statusCode = code // setting `status` for backwards compatibility w/ `http-errors`
+    this.expose = options.expose ?? code < 500
   }
-
-  inherits(HttpError, Error)
-  const desc = Object.getOwnPropertyDescriptor(HttpError, 'name')
-  desc.value = className
-  Object.defineProperty(HttpError, 'name', desc)
-
-  Object.assign(HttpError.prototype, {
-    status: code,
-    statusCode: code,
-    expose: code < 500
-  }, properties)
-
-  return new HttpError(message)
 }
 
-module.exports = {
-  createPrefetchClient,
-  createClient,
-  canPrefetch,
-  getInternal,
-  sanitizeKey,
-  processCache,
-  getCache,
-  modifyCache,
-  clearCache,
-  jsonSafeParse,
-  normalizeHttpResponse,
-  createError
+export const createError = (code, message, properties = {}) => {
+  return new HttpError(code, message, properties)
+}
+
+const httpErrorCodes = {
+  100: 'Continue',
+  101: 'Switching Protocols',
+  102: 'Processing',
+  103: 'Early Hints',
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  203: 'Non-Authoritative Information',
+  204: 'No Content',
+  205: 'Reset Content',
+  206: 'Partial Content',
+  207: 'Multi-Status',
+  208: 'Already Reported',
+  226: 'IM Used',
+  300: 'Multiple Choices',
+  301: 'Moved Permanently',
+  302: 'Found',
+  303: 'See Other',
+  304: 'Not Modified',
+  305: 'Use Proxy',
+  306: '(Unused)',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  402: 'Payment Required',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  406: 'Not Acceptable',
+  407: 'Proxy Authentication Required',
+  408: 'Request Timeout',
+  409: 'Conflict',
+  410: 'Gone',
+  411: 'Length Required',
+  412: 'Precondition Failed',
+  413: 'Payload Too Large',
+  414: 'URI Too Long',
+  415: 'Unsupported Media Type',
+  416: 'Range Not Satisfiable',
+  417: 'Expectation Failed',
+  418: "I'm a teapot",
+  421: 'Misdirected Request',
+  422: 'Unprocessable Entity',
+  423: 'Locked',
+  424: 'Failed Dependency',
+  425: 'Unordered Collection',
+  426: 'Upgrade Required',
+  428: 'Precondition Required',
+  429: 'Too Many Requests',
+  431: 'Request Header Fields Too Large',
+  451: 'Unavailable For Legal Reasons',
+  500: 'Internal Server Error',
+  501: 'Not Implemented',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+  505: 'HTTP Version Not Supported',
+  506: 'Variant Also Negotiates',
+  507: 'Insufficient Storage',
+  508: 'Loop Detected',
+  509: 'Bandwidth Limit Exceeded',
+  510: 'Not Extended',
+  511: 'Network Authentication Required'
 }

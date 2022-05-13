@@ -2,9 +2,9 @@
   "name": "@middy/plugin",
   "version": "2.0.0",
   "description": "Performance profiling plugins for middy",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -12,7 +12,8 @@
   },
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "ava"
+    "test:unit": "ava",
+    "test:benchmark": "node __benchmarks__/index.js"
   },
   "license": "MIT",
   "keywords": [
@@ -34,7 +35,7 @@
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
-  "homepage": "https://github.com/middyjs/middy#readme",
+  "homepage": "https://middy.js.org",
   "dependencies": {
     "@airbnb/node-memwatch": "2.0.0"
   },

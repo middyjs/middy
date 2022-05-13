@@ -1,0 +1,65 @@
+{
+  "name": "@middy/service-discovery",
+  "version": "3.0.0",
+  "description": "Service Discovery (Cloud Map) instances middleware for the middy framework",
+  "type": "module",
+  "engines": {
+    "node": ">=14"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.cjs",
+      "types": "./index.d.ts"
+    }
+  },
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "ava"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "Service Discovery",
+    "SCloud Map",
+    "Instances"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github:middyjs/middy",
+    "directory": "packages/sts"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://middy.js.org",
+  "dependencies": {
+    "@middy/util": "^3.0.0"
+  },
+  "devDependencies": {
+    "@middy/core": "^3.0.0",
+    "aws-sdk": "^2.939.0",
+    "aws-xray-sdk": "^3.3.3"
+  },
+  "gitHead": "b84840ec8afd289f6decfd0d645be4899051792d"
+}

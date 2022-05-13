@@ -1,10 +1,14 @@
-const test = require('ava')
-const sinon = require('sinon')
-const middy = require('../../core/index.js')
-const jsonBodyParser = require('../index.js')
+import test from 'ava'
+import sinon from 'sinon'
+import middy from '../../core/index.js'
+import jsonBodyParser from '../index.js'
+
+const defaultContext = {
+  getRemainingTimeInMillis: () => 1000
+}
 
 test('It should parse a JSON request', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event // propagates the processed event as a response
   })
 
@@ -18,14 +22,14 @@ test('It should parse a JSON request', async (t) => {
     body: '{ "foo" :   "bar"   }'
   }
 
-  const processedEvent = await handler(event)
+  const processedEvent = await handler(event, defaultContext)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event // propagates the processed event as a response
   })
 
@@ -39,14 +43,14 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
     body: '{ "foo" :   "bar"   }'
   }
 
-  const processedEvent = await handler(event)
+  const processedEvent = await handler(event, defaultContext)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
   const reviver = (_) => _
@@ -62,13 +66,13 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
   }
   const jsonParseSpy = sinon.spy(JSON, 'parse')
 
-  await handler(event)
+  await handler(event, defaultContext)
 
   t.true(jsonParseSpy.calledWith(jsonString, reviver))
 })
 
 test('It should parse a JSON request with lowercase header', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
 
@@ -77,18 +81,18 @@ test('It should parse a JSON request with lowercase header', async (t) => {
   // invokes the handler
   const event = {
     headers: {
-      'Content-Type': 'application/json'
+      'content-type': 'application/json'
     },
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const body = await handler(event, defaultContext)
 
   t.deepEqual(body, { foo: 'bar' })
 })
 
 test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
 
@@ -103,17 +107,15 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   }
 
   try {
-    await handler(event)
-  } catch (err) {
-    t.is(
-      err.message,
-      'Content type defined as JSON but an invalid JSON was provided'
-    )
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.message, 'Invalid or malformed JSON was provided')
+    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
   }
 })
 
 test("It shouldn't process the body if no header is passed", async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
 
@@ -121,16 +123,17 @@ test("It shouldn't process the body if no header is passed", async (t) => {
 
   // invokes the handler
   const event = {
+    headers: {},
     body: JSON.stringify({ foo: 'bar' })
   }
 
-  const body = await handler(event)
+  const body = await handler(event, defaultContext)
 
   t.is(body, '{"foo":"bar"}')
 })
 
 test('It should handle a base64 body', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
 
@@ -147,13 +150,13 @@ test('It should handle a base64 body', async (t) => {
     body: base64Data
   }
 
-  const body = await handler(event)
+  const body = await handler(event, defaultContext)
 
   t.deepEqual(body, { foo: 'bar' })
 })
 
 test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t) => {
-  const handler = middy((event, context) => {
+  const handler = middy((event) => {
     return event.body // propagates the body as a response
   })
 
@@ -171,11 +174,9 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
   }
 
   try {
-    await handler(event)
-  } catch (err) {
-    t.is(
-      err.message,
-      'Content type defined as JSON but an invalid JSON was provided'
-    )
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.message, 'Invalid or malformed JSON was provided')
+    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
   }
 })

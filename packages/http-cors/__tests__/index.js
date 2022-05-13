@@ -1,17 +1,22 @@
-const test = require('ava')
-const middy = require('../../core/index.js')
-const cors = require('../index.js')
+import test from 'ava'
+import middy from '../../core/index.js'
+import cors from '../index.js'
+
+const context = {
+  getRemainingTimeInMillis: () => 1000
+}
 
 test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors())
+  handler
+    .use(cors())
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
@@ -21,240 +26,238 @@ test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
 })
 
 test('It should not override already declared Access-Control-Allow-Origin header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => ({
+    headers: { 'Access-Control-Allow-Origin': 'https://example.com' }
+  }))
 
   // other middleware that puts the cors header
-  handler.use({
-    after: (request) => {
-      request.response = {
-        headers: {
-          'Access-Control-Allow-Origin': 'https://example.com'
-        }
-      }
-    }
-  })
-  handler.use(cors())
+  handler
+    .use(cors())
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should use custom getOrigin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       getOrigin: () => 'https://species.com'
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://species.com'
+      'Access-Control-Allow-Origin': 'https://species.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should use pass incoming origin to custom getOrigin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       getOrigin: (incomingOrigin, options) => incomingOrigin
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET',
     headers: { Origin: 'https://incoming.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://incoming.com'
+      'Access-Control-Allow-Origin': 'https://incoming.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should use origin specified in options', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       origin: 'https://example.com'
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should return whitelisted origin', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       origins: ['https://example.com', 'https://another-example.com']
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET',
     headers: { Origin: 'https://another-example.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://another-example.com'
+      'Access-Control-Allow-Origin': 'https://another-example.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should return first origin as default if no match', async (t) => {
   const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       origins: ['https://example.com', 'https://another-example.com']
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET',
     headers: { Origin: 'https://unknown.com' }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should add headers even onError', async (t) => {
   const handler = middy((event, context) => {
-    throw new Error('')
+    throw new Error('handler')
   })
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       origin: 'https://example.com'
+    }))
+    .onError((request) => {
+      request.response = { statusCode: 500 }
     })
-  )
-
-  handler.use({
-    onError: () => {}
-  })
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
+    statusCode: 500,
     headers: {
-      'Access-Control-Allow-Origin': 'https://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
     }
   })
 })
 
 test('It should not swallow errors', async (t) => {
   const handler = middy(() => {
-    throw new Error('some-error')
+    throw new Error('handler')
   })
 
-  handler.use(cors())
+  handler
+    .use(cors())
 
   try {
     await handler()
-  } catch (error) {
-    t.is(error.message, 'some-error')
+  } catch (e) {
+    t.is(e.message, 'handler')
   }
 })
 
 test('It should not override already declared Access-Control-Allow-Headers header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
   // other middleware that puts the cors header
-  handler.use({
-    after: (request) => {
+  handler
+    .after((request) => {
       request.response.headers['Access-Control-Allow-Headers'] = 'x-example'
-    }
-  })
-  handler.use(
-    cors({
-      headers: 'x-example-2'
     })
-  )
-  handler.use({
-    onError: () => {}
-  })
+    .use(cors({
+      headers: 'x-example-2'
+    }))
+    .onError(() => {})
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
     }
+
   })
 })
 
 test('It should use allowed headers specified in options', async (t) => {
   const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       headers: 'x-example'
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
     }
+
   })
 })
 
@@ -262,47 +265,41 @@ test('It should not override already declared Access-Control-Allow-Credentials h
   const handler = middy((event, context) => {})
 
   // other middleware that puts the cors header
-  handler.use({
-    after: (request) => {
+  handler
+    .after((request) => {
       request.response.headers['Access-Control-Allow-Credentials'] = 'false'
-    }
-  })
-  handler.use(
-    cors({
-      credentials: true
     })
-  )
-  handler.use({
-    onError: () => {}
-  })
+    .use(cors({
+      credentials: true
+    }))
+    .onError(() => {})
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Credentials': 'false',
       'Access-Control-Allow-Origin': '*'
     }
+
   })
 })
 
 test('It should not override already declared Access-Control-Allow-Credentials header as true', async (t) => {
   const handler = middy((event, context) => {})
-    .use(
-      cors({
-        credentials: false
-      })
-    )
+    .use(cors({
+      credentials: false
+    }))
     // other middleware that puts the cors header
-    .use({
-      after: (request) => {
-        request.response = request.response || {}
-        request.response.headers = request.response.headers || {}
-        request.response.headers['Access-Control-Allow-Credentials'] = 'true'
+    .after(request => {
+      request.response = {
+        headers: {
+          'Access-Control-Allow-Credentials': 'true'
+        }
       }
     })
 
@@ -310,94 +307,89 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Credentials': 'true'
     }
+
   })
 })
 
 test('It should use change credentials as specified in options (true)', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       credentials: true
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET',
     headers: {
-      Origin: 'http://example.com'
+      Origin: 'https://example.com'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': 'http://example.com'
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
 test('It should use change credentials as specified in options (true) with lowercase header', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({
+  handler
+    .use(cors({
       credentials: true
-    })
-  )
+    }))
 
   const event = {
     httpMethod: 'GET',
     headers: {
-      origin: 'http://example-lowercase.com'
+      origin: 'https://example-lowercase.com'
     }
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
 
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': 'http://example-lowercase.com'
+      'Access-Control-Allow-Origin': 'https://example-lowercase.com',
+      Vary: 'Origin'
     }
+
   })
 })
 
-test('It should not change anything if HTTP method is not present in the request', async (t) => {
-  const handler = middy((event, context) => ({}))
-
-  handler.use(cors())
-
-  const event = {}
-
-  const response = await handler(event)
-
-  t.deepEqual(response, {})
-})
-
 test('it should set Access-Control-Allow-Methods header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors({ methods: 'GET,PUT' }))
+  handler
+    .use(cors({
+      methods: 'GET,PUT'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,PUT'
     }
+
   })
 })
 
@@ -406,13 +398,16 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
     headers: { 'Access-Control-Allow-Methods': 'GET,POST' }
   }))
 
-  handler.use(cors({ methods: 'GET,PUT' }))
+  handler
+    .use(cors({
+      methods: 'GET,PUT'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -422,20 +417,24 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
 })
 
 test('it should set Access-Control-Expose-Headers header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors({ exposeHeaders: 'X-Middleware' }))
+  handler
+    .use(cors({
+      exposeHeaders: 'X-Middleware'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'X-Middleware'
     }
+
   })
 })
 
@@ -444,13 +443,16 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
     headers: { 'Access-Control-Expose-Headers': 'X-Response' }
   }))
 
-  handler.use(cors({ exposeHeaders: 'X-Middleware' }))
+  handler
+    .use(cors({
+      exposeHeaders: 'X-Middleware'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -460,20 +462,24 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
 })
 
 test('it should set Access-Control-Max-Age header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors({ maxAge: '3600' }))
+  handler
+    .use(cors({
+      maxAge: '3600'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Max-Age': '3600'
     }
+
   })
 })
 
@@ -482,13 +488,16 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
     headers: { 'Access-Control-Max-Age': '-1' }
   }))
 
-  handler.use(cors({ maxAge: '3600' }))
+  handler
+    .use(cors({
+      maxAge: '3600'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -498,20 +507,24 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
 })
 
 test('it should set Access-Control-Request-Headers header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors({ requestHeaders: 'X-Middleware' }))
+  handler
+    .use(cors({
+      requestHeaders: 'X-Middleware'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Headers': 'X-Middleware'
     }
+
   })
 })
 
@@ -520,13 +533,16 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
     headers: { 'Access-Control-Request-Headers': 'X-Response' }
   }))
 
-  handler.use(cors({ requestHeaders: 'X-Middleware' }))
+  handler
+    .use(cors({
+      requestHeaders: 'X-Middleware'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -536,20 +552,24 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
 })
 
 test('it should set Access-Control-Request-Methods header if present in config', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(cors({ requestMethods: 'GET,PUT' }))
+  handler
+    .use(cors({
+      requestMethods: 'GET,PUT'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Methods': 'GET,PUT'
     }
+
   })
 })
 
@@ -558,13 +578,16 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
     headers: { 'Access-Control-Request-Methods': 'GET,POST' }
   }))
 
-  handler.use(cors({ requestMethods: 'GET,PUT' }))
+  handler
+    .use(cors({
+      requestMethods: 'GET,PUT'
+    }))
 
   const event = {
     httpMethod: 'GET'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
@@ -574,40 +597,44 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
 })
 
 test('it should set Cache-Control header if present in config and http method OPTIONS', async (t) => {
-  const handler = middy((event, context) => ({}))
+  const handler = middy((event, context) => {})
 
-  handler.use(
-    cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' })
-  )
+  handler
+    .use(cors({
+      cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
+    }))
 
   const event = {
     httpMethod: 'OPTIONS'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
     }
+
   })
 })
 
 for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
   test(`it should not set Cache-Control header on ${httpMethod}`, async (t) => {
-    const handler = middy((event, context) => ({}))
+    const handler = middy((event, context) => {})
 
-    handler.use(
-      cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' })
-    )
+    handler
+      .use(cors({
+        cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
+      }))
 
     const event = { httpMethod }
 
-    const response = await handler(event)
+    const response = await handler(event, context)
     t.deepEqual(response, {
       headers: {
         'Access-Control-Allow-Origin': '*'
       }
+
     })
   })
 }
@@ -617,19 +644,79 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
     headers: { 'Cache-Control': 'max-age=1200' }
   }))
 
-  handler.use(
-    cors({ cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate' })
-  )
+  handler
+    .use(cors({
+      cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
+    }))
 
   const event = {
     httpMethod: 'OPTIONS'
   }
 
-  const response = await handler(event)
+  const response = await handler(event, context)
   t.deepEqual(response, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=1200'
     }
   })
+})
+
+test('it should not overwrite Vary header if already set', async (t) => {
+  const handler = middy((event, context) => ({
+    headers: { Vary: 'Access-Control-Request-Headers' }
+  }))
+
+  handler
+    .use(cors({
+      vary: 'Access-Control-Request-Method'
+    }))
+
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      Vary: 'Access-Control-Request-Headers'
+    }
+  })
+})
+
+test('it should set Vary header if present in config', async (t) => {
+  const handler = middy((event, context) => {})
+
+  handler
+    .use(cors({
+      vary: 'Access-Control-Request-Method'
+    }))
+
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      Vary: 'Access-Control-Request-Method'
+    }
+
+  })
+})
+
+test('it should throw when not a http event', async (t) => {
+  const handler = middy((event, context) => {})
+
+  handler
+    .use(cors())
+
+  const event = {}
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, '[http-cors] Unknown http event format')
+  }
 })

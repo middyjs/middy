@@ -1,37 +1,36 @@
-const { normalizeHttpResponse } = require('@middy/util')
-const Accept = require('@hapi/accept')
+import { normalizeHttpResponse } from '@middy/util'
+import Accept from '@hapi/accept'
 
 const defaults = {
   serializers: [],
-  default: undefined
+  defaultContentType: undefined
 }
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
+  const { serializers, defaultContentType } = { ...defaults, ...opts }
   const httpResponseSerializerMiddlewareAfter = async (request) => {
-    if (request.response === undefined) return
-    request.response = normalizeHttpResponse(request.response)
-    // skip serialization when content-type is already set
-    if (request.response?.headers?.['Content-Type']) return
+    normalizeHttpResponse(request)
+
+    // skip serialization when Content-Type is already set
+    if (request.response.headers['Content-Type']) return
 
     // find accept value(s)
     let types
 
-    if (request.event?.requiredContentType) {
+    if (request.event.requiredContentType) {
       types = [request.event.requiredContentType]
     } else {
-      const acceptHeader =
-        request.event?.headers?.accept ?? request.event?.headers?.Accept
+      const acceptHeader = request.event.headers.Accept ?? request.event.headers.accept
       types = [
         ...((acceptHeader && Accept.mediaTypes(acceptHeader)) ?? []),
         request.event.preferredContentType,
-        options.default
+        defaultContentType
       ]
     }
 
     for (const type of types) {
       let breakTypes
-      for (const s of options.serializers) {
+      for (const s of serializers) {
         if (!s.regex.test(type)) {
           continue
         }
@@ -51,11 +50,15 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
       if (breakTypes) break
     }
   }
-  const httpResponseSerializerMiddlewareOnError = httpResponseSerializerMiddlewareAfter
+
+  const httpResponseSerializerMiddlewareOnError = async (request) => {
+    if (request.response === undefined) return
+    return httpResponseSerializerMiddlewareAfter(request)
+  }
   return {
     after: httpResponseSerializerMiddlewareAfter,
     onError: httpResponseSerializerMiddlewareOnError
   }
 }
 
-module.exports = httpResponseSerializerMiddleware
+export default httpResponseSerializerMiddleware

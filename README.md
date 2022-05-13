@@ -1,14 +1,8 @@
 <div align="center">
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-</div>
-
-<div align="center">
   <p><strong>The stylish Node.js middleware engine for AWS Lambda</strong></p>
-</div>
-
-<div align="center">
 <p>
-  <a href="http://badge.fury.io/js/%40middy%2Fcore">
+  <a href="https://www.npmjs.com/package/@middy/core?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;">
   </a>
   <a href="https://packagephobia.com/result?p=@middy/core">
@@ -18,11 +12,11 @@
     <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
   </a>
   <br/>
+   <a href="https://standardjs.com/">
+    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
+  </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
-  </a>
-  <a href="https://standardjs.com/">
-    <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
     <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
@@ -32,16 +26,17 @@
   </a>
   <br/>
   <a href="https://gitter.im/middyjs/Lobby">
-    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter"  style="max-width:100%;">
+    <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
   </a>
   <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>⚠️&nbsp;If you are upgrading from <a href="https://github.com/middyjs/middy/tree/2.x">Middy v2.x</a>, check out the <a href="/docs/UPGRADE.md">upgrade instructions</a>&nbsp;⚠️</p>
 </div>
 
 
-⚠️ NOTE: if you are upgrading from [Middy 1.x](https://github.com/middyjs/middy/tree/1.x), check out the [upgrade instructions](/docs/UPGRADE.md)!
+
 
 ## What is Middy
 
@@ -74,8 +69,7 @@ Let's assume you are building a JSON API to process a payment:
 //# handler.js #
 
 // import core
-import middy from '@middy/core' // esm Node v14+
-//const middy = require('@middy/core') // commonjs Node v12+
+import middy from '@middy/core'
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
@@ -83,7 +77,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
-const baseHandler = async (event, context) => {
+const lambdaHandler = async (event, context) => {
  // we don't need to deserialize the body ourself as a middleware will be used to do that
  const { creditCardNumber, expiryMonth, expiryYear, cvc, nameOnCard, amount } = event.body
 
@@ -115,13 +109,21 @@ const inputSchema = {
  }
 }
 
+// When a Timeout happends, return a proper response
+const plugin = {
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+}
+
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
-const handler = middy(baseHandler)
+export const handler = middy(plugin)
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({inputSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
-
-module.exports = { handler }
+  .handler(lambdaHandler)
 ```
 
 ## Why?
@@ -136,7 +138,7 @@ error handling, etc.
 Very often, all this necessary code ends up polluting the pure business logic code in
 your handlers, making the code harder to read and to maintain.
 
-In other contexts, like generic web frameworks ([fastify](http://fastify.io), [hapi](https://hapijs.com/), [express](http://expressjs.com/), etc.), this
+In other contexts, like generic web frameworks (fastify, express, etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into
@@ -169,18 +171,14 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(baseHandler)
-
-handler
+export const handler = middy(lambdaHandler) // `lambdaHandler` can alternatively be attached using `.handler(lambdaHandler)` after all middleware are attached
   .use(middleware1())
   .use(middleware2())
   .use(middleware3())
-
-module.exports = { handler }
 ```
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
@@ -192,15 +190,12 @@ import middleware2 from "sample-middleware2";
 import middleware3 from "sample-middleware3";
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const baseHandler = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(baseHandler);
-
-handler.use(middlewares)
-
-module.exports = { handler };
+export const handler = middy(lambdaHandler)
+  .use(middlewares)
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
@@ -309,7 +304,7 @@ But, what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
 moved back to all the middlewares that implemented a special phase called `onError`, following
-the order they have been attached.
+the reverse order they have been attached similar to `after`.
 
 Every `onError` middleware can decide to handle the error and create a proper response or
 to delegate the error to the next middleware.
@@ -323,16 +318,13 @@ If no middleware manages the error, the Lambda execution fails reporting the unm
 
 ```javascript
 // Initialize response
-request.response = request.response ?? {}
+request.response ??= {}
 
 // Add to response
 request.response.add = 'more'
 
 // Override an error
 request.error = new Error('...')
-
-// handle the error
-return request.response
 ```
 
 ## Writing a middleware
@@ -370,7 +362,7 @@ E.g.
 
 const defaults = {}
 
-module.exports = (opts = {}) => {
+const customMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const customMiddlewareBefore = async (request) => {
@@ -390,6 +382,7 @@ module.exports = (opts = {}) => {
     onError: customMiddlewareOnError
   }
 }
+export default customMiddleware
 ```
 
 With this convention in mind, using a middleware will always look like the following example:
@@ -398,19 +391,14 @@ With this convention in mind, using a middleware will always look like the follo
 import middy  from '@middy/core'
 import customMiddleware from 'customMiddleware.js'
 
-const handler = middy(async (event, context) => {
-  // do stuff
-  return {}
-})
-
-handler.use(
-  customMiddleware({
+export const handler = middy(async (event, context) => {
+    // do stuff
+    return {}
+  })
+  .use(customMiddleware({
     option1: 'foo',
     option2: 'bar'
-  })
-)
-
-module.exports = { handler }
+  }))
 ```
 
 ### Inline middlewares
@@ -427,23 +415,18 @@ Let's see how inline middlewares work with a simple example:
 ```javascript
 import middy from '@middy/core'
 
-const handler = middy((event, context) => {
-  // do stuff
-})
-
-handler.before(async (request) => {
-  // do something in the before phase
-})
-
-handler.after(async (request) => {
-  // do something in the after phase
-})
-
-handler.onError(async (request) => {
-  // do something in the on error phase
-})
-
-module.exports = { handler }
+export const handler = middy((event, context) => {
+    // do stuff
+  })
+  .before(async (request) => {
+    // do something in the before phase
+  })
+  .after(async (request) => {
+    // do something in the after phase
+  })
+  .onError(async (request) => {
+    // do something in the on error phase
+  })
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`
@@ -468,7 +451,7 @@ const defaults = {
   setToContext: false
 }
 
-module.exports = (opts = {}) => {
+export default (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -497,7 +480,6 @@ module.exports = (opts = {}) => {
 
     Object.assign(request.internal, cached)
     if (options.setToContext) Object.assign(request.context, await getInternal(Object.keys(options.fetchData), request))
-
     else init = false
   }
 
@@ -505,6 +487,29 @@ module.exports = (opts = {}) => {
     before: customMiddlewareBefore
   }
 }
+```
+
+### Handling Lambda Timeouts
+When a lambda times out it throws an error that cannot be caught by middy. To work around this middy maintains an `AbortController` that can be signalled early to allow time to clean up and log the error properly.
+
+```javascript
+import middy from '@middy/core'
+
+const lambdaHandler = (event, context, {signal}) => {
+  signal.onabort = () => {
+    // cancel events
+  }
+  // ... 
+}
+
+export const handler = middy(lambdaHandler, {
+  timeoutEarlyInMillis: 50,
+  timeoutEarlyResponse: () => {
+    return {
+      statusCode: 408
+    }
+  }
+})
 ```
 
 ### More details on creating middlewares
@@ -522,7 +527,7 @@ Here's an example of how you might be using Middy with TypeScript for a Lambda r
 import middy from '@middy/core'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 
-async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   // the returned response will be checked against the type `APIGatewayProxyResult`
   return {
     statusCode: 200,
@@ -530,12 +535,9 @@ async function baseHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProx
   }
 }
 
-let handler = middy(baseHandler)
-handler
+export const handler = middy(lambdaHandler)
   .use(someMiddleware)
   .use(someOtherMiddleware)
-
-export default handler
 ```
 
 And here's an example of how you can write a custom middleware for a Lambda receiving events from API Gateway:
@@ -572,7 +574,7 @@ with type definitions that should give TypeScript users a good experience. There
 See `devDependencies` for each middleware for list of dependencies that may be required with transpiling TypeScript.
 
 ## Common Patterns and Best Practice
-Tips and tricks to ensure you don't hit any performance or security issues. Did we miss something? Let us know.
+Tips and tricks to ensure you don't hit any performance or security issues. We've included a [collection of patterns](https://github.com/middyjs/middy/tree/main/docs/patterns) that can help you get started. Did we miss something? Let us know.
 
 ### ENV variables
 Be sure to set `AWS_NODEJS_CONNECTION_REUSE_ENABLED=1` when connecting to AWS services. This allows you to reuse
@@ -581,9 +583,9 @@ the first connection established. See [Reusing Connections with Keep-Alive in No
 ### Adding internal values to context
 When all of your middlewares are done, and you need a value or two for your handler, this is how you get them:
 ```javascript
-import {getInternal} from '@middy/util'
+import { getInternal } from '@middy/util'
 
-middy(baseHandler)
+middy(lambdaHandler)
   // Incase you want to add values on to internal directly
   .before((async (request) => {
     request.internal = {
@@ -662,28 +664,27 @@ should do a single task. We try to balance each to be as performant as possible 
 
 
 ### Misc
+- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
+- [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets `callbackWaitsForEmptyEventLoop` property to `false`
 - [`error-logger`](/packages/error-logger): Logs errors
 - [`input-output-logger`](/packages/input-output-logger): Logs request and response
-- [`do-not-wait-for-empty-event-loop`](/packages/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
-- [`cloudwatch-metrics`](/packages/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
 - [`warmup`](/packages/warmup): Used to pre-warm a lambda function
 
 ### Request Transformation
 - [`http-content-negotiation`](/packages/http-content-negotiation): Parses `Accept-*` headers and provides utilities for content negotiation (charset, encoding, language and media type) for HTTP requests
+- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-header-normalizer`](/packages/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/packages/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
 - [`http-multipart-body-parser`](/packages/http-multipart-body-parser): Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an object.
 - [`http-urlencode-body-parser`](/packages/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/packages/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
-- [`s3-key-normalizer`](/packages/s3-key-normalizer): Normalizes key names in s3 events.
-- [`sqs-json-body-parser`](/packages/sqs-json-body-parser): Parse body from SQS events
 - [`validator`](/packages/validator): Automatically validates incoming events and outgoing responses against custom schemas
 
 ### Response Transformation
+- [`http-content-encoding`](/packages/http-content-encoding): Sets HTTP Content-Encoding header on response and compresses response body
 - [`http-cors`](/packages/http-cors): Sets HTTP CORS headers on response
 - [`http-error-handler`](/packages/http-error-handler): Creates a proper HTTP response for errors that are created with the [http-errors](https://www.npmjs.com/package/http-errors) module and represents proper HTTP errors.
-- [`http-event-normalizer`](/packages/http-event-normalizer): Normalizes HTTP events by adding an empty object for `queryStringParameters`, `multiValueQueryStringParameters` or `pathParameters` if they are missing.
 - [`http-security-headers`](/packages/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/packages/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/packages/http-response-serializer): HTTP response serializer.
@@ -701,7 +702,12 @@ should do a single task. We try to balance each to be as performant as possible 
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-#### Version 2.x
+#### Version 2.x - 3.x
+- [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
+  - [logger](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/logger): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
+  - [metrics](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/metrics): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
+  - [tracing](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/packages/tracing): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
+- [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
@@ -713,6 +719,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-console-logger](https://github.com/serkan-ozal/middy-console-logger): Middleware for filtering logs printed over console logging methods. If the level of the console logging method is equal or bigger than configured level, the log is printed, Otherwise, it is ignored.
 - [middy-invocation](https://github.com/serkan-ozal/middy-invocation): Middleware for accessing current AWS Lambda invocation event and context from anywhere without need to passing event and context as arguments through your code.
 - [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
+
 
 #### Version 1.x
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
@@ -754,7 +761,10 @@ Have a similar project? Let us know.
 - 2021-01-24: v2.0.0-alpha
 - 2021-03-12: v2.0.0-beta
 - 2021-04-01: v2.0.0
-
+- 2022-01-04: v3.0.0-alpha
+- 2022-01-05: AWS Powertools TypeScript Beta Released
+- 2022-03-00: v3.0.0-beta
+- 2022-04-00: v3.0.0
 
 Fun Fact: The adding of the emoji-icon was the 2nd commit to the project.
 
@@ -766,7 +776,7 @@ Before contributing to the project, make sure to have a look at our [Code of Con
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2021 Luciano Mammino, will Farrell and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 Luciano Mammino, will Farrell and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">
