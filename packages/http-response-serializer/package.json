@@ -58,7 +58,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@hapi/accept": "5.0.2",
+    "@hapi/accept": "6.0.0",
     "@middy/util": "^3.0.0"
   },
   "devDependencies": {
