@@ -5,7 +5,7 @@ interface Options {
   awsContext?: boolean
   omitPaths?: string[]
   mask?: string
-  replacer?: (this: any, key: string, value: any) => any | (number | string)[]
+  replacer?: (this: any, key: string, value: any) => any | Array<number | string>
 }
 
 declare function inputOutputLogger (options?: Options): middy.MiddlewareObj
