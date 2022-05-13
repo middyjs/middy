@@ -20,13 +20,17 @@ const parseEvent = (event) => {
   // event.records => aws:lambda:events
   // event.messages => aws:amq
   // event.tasks => aws:s3:batch
-  const records = event.Records ?? event.records ?? event.messages ?? event.tasks
+  const records =
+    event.Records ?? event.records ?? event.messages ?? event.tasks
 
   if (!Array.isArray(records)) {
     // event.configRuleId => aws:config
     // event.awslogs => aws:cloudwatch
-    // event['CodePipeline.job'] => aws: codepipeline
-    eventSource ??= (event.configRuleId && 'aws:config') ?? (event.awslogs && 'aws:cloudwatch') ?? (event['CodePipeline.job'] && 'aws:codepipeline')
+    // event['CodePipeline.job'] => aws:codepipeline
+    eventSource ??=
+      (event.configRuleId && 'aws:config') ??
+      (event.awslogs && 'aws:cloudwatch') ??
+      (event['CodePipeline.job'] && 'aws:codepipeline')
     if (eventSource) {
       events[eventSource]?.(event)
     }
@@ -34,13 +38,15 @@ const parseEvent = (event) => {
   }
 
   // record.EventSource => aws:sns
-  eventSource ??= records[0].eventSource ?? records[0].EventSource ?? (records[0].s3Key && 'aws:s3:batch')
+  eventSource ??=
+    records[0].eventSource ??
+    records[0].EventSource ??
+    (records[0].s3Key && 'aws:s3:batch')
   for (const record of records) {
     events[eventSource]?.(record)
   }
 }
 
-const normalizeS3KeyReplacePlus = /\+/g
 const events = {
   'aws:amq': (message) => {
     message.data = base64Parse(message.data)
@@ -49,7 +55,12 @@ const events = {
     event.awslogs.data = base64Parse(event.awslogs.data)
   },
   'aws:codepipeline': (event) => {
-    event['CodePipeline.job'].data.actionConfiguration.configuration.UserParameters = jsonSafeParse(event['CodePipeline.job'].data.actionConfiguration.configuration.UserParameters)
+    event[
+      'CodePipeline.job'
+    ].data.actionConfiguration.configuration.UserParameters = jsonSafeParse(
+      event['CodePipeline.job'].data.actionConfiguration.configuration
+        .UserParameters
+    )
   },
   'aws:config': (event) => {
     event.invokingEvent = jsonSafeParse(event.invokingEvent)
@@ -102,7 +113,8 @@ const events = {
     }
   }
 }
-const base64Parse = (data) => jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
-const normalizeS3Key = key => decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' '))
+const base64Parse = (data) =>
+  jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
+const normalizeS3Key = (key) => decodeURIComponent(key.replaceAll('+', ' '))
 
 export default eventNormalizerMiddleware
