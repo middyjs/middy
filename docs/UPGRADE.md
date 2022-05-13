@@ -15,6 +15,7 @@ With the Node.js version change all packages are now ECMAScript Modules along si
 
 ## Core
 - `onError` middleware stack order reversed to match `after` **[Breaking Change]**
+  - If you only use `@middy/*` middlewares no change should be required
   - This change has trickle down effects on middlewares with `onError` (see below for details)
   - If you're handling errors yourself here are some things to review:
     - Attach near the end so it is triggered first (likely already done)
