@@ -1,6 +1,6 @@
 {
   "name": "@middy/sts",
-  "version": "3.0.0-alpha.8",
+  "version": "3.0.0",
   "description": "STS (Security Token Service) credentials middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -55,10 +55,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "^3.0.0-alpha.8"
+    "@middy/util": "^3.0.0"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.0-alpha.8",
+    "@middy/core": "^3.0.0",
     "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"
   },
