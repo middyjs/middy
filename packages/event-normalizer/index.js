@@ -47,6 +47,7 @@ const parseEvent = (event) => {
   }
 }
 
+const normalizeS3KeyReplacePlus = /\+/g
 const events = {
   'aws:amq': (message) => {
     message.data = base64Parse(message.data)
@@ -115,6 +116,7 @@ const events = {
 }
 const base64Parse = (data) =>
   jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
-const normalizeS3Key = (key) => decodeURIComponent(key.replaceAll('+', ' '))
+const normalizeS3Key = (key) =>
+  decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' '))
 
 export default eventNormalizerMiddleware
