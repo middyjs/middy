@@ -1,12 +1,13 @@
 name: Benchmarks
 
 on:
-  push:
-    branches:
-      - 'main'
-    tags-ignore:
-      - '*.*.*'
-  pull_request:
+  workflow_dispatch:
+#  push:
+#    branches:
+#      - 'main'
+#    tags-ignore:
+#      - '*.*.*'
+#  pull_request:
 
 jobs:
   benchmarks:
