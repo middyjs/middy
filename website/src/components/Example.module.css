@@ -2,7 +2,12 @@
   margin: 6em 0;
 }
 
-.heading {
+.heading2 {
   text-align: center;
   font-size: 3em;
+}
+
+.heading3 {
+  text-align: center;
+  font-size: 2.5em;
 }

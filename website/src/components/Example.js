@@ -2,15 +2,19 @@ import React from 'react';
 import clsx from 'clsx';
 import styles from './Example.module.css';
 import CodeBlock from '@theme/CodeBlock'
+import Link from '@docusaurus/Link'
 
 const codeWithoutMiddy = `export function handler (event) {
-  // decrypt environment variables with KMS
+  // BOILERPLATE!
+  // E.g. decrypt environment variables with KMS
   // deserialize the content of the event
   // validate input, authentication, authorization
   
   // REAL BUSINESS LOGIC
   response = doSomethingUsefulWith(event)
   
+  // MORE BOILERPLATE
+  // E.g.
   // validate output
   // serialize response
   // handle errors
@@ -19,13 +23,6 @@ const codeWithoutMiddy = `export function handler (event) {
 
 const codeWithtMiddy = `// highlight-start
 import middy from '@middy/core'
-import {
-  kms,
-  serialization,
-  validation,
-  auth,
-  handleErrors
-} from './my-middlewares.js'
 // highlight-end
 
 function handler (event) {
@@ -35,11 +32,11 @@ function handler (event) {
 
 // highlight-start
 const middifiedHandler = middy(handler)
-  .use(kms())
-  .use(serialization())
-  .use(validation())
-  .use(auth())
-  .use(handlerErrors())
+  .use(/* Your own behaviour in a reusable fashion */)
+  .use(/* input validation */)
+  .use(/* authentication */)
+  .use(/* output serialization */)
+  .use(/* other behaviour */)
 // highlight-end
 
 export default middifiedHandler
@@ -49,10 +46,10 @@ export default function Example () {
   return (
     <section className={styles.example}>
       <div className="container">
-        <h2 className={styles.heading}>
+        <h2 className={styles.heading2}>
           Show me the code!
         </h2>
-        <p className='text--center'>The following example illustrates the difference of style when using Middy</p>
+        <p className='text--center'>The following abstract example illustrates the difference of style when using Middy:</p>
 
         <div className="row padding-vert--lg">
 
@@ -88,6 +85,20 @@ export default function Example () {
             </div>
           </div>
         </div>
+
+        <h3 className={styles.heading3}>
+          Do you want to see some more <em>realistic</em> examples?
+        </h3>
+
+        <p className='text--center'>
+          <Link to="/docs/events/api-gateway-http" className="button button--info">API Gateway (HTTP)</Link>{' '}
+          <Link to="/docs/events/api-gateway-rest" className="button button--info">API Gateway (REST)</Link>{' '}
+          <Link to="/docs/events/api-gateway-ws" className="button button--info">API Gateway (WebSockets)</Link>{' '}
+          <Link to="/docs/events/function-url" className="button button--info">Function URL</Link>{' '}
+          <Link to="/docs/events/s3-object" className="button button--info">S3 Object Response</Link>{' '}
+          <Link to="/docs/events/sqs" className="button button--info">SQS</Link>{' '}
+        </p>
+
       </div>
     </section>
   );
