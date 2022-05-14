@@ -54,7 +54,7 @@ npm install --save @middy/input-output-logger
 - `logger` (function) (default `console.log`): logging function that accepts an object
 - `awsContext` (boolean) (default `false`): Include [AWS Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html) to the logger
 - `omitPaths` (string[]) (default `[]`): property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []).
-- `mask` (string) (default `undefined`): When set to a truthy value (i.e. `*** redacted ***`) a path is replaced instead of ommitted.
+- `mask` (string) (default `undefined`): When set to a truthy value (i.e. `*** redacted ***`) a path is replaced instead of omitted.
 - `replacer` (function) (default `undefined`): A [replacer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#Parameters) parameter may be passed which will be used `JSON.stringify`ing the request during cloning.
 
 ## Sample usage

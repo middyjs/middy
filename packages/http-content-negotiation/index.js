@@ -14,12 +14,16 @@ const parseFn = {
 const defaults = {
   parseCharsets: true,
   availableCharsets: undefined,
+  // defaultToFirstCharset: false, // Should not be used
   parseEncodings: true,
   availableEncodings: undefined,
+  // defaultToFirstEncoding: false, // Should not be used
   parseLanguages: true,
   availableLanguages: undefined,
+  defaultToFirstLanguage: false,
   parseMediaTypes: true,
   availableMediaTypes: undefined,
+  // defaultToFirstMediaType: false, // Should not be used
   failOnMismatch: true
 }
 
@@ -34,6 +38,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         'Accept-Charset',
         'Charset',
         options.availableCharsets,
+        options.defaultToFirstCharset,
         options.failOnMismatch,
         event
       )
@@ -44,6 +49,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         'Accept-Encoding',
         'Encoding',
         options.availableEncodings,
+        options.defaultToFirstEncoding,
         options.failOnMismatch,
         event
       )
@@ -54,6 +60,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         'Accept-Language',
         'Language',
         options.availableLanguages,
+        options.defaultToFirstLanguage,
         options.failOnMismatch,
         event
       )
@@ -64,6 +71,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         'Accept',
         'MediaType',
         options.availableMediaTypes,
+        options.defaultToFirstMediaType,
         options.failOnMismatch,
         event
       )
@@ -79,6 +87,7 @@ const parseHeader = (
   headerName,
   type,
   availableValues,
+  defaultToFirstValue,
   failOnMismatch,
   event
 ) => {
@@ -89,6 +98,9 @@ const parseHeader = (
   event[resultsName] = parseFn[type](headerValue, availableValues)
   event[resultName] = event[resultsName][0]
 
+  if (defaultToFirstValue && event[resultName] === undefined) {
+    event[resultName] = availableValues[0]
+  }
   if (failOnMismatch && event[resultName] === undefined) {
     // NotAcceptable
     throw createError(

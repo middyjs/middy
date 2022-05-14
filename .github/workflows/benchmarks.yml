@@ -1,12 +1,13 @@
 name: Benchmarks
 
 on:
-  push:
-    branches:
-      - 'main'
-    tags-ignore:
-      - '*.*.*'
-  pull_request:
+  workflow_dispatch:
+#  push:
+#    branches:
+#      - 'main'
+#    tags-ignore:
+#      - '*.*.*'
+#  pull_request:
 
 jobs:
   benchmarks:
@@ -34,7 +35,7 @@ jobs:
           CI: true
 
       - name: Run benchmark
-        run: test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
+        run: npm run test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
       - name: Download previous benchmark data
         uses: actions/cache@v1
         with:

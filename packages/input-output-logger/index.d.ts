@@ -4,6 +4,8 @@ interface Options {
   logger?: (message: any) => void
   awsContext?: boolean
   omitPaths?: string[]
+  mask?: string
+  replacer?: (this: any, key: string, value: any) => any | Array<number | string>
 }
 
 declare function inputOutputLogger (options?: Options): middy.MiddlewareObj

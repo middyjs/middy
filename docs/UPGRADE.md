@@ -15,6 +15,7 @@ With the Node.js version change all packages are now ECMAScript Modules along si
 
 ## Core
 - `onError` middleware stack order reversed to match `after` **[Breaking Change]**
+  - If you only use `@middy/*` middlewares no change should be required
   - This change has trickle down effects on middlewares with `onError` (see below for details)
   - If you're handling errors yourself here are some things to review:
     - Attach near the end so it is triggered first (likely already done)
@@ -52,7 +53,7 @@ No change
 - [New] Applies `brotli`, `gzip`, ands `deflate` compression to response body
 
 ### [http-content-negotiation](/packages/http-content-negotiation/README.md)
-No change
+- Add in `defaultToFirstLanguage` to allow fallback to a safe language to use
 
 ### [http-cors](/packages/http-cors/README.md)
 - `onError` will not modify response unless error has been handled 

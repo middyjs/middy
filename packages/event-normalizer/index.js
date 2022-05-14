@@ -26,7 +26,7 @@ const parseEvent = (event) => {
   if (!Array.isArray(records)) {
     // event.configRuleId => aws:config
     // event.awslogs => aws:cloudwatch
-    // event['CodePipeline.job'] => aws: codepipeline
+    // event['CodePipeline.job'] => aws:codepipeline
     eventSource ??=
       (event.configRuleId && 'aws:config') ??
       (event.awslogs && 'aws:cloudwatch') ??

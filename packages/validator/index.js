@@ -1,5 +1,5 @@
 import { createError } from '@middy/util'
-import _ajv from 'ajv/dist/2019.js'
+import _ajv from 'ajv/dist/2020.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 import formatsDraft2019 from 'ajv-formats-draft2019'
@@ -52,7 +52,7 @@ const validatorMiddleware = (opts = {}) => {
 
   const validatorMiddlewareBefore = async (request) => {
     if (eventSchema) {
-      const validEvent = eventSchema(request.event)
+      const validEvent = await eventSchema(request.event)
 
       if (!validEvent) {
         if (i18nEnabled) {
@@ -69,7 +69,7 @@ const validatorMiddleware = (opts = {}) => {
     }
 
     if (contextSchema) {
-      const validContext = contextSchema(request.context)
+      const validContext = await contextSchema(request.context)
 
       if (!validContext) {
         // Internal Server Error
@@ -82,7 +82,7 @@ const validatorMiddleware = (opts = {}) => {
   }
 
   const validatorMiddlewareAfter = async (request) => {
-    const valid = responseSchema(request.response)
+    const valid = await responseSchema(request.response)
 
     if (!valid) {
       // Internal Server Error
