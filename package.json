@@ -68,5 +68,10 @@
     "sinon": "^14.0.0",
     "ts-standard": "^11.0.0",
     "tsd": "^0.20.0"
+  },
+  "ts-standard": {
+    "ignore": [
+      "website/build/**/*.js"
+    ]
   }
 }

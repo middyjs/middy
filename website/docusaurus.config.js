@@ -1,7 +1,7 @@
 // @ts-check
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+const lightCodeTheme = require('prism-react-renderer/themes/github')
+const darkCodeTheme = require('prism-react-renderer/themes/dracula')
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -15,9 +15,7 @@ const config = {
   organizationName: 'middyjs',
   projectName: 'middy',
 
-  plugins: [
-    require.resolve('docusaurus-lunr-search')
-  ],
+  plugins: [require.resolve('docusaurus-lunr-search')],
 
   presets: [
     [
@@ -31,17 +29,17 @@ const config = {
           // Please change this to your repo.
           editUrl: 'https://github.com/middyjs/middy/tree/main/website/',
           remarkPlugins: [
-            [require('@docusaurus/remark-plugin-npm2yarn'), { sync: true }],
-          ],
+            [require('@docusaurus/remark-plugin-npm2yarn'), { sync: true }]
+          ]
         },
         pages: {
-          remarkPlugins: [require('@docusaurus/remark-plugin-npm2yarn')],
+          remarkPlugins: [require('@docusaurus/remark-plugin-npm2yarn')]
         },
         theme: {
-          customCss: require.resolve('./src/css/custom.css'),
-        },
-      }),
-    ],
+          customCss: require.resolve('./src/css/custom.css')
+        }
+      })
+    ]
   ],
 
   themeConfig:
@@ -51,33 +49,33 @@ const config = {
         title: 'Middy',
         logo: {
           alt: 'Middy Logo',
-          src: 'img/middy-logo-small.svg',
+          src: 'img/middy-logo-small.svg'
         },
         items: [
           {
             type: 'doc',
             docId: 'intro/intro',
             position: 'left',
-            label: 'Documentation',
+            label: 'Documentation'
           },
           {
             type: 'doc',
             docId: 'middlewares/intro',
             position: 'left',
-            label: 'Middlewares',
+            label: 'Middlewares'
           },
           {
             type: 'doc',
             docId: 'events/intro',
             position: 'left',
-            label: 'AWS Events',
+            label: 'AWS Events'
           },
           {
             href: 'https://github.com/middyjs/middy',
             label: 'GitHub',
-            position: 'right',
-          },
-        ],
+            position: 'right'
+          }
+        ]
       },
       footer: {
         style: 'dark',
@@ -87,52 +85,52 @@ const config = {
             items: [
               {
                 label: 'Documentation',
-                to: '/docs',
+                to: '/docs'
               },
               {
                 label: 'Middlewares',
-                to: '/docs/category/middlewares',
+                to: '/docs/category/middlewares'
               },
               {
                 label: 'AWS Events',
                 to: '/docs/events/intro'
               }
-            ],
+            ]
           },
           {
             title: 'Community & support',
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/facebook/docusaurus',
+                href: 'https://github.com/facebook/docusaurus'
               },
               {
                 label: 'Stack Overflow',
-                href: 'https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052',
+                href: 'https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052'
               },
               {
                 label: 'Gitter',
-                href: 'https://gitter.im/middyjs/Lobby',
-              },
-            ],
+                href: 'https://gitter.im/middyjs/Lobby'
+              }
+            ]
           },
           {
             title: 'More',
             items: [
               {
                 label: 'npm',
-                href: 'https://www.npmjs.com/package/@middy/core',
-              },
+                href: 'https://www.npmjs.com/package/@middy/core'
+              }
             ]
           }
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Middy - Built with Docusaurus. - Icons by feathericons.com`,
+        copyright: `Copyright © ${new Date().getFullYear()} Middy - Built with Docusaurus. - Icons by feathericons.com`
       },
       prism: {
         theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
-      },
-    }),
-};
+        darkTheme: darkCodeTheme
+      }
+    })
+}
 
-module.exports = config;
+module.exports = config
