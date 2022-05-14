@@ -3,7 +3,7 @@ name: Publish Website
 on:
   push:
     paths:
-      - "website/*"
+      - 'website/*'
     branches:
       - main
 
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: |
-          npm install
+          npm ci
       - name: Build website
         working-directory: website
         run: |

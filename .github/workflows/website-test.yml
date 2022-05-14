@@ -21,14 +21,8 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: |
-          npm install
+          npm ci
       - name: Build website
         working-directory: website
         run: |
           npm run build
-      # TODO: REMOVE THIS
-      - name: Publish website
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./website/build
