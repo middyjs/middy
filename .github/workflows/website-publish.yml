@@ -17,7 +17,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: 14.x
+          node-version: 16.x
       - name: Install dependencies
         working-directory: website
         run: |
@@ -26,12 +26,8 @@ jobs:
         working-directory: website
         run: |
           npm run build
-      - name: Publish
-        working-directory: website
-        run: |
-          echo "todo - uncomment next step and remove this one"
-      # - name: Publish website
-      #   uses: peaceiris/actions-gh-pages@v3
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     publish_dir: ./website/build
+      - name: Publish website
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website/build
