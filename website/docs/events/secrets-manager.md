@@ -11,8 +11,6 @@ This page is a work in progress. If you want to help us to make this page better
 ## AWS Documentation
 - [Using AWS Lambda with Secrets Manager](https://docs.aws.amazon.com/lambda/latest/dg/with-secrets-manager.html)
 
-TODO
-
 ## Example
 ```javascript
 import middy from '@middy/core'

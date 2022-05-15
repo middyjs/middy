@@ -10,10 +10,7 @@ This page is a work in progress. If you want to help us to make this page better
 :::
 
 ## AWS Documentation
-
 - [Using AWS Lambda with an Application Load Balancer](https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html)
-
-TODO
 
 ## Example
 

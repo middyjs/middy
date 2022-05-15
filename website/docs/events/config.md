@@ -12,8 +12,6 @@ This page is a work in progress. If you want to help us to make this page better
 ## AWS Documentation
 - [Using AWS Lambda with AWS Config](https://docs.aws.amazon.com/lambda/latest/dg/services-config.html)
 
-TODO
-
 ## Example
 ```javascript
 import middy from '@middy/core'
