@@ -6,7 +6,12 @@ sidebar_position: 100
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-## Version 2.x
+## Version 2.x - 3.x
+- [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
+  - [logger](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/logger): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
+  - [metrics](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/metrics): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
+  - [tracer](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/tracer): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
+- [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
