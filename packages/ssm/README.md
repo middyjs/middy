@@ -9,8 +9,8 @@
   <a href="https://packagephobia.com/result?p=@middy/ssm">
     <img src="https://packagephobia.com/badge?p=@middy/ssm" alt="npm install size" style="max-width:100%;">
   </a>
-  <a href="https://github.com/middyjs/middy/actions">
-    <img src="https://github.com/middyjs/middy/workflows/Tests/badge.svg" alt="GitHub Actions test status badge" style="max-width:100%;">
+  <a href="https://github.com/middyjs/middy/actions/workflows/tests.yml">
+    <img src="https://github.com/middyjs/middy/actions/workflows/tests.yml/badge.svg?branch=main&event=push" alt="GitHub Actions CI status badge" style="max-width:100%;">
   </a>
   <br/>
    <a href="https://standardjs.com/">
