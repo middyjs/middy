@@ -4,13 +4,6 @@ import clsx from 'clsx'
 
 /*
 https://github.com/middyjs/middy/network/dependents?package_id=UGFja2FnZS00Njc1NDUzOTU%3D
-
-https://github.com/DefinitelyTyped/DefinitelyTyped
-https://github.com/swarmion (73)
-https://github.com/mtimbs/typescript-serverless
-https://github.com/serverlesspolska/serverless-hexagonal-template
-https://github.com/theburningmonk/appsyncmasterclass-backend
-https://github.com/getndazn/dazn-lambda-powertools (edited)
  */
 
 const UseList = [
@@ -39,6 +32,7 @@ const UseList = [
     url: 'https://github.com/ngneat/nx-serverless', // https://github.com/ngneat/nx-serverless
     img: '/img/logo/nx-serverless.png'
   },
+  // https://theburningmonk.com
   {
     title: 'Auth0',
     url: 'https://github.com/auth0', // https://github.com/auth0/YearInCode
@@ -73,7 +67,7 @@ const UseList = [
   {
     title: 'Organization Name',
     url: 'https://github.com/{github username}', // https://github.com/{username}/{repo}
-    img: '/img/logo/{from github}.png'
+    img: '/img/logo/{200x200}.png'
   },
   */
 ]
