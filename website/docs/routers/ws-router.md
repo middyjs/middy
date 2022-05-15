@@ -41,7 +41,7 @@ const disconnectHandler = middy()
     return 'disconnected'
   })
 
-handler = middy()
+export const handler = middy()
   .use(wsResponseMiddleware())
   .handler(wsRouterHandler([
     {
@@ -53,7 +53,4 @@ handler = middy()
       handler: disconnectHandler
     }
   ]))
-  
-
-module.exports = { handler }
 ```

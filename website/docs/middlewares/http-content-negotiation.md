@@ -50,7 +50,7 @@ import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpErrorHandler from '@middy/http-error-handler'
 
-const handler = middy((event, context) => {
+export const handler = middy((event, context) => {
   let message, body
 
   switch (event.preferredLanguage) {
@@ -94,5 +94,4 @@ handler
   }))
   .use(httpErrorHandler())
 
-module.exports = { handler }
 ```

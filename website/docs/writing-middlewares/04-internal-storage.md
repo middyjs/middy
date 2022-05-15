@@ -21,7 +21,7 @@ const defaults = {
   setToContext: false
 }
 
-module.exports = (opts = {}) => {
+const customMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = () => {
@@ -58,4 +58,6 @@ module.exports = (opts = {}) => {
     before: customMiddlewareBefore
   }
 }
+
+export default customMiddleware
 ```

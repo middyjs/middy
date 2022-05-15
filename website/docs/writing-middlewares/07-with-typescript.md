@@ -1,6 +1,6 @@
 ---
 title: With TypeScript
-position: 6
+position: 7
 ---
 
 here's an example of how you can write a custom middleware for a Lambda receiving events from API Gateway:

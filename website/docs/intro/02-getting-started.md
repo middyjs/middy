@@ -39,38 +39,36 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const baseHandler = (event, context) => {
+const lambdaHander = (event, context) => {
   /* your business logic */
 }
 
-const handler = middy(baseHandler)
+export const handler = middy(lambdaHander)
 
 handler
   .use(middleware1())
   .use(middleware2())
   .use(middleware3())
 
-module.exports = { handler }
 ```
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
 ```javascript
-import middy from "@middy/core";
-import middleware1 from "sample-middleware1";
-import middleware2 from "sample-middleware2";
-import middleware3 from "sample-middleware3";
+import middy from "@middy/core"
+import middleware1 from "sample-middleware1"
+import middleware2 from "sample-middleware2"
+import middleware3 from "sample-middleware3"
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const baseHandler = (event, context) => {
+const lambdaHander = (event, context) => {
   /* your business logic */
 };
 
-const handler = middy(baseHandler);
+export const handler = middy(lambdaHander)
 
 handler.use(middlewares)
 
-module.exports = { handler };
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
