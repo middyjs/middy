@@ -34,9 +34,10 @@ const lambdaHandler = (event, context) => {
 // highlight-start
 export const handler = middy(lambdaHandler)
   .use(/* Your own behaviour in a reusable fashion */)
+  .use(/* logging and tracing */)
   .use(/* input validation */)
   .use(/* authentication */)
-  .use(/* output serialization */)
+  .use(/* error handling */)
   .use(/* other behaviour */)
 // highlight-end
 `
