@@ -4,7 +4,7 @@ import styles from './Example.module.css'
 import CodeBlock from '@theme/CodeBlock'
 import Link from '@docusaurus/Link'
 
-const codeWithoutMiddy = `export const handler (event) => {
+const codeWithoutMiddy = `export const handler (event, context) => {
   // BOILERPLATE!
   // E.g. decrypt environment variables with KMS
   // deserialize the content of the event
@@ -26,7 +26,7 @@ const codeWithtMiddy = `// highlight-start
 import middy from '@middy/core'
 // highlight-end
 
-const lambdaHandler = (event) => {
+const lambdaHandler = (event, context) => {
   // REAL BUSINESS LOGIC
   return doSomethingUsefulWith(event)
 }
