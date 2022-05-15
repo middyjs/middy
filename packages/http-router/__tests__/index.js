@@ -205,10 +205,9 @@ test('It should run middleware that are part of route handler', async (t) => {
     {
       method: 'GET',
       path: '/',
-      handler: middy(() => false)
-        .after((request) => {
-          request.response = true
-        })
+      handler: middy(() => false).after((request) => {
+        request.response = true
+      })
     }
   ])
   const response = await handler(event, context)
@@ -220,16 +219,17 @@ test('It should middleware part of router', async (t) => {
     httpMethod: 'GET',
     path: '/'
   }
-  const handler = middy(httpRouter([
-    {
-      method: 'GET',
-      path: '/',
-      handler: () => false
-    }
-  ]))
-    .after((request) => {
-      request.response = true
-    })
+  const handler = middy(
+    httpRouter([
+      {
+        method: 'GET',
+        path: '/',
+        handler: () => false
+      }
+    ])
+  ).after((request) => {
+    request.response = true
+  })
   const response = await handler(event, context)
   t.true(response)
 })

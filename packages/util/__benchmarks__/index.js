@@ -1,6 +1,11 @@
 import Benchmark from 'benchmark'
 
-import { getInternal, processCache, jsonSafeParse, normalizeHttpResponse } from '../index.js'
+import {
+  getInternal,
+  processCache,
+  jsonSafeParse,
+  normalizeHttpResponse
+} from '../index.js'
 
 const suite = new Benchmark.Suite('@middy/util')
 

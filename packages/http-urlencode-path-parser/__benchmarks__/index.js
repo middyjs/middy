@@ -8,23 +8,27 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = () => {
-  const baseHandler = () => { }
-  return middy(baseHandler)
-    .use(middleware())
+  const baseHandler = () => {}
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('Parse body', async (event = {
-    pathParameters: {
-      char: 'M%C3%AEddy'
+  .add(
+    'Parse body',
+    async (
+      event = {
+        pathParameters: {
+          char: 'M%C3%AEddy'
+        }
+      }
+    ) => {
+      try {
+        await warmHandler(event, context)
+      } catch (e) {}
     }
-  }) => {
-    try {
-      await warmHandler(event, context)
-    } catch (e) {}
-  })
+  )
   .on('cycle', (event) => {
     console.log(suite.name, String(event.target))
   })

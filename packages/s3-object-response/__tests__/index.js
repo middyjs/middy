@@ -74,13 +74,14 @@ test.serial('It should throw when unknown bodyType used', async (t) => {
   })
 
   try {
-    handler
-      .use(s3ObejctResponse({
+    handler.use(
+      s3ObejctResponse({
         AwsClient: S3,
         bodyType: 'string',
 
         __https: mockHttps('hello world')
-      }))
+      })
+    )
   } catch (e) {
     t.is(e.message, '[s3-object-response] bodyType is invalid')
   }

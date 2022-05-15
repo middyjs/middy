@@ -346,20 +346,19 @@ test.serial(
 test.serial('It should catch if an error is returned from fetch', async (t) => {
   const stub = mockServiceError(ServiceDiscovery, new Error('timeout'))
 
-  const handler = middy(() => {})
-    .use(
-      serviceDiscovery({
-        AwsClient: ServiceDiscovery,
-        cacheExpiry: 0,
-        fetchData: {
-          ec2: {
-            NamespaceName: 'example.com',
-            ServiceName: 'example'
-          }
-        },
-        setToContext: true
-      })
-    )
+  const handler = middy(() => {}).use(
+    serviceDiscovery({
+      AwsClient: ServiceDiscovery,
+      cacheExpiry: 0,
+      fetchData: {
+        ec2: {
+          NamespaceName: 'example.com',
+          ServiceName: 'example'
+        }
+      },
+      setToContext: true
+    })
+  )
 
   try {
     await handler(event, context)

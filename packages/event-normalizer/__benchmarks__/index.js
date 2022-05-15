@@ -10,8 +10,7 @@ const context = {
 }
 const setupHandler = () => {
   const baseHandler = () => {}
-  return middy(baseHandler)
-    .use(middleware())
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()
@@ -21,9 +20,10 @@ const s3Event = createEvent.default('aws:s3')
 const sqsEvent = createEvent.default('aws:sqs')
 const snsEvent = createEvent.default('aws:sns')
 
-kinesisEvent.event.Records[0].kinesis.data = Buffer
-  .from(JSON.stringify({ hello: 'world' }), 'utf-8')
-  .toString('base64')
+kinesisEvent.event.Records[0].kinesis.data = Buffer.from(
+  JSON.stringify({ hello: 'world' }),
+  'utf-8'
+).toString('base64')
 
 const deepJsonEvent = createEvent.default('aws:sqs')
 snsEvent.Records[0].Sns.Message = JSON.stringify(sqsEvent)

@@ -62,13 +62,15 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
   }
 
   handler
-    .use(secretsManager({
-      AwsClient: SecretsManager,
-      cacheExpiry: 0,
-      fetchData: {
-        token: 'api_key'
-      }
-    }))
+    .use(
+      secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        }
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -94,14 +96,16 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
   }
 
   handler
-    .use(secretsManager({
-      AwsClient: SecretsManager,
-      cacheExpiry: 0,
-      fetchData: {
-        token1: 'api_key1',
-        token2: 'api_key2'
-      }
-    }))
+    .use(
+      secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          token1: 'api_key1',
+          token2: 'api_key2'
+        }
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -124,13 +128,15 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
   }
 
   handler
-    .use(secretsManager({
-      AwsClient: SecretsManager,
-      cacheExpiry: 0,
-      fetchData: {
-        credentials: 'rds_login'
-      }
-    }))
+    .use(
+      secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          credentials: 'rds_login'
+        }
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -151,14 +157,16 @@ test.serial(
     }
 
     handler
-      .use(secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          token: 'api_key'
-        },
-        disablePrefetch: true
-      }))
+      .use(
+        secretsManager({
+          AwsClient: SecretsManager,
+          cacheExpiry: 0,
+          fetchData: {
+            token: 'api_key'
+          },
+          disablePrefetch: true
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -177,14 +185,16 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   }
 
   handler
-    .use(secretsManager({
-      AwsClient: SecretsManager,
-      cacheExpiry: 0,
-      fetchData: {
-        token: 'api_key'
-      },
-      setToContext: true
-    }))
+    .use(
+      secretsManager({
+        AwsClient: SecretsManager,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        },
+        setToContext: true
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -205,13 +215,15 @@ test.serial(
     }
 
     handler
-      .use(secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: -1,
-        fetchData: {
-          token: 'api_key'
-        }
-      }))
+      .use(
+        secretsManager({
+          AwsClient: SecretsManager,
+          cacheExpiry: -1,
+          fetchData: {
+            token: 'api_key'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -242,13 +254,15 @@ test.serial(
     }
 
     handler
-      .use(secretsManager({
-        AwsClient: SecretsManager,
-        cacheExpiry: 0,
-        fetchData: {
-          token: 'api_key'
-        }
-      }))
+      .use(
+        secretsManager({
+          AwsClient: SecretsManager,
+          cacheExpiry: 0,
+          fetchData: {
+            token: 'api_key'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -261,15 +275,16 @@ test.serial(
 test.serial('It should catch if an error is returned from fetch', async (t) => {
   const stub = mockServiceError(SecretsManager, new Error('timeout'))
 
-  const handler = middy(() => {})
-    .use(secretsManager({
+  const handler = middy(() => {}).use(
+    secretsManager({
       AwsClient: SecretsManager,
       cacheExpiry: 0,
       fetchData: {
         token: 'api_key'
       },
       setToContext: true
-    }))
+    })
+  )
 
   try {
     await handler(event, context)

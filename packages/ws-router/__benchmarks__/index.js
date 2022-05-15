@@ -9,21 +9,26 @@ const context = {
 }
 const setupHandler = () => {
   const handler = () => {}
-  return middy(router([
-    { routeKey: '$connect', handler },
-    { routeKey: '$disconnect', handler },
-    { routeKey: '$default', handler }
-  ]))
+  return middy(
+    router([
+      { routeKey: '$connect', handler },
+      { routeKey: '$disconnect', handler },
+      { routeKey: '$default', handler }
+    ])
+  )
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('short static', async (event = { requestContext: { routeKey: '$connect' } }) => {
-    try {
-      await warmHandler(event, context)
-    } catch (e) {}
-  })
+  .add(
+    'short static',
+    async (event = { requestContext: { routeKey: '$connect' } }) => {
+      try {
+        await warmHandler(event, context)
+      } catch (e) {}
+    }
+  )
   .on('cycle', (event) => {
     console.log(suite.name, String(event.target))
   })

@@ -1,4 +1,4 @@
-import ApiGatewayManagementApi from 'aws-sdk/clients/apigatewaymanagementapi.js'// v2
+import ApiGatewayManagementApi from 'aws-sdk/clients/apigatewaymanagementapi.js' // v2
 // import {ApiGatewayManagementApi} from '@aws-sdk/client-apigatewaymanagementapi' // v3
 
 import { canPrefetch, createClient, createPrefetchClient } from '@middy/util'
@@ -26,15 +26,16 @@ const wsResponseMiddleware = (opts) => {
     if (!response.ConnectionId) return
 
     if (!options.awsClientOptions.endpoint && request.event.requestContext) {
-      options.awsClientOptions.endpoint = request.event.requestContext.domainName + '/' + request.event.requestContext.stage
+      options.awsClientOptions.endpoint =
+        request.event.requestContext.domainName +
+        '/' +
+        request.event.requestContext.stage
     }
     if (!client) {
       client = await createClient(options, request)
     }
 
-    await client
-      .postToConnection(response)
-      .promise()
+    await client.postToConnection(response).promise()
 
     request.response.statusCode = 200
   }
@@ -49,7 +50,10 @@ const normalizeWsResponse = (request) => {
   let { response } = request
   if (response === undefined) {
     response = {}
-  } else if (response?.Data === undefined && response?.ConnectionId === undefined) {
+  } else if (
+    response?.Data === undefined &&
+    response?.ConnectionId === undefined
+  ) {
     response = { Data: response }
   }
   response.ConnectionId ??= request.event.requestContext?.connectionId

@@ -4,7 +4,9 @@ import { EventEmitter } from 'events' // For polyfill
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
-  timeoutEarlyResponse: () => { throw new Error('Timeout') }
+  timeoutEarlyResponse: () => {
+    throw new Error('Timeout')
+  }
 }
 
 const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
@@ -90,7 +92,8 @@ const runRequest = async (
   onErrorMiddlewares,
   plugin
 ) => {
-  const timeoutEarly = plugin.timeoutEarly && request.context.getRemainingTimeInMillis // disable when AWS context missing (tests, containers)
+  const timeoutEarly =
+    plugin.timeoutEarly && request.context.getRemainingTimeInMillis // disable when AWS context missing (tests, containers)
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early
@@ -101,13 +104,18 @@ const runRequest = async (
       let timeoutAbort
       if (timeoutEarly) timeoutAbort = new AbortController()
       request.response = await Promise.race([
-        lambdaHandler(request.event, request.context, { signal: handlerAbort.signal }),
+        lambdaHandler(request.event, request.context, {
+          signal: handlerAbort.signal
+        }),
         timeoutEarly
-          ? setTimeoutPromise(request.context.getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis, { signal: timeoutAbort.signal })
-            .then(() => {
-              handlerAbort.abort()
-              return plugin.timeoutEarlyResponse()
-            })
+          ? setTimeoutPromise(
+            request.context.getRemainingTimeInMillis() -
+                plugin.timeoutEarlyInMillis,
+            { signal: timeoutAbort.signal }
+          ).then(() => {
+            handlerAbort.abort()
+            return plugin.timeoutEarlyResponse()
+          })
           : Promise.race([])
       ])
       if (timeoutEarly) timeoutAbort.abort() // lambdaHandler may not be a promise

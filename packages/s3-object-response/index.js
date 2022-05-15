@@ -1,11 +1,7 @@
 import __https from 'https'
 import { URL } from 'url'
 
-import {
-  canPrefetch,
-  createPrefetchClient,
-  createClient
-} from '@middy/util'
+import { canPrefetch, createPrefetchClient, createClient } from '@middy/util'
 
 import S3 from 'aws-sdk/clients/s3.js' // v2
 // import { S3 } from '@aws-sdk/client-s3' // v3
@@ -41,11 +37,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    const {
-      inputS3Url,
-      outputRoute,
-      outputToken
-    } = request.event.getObjectContext
+    const { inputS3Url, outputRoute, outputToken } =
+      request.event.getObjectContext
 
     request.internal.s3ObjectResponse = {
       RequestRoute: outputRoute,

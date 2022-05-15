@@ -40,9 +40,10 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
         body: message,
         headers: {
           ...request.response.headers,
-          'Content-Type': typeof jsonSafeParse(message) === 'string'
-            ? 'text/plain'
-            : 'application/json'
+          'Content-Type':
+            typeof jsonSafeParse(message) === 'string'
+              ? 'text/plain'
+              : 'application/json'
         }
       }
     }

@@ -23,74 +23,114 @@ test('Middleware attached with "use" must be an array[object]', async (t) => {
   const error = t.throws(() => {
     handler.use(['before'])
   })
-  t.is(error.message, 'Middleware must be an object containing at least one key among "before", "after", "onError"')
+  t.is(
+    error.message,
+    'Middleware must be an object containing at least one key among "before", "after", "onError"'
+  )
 })
 
 // Attaching a middleware
 test('"use" should add single before middleware', async (t) => {
   const executed = []
-  const middleware1 = () => ({ before: () => { executed.push('b1') } })
-  const handler = middy(() => { executed.push('handler') })
-    .use(middleware1())
+  const middleware1 = () => ({
+    before: () => {
+      executed.push('b1')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use(middleware1())
   await handler(event, context)
   t.deepEqual(executed, ['b1', 'handler'])
 })
 
 test('"before" should add a before middleware', async (t) => {
   const executed = []
-  const before = () => { executed.push('b1') }
-  const handler = middy(() => { executed.push('handler') })
-    .before(before)
+  const before = () => {
+    executed.push('b1')
+  }
+  const handler = middy(() => {
+    executed.push('handler')
+  }).before(before)
   await handler(event, context)
   t.deepEqual(executed, ['b1', 'handler'])
 })
 
 test('"use" should add multiple before middleware', async (t) => {
   const executed = []
-  const middleware1 = () => ({ before: () => { executed.push('b1') } })
-  const middleware2 = () => ({ before: () => { executed.push('b2') } })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const middleware1 = () => ({
+    before: () => {
+      executed.push('b1')
+    }
+  })
+  const middleware2 = () => ({
+    before: () => {
+      executed.push('b2')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   await handler(event, context)
   t.deepEqual(executed, ['b1', 'b2', 'handler'])
 })
 
 test('"use" should add single after middleware', async (t) => {
   const executed = []
-  const middleware1 = () => ({ after: () => { executed.push('a1') } })
-  const handler = middy(() => { executed.push('handler') })
-    .use(middleware1())
+  const middleware1 = () => ({
+    after: () => {
+      executed.push('a1')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use(middleware1())
   await handler(event, context)
   t.deepEqual(executed, ['handler', 'a1'])
 })
 
 test('"after" should add an after middleware', async (t) => {
   const executed = []
-  const after = () => { executed.push('a1') }
-  const handler = middy(() => { executed.push('handler') })
-    .after(after)
+  const after = () => {
+    executed.push('a1')
+  }
+  const handler = middy(() => {
+    executed.push('handler')
+  }).after(after)
   await handler(event, context)
   t.deepEqual(executed, ['handler', 'a1'])
 })
 
 test('"use" should add multiple after middleware', async (t) => {
   const executed = []
-  const middleware1 = () => ({ after: () => { executed.push('a1') } })
-  const middleware2 = () => ({ after: () => { executed.push('a2') } })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const middleware1 = () => ({
+    after: () => {
+      executed.push('a1')
+    }
+  })
+  const middleware2 = () => ({
+    after: () => {
+      executed.push('a2')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   await handler(event, context)
   t.deepEqual(executed, ['handler', 'a2', 'a1'])
 })
 
 test('"use" should add single onError middleware', async (t) => {
   const executed = []
-  const middleware1 = () => ({ onError: () => { executed.push('e1') } })
+  const middleware1 = () => ({
+    onError: () => {
+      executed.push('e1')
+    }
+  })
   const handler = middy(() => {
     executed.push('handler')
     throw new Error('onError')
-  })
-    .use(middleware1())
+  }).use(middleware1())
   try {
     await handler(event, context)
   } catch (e) {}
@@ -103,7 +143,9 @@ test('"onError" should add a before middleware', async (t) => {
     throw new Error('onError')
   })
   const executed = []
-  const onError = () => { executed.push('e1') }
+  const onError = () => {
+    executed.push('e1')
+  }
   handler.onError(onError)
   try {
     await handler(event, context)
@@ -117,8 +159,16 @@ test('"use" should add multiple onError middleware', async (t) => {
     throw new Error('onError')
   })
   const executed = []
-  const middleware1 = () => ({ onError: () => { executed.push('e1') } })
-  const middleware2 = () => ({ onError: () => { executed.push('e2') } })
+  const middleware1 = () => ({
+    onError: () => {
+      executed.push('e1')
+    }
+  })
+  const middleware2 = () => ({
+    onError: () => {
+      executed.push('e2')
+    }
+  })
   handler.use([middleware1(), middleware2()])
   try {
     await handler(event, context)
@@ -129,15 +179,20 @@ test('"use" should add multiple onError middleware', async (t) => {
 test('"use" should add single object with all types of middlewares', async (t) => {
   const executed = []
   const middleware = () => ({
-    before: () => { executed.push('b1') },
+    before: () => {
+      executed.push('b1')
+    },
     after: () => {
       executed.push('a1')
       throw new Error('after')
     },
-    onError: () => { executed.push('e1') }
+    onError: () => {
+      executed.push('e1')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use(middleware())
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use(middleware())
   try {
     await handler(event, context)
   } catch (e) {}
@@ -147,20 +202,31 @@ test('"use" should add single object with all types of middlewares', async (t) =
 test('"use" can add multiple object with all types of middlewares', async (t) => {
   const executed = []
   const middleware1 = () => ({
-    before: () => { executed.push('b1') },
+    before: () => {
+      executed.push('b1')
+    },
     after: () => {
       executed.push('a1')
       throw new Error('after')
     },
-    onError: () => { executed.push('e1') }
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
-    after: () => { executed.push('a2') },
-    onError: () => { executed.push('e2') }
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {}
@@ -170,20 +236,31 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
 test('"use" can add multiple object with all types of middlewares (async)', async (t) => {
   const executed = []
   const middleware1 = () => ({
-    before: async () => { executed.push('b1') },
+    before: async () => {
+      executed.push('b1')
+    },
     after: async () => {
       executed.push('a1')
       throw new Error('after')
     },
-    onError: async () => { executed.push('e1') }
+    onError: async () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: async () => { executed.push('b2') },
-    after: async () => { executed.push('a2') },
-    onError: async () => { executed.push('e2') }
+    before: async () => {
+      executed.push('b2')
+    },
+    after: async () => {
+      executed.push('a2')
+    },
+    onError: async () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(async () => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(async () => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {}
@@ -194,8 +271,11 @@ test('"use" can add multiple object with all types of middlewares (async)', asyn
 test('"handler" should replace lambdaHandler', async (t) => {
   const executed = []
 
-  const handler = middy(() => { executed.push('replace') })
-    .handler(() => { executed.push('handler') })
+  const handler = middy(() => {
+    executed.push('replace')
+  }).handler(() => {
+    executed.push('handler')
+  })
   await handler(event, context)
   t.deepEqual(executed, ['handler'])
 })
@@ -206,8 +286,9 @@ test('"middy" should allow setting plugin as first arg', async (t) => {
     beforePrefetch: () => {
       executed.push('beforePrefetch')
     }
+  }).handler(() => {
+    executed.push('handler')
   })
-    .handler(() => { executed.push('handler') })
   await handler(event, context)
   t.deepEqual(executed, ['beforePrefetch', 'handler'])
 })
@@ -217,20 +298,31 @@ test('Thrown error from"before" middlewares should handled', async (t) => {
   const beforeError = new Error('before')
   const executed = []
   const middleware1 = () => ({
-    before: async () => { executed.push('b1') },
-    after: async () => { executed.push('a1') },
-    onError: async () => { executed.push('e1') }
+    before: async () => {
+      executed.push('b1')
+    },
+    after: async () => {
+      executed.push('a1')
+    },
+    onError: async () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
     before: () => {
       executed.push('b2')
       throw beforeError
     },
-    after: () => { executed.push('a2') },
-    onError: () => { executed.push('e2') }
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {
@@ -243,20 +335,31 @@ test('Thrown error from handler should handled', async (t) => {
   const handlerError = new Error('handler')
   const executed = []
   const middleware1 = () => ({
-    before: () => { executed.push('b1') },
-    after: () => { executed.push('a1') },
-    onError: () => { executed.push('e1') }
+    before: () => {
+      executed.push('b1')
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
-    after: () => { executed.push('a2') },
-    onError: () => { executed.push('e2') }
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
   })
   const handler = middy(() => {
     executed.push('handler')
     throw handlerError
-  })
-    .use([middleware1(), middleware2()])
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {
@@ -269,20 +372,31 @@ test('Thrown error from "after" middlewares should handled', async (t) => {
   const afterError = new Error('after')
   const executed = []
   const middleware1 = () => ({
-    before: async () => { executed.push('b1') },
-    after: async () => { executed.push('a1') },
-    onError: async () => { executed.push('e1') }
+    before: async () => {
+      executed.push('b1')
+    },
+    after: async () => {
+      executed.push('a1')
+    },
+    onError: async () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
+    before: () => {
+      executed.push('b2')
+    },
     after: () => {
       executed.push('a2')
       throw afterError
     },
-    onError: () => { executed.push('e2') }
+    onError: () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {
@@ -297,12 +411,20 @@ test('Thrown error from "onError" middlewares should handled', async (t) => {
 
   const executed = []
   const middleware1 = () => ({
-    before: async () => { executed.push('b1') },
-    after: async () => { executed.push('a1') },
-    onError: async () => { executed.push('e1') }
+    before: async () => {
+      executed.push('b1')
+    },
+    after: async () => {
+      executed.push('a1')
+    },
+    onError: async () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
+    before: () => {
+      executed.push('b2')
+    },
     after: () => {
       executed.push('a2')
       throw afterError
@@ -312,8 +434,9 @@ test('Thrown error from "onError" middlewares should handled', async (t) => {
       throw onErrorError
     }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   try {
     await handler(event, context)
   } catch (e) {
@@ -360,16 +483,27 @@ test('"before" middleware should be able to short circuit response', async (t) =
       executed.push('b1')
       return true
     },
-    after: () => { executed.push('a1') },
-    onError: () => { executed.push('e1') }
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
-    after: () => { executed.push('a2') },
-    onError: () => { executed.push('e2') }
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
   t.true(response)
   t.deepEqual(executed, ['b1'])
@@ -378,20 +512,31 @@ test('"before" middleware should be able to short circuit response', async (t) =
 test('handler should be able to set response', async (t) => {
   const executed = []
   const middleware1 = () => ({
-    before: () => { executed.push('b1') },
-    after: () => { executed.push('a1') },
-    onError: () => { executed.push('e1') }
+    before: () => {
+      executed.push('b1')
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
-    after: () => { executed.push('a2') },
-    onError: () => { executed.push('e2') }
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
   })
   const handler = middy(() => {
     executed.push('handler')
     return true
-  })
-    .use([middleware1(), middleware2()])
+  }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
   t.true(response)
   t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1'])
@@ -429,20 +574,31 @@ test('"after" middlewares should be able to mutate event and context', async (t)
 test('"after" middleware should be able to short circuit response', async (t) => {
   const executed = []
   const middleware1 = () => ({
-    before: () => { executed.push('b1') },
-    after: () => { executed.push('a1') },
-    onError: () => { executed.push('e1') }
+    before: () => {
+      executed.push('b1')
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
+    before: () => {
+      executed.push('b2')
+    },
     after: () => {
       executed.push('a2')
       return true
     },
-    onError: () => { executed.push('e2') }
+    onError: () => {
+      executed.push('e2')
+    }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
   t.true(response)
   t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2'])
@@ -470,19 +626,28 @@ test('"onError" middleware should be able to short circuit response', async (t) 
       executed.push('b1')
       throw new Error('before')
     },
-    after: () => { executed.push('a1') },
-    onError: () => { executed.push('e1') }
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
   })
   const middleware2 = () => ({
-    before: () => { executed.push('b2') },
-    after: () => { executed.push('a2') },
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
     onError: () => {
       executed.push('e2')
       return true
     }
   })
-  const handler = middy(() => { executed.push('handler') })
-    .use([middleware1(), middleware2()])
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
   t.true(response)
   t.deepEqual(executed, ['b1', 'e2'])

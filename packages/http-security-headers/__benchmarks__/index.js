@@ -8,15 +8,14 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = () => {
-  const baseHandler = () => { }
-  return middy(baseHandler)
-    .use(middleware())
+  const baseHandler = () => {}
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('Add Headers', async (event = { }) => {
+  .add('Add Headers', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

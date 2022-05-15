@@ -1,4 +1,3 @@
-
 const defaults = {
   logger: console.log
 }

@@ -264,8 +264,8 @@ test.serial(
 test.serial('It should catch if an error is returned from fetch', async (t) => {
   const stub = mockServiceError(STS, new Error('timeout'))
 
-  const handler = middy(() => {})
-    .use(sts({
+  const handler = middy(() => {}).use(
+    sts({
       AwsClient: STS,
       cacheExpiry: 0,
       fetchData: {
@@ -274,7 +274,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
         }
       },
       setToContext: true
-    }))
+    })
+  )
 
   try {
     await handler(event, context)

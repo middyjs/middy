@@ -129,7 +129,8 @@ export const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
-    const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
+    const unexpired =
+      cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
@@ -194,7 +195,11 @@ export const normalizeHttpResponse = (request) => {
   let { response } = request
   if (response === undefined) {
     response = {}
-  } else if (response?.statusCode === undefined && response?.body === undefined && response?.headers === undefined) {
+  } else if (
+    response?.statusCode === undefined &&
+    response?.body === undefined &&
+    response?.headers === undefined
+  ) {
     response = { body: response }
   }
   response.headers ??= {}

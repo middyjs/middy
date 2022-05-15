@@ -8,18 +8,19 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = () => {
-  const baseHandler = () => { }
-  return middy(baseHandler)
-    .use(middleware({
+  const baseHandler = () => {}
+  return middy(baseHandler).use(
+    middleware({
       inputSchema: { type: 'object' },
       outputSchema: { type: 'object' }
-    }))
+    })
+  )
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('type check input & output', async (event = { }) => {
+  .add('type check input & output', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

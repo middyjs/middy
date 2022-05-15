@@ -42,10 +42,11 @@ test.serial('It should post when api gateway event', async (t) => {
     return 'string'
   })
 
-  handler
-    .use(wsResponse({
+  handler.use(
+    wsResponse({
       AwsClient: ApiGatewayManagementApi
-    }))
+    })
+  )
 
   const event = {
     requestContext: {
@@ -68,13 +69,14 @@ test.serial('It should post when endpoint option set', async (t) => {
     }
   })
 
-  handler
-    .use(wsResponse({
+  handler.use(
+    wsResponse({
       AwsClient: ApiGatewayManagementApi,
       awsClientOptions: {
         endpoint: 'https://xxxxxx.execute-api.region.amazonaws.com/production'
       }
-    }))
+    })
+  )
 
   const event = {}
   const response = await handler(event, context)
@@ -88,10 +90,11 @@ test.serial('It should not post when connection id is not set', async (t) => {
     return true
   })
 
-  handler
-    .use(wsResponse({
+  handler.use(
+    wsResponse({
       AwsClient: ApiGatewayManagementApi
-    }))
+    })
+  )
 
   const event = {}
   const response = await handler(event, context)
@@ -103,10 +106,11 @@ test.serial('It should not post when response not set', async (t) => {
 
   const handler = middy((event, context) => {})
 
-  handler
-    .use(wsResponse({
+  handler.use(
+    wsResponse({
       AwsClient: ApiGatewayManagementApi
-    }))
+    })
+  )
 
   const event = {}
   const response = await handler(event, context)

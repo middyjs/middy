@@ -8,9 +8,10 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options) => {
-  const baseHandler = () => { return JSON.stringify(new Array(100000).fill(0)) }
-  return middy(baseHandler)
-    .use(middleware(options))
+  const baseHandler = () => {
+    return JSON.stringify(new Array(100000).fill(0))
+  }
+  return middy(baseHandler).use(middleware(options))
 }
 
 const gzHandler = setupHandler({ preferredEncoding: 'gz' })

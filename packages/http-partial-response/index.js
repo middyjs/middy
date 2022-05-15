@@ -22,7 +22,9 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 
     const filteredBody = mask(parsedBody, fields)
 
-    request.response.body = bodyIsString ? JSON.stringify(filteredBody) : filteredBody
+    request.response.body = bodyIsString
+      ? JSON.stringify(filteredBody)
+      : filteredBody
   }
 
   return {

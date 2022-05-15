@@ -9,8 +9,7 @@ const context = {
 }
 
 test('It should skip when empty event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {}
   const response = await handler(event, context)
@@ -19,8 +18,7 @@ test('It should skip when empty event', async (t) => {
 })
 
 test('It should skip when unknown event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = { Records: [{ eventSource: 'aws:new' }] }
   const response = await handler(event, context)
@@ -32,8 +30,7 @@ test('It should skip when unknown event', async (t) => {
 
 // CloudWatch Logs
 test('It should parse CloudWatch logs event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const userParameters = { key: 'value' }
   const event = {
@@ -85,27 +82,29 @@ test('It should parse CloudWatch logs event', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response['CodePipeline.job'].data.actionConfiguration.configuration.UserParameters, userParameters)
+  t.deepEqual(
+    response['CodePipeline.job'].data.actionConfiguration.configuration
+      .UserParameters,
+    userParameters
+  )
 })
 
 // CodePipeline
 test('It should parse CodePipeline event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const eventJSON = {
     messageType: 'DATA_MESSAGE',
     owner: '123456789012',
     logGroup: '/aws/lambda/echo-nodejs',
     logStream: '2019/03/13/[$LATEST]94fa867e5374431291a7fc14e2f56ae7',
-    subscriptionFilters: [
-      'LambdaStream_cloudwatchlogs-node'
-    ],
+    subscriptionFilters: ['LambdaStream_cloudwatchlogs-node'],
     logEvents: [
       {
         id: '34622316099697884706540976068822859012661220141643892546',
         timestamp: 1552518348220,
-        message: 'REPORT RequestId: 6234bffe-149a-b642-81ff-2e8e376d8aff\tDuration: 46.84 ms\tBilled Duration: 47 ms \tMemory Size: 192 MB\tMax Memory Used: 72 MB\t\n'
+        message:
+          'REPORT RequestId: 6234bffe-149a-b642-81ff-2e8e376d8aff\tDuration: 46.84 ms\tBilled Duration: 47 ms \tMemory Size: 192 MB\tMax Memory Used: 72 MB\t\n'
       }
     ]
   }
@@ -122,10 +121,30 @@ test('It should parse CodePipeline event', async (t) => {
 
 // Config
 test('It should parse Config event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
-  const invokingEvent = { configurationItem: { configurationItemCaptureTime: '2016-02-17T01:36:34.043Z', awsAccountId: '000000000000', configurationItemStatus: 'OK', resourceId: 'i-00000000', ARN: 'arn:aws:ec2:us-east-1:000000000000:instance/i-00000000', awsRegion: 'us-east-1', availabilityZone: 'us-east-1a', resourceType: 'AWS::EC2::Instance', tags: { Foo: 'Bar' }, relationships: [{ resourceId: 'eipalloc-00000000', resourceType: 'AWS::EC2::EIP', name: 'Is attached to ElasticIp' }], configuration: { foo: 'bar' } }, messageType: 'ConfigurationItemChangeNotification' }
+  const invokingEvent = {
+    configurationItem: {
+      configurationItemCaptureTime: '2016-02-17T01:36:34.043Z',
+      awsAccountId: '000000000000',
+      configurationItemStatus: 'OK',
+      resourceId: 'i-00000000',
+      ARN: 'arn:aws:ec2:us-east-1:000000000000:instance/i-00000000',
+      awsRegion: 'us-east-1',
+      availabilityZone: 'us-east-1a',
+      resourceType: 'AWS::EC2::Instance',
+      tags: { Foo: 'Bar' },
+      relationships: [
+        {
+          resourceId: 'eipalloc-00000000',
+          resourceType: 'AWS::EC2::EIP',
+          name: 'Is attached to ElasticIp'
+        }
+      ],
+      configuration: { foo: 'bar' }
+    },
+    messageType: 'ConfigurationItemChangeNotification'
+  }
   const ruleParameters = { myParameterKey: 'myParameterValue' }
   const event = {
     invokingEvent: JSON.stringify(invokingEvent),
@@ -133,7 +152,8 @@ test('It should parse Config event', async (t) => {
     resultToken: 'myResultToken',
     eventLeftScope: false,
     executionRoleArn: 'arn:aws:iam::012345678912:role/config-role',
-    configRuleArn: 'arn:aws:config:us-east-1:012345678912:config-rule/config-rule-0123456',
+    configRuleArn:
+      'arn:aws:config:us-east-1:012345678912:config-rule/config-rule-0123456',
     configRuleName: 'change-triggered-config-rule',
     configRuleId: 'config-rule-0123456',
     accountId: '012345678912',
@@ -147,8 +167,7 @@ test('It should parse Config event', async (t) => {
 
 // DynamoDB
 test('It should parse DynamoDB event keys/images', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = createEvent.default('aws:dynamo')
   const response = await handler(event, context)
@@ -168,12 +187,12 @@ test('It should parse DynamoDB event keys/images', async (t) => {
 
 // Apache Kafka
 test('It should parse Apache Kafka event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
     eventSource: 'aws:SelfManagedKafka',
-    bootstrapServers: 'b-2.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092,b-1.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092',
+    bootstrapServers:
+      'b-2.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092,b-1.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092',
     records: {
       mytopic0: [
         {
@@ -185,19 +204,7 @@ test('It should parse Apache Kafka event', async (t) => {
           value: 'SGVsbG8sIHRoaXMgaXMgYSB0ZXN0Lg==',
           headers: [
             {
-              headerKey: [
-                104,
-                101,
-                97,
-                100,
-                101,
-                114,
-                86,
-                97,
-                108,
-                117,
-                101
-              ]
+              headerKey: [104, 101, 97, 100, 101, 114, 86, 97, 108, 117, 101]
             }
           ]
         }
@@ -211,8 +218,7 @@ test('It should parse Apache Kafka event', async (t) => {
 
 // Kinesis Firehose
 test('It should parse Kinesis Firehose event data', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const data = { hello: 'world' }
   const event = {
@@ -247,7 +253,6 @@ test('It should parse Kinesis Firehose event data', async (t) => {
         }
       }
     ]
-
   }
   const response = await handler(event, context)
 
@@ -256,8 +261,7 @@ test('It should parse Kinesis Firehose event data', async (t) => {
 
 // Kinesis Stream
 test('It should parse Kinesis Stream event data', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const data = { hello: 'world' }
   const event = createEvent.default('aws:kinesis')
@@ -272,15 +276,16 @@ test('It should parse Kinesis Stream event data', async (t) => {
 
 // MQ
 test('It should parse MQ event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
     eventSource: 'aws:amq',
-    eventSourceArn: 'arn:aws:mq:us-west-2:112556298976:broker:test:b-9bcfa592-423a-4942-879d-eb284b418fc8',
+    eventSourceArn:
+      'arn:aws:mq:us-west-2:112556298976:broker:test:b-9bcfa592-423a-4942-879d-eb284b418fc8',
     messages: [
       {
-        messageID: 'ID:b-9bcfa592-423a-4942-879d-eb284b418fc8-1.mq.us-west-2.amazonaws.com-37557-1234520418293-4:1:1:1:1',
+        messageID:
+          'ID:b-9bcfa592-423a-4942-879d-eb284b418fc8-1.mq.us-west-2.amazonaws.com-37557-1234520418293-4:1:1:1:1',
         messageType: 'jms/text-message',
         data: 'QUJDOkFBQUE=',
         connectionId: 'myJMSCoID',
@@ -301,12 +306,12 @@ test('It should parse MQ event', async (t) => {
 
 // MSK
 test('It should parse MSK event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
     eventSource: 'aws:kafka',
-    eventSourceArn: 'arn:aws:kafka:sa-east-1:123456789012:cluster/vpc-2priv-2pub/751d2973-a626-431c-9d4e-d7975eb44dd7-2',
+    eventSourceArn:
+      'arn:aws:kafka:sa-east-1:123456789012:cluster/vpc-2priv-2pub/751d2973-a626-431c-9d4e-d7975eb44dd7-2',
     records: {
       mytopic0: [
         {
@@ -318,19 +323,7 @@ test('It should parse MSK event', async (t) => {
           value: 'SGVsbG8sIHRoaXMgaXMgYSB0ZXN0Lg==',
           headers: [
             {
-              headerKey: [
-                104,
-                101,
-                97,
-                100,
-                101,
-                114,
-                86,
-                97,
-                108,
-                117,
-                101
-              ]
+              headerKey: [104, 101, 97, 100, 101, 114, 86, 97, 108, 117, 101]
             }
           ]
         }
@@ -344,8 +337,7 @@ test('It should parse MSK event', async (t) => {
 
 // SNS
 test('It should parse SNS event message', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const message = { hello: 'world' }
   const event = createEvent.default('aws:sns')
@@ -357,8 +349,7 @@ test('It should parse SNS event message', async (t) => {
 
 // SQS
 test('It should parse SQS event body', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const body = { hello: 'world' }
   const event = createEvent.default('aws:sqs')
@@ -370,8 +361,7 @@ test('It should parse SQS event body', async (t) => {
 
 // S3
 test('It should normalize S3 event key', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = createEvent.default('aws:s3')
   event.Records[0].s3.object.key = 'This+is+a+picture.jpg'
@@ -382,8 +372,7 @@ test('It should normalize S3 event key', async (t) => {
 
 // S3 Batch
 test('It should normalize S3 Batch event key', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
     invocationSchemaVersion: '1.0',
@@ -407,8 +396,7 @@ test('It should normalize S3 Batch event key', async (t) => {
 
 // S3 -> SNS -> SQS
 test('It should parse S3 -> SNS -> SQS event', async (t) => {
-  const handler = middy((event) => event)
-    .use(eventNormalizer())
+  const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
     Records: [

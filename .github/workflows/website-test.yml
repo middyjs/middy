@@ -1,0 +1,28 @@
+name: Test Website
+
+on:
+  pull_request:
+    paths:
+      - 'website/*'
+    branches:
+      - 'main'
+
+jobs:
+  website:
+    name: Test website
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+      - name: Install dependencies
+        working-directory: website
+        run: |
+          npm ci
+      - name: Build website
+        working-directory: website
+        run: |
+          npm run build

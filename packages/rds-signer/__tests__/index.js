@@ -82,7 +82,11 @@ test.serial('It should set token to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set tokens to internal storage (token)', async (t) => {
-  mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token1', 'https://rds.amazonaws.com?X-Amz-Security-Token=token2')
+  mockService(
+    Signer,
+    'https://rds.amazonaws.com?X-Amz-Security-Token=token1',
+    'https://rds.amazonaws.com?X-Amz-Security-Token=token2'
+  )
   const handler = middy(() => {})
 
   const middleware = async (request) => {
@@ -160,7 +164,10 @@ test.serial('It should set Signer token to context', async (t) => {
   const handler = middy(() => {})
 
   const middleware = async (request) => {
-    t.is(request.context.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    t.is(
+      request.context.token,
+      'https://rds.amazonaws.com?X-Amz-Security-Token=token'
+    )
   }
 
   handler
@@ -185,44 +192,53 @@ test.serial('It should set Signer token to context', async (t) => {
   await handler(defaultEvent, defaultContext)
 })
 
-test.serial('It should not call aws-sdk again if parameter is cached', async (t) => {
-  const stub = mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
-  const handler = middy(() => {})
-
-  const middleware = async (request) => {
-    const values = await getInternal(true, request)
-    t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
-  }
-
-  handler
-    .use(
-      rdsSigner({
-        AwsClient: Signer,
-        cacheExpiry: -1,
-        fetchData: {
-          token: {
-            region: 'us-east-1',
-            hostname: 'hostname',
-            username: 'username',
-            database: 'database',
-            port: 5432
-          }
-        }
-      })
+test.serial(
+  'It should not call aws-sdk again if parameter is cached',
+  async (t) => {
+    const stub = mockService(
+      Signer,
+      'https://rds.amazonaws.com?X-Amz-Security-Token=token'
     )
-    .before(middleware)
+    const handler = middy(() => {})
 
-  await handler(defaultEvent, defaultContext)
-  await handler(defaultEvent, defaultContext)
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.token, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    }
 
-  t.is(stub.callCount, 1)
-}
+    handler
+      .use(
+        rdsSigner({
+          AwsClient: Signer,
+          cacheExpiry: -1,
+          fetchData: {
+            token: {
+              region: 'us-east-1',
+              hostname: 'hostname',
+              username: 'username',
+              database: 'database',
+              port: 5432
+            }
+          }
+        })
+      )
+      .before(middleware)
+
+    await handler(defaultEvent, defaultContext)
+    await handler(defaultEvent, defaultContext)
+
+    t.is(stub.callCount, 1)
+  }
 )
 
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
-    const stub = mockService(Signer, 'https://rds.amazonaws.com?X-Amz-Security-Token=token', 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
+    const stub = mockService(
+      Signer,
+      'https://rds.amazonaws.com?X-Amz-Security-Token=token',
+      'https://rds.amazonaws.com?X-Amz-Security-Token=token'
+    )
 
     const handler = middy(() => {})
 
@@ -256,68 +272,65 @@ test.serial(
   }
 )
 
-test.serial(
-  'It should catch if an error is returned from fetch',
-  async (t) => {
-    const stub = mockServiceError(Signer, new Error('timeout'))
+test.serial('It should catch if an error is returned from fetch', async (t) => {
+  const stub = mockServiceError(Signer, new Error('timeout'))
 
-    const handler = middy(() => {})
-      .use(
-        rdsSigner({
-          AwsClient: Signer,
-          cacheExpiry: 0,
-          fetchData: {
-            token: {
-              region: 'us-east-1',
-              hostname: 'hostname',
-              username: 'username',
-              database: 'database',
-              port: 5432
-            }
-          },
-          setToContext: true
-        })
-      )
+  const handler = middy(() => {}).use(
+    rdsSigner({
+      AwsClient: Signer,
+      cacheExpiry: 0,
+      fetchData: {
+        token: {
+          region: 'us-east-1',
+          hostname: 'hostname',
+          username: 'username',
+          database: 'database',
+          port: 5432
+        }
+      },
+      setToContext: true
+    })
+  )
 
-    try {
-      await handler(defaultEvent, defaultContext)
-    } catch (e) {
-      t.is(stub.callCount, 1)
-      t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, [new Error('timeout')])
-    }
+  try {
+    await handler(defaultEvent, defaultContext)
+  } catch (e) {
+    t.is(stub.callCount, 1)
+    t.is(e.message, 'Failed to resolve internal values')
+    t.deepEqual(e.cause, [new Error('timeout')])
   }
-)
+})
 
 test.serial(
   'It should catch if an invalid response is returned from fetch',
   async (t) => {
     const stub = mockService(Signer, 'https://rds.amazonaws.com')
 
-    const handler = middy(() => {})
-      .use(
-        rdsSigner({
-          AwsClient: Signer,
-          cacheExpiry: 0,
-          fetchData: {
-            token: {
-              region: 'us-east-1',
-              hostname: 'hostname',
-              username: 'username',
-              database: 'database',
-              port: 5432
-            }
-          },
-          setToContext: true
-        })
-      )
+    const handler = middy(() => {}).use(
+      rdsSigner({
+        AwsClient: Signer,
+        cacheExpiry: 0,
+        fetchData: {
+          token: {
+            region: 'us-east-1',
+            hostname: 'hostname',
+            username: 'username',
+            database: 'database',
+            port: 5432
+          }
+        },
+        setToContext: true
+      })
+    )
 
     try {
       await handler(defaultEvent, defaultContext)
     } catch (e) {
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, [new Error('[rds-signer] X-Amz-Security-Token Missing')])
+      t.deepEqual(e.cause, [
+        new Error('[rds-signer] X-Amz-Security-Token Missing')
+      ])
     }
   }
 )

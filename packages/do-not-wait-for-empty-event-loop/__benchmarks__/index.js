@@ -9,8 +9,7 @@ const context = {
 }
 const setupHandler = () => {
   const baseHandler = () => {}
-  return middy(baseHandler)
-    .use(middleware())
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()

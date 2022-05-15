@@ -231,11 +231,9 @@ test('It should not handle error is response is set', async (t) => {
     throw createError(422)
   })
 
-  handler
-    .use(httpErrorHandler({ logger: false }))
-    .onError((request) => {
-      request.response = true
-    })
+  handler.use(httpErrorHandler({ logger: false })).onError((request) => {
+    request.response = true
+  })
 
   const response = await handler(null, context)
 

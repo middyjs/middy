@@ -41,7 +41,8 @@ const httpCorsMiddleware = (opts = {}) => {
 
     // Check if already setup the header Access-Control-Allow-Credentials
     if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
-      options.credentials = headers['Access-Control-Allow-Credentials'] === 'true'
+      options.credentials =
+        headers['Access-Control-Allow-Credentials'] === 'true'
     }
     if (options.credentials) {
       headers['Access-Control-Allow-Credentials'] = String(options.credentials) // boolean
@@ -67,7 +68,10 @@ const httpCorsMiddleware = (opts = {}) => {
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
       const eventHeaders = request.event.headers ?? {}
       const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin
-      headers['Access-Control-Allow-Origin'] = options.getOrigin(incomingOrigin, options)
+      headers['Access-Control-Allow-Origin'] = options.getOrigin(
+        incomingOrigin,
+        options
+      )
     }
 
     let vary = options.vary
@@ -106,11 +110,17 @@ const httpCorsMiddleware = (opts = {}) => {
       headers['Access-Control-Request-Methods'] = options.requestMethods
     }
 
-    const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(request.event)
+    const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(
+      request.event
+    )
     if (!httpMethod) {
       throw new Error('[http-cors] Unknown http event format')
     }
-    if (httpMethod === 'OPTIONS' && options.cacheControl && !existingHeaders.includes('Cache-Control')) {
+    if (
+      httpMethod === 'OPTIONS' &&
+      options.cacheControl &&
+      !existingHeaders.includes('Cache-Control')
+    ) {
       headers['Cache-Control'] = options.cacheControl
     }
 

@@ -14,8 +14,8 @@ const setupHandler = () => {
       bar: 'foo'
     })
   })
-  return middy(baseHandler)
-    .use(middleware({
+  return middy(baseHandler).use(
+    middleware({
       serializers: [
         {
           regex: /^application\/xml$/,
@@ -31,7 +31,8 @@ const setupHandler = () => {
         }
       ],
       default: 'application/json'
-    }))
+    })
+  )
 }
 
 const warmHandler = setupHandler()

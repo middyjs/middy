@@ -8,9 +8,10 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = () => {
-  const baseHandler = () => { throw new Error() }
-  return middy(baseHandler)
-    .use(middleware({ logger: () => {} }))
+  const baseHandler = () => {
+    throw new Error()
+  }
+  return middy(baseHandler).use(middleware({ logger: () => {} }))
 }
 
 const warmHandler = setupHandler()

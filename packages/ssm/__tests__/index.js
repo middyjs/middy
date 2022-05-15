@@ -70,13 +70,15 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
   }
 
   const handler = middy(() => {})
-    .use(ssm({
-      AwsClient: SSM,
-      cacheExpiry: 0,
-      fetchData: {
-        key: '/dev/service_name/key_name'
-      }
-    }))
+    .use(
+      ssm({
+        AwsClient: SSM,
+        cacheExpiry: 0,
+        fetchData: {
+          key: '/dev/service_name/key_name'
+        }
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -99,13 +101,15 @@ test.serial('It should set SSM param path to internal storage', async (t) => {
   }
 
   const handler = middy(() => {})
-    .use(ssm({
-      AwsClient: SSM,
-      cacheExpiry: 0,
-      fetchData: {
-        key: '/dev/service_name/'
-      }
-    }))
+    .use(
+      ssm({
+        AwsClient: SSM,
+        cacheExpiry: 0,
+        fetchData: {
+          key: '/dev/service_name/'
+        }
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -121,7 +125,13 @@ test.serial(
         Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
       },
       {
-        Parameters: [{ Name: '/dev/service_name/key_pass', Value: 'key,pass', Type: 'StringList' }]
+        Parameters: [
+          {
+            Name: '/dev/service_name/key_pass',
+            Value: 'key,pass',
+            Type: 'StringList'
+          }
+        ]
       }
     )
 
@@ -134,13 +144,15 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: 0,
-        fetchData: {
-          key: '/dev/service_name/'
-        }
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: 0,
+          fetchData: {
+            key: '/dev/service_name/'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -160,14 +172,16 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: 0,
-        fetchData: {
-          key: '/dev/service_name/key_name'
-        },
-        disablePrefetch: true
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: 0,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          },
+          disablePrefetch: true
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -184,14 +198,16 @@ test.serial('It should set SSM param value to context', async (t) => {
   }
 
   const handler = middy(() => {})
-    .use(ssm({
-      AwsClient: SSM,
-      cacheExpiry: 0,
-      fetchData: {
-        key: '/dev/service_name/key_name'
-      },
-      setToContext: true
-    }))
+    .use(
+      ssm({
+        AwsClient: SSM,
+        cacheExpiry: 0,
+        fetchData: {
+          key: '/dev/service_name/key_name'
+        },
+        setToContext: true
+      })
+    )
     .before(middleware)
 
   await handler(event, context)
@@ -233,27 +249,29 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: 0,
-        fetchData: {
-          key0: '/dev/service_name/key_name0',
-          key1: '/dev/service_name/key_name1',
-          key2: '/dev/service_name/key_name2',
-          key3: '/dev/service_name/key_name3',
-          key4: '/dev/service_name/key_name4',
-          key5: '/dev/service_name/key_name5',
-          key6: '/dev/service_name/key_name6',
-          key7: '/dev/service_name/key_name7',
-          key8: '/dev/service_name/key_name8',
-          key9: '/dev/service_name/key_name9',
-          key10: '/dev/service_name/key_name10',
-          key11: '/dev/service_name/key_name11',
-          key12: '/dev/service_name/key_name12',
-          key13: '/dev/service_name/key_name13',
-          key14: '/dev/service_name/key_name14'
-        }
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: 0,
+          fetchData: {
+            key0: '/dev/service_name/key_name0',
+            key1: '/dev/service_name/key_name1',
+            key2: '/dev/service_name/key_name2',
+            key3: '/dev/service_name/key_name3',
+            key4: '/dev/service_name/key_name4',
+            key5: '/dev/service_name/key_name5',
+            key6: '/dev/service_name/key_name6',
+            key7: '/dev/service_name/key_name7',
+            key8: '/dev/service_name/key_name8',
+            key9: '/dev/service_name/key_name9',
+            key10: '/dev/service_name/key_name10',
+            key11: '/dev/service_name/key_name11',
+            key12: '/dev/service_name/key_name12',
+            key13: '/dev/service_name/key_name13',
+            key14: '/dev/service_name/key_name14'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -273,13 +291,15 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: -1,
-        fetchData: {
-          key: '/dev/service_name/key_name'
-        }
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: -1,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -302,13 +322,15 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: 1000,
-        fetchData: {
-          key: '/dev/service_name/key_name'
-        }
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: 1000,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -337,13 +359,15 @@ test.serial(
     }
 
     const handler = middy(() => {})
-      .use(ssm({
-        AwsClient: SSM,
-        cacheExpiry: 0,
-        fetchData: {
-          key: '/dev/service_name/key_name'
-        }
-      }))
+      .use(
+        ssm({
+          AwsClient: SSM,
+          cacheExpiry: 0,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          }
+        })
+      )
       .before(middleware)
 
     await handler(event, context)
@@ -358,8 +382,8 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     InvalidParameters: ['invalid-ssm-param-name', 'another-invalid-ssm-param']
   })
 
-  const handler = middy(() => {})
-    .use(ssm({
+  const handler = middy(() => {}).use(
+    ssm({
       AwsClient: SSM,
       cacheExpiry: 0,
       fetchData: {
@@ -369,57 +393,69 @@ test('It should throw error if InvalidParameters returned', async (t) => {
       },
       disablePrefetch: true,
       setToContext: true
-    }))
+    })
+  )
 
   try {
     await handler(event, context)
     t.true(false)
   } catch (e) {
     t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('[ssm] InvalidParameter invalid-ssm-param-name'), new Error('[ssm] InvalidParameter another-invalid-ssm-param')])
+    t.deepEqual(e.cause, [
+      new Error('[ssm] InvalidParameter invalid-ssm-param-name'),
+      new Error('[ssm] InvalidParameter another-invalid-ssm-param')
+    ])
   }
 })
 
-test.serial('It should catch if an error is returned from fetchSingle', async (t) => {
-  const stub = mockServiceError(SSM, new Error('timeout'))
+test.serial(
+  'It should catch if an error is returned from fetchSingle',
+  async (t) => {
+    const stub = mockServiceError(SSM, new Error('timeout'))
 
-  const handler = middy(() => {})
-    .use(ssm({
-      AwsClient: SSM,
-      cacheExpiry: 0,
-      fetchData: {
-        key: '/dev/service_name/key_name'
-      },
-      setToContext: true
-    }))
+    const handler = middy(() => {}).use(
+      ssm({
+        AwsClient: SSM,
+        cacheExpiry: 0,
+        fetchData: {
+          key: '/dev/service_name/key_name'
+        },
+        setToContext: true
+      })
+    )
 
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(stub.callCount, 1)
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('timeout')])
+    try {
+      await handler(event, context)
+    } catch (e) {
+      t.is(stub.callCount, 1)
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('timeout')])
+    }
   }
-})
+)
 
-test.serial('It should catch if an error is returned from fetchPath', async (t) => {
-  const stub = mockServiceError(SSM, new Error('timeout'))
+test.serial(
+  'It should catch if an error is returned from fetchPath',
+  async (t) => {
+    const stub = mockServiceError(SSM, new Error('timeout'))
 
-  const handler = middy(() => {})
-    .use(ssm({
-      AwsClient: SSM,
-      cacheExpiry: 0,
-      fetchData: {
-        path: '/dev/service_path/'
-      },
-      setToContext: true
-    }))
+    const handler = middy(() => {}).use(
+      ssm({
+        AwsClient: SSM,
+        cacheExpiry: 0,
+        fetchData: {
+          path: '/dev/service_path/'
+        },
+        setToContext: true
+      })
+    )
 
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(stub.callCount, 1)
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('timeout')])
+    try {
+      await handler(event, context)
+    } catch (e) {
+      t.is(stub.callCount, 1)
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('timeout')])
+    }
   }
-})
+)

@@ -23,17 +23,18 @@ const setupHandler = (options = {}) => {
       Data: 'message'
     }
   }
-  return middy(baseHandler)
-    .use(middleware({
+  return middy(baseHandler).use(
+    middleware({
       ...options,
       AwsClient: ApiGatewayManagementApi
-    }))
+    })
+  )
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('post message', async (event = { }) => {
+  .add('post message', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

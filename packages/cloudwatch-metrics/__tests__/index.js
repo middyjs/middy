@@ -33,12 +33,13 @@ test.serial(
 
     const middleware = (request) => {
       t.true(createMetricsLoggerStub.called)
-      t.deepEqual(request.context, { ...defaultContext, metrics: metricsLoggerMock })
+      t.deepEqual(request.context, {
+        ...defaultContext,
+        metrics: metricsLoggerMock
+      })
     }
 
-    handler
-      .use(metrics())
-      .before(middleware)
+    handler.use(metrics()).before(middleware)
 
     const context = { ...defaultContext }
     await handler(event, context)

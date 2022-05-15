@@ -14,14 +14,13 @@ const setupHandler = () => {
     })
     return Promise.allSettled(recordPromises)
   }
-  return middy(baseHandler)
-    .use(middleware())
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('process failures', async (event = { }) => {
+  .add('process failures', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

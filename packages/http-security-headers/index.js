@@ -138,8 +138,8 @@ const helmetHtmlOnly = {}
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
 helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
   let header = Object.keys(config)
-    .map(policy => config[policy] ? `${policy} ${config[policy]}` : '')
-    .filter(str => str)
+    .map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ''))
+    .filter((str) => str)
     .join('; ')
   if (config.sandbox === '') {
     header += '; sandbox'
@@ -166,7 +166,10 @@ helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
 // https://www.permissionspolicy.com/
 helmetHtmlOnly.permissionsPolicy = (headers, config) => {
   headers['Permissions-Policy'] = Object.keys(config)
-    .map(policy => `${policy}=${config[policy] === '*' ? '*' : '(' + config[policy] + ')'}`)
+    .map(
+      (policy) =>
+        `${policy}=${config[policy] === '*' ? '*' : '(' + config[policy] + ')'}`
+    )
     .join(', ')
 }
 
@@ -181,13 +184,16 @@ helmet.referrerPolicy = (headers, config) => {
 
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
-    .map(group => {
-      const includeSubdomains = group === 'default' ? `, "include_subdomains": ${config.includeSubdomains}` : ''
-      return (config[group] && group !== 'includeSubdomains')
+    .map((group) => {
+      const includeSubdomains =
+        group === 'default'
+          ? `, "include_subdomains": ${config.includeSubdomains}`
+          : ''
+      return config[group] && group !== 'includeSubdomains'
         ? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${includeSubdomains} }`
         : ''
     })
-    .filter(str => str)
+    .filter((str) => str)
     .join(', ')
 }
 
@@ -266,10 +272,7 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         if (!options[key]) return
         const config = { ...defaults[key], ...options[key] }
-        helmetHtmlOnly[key](
-          request.response.headers,
-          config
-        )
+        helmetHtmlOnly[key](request.response.headers, config)
       })
     }
   }

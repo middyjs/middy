@@ -1,6 +1,20 @@
 import test from 'ava'
 import sinon from 'sinon'
-import { createClient, canPrefetch, getInternal, getCache, processCache, modifyCache, clearCache, jsonSafeParse, jsonSafeStringify, sanitizeKey, normalizeHttpResponse, HttpError, createError } from '../index.js'
+import {
+  createClient,
+  canPrefetch,
+  getInternal,
+  getCache,
+  processCache,
+  modifyCache,
+  clearCache,
+  jsonSafeParse,
+  jsonSafeStringify,
+  sanitizeKey,
+  normalizeHttpResponse,
+  HttpError,
+  createError
+} from '../index.js'
 
 process.env.AWS_REGION = 'ca-central-1'
 
@@ -92,13 +106,11 @@ test('createClient should create AWS Client with capture', async (t) => {
   const AwsClient = sinon.spy()
   const awsClientCapture = sinon.spy()
 
-  await createClient(
-    {
-      AwsClient,
-      awsClientCapture,
-      disablePrefetch: true
-    }
-  )
+  await createClient({
+    AwsClient,
+    awsClientCapture,
+    disablePrefetch: true
+  })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 1)
   t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions'])
@@ -108,12 +120,10 @@ test('createClient should create AWS Client without capture', async (t) => {
   const AwsClient = sinon.spy()
   const awsClientCapture = sinon.spy()
 
-  await createClient(
-    {
-      AwsClient,
-      awsClientCapture
-    }
-  )
+  await createClient({
+    AwsClient,
+    awsClientCapture
+  })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 0)
   t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions'])
@@ -184,18 +194,12 @@ test('getInternal should get from internal store when string', async (t) => {
 })
 
 test('getInternal should get from internal store when array[string]', async (t) => {
-  const values = await getInternal(
-    ['boolean', 'string'],
-    getInternalRequest
-  )
+  const values = await getInternal(['boolean', 'string'], getInternalRequest)
   t.deepEqual(values, { boolean: true, string: 'string' })
 })
 
 test('getInternal should get from internal store when object', async (t) => {
-  const values = await getInternal(
-    { newKey: 'promise' },
-    getInternalRequest
-  )
+  const values = await getInternal({ newKey: 'promise' }, getInternalRequest)
   t.deepEqual(values, { newKey: 'promise' })
 })
 
@@ -268,61 +272,63 @@ test.serial('processCache should cache when not expired', async (t) => {
   clearCache()
 })
 
-test.serial('processCache should clear and re-fetch modified cache', async (t) => {
-  const options = {
-    cacheKey: 'key',
-    cacheExpiry: -1
-  }
-  const fetch = sinon.stub().returns({
-    a: 'value',
-    b: new Promise(() => {
-      throw new Error('error')
-    }).catch((e) => {
-      const value = getCache(options.cacheKey).value || { value: {} }
-      const internalKey = 'b'
-      value[internalKey] = undefined
-      modifyCache(options.cacheKey, value)
-      throw e
-    })
-  })
-  const fetchCached = (request, cached) => {
-    t.deepEqual(cached, {
-      a: 'value',
-      b: undefined
-    })
-    return {
-      b: 'value'
+test.serial(
+  'processCache should clear and re-fetch modified cache',
+  async (t) => {
+    const options = {
+      cacheKey: 'key',
+      cacheExpiry: -1
     }
-  }
-
-  const cached = processCache(options, fetch, cacheRequest)
-  const request = {
-    internal: cached.value
-  }
-  try {
-    await getInternal(true, request)
-  } catch (e) {
-    let cache = getCache(options.cacheKey)
-
-    t.true(cache.modified)
-    t.deepEqual(cache.value, {
+    const fetch = sinon.stub().returns({
       a: 'value',
-      b: undefined
+      b: new Promise(() => {
+        throw new Error('error')
+      }).catch((e) => {
+        const value = getCache(options.cacheKey).value || { value: {} }
+        const internalKey = 'b'
+        value[internalKey] = undefined
+        modifyCache(options.cacheKey, value)
+        throw e
+      })
     })
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('error')])
+    const fetchCached = (request, cached) => {
+      t.deepEqual(cached, {
+        a: 'value',
+        b: undefined
+      })
+      return {
+        b: 'value'
+      }
+    }
 
-    processCache(options, fetchCached, cacheRequest)
-    cache = getCache(options.cacheKey)
+    const cached = processCache(options, fetch, cacheRequest)
+    const request = {
+      internal: cached.value
+    }
+    try {
+      await getInternal(true, request)
+    } catch (e) {
+      let cache = getCache(options.cacheKey)
 
-    t.is(cache.modified, undefined)
-    t.deepEqual(cache.value, {
-      a: 'value',
-      b: 'value'
-    })
+      t.true(cache.modified)
+      t.deepEqual(cache.value, {
+        a: 'value',
+        b: undefined
+      })
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('error')])
+
+      processCache(options, fetchCached, cacheRequest)
+      cache = getCache(options.cacheKey)
+
+      t.is(cache.modified, undefined)
+      t.deepEqual(cache.value, {
+        a: 'value',
+        b: 'value'
+      })
+    }
+    clearCache()
   }
-  clearCache()
-}
 )
 
 test.serial('processCache should cache and expire', async (t) => {
@@ -414,10 +420,13 @@ test.serial('processCache should clear all cache', async (t) => {
 })
 
 // modifyCache
-test.serial('modifyCache should not override value when it does not exist', async (t) => {
-  modifyCache('key')
-  t.deepEqual(getCache('key'), {})
-})
+test.serial(
+  'modifyCache should not override value when it does not exist',
+  async (t) => {
+    modifyCache('key')
+    t.deepEqual(getCache('key'), {})
+  }
+)
 
 // jsonSafeParse
 test('jsonSafeParse should parse valid json', async (t) => {
@@ -456,7 +465,10 @@ test('jsonSafeStringify should stringify valid json', async (t) => {
   t.is(value, '{"hello":["world"]}')
 })
 test('jsonSafeStringify should stringify with replacer', async (t) => {
-  const value = jsonSafeStringify(JSON.stringify({ msg: JSON.stringify({ hello: ['world'] }) }), (key, value) => jsonSafeParse(value))
+  const value = jsonSafeStringify(
+    JSON.stringify({ msg: JSON.stringify({ hello: ['world'] }) }),
+    (key, value) => jsonSafeParse(value)
+  )
   t.is(value, '{"msg":{"hello":["world"]}}')
 })
 test('jsonSafeStringify should not stringify if throws error', async (t) => {

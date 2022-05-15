@@ -15,8 +15,9 @@ const compressibleBody = JSON.stringify(new Array(100).fill(0))
 
 test('It should encode using br', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body }))
-    .use(httpContentEncoding())
+  const handler = middy((event, context) => ({ body })).use(
+    httpContentEncoding()
+  )
 
   const event = {
     preferredEncoding: 'br'
@@ -32,8 +33,9 @@ test('It should encode using br', async (t) => {
 
 test('It should encode using gzip', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body }))
-    .use(httpContentEncoding())
+  const handler = middy((event, context) => ({ body })).use(
+    httpContentEncoding()
+  )
 
   const event = {
     preferredEncoding: 'gzip'
@@ -51,9 +53,7 @@ test('It should encode using gzip', async (t) => {
 test('It should encode using deflate', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'deflate'
@@ -94,9 +94,7 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
 test('It should not encode when missing event.preferredEncoding', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {}
 
@@ -108,9 +106,7 @@ test('It should not encode when missing event.preferredEncoding', async (t) => {
 test('It should not encode when missing event.preferredEncoding === `identity`', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'identity',
@@ -125,9 +121,7 @@ test('It should not encode when missing event.preferredEncoding === `identity`',
 test('It should not encode when response.isBase64Encoded is already set to true', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ body, isBase64Encoded: true }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
@@ -141,9 +135,7 @@ test('It should not encode when response.isBase64Encoded is already set to true'
 test('It should not encode when response.body is not a string', async (t) => {
   const body = 0
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
@@ -157,9 +149,7 @@ test('It should not encode when response.body is not a string', async (t) => {
 test('It should not encode when response.body is empty string', async (t) => {
   const body = ''
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
@@ -173,9 +163,7 @@ test('It should not encode when response.body is empty string', async (t) => {
 test('It should not encode when response.body is different type', async (t) => {
   const body = null
   const handler = middy((event, context) => ({ body }))
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
@@ -188,9 +176,7 @@ test('It should not encode when response.body is different type', async (t) => {
 
 test('It should not encode when response.body is undefined', async (t) => {
   const handler = middy((event, context) => {})
-  handler.use(
-    httpContentEncoding()
-  )
+  handler.use(httpContentEncoding())
 
   const event = {
     preferredEncoding: 'br'
@@ -203,8 +189,9 @@ test('It should not encode when response.body is undefined', async (t) => {
 
 test('It should pipe encoding stream when passed a stream', async (t) => {
   const body = Readable.from(compressibleBody, { objectMode: false })
-  const handler = middy((event, context) => ({ body }))
-    .use(httpContentEncoding())
+  const handler = middy((event, context) => ({ body })).use(
+    httpContentEncoding()
+  )
 
   const event = {
     preferredEncoding: 'br'
@@ -220,10 +207,7 @@ test('It should pipe encoding stream when passed a stream', async (t) => {
     }
   })
 
-  await pipeline(
-    response.body,
-    writeStream
-  )
+  await pipeline(response.body, writeStream)
 
   response.body = Buffer.concat(chunks).toString('base64')
 
@@ -235,9 +219,10 @@ test('It should pipe encoding stream when passed a stream', async (t) => {
 })
 
 test('It should not encode when error is not handled', async (t) => {
-  const handler = middy((event, context) => { throw new Error('error') })
-  handler
-    .use(httpContentEncoding())
+  const handler = middy((event, context) => {
+    throw new Error('error')
+  })
+  handler.use(httpContentEncoding())
 
   const event = {}
 

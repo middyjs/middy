@@ -12,15 +12,11 @@ test('It should throw error when invalid version', async (t) => {
     version: '3.0'
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(
-      e.message,
-      '[http-event-normalizer] Unknown http event format'
-    )
+    t.is(e.message, '[http-event-normalizer] Unknown http event format')
   }
 })
 
@@ -29,8 +25,7 @@ test('It should do nothing if not HTTP event', async (t) => {
     source: 's3'
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   try {
     await handler(event, context)
   } catch (e) {
@@ -43,8 +38,7 @@ test('It should default queryStringParameters', async (t) => {
     httpMethod: 'GET'
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.queryStringParameters, {})
@@ -60,8 +54,7 @@ test('It should default queryStringParameters with HTTP API', async (t) => {
     }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.queryStringParameters, {})
@@ -72,8 +65,7 @@ test('It should default multiValueQueryStringParameters', async (t) => {
     httpMethod: 'GET'
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.multiValueQueryStringParameters, {})
@@ -84,8 +76,7 @@ test('It should default pathParameters', async (t) => {
     httpMethod: 'GET'
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.pathParameters, {})
@@ -101,8 +92,7 @@ test('It should default pathParameters with HTTP API', async (t) => {
     }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.pathParameters, {})
@@ -114,8 +104,7 @@ test('It should not overwrite queryStringParameters', async (t) => {
     queryStringParameters: { param: 'hello' }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.queryStringParameters, { param: 'hello' })
@@ -132,8 +121,7 @@ test('It should not overwrite queryStringParameters with HTTP API', async (t) =>
     queryStringParameters: { param: 'hello' }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.queryStringParameters, { param: 'hello' })
@@ -145,8 +133,7 @@ test('It should not overwrite multiValueQueryStringParameters', async (t) => {
     multiValueQueryStringParameters: { param: ['hello'] }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.multiValueQueryStringParameters, {
@@ -160,8 +147,7 @@ test('It should not overwrite pathParameters', async (t) => {
     pathParameters: { param: 'hello' }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.pathParameters, { param: 'hello' })
@@ -178,8 +164,7 @@ test('It should not overwrite pathParameters with HTTP API', async (t) => {
     pathParameters: { param: 'hello' }
   }
 
-  const handler = middy((event) => event)
-    .use(httpEventNormalizer())
+  const handler = middy((event) => event).use(httpEventNormalizer())
   const normalizedEvent = await handler(event, context)
 
   t.deepEqual(normalizedEvent.pathParameters, { param: 'hello' })

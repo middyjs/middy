@@ -36,18 +36,31 @@ const httpContentEncodingMiddleware = (opts) => {
 
   const httpContentEncodingMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
-    const { event: { preferredEncoding, preferredEncodings }, response } = request
+    const {
+      event: { preferredEncoding, preferredEncodings },
+      response
+    } = request
 
     // Encoding not supported OR already encoded
-    if (response.isBase64Encoded || !preferredEncoding || !supportedContentEncodings.includes(preferredEncoding)) { return }
+    if (
+      response.isBase64Encoded ||
+      !preferredEncoding ||
+      !supportedContentEncodings.includes(preferredEncoding)
+    ) {
+      return
+    }
 
     const bodyIsString = typeof response.body === 'string'
 
-    let contentEncodingStream = contentEncodingStreams[preferredEncoding](options[preferredEncoding])
+    let contentEncodingStream = contentEncodingStreams[preferredEncoding](
+      options[preferredEncoding]
+    )
     let contentEncoding = preferredEncoding
     for (const encoding of options.overridePreferredEncoding) {
       if (!preferredEncodings.includes(encoding)) continue
-      contentEncodingStream = contentEncodingStreams[encoding](options[encoding])
+      contentEncodingStream = contentEncodingStreams[encoding](
+        options[encoding]
+      )
       contentEncoding = encoding
       break
     }
@@ -63,11 +76,7 @@ const httpContentEncodingMiddleware = (opts) => {
         }
       })
 
-      await pipeline(
-        readStream,
-        contentEncodingStream,
-        writeStream
-      )
+      await pipeline(readStream, contentEncodingStream, writeStream)
 
       const body = Buffer.concat(chunks).toString('base64')
 

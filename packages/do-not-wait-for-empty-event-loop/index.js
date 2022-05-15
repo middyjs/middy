@@ -1,4 +1,3 @@
-
 const defaults = {
   runOnBefore: true,
   runOnAfter: false,

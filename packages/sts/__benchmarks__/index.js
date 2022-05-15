@@ -15,25 +15,34 @@ const setupHandler = (options = {}) => {
   const sandbox = sinon.createSandbox()
   const mock = sandbox.stub()
   STS.prototype.assumeRole = mock
-  mock.onCall().yields(null, { Credentials: { AccessKeyId: 'accessKeyId', SecretAccessKey: 'secretAccessKey', SessionToken: 'sessionToken' } })
-  const baseHandler = () => { }
-  return middy(baseHandler)
-    .use(middleware({
+  mock
+    .onCall()
+    .yields(null, {
+      Credentials: {
+        AccessKeyId: 'accessKeyId',
+        SecretAccessKey: 'secretAccessKey',
+        SessionToken: 'sessionToken'
+      }
+    })
+  const baseHandler = () => {}
+  return middy(baseHandler).use(
+    middleware({
       ...options,
       AwsClient: STS
-    }))
+    })
+  )
 }
 
 const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
 suite
-  .add('without cache', async (event = { }) => {
+  .add('without cache', async (event = {}) => {
     try {
       await coldHandler(event, context)
     } catch (e) {}
   })
-  .add('with cache', async (event = { }) => {
+  .add('with cache', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

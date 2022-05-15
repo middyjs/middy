@@ -54,10 +54,9 @@ test('It should run middleware that are part of route handler', async (t) => {
   const handler = wsRouter([
     {
       routeKey: '$connect',
-      handler: middy(() => false)
-        .after((request) => {
-          request.response = true
-        })
+      handler: middy(() => false).after((request) => {
+        request.response = true
+      })
     }
   ])
   const response = await handler(event, context)
@@ -70,15 +69,16 @@ test('It should middleware part of router', async (t) => {
       routeKey: '$connect'
     }
   }
-  const handler = middy(wsRouter([
-    {
-      routeKey: '$connect',
-      handler: () => false
-    }
-  ]))
-    .after((request) => {
-      request.response = true
-    })
+  const handler = middy(
+    wsRouter([
+      {
+        routeKey: '$connect',
+        handler: () => false
+      }
+    ])
+  ).after((request) => {
+    request.response = true
+  })
   const response = await handler(event, context)
   t.true(response)
 })

@@ -14,22 +14,26 @@ const setupHandler = () => {
       bar: 'foo'
     })
   })
-  return middy(baseHandler)
-    .use(middleware())
+  return middy(baseHandler).use(middleware())
 }
 
 const warmHandler = setupHandler()
 
 suite
-  .add('Normalize Headers', async (event = {
-    queryStringParameters: {
-      fields: 'foo'
+  .add(
+    'Normalize Headers',
+    async (
+      event = {
+        queryStringParameters: {
+          fields: 'foo'
+        }
+      }
+    ) => {
+      try {
+        await warmHandler(event, context)
+      } catch (e) {}
     }
-  }) => {
-    try {
-      await warmHandler(event, context)
-    } catch (e) {}
-  })
+  )
   .on('cycle', (event) => {
     console.log(suite.name, String(event.target))
   })
