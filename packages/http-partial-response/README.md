@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-partial-response">https://middy.js.org/docs/middlewares/http-partial-response</a></p>
 </div>
 
 Filtering the data returned in an object or JSON stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your JSON response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.

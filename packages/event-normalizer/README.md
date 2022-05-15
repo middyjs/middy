@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/event-normalizer">https://middy.js.org/docs/middlewares/event-normalizer</a></p>
 </div>
 
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.

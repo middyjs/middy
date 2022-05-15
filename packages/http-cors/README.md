@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-cors">https://middy.js.org/docs/middlewares/http-cors</a></p>
 </div>
 
 This middleware sets HTTP CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.

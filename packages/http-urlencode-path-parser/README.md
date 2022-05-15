@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-urlencode-path-parser">https://middy.js.org/docs/middlewares/http-urlencode-path-parser</a></p>
 </div>
 
 This middleware automatically parses HTTP requests with URL-encoded paths. This can happen when using path variables (ie `/{name}/`) for an endpoint and the UI `encodeURIComponent` the values before making the request.

@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/ssm">https://middy.js.org/docs/middlewares/ssm</a></p>
 </div>
 
 This middleware fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).

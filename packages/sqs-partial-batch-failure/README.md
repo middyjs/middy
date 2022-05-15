@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/sqs-partial-batch-failure">https://middy.js.org/docs/middlewares/sqs-partial-batch-failure</a></p>
 </div>
 
 Middleware for handling partially failed SQS batches.

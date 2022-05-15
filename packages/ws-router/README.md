@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/routers/ws-router">https://middy.js.org/docs/routers/ws-router</a></p>
 </div>
 
 This handler can route to requests to one of a nested handler based on `routeKey` of an WebSocket event from API Gateway (WebSocket).

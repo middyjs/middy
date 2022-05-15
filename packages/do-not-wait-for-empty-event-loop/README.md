@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop">https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop</a></p>
 </div>
 
 This middleware sets `context.callbackWaitsForEmptyEventLoop` property to `false`.

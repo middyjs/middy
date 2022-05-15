@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/cloudwatch-metrics">https://middy.js.org/docs/middlewares/cloudwatch-metrics</a></p>
 </div>
 
 This middleware hydrates lambda's `context.metrics` property with an instance of [MetricLogger](https://github.com/awslabs/aws-embedded-metrics-node#metriclogger). This instance can be used to easily generate custom metrics from Lambda functions without requiring custom batching code, making blocking network requests or relying on 3rd party software.

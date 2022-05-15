@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-header-normalizer">https://middy.js.org/docs/middlewares/http-header-normalizer</a></p>
 </div>
 
 This middleware normalizes HTTP header names to their canonical format. Very useful if clients are

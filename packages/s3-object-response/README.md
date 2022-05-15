@@ -33,6 +33,7 @@
     <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
   </a>
 </p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/s3-object-response">https://middy.js.org/docs/middlewares/s3-object-response</a></p>
 </div>
 
 Fetches S3 object as a stream and writes back to s3 object response.
