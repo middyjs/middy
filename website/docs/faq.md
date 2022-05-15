@@ -1,6 +1,6 @@
 ---
 title: FAQ
-sidebar_position: 8
+sidebar_position: 10
 ---
 
 ### My lambda keep timing out without responding, what do I do?

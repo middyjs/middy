@@ -1,8 +1,8 @@
-position: 7 # float position is supported
-label: 'Integrations'
+position: 5 # float position is supported
+label: 'Upgrade'
 collapsible: true # make the category collapsible
 collapsed: true # keep the category open by default
 className: red
 link:
   type: generated-index
-  title: Integrations
+  title: Upgrade

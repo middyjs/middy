@@ -1,5 +1,5 @@
-position: 7 # float position is supported
-label: "Best Practices"
+position: 8 # float position is supported
+label: 'Best Practices'
 collapsible: true
 collapsed: true
 link:
