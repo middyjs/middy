@@ -57,7 +57,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "^3.0.2"
+    "@middy/util": "3.0.2"
   },
   "devDependencies": {
     "@middy/core": "^3.0.2",
