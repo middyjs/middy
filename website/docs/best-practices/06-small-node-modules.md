@@ -14,19 +14,23 @@ We put together a `.yarnclean` file you can check out and use as part of your CI
 # -- Middy.js --
 
 # Dependencies
-**/ajv/docs
 **/ajv/lib
-**/ajv/.tonic_examples.js
+**/ajv/.runkit_examples.js
 **/ajv-errors/src
 **/ajv-formats/src
+**/ajv-formats-draft2019/.github
+**/ajv-formats-draft2019/.prettierrc.js
+**/ajv-formats-draft2019/index.test.js
+**/ajv-i18n/localize/.eslintrc.yml
 **/json-mask/bin
 **/json-mask/build
-**/json-mask/example
-**/json-mask/test
-**/json-mask/logo.png
 **/qs/.github
 **/qs/dist
 **/qs/test
+**/qs/.editorconfig
+**/qs/.eslintrc
+**/qs/.nycrc
+**/qs/CHANGELOG.md
 
 # DevDependencies
 **/@types
