@@ -117,6 +117,6 @@ const events = {
 const base64Parse = (data) =>
   jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
 const normalizeS3Key = (key) =>
-  decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' '))
+  decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' ')) // decodeURIComponent(key.replaceAll('+', ' '))
 
 export default eventNormalizerMiddleware
