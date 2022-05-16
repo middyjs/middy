@@ -2,7 +2,7 @@ import middy from '@middy/core';
 import httpRouterHandler from '.';
 import { expectType } from 'tsd';
 
-const middleware = validator({
+const middleware = httpRouterHandler({
     method: 'GET',
     path: '/',
     handler: () => true
