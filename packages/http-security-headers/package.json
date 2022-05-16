@@ -62,6 +62,6 @@
     "@middy/util": "3.0.2"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.2"
+    "@middy/core": "3.0.2"
   }
 }

@@ -62,7 +62,7 @@
     "ajv-keywords": "5.1.0"
   },
   "devDependencies": {
-    "@middy/core": "^3.0.2",
+    "@middy/core": "3.0.2",
     "@types/http-errors": "^1.8.1",
     "ajv-bsontype": "^1.0.7"
   },
