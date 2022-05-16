@@ -6,6 +6,6 @@ interface Routes {
     handler: middy.MiddyfiedHandler;
 }
 
-declare function httpRouterHandler(routes: Routes[]): any;
+declare function httpRouterHandler(routes: Routes[]): middy.middlewarObj;
 
 export default httpRouterHandler;

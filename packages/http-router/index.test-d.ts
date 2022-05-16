@@ -1,6 +1,10 @@
-import { expectType } from 'tsd'
-// import middy from '@middy/core'
-import httpRouterHandler from '.'
+import middy from '@middy/core';
+import httpRouterHandler from '.';
+import { expectType } from 'tsd';
 
-const middleware = httpRouterHandler()
-expectType<any>(middleware)
+const middleware = validator({
+    method: 'GET',
+    path: '/',
+    handler: () => true
+});
+expectType<middy.MiddlewareObj>(middleware);
