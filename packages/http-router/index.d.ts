@@ -1,5 +1,11 @@
-// import middy from '@middy/core'
+import middy from '@middy/core';
 
-declare function httpRouterHandler (): any
+interface Routes {
+    method: string;
+    path: string;
+    handler: middy.MiddyfiedHandler;
+}
 
-export default httpRouterHandler
+declare function httpRouterHandler(routes: Routes[]): any;
+
+export default httpRouterHandler;
