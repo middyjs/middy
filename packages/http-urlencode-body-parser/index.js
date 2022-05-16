@@ -1,4 +1,5 @@
-import { parse } from 'qs'
+import parse from 'qs/lib/parse.js'
+// import {parse} from 'node:querystring'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 
