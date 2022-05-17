@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-path-parser",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Urlencode path parser middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -56,7 +56,7 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
-    "@middy/core": "3.0.2"
+    "@middy/core": "3.0.3"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
