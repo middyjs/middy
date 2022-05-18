@@ -29,7 +29,7 @@ NOTES:
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
-const lambdaHander = (event, context) => {
+const lambdaHandler = (event, context) => {
   const recordPromises = event.Records.map(async (record, index) => { 
     /* Custom message processing logic */
     return record
@@ -37,6 +37,6 @@ const lambdaHander = (event, context) => {
   return Promise.allSettled(recordPromises)
 }
 
-export const handler = middy(lambdaHander)
+export const handler = middy(lambdaHandler)
   .use(sqsBatch())
 ```
