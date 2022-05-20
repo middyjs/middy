@@ -39,11 +39,11 @@ import middleware1 from 'sample-middleware1'
 import middleware2 from 'sample-middleware2'
 import middleware3 from 'sample-middleware3'
 
-const lambdaHander = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 }
 
-export const handler = middy(lambdaHander)
+export const handler = middy(lambdaHandler)
 
 handler
   .use(middleware1())
@@ -61,11 +61,11 @@ import middleware2 from "sample-middleware2"
 import middleware3 from "sample-middleware3"
 const middlewares = [middleware1(), middleware2(), middleware3()]
 
-const lambdaHander = (event, context) => {
+const lambdaHandler = (event, context) => {
   /* your business logic */
 };
 
-export const handler = middy(lambdaHander)
+export const handler = middy(lambdaHandler)
 
 handler.use(middlewares)
 
