@@ -118,6 +118,34 @@ const lambdaHandler = (event, context) => {
 const handler = middy(lambdaHandler).use(eventNormalizer())
 ```
 
+## AWS SDK
+
+This middleware depends on `aws-sdk` package. Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function. If you are using Webpack and Serverless Framework to package your code you'd want to add `aws-sdk` to Webpack `externals` and to `forceExclude` of Serverless Framework Webpack configuration.
+
+1. Tell Webpack not to bundle `aws-sdk` into the output (e.g. handler.js):
+```
+# webpack.config.js
+
+var nodeExternals = require("webpack-node-externals");
+
+module.exports = {
+  externals: ["aws-sdk"],
+};
+```
+
+2. Tell Serverless Framework not to include `aws-sdk` located in `node_modules` (because it was not bundled by Webpack):
+```
+# serverless.yml
+
+custom:
+  webpack: # for webpack
+    includeModules:
+      forceExclude:
+        - aws-sdk
+  esbuild: # for esbuild
+    exclude: ["aws-sdk"]
+```
+
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
