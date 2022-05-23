@@ -1,7 +1,6 @@
-import DynamoDB from 'aws-sdk/clients/dynamodb.js' // v2
+import { DynamoDB } from 'aws-sdk' // v2
 // import { unmarshall } from '@aws-sdk/util-dynamodb' // v3
 import { jsonSafeParse } from '@middy/util'
-const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
   const eventNormalizerMiddlewareBefore = async (request) => {
@@ -68,9 +67,9 @@ const events = {
     event.ruleParameters = jsonSafeParse(event.ruleParameters)
   },
   'aws:dynamodb': (record) => {
-    record.dynamodb.Keys = unmarshall(record.dynamodb.Keys)
-    record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage)
-    record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage)
+    record.dynamodb.Keys = DynamoDB.Converter.unmarshall(record.dynamodb.Keys)
+    record.dynamodb.OldImage = DynamoDB.Converter.unmarshall(record.dynamodb.OldImage)
+    record.dynamodb.NewImage = DynamoDB.Converter.unmarshall(record.dynamodb.NewImage)
   },
   'aws:kafka': (event) => {
     for (const record in event.records) {
