@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 interface Options {
-  logger?: (error: any) => void
+  logger?: ((error: any) => void) | boolean
   fallbackMessage?: string
 }
 
