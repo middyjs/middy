@@ -3,10 +3,15 @@ title: Bundling Lambda packages
 sidebar_position: 5
 ---
 
-## Bundlers
+:::caution
 
+This page is a work in progress. If you want to help us to make this page better, please consider contributing on GitHub.
+
+:::
+
+## Transpilers
 ### babel
-```
+```bash
 npm i -D @babel/cli @babel/core @babel/preset-env
 node_modules/.bin/babel index.js --out-file index.babel.cjs
 ```
@@ -28,13 +33,13 @@ node_modules/.bin/babel index.js --out-file index.babel.cjs
 ```
 
 ### esbuild
-```
+```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=es2020 index.js --bundle --outfile=index.esbuild.cjs
+node_modules/.bin/esbuild --platform=node --target=es2020 index.js --outfile=index.esbuild.cjs
 ```
 
 ### swc
-```
+```bash
 npm i -D @swc/cli @swc/core
 node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.swc.cjs
 ```
@@ -54,8 +59,81 @@ node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.sw
 }
 ```
 
-### webpack
+## Bundlers
+### esbuild
+```bash
+npm i -D esbuild
+node_modules/.bin/esbuild --platform=node --target=es2020 index.js --bundle --outfile=index.esbuild.cjs
 ```
+
+### rollup
+```bash
+npm i -D rollup
+```
+
+#### rollup.config.js
+```javascript
+import { readdirSync } from 'node:fs'
+
+const handlers = readdirSync('./handlers')
+  .filter((dir) => !dir.match(/\.zip$/))
+  .filter((dir) => dir !== '.DS_Store')
+
+const plugins = []
+
+export default handlers.map((input) => ({
+  input: 'handlers/' + input + '/index.js',
+  output: {
+    file: 'handlers/' + input + '/index.cjs',
+    format: 'cjs' // cjs, es
+  },
+  plugins,
+  external: [
+    'aws-sdk/clients/cloudfront.js',
+    'aws-sdk/clients/ssm.js',
+    'aws-sdk/clients/sts.js',
+    'aws-sdk/clients/dynamodb.js',
+    'aws-sdk/clients/rds.js'
+  ]
+}))
+```
+
+### swc/pack
+```bash
+npm i -D @swc/cli @swc/core
+node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.swc.cjs
+```
+
+#### spack.config.js
+```javascript
+import { config } from '@swc/core/spack'
+
+export default config({
+  mode: 'production',
+  entry: {
+    'web': __dirname + '/index.js',
+  },
+  output: {
+    path: __dirname
+  },
+  module: {
+    type: 'commonjs'
+  },
+}, {
+  "jsc": {
+    "parser": {
+      "syntax": "ecmascript"
+    },
+    "target": "es2020"
+  },
+  "module": {
+    "type": "commonjs"
+  }
+})
+```
+
+### webpack
+```bash
 npm i -D webpack-cli webpack
 node_modules/.bin/webpack --config webpack.config.js && node index.webpack.cjs
 ```
