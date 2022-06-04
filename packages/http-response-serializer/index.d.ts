@@ -2,7 +2,7 @@ import middy from '@middy/core'
 
 interface SerializerHandler {
   regex: RegExp
-  serializer: (response: any) => string
+  serializer: (response: any) => string | { body: any, [key: string]: any }
 }
 
 interface Options {
