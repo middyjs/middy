@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "type": "module",
   "engines": {
@@ -54,16 +54,16 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
-    "@commitlint/cli": "^16.0.0",
-    "@commitlint/config-conventional": "^16.0.0",
+    "@commitlint/cli": "^17.0.0",
+    "@commitlint/config-conventional": "^17.0.0",
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.135",
     "ava": "^4.0.0",
     "benchmark": "^2.1.4",
     "c8": "^7.0.0",
     "husky": "^8.0.0",
-    "lerna": "^4.0.0",
-    "lint-staged": "^12.0.0",
+    "lerna": "^5.0.0",
+    "lint-staged": "^13.0.0",
     "prettier": "^2.0.0",
     "sinon": "^14.0.0",
     "ts-standard": "^11.0.0",
