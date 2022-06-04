@@ -30,7 +30,7 @@ node_modules/.bin/babel index.js --out-file index.babel.cjs
 ### esbuild
 ```
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node index.js --bundle --outfile=index.esbuild.cjs
+node_modules/.bin/esbuild --platform=node --target=es2020 index.js --bundle --outfile=index.esbuild.cjs
 ```
 
 ### swc
@@ -50,6 +50,24 @@ node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.sw
   },
   "module": {
     "type": "commonjs"
+  }
+}
+```
+
+### webpack
+```
+npm i -D webpack-cli webpack
+node_modules/.bin/webpack --config webpack.config.js && node index.webpack.cjs
+```
+
+#### webpack.config.js
+```javascript
+module.exports = {
+  "mode": "production",
+  "entry": "./index.js",
+  "output": {
+    "filename": "index.webpack.cjs",
+    "path": __dirname
   }
 }
 ```
