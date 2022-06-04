@@ -55,3 +55,6 @@ handler
     }
   }))
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/rds.js` to the exclude list.

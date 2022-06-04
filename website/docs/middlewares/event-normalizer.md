@@ -83,3 +83,6 @@ const lambdaHandler = (event, context) => {
 
 const handler = middy(lambdaHandler).use(eventNormalizer())
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/dynamodb.js` to the exclude list.

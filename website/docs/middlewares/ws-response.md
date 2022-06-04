@@ -57,3 +57,6 @@ handler
     }
   }))
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/apigatewaymanagementapi.js` to the exclude list.

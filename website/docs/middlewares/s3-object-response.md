@@ -67,3 +67,6 @@ handler
     bodyType: 'promise'
   }))
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/s3.js` to the exclude list.

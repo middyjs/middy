@@ -54,3 +54,6 @@ handler
     }
   }))
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/servicediscovery.js` to the exclude list.

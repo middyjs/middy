@@ -94,3 +94,6 @@ handler
     Object.assign(request.context, data)
   })
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/ssm.js` to the exclude list.

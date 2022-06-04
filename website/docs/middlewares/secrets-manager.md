@@ -62,3 +62,6 @@ handler(event, context, (_, response) => {
   t.is(context.apiToken.Password,'password')
 })
 ```
+
+## Bundling
+To exclude `aws-sdk` add `aws-sdk/clients/secretsmanager.js` to the exclude list.
