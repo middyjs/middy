@@ -5,9 +5,9 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'ANY'
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'ANY'
 
-interface Route {
+export interface Route {
   method: Method
   path: string
   handler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
