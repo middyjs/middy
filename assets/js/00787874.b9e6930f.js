@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmiddy=self.webpackChunkmiddy||[]).push([[8086],{9577:function(t){t.exports=JSON.parse('{"title":"Middy Intro","slug":"/category/intro-to-middy","permalink":"/docs/category/intro-to-middy","navigation":{"next":{"title":"Introduction","permalink":"/docs/"}}}')}}]);
