@@ -43,7 +43,7 @@ const lambdaHandler = async (event, context) => {
 // Notice that in the handler you only added base business logic (no deserialization,
 // validation or error handler), we will add the rest with middlewares
 
-const inputSchema = {
+const eventSchema = {
  type: 'object',
  properties: {
    body: {
@@ -64,7 +64,7 @@ const inputSchema = {
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy()
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
-  .use(validator({inputSchema})) // validates the input
+  .use(validator({eventSchema})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
   .handler(lambdaHandler)
 

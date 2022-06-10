@@ -11,8 +11,8 @@ const setupHandler = () => {
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
-      inputSchema: { type: 'object' },
-      outputSchema: { type: 'object' }
+      eventSchema: { type: 'object' },
+      responseSchema: { type: 'object' }
     })
   )
 }

@@ -15,15 +15,15 @@ import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import inputSchema from './eventSchema.json' assert { type: 'json' }
-import outputSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' assert { type: 'json' }
+import responseSchema from './responseSchema.json' assert { type: 'json' }
 
 const handler = middy()
   .use(warmupMiddleware())
   .use(cloudWatchMetricsMiddleware())
   .use(inputOutputLoggerMiddleware())
   .use(errorLoggerMiddleware())
-  .use(validatorMiddleware({ inputSchema, outputSchema }))
+  .use(validatorMiddleware({ eventSchema, responseSchema }))
   .handler(async (event, context, { signal }) => {
     // ...
   })

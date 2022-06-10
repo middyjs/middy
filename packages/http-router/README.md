@@ -63,7 +63,7 @@ import middy from '@middy/core'
 import validatorMiddleware from '@middy/validator'
 
 const getHandler = middy()
-  .use(validatorMiddleware({inputSchema: {...} }))
+  .use(validatorMiddleware({eventSchema: {...} }))
   .handler((event, context) => {
     return {
       statusCode: 200,
@@ -72,7 +72,7 @@ const getHandler = middy()
   })
 
 const postHandler = middy()
-  .use(validatorMiddleware({inputSchema: {...} }))
+  .use(validatorMiddleware({eventSchema: {...} }))
   .handler((event, context) => {
     return {
       statusCode: 200,

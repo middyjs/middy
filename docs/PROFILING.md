@@ -37,7 +37,7 @@ middy(lambdaHandler, plugin)
   .use(httpJsonBodyParser())
   .use(httpCors())
   .use(httpSecurityHeaders())
-  .use(validator({inputSchema}))
+  .use(validator({eventSchema}))
   
 await handler()
 ```

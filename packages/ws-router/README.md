@@ -64,13 +64,13 @@ import wsResponseMiddleware from '@middy/ws-response'
 import validatorMiddleware from '@middy/validator'
 
 const connectHandler = middy()
-  .use(validatorMiddleware({inputSchema: {...} }))
+  .use(validatorMiddleware({eventSchema: {...} }))
   .handler((event, context) => {
     return 'connected'
   })
 
 const disconnectHandler = middy()
-  .use(validatorMiddleware({inputSchema: {...} }))
+  .use(validatorMiddleware({eventSchema: {...} }))
   .handler((event, context) => {
     return 'disconnected'
   })

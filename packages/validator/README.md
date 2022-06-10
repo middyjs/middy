@@ -64,7 +64,7 @@ npm install --save @middy/validator
 
  - `eventSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
    to validate the input (`request.event`) of the Lambda handler. Supports alias `inputSchema`
-- `contextSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
+ - `contextSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
   to validate the input (`request.context`) of the Lambda handler. Has additional support for `typeof` keyword to allow validation of `"typeof":"function"`.
  - `responseSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
    to validate the output (`request.response`) of the Lambda handler. Supports alias `inputSchema`
@@ -73,7 +73,7 @@ npm install --save @middy/validator
  - `i18nEnabled` (boolean) (default `true`): Option to disable i18n default package.
 
 NOTES:
-- At least one of `inputSchema` or `outputSchema` is required.
+- At least one of `eventSchema` or `responseSchema` is required.
 - **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 - Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`
 - If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause`, the original response can be found at `request.error.response`. 
@@ -139,7 +139,7 @@ const schema = {
   }
 }
 
-handler.use(validator({outputSchema: schema}))
+handler.use(validator({responseSchema: schema}))
 
 handler({}, {}, (err, response) => {
   t.not(err, null)

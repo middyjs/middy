@@ -35,8 +35,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator' // or `middy-ajv`
 import warmupMiddleware from 'warmup'
 
-import inputSchema from './eventSchema.json' assert { type: 'json' }
-import outputSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' assert { type: 'json' }
+import responseSchema from './responseSchema.json' assert { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -75,7 +75,7 @@ export const handler = middy({
     })
   )
   .use(httpPartialResponseMiddleware())
-  .use(validatorMiddleware({ inputSchema, outputSchema }))
+  .use(validatorMiddleware({ eventSchema, responseSchema }))
   .use(httpErrorHandlerMiddleware())
   .handler((event, context, { signal }) => {
     // ...
