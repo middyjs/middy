@@ -23,6 +23,8 @@
     // APIs Only
     '@vendia/serverless-express',
     'lambda-api',
+    'aws-lambda-fastify', // Deprecated for @fastify/aws-lambda
+    '@fastify/aws-lambda',
     
     // >1y since update (Deprecated)
     'serverless-http', // merged into `@vendia/serverless-express`
@@ -41,7 +43,7 @@
     '@aws-lambda-powertools/tracer',
     '@aws-lambda-powertools/logger',
     '@aws-lambda-powertools/metrics',
-    '@aws-lambda-powertools/commons'
+    //'@aws-lambda-powertools/commons'
   ]
   const colors = {
     '@middy/core':'#ffa600'
