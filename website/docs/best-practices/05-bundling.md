@@ -9,11 +9,13 @@ This page is a work in progress. If you want to help us to make this page better
 
 :::
 
+Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function.
+
 ## Transpilers
 ### babel
 ```bash
 npm i -D @babel/cli @babel/core @babel/preset-env
-node_modules/.bin/babel index.js --out-file index.babel.cjs
+node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
 ```
 
 #### babel.config.json
@@ -35,16 +37,16 @@ node_modules/.bin/babel index.js --out-file index.babel.cjs
 ### esbuild
 ```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=es2020 index.js --outfile=index.esbuild.cjs
+node_modules/.bin/esbuild --platform=node --target=node14 --format=cjs index.js --outfile=index.transpile.esbuild.cjs
 ```
 
 ### swc
 ```bash
 npm i -D @swc/cli @swc/core
-node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.swc.cjs
+node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
 ```
 
-#### swc.config.json
+#### .swcrc
 ```json
 {
   "jsc": {
@@ -63,114 +65,101 @@ node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.sw
 ### esbuild
 ```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=es2020 index.js --bundle --outfile=index.esbuild.cjs
+node_modules/.bin/esbuild --platform=node --format=esm --external:aws-sdk/clients/* index.js --bundle --outfile=index.bundle.esbuild.mjs
 ```
 
 ### rollup
 ```bash
-npm i -D rollup
+npm i -D rollup @rollup/plugin-node-resolve @rollup/plugin-commonjs
+node_modules/.bin/rollup --config
 ```
 
-#### rollup.config.js
+#### rollup.config.mjs
 ```javascript
-import { readdirSync } from 'node:fs'
+import { nodeResolve } from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
 
-const handlers = readdirSync('./handlers')
-  .filter((dir) => !dir.match(/\.zip$/))
-  .filter((dir) => dir !== '.DS_Store')
+const plugins = [
+  nodeResolve({ preferBuiltins: true }),
+  commonjs()
+]
 
-const plugins = []
-
-export default handlers.map((input) => ({
-  input: 'handlers/' + input + '/index.js',
+export default (input) => ({
+  input: 'index.js',
   output: {
-    file: 'handlers/' + input + '/index.cjs',
-    format: 'cjs' // cjs, es
+    file: 'index.bundle.rollup.mjs',
+    format: 'es' // cjs, es
   },
   plugins,
   external: [
+    // AWS SDK
+    'aws-sdk/clients/apigatewaymanagementapi.js',
     'aws-sdk/clients/cloudfront.js',
-    'aws-sdk/clients/ssm.js',
-    'aws-sdk/clients/sts.js',
     'aws-sdk/clients/dynamodb.js',
-    'aws-sdk/clients/rds.js'
+    'aws-sdk/clients/rds.js',
+    'aws-sdk/clients/s3.js',
+    'aws-sdk/clients/secretsmanager.js',
+    'aws-sdk/clients/servicediscovery.js',
+    'aws-sdk/clients/ssm.js',
+    'aws-sdk/clients/sts.js'
   ]
-}))
+})
 ```
 
 ### swc/pack
 ```bash
 npm i -D @swc/cli @swc/core
-node_modules/.bin/swc --config-file swc.config.json index.js --out-file index.swc.cjs
+node_modules/.bin/spack
 ```
 
-#### spack.config.js
-```javascript
-import { config } from '@swc/core/spack'
+:::caution
 
-export default config({
-  mode: 'production',
-  entry: {
-    'web': __dirname + '/index.js',
-  },
-  output: {
-    path: __dirname
-  },
-  module: {
-    type: 'commonjs'
-  },
-}, {
-  "jsc": {
-    "parser": {
-      "syntax": "ecmascript"
-    },
-    "target": "es2020"
-  },
-  "module": {
-    "type": "commonjs"
-  }
-})
-```
+Incomplete
+
+:::
 
 ### webpack
 ```bash
 npm i -D webpack-cli webpack
-node_modules/.bin/webpack --config webpack.config.js && node index.webpack.cjs
+node_modules/.bin/webpack
 ```
 
-#### webpack.config.js
+#### webpack.config.mjs
 ```javascript
-module.exports = {
-  "mode": "production",
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+export default {
+  "mode": "development",
   "entry": "./index.js",
   "output": {
-    "filename": "index.webpack.cjs",
+    "filename": "index.bundle.webpack.mjs",
     "path": __dirname
-  }
+  },
+  experiments: {
+    outputModule: true,
+  },
+  externalsType: 'module',
+  externals: [
+    // NodeJS modules
+    'events',
+    'https',
+    'stream',
+    'util',
+    'zlib',
+    // AWS SDK
+    'aws-sdk/clients/apigatewaymanagementapi.js',
+    'aws-sdk/clients/cloudfront.js',
+    'aws-sdk/clients/dynamodb.js',
+    'aws-sdk/clients/rds.js',
+    'aws-sdk/clients/s3.js',
+    'aws-sdk/clients/secretsmanager.js',
+    'aws-sdk/clients/servicediscovery.js',
+    'aws-sdk/clients/ssm.js',
+    'aws-sdk/clients/sts.js'
+  ]
 }
-```
-
-## Exclude `aws-sdk`
-Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function. 
-If you are using Webpack and Serverless Framework to package your code you'd want to add `aws-sdk` to Webpack `externals` and to `forceExclude` of Serverless Framework Webpack configuration.
-
-1. Tell Webpack not to bundle `aws-sdk` into the output (e.g. handler.js):
-```
-# webpack.config.js
-var nodeExternals = require("webpack-node-externals");
-module.exports = {
-  externals: ["aws-sdk/clients/***.js"],
-};
-```
-
-2. Tell Serverless Framework not to include `aws-sdk` located in `node_modules` (because it was not bundled by Webpack):
-```
-# serverless.yml
-custom:
-  webpack: # for webpack
-    includeModules:
-      forceExclude:
-        - aws-sdk/clients/*.js
-  esbuild: # for esbuild
-    exclude: ["aws-sdk/clients/__client_name__.js"]
 ```
