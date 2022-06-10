@@ -93,15 +93,14 @@ export default (input) => ({
   plugins,
   external: [
     // AWS SDK
-    'aws-sdk/clients/apigatewaymanagementapi.js',
-    'aws-sdk/clients/cloudfront.js',
-    'aws-sdk/clients/dynamodb.js',
-    'aws-sdk/clients/rds.js',
-    'aws-sdk/clients/s3.js',
-    'aws-sdk/clients/secretsmanager.js',
-    'aws-sdk/clients/servicediscovery.js',
-    'aws-sdk/clients/ssm.js',
-    'aws-sdk/clients/sts.js'
+    'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
+    'aws-sdk/clients/dynamodb.js', // @middy/event-normalizer
+    'aws-sdk/clients/rds.js', // @middy/rds-signer
+    'aws-sdk/clients/s3.js', // @middy/s3-object-response
+    'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
+    'aws-sdk/clients/servicediscovery.js', // @middy/service-discovery
+    'aws-sdk/clients/ssm.js', // @middy/ssm
+    'aws-sdk/clients/sts.js' // @middy/sts
   ]
 })
 ```
@@ -145,21 +144,20 @@ export default {
   externalsType: 'module',
   externals: [
     // NodeJS modules
-    'events',
-    'https',
-    'stream',
-    'util',
-    'zlib',
+    'events', // @middy/core
+    'https', // @middy/s3-object-response @middy/util
+    'stream', // @middy/http-content-encoding @middy/s3-object-response
+    'util', // @middy/http-content-encoding
+    'zlib', // @middy/http-content-encoding
     // AWS SDK
-    'aws-sdk/clients/apigatewaymanagementapi.js',
-    'aws-sdk/clients/cloudfront.js',
-    'aws-sdk/clients/dynamodb.js',
-    'aws-sdk/clients/rds.js',
-    'aws-sdk/clients/s3.js',
-    'aws-sdk/clients/secretsmanager.js',
-    'aws-sdk/clients/servicediscovery.js',
-    'aws-sdk/clients/ssm.js',
-    'aws-sdk/clients/sts.js'
+    'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
+    'aws-sdk/clients/dynamodb.js', // @middy/event-normalizer
+    'aws-sdk/clients/rds.js', // @middy/rds-signer
+    'aws-sdk/clients/s3.js', // @middy/s3-object-response
+    'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
+    'aws-sdk/clients/servicediscovery.js', // @middy/service-discovery
+    'aws-sdk/clients/ssm.js', // @middy/ssm
+    'aws-sdk/clients/sts.js' // @middy/sts
   ]
 }
 ```
