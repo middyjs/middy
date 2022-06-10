@@ -132,11 +132,11 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 export default {
-  "mode": "development",
-  "entry": "./index.js",
-  "output": {
-    "filename": "index.bundle.webpack.mjs",
-    "path": __dirname
+  mode: "development",
+  entry: "./index.js",
+  output: {
+    filename: "index.bundle.webpack.mjs",
+    path: __dirname
   },
   experiments: {
     outputModule: true,
