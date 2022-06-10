@@ -3,8 +3,8 @@ import _ajv from 'ajv/dist/2020.js'
 import localize from 'ajv-i18n'
 import formats from 'ajv-formats'
 import formatsDraft2019 from 'ajv-formats-draft2019'
-import uriResolver from 'fast-uri'
 import typeofKeyword from 'ajv-keywords/dist/definitions/typeof.js'
+import uriResolver from 'fast-uri'
 
 const Ajv = _ajv.default // esm workaround for linting
 
