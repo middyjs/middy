@@ -141,7 +141,6 @@ export default {
   experiments: {
     outputModule: true,
   },
-  externalsType: 'module',
   externals: [
     // NodeJS modules
     'events', // @middy/core
