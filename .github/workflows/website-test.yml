@@ -1,6 +1,7 @@
 name: Test Website
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'website/*'
