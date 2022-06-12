@@ -41,7 +41,7 @@ for them (using the message and the status code provided by the error object). A
 We recommend generating these HTTP errors with the npm module [`http-errors`](https://npm.im/http-errors). When manually catching and setting errors with `statusCode >= 500` setting `{expose: true}` 
 is needed for them to be handled.
 
-This middleware should be set as the last error handler unless you also want to register the `http-reponse-serializer`. If so, this middleware should come second-last and the `http-response-serializer` should come last.
+This middleware should be set as the last error handler unless you also want to register the `http-response-serializer`. If so, this middleware should come second-last and the `http-response-serializer` should come last.
 
 
 ## Install

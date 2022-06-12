@@ -161,12 +161,12 @@ Version 2.x of Middy no longer supports Node.js versions 10.x. You are highly en
 which support ES6 modules by default (`export`), optional chaining (`?.`) and nullish coalescing operator (`??`) natively.
 
 ## Core
-- In handler `callback(err, reponse)` have been removed for `async/await` support
+- In handler `callback(err, response)` have been removed for `async/await` support
   - `return response` to trigger `after` middleware stack  
   - `throw new Error(...)` to trigger `onError` middleware stack
 - In middleware `next(err)` has been removed for `async/await` support
   - `throw new Error(...)` to trigger `onError` middleware stack
-  - `return reponse` to **short circuit** any middleware stack and respond. v1.x currently throws an error when something is returned
+  - `return response` to **short circuit** any middleware stack and respond. v1.x currently throws an error when something is returned
 
 ## Middleware
 ### cache
