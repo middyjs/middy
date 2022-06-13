@@ -42,7 +42,7 @@ const handler = middy((event, context) => {
 })
 
 handler.use(cloudwatchMetrics({
-    namspace: "myAppliction",
+    namespace: "myAppliction",
     dimensions: [
         { "Action": "Buy" }
     ]
