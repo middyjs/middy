@@ -9,8 +9,8 @@ const httpEventNormalizerMiddleware = () => {
     }
 
     // event.headers ??= {} // Will always have at least one header
-    event.queryStringParameters ??= {}
     event.pathParameters ??= {}
+    event.queryStringParameters ??= {}
     if (version === '1.0') {
       event.multiValueQueryStringParameters ??= {}
     }
