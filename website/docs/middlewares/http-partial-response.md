@@ -18,7 +18,7 @@ npm install --save @middy/http-partial-response
 
 ## Options
 
-This middleware does not have any option
+- `filteringKeyName` (`string`) (optional): defaults to `fields` the querystring key that will be used to filter the response.
 
 
 ## Sample usage
