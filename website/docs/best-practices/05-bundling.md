@@ -11,6 +11,30 @@ This page is a work in progress. If you want to help us to make this page better
 
 Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function.
 
+## Compilers
+### typescript
+```bash
+npm i -D typescript
+node_modules/.bin/tsc
+```
+
+#### tsconfig.json
+```json
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "esModuleInterop": true,
+    "preserveConstEnums": true,
+    "strictNullChecks": true,
+    "allowJs": false,
+    "target": "es6",
+    "typeRoots": ["node_modules/@types"],
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
+  }
+}
+```
+
 ## Transpilers
 ### babel
 ```bash
