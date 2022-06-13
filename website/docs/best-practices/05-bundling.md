@@ -35,55 +35,6 @@ node_modules/.bin/tsc
 }
 ```
 
-## Transpilers
-### babel
-```bash
-npm i -D @babel/cli @babel/core @babel/preset-env
-node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
-```
-
-#### babel.config.json
-```json
-{
-  "presets": [
-    [
-      "@babel/preset-env",
-      {
-        "targets": {
-          "node": "14"
-        }
-      }
-    ]
-  ]
-}
-```
-
-### esbuild
-```bash
-npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=node14 --format=cjs index.js --outfile=index.transpile.esbuild.cjs
-```
-
-### swc
-```bash
-npm i -D @swc/cli @swc/core
-node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
-```
-
-#### .swcrc
-```json
-{
-  "jsc": {
-    "parser": {
-      "syntax": "ecmascript"
-    },
-    "target": "es2020"
-  },
-  "module": {
-    "type": "commonjs"
-  }
-}
-```
 
 ## Bundlers
 ### esbuild
@@ -182,5 +133,55 @@ export default {
     'aws-sdk/clients/ssm.js', // @middy/ssm
     'aws-sdk/clients/sts.js' // @middy/sts
   ]
+}
+```
+
+## Transpilers
+### babel
+```bash
+npm i -D @babel/cli @babel/core @babel/preset-env
+node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
+```
+
+#### babel.config.json
+```json
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "node": "14"
+        }
+      }
+    ]
+  ]
+}
+```
+
+### esbuild
+```bash
+npm i -D esbuild
+node_modules/.bin/esbuild --platform=node --target=node14 --format=cjs index.js --outfile=index.transpile.esbuild.cjs
+```
+
+### swc
+```bash
+npm i -D @swc/cli @swc/core
+node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
+```
+
+#### .swcrc
+```json
+{
+  "jsc": {
+    "parser": {
+      "syntax": "ecmascript"
+    },
+    "target": "es2020"
+  },
+  "module": {
+    "type": "commonjs"
+  }
 }
 ```
