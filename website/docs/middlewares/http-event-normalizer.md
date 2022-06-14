@@ -19,7 +19,6 @@ result in `undefined` when no path parameter is available, but not in an error.
 
 > Important note : API Gateway HTTP API format 2.0 doesn't have `multiValueQueryStringParameters` fields. Duplicate query strings are combined with commas and included in the `queryStringParameters` field.
 
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -28,12 +27,6 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-event-normalizer
 ```
 
-
-## Options
-
-- `payloadFormatVersion` (`number`) (optional): Defaults to `1 `. Set it to `2` to use API Gateway HTTP API v2.0 event payload (https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html).
-
-
 ## Sample usage
 
 ```javascript
@@ -41,9 +34,9 @@ import middy from '@middy/core'
 import httpEventNormalizer from '@middy/http-event-normalizer'
 
 const handler = middy((event, context) => {
-  console.log(`Hello user ${event.pathParameters.userId}`) 
+  console.log(`Hello user ${event.pathParameters.userId}`)
   // might produce `Hello user undefined`, but not an error
-  
+
   return {}
 })
 
