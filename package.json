@@ -67,7 +67,7 @@
     "prettier": "^2.0.0",
     "sinon": "^14.0.0",
     "ts-standard": "^11.0.0",
-    "tsd": "^0.20.0"
+    "tsd": "^0.21.0"
   },
   "ts-standard": {
     "ignore": [
