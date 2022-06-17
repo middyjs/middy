@@ -27,7 +27,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Use npm 8
         run: |
-          npm install -g npm@8
+          npm install --location=global npm@8
       - name: Install dependencies
         run: |
           npm install
@@ -36,7 +36,7 @@ jobs:
 
       - name: Transpile for Node.js ${{ matrix.node-version }} (${{ matrix.node-module-type}})
         run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ matrix.node-module-type}}.config.json index.js --out-file index.mjs
+          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.${{ matrix.node-module-type}}.config.json index.js --out-file index.js
 
       - name: Unit tests
         run: |

@@ -13,14 +13,14 @@
   "main": "./index.cjs",
   "exports": {
     ".": {
-      "import": "./index.mjs",
+      "import": "./index.js",
       "require": "./index.cjs",
       "types": "./index.d.ts"
     }
   },
   "types": "index.d.ts",
   "files": [
-    "index.mjs",
+    "index.js",
     "index.cjs",
     "index.d.ts",
     "codes.js"
