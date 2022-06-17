@@ -10,16 +10,17 @@
   "publishConfig": {
     "access": "public"
   },
+  "main": "./index.cjs",
   "exports": {
     ".": {
-      "import": "./index.js",
+      "import": "./index.mjs",
       "require": "./index.cjs",
       "types": "./index.d.ts"
     }
   },
   "types": "index.d.ts",
   "files": [
-    "index.js",
+    "index.mjs",
     "index.cjs",
     "index.d.ts",
     "codes.js"
