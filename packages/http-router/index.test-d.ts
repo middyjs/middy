@@ -21,4 +21,4 @@ const middleware = httpRouterHandler([
     handler: lambdaHandler
   }
 ])
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddyfiedHandler>(middleware)
