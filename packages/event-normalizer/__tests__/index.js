@@ -170,10 +170,38 @@ test('It should parse DynamoDB event keys/images', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())
 
   const event = createEvent.default('aws:dynamo')
+  event.Records[0].dynamodb.Keys = {
+    NULL: { NULL: null },
+    BOOL: { NULL: undefined, BOOL: '1' },
+    N: { N: '1' },
+    BN: { N: '19007199254740991' },
+    B: { B: '1' },
+    S: { S: '1' },
+    L: { L: [{ N: '1' }] },
+    M: { M: { Id: { N: '1' } } },
+    NS: { NS: ['1'] },
+    BS: { BS: ['1'] },
+    SS: { SS: ['1'] }
+  }
+
   const response = await handler(event, context)
 
   t.deepEqual(response.Records[0].dynamodb, {
-    Keys: { Id: 101 },
+    Keys: {
+      B: '1',
+      BOOL: true,
+      BN: 19007199254740991n,
+      BS: new Set(['1']),
+      L: [1],
+      M: {
+        Id: 1
+      },
+      N: 1,
+      NS: new Set([1]),
+      NULL: null,
+      S: '1',
+      SS: new Set(['1'])
+    },
     NewImage: {
       Message: 'New item!',
       Id: 101
@@ -183,6 +211,35 @@ test('It should parse DynamoDB event keys/images', async (t) => {
     SizeBytes: 26,
     StreamViewType: 'NEW_AND_OLD_IMAGES'
   })
+})
+test('It should catch DynamoDB event with invalid BigInt', async (t) => {
+  const handler = middy((event) => event).use(eventNormalizer())
+
+  const value = '-9007199254740998.25'
+  const event = createEvent.default('aws:dynamo')
+  event.Records[0].dynamodb.Keys = {
+    BN: { N: value }
+  }
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, `${value} can't be converted to BigInt.`)
+  }
+})
+test('It should catch DynamoDB event with unknown type', async (t) => {
+  const handler = middy((event) => event).use(eventNormalizer())
+
+  const event = createEvent.default('aws:dynamo')
+  event.Records[0].dynamodb.Keys = {
+    BN: { J: '1' }
+  }
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'Unsupported type passed: J')
+  }
 })
 
 // Apache Kafka

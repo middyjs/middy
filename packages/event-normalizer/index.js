@@ -1,7 +1,4 @@
-import DynamoDB from 'aws-sdk/clients/dynamodb.js' // v2
-// import { unmarshall } from '@aws-sdk/util-dynamodb' // v3
 import { jsonSafeParse } from '@middy/util'
-const { unmarshall } = DynamoDB.Converter
 
 const eventNormalizerMiddleware = () => {
   const eventNormalizerMiddlewareBefore = async (request) => {
@@ -69,8 +66,8 @@ const events = {
   },
   'aws:dynamodb': (record) => {
     record.dynamodb.Keys = unmarshall(record.dynamodb.Keys)
-    record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage)
     record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage)
+    record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage)
   },
   'aws:kafka': (event) => {
     for (const record in event.records) {
@@ -118,5 +115,58 @@ const base64Parse = (data) =>
   jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
 const normalizeS3Key = (key) =>
   decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' ')) // decodeURIComponent(key.replaceAll('+', ' '))
+
+// Start: AWS SDK unmarshall
+// Reference: https://github.com/aws/aws-sdk-js-v3/blob/v3.113.0/packages/util-dynamodb/src/convertToNative.ts
+export const unmarshall = (data) => convertValue.M(data ?? {})
+
+const convertValue = {
+  NULL: () => null,
+  BOOL: Boolean,
+  N: (value) => {
+    // if (options?.wrapNumbers) {
+    //  return { value };
+    // }
+
+    const num = Number(value)
+    if (
+      num !== Number.NEGATIVE_INFINITY &&
+      (num < Number.MIN_SAFE_INTEGER || Number.MAX_SAFE_INTEGER < num) &&
+      num !== Number.POSITIVE_INFINITY
+    ) {
+      try {
+        return BigInt(value)
+      } catch (error) {
+        throw new Error(`${value} can't be converted to BigInt.`)
+      }
+    }
+    return num
+  },
+  B: (value) => value,
+  S: (value) => value,
+  L: (value, options) => value.map((item) => convertToNative(item, options)),
+  M: (value) =>
+    Object.entries(value).reduce(
+      (acc, [key, value]) => ({
+        ...acc,
+        // [key]: convertToNative(value, options),
+        [key]: convertToNative(value)
+      }),
+      {}
+    ),
+  // NS: (value, options) => new Set((value).map((item) => convertValue.N(item, options))),
+  NS: (value) => new Set(value.map(convertValue.N)),
+  BS: (value) => new Set(value.map(convertValue.B)),
+  SS: (value) => new Set(value.map(convertValue.S))
+}
+
+const convertToNative = (data, options) => {
+  for (const [key, value] of Object.entries(data)) {
+    if (!convertValue[key]) throw new Error(`Unsupported type passed: ${key}`)
+    if (value === undefined) continue
+    return convertValue[key](value, options)
+  }
+}
+// End: AWS SDK unmarshall
 
 export default eventNormalizerMiddleware

@@ -69,7 +69,6 @@ export default (input) => ({
   external: [
     // AWS SDK
     'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
-    'aws-sdk/clients/dynamodb.js', // @middy/event-normalizer
     'aws-sdk/clients/rds.js', // @middy/rds-signer
     'aws-sdk/clients/s3.js', // @middy/s3-object-response
     'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
@@ -125,7 +124,6 @@ export default {
     'zlib', // @middy/http-content-encoding
     // AWS SDK
     'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
-    'aws-sdk/clients/dynamodb.js', // @middy/event-normalizer
     'aws-sdk/clients/rds.js', // @middy/rds-signer
     'aws-sdk/clients/s3.js', // @middy/s3-object-response
     'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
