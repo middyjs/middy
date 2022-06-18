@@ -68,6 +68,9 @@ To install this middleware you can use NPM:
 npm install --save @middy/event-normalizer
 ```
 
+## Options
+- `wrapNumbers` (boolean) (default `undefined`): Whether to return numbers as a string instead of converting them to native JavaScript numbers. This allows for the safe round-trip transport of numbers of arbitrary size. For DynamoDB Events only.
+
 ## Sample usage
 
 ```javascript

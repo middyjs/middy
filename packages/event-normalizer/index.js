@@ -1,6 +1,13 @@
 import { jsonSafeParse } from '@middy/util'
 
-const eventNormalizerMiddleware = () => {
+const defaults = {
+  wrapNumbers: undefined
+}
+
+let _wrapNumbers
+const eventNormalizerMiddleware = (opts = {}) => {
+  const { wrapNumbers } = { ...defaults, ...opts }
+  _wrapNumbers = wrapNumbers
   const eventNormalizerMiddlewareBefore = async (request) => {
     parseEvent(request.event)
   }
@@ -124,9 +131,9 @@ const convertValue = {
   NULL: () => null,
   BOOL: Boolean,
   N: (value) => {
-    // if (options?.wrapNumbers) {
-    //  return { value };
-    // }
+    if (_wrapNumbers) {
+      return { value }
+    }
 
     const num = Number(value)
     if (
@@ -137,7 +144,9 @@ const convertValue = {
       try {
         return BigInt(value)
       } catch (error) {
-        throw new Error(`${value} can't be converted to BigInt.`)
+        throw new Error(
+          `${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`
+        )
       }
     }
     return num
@@ -160,11 +169,11 @@ const convertValue = {
   SS: (value) => new Set(value.map(convertValue.S))
 }
 
-const convertToNative = (data, options) => {
+const convertToNative = (data) => {
   for (const [key, value] of Object.entries(data)) {
     if (!convertValue[key]) throw new Error(`Unsupported type passed: ${key}`)
     if (value === undefined) continue
-    return convertValue[key](value, options)
+    return convertValue[key](value)
   }
 }
 // End: AWS SDK unmarshall

@@ -212,6 +212,32 @@ test('It should parse DynamoDB event keys/images', async (t) => {
     StreamViewType: 'NEW_AND_OLD_IMAGES'
   })
 })
+test('It should parse DynamoDB event with wrapNumbers set', async (t) => {
+  const handler = middy((event) => event).use(
+    eventNormalizer({ wrapNumbers: true })
+  )
+
+  const event = createEvent.default('aws:dynamo')
+  event.Records[0].dynamodb.Keys = {
+    BN: { N: '-9007199254740998.25' }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response.Records[0].dynamodb, {
+    Keys: {
+      BN: { value: '-9007199254740998.25' }
+    },
+    NewImage: {
+      Message: 'New item!',
+      Id: { value: '101' }
+    },
+    OldImage: {},
+    SequenceNumber: '111',
+    SizeBytes: 26,
+    StreamViewType: 'NEW_AND_OLD_IMAGES'
+  })
+})
 test('It should catch DynamoDB event with invalid BigInt', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())
 
@@ -224,7 +250,10 @@ test('It should catch DynamoDB event with invalid BigInt', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, `${value} can't be converted to BigInt.`)
+    t.is(
+      e.message,
+      `${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`
+    )
   }
 })
 test('It should catch DynamoDB event with unknown type', async (t) => {
