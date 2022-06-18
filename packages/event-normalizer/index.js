@@ -130,8 +130,8 @@ const convertValue = {
 
     const num = Number(value)
     if (
+      (Number.MAX_SAFE_INTEGER < num || num < Number.MIN_SAFE_INTEGER) &&
       num !== Number.NEGATIVE_INFINITY &&
-      (num < Number.MIN_SAFE_INTEGER || Number.MAX_SAFE_INTEGER < num) &&
       num !== Number.POSITIVE_INFINITY
     ) {
       try {
