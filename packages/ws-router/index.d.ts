@@ -6,6 +6,6 @@ interface Route<T = never> {
   handler: APIGatewayProxyHandlerV2<T>
 }
 
-declare function wsRouterHandler (routes: Route[]): middy.MiddlewareObj
+declare function wsRouterHandler (routes: Route[]): middy.MiddyfiedHandler
 
 export default wsRouterHandler

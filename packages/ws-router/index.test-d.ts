@@ -27,4 +27,4 @@ const middleware = wsRouterHandler([
     handler: disconnectLambdaHandler
   }
 ])
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddyfiedHandler>(middleware)
