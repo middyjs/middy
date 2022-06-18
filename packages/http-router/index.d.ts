@@ -13,6 +13,6 @@ export interface Route {
   handler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 }
 
-declare function httpRouterHandler (routes: Route[]): middy.MiddlewareObj
+declare function httpRouterHandler (routes: Route[]): middy.MiddyfiedHandler
 
 export default httpRouterHandler
