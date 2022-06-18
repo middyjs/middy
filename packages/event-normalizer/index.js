@@ -21,6 +21,7 @@ const parseEvent = (event) => {
   // event.deliveryStreamArn => aws:lambda:events
   let eventSource = event.eventSource ?? event.deliveryStreamArn
 
+  // event.Records => default
   // event.records => aws:lambda:events
   // event.messages => aws:amq
   // event.tasks => aws:s3:batch
@@ -41,7 +42,9 @@ const parseEvent = (event) => {
     return
   }
 
+  // record.eventSource => default
   // record.EventSource => aws:sns
+  // record.s3Key => aws:s3:batch
   eventSource ??=
     records[0].eventSource ??
     records[0].EventSource ??
@@ -158,12 +161,10 @@ const convertValue = {
     Object.entries(value).reduce(
       (acc, [key, value]) => ({
         ...acc,
-        // [key]: convertToNative(value, options),
         [key]: convertToNative(value)
       }),
       {}
     ),
-  // NS: (value, options) => new Set((value).map((item) => convertValue.N(item, options))),
   NS: (value) => new Set(value.map(convertValue.N)),
   BS: (value) => new Set(value.map(convertValue.B)),
   SS: (value) => new Set(value.map(convertValue.S))
