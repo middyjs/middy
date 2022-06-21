@@ -171,6 +171,78 @@ test('It should validate an event object', async (t) => {
   })
 })
 
+test('It should validate an event object with formats', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  const schema = {
+    type: 'object',
+    required: ['body'],
+    properties: {
+      body: {
+        type: 'object',
+        properties: {
+          date: {
+            type: 'string',
+            format: 'date'
+          },
+          time: {
+            type: 'string',
+            format: 'time'
+          },
+          'date-time': {
+            type: 'string',
+            format: 'date-time'
+          },
+          uri: {
+            type: 'string',
+            format: 'uri'
+          },
+          email: {
+            type: 'string',
+            format: 'email'
+          },
+          hostname: {
+            type: 'string',
+            format: 'hostname'
+          }
+        }
+      }
+    }
+  }
+
+  handler.use(
+    validator({
+      eventSchema: schema
+    })
+  )
+
+  // invokes the handler
+  // https://ajv.js.org/guide/formats.html TODO add remaining
+  const event = {
+    body: {
+      date: '2000-01-01',
+      time: '00:00:00',
+      'date-time': '2000-01-01T00:00:00',
+      uri: 'https://example.org',
+      email: 'username@example.org',
+      hostname: 'sub.example.org'
+    }
+  }
+
+  const body = await handler(event, context)
+
+  t.deepEqual(body, {
+    date: '2000-01-01',
+    time: '00:00:00',
+    'date-time': '2000-01-01T00:00:00',
+    uri: 'https://example.org',
+    email: 'username@example.org',
+    hostname: 'sub.example.org'
+  })
+})
+
 test('It should handle invalid schema as a BadRequest', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
