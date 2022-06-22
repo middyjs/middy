@@ -206,6 +206,18 @@ test('It should validate an event object with formats', async (t) => {
           hostname: {
             type: 'string',
             format: 'hostname'
+          },
+          ipv4: {
+            type: 'string',
+            format: 'ipv4'
+          },
+          ipv6: {
+            type: 'string',
+            format: 'ipv6'
+          },
+          uuid: {
+            type: 'string',
+            format: 'uuid'
           }
         }
       }
@@ -218,8 +230,6 @@ test('It should validate an event object with formats', async (t) => {
     })
   )
 
-  // invokes the handler
-  // https://ajv.js.org/guide/formats.html TODO add remaining
   const event = {
     body: {
       date: '2000-01-01',
@@ -227,7 +237,10 @@ test('It should validate an event object with formats', async (t) => {
       'date-time': '2000-01-01T00:00:00',
       uri: 'https://example.org',
       email: 'username@example.org',
-      hostname: 'sub.example.org'
+      hostname: 'sub.example.org',
+      ipv4: '127.0.0.1',
+      ipv6: '2001:0db8:0000:0000:0000:ff00:0042:8329',
+      uuid: '123e4567-e89b-12d3-a456-426614174000'
     }
   }
 
@@ -239,7 +252,10 @@ test('It should validate an event object with formats', async (t) => {
     'date-time': '2000-01-01T00:00:00',
     uri: 'https://example.org',
     email: 'username@example.org',
-    hostname: 'sub.example.org'
+    hostname: 'sub.example.org',
+    ipv4: '127.0.0.1',
+    ipv6: '2001:0db8:0000:0000:0000:ff00:0042:8329',
+    uuid: '123e4567-e89b-12d3-a456-426614174000'
   })
 })
 
