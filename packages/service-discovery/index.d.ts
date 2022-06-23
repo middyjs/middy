@@ -1,4 +1,4 @@
-import { ServiceDiscovery } from 'aws-sdk'
+import ServiceDiscovery from 'aws-sdk/clients/servicediscovery'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 

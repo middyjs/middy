@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
-import { SSM } from 'aws-sdk'
+import SSM from 'aws-sdk/clients/ssm'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as util from '.'
 

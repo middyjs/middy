@@ -1,4 +1,4 @@
-import { RDS } from 'aws-sdk'
+import RDS from 'aws-sdk/clients/rds'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 

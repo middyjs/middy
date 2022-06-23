@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { SecretsManager } from 'aws-sdk'
+import SecretsManager from 'aws-sdk/clients/secretsmanager'
 import { captureAWSClient } from 'aws-xray-sdk'
 import rdsSigner from '.'
 

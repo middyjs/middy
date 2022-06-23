@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { RDS } from 'aws-sdk'
+import RDS from 'aws-sdk/clients/rds'
 import { captureAWSClient } from 'aws-xray-sdk'
 import rdsSigner from '.'
 

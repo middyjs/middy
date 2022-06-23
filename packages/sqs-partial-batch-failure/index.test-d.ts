@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { SQS } from 'aws-sdk'
+import SQS from 'aws-sdk/clients/sqs'
 import { captureAWSClient } from 'aws-xray-sdk'
 import sqsPartialBatchFailure from '.'
 

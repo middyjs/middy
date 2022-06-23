@@ -1,4 +1,4 @@
-import { S3 } from 'aws-sdk'
+import S3 from 'aws-sdk/clients/s3'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 
