@@ -1,4 +1,4 @@
-import { SSM } from 'aws-sdk'
+import SSM from 'aws-sdk/clients/ssm'
 import { Options as MiddyOptions } from '@middy/util'
 import middy from '@middy/core'
 

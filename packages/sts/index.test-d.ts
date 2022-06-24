@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { STS } from 'aws-sdk'
+import STS from 'aws-sdk/clients/sts'
 import { captureAWSClient } from 'aws-xray-sdk'
 import sts from '.'
 

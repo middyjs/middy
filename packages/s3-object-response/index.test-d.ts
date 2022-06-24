@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { S3 } from 'aws-sdk'
+import S3 from 'aws-sdk/clients/s3'
 import { captureAWSClient } from 'aws-xray-sdk'
 import s3ObjectResponse from '.'
 

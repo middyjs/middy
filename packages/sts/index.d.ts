@@ -1,4 +1,4 @@
-import { STS } from 'aws-sdk'
+import STS from 'aws-sdk/clients/sts'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 

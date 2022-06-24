@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import { SSM } from 'aws-sdk'
+import SSM from 'aws-sdk/clients/ssm'
 import { captureAWSClient } from 'aws-xray-sdk'
 import ssm from '.'
 
