@@ -48,11 +48,11 @@ const wsResponseMiddleware = (opts) => {
 // TODO move to @middy/util?
 const normalizeWsResponse = (request) => {
   let { response } = request
-  if (response === undefined) {
+  if (typeof response === 'undefined') {
     response = {}
   } else if (
-    response?.Data === undefined &&
-    response?.ConnectionId === undefined
+    typeof response?.Data === 'undefined' &&
+    typeof response?.ConnectionId === 'undefined'
   ) {
     response = { Data: response }
   }

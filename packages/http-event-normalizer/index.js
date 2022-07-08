@@ -22,8 +22,8 @@ const httpEventNormalizerMiddleware = () => {
 }
 
 const isVersionHttpEvent = {
-  '1.0': (event) => event.httpMethod !== undefined,
-  '2.0': (event) => event.requestContext.http.method !== undefined
+  '1.0': (event) => typeof event.httpMethod !== 'undefined',
+  '2.0': (event) => typeof event.requestContext.http.method !== 'undefined'
 }
 
 export default httpEventNormalizerMiddleware

@@ -35,7 +35,7 @@ const httpRouteHandler = (routes) => {
 
     // Static
     const handler = routesStatic[method]?.[path]
-    if (handler !== undefined) {
+    if (typeof handler !== 'undefined') {
       return handler(event, context, abort)
     }
 
@@ -79,7 +79,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
     routesType[method] = []
   }
   path = path
-    .replace(regexpDynamicWildcards, '/?.*') // TODO update ot replaceAll for v4
+    .replace(regexpDynamicWildcards, '/?.*')
     .replace(regexpDynamicParameters, '/.+')
   path = new RegExp(`^${path}$`)
   routesType[method].push({ path, handler })

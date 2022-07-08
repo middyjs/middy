@@ -194,12 +194,12 @@ export const jsonSafeStringify = (value, replacer, space) => {
 
 export const normalizeHttpResponse = (request) => {
   let { response } = request
-  if (response === undefined) {
+  if (typeof response === 'undefined') {
     response = {}
   } else if (
-    response?.statusCode === undefined &&
-    response?.body === undefined &&
-    response?.headers === undefined
+    typeof response?.statusCode === 'undefined' &&
+    typeof response?.body === 'undefined' &&
+    typeof response?.headers === 'undefined'
   ) {
     response = { body: response }
   }

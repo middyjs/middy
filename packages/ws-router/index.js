@@ -17,7 +17,7 @@ const wsRouteHandler = (routes) => {
 
     // Static
     const handler = routesStatic[routeKey]
-    if (handler !== undefined) {
+    if (typeof handler !== 'undefined') {
       return handler(event, context, abort)
     }
 

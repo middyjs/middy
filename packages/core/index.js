@@ -97,7 +97,7 @@ const runRequest = async (
   try {
     await runMiddlewares(request, beforeMiddlewares, plugin)
     // Check if before stack hasn't exit early
-    if (request.response === undefined) {
+    if (typeof request.response === 'undefined') {
       plugin.beforeHandler?.()
 
       const handlerAbort = new AbortController()
@@ -137,7 +137,7 @@ const runRequest = async (
       throw request.error
     }
     // Catch if onError stack hasn't handled the error
-    if (request.response === undefined) throw request.error
+    if (typeof request.response === 'undefined') throw request.error
   } finally {
     await plugin.requestEnd?.(request)
   }
@@ -151,7 +151,7 @@ const runMiddlewares = async (request, middlewares, plugin) => {
     const res = await nextMiddleware(request)
     plugin.afterMiddleware?.(nextMiddleware.name)
     // short circuit chaining and respond early
-    if (res !== undefined) {
+    if (typeof res !== 'undefined') {
       request.response = res
       return
     }
