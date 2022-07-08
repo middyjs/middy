@@ -19,6 +19,7 @@ npm install --save @middy/http-router
   - `handler` (function) (required): Any `handler(event, context)` function
 
 NOTES:
+- When using API Gateway HTTP (v2) it may be required to prefix `routes[].path` with `/{stage}` depending on your use case.
 - Errors should be handled as part of the router middleware stack **or** the lambdaHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 
