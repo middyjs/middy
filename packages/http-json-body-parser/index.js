@@ -12,7 +12,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 
     const contentTypeHeader = headers['Content-Type'] ?? headers['content-type']
 
-    if (mimePattern.test(contentTypeHeader)) {
+    if (body && mimePattern.test(contentTypeHeader)) {
       try {
         const data = request.event.isBase64Encoded
           ? Buffer.from(body, 'base64').toString()

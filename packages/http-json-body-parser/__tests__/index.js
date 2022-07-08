@@ -28,6 +28,25 @@ test('It should parse a JSON request', async (t) => {
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
+test('It should skip when no body', async (t) => {
+  const handler = middy((event) => {
+    return event // propagates the processed event as a response
+  })
+
+  handler.use(jsonBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+
+  const processedEvent = await handler(event, defaultContext)
+
+  t.is(processedEvent.body, undefined)
+})
+
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
   const handler = middy((event) => {
     return event // propagates the processed event as a response

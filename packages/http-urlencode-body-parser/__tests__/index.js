@@ -53,6 +53,25 @@ test('It should not process the body if no headers are passed', async (t) => {
   t.is(body, '{"foo":"bar"}')
 })
 
+test('It should not process the body if no body is passed', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+    }
+  }
+
+  const body = await handler(event, context)
+
+  t.is(body, undefined)
+})
+
 test('It should not process the body if no header is passed', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response

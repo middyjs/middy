@@ -7,10 +7,11 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
   const { headers, body } = request.event
   const contentTypeHeader = headers['Content-Type'] ?? headers['content-type']
 
-  if (mimePattern.test(contentTypeHeader)) {
+  if (body && mimePattern.test(contentTypeHeader)) {
     const data = request.event.isBase64Encoded
       ? Buffer.from(body, 'base64').toString()
       : body
+    request.event.rawBody = body
     request.event.body = parse(data)
   }
 }
