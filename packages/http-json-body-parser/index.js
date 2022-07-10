@@ -1,4 +1,5 @@
 import { createError } from '@middy/util'
+
 const mimePattern = /^application\/(.+\+)?json(;.*)?$/
 
 const defaults = {
@@ -6,27 +7,27 @@ const defaults = {
 }
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
+  const { reviver } = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
 
-    const contentTypeHeader = headers['Content-Type'] ?? headers['content-type']
+    const contentType = headers['Content-Type'] ?? headers['content-type']
 
-    if (body && mimePattern.test(contentTypeHeader)) {
-      try {
-        const data = request.event.isBase64Encoded
-          ? Buffer.from(body, 'base64').toString()
-          : body
+    if (!mimePattern.test(contentType)) return
 
-        request.event.rawBody = body
-        request.event.body = JSON.parse(data, options.reviver)
-      } catch (cause) {
-        // UnprocessableEntity
-        // throw createError(422, 'Invalid or malformed JSON was provided', { cause })
-        const error = createError(422, 'Invalid or malformed JSON was provided')
-        error.cause = cause
-        throw error
-      }
+    try {
+      const data = request.event.isBase64Encoded
+        ? Buffer.from(body, 'base64').toString()
+        : body
+
+      request.event.rawBody = body
+      request.event.body = JSON.parse(data, reviver)
+    } catch (cause) {
+      // UnprocessableEntity
+      // throw createError(422, 'Invalid or malformed JSON was provided', { cause })
+      const error = createError(422, 'Invalid or malformed JSON was provided')
+      error.cause = cause
+      throw error
     }
   }
 

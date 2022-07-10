@@ -3,28 +3,30 @@ import middy from '../../core/index.js'
 import urlEncodeBodyParser from '../index.js'
 
 // const event = {}
-const context = {
+const defaultContext = {
   getRemainingTimeInMillis: () => 1000
 }
 
 test('It should decode complex url encoded requests', async (t) => {
   const handler = middy((event, context) => {
-    return event.body // propagates the body as response
+    return event // propagates the body as response
   })
 
   handler.use(urlEncodeBodyParser())
 
   // invokes the handler
+  const body = 'a[b][c][d]=i'
   const event = {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
     },
-    body: 'a[b][c][d]=i'
+    body
   }
 
-  const body = await handler(event, context)
+  const processedEvent = await handler(event, defaultContext)
 
-  t.deepEqual(body, {
+  t.is(processedEvent.rawBody, body)
+  t.deepEqual(processedEvent.body, {
     a: {
       b: {
         c: {
@@ -35,27 +37,9 @@ test('It should decode complex url encoded requests', async (t) => {
   })
 })
 
-test('It should not process the body if no headers are passed', async (t) => {
-  const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
-  })
-
-  handler.use(urlEncodeBodyParser())
-
-  // invokes the handler
-  const event = {
-    headers: {},
-    body: JSON.stringify({ foo: 'bar' })
-  }
-
-  const body = await handler(event, context)
-
-  t.is(body, '{"foo":"bar"}')
-})
-
-test('It should not process the body if no body is passed', async (t) => {
-  const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
+test('It should default when body is undefined', async (t) => {
+  const handler = middy((event) => {
+    return event // propagates the processed event as a response
   })
 
   handler.use(urlEncodeBodyParser())
@@ -67,12 +51,30 @@ test('It should not process the body if no body is passed', async (t) => {
     }
   }
 
-  const body = await handler(event, context)
+  const processedEvent = await handler(event, defaultContext)
 
-  t.is(body, undefined)
+  t.deepEqual(processedEvent.body, {})
 })
 
-test('It should not process the body if no header is passed', async (t) => {
+test('It should not process the body if no headers are passed', async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {},
+    body: 'a[b][c][d]=i'
+  }
+
+  const body = await handler(event, defaultContext)
+
+  t.is(body, 'a[b][c][d]=i')
+})
+
+test('It should not process the body if malformed body is passed', async (t) => {
   const handler = middy((event, context) => {
     return event.body // propagates the body as a response
   })
@@ -85,7 +87,7 @@ test('It should not process the body if no header is passed', async (t) => {
     headers: {}
   }
 
-  const body = await handler(event, context)
+  const body = await handler(event, defaultContext)
 
   t.is(body, '{"foo":"bar"}')
 })
@@ -105,7 +107,7 @@ test('It should handle base64 body', async (t) => {
     isBase64Encoded: true
   }
 
-  const body = await handler(event, context)
+  const body = await handler(event, defaultContext)
 
   t.deepEqual(body, { a: 'a', b: 'b' })
 })

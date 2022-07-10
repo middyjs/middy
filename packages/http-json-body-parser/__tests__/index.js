@@ -28,25 +28,6 @@ test('It should parse a JSON request', async (t) => {
   t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
-test('It should skip when no body', async (t) => {
-  const handler = middy((event) => {
-    return event // propagates the processed event as a response
-  })
-
-  handler.use(jsonBodyParser())
-
-  // invokes the handler
-  const event = {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  }
-
-  const processedEvent = await handler(event, defaultContext)
-
-  t.is(processedEvent.body, undefined)
-})
-
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
   const handler = middy((event) => {
     return event // propagates the processed event as a response
@@ -128,8 +109,33 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
+    t.is(e.statusCode, 422)
     t.is(e.message, 'Invalid or malformed JSON was provided')
     t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
+  }
+})
+
+test('It should handle undefined as an UnprocessableEntity', async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(jsonBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: undefined
+  }
+
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 422)
+    t.is(e.message, 'Invalid or malformed JSON was provided')
+    t.is(e.cause.message, 'Unexpected token u in JSON at position 0')
   }
 })
 
