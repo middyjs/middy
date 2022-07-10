@@ -20,7 +20,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
         ? Buffer.from(body, 'base64').toString()
         : body
 
-      request.event.rawBody = body
+      request.event.rawBody = body // TODO deprecate in v4
       request.event.body = JSON.parse(data, reviver)
     } catch (cause) {
       // UnprocessableEntity
