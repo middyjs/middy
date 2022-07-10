@@ -90,13 +90,13 @@ No change
 - Complete rewrite of options and inclusion of new HTML only headers **[Breaking Change]**
 
 ### [http-urlencode-body-parser](/packages/http-urlencode-body-parser/README.md)
-No change
+- [New] `event` contains `rawBody` similar to `http-json-body-parser`.
 
 ### [http-urlencode-path-parser](/packages/http-urlencode-path-parser/README.md)
 No change
 
 ### [input-output-logger](/packages/input-output-logger/README.md)
-- Add in new option to mask instead of omit a path.
+- [New] Add in new option to mask instead of omit a path.
 
 ### [rds-signer](/packages/rds-signer/README.md)
 - Deprecated `setToEnv` option due to possible security misuse **[Breaking Change]**
@@ -127,7 +127,8 @@ No change
 
 ### [validator](/packages/validator/README.md)
 - Change where errors are stored, from `request.error.details` to `request.error.cause` **[Breaking Change]**
-- Add new options `eventSchema`, `contextSchema`, `responseSchema`. `inputSchema` and `outputSchema` become aliases.
+- [New] Add options `eventSchema`, `contextSchema`, `responseSchema`. `inputSchema` and `outputSchema` become aliases.
+- [New] Uses `fast-uri` for uriResolver.
 
 ### [warmup](/packages/warmup/README.md)
 No change
