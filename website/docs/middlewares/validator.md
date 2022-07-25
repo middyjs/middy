@@ -57,6 +57,7 @@ const handler = middy((event, context) => {
 })
 
 const schema = {
+  type: "object",
   required: ['body', 'foo'],
   properties: {
     // this will pass validation
@@ -94,6 +95,7 @@ const handler = middy((event, context) => {
 })
 
 const responseSchema = {
+  type: "object",
   required: ['body', 'statusCode'],
   properties: {
     body: {
