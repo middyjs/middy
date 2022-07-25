@@ -64,6 +64,7 @@ The content type is determined in the following order:
  * `default` middleware configuration
 
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
+When planning to use `Accept`, an external input, it is recommended to validate that it is an expected value.
 
 
 ## Sample usage
