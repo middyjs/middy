@@ -15,7 +15,7 @@ const timePlugin = (opts = {}) => {
     logger(
       id,
       Number.parseInt((process.hrtime.bigint() - store[id]).toString()) /
-        1000000,
+        1_000_000,
       'ms'
     )
   }
