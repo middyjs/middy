@@ -1,14 +1,14 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
-import httpHeaderNormalizer from '.'
+import { expectType } from 'tsd'
+import httpHeaderNormalizer, { Event } from '.'
 
 // use with default options
 let middleware = httpHeaderNormalizer()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)
 
 // use with all options
 middleware = httpHeaderNormalizer({
   normalizeHeaderKey: (key: string) => key.toLowerCase(),
   canonical: false
 })
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)
