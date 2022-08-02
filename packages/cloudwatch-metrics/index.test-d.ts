@@ -1,19 +1,14 @@
 import middy from '@middy/core'
-import { Context } from 'aws-lambda'
 import { expectType } from 'tsd'
-import cloudwatchMetrics, { MetricsLogger } from '.'
+import cloudwatchMetrics, { Context } from '.'
 
 // use with default options
 let middleware = cloudwatchMetrics()
-expectType<
-  middy.MiddlewareObj<unknown, any, any, Context & { metrics: MetricsLogger }>
->(middleware)
+expectType<middy.MiddlewareObj<unknown, any, any, Context>>(middleware)
 
 // use with all options
 middleware = cloudwatchMetrics({
   namespace: 'myApp',
   dimensions: [{ Action: 'Buy' }]
 })
-expectType<
-  middy.MiddlewareObj<unknown, any, any, Context & { metrics: MetricsLogger }>
->(middleware)
+expectType<middy.MiddlewareObj<unknown, any, any, Context>>(middleware)

@@ -33,7 +33,7 @@ interface Request<TEvent = any, TResult = any, TErr = Error, TContext extends La
 
 declare type MiddlewareFn<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> = (request: Request<TEvent, TResult, TErr, TContext>) => any
 
-export interface MiddlewareObj<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> {
+export interface MiddlewareObj<TEvent = unknown, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> {
   before?: MiddlewareFn<TEvent, TResult, TErr, TContext>
   after?: MiddlewareFn<TEvent, TResult, TErr, TContext>
   onError?: MiddlewareFn<TEvent, TResult, TErr, TContext>
