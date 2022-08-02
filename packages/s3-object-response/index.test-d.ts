@@ -6,7 +6,7 @@ import s3ObjectResponse, { Context } from '.'
 
 // use with default options
 let middleware = s3ObjectResponse()
-expectType<middy.MiddlewareObj<unknown, any, any, Context<undefined>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
   middleware
 )
 
@@ -16,6 +16,6 @@ middleware = s3ObjectResponse({
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
 })
-expectType<middy.MiddlewareObj<unknown, any, any, Context<undefined>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
   middleware
 )

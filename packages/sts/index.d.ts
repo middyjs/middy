@@ -30,6 +30,8 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   >
   : LambdaContext
 
-declare function sts (options?: Options): middy.MiddlewareObj
+declare function sts<TOptions extends Options> (
+  options?: TOptions
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
 export default sts

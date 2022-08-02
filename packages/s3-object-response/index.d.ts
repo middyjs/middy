@@ -26,6 +26,6 @@ export type Context<TOptions extends Options | undefined> = LambdaContext & {
 
 declare function s3ObjectResponse<TOptions extends Options | undefined> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, any, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
 export default s3ObjectResponse

@@ -14,6 +14,6 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
 
 declare function secretsManager<TOptions extends Options | undefined> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, any, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
 export default secretsManager

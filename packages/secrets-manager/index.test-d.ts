@@ -5,7 +5,7 @@ import { expectType } from 'tsd'
 import rdsSigner, { Context } from '.'
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, any, Context<undefined>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
   rdsSigner()
 )
 
@@ -24,6 +24,6 @@ const options = {
 }
 
 // use with all options
-expectType<middy.MiddlewareObj<unknown, any, any, Context<typeof options>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   rdsSigner(options)
 )
