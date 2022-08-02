@@ -11,6 +11,7 @@ export type Event = Omit<APIGatewayEvent, 'body'> & {
    * The body of the HTTP request.
    */
   body: JsonValue
+  rawBody: string
 }
 
 declare function jsonBodyParser(options?: Options): middy.MiddlewareObj<Event>
