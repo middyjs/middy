@@ -12,6 +12,6 @@ export type Event = APIGatewayEvent & {
   queryStringParameters: APIGatewayProxyEventQueryStringParameters
 }
 
-declare function httpEventNormalizer(): middy.MiddlewareObj<Event>
+declare function httpEventNormalizer (): middy.MiddlewareObj<Event>
 
 export default httpEventNormalizer

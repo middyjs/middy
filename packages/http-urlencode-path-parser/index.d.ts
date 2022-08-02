@@ -6,6 +6,6 @@ export type Event = APIGatewayEvent & {
   body: JsonValue
 }
 
-declare function urlEncodePathParser(): middy.MiddlewareObj<Event>
+declare function urlEncodePathParser (): middy.MiddlewareObj<Event>
 
 export default urlEncodePathParser

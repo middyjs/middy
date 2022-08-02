@@ -5,11 +5,11 @@ interface Options {
   canonical?: boolean
 }
 
-export type Event = {
+export interface Event {
   rawHeaders: Record<string, string>
 }
 
-declare function httpHeaderNormalizer(
+declare function httpHeaderNormalizer (
   options?: Options
 ): middy.MiddlewareObj<Event>
 

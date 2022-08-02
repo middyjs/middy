@@ -15,11 +15,11 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
 }
   ? LambdaContext &
-      Record<Basename<ExtractPaths<keyof TOptions['fetchData']>>, JsonValue> &
-      Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
+  Record<Basename<ExtractPaths<keyof TOptions['fetchData']>>, JsonValue> &
+  Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
   : LambdaContext
 
-declare function ssm<TOptions extends Options>(
+declare function ssm<TOptions extends Options> (
   options?: TOptions
 ): middy.MiddlewareObj<unknown, any, any, Context<TOptions>>
 

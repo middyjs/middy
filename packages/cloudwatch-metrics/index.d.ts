@@ -12,7 +12,7 @@ export type Context = LambdaContext & {
   metrics: MetricsLogger
 }
 
-declare function cloudwatchMetrics(
+declare function cloudwatchMetrics (
   options?: Options
 ): middy.MiddlewareObj<unknown, any, Error, Context>
 
