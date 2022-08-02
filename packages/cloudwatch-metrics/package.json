@@ -68,7 +68,8 @@
     "aws-embedded-metrics": "3.0.0"
   },
   "devDependencies": {
-    "@middy/core": "3.1.1"
+    "@middy/core": "3.1.1",
+    "@types/aws-lambda": "^8.10.101"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
