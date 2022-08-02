@@ -1,4 +1,6 @@
 import middy from '@middy/core'
+import { APIGatewayEvent } from 'aws-lambda'
+import { JsonValue } from 'type-fest'
 
 interface Options {
   busboy?: {
@@ -19,6 +21,12 @@ interface Options {
   }
 }
 
-declare function multipartBodyParser (options?: Options): middy.MiddlewareObj
+export type Event = Omit<APIGatewayEvent, 'body'> & {
+  body: JsonValue
+}
+
+declare function multipartBodyParser(
+  options?: Options
+): middy.MiddlewareObj<Event>
 
 export default multipartBodyParser
