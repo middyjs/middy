@@ -1,15 +1,14 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
 import SSM from 'aws-sdk/clients/ssm'
 import { captureAWSClient } from 'aws-xray-sdk'
-import ssm from '.'
+import { expectType } from 'tsd'
+import ssm, { Context } from '.'
 
 // use with default options
-let middleware = ssm()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm())
 
 // use with all options
-middleware = ssm({
+const options = {
   AwsClient: SSM,
   awsClientOptions: {
     secretAccessKey: 'abc'
@@ -17,5 +16,7 @@ middleware = ssm({
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
-})
-expectType<middy.MiddlewareObj>(middleware)
+}
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
+  ssm(options)
+)
