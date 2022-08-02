@@ -1,10 +1,10 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
-import httpContentNegotiationMiddleware from '.'
+import { expectType } from 'tsd'
+import httpContentNegotiationMiddleware, { Event } from '.'
 
 // use with default options
 let middleware = httpContentNegotiationMiddleware()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)
 
 // use with all options
 middleware = httpContentNegotiationMiddleware({
@@ -18,4 +18,4 @@ middleware = httpContentNegotiationMiddleware({
   availableMediaTypes: ['application/xml', 'application/json'],
   failOnMismatch: true
 })
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)
