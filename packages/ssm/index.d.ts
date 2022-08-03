@@ -8,18 +8,17 @@ interface Options<S = SSM>
   extends MiddyOptions<S, SSM.Types.ClientConfiguration> {}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-type Basename<T> = T extends `${infer _P}/${infer _S}` ? Basename<_S> : T
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type ExtractPaths<T> = T extends `${infer _P}/${infer _S}` ? T : never
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type ExtractSingles<T> = T extends `${infer _P}/${infer _S}` ? never : T
+type ExtractSingles<T> = T extends `/${infer _}` ? never : T
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
 }
   ? LambdaContext &
-  Record<Basename<ExtractPaths<keyof TOptions['fetchData']>>, JsonValue> &
-  Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
+  Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue> &
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (keyof TOptions['fetchData'] extends `${infer _P}/${infer _S}`
+    ? Record<string, JsonValue>
+    : unknown)
   : LambdaContext
 
 declare function ssm<TOptions extends Options> (
