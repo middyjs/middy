@@ -63,7 +63,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "qs": "6.10.5"
+    "qs": "6.11.0"
   },
   "devDependencies": {
     "@middy/core": "3.1.1"
