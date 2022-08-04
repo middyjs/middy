@@ -11,6 +11,7 @@
     "access": "public"
   },
   "main": "./index.cjs",
+  "module": "./index.js",
   "exports": {
     ".": {
       "import": {
