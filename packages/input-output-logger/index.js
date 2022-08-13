@@ -20,7 +20,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     )
   }
 
-  const omitPathTree = buildPathOmitTree(omitPaths)
+  const omitPathTree = buildPathTree(omitPaths)
   const omitAndLog = (param, request) => {
     const message = { [param]: request[param] }
 
@@ -96,7 +96,7 @@ const pick = (originalObject = {}, keysToPick = []) => {
   return newObject
 }
 
-const buildPathOmitTree = (paths) => {
+const buildPathTree = (paths) => {
   const tree = {}
   for (let path of paths.sort().reverse()) {
     // reverse to ensure conflicting paths don't cause issues
