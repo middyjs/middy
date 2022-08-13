@@ -70,3 +70,4 @@ typings/
 *.iml
 .idea/
 .vscode/
+.nova/
