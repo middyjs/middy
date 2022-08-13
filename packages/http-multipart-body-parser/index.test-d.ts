@@ -1,10 +1,10 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
-import multipartBodyParser from '.'
+import { expectType } from 'tsd'
+import multipartBodyParser, { Event } from '.'
 
 // use with default options
 let middleware = multipartBodyParser()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)
 
 // use with all options
 middleware = multipartBodyParser({
@@ -25,4 +25,4 @@ middleware = multipartBodyParser({
     }
   }
 })
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)

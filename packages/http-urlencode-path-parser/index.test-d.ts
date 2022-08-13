@@ -1,7 +1,7 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
-import urlEncodePathParser from '.'
+import { expectType } from 'tsd'
+import urlEncodePathParser, { Event } from '.'
 
 // use with default options
 const middleware = urlEncodePathParser()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(middleware)

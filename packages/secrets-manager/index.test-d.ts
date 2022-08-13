@@ -1,15 +1,15 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
 import SecretsManager from 'aws-sdk/clients/secretsmanager'
 import { captureAWSClient } from 'aws-xray-sdk'
-import rdsSigner from '.'
+import { expectType } from 'tsd'
+import rdsSigner, { Context } from '.'
 
 // use with default options
-let middleware = rdsSigner()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
+  rdsSigner()
+)
 
-// use with all options
-middleware = rdsSigner({
+const options = {
   AwsClient: SecretsManager,
   awsClientOptions: {
     secretAccessKey: 'abc'
@@ -21,5 +21,9 @@ middleware = rdsSigner({
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
   setToContext: true
-})
-expectType<middy.MiddlewareObj>(middleware)
+}
+
+// use with all options
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
+  rdsSigner(options)
+)
