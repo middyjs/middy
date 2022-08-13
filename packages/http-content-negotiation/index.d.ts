@@ -12,6 +12,19 @@ interface Options {
   failOnMismatch?: boolean
 }
 
-declare function httpContentNegotiation (options?: Options): middy.MiddlewareObj
+export interface Event {
+  preferredCharsets: string[]
+  preferredCharset: string
+  preferredEncodings: string[]
+  preferredEncoding: string
+  preferredLanguages: string[]
+  preferredLanguage: string
+  preferredMediaTypes: string[]
+  preferredMediaType: string
+}
+
+declare function httpContentNegotiation (
+  options?: Options
+): middy.MiddlewareObj<Event>
 
 export default httpContentNegotiation

@@ -1,18 +1,21 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
 import ServiceDiscovery from 'aws-sdk/clients/servicediscovery'
 import { captureAWSClient } from 'aws-xray-sdk'
-import serviceDiscovery from '.'
+import { expectType } from 'tsd'
+import serviceDiscovery, { Context } from '.'
 
 // use with default options
-let middleware = serviceDiscovery()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
+  serviceDiscovery()
+)
 
 // use with all options
-middleware = serviceDiscovery({
+const options = {
   AwsClient: ServiceDiscovery,
   awsClientOptions: {},
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
-})
-expectType<middy.MiddlewareObj>(middleware)
+}
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
+  serviceDiscovery()
+)

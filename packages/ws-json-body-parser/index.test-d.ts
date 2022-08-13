@@ -1,13 +1,12 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
-import jsonBodyParser from '.'
+import { expectType } from 'tsd'
+import jsonBodyParser, { Event } from '.'
 
 // use with default options
-let middleware = jsonBodyParser()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<Event>>(jsonBodyParser())
 
 // use with all options
-middleware = jsonBodyParser({
+const options = {
   reviver: (key: string, value: any) => Boolean(value)
-})
-expectType<middy.MiddlewareObj>(middleware)
+}
+expectType<middy.MiddlewareObj<Event>>(jsonBodyParser(options))

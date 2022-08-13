@@ -1,12 +1,14 @@
-import { expectType } from 'tsd'
 import middy from '@middy/core'
 import S3 from 'aws-sdk/clients/s3'
 import { captureAWSClient } from 'aws-xray-sdk'
-import s3ObjectResponse from '.'
+import { expectType } from 'tsd'
+import s3ObjectResponse, { Context } from '.'
 
 // use with default options
 let middleware = s3ObjectResponse()
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
+  middleware
+)
 
 // use with all options
 middleware = s3ObjectResponse({
@@ -14,4 +16,6 @@ middleware = s3ObjectResponse({
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
 })
-expectType<middy.MiddlewareObj>(middleware)
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
+  middleware
+)
