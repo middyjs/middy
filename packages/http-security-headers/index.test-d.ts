@@ -34,6 +34,33 @@ middleware = httpSecurityHeaders({
   },
   xssProtection: {
     reportUri: 'xss'
+  },
+  contentSecurityPolicy: {
+    'default-src': "'none'",
+    sandbox: ''
+  },
+  crossOriginEmbedderPolicy: {
+    policy: 'require-corp'
+  },
+  crossOriginOpenerPolicy: {
+    policy: 'same-origin'
+  },
+  crossOriginResourcePolicy: {
+    policy: 'same-origin'
+  },
+  permissionsPolicy: {
+    'ambient-light-sensor': ''
+  },
+  permittedCrossDomainPolicies: {
+    policy: 'none'
+  },
+  reportTo: {
+    maxAge: 365 * 24 * 60 * 60,
+    default: '',
+    includeSubdomains: true,
+    csp: '',
+    staple: '',
+    xss: ''
   }
 })
 expectType<middy.MiddlewareObj>(middleware)

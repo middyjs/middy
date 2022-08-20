@@ -28,6 +28,28 @@ interface Options {
   xssProtection?: {
     reportUri?: string
   }
+  contentSecurityPolicy?: Record<string, string>
+  crossOriginEmbedderPolicy?: {
+    policy?: string
+  }
+  crossOriginOpenerPolicy?: {
+    policy?: string
+  }
+  crossOriginResourcePolicy?: {
+    policy?: string
+  }
+  permissionsPolicy?: Record<string, string>
+  permittedCrossDomainPolicies?: {
+    policy?: string
+  }
+  reportTo?: {
+    maxAge?: number
+    default?: string
+    includeSubdomains?: boolean
+    csp?: string
+    staple?: string
+    xss?: string
+  }
 }
 
 type WithFalseValues<T> = { [K in keyof T]: T[K] | false }
