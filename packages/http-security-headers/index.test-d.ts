@@ -37,3 +37,18 @@ middleware = httpSecurityHeaders({
   }
 })
 expectType<middy.MiddlewareObj>(middleware)
+
+// allow false options
+middleware = httpSecurityHeaders({
+  dnsPrefetchControl: false,
+  frameOptions: false,
+  poweredBy: false,
+  strictTransportSecurity: false,
+  downloadOptions: false,
+  contentTypeOptions: false,
+  originAgentCluster: false,
+  referrerPolicy: false,
+  xssProtection: false
+})
+
+expectType<middy.MiddlewareObj>(middleware)
