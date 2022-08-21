@@ -65,7 +65,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "aws-embedded-metrics": "3.0.0"
+    "aws-embedded-metrics": "3.0.1"
   },
   "devDependencies": {
     "@middy/core": "3.2.0",
