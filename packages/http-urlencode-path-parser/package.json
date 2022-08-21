@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-path-parser",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Urlencode path parser middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -63,7 +63,7 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
-    "@middy/core": "3.2.0",
+    "@middy/core": "3.2.1",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^2.18.0"
   },
