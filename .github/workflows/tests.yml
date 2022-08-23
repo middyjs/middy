@@ -33,7 +33,7 @@ jobs:
         env:
           CI: true
 
-      - name: Transpile for Node.js ${{ matrix.node-version }} (${{ matrix.node-module-type}})
+      - name: Transpile for Node.js ${{ matrix.node-version }}
         run: |
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.cjs.config.json --source-maps false index.js --out-file index.cjs
           ./node_modules/.bin/lerna exec --bail --concurrency 2 -- sed -i.bak 's/exports, "default"/module, "exports"/g' index.cjs # Fix CommonJS default import
