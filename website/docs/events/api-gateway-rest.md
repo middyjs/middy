@@ -69,7 +69,7 @@ export const handler = middy({
           serializer: ({ body }) => JSON.stringify(body)
         }
       ],
-      default: 'application/json'
+      defaultContentType: 'application/json'
     })
   )
   .use(httpPartialResponseMiddleware())
