@@ -99,6 +99,29 @@ test('It should be possible to pass a custom logger function', async (t) => {
   t.true(logger.calledWith(expectedError))
 })
 
+test('It should be possible to pass in headers with error', async (t) => {
+  const handler = middy(() => {
+    const error = createError(422, 'Unprocessable Entity')
+    error.headers = {
+      Location: 'http://exmaple.org/500'
+    }
+    throw error
+  })
+
+  handler.use(httpErrorHandler({ logger: false }))
+
+  const response = await handler(null, context)
+
+  t.deepEqual(response, {
+    statusCode: 422,
+    body: 'Unprocessable Entity',
+    headers: {
+      'Content-Type': 'text/plain',
+      Location: 'http://exmaple.org/500'
+    }
+  })
+})
+
 test('It should create a response for HTTP errors created with a generic error', async (t) => {
   const handler = middy(() => {
     const err = new Error('A server error')
