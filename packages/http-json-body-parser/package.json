@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-json-body-parser",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "Http JSON body parser middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -64,10 +64,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.3.0"
+    "@middy/util": "3.3.1"
   },
   "devDependencies": {
-    "@middy/core": "3.3.0",
+    "@middy/core": "3.3.1",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^2.18.0"
   },
