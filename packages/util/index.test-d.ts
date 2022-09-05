@@ -83,7 +83,7 @@ const prefetchClient = util.createPrefetchClient<SSM, {}>({ AwsClient: SSM })
 expectType<SSM>(prefetchClient)
 
 const client = util.createClient<SSM, {}>({ AwsClient: SSM }, sampleRequest)
-expectType<SSM>(client)
+expectType<Promise<SSM>>(client)
 
 const canPrefetch = util.canPrefetch<SSM, {}>({ AwsClient: SSM })
 expectType<boolean>(canPrefetch)
