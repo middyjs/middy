@@ -68,7 +68,7 @@ The middleware is configured by defining some `serializers`.
       serializer: ({ body }) => body
     }
   ],
-  default: 'application/json'
+  defaultContentType: 'application/json'
 }
 ```
 
