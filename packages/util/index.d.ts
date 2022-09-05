@@ -22,7 +22,7 @@ type HttpError = Error & {
 
 declare function createPrefetchClient<Client, ClientOptions> (options: Options<Client, ClientOptions>): Client
 
-declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Client
+declare function createClient<Client, ClientOptions> (options: Options<Client, ClientOptions>, request: middy.Request): Promise<Client>
 
 declare function canPrefetch<Client, ClientOptions> (options: Options<Client, ClientOptions>): boolean
 
@@ -30,7 +30,7 @@ declare function getInternal (variables: any, request: middy.Request): Promise<a
 
 declare function sanitizeKey (key: string): string
 
-declare function processCache<Client, ClientOptions> (options: Options<Client, ClientOptions>, fetch: (request: middy.Request) => any, request: middy.Request): { value: any, expiry: number }
+declare function processCache<Client, ClientOptions> (options: Options<Client, ClientOptions>, fetch: (request: middy.Request) => any, request?: middy.Request): { value: any, expiry: number }
 
 declare function getCache (keys: string): any
 
