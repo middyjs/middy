@@ -40,6 +40,22 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
   t.true(response)
 })
 
+test('It should route to a dynamic route with multiple `{variables}`', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/1/transactions/50'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{id}/transactions/{transactionId}',
+      handler: () => true
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
 test('It should route to a dynamic route (/) with `{proxy+}`', async (t) => {
   const event = {
     httpMethod: 'GET',

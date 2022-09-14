@@ -13,7 +13,7 @@ By design, new releases keeps all the package versions in sync. For instance, if
 This particular design has few important implications:
 
   - Every time a new version is released, all the packages are version bumped (to the same version), regardless if a given package was subject to change or not.
-  - This gives the users the confidence that dipendent packages are always tested together and that, in a given project using middy, they can all be easily version bumped all together. The goal is to avoid the users the hassle to having to deal with complex compatibility matrices.
+  - This gives the users the confidence that dependent packages are always tested together and that, in a given project using middy, they can all be easily version bumped all together. The goal is to avoid the users the hassle to having to deal with complex compatibility matrices.
 
 
 ## Draft a new release
