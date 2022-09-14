@@ -40,12 +40,17 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
   t.true(response)
 })
 
-test('It should route to a dynamic route with multiple `{variables}`', async (t) => {
+test('It should route to a dynamic route with multiple `{variable}`', async (t) => {
   const event = {
     httpMethod: 'GET',
     path: '/user/1/transactions/50'
   }
   const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{id}',
+      handler: () => false
+    },
     {
       method: 'GET',
       path: '/user/{id}/transactions/{transactionId}',

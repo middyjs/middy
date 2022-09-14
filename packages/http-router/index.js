@@ -51,9 +51,8 @@ const httpRouteHandler = (routes) => {
   }
 }
 
-const regexpDynamicWildcards = /\/\{proxy\+\}/g
-// eslint-disable-next-line
-const regexpDynamicParameters = /\/\{[^\/]+}/g
+const regexpDynamicWildcards = /\/\{proxy\+\}$/
+const regexpDynamicParameters = /\/\{[^/]+\}/g
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
 const attachStaticRoute = (method, path, handler, routesType) => {
@@ -81,7 +80,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
   }
   path = path
     .replace(regexpDynamicWildcards, '/?.*')
-    .replace(regexpDynamicParameters, '/.+')
+    .replace(regexpDynamicParameters, '/[^/]+')
   path = new RegExp(`^${path}$`)
   routesType[method].push({ path, handler })
 }
