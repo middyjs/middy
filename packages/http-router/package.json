@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-router",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "description": "HTTP event router for the middy framework",
   "type": "module",
   "engines": {
@@ -62,10 +62,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.3.1"
+    "@middy/util": "3.3.2"
   },
   "devDependencies": {
-    "@middy/core": "3.3.1",
+    "@middy/core": "3.3.2",
     "@types/aws-lambda": "^8.10.97"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
