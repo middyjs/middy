@@ -1,18 +1,30 @@
 import middy from '@middy/core'
 import {
   APIGatewayProxyEvent,
+  APIGatewayProxyEventV2,
   APIGatewayProxyResult,
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'ANY'
+export type Method =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'OPTIONS'
+  | 'ANY'
 
-export interface Route {
+export interface Route<TEvent> {
   method: Method
   path: string
-  handler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+  handler: LambdaHandler<TEvent, APIGatewayProxyResult>
 }
 
-declare function httpRouterHandler (routes: Route[]): middy.MiddyfiedHandler
+declare function httpRouterHandler<
+  TEvent extends
+  | APIGatewayProxyEvent
+  | APIGatewayProxyEventV2 = APIGatewayProxyEvent
+> (routes: Array<Route<TEvent>>): middy.MiddyfiedHandler
 
 export default httpRouterHandler
