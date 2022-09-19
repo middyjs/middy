@@ -1,6 +1,6 @@
 {
   "name": "@middy/input-output-logger",
-  "version": "3.3.3",
+  "version": "3.3.4",
   "description": "Input and output logger middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,10 +62,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.3.3"
+    "@middy/util": "3.3.4"
   },
   "devDependencies": {
-    "@middy/core": "3.3.3",
+    "@middy/core": "3.3.4",
     "@types/node": "^18.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

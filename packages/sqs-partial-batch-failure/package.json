@@ -1,6 +1,6 @@
 {
   "name": "@middy/sqs-partial-batch-failure",
-  "version": "3.3.3",
+  "version": "3.3.4",
   "description": "SQS partial batch failure middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,10 +62,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.3.3"
+    "@middy/util": "3.3.4"
   },
   "devDependencies": {
-    "@middy/core": "3.3.3",
+    "@middy/core": "3.3.4",
     "@serverless/event-mocks": "^1.1.1",
     "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"
