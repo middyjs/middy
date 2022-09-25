@@ -1,11 +1,12 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import { ServiceDiscovery,
+import {
+  ServiceDiscoveryClient,
   HttpInstanceSummaryList
 } from '@aws-sdk/client-servicediscovery'
 
-interface Options<S = ServiceDiscovery>
+interface Options<S = ServiceDiscoveryClient>
   extends Pick<
   MiddyOptions<S, ServiceDiscovery.Types.ClientConfiguration>,
   | 'AwsClient'

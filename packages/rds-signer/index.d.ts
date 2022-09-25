@@ -1,8 +1,8 @@
-import { Signer } from '@aws-sdk/rds-signer'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
+import { Signer } from '@aws-sdk/rds-signer'
 
-interface Options<Signer = Signer> extends MiddyOptions<Signer, Signer.Types.ClientConfiguration> {}
+interface Options<S = Signer> extends MiddyOptions<S, Signer.Types.ClientConfiguration> {}
 
 declare function rdsSigner (options?: Options): middy.MiddlewareObj
 
