@@ -15,7 +15,7 @@ const compressibleBody = JSON.stringify(new Array(100).fill(0))
 
 test('It should encode using br', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body })).use(
+  const handler = middy((event, context) => ({ statusCode: 200, body })).use(
     httpContentEncoding()
   )
 
@@ -25,6 +25,7 @@ test('It should encode using br', async (t) => {
 
   const response = await handler(event, context)
   t.deepEqual(response, {
+    statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
@@ -33,7 +34,7 @@ test('It should encode using br', async (t) => {
 
 test('It should encode using gzip', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body })).use(
+  const handler = middy((event, context) => ({ statusCode: 200, body })).use(
     httpContentEncoding()
   )
 
@@ -44,6 +45,7 @@ test('It should encode using gzip', async (t) => {
   const response = await handler(event, context)
 
   t.deepEqual(response, {
+    statusCode: 200,
     body: gzipSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'gzip' },
     isBase64Encoded: true
@@ -52,7 +54,7 @@ test('It should encode using gzip', async (t) => {
 
 test('It should encode using deflate', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -62,6 +64,7 @@ test('It should encode using deflate', async (t) => {
   const response = await handler(event, context)
 
   t.deepEqual(response, {
+    statusCode: 200,
     body: deflateSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'deflate' },
     isBase64Encoded: true
@@ -70,7 +73,7 @@ test('It should encode using deflate', async (t) => {
 
 test('It should encode using br when event.preferredEncoding is gzip, but has overridePreferredEncoding set', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(
     httpContentEncoding({
       overridePreferredEncoding: ['br', 'gzip', 'deflate']
@@ -85,6 +88,7 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
   const response = await handler(event, context)
 
   t.deepEqual(response, {
+    statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
@@ -93,19 +97,19 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
 
 test('It should not encode when missing event.preferredEncoding', async (t) => {
   const body = 'test'
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {}
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {} })
+  t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when missing event.preferredEncoding === `identity`', async (t) => {
   const body = 'test'
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -115,12 +119,16 @@ test('It should not encode when missing event.preferredEncoding === `identity`',
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {} })
+  t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.isBase64Encoded is already set to true', async (t) => {
   const body = 'test'
-  const handler = middy((event, context) => ({ body, isBase64Encoded: true }))
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body,
+    isBase64Encoded: true
+  }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -129,12 +137,17 @@ test('It should not encode when response.isBase64Encoded is already set to true'
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {}, isBase64Encoded: true })
+  t.deepEqual(response, {
+    statusCode: 200,
+    body,
+    headers: {},
+    isBase64Encoded: true
+  })
 })
 
 test('It should not encode when response.body is not a string', async (t) => {
   const body = 0
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -143,12 +156,12 @@ test('It should not encode when response.body is not a string', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {} })
+  t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is empty string', async (t) => {
   const body = ''
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -157,12 +170,12 @@ test('It should not encode when response.body is empty string', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {} })
+  t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is different type', async (t) => {
   const body = null
-  const handler = middy((event, context) => ({ body }))
+  const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -171,11 +184,11 @@ test('It should not encode when response.body is different type', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { body, headers: {} })
+  t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is undefined', async (t) => {
-  const handler = middy((event, context) => {})
+  const handler = middy((event, context) => ({ statusCode: 200 }))
   handler.use(httpContentEncoding())
 
   const event = {
@@ -184,12 +197,12 @@ test('It should not encode when response.body is undefined', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { headers: {} })
+  t.deepEqual(response, { statusCode: 200, headers: {} })
 })
 
 test('It should pipe encoding stream when passed a stream', async (t) => {
   const body = Readable.from(compressibleBody, { objectMode: false })
-  const handler = middy((event, context) => ({ body })).use(
+  const handler = middy((event, context) => ({ statusCode: 200, body })).use(
     httpContentEncoding()
   )
 
@@ -212,6 +225,7 @@ test('It should pipe encoding stream when passed a stream', async (t) => {
   response.body = Buffer.concat(chunks).toString('base64')
 
   t.deepEqual(response, {
+    statusCode: 200,
     body: brotliCompressSync(compressibleBody).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true

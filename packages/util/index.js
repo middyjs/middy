@@ -190,8 +190,9 @@ export const normalizeHttpResponse = (request) => {
     typeof response?.body === 'undefined' &&
     typeof response?.headers === 'undefined'
   ) {
-    response = { body: response }
+    response = { statusCode: 200, body: response }
   }
+  response.statusCode ??= 500
   response.headers ??= {}
   request.response = response
   return response

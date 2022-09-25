@@ -341,6 +341,7 @@ test('It should return false when response body is falsey', async (t) => {
   const response = await handler(event, context)
 
   t.deepEqual(response, {
+    statusCode: 200,
     headers: {
       'Content-Type': 'text/plain'
     },
