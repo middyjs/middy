@@ -1,4 +1,4 @@
-import ApiGatewayManagementApi from 'aws-sdk/clients/apigatewaymanagementapi'
+import { ApiGatewayManagementApi } from '@aws-sdk/client-apigatewaymanagementapi'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 

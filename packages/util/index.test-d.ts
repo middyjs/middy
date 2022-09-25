@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
-import SSM from 'aws-sdk/clients/ssm'
+import { SSMClient } from '@aws-sdk/client-ssm'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as util from '.'
 
@@ -79,13 +79,13 @@ const sampleRequest: middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, 
   }
 }
 
-const prefetchClient = util.createPrefetchClient<SSM, {}>({ AwsClient: SSM })
-expectType<SSM>(prefetchClient)
+const prefetchClient = util.createPrefetchClient<SSM, {}>({ AwsClient: SSMClient })
+expectType<SSMClient>(prefetchClient)
 
-const client = util.createClient<SSM, {}>({ AwsClient: SSM }, sampleRequest)
-expectType<Promise<SSM>>(client)
+const client = util.createClient<SSM, {}>({ AwsClient: SSMClient }, sampleRequest)
+expectType<Promise<SSMClient>>(client)
 
-const canPrefetch = util.canPrefetch<SSM, {}>({ AwsClient: SSM })
+const canPrefetch = util.canPrefetch<SSM, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
 async function testGetInternal (): Promise<any> {

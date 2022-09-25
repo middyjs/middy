@@ -1,6 +1,5 @@
-// import { createError } from '@middy/util'
+import { createError } from '@middy/util'
 import parse from 'qs/lib/parse.js'
-// import {parse} from 'node:querystring' // parse(body, undefined, undefined, { maxKeys:0 })
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 
@@ -15,13 +14,15 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
     : body
   // request.event.rawBody = body
   request.event.body = parse(data)
-  // v4 breaking change
-  /* if (typeof request.event.body === 'string') {
+
+  if (typeof request.event.body === 'string') {
     // UnprocessableEntity
-    // throw createError(422, 'Invalid or malformed URL encoded form was provided', { cause })
-    const error = createError(422, 'Invalid or malformed URL encoded form was provided', { cause: '@middy/http-urlencode-body-parser unable to parse body' })
-    throw error
-  } */
+    throw createError(
+      422,
+      'Invalid or malformed URL encoded form was provided',
+      { cause: '@middy/http-urlencode-body-parser unable to parse body' }
+    )
+  }
 }
 
 const httpUrlencodeBodyParserMiddleware = () => ({

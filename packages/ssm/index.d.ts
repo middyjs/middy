@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import SSM from 'aws-sdk/clients/ssm'
+import { SSM } from '@aws-sdk/client-ssm'
 import { JsonValue } from 'type-fest'
 
 interface Options<S = SSM>

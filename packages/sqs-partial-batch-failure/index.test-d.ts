@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import SQS from 'aws-sdk/clients/sqs'
+import { SQSClient } from '@aws-sdk/client-sqs'
 import { captureAWSClient } from 'aws-xray-sdk'
 import sqsPartialBatchFailure from '.'
 
@@ -10,12 +10,6 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = sqsPartialBatchFailure({
-  AwsClient: SQS,
-  awsClientOptions: {
-    secretAccessKey: 'abc'
-  },
-  awsClientAssumeRole: 'some-role',
-  awsClientCapture: captureAWSClient,
-  disablePrefetch: true
+  logger: () => {}
 })
 expectType<middy.MiddlewareObj>(middleware)

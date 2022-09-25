@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import S3 from 'aws-sdk/clients/s3'
+import { S3 } from '@aws-sdk/client-s3'
 import { ClientRequest } from 'http'
 
 interface Options<S = S3>

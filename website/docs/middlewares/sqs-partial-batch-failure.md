@@ -14,7 +14,7 @@ npm install --save @middy/sqs-partial-batch-failure
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SQS`): AWS.SQS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `SQSClient`): SQS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sqs`.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.SQS class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.

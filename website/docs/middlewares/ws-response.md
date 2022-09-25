@@ -13,7 +13,7 @@ npm install --save @middy/ws-responder
 ```
 
 ## Options
-- `AwsClient` (object) (default `AWS.ApiGatewayManagementApi`): AWS.ApiGatewayManagementApi class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `ApiGatewayManagementApiClient`): ApiGatewayManagementApi class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-apigatewaymanagementapi`.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.ApiGatewayManagementApi class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.

@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import ServiceDiscovery from 'aws-sdk/clients/servicediscovery'
+import { ServiceDiscovery } from '@aws-sdk/client-servicediscovery'
 import { captureAWSClient } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import serviceDiscovery, { Context } from '.'

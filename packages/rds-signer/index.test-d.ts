@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import RDS from 'aws-sdk/clients/rds'
+import { Signer } from '@aws-sdk/rds-signer'
 import { captureAWSClient } from 'aws-xray-sdk'
 import rdsSigner from '.'
 
@@ -10,7 +10,7 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = rdsSigner({
-  AwsClient: RDS.Signer,
+  AwsClient: Signer,
   awsClientOptions: {
     secretAccessKey: 'abc'
   },

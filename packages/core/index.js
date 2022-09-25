@@ -1,5 +1,4 @@
-// import { setTimeout } from 'timers/promises'
-import { EventEmitter } from 'events' // For polyfill
+import { setTimeout } from 'node:timers/promises'
 
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
@@ -108,7 +107,7 @@ const runRequest = async (
           signal: handlerAbort.signal
         }),
         timeoutEarly
-          ? setTimeoutPromise(
+          ? setTimeout(
             request.context.getRemainingTimeInMillis() -
                 plugin.timeoutEarlyInMillis,
             { signal: timeoutAbort.signal }
@@ -157,101 +156,5 @@ const runMiddlewares = async (request, middlewares, plugin) => {
     }
   }
 }
-
-// Start Polyfill (Nodejs v14)
-/*
-MIT License
-
-Copyright (c) 2019 Steve Faulkner
-
-node-abort-controller
- */
-const polyfillAbortController = () => {
-  if (process.version < 'v15.0.0') {
-    class AbortSignal {
-      constructor () {
-        this.eventEmitter = new EventEmitter()
-        this.onabort = null
-        this.aborted = false
-      }
-
-      toString () {
-        return '[object AbortSignal]'
-      }
-
-      get [Symbol.toStringTag] () {
-        return 'AbortSignal'
-      }
-
-      removeEventListener (name, handler) {
-        this.eventEmitter.removeListener(name, handler)
-      }
-
-      addEventListener (name, handler) {
-        this.eventEmitter.on(name, handler)
-      }
-
-      dispatchEvent (type) {
-        const event = { type, target: this }
-        const handlerName = `on${type}`
-
-        if (typeof this[handlerName] === 'function') this[handlerName](event)
-
-        this.eventEmitter.emit(type, event)
-      }
-    }
-
-    return class AbortController {
-      constructor () {
-        this.signal = new AbortSignal()
-      }
-
-      abort () {
-        if (this.signal.aborted) return
-
-        this.signal.aborted = true
-        this.signal.dispatchEvent('abort')
-      }
-
-      toString () {
-        return '[object AbortController]'
-      }
-
-      get [Symbol.toStringTag] () {
-        return 'AbortController'
-      }
-    }
-  } else {
-    return AbortController
-  }
-}
-global.AbortController = polyfillAbortController()
-
-const polyfillSetTimeoutPromise = () => {
-  // if (process.version < 'v15.0.0') {
-  return (ms, { signal }) => {
-    if (signal.aborted) {
-      return Promise.reject(new Error('Aborted', 'AbortError'))
-    }
-    return new Promise((resolve, reject) => {
-      const abortHandler = () => {
-        clearTimeout(timeout)
-        reject(new Error('Aborted', 'AbortError'))
-      }
-      // start async operation
-      const timeout = setTimeout(() => {
-        resolve()
-        signal.removeEventListener('abort', abortHandler)
-      }, ms)
-      signal.addEventListener('abort', abortHandler)
-    })
-  }
-  // } else {
-  //   return timers.promises.setTimeout
-  // }
-}
-const setTimeoutPromise = polyfillSetTimeoutPromise()
-
-// End Polyfill
 
 export default middy

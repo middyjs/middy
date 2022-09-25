@@ -58,7 +58,7 @@ npm install --save @middy/ssm
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SSM`): AWS.SSM class constructor (e.g. that has been instrumented with AWS X-Ray). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `SSMClient`): SSM class constructor (e.g. that has been instrumented with AWS X-Ray). Must be from `@aws-sdk/client-ssm`.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.SSM class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where role tokens are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable AWS X-Ray by passing `captureAWSClient` from `aws-xray-sdk` in.

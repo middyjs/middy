@@ -4,7 +4,7 @@
   "description": "Urlencode body parser middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -63,12 +63,13 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
+    "@middy/util": "3.3.4",
     "qs": "6.11.0"
   },
   "devDependencies": {
     "@middy/core": "3.3.4",
     "@types/aws-lambda": "^8.10.101",
-    "type-fest": "^2.18.0"
+    "type-fest": "^3.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

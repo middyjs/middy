@@ -86,6 +86,7 @@ test('It should not process the body if malformed body is passed', async (t) => 
     headers: {}
   }
 
+  // TODO update to catch 422 error
   const body = await handler(event, defaultContext)
 
   t.is(body, '{"foo":"bar"}')

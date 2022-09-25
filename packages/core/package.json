@@ -4,7 +4,7 @@
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {

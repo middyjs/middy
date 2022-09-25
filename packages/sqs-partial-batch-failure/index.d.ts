@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import SQS from 'aws-sdk/clients/sqs'
+import { SQS } from '@aws-sdk/client-sqs'
 import { Options as MiddyOptions } from '@middy/util'
 
 interface Options<S = SQS> extends Pick<MiddyOptions<S, SQS.Types.ClientConfiguration>,

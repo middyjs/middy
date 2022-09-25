@@ -4,7 +4,7 @@
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "scripts": {
@@ -59,6 +59,7 @@
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.135",
     "ava": "^4.0.0",
+    "aws-sdk-client-mock": "2.0.0",
     "benchmark": "^2.1.4",
     "c8": "^7.0.0",
     "husky": "^8.0.0",

@@ -15,7 +15,7 @@ npm install --save @middy/service-discovery
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.STS`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `ServiceDiscoveryClient`): ServiceDiscovery class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-servicediscovery`.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.STS class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.

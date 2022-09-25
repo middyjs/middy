@@ -15,7 +15,7 @@ npm install --save @middy/sts
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.STS`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `STSClient`): STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sts`.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.

@@ -17,7 +17,7 @@ npm install --save @middy/s3-object-response
 
 ## Options
 - `bodyType` (string) (required): How to pass in the s3 object through the handler. Can be `stream` or `promise`.
-- `AwsClient` (object) (default `AWS.S3`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
+- `AwsClient` (object) (default `S3Client`): S3 class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-s3`.
 - `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `httpsCapture` (function) (optional): Enable XRay by passing `captureHTTPsGlobal` from `aws-xray-sdk` in.

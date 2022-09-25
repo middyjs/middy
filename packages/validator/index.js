@@ -34,8 +34,6 @@ const defaults = {
 
 const validatorMiddleware = (opts = {}) => {
   let {
-    inputSchema, // Deprecate v4
-    outputSchema, // Deprecate v4
     eventSchema,
     contextSchema,
     responseSchema,
@@ -44,13 +42,9 @@ const validatorMiddleware = (opts = {}) => {
     defaultLanguage,
     i18nEnabled
   } = { ...defaults, ...opts }
-  eventSchema = compile(eventSchema ?? inputSchema, ajvOptions, ajvInstance)
-  contextSchema = compile(contextSchema, ajvOptions, ajvInstance)
-  responseSchema = compile(
-    responseSchema ?? outputSchema,
-    ajvOptions,
-    ajvInstance
-  )
+  eventSchema = compileSchema(eventSchema, ajvOptions, ajvInstance)
+  contextSchema = compileSchema(contextSchema, ajvOptions, ajvInstance)
+  responseSchema = compileSchema(responseSchema, ajvOptions, ajvInstance)
 
   const validatorMiddlewareBefore = async (request) => {
     if (eventSchema) {
@@ -63,10 +57,9 @@ const validatorMiddleware = (opts = {}) => {
         }
 
         // Bad Request
-        // throw createError(400, 'Event object failed validation', { cause: eventSchema.errors })
-        const error = createError(400, 'Event object failed validation')
-        error.cause = eventSchema.errors
-        throw error
+        throw createError(400, 'Event object failed validation', {
+          cause: eventSchema.errors
+        })
       }
     }
 
@@ -75,10 +68,9 @@ const validatorMiddleware = (opts = {}) => {
 
       if (!validContext) {
         // Internal Server Error
-        // throw createError(500, 'Context object failed validation', { cause: contextSchema.errors })
-        const error = createError(500, 'Context object failed validation')
-        error.cause = contextSchema.errors
-        throw error
+        throw createError(500, 'Context object failed validation', {
+          cause: contextSchema.errors
+        })
       }
     }
   }
@@ -88,24 +80,21 @@ const validatorMiddleware = (opts = {}) => {
 
     if (!valid) {
       // Internal Server Error
-      // throw createError(500, 'Response object failed validation', { cause: outputSchema.errors })
-      const error = createError(500, 'Response object failed validation')
-      error.cause = responseSchema.errors
-      throw error
+      throw createError(500, 'Response object failed validation', {
+        cause: responseSchema.errors
+      })
     }
   }
   return {
     before:
-      eventSchema ?? inputSchema ?? contextSchema
-        ? validatorMiddlewareBefore
-        : undefined,
-    after: responseSchema ?? outputSchema ? validatorMiddlewareAfter : undefined
+      eventSchema ?? contextSchema ? validatorMiddlewareBefore : undefined,
+    after: responseSchema ? validatorMiddlewareAfter : undefined
   }
 }
 
 // This is pulled out due to it's performance cost (50-100ms on cold start)
 // Precompile your schema during a build step is recommended.
-const compile = (schema, ajvOptions, ajvInstance = null) => {
+export const compileSchema = (schema, ajvOptions, ajvInstance = null) => {
   // Check if already compiled
   if (typeof schema === 'function' || !schema) return schema
   const options = { ...ajvDefaults, ...ajvOptions }

@@ -1,9 +1,9 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import ServiceDiscovery, {
+import { ServiceDiscovery,
   HttpInstanceSummaryList
-} from 'aws-sdk/clients/servicediscovery'
+} from '@aws-sdk/client-servicediscovery'
 
 interface Options<S = ServiceDiscovery>
   extends Pick<

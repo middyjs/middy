@@ -4,7 +4,7 @@
   "description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {

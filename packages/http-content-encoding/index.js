@@ -4,10 +4,9 @@
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
-// import {pipeline} from 'stream/promises'
-import stream, { Readable, Writable } from 'stream'
+import { pipeline } from 'node:stream/promises'
+import { Readable, Writable } from 'node:stream'
 import eventEmitter from 'events'
-import { promisify } from 'util' // For polyfill
 
 import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
 // import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
@@ -109,16 +108,5 @@ const httpContentEncodingMiddleware = (opts) => {
 const isReadableStream = (stream) => {
   return stream instanceof eventEmitter && stream.readable !== false
 }
-
-// START pipeline polyfill
-const polyfillPipelinePromise = () => {
-  if (process.version < 'v15.0.0') {
-    return promisify(stream.pipeline)
-  } else {
-    return stream.promises.pipeline
-  }
-}
-const pipeline = polyfillPipelinePromise()
-// END pipeline polyfill
 
 export default httpContentEncodingMiddleware

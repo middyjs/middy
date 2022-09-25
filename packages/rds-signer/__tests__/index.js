@@ -2,10 +2,8 @@ import test from 'ava'
 import sinon from 'sinon'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
-import RDS from 'aws-sdk/clients/rds.js' // v2
-// import {RDS:{Signer}} from '@aws-sdk/client-rds' // v3
+import { Signer } from '@aws-sdk/rds-signer'
 import rdsSigner from '../index.js'
-const Signer = RDS.Signer
 
 let sandbox
 test.beforeEach((t) => {
@@ -18,30 +16,16 @@ test.afterEach((t) => {
 })
 
 const mockService = (client, responseOne, responseTwo) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  // getAuthToken doesn't support .promise()
-  // mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  // if (responseTwo) mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
-  mock.onFirstCall().yields(null, responseOne)
-  if (responseTwo) mock.onSecondCall().yields(null, responseTwo)
-  client.prototype.getAuthToken = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getAuthToken')
-  // mock.onFirstCall().resolves(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
+  const mock = sandbox.stub(client.prototype, 'getAuthToken')
+  mock.onFirstCall().resolves(responseOne)
+  if (responseTwo) mock.onSecondCall().resolves(responseTwo)
 
   return mock
 }
 
 const mockServiceError = (client, error) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().yields(error, null)
-  client.prototype.getAuthToken = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getAuthToken')
-  // mock.onFirstCall().rejects(error)
+  const mock = sandbox.stub(client.prototype, 'getAuthToken')
+  mock.onFirstCall().rejects(error)
 
   return mock
 }
@@ -324,7 +308,8 @@ test.serial(
     )
 
     try {
-      await handler(defaultEvent, defaultContext)
+      const res = await handler(defaultEvent, defaultContext)
+      console.log(res)
     } catch (e) {
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')

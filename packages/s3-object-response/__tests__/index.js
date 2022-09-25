@@ -3,10 +3,10 @@ import eventEmitter from 'events'
 import https from 'https'
 import test from 'ava'
 import sinon from 'sinon'
+import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import { clearCache } from '../../util/index.js'
-import S3 from 'aws-sdk/clients/s3.js' // v2
-// import { S3 } from '@aws-sdk/client-s3' // v3
+import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
 
 import s3ObejctResponse from '../index.js'
 
@@ -19,22 +19,6 @@ test.afterEach((t) => {
   sandbox.restore()
   clearCache()
 })
-
-const mockService = (client, responseOne, responseTwo) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) {
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
-  }
-  client.prototype.writeGetObjectResponse = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'writeGetObjectResponse')
-  // mock.onFirstCall().resolves(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
-
-  return mock
-}
 
 const mockHttps = (mockResponse) => {
   const mockStream = new PassThrough()
@@ -63,7 +47,9 @@ const isReadableStream = (body) => {
 }
 
 test.serial('It should throw when unknown bodyType used', async (t) => {
-  mockService(S3, { statusCode: 200 })
+  mockClient(S3Client)
+    .on(WriteGetObjectResponseCommand)
+    .resolvesOnce({ statusCode: 200 })
 
   const handler = middy((event, context) => {
     t.true(isReadableStream(context.s3Object))
@@ -76,7 +62,7 @@ test.serial('It should throw when unknown bodyType used', async (t) => {
   try {
     handler.use(
       s3ObejctResponse({
-        AwsClient: S3,
+        AwsClient: S3Client,
         bodyType: 'string',
 
         __https: mockHttps('hello world')
@@ -88,7 +74,9 @@ test.serial('It should throw when unknown bodyType used', async (t) => {
 })
 
 test.serial('It should capture fetch', async (t) => {
-  mockService(S3, { statusCode: 200 })
+  mockClient(S3Client)
+    .on(WriteGetObjectResponseCommand)
+    .resolvesOnce({ statusCode: 200 })
   const httpsCapture = sinon.spy((a) => a)
 
   const handler = middy(async (event, context) => {
@@ -101,7 +89,7 @@ test.serial('It should capture fetch', async (t) => {
 
   handler.use(
     s3ObejctResponse({
-      AwsClient: S3,
+      AwsClient: S3Client,
       httpsCapture,
       bodyType: 'promise',
 
@@ -115,7 +103,9 @@ test.serial('It should capture fetch', async (t) => {
 })
 
 test.serial('It should pass a stream to handler', async (t) => {
-  mockService(S3, { statusCode: 200 })
+  mockClient(S3Client)
+    .on(WriteGetObjectResponseCommand)
+    .resolvesOnce({ statusCode: 200 })
 
   const handler = middy((event, context) => {
     t.true(isReadableStream(context.s3Object))
@@ -127,7 +117,7 @@ test.serial('It should pass a stream to handler', async (t) => {
 
   handler.use(
     s3ObejctResponse({
-      AwsClient: S3,
+      AwsClient: S3Client,
       bodyType: 'stream',
       disablePrefetch: true,
 
@@ -140,7 +130,9 @@ test.serial('It should pass a stream to handler', async (t) => {
 })
 
 test.serial('It should pass a promise to handler', async (t) => {
-  mockService(S3, { statusCode: 200 })
+  mockClient(S3Client)
+    .on(WriteGetObjectResponseCommand)
+    .resolvesOnce({ statusCode: 200 })
 
   const handler = middy(async (event, context) => {
     t.true(typeof context.s3Object.then === 'function')
@@ -152,7 +144,7 @@ test.serial('It should pass a promise to handler', async (t) => {
 
   handler.use(
     s3ObejctResponse({
-      AwsClient: S3,
+      AwsClient: S3Client,
       bodyType: 'promise',
 
       __https: mockHttps('hello world')

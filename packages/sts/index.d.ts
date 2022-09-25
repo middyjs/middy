@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import STS from 'aws-sdk/clients/sts'
+import { STS } from '@aws-sdk/client-sts'
 
 interface Options<S = STS>
   extends Pick<

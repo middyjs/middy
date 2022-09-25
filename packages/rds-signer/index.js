@@ -5,11 +5,10 @@ import {
   getCache,
   modifyCache
 } from '@middy/util'
-import RDS from 'aws-sdk/clients/rds.js' // v2
-// import { RDS:{Signer} } from '@aws-sdk/client-rds' // v3
+import { Signer } from '@aws-sdk/rds-signer'
 
 const defaults = {
-  AwsClient: RDS.Signer,
+  AwsClient: Signer,
   awsClientOptions: {},
   fetchData: {},
   disablePrefetch: false,
@@ -30,26 +29,21 @@ const rdsSignerMiddleware = (opts = {}) => {
         ...options.awsClientOptions,
         ...options.fetchData[internalKey]
       })
-      // AWS doesn't support getAuthToken.promise() in aws-sdk v2 :( See https://github.com/aws/aws-sdk-js/issues/3595
-      values[internalKey] = new Promise((resolve, reject) => {
-        client.getAuthToken({}, (e, token) => {
-          if (e) {
-            reject(e)
-          }
+      values[internalKey] = client
+        .getAuthToken()
+        .then((token) => {
           // Catch Missing token, this usually means their is something wrong with the credentials
           if (!token.includes('X-Amz-Security-Token=')) {
-            reject(new Error('[rds-signer] X-Amz-Security-Token Missing'))
+            throw new Error('[rds-signer] X-Amz-Security-Token Missing')
           }
-          resolve(token)
+          return token
         })
-      }).catch((e) => {
-        const value = getCache(options.cacheKey).value ?? {}
-        value[internalKey] = undefined
-        modifyCache(options.cacheKey, value)
-        throw e
-      })
-      // aws-sdk v3
-      // values[internalKey] = createClient(awsClientOptions, request).then(client => client.getAuthToken())
+        .catch((e) => {
+          const value = getCache(options.cacheKey).value ?? {}
+          value[internalKey] = undefined
+          modifyCache(options.cacheKey, value)
+          throw e
+        })
     }
 
     return values

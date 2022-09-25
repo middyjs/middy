@@ -1,5 +1,6 @@
 import test from 'ava'
 import sinon from 'sinon'
+import { setTimeout } from 'node:timers/promises'
 import {
   createClient,
   canPrefetch,
@@ -18,13 +19,7 @@ import {
 
 process.env.AWS_REGION = 'ca-central-1'
 
-// requestHandler: aws-sdk v3
-// httpOptions: aws-sdk v2
 console.warn = () => {}
-
-const delay = async (ms, x) => {
-  return new Promise((resolve) => setTimeout(() => resolve(x), ms))
-}
 
 // createClient
 test('createClient should create AWS Client', async (t) => {
@@ -34,7 +29,7 @@ test('createClient should create AWS Client', async (t) => {
     AwsClient
   })
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
 })
 
 test('createClient should create AWS Client with options', async (t) => {
@@ -45,7 +40,10 @@ test('createClient should create AWS Client with options', async (t) => {
     awsClientOptions: { apiVersion: '2014-11-06' }
   })
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions', 'apiVersion'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
+    'requestHandler',
+    'apiVersion'
+  ])
   t.is(AwsClient.args[0][0].apiVersion, '2014-11-06')
 })
 
@@ -78,7 +76,10 @@ test('createClient should create AWS Client with role', async (t) => {
     request
   )
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions', 'credentials'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
+    'requestHandler',
+    'credentials'
+  ])
   t.is(AwsClient.args[0][0].credentials, 'creds object')
 })
 
@@ -98,7 +99,10 @@ test('createClient should create AWS Client with role from promise', async (t) =
     request
   )
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions', 'credentials'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
+    'requestHandler',
+    'credentials'
+  ])
   t.is(AwsClient.args[0][0].credentials, 'creds object')
 })
 
@@ -113,7 +117,7 @@ test('createClient should create AWS Client with capture', async (t) => {
   })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
 })
 
 test('createClient should create AWS Client without capture', async (t) => {
@@ -126,7 +130,7 @@ test('createClient should create AWS Client without capture', async (t) => {
   })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 0)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['httpOptions'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
 })
 
 // canPrefetch
@@ -247,7 +251,7 @@ test.serial('processCache should cache forever', async (t) => {
     cacheExpiry: -1
   }
   processCache(options, fetch, cacheRequest)
-  await delay(100)
+  await setTimeout(100)
   const cacheValue = getCache('key').value
   t.is(await cacheValue, 'value')
   const { value, cache } = processCache(options, fetch, cacheRequest)
@@ -263,7 +267,7 @@ test.serial('processCache should cache when not expired', async (t) => {
     cacheExpiry: 100
   }
   processCache(options, fetch, cacheRequest)
-  await delay(100)
+  await setTimeout(100)
   const cacheValue = getCache('key').value
   t.is(await cacheValue, 'value')
   const { value, cache } = processCache(options, fetch, cacheRequest)
@@ -338,10 +342,10 @@ test.serial('processCache should cache and expire', async (t) => {
     cacheExpiry: 150
   }
   processCache(options, fetch, cacheRequest)
-  await delay(100)
+  await setTimeout(100)
   let cache = getCache('key')
   t.not(cache, undefined)
-  await delay(100)
+  await setTimeout(100)
   cache = getCache('key')
   t.true(cache.expiry < Date.now())
   clearCache()
