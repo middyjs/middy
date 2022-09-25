@@ -3,10 +3,10 @@ import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import sinon from 'sinon'
-import S3 from 'aws-sdk/clients/s3.js' // v2
-// import { S3 } from '@aws-sdk/client-s3' // v3
-import { PassThrough } from 'stream'
-import https from 'https'
+import { mockClient } from 'aws-sdk-client-mock'
+import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
+import { PassThrough } from 'node:stream'
+import https from 'node:https'
 
 const suite = new Benchmark.Suite('@middy/s3-object-response')
 
@@ -25,15 +25,14 @@ const mockHttps = (mockResponse) => {
   return https
 }
 const setupHandler = (options = {}) => {
-  const sandbox = sinon.createSandbox()
-  const mock = sandbox.stub()
-  S3.prototype.writeGetObjectResponse = mock
-  mock.onCall().yields(null, { statusCode: 200 })
+  mockClient(S3Client)
+    .on(WriteGetObjectResponseCommand)
+    .resolves({ statusCode: 200 })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: S3,
+      AwsClient: S3Client,
       __https: mockHttps('hello world')
     })
   )

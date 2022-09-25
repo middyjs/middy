@@ -2,9 +2,12 @@ import Benchmark from 'benchmark'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-import sinon from 'sinon'
-import SSM from 'aws-sdk/clients/ssm.js' // v2
-// import { SSM } from '@aws-sdk/client-ssm' // v3
+import { mockClient } from 'aws-sdk-client-mock'
+import {
+  SSMClient,
+  GetParametersCommand,
+  GetParametersByPathCommand
+} from '@aws-sdk/client-ssm'
 
 const suite = new Benchmark.Suite('@middy/ssm')
 
@@ -12,16 +15,16 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  const sandbox = sinon.createSandbox()
-  const mock = sandbox.stub()
-  SSM.prototype.getParameters = mock
-  SSM.prototype.getParametersByPath = mock
-  mock.onCall().yields(null, { Parameters: [{ Name: '/key', Value: 'value' }] })
+  mockClient(SSMClient)
+    .on(GetParametersCommand)
+    .resolves({ Parameters: [{ Name: '/key', Value: 'value' }] })
+    .on(GetParametersByPathCommand)
+    .resolves({ Parameters: [{ Name: '/key', Value: 'value' }] })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: SSM
+      AwsClient: SSMClient
     })
   )
 }
