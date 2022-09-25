@@ -20,7 +20,6 @@ async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 }
 
 let handler = middy(lambdaHandler)
-handler
   .use(someMiddleware)
   .use(someOtherMiddleware)
 

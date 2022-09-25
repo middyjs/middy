@@ -135,10 +135,18 @@ export const processCache = (options, fetch = () => undefined, request) => {
     }
   }
   const value = fetch(request)
-
   const expiry = Date.now() + cacheExpiry
+
   if (cacheExpiry) {
-    cache[cacheKey] = { value, expiry }
+    const refresh =
+      cacheExpiry > 0
+        ? setInterval(() => {
+          const value = fetch(request)
+          const expiry = Date.now() + cacheExpiry
+          Object.assign(cache[cacheKey], { value, expiry })
+        }, cacheExpiry)
+        : undefined
+    cache[cacheKey] = { value, expiry, refresh }
   }
   return { value, expiry }
 }
@@ -151,6 +159,7 @@ export const getCache = (key) => {
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
   if (!cache[cacheKey]) return
+  clearInterval(cache[cacheKey]?.refresh)
   cache[cacheKey] = { ...cache[cacheKey], value, modified: true }
 }
 
@@ -158,6 +167,7 @@ export const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
   for (const cacheKey of keys) {
+    clearInterval(cache[cacheKey]?.refresh)
     cache[cacheKey] = undefined
   }
 }

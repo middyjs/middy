@@ -257,6 +257,7 @@ test.serial('processCache should cache forever', async (t) => {
   const { value, cache } = processCache(options, fetch, cacheRequest)
   t.is(await value, 'value')
   t.true(cache)
+  t.is(fetch.callCount, 1)
   clearCache()
 })
 
@@ -267,12 +268,13 @@ test.serial('processCache should cache when not expired', async (t) => {
     cacheExpiry: 100
   }
   processCache(options, fetch, cacheRequest)
-  await setTimeout(100)
+  await setTimeout(50)
   const cacheValue = getCache('key').value
   t.is(await cacheValue, 'value')
   const { value, cache } = processCache(options, fetch, cacheRequest)
   t.is(await value, 'value')
-  t.is(cache, undefined)
+  t.is(cache, true)
+  t.is(fetch.callCount, 1)
   clearCache()
 })
 
@@ -347,7 +349,8 @@ test.serial('processCache should cache and expire', async (t) => {
   t.not(cache, undefined)
   await setTimeout(100)
   cache = getCache('key')
-  t.true(cache.expiry < Date.now())
+  t.true(cache.expiry > Date.now())
+  t.is(fetch.callCount, 2)
   clearCache()
 })
 
