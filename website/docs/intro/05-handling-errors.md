@@ -7,7 +7,7 @@ But, what happens when there is an error?
 
 When there is an error, the regular control flow is stopped and the execution is
 moved back to all the middlewares that implemented a special phase called `onError`, following
-the order they have been attached.
+the same order as `after`.
 
 Every `onError` middleware can decide to handle the error and create a proper response or
 to delegate the error to the next middleware.
