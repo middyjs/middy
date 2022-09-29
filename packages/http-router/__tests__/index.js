@@ -24,6 +24,22 @@ test('It should route to a static route', async (t) => {
   t.true(response)
 })
 
+test('It should route to a static route with trailing slash', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user',
+      handler: () => true
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
 test('It should route to a dynamic route with `{variable}`', async (t) => {
   const event = {
     httpMethod: 'GET',
@@ -33,6 +49,22 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
     {
       method: 'GET',
       path: '/user/{id}/',
+      handler: () => true
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
+test('It should route to a dynamic route with `{variable}` with trailing slash', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/1/'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{id}',
       handler: () => true
     }
   ])
