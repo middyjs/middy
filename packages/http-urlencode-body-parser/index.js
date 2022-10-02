@@ -12,10 +12,11 @@ const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
   const data = request.event.isBase64Encoded
     ? Buffer.from(body, 'base64').toString()
     : body
-  // request.event.rawBody = body
+
+  const rawBody = body
   request.event.body = parse(data)
 
-  if (typeof request.event.body === 'string') {
+  if (request.event.body?.[rawBody] === '') {
     // UnprocessableEntity
     throw createError(
       422,
