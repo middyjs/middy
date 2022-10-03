@@ -68,7 +68,7 @@
   "devDependencies": {
     "@middy/core": "3.4.0",
     "@types/aws-lambda": "^8.10.101",
-    "type-fest": "^2.18.0"
+    "type-fest": "^3.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
