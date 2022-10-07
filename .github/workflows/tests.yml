@@ -30,8 +30,6 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-        env:
-          CI: false
 
       - name: Transpile for Node.js ${{ matrix.node-version }}
         run: |
@@ -42,8 +40,6 @@ jobs:
       - name: Unit tests
         run: |
           npm run test:packages:unit
-        env:
-          CI: true
 
       - name: Test cjs can be required
         run: |
