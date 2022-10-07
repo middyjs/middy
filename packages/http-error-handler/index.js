@@ -36,7 +36,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
       const { statusCode, message, headers } = request.error
       request.response = {
         ...request.response,
-        statusCode: statusCode,
+        statusCode,
         body: message,
         headers: {
           ...headers,

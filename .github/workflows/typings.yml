@@ -29,10 +29,6 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-        env:
-          CI: true
 
       - name: Check typings
         run: npm run test:packages:typings
-        env:
-          CI: true

@@ -67,7 +67,7 @@
     "lint-staged": "^13.0.0",
     "prettier": "^2.0.0",
     "sinon": "^14.0.0",
-    "ts-standard": "^11.0.0",
+    "ts-standard": "^12.0.0",
     "tsd": "^0.24.0"
   },
   "ts-standard": {
