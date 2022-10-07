@@ -49,7 +49,10 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
     {
       method: 'GET',
       path: '/user/{id}/',
-      handler: () => true
+      handler: (event) => {
+        t.deepEqual(event.pathParameters, { id: '1' })
+        return true
+      }
     }
   ])
   const response = await handler(event, context)
@@ -81,7 +84,10 @@ test('It should route to a dynamic route with multiple `{variable}`', async (t) 
     {
       method: 'GET',
       path: '/user/{id}',
-      handler: () => false
+      handler: (event) => {
+        t.deepEqual(event.pathParameters, { id: '1', transactions: '50' })
+        return true
+      }
     },
     {
       method: 'GET',
