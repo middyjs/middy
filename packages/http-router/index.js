@@ -83,7 +83,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
   }
   path = path
     .replace(regexpDynamicWildcards, '/?(.*)')
-    .replaceAll(regexpDynamicParameters, '/(?<$1>[^/]+)')
+    .replace(regexpDynamicParameters, '/(?<$1>[^/]+)')
   path = new RegExp(`^${path}/?$`) // Adds in optional `/`
   routesType[method].push({ path, handler })
 }
