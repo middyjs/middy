@@ -29,8 +29,6 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-        env:
-          CI: true
       - name: Linting
         run: npm run test:lint:ci
         env:
