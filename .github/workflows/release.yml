@@ -32,6 +32,8 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
+        env:
+          CI: false
 
       - name: Transpile for Node.js ${{ matrix.node-version }}
         run: |

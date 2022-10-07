@@ -31,6 +31,8 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
+        env:
+          CI: false
 
       - name: Run benchmark
         run: npm run test:packages:benchmark > ./benchmarks-${{ matrix.node-version }}.txt
