@@ -3,7 +3,7 @@
     "parser": {
       "syntax": "ecmascript"
     },
-    "target": "es2020",
+    "target": "node16",
     "minify": {
       "compress": false,
       "mangle": false
