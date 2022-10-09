@@ -25,7 +25,6 @@ To install this middleware you can use NPM:
 npm install --save @middy/validator
 ```
 
-
 ## Options
 
 - `eventSchema` (function) (default `undefined`): The compiled ajv validator that will be used
@@ -36,21 +35,31 @@ npm install --save @middy/validator
   to validate the output (`request.response`) of the Lambda handler. Supports alias `inputSchema`
 - `i18nEnabled` (boolean) (default `true`): Option to disable i18n default package.
 - `defaultLanguage` (string) (default `en`): When language not found, what language to fallback to.
+- `languages` (object) (default: `{}`): Localization overrides
 
 NOTES:
+
 - At least one of `eventSchema` or `responseSchema` is required.
-- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause`, the original response can be found at `request.error.response`. 
+- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause`, the original response can be found at `request.error.response`.
 
-## compileSchema
-Compiles JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`, `ajv-keywords`, `ajv-errors`.
+## transpileSchema
 
-- `schema` (object) (default `undefined`): JSON-Schema object 
+Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `ajv-formats-draft2019`, `ajv-keywords`, `ajv-errors`.
+
+- `schema` (object) (required): JSON-Schema object
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
-class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true, defaultLanguage: 'en' }`.
-- `ajvInstance` (function) (default `new Ajv(ajvOptions)`): ajv instance with custom options passed in. Useful when using custom keywords/vocabularies.
+  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`.
 
 NOTES:
+
 - **Important** Compiling schemas on the fly will cause a 50-100ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
+
+## transpileLocale
+
+Transpile Fluent (.ftl) localization file into ajv compatible format. Allows the overriding of the default messages and adds support for multi-language `errrorMessages`.
+
+- `ftl` (string) (required): Contents of an ftl file to be transpiled.
+- `ftlOptions` (object) (default: `{}`):
 
 ## Sample usage
 
@@ -58,14 +67,14 @@ Example for input validation:
 
 ```javascript
 import middy from '@middy/core'
-import validator, {compileSchema} from '@middy/validator'
+import validator, { compileSchema } from '@middy/validator'
 
 const handler = middy((event, context) => {
   return {}
 })
 
 const schema = {
-  type: "object",
+  type: 'object',
   required: ['body', 'foo'],
   properties: {
     // this will pass validation
@@ -79,16 +88,18 @@ const schema = {
   }
 }
 
-handler.use(validator({
-  inputSchema: compileSchema(schema)
-}))
+handler.use(
+  validator({
+    inputSchema: compileSchema(schema)
+  })
+)
 
 // invokes the handler, note that property foo is missing
 const event = {
-  body: JSON.stringify({something: 'somethingelse'})
+  body: JSON.stringify({ something: 'somethingelse' })
 }
 handler(event, {}, (err, res) => {
-  t.is(err.message,'Event object failed validation')
+  t.is(err.message, 'Event object failed validation')
 })
 ```
 
@@ -103,7 +114,7 @@ const handler = middy((event, context) => {
 })
 
 const responseSchema = compileSchema({
-  type: "object",
+  type: 'object',
   required: ['body', 'statusCode'],
   properties: {
     body: {
@@ -115,11 +126,11 @@ const responseSchema = compileSchema({
   }
 })
 
-handler.use(validator({responseSchema}))
+handler.use(validator({ responseSchema }))
 
 handler({}, {}, (err, response) => {
   t.not(err, null)
-  t.is(err.message,'Response object failed validation')
+  t.is(err.message, 'Response object failed validation')
   expect(response).not.toBe(null)
   // it doesn't destroy the response so it can be used by other middlewares
 })

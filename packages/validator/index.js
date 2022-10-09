@@ -1,18 +1,14 @@
 import { createError } from '@middy/util'
-import _ajv from 'ajv/dist/2020.js'
-import localize from 'ajv-i18n'
-import ajvFormats from 'ajv-formats'
-import ajvFormatsDraft2019 from 'ajv-formats-draft2019'
-import ajvKeywords from 'ajv-keywords'
-import ajvErrorMessage from 'ajv-errors'
-import uriResolver from 'fast-uri'
+import { compile, ftl } from 'ajv-cmd'
+import localize from 'ajv-ftl-i18n'
 
 const defaults = {
   eventSchema: undefined,
   contextSchema: undefined,
   responseSchema: undefined,
   i18nEnabled: true,
-  defaultLanguage: 'en'
+  defaultLanguage: 'en',
+  languages: {}
 }
 
 const validatorMiddleware = (opts = {}) => {
@@ -20,8 +16,9 @@ const validatorMiddleware = (opts = {}) => {
     eventSchema,
     contextSchema,
     responseSchema,
+    i18nEnabled,
     defaultLanguage,
-    i18nEnabled
+    languages
   } = { ...defaults, ...opts }
 
   const validatorMiddlewareBefore = async (request) => {
@@ -31,7 +28,11 @@ const validatorMiddleware = (opts = {}) => {
       if (!validEvent) {
         if (i18nEnabled) {
           const language = chooseLanguage(request.event, defaultLanguage)
-          localize[language](eventSchema.errors)
+          if (languages[language]) {
+            languages[language](eventSchema.errors)
+          } else {
+            localize[language](eventSchema.errors)
+          }
         }
 
         // Bad Request
@@ -70,60 +71,28 @@ const validatorMiddleware = (opts = {}) => {
   }
 }
 
-const Ajv = _ajv.default // esm workaround for linting
-
-let ajv
 const ajvDefaults = {
   strict: true,
   coerceTypes: 'array', // important for query string params
   allErrors: true,
   useDefaults: 'empty',
-  messages: true, // needs to be true to allow errorMessage to work
-  uriResolver,
-  keywords: []
+  messages: true // needs to be true to allow errorMessage to work
 }
 
 // This is pulled out due to it's performance cost (50-100ms on cold start)
 // Precompile your schema during a build step is recommended.
-export const compileSchema = (schema, ajvOptions, ajvInstance = null) => {
-  // Check if already compiled
-  if (typeof schema === 'function' || !schema) return schema
+export const transpileSchema = (schema, ajvOptions) => {
   const options = { ...ajvDefaults, ...ajvOptions }
-  if (!ajv) {
-    ajv = ajvInstance ?? new Ajv(options)
-    ajvFormats(ajv)
-    ajvFormatsDraft2019(ajv)
-    ajvKeywords(ajv) // allow `typeof` for identifying functions in `context`
-    ajvErrorMessage(ajv)
-  } else if (!ajvInstance) {
-    // Update options when initializing the middleware multiple times
-    ajv.opts = { ...ajv.opts, ...options }
-  }
-  return ajv.compile(schema)
+  return compile(schema, options)
 }
 
-// export const compileLocale = localize.transpile
-
-/* in ajv-i18n Portuguese is represented as pt-BR */
-const languageNormalizationMap = {
-  pt: 'pt-BR',
-  'pt-br': 'pt-BR',
-  pt_BR: 'pt-BR',
-  pt_br: 'pt-BR',
-  'zh-tw': 'zh-TW',
-  zh_TW: 'zh-TW',
-  zh_tw: 'zh-TW'
-}
-
-const normalizePreferredLanguage = (lang) =>
-  languageNormalizationMap[lang] ?? lang
+export const transpileLocale = ftl
 
 const availableLanguages = Object.keys(localize)
 const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   if (preferredLanguage) {
-    const lang = normalizePreferredLanguage(preferredLanguage)
-    if (availableLanguages.includes(lang)) {
-      return lang
+    if (availableLanguages.includes(preferredLanguage)) {
+      return preferredLanguage
     }
   }
 
