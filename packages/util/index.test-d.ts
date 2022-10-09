@@ -5,9 +5,9 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as util from '.'
 
 const sampleRequest: middy.Request<
-  APIGatewayProxyEvent,
-  APIGatewayProxyResult,
-  Error
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error
 > = {
   event: {
     body: '',
@@ -98,13 +98,13 @@ expectType<Promise<SSMClient>>(client)
 const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
-async function testGetInternal(): Promise<any> {
+async function testGetInternal (): Promise<any> {
   const values = await util.getInternal(true, sampleRequest)
   expectType<any>(values) // this will actually be an object
 }
 expectType<Promise<any>>(testGetInternal())
 
-async function testGetInternalField(): Promise<any> {
+async function testGetInternalField (): Promise<any> {
   const value = await util.getInternal('number', sampleRequest)
   expectType<any>(value) // this will actually be a number
 }
