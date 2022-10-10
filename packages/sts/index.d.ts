@@ -1,11 +1,11 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import { STS } from '@aws-sdk/client-sts'
+import { STSClient } from '@aws-sdk/client-sts'
 
-interface Options<S = STS>
+interface Options<S = STSClient>
   extends Pick<
-  MiddyOptions<S, STS.Types.ClientConfiguration>,
+  MiddyOptions<S, STSClient.Types.ClientConfiguration>,
   | 'AwsClient'
   | 'awsClientOptions'
   | 'awsClientCapture'
@@ -23,9 +23,9 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   Record<
   keyof TOptions['fetchData'],
   {
-    accessKeyId: STS.accessKeyIdType
-    secretAccessKey: STS.accessKeySecretType
-    sessionToken: STS.tokenType
+    accessKeyId: STSClient.accessKeyIdType
+    secretAccessKey: STSClient.accessKeySecretType
+    sessionToken: STSClient.tokenType
   }
   >
   : LambdaContext

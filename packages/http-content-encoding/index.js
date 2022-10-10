@@ -1,23 +1,20 @@
-/*
- * `zstd` disabled due to lack of support in browsers
- * https://github.com/Fyrd/caniuse/issues/4065
- * https://github.com/andrew-aladev/brotli-vs-zstd
- */
-
-import { pipeline } from 'node:stream/promises'
-import { Readable, Writable } from 'node:stream'
-import eventEmitter from 'events'
-
-import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
-// import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
+import {
+  pipejoin,
+  createReadableStream,
+  streamToString
+} from '@datastream/core'
+import {
+  brotliCompressStream,
+  gzipCompressStream,
+  deflateCompressStream
+} from '@datastream/compress'
 
 import { normalizeHttpResponse } from '@middy/util'
 
 const contentEncodingStreams = {
-  br: (opts = {}) => createBrotliCompress(opts),
-  // zstd: (opt = {}) => createZstdCompress(opts),
-  gzip: (opts = {}) => createGzip(opts),
-  deflate: (opts = {}) => createDeflate(opts)
+  br: brotliCompressStream,
+  gzip: gzipCompressStream,
+  deflate: deflateCompressStream
 }
 
 const defaults = {
@@ -27,6 +24,12 @@ const defaults = {
   deflate: undefined,
   overridePreferredEncoding: []
 }
+
+/*
+ * `zstd` disabled due to lack of support in browsers
+ * https://github.com/Fyrd/caniuse/issues/4065
+ * https://github.com/andrew-aladev/brotli-vs-zstd
+ */
 
 const httpContentEncodingMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
@@ -44,12 +47,11 @@ const httpContentEncodingMiddleware = (opts) => {
     if (
       response.isBase64Encoded ||
       !preferredEncoding ||
-      !supportedContentEncodings.includes(preferredEncoding)
+      !supportedContentEncodings.includes(preferredEncoding) ||
+      !response.body
     ) {
       return
     }
-
-    const bodyIsString = typeof response.body === 'string'
 
     let contentEncodingStream = contentEncodingStreams[preferredEncoding](
       options[preferredEncoding]
@@ -64,33 +66,19 @@ const httpContentEncodingMiddleware = (opts) => {
       break
     }
 
-    if (bodyIsString) {
-      const readStream = Readable.from(response.body, { objectMode: false })
+    const stream = pipejoin([
+      createReadableStream(response.body),
+      contentEncodingStream
+    ])
+    const body = await streamToString(stream)
 
-      const chunks = []
-      const writeStream = new Writable({
-        write (chunk, encoding, callback) {
-          chunks.push(chunk)
-          callback()
-        }
-      })
-
-      await pipeline(readStream, contentEncodingStream, writeStream)
-
-      const body = Buffer.concat(chunks).toString('base64')
-
-      // Only apply encoding if it's smaller
-      if (body.length < response.body.length) {
-        response.headers['Content-Encoding'] = contentEncoding
-        response.body = body
-        response.isBase64Encoded = true
-      }
-    } else if (isReadableStream(response.body)) {
-      // Note: body to not cast to string to allow stream chaining
+    // Only apply encoding if it's smaller
+    if (body.length < response.body.length) {
       response.headers['Content-Encoding'] = contentEncoding
-      response.body = response.body.pipe(contentEncodingStream)
+      response.body = body
       response.isBase64Encoded = true
     }
+
     request.response = response
   }
 
@@ -103,10 +91,6 @@ const httpContentEncodingMiddleware = (opts) => {
     after: httpContentEncodingMiddlewareAfter,
     onError: httpContentEncodingMiddlewareOnError
   }
-}
-
-const isReadableStream = (stream) => {
-  return stream instanceof eventEmitter && stream.readable !== false
 }
 
 export default httpContentEncodingMiddleware

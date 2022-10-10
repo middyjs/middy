@@ -8,7 +8,7 @@ import {
 
 interface Options<S = ServiceDiscoveryClient>
   extends Pick<
-  MiddyOptions<S, ServiceDiscovery.Types.ClientConfiguration>,
+  MiddyOptions<S, ServiceDiscoveryClient.Types.ClientConfiguration>,
   | 'AwsClient'
   | 'awsClientOptions'
   | 'awsClientCapture'

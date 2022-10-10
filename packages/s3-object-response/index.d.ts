@@ -1,12 +1,12 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import { S3 } from '@aws-sdk/client-s3'
+import { S3Client } from '@aws-sdk/client-s3'
 import { ClientRequest } from 'http'
 
-interface Options<S = S3>
+interface Options<S = S3Client>
   extends Pick<
-  MiddyOptions<S, S3.Types.ClientConfiguration>,
+  MiddyOptions<S, S3Client.Types.ClientConfiguration>,
   | 'AwsClient'
   | 'awsClientOptions'
   | 'awsClientAssumeRole'
