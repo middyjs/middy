@@ -1,50 +1,25 @@
 import { createError } from '@middy/util'
-import _ajv from 'ajv/dist/2020.js'
-import localize from 'ajv-i18n'
-import formats from 'ajv-formats'
-import formatsDraft2019 from 'ajv-formats-draft2019'
-import typeofKeyword from 'ajv-keywords/dist/definitions/typeof.js'
-import uriResolver from 'fast-uri'
-
-const Ajv = _ajv.default // esm workaround for linting
-
-let ajv
-const ajvDefaults = {
-  strict: true,
-  coerceTypes: 'array', // important for query string params
-  allErrors: true,
-  useDefaults: 'empty',
-  messages: false, // allow i18n,
-  uriResolver,
-  keywords: [
-    // allow `typeof` for identifying functions in `context`
-    typeofKeyword()
-  ]
-}
+import { compile, ftl } from 'ajv-cmd'
+import localize from 'ajv-ftl-i18n'
 
 const defaults = {
   eventSchema: undefined,
   contextSchema: undefined,
   responseSchema: undefined,
-  ajvOptions: {},
-  ajvInstance: undefined,
+  i18nEnabled: true,
   defaultLanguage: 'en',
-  i18nEnabled: true
+  languages: {}
 }
 
 const validatorMiddleware = (opts = {}) => {
-  let {
+  const {
     eventSchema,
     contextSchema,
     responseSchema,
-    ajvOptions,
-    ajvInstance,
+    i18nEnabled,
     defaultLanguage,
-    i18nEnabled
+    languages
   } = { ...defaults, ...opts }
-  eventSchema = compileSchema(eventSchema, ajvOptions, ajvInstance)
-  contextSchema = compileSchema(contextSchema, ajvOptions, ajvInstance)
-  responseSchema = compileSchema(responseSchema, ajvOptions, ajvInstance)
 
   const validatorMiddlewareBefore = async (request) => {
     if (eventSchema) {
@@ -53,7 +28,11 @@ const validatorMiddleware = (opts = {}) => {
       if (!validEvent) {
         if (i18nEnabled) {
           const language = chooseLanguage(request.event, defaultLanguage)
-          localize[language](eventSchema.errors)
+          if (languages[language]) {
+            languages[language](eventSchema.errors)
+          } else {
+            localize[language](eventSchema.errors)
+          }
         }
 
         // Bad Request
@@ -76,9 +55,9 @@ const validatorMiddleware = (opts = {}) => {
   }
 
   const validatorMiddlewareAfter = async (request) => {
-    const valid = await responseSchema(request.response)
+    const validResponse = await responseSchema(request.response)
 
-    if (!valid) {
+    if (!validResponse) {
       // Internal Server Error
       throw createError(500, 'Response object failed validation', {
         cause: responseSchema.errors
@@ -92,43 +71,28 @@ const validatorMiddleware = (opts = {}) => {
   }
 }
 
+const ajvDefaults = {
+  strict: true,
+  coerceTypes: 'array', // important for query string params
+  allErrors: true,
+  useDefaults: 'empty',
+  messages: true // needs to be true to allow errorMessage to work
+}
+
 // This is pulled out due to it's performance cost (50-100ms on cold start)
 // Precompile your schema during a build step is recommended.
-export const compileSchema = (schema, ajvOptions, ajvInstance = null) => {
-  // Check if already compiled
-  if (typeof schema === 'function' || !schema) return schema
+export const transpileSchema = (schema, ajvOptions) => {
   const options = { ...ajvDefaults, ...ajvOptions }
-  if (!ajv) {
-    ajv = ajvInstance ?? new Ajv(options)
-    formats(ajv)
-    formatsDraft2019(ajv)
-  } else if (!ajvInstance) {
-    // Update options when initializing the middleware multiple times
-    ajv.opts = { ...ajv.opts, ...options }
-  }
-  return ajv.compile(schema)
+  return compile(schema, options)
 }
 
-/* in ajv-i18n Portuguese is represented as pt-BR */
-const languageNormalizationMap = {
-  pt: 'pt-BR',
-  'pt-br': 'pt-BR',
-  pt_BR: 'pt-BR',
-  pt_br: 'pt-BR',
-  'zh-tw': 'zh-TW',
-  zh_TW: 'zh-TW',
-  zh_tw: 'zh-TW'
-}
-
-const normalizePreferredLanguage = (lang) =>
-  languageNormalizationMap[lang] ?? lang
+export const transpileLocale = ftl
 
 const availableLanguages = Object.keys(localize)
 const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
   if (preferredLanguage) {
-    const lang = normalizePreferredLanguage(preferredLanguage)
-    if (availableLanguages.includes(lang)) {
-      return lang
+    if (availableLanguages.includes(preferredLanguage)) {
+      return preferredLanguage
     }
   }
 

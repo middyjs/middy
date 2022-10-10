@@ -1,6 +1,6 @@
 import test from 'ava'
 import middy from '../../core/index.js'
-import validator from '../index.js'
+import validator, { transpileSchema } from '../index.js'
 
 const event = {}
 const context = {
@@ -147,7 +147,7 @@ test('It should validate an event object', async (t) => {
 
   handler.use(
     validator({
-      eventSchema: schema
+      eventSchema: transpileSchema(schema)
     })
   )
 
@@ -226,7 +226,7 @@ test('It should validate an event object with formats', async (t) => {
 
   handler.use(
     validator({
-      eventSchema: schema
+      eventSchema: transpileSchema(schema)
     })
   )
 
@@ -281,7 +281,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
   handler.use(
     validator({
-      eventSchema: schema
+      eventSchema: transpileSchema(schema)
     })
   )
 
@@ -328,7 +328,7 @@ test('It should handle invalid schema as a BadRequest in a different language', 
 
   handler.use(
     validator({
-      eventSchema: schema
+      eventSchema: transpileSchema(schema)
     })
   )
 
@@ -384,13 +384,13 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   handler.use(
     validator({
-      eventSchema: schema
+      eventSchema: transpileSchema(schema)
     })
   )
 
   // invokes the handler, note that property foo is missing
   const event = {
-    preferredLanguage: 'pt',
+    preferredLanguage: 'pt-BR',
     body: JSON.stringify({ something: 'somethingelse' })
   }
 
@@ -432,14 +432,14 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
 
   handler.use(
     validator({
-      eventSchema: schema,
+      eventSchema: transpileSchema(schema),
       i18nEnabled: false
     })
   )
 
   // invokes the handler, note that property foo is missing
   const event = {
-    preferredLanguage: 'pt',
+    preferredLanguage: 'pt-BR',
     body: JSON.stringify({ something: 'somethingelse' })
   }
 
@@ -451,6 +451,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
       {
         instancePath: '',
         keyword: 'required',
+        message: "must have required property 'foo'",
         params: { missingProperty: 'foo' },
         schemaPath: '#/required'
       }
@@ -468,7 +469,7 @@ test('It should validate context object', async (t) => {
     return expectedResponse
   })
 
-  handler.use(validator({ contextSchema }))
+  handler.use(validator({ contextSchema: transpileSchema(contextSchema) }))
 
   const response = await handler(event, context)
 
@@ -484,7 +485,7 @@ test('It should make requests with invalid context fails with an Internal Server
     .before((request) => {
       request.context.callbackWaitsForEmptyEventLoop = 'fail'
     })
-    .use(validator({ contextSchema }))
+    .use(validator({ contextSchema: transpileSchema(contextSchema) }))
 
   let response
 
@@ -520,7 +521,7 @@ test('It should validate response object', async (t) => {
     }
   }
 
-  handler.use(validator({ responseSchema: schema }))
+  handler.use(validator({ responseSchema: transpileSchema(schema) }))
 
   const response = await handler(event, context)
 
@@ -545,7 +546,7 @@ test('It should make requests with invalid responses fail with an Internal Serve
     }
   }
 
-  handler.use(validator({ responseSchema: schema }))
+  handler.use(validator({ responseSchema: transpileSchema(schema) }))
 
   let response
 
@@ -568,7 +569,7 @@ test('It should not allow bad email format', async (t) => {
     return {}
   })
 
-  handler.use(validator({ eventSchema: schema }))
+  handler.use(validator({ eventSchema: transpileSchema(schema) }))
 
   const event = { email: 'abc@abc' }
   try {
@@ -591,7 +592,7 @@ test('It should error when unsupported keywords used (input)', async (t) => {
 
   const event = { foo: 'a' }
   try {
-    handler.use(validator({ eventSchema: schema }))
+    handler.use(validator({ eventSchema: transpileSchema(schema) }))
     await handler(event, context)
   } catch (e) {
     t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
@@ -610,7 +611,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
 
   const event = { foo: 'a' }
   try {
-    handler.use(validator({ responseSchema: schema }))
+    handler.use(validator({ responseSchema: transpileSchema(schema) }))
     await handler(event.context)
   } catch (e) {
     t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
