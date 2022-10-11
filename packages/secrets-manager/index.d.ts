@@ -5,8 +5,8 @@ import { SecretsManagerClient } from '@aws-sdk/client-secretsmanager'
 
 interface Options<AwsSecretsManagerClient = SecretsManagerClient>
   extends MiddyOptions<
-    AwsSecretsManagerClient,
-    SecretsManagerClient.Types.ClientConfiguration
+  AwsSecretsManagerClient,
+  SecretsManagerClient.Types.ClientConfiguration
   > {}
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {
@@ -15,7 +15,7 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   ? LambdaContext & Record<keyof TOptions['fetchData'], any>
   : LambdaContext
 
-declare function secretsManager<TOptions extends Options | undefined>(
+declare function secretsManager<TOptions extends Options | undefined> (
   options?: TOptions
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 

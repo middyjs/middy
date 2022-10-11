@@ -8,18 +8,18 @@ import {
 
 interface Options<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
   extends Pick<
-    MiddyOptions<
-      AwsServiceDiscoveryClient,
-      ServiceDiscoveryClient.Types.ClientConfiguration
-    >,
-    | 'AwsClient'
-    | 'awsClientOptions'
-    | 'awsClientCapture'
-    | 'fetchData'
-    | 'disablePrefetch'
-    | 'cacheKey'
-    | 'cacheExpiry'
-    | 'setToContext'
+  MiddyOptions<
+  AwsServiceDiscoveryClient,
+  ServiceDiscoveryClient.Types.ClientConfiguration
+  >,
+  | 'AwsClient'
+  | 'awsClientOptions'
+  | 'awsClientCapture'
+  | 'fetchData'
+  | 'disablePrefetch'
+  | 'cacheKey'
+  | 'cacheExpiry'
+  | 'setToContext'
   > {}
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {
@@ -28,7 +28,7 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   ? LambdaContext & Record<keyof TOptions['fetchData'], HttpInstanceSummaryList>
   : LambdaContext
 
-declare function serviceDiscovery<TOptions extends Options | undefined>(
+declare function serviceDiscovery<TOptions extends Options | undefined> (
   options?: TOptions
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 

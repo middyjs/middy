@@ -4,14 +4,14 @@ import { Options as MiddyOptions } from '@middy/util'
 
 interface Options<AwsSQSClient = SQSClient>
   extends Pick<
-    MiddyOptions<AwsSQSClient, SQSClient.Types.ClientConfiguration>,
-    | 'AwsClient'
-    | 'awsClientOptions'
-    | 'awsClientAssumeRole'
-    | 'awsClientCapture'
-    | 'disablePrefetch'
+  MiddyOptions<AwsSQSClient, SQSClient.Types.ClientConfiguration>,
+  | 'AwsClient'
+  | 'awsClientOptions'
+  | 'awsClientAssumeRole'
+  | 'awsClientCapture'
+  | 'disablePrefetch'
   > {}
 
-declare function sqsPartialBatchFailure(options?: Options): middy.MiddlewareObj
+declare function sqsPartialBatchFailure (options?: Options): middy.MiddlewareObj
 
 export default sqsPartialBatchFailure

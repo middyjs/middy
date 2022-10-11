@@ -5,32 +5,32 @@ import { STSClient } from '@aws-sdk/client-sts'
 
 interface Options<AwsSTSClient = STSClient>
   extends Pick<
-    MiddyOptions<AwsSTSClient, STSClient.Types.ClientConfiguration>,
-    | 'AwsClient'
-    | 'awsClientOptions'
-    | 'awsClientCapture'
-    | 'fetchData'
-    | 'disablePrefetch'
-    | 'cacheKey'
-    | 'cacheExpiry'
-    | 'setToContext'
+  MiddyOptions<AwsSTSClient, STSClient.Types.ClientConfiguration>,
+  | 'AwsClient'
+  | 'awsClientOptions'
+  | 'awsClientCapture'
+  | 'fetchData'
+  | 'disablePrefetch'
+  | 'cacheKey'
+  | 'cacheExpiry'
+  | 'setToContext'
   > {}
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
 }
   ? LambdaContext &
-      Record<
-        keyof TOptions['fetchData'],
-        {
-          accessKeyId: STSClient.accessKeyIdType
-          secretAccessKey: STSClient.accessKeySecretType
-          sessionToken: STSClient.tokenType
-        }
-      >
+  Record<
+  keyof TOptions['fetchData'],
+  {
+    accessKeyId: STSClient.accessKeyIdType
+    secretAccessKey: STSClient.accessKeySecretType
+    sessionToken: STSClient.tokenType
+  }
+  >
   : LambdaContext
 
-declare function sts<TOptions extends Options>(
+declare function sts<TOptions extends Options> (
   options?: TOptions
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
