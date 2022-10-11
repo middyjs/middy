@@ -505,6 +505,16 @@ test('normalizeHttpResponse should update undefined response', async (t) => {
   t.deepEqual(request, { response: { statusCode: 500, headers: {} } })
 })
 
+test('normalizeHttpResponse should update incomplete response', async (t) => {
+  const request = {
+    response: {
+      body: ''
+    }
+  }
+  normalizeHttpResponse(request)
+  t.deepEqual(request, { response: { statusCode: 500, headers: {}, body: '' } })
+})
+
 test('normalizeHttpResponse should update nullish response', async (t) => {
   const request = {
     response: null
