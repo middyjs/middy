@@ -46,27 +46,30 @@ To install this middleware you can use NPM:
 npm install --save @middy/s3-object-response
 ```
 
-
 ## Options
+
 - `bodyType` (string) (required): How to pass in the s3 object through the handler. Can be `stream` or `promise`.
-- `AwsClient` (object) (default `AWS.S3`): AWS.S3 class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.STS class constructor.
+- `AwsClient` (object) (default `S3Client`): S3Client class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-s3`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to S3Client class constructor.
 - `awsClientAssumeRole` (string) (default `undfined`): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `httpsCapture` (function) (default `undefined`): Enable XRay by passing `captureHTTPsGlobal` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 
 NOTES:
+
 - The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
 
 ## Sample usage
+
 ### Stream
+
 ```javascript
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
-import {captureAWSClient, captureHTTPsGlobal} from 'aws-xray-sdk-core'
+import { captureAWSClient, captureHTTPsGlobal } from 'aws-xray-sdk-core'
 
 const handler = middy((event, context) => {
   const readStream = context.s3Object
@@ -76,20 +79,22 @@ const handler = middy((event, context) => {
   }
 })
 
-handler
-  .use(s3ObjectResponse({
+handler.use(
+  s3ObjectResponse({
     awsClientCapture: captureAWSClient,
-    httpsCapture:captureHTTPsGlobal,
+    httpsCapture: captureHTTPsGlobal,
     bodyType: 'stream'
-  }))
+  })
+)
 ```
 
 ### Promise
+
 ```javascript
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
-import {captureAWSClient, captureHTTPsGlobal} from 'aws-xray-sdk-core'
+import { captureAWSClient, captureHTTPsGlobal } from 'aws-xray-sdk-core'
 
 const handler = middy(async (event, context) => {
   let body = await context.s3Object
@@ -99,24 +104,22 @@ const handler = middy(async (event, context) => {
   }
 })
 
-handler
-  .use(s3ObjectResponse({
+handler.use(
+  s3ObjectResponse({
     awsClientCapture: captureAWSClient,
-    httpsCapture:captureHTTPsGlobal,
+    httpsCapture: captureHTTPsGlobal,
     bodyType: 'promise'
-  }))
+  })
+)
 ```
-
 
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
 
-
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

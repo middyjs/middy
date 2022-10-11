@@ -14,21 +14,24 @@ To install this middleware you can use NPM:
 npm install --save @middy/s3-object-response
 ```
 
-
 ## Options
+
 - `bodyType` (string) (required): How to pass in the s3 object through the handler. Can be `stream` or `promise`.
-- `AwsClient` (object) (default `S3Client`): S3 class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-s3`.
-- `awsClientOptions` (object) (optional): Options to pass to AWS.STS class constructor.
+- `AwsClient` (object) (default `S3Client`): S3Client class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-s3`.
+- `awsClientOptions` (object) (optional): Options to pass to S3Client class constructor.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `httpsCapture` (function) (optional): Enable XRay by passing `captureHTTPsGlobal` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 
 NOTES:
+
 - The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
 
 ## Sample usage
+
 ### Stream
+
 ```javascript
 import zlib from 'zlib'
 import middy from '@middy/core'
@@ -42,13 +45,15 @@ const handler = middy((event, context) => {
   }
 })
 
-handler
-  .use(s3ObjectResponse({
+handler.use(
+  s3ObjectResponse({
     bodyType: 'stream'
-  }))
+  })
+)
 ```
 
 ### Promise
+
 ```javascript
 import zlib from 'zlib'
 import middy from '@middy/core'
@@ -62,11 +67,13 @@ const handler = middy(async (event, context) => {
   }
 })
 
-handler
-  .use(s3ObjectResponse({
+handler.use(
+  s3ObjectResponse({
     bodyType: 'promise'
-  }))
+  })
+)
 ```
 
 ## Bundling
+
 To exclude `aws-sdk` add `aws-sdk/clients/s3.js` to the exclude list.

@@ -46,11 +46,10 @@ To install this middleware you can use NPM:
 npm install --save @middy/rds-signer
 ```
 
-
 ## Options
 
-- `AwsClient` (object) (default `AWS.RDS.Signer`): AWS.RDS.Signer class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.RDS.Signer class constructor.
+- `AwsClient` (object) (default `Signer`): Signer class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/rds-signer`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to Signer class constructor.
 - `fetchData` (object `{ contextKey: {region, hostname, username, database, port} }`) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `rds-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
@@ -58,6 +57,7 @@ npm install --save @middy/rds-signer
 - `setToContext` (boolean) (default `false`): Store role tokens to `request.context`.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `rds-db:connect` with a resource like `arn:aws:rds-db:#{AWS::Region}:#{AWS::AccountId}:dbuser:${database_resource}/${iam_role}`
 
 ## Sample usage
@@ -71,13 +71,13 @@ const handler = middy((event, context) => {
     statusCode: 200,
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
-  };
+  }
 
   return response
 })
 
-handler
-  .use(rdsSigner({
+handler.use(
+  rdsSigner({
     fetchData: {
       rdsToken: {
         region: 'ca-central-1',
@@ -87,19 +87,17 @@ handler
         port: 5432
       }
     }
-  }))
+  })
+)
 ```
-
 
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
 
-
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

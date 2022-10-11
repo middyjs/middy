@@ -14,13 +14,14 @@ npm install --save @middy/sqs-partial-batch-failure
 
 ## Options
 
-- `AwsClient` (object) (default `SQSClient`): SQS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sqs`.
-- `awsClientOptions` (object) (optional): Options to pass to AWS.SQS class constructor.
+- `AwsClient` (object) (default `SQSClient`): SQSClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sqs`.
+- `awsClientOptions` (object) (optional): Options to pass to SQSClient class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `sqs:DeleteMessage`
 
 ## Sample usage
@@ -30,13 +31,12 @@ import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
 const lambdaHandler = (event, context) => {
-  const recordPromises = event.Records.map(async (record, index) => { 
+  const recordPromises = event.Records.map(async (record, index) => {
     /* Custom message processing logic */
     return record
   })
   return Promise.allSettled(recordPromises)
 }
 
-export const handler = middy(lambdaHandler)
-  .use(sqsBatch())
+export const handler = middy(lambdaHandler).use(sqsBatch())
 ```
