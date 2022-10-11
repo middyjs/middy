@@ -56,7 +56,7 @@ npm install --save @middy/secrets-manager
 
 ## Options
 
-- `AwsClient` (object) (default `SecretsManagerClient`): SecretsManagerClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-secretsmanager`.
+- `AwsClient` (object) (default `SecretsManagerClient`): SecretsManagerClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-secrets-manager`.
 - `awsClientOptions` (object) (default `undefined`): Options to pass to SecretsManagerClient class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.

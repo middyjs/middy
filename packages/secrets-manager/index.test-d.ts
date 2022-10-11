@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import { SecretsManagerClient } from '@aws-sdk/client-secretsmanager'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { captureAWSClient } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import rdsSigner, { Context } from '.'
