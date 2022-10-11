@@ -190,3 +190,15 @@ const typeErrorMiddleware = {
 
 customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
 expectType<MutableContextHandler>(customCtxHandler)
+
+// initialize handler with abort signal
+const abortableHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(async (event, context, extraParams ) => {
+  extraParams.signal.onabort = () => {
+    console.log('Abort signal received')
+  }
+
+  return {
+    statusCode: 200,
+    body: 'Hello from Middy!'
+  }
+});

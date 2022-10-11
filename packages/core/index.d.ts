@@ -42,7 +42,11 @@ export interface MiddlewareObj<TEvent = unknown, TResult = any, TErr = Error, TC
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type MiddyInputHandler<TEvent, TResult, TContext extends LambdaContext = LambdaContext> = (event: TEvent, context: TContext, callback: LambdaCallback<TResult>) => void | Promise<TResult>
-type MiddyInputPromiseHandler<TEvent, TResult, TContext extends LambdaContext = LambdaContext> = (event: TEvent, context: TContext,) => Promise<TResult>
+type MiddyInputPromiseHandler<TEvent, TResult, TContext extends LambdaContext = LambdaContext> = (event: TEvent, context: TContext, extraParams: MiddyInputPromiseHandlerExtraParams) => Promise<TResult>
+
+type MiddyInputPromiseHandlerExtraParams = {
+  signal: AbortSignal;
+}
 
 export interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> extends MiddyInputHandler<TEvent, TResult, TContext>,
   MiddyInputPromiseHandler<TEvent, TResult, TContext> {
@@ -66,7 +70,7 @@ declare type UseFn<TEvent = any, TResult = any, TErr = Error, TContext extends L
 
 declare type MiddlewareHandler<THandler extends LambdaHandler<any, any>, TContext extends LambdaContext = LambdaContext> =
   THandler extends LambdaHandler<infer TEvent, infer TResult> // always true
-    ? MiddyInputHandler<TEvent, TResult, TContext>
+    ? MiddyInputPromiseHandler<TEvent, TResult, TContext>
     : never
 
 /**
