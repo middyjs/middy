@@ -59,15 +59,16 @@
   "bugs": {
     "url": "https://github.com/middyjs/middy/issues"
   },
+  "dependencies": {
+    "@aws-sdk/node-http-handler": "3.186.0"
+  },
   "devDependencies": {
     "@middy/core": "3.5.0",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^18.0.0",
-    "aws-xray-sdk": "^3.3.3"
+    "aws-xray-sdk": "^3.3.3",
+    "@aws-sdk/client-ssm": "^3.0.0"
   },
   "homepage": "https://middy.js.org",
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
-  "dependencies": {
-    "@aws-sdk/node-http-handler": "3.186.0"
-  }
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
