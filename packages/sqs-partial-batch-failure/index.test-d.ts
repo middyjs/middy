@@ -8,6 +8,8 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = sqsPartialBatchFailure({
-  logger: () => {}
+  awsClientOptions: {
+    logger: console
+  }
 })
 expectType<middy.MiddlewareObj>(middleware)

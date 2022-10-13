@@ -12,7 +12,11 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
 const options = {
   AwsClient: SecretsManagerClient,
   awsClientOptions: {
-    secretAccessKey: 'abc'
+    credentials: {
+      secretAccessKey: 'secret',
+      sessionToken: 'token',
+      accessKeyId: 'key'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,
