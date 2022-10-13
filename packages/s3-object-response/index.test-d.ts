@@ -12,7 +12,7 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
 
 // use with all options
 middleware = s3ObjectResponse({
-  AwsClient: S3Client,
+  AwsClient: new S3Client({}),
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
 })
