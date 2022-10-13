@@ -10,7 +10,7 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = wsResponse({
-  AwsClient: ApiGatewayManagementApiClient,
+  AwsClient: new ApiGatewayManagementApiClient({}),
   awsClientCapture: captureAWSClient,
   disablePrefetch: true
 })

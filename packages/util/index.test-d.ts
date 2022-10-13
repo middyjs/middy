@@ -85,17 +85,17 @@ Error
 }
 
 const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
-  AwsClient: SSMClient
+  AwsClient: new SSMClient({}),
 })
 expectType<SSMClient>(prefetchClient)
 
 const client = util.createClient<SSMClient, {}>(
-  { AwsClient: SSMClient },
+  { AwsClient: new SSMClient({}) },
   sampleRequest
 )
 expectType<Promise<SSMClient>>(client)
 
-const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
+const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: new SSMClient({}) })
 expectType<boolean>(canPrefetch)
 
 async function testGetInternal (): Promise<any> {

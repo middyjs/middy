@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 interface Options<Client, ClientOptions> {
-  AwsClient?: new() => Client
+  AwsClient?: Client
   awsClientOptions?: Partial<ClientOptions>
   awsClientAssumeRole?: string
   awsClientCapture?: (service: Client) => Client
