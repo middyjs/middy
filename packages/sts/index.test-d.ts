@@ -10,8 +10,10 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(sts())
 // use with all options
 const options = {
   AwsClient: STSClient,
-  awsClientOptions: {
-    secretAccessKey: 'abc'
+  credentials: {
+    secretAccessKey: 'secret',
+    sessionToken: 'token',
+    accessKeyId: 'key'
   },
   awsClientCapture: captureAWSClient,
   disablePrefetch: true

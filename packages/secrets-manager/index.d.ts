@@ -1,12 +1,12 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
+import { SecretsManagerClient, SecretsManagerClientConfig } from '@aws-sdk/client-secrets-manager'
 
 interface Options<AwsSecretsManagerClient = SecretsManagerClient>
   extends MiddyOptions<
   AwsSecretsManagerClient,
-  SecretsManagerClient.Types.ClientConfiguration
+  SecretsManagerClientConfig
   > {}
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {

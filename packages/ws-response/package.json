@@ -1,6 +1,6 @@
 {
   "name": "@middy/ws-response",
-  "version": "3.5.0",
+  "version": "3.6.1",
   "description": "WebSocket response handling middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,10 +62,10 @@
   "homepage": "https://middy.js.org",
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "3.186.0",
-    "@middy/util": "3.5.0"
+    "@middy/util": "3.6.1"
   },
   "devDependencies": {
-    "@middy/core": "3.5.0",
+    "@middy/core": "3.6.1",
     "@types/aws-lambda": "^8.10.97",
     "aws-xray-sdk": "^3.3.3"
   },

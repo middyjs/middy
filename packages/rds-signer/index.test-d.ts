@@ -12,7 +12,10 @@ expectType<middy.MiddlewareObj>(middleware)
 middleware = rdsSigner({
   AwsClient: Signer,
   awsClientOptions: {
-    secretAccessKey: 'abc'
+    credentials: {
+      secretAccessKey: 'secret',
+      accessKeyId: 'key'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,

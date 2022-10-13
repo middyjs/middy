@@ -11,7 +11,11 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm())
 const options = {
   AwsClient: SSMClient,
   awsClientOptions: {
-    secretAccessKey: 'abc'
+    credentials: {
+      secretAccessKey: 'secret',
+      sessionToken: 'token',
+      accessKeyId: 'key'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,

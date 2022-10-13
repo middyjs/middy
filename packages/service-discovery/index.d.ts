@@ -3,14 +3,15 @@ import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import {
   ServiceDiscoveryClient,
-  HttpInstanceSummaryList
+  ServiceDiscoveryClientConfig,
+  HttpInstanceSummary
 } from '@aws-sdk/client-servicediscovery'
 
 interface Options<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
   extends Pick<
   MiddyOptions<
   AwsServiceDiscoveryClient,
-  ServiceDiscoveryClient.Types.ClientConfiguration
+  ServiceDiscoveryClientConfig
   >,
   | 'AwsClient'
   | 'awsClientOptions'
@@ -25,7 +26,7 @@ interface Options<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
 export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
 }
-  ? LambdaContext & Record<keyof TOptions['fetchData'], HttpInstanceSummaryList>
+  ? LambdaContext & Record<keyof TOptions['fetchData'], HttpInstanceSummary>
   : LambdaContext
 
 declare function serviceDiscovery<TOptions extends Options | undefined> (

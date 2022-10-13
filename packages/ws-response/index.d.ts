@@ -1,4 +1,4 @@
-import { ApiGatewayManagementApiClient } from '@aws-sdk/client-apigatewaymanagementapi'
+import { ApiGatewayManagementApiClient, ApiGatewayManagementApiClientConfig } from '@aws-sdk/client-apigatewaymanagementapi'
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 
@@ -7,7 +7,7 @@ interface Options<
 > extends Pick<
   MiddyOptions<
   AwsApiGatewayManagementApiClient,
-  ApiGatewayManagementApiClient.Types.ClientConfiguration
+  ApiGatewayManagementApiClientConfig
   >,
   | 'AwsClient'
   | 'awsClientOptions'
