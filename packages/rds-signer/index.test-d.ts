@@ -13,13 +13,13 @@ middleware = rdsSigner({
   AwsClient: new Signer({
     username: 'root',
     hostname: 'localhost',
-    port: 3306,
+    port: 3306
   }),
   awsClientOptions: {
     credentials: {
       accessKeyId: 'accessKeyId',
-      secretAccessKey: 'secretAccessKey',
-    },
+      secretAccessKey: 'secretAccessKey'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,

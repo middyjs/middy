@@ -85,7 +85,7 @@ Error
 }
 
 const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
-  AwsClient: new SSMClient({}),
+  AwsClient: new SSMClient({})
 })
 expectType<SSMClient>(prefetchClient)
 
