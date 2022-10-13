@@ -63,10 +63,10 @@
   "homepage": "https://middy.js.org",
   "dependencies": {
     "@aws-sdk/client-s3": "3.186.0",
-    "@middy/util": "3.5.0"
+    "@middy/util": "3.6.1"
   },
   "devDependencies": {
-    "@middy/core": "3.5.0",
+    "@middy/core": "3.6.1",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },

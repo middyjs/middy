@@ -62,11 +62,11 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.5.0"
+    "@middy/util": "3.6.1"
   },
   "devDependencies": {
     "@aws-sdk/client-sqs": "3.186.0",
-    "@middy/core": "3.5.0",
+    "@middy/core": "3.6.1",
     "@serverless/event-mocks": "^1.1.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
