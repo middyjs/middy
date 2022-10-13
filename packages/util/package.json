@@ -1,6 +1,6 @@
 {
   "name": "@middy/util",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
   "type": "module",
   "engines": {
@@ -63,11 +63,11 @@
     "@aws-sdk/node-http-handler": "3.186.0"
   },
   "devDependencies": {
-    "@middy/core": "3.6.0",
+    "@aws-sdk/client-ssm": "^3.0.0",
+    "@middy/core": "^3.6.1",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^18.0.0",
-    "aws-xray-sdk": "^3.3.3",
-    "@aws-sdk/client-ssm": "^3.0.0"
+    "aws-xray-sdk": "^3.3.3"
   },
   "homepage": "https://middy.js.org",
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

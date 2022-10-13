@@ -1,6 +1,6 @@
 {
   "name": "@middy/ws-response",
-  "version": "3.5.0",
+  "version": "3.6.1",
   "description": "WebSocket response handling middleware for the middy framework",
   "type": "module",
   "engines": {

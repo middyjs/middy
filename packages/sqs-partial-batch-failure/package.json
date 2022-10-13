@@ -1,6 +1,6 @@
 {
   "name": "@middy/sqs-partial-batch-failure",
-  "version": "3.5.0",
+  "version": "3.6.1",
   "description": "SQS partial batch failure middleware for the middy framework",
   "type": "module",
   "engines": {
