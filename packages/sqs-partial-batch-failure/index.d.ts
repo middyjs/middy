@@ -1,10 +1,10 @@
 import middy from '@middy/core'
-import { SQSClient } from '@aws-sdk/client-sqs'
+import { SQSClient, SQSClientConfig } from '@aws-sdk/client-sqs'
 import { Options as MiddyOptions } from '@middy/util'
 
 interface Options<AwsSQSClient = SQSClient>
   extends Pick<
-  MiddyOptions<AwsSQSClient, SQSClient.Types.ClientConfiguration>,
+  MiddyOptions<AwsSQSClient, SQSClientConfig>,
   | 'AwsClient'
   | 'awsClientOptions'
   | 'awsClientAssumeRole'
