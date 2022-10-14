@@ -16,15 +16,7 @@ npm install --save-dev @aws-sdk/client-sqs
 
 ## Options
 
-- `AwsClient` (object) (default `SQSClient`): SQSClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sqs`.
-- `awsClientOptions` (object) (optional): Options to pass to SQSClient class constructor.
-- `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
-- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
-- `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-
-NOTES:
-
-- Lambda is required to have IAM permission for `sqs:DeleteMessage`
+- `logger` (function) (optional): A function that will be called when a record fails to be processed. Default: `console.error`
 
 ## Sample usage
 
@@ -42,3 +34,7 @@ const lambdaHandler = (event, context) => {
 
 export const handler = middy(lambdaHandler).use(sqsBatch())
 ```
+
+## Important
+
+The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping`. See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html#services-sqs-batchfailurereporting) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
