@@ -118,7 +118,7 @@ export default {
   externals: [
     // NodeJS modules
     'events', // @middy/core
-    'https', // @middy/s3-object-response @middy/util
+    'https', // @middy/s3-object-response
     'stream', // @middy/http-content-encoding @middy/s3-object-response
     'util', // @middy/http-content-encoding
     'zlib', // @middy/http-content-encoding
