@@ -62,10 +62,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@aws-sdk/rds-signer": "3.186.0",
     "@middy/util": "3.6.0"
   },
   "devDependencies": {
+    "@aws-sdk/rds-signer": "^3.186.0",
     "@middy/core": "3.6.0",
     "@types/node": "^18.0.0",
     "aws-xray-sdk": "^3.3.3"

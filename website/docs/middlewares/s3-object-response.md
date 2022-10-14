@@ -12,6 +12,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/s3-object-response
+npm install --save-dev @aws-sdk/client-s3 @aws-sdk/node-http-handler
 ```
 
 ## Options

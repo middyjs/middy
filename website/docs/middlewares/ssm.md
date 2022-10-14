@@ -18,6 +18,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/ssm
+npm install --save-dev @aws-sdk/client-ssm @aws-sdk/node-http-handler
 ```
 
 ## Options
