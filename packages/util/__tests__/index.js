@@ -29,7 +29,7 @@ test('createClient should create AWS Client', async (t) => {
     AwsClient
   })
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
 })
 
 test('createClient should create AWS Client with options', async (t) => {
@@ -40,10 +40,7 @@ test('createClient should create AWS Client with options', async (t) => {
     awsClientOptions: { apiVersion: '2014-11-06' }
   })
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
-    'requestHandler',
-    'apiVersion'
-  ])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['apiVersion'])
   t.is(AwsClient.args[0][0].apiVersion, '2014-11-06')
 })
 
@@ -76,10 +73,7 @@ test('createClient should create AWS Client with role', async (t) => {
     request
   )
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
-    'requestHandler',
-    'credentials'
-  ])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['credentials'])
   t.is(AwsClient.args[0][0].credentials, 'creds object')
 })
 
@@ -99,10 +93,7 @@ test('createClient should create AWS Client with role from promise', async (t) =
     request
   )
   t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [
-    'requestHandler',
-    'credentials'
-  ])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['credentials'])
   t.is(AwsClient.args[0][0].credentials, 'creds object')
 })
 
@@ -117,7 +108,7 @@ test('createClient should create AWS Client with capture', async (t) => {
   })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
 })
 
 test('createClient should create AWS Client without capture', async (t) => {
@@ -130,7 +121,7 @@ test('createClient should create AWS Client without capture', async (t) => {
   })
   t.is(AwsClient.callCount, 1)
   t.is(awsClientCapture.callCount, 0)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['requestHandler'])
+  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
 })
 
 // canPrefetch

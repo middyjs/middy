@@ -10,7 +10,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/service-discovery
-npm install --save-dev @aws-sdk/client-servicediscovery @aws-sdk/node-http-handler
+npm install --save-dev @aws-sdk/client-servicediscovery
 ```
 
 ## Options

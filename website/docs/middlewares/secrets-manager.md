@@ -18,7 +18,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/secrets-manager
-npm install --save-dev @aws-sdk/client-secrets-manager @aws-sdk/node-http-handler
+npm install --save-dev @aws-sdk/client-secrets-manager
 ```
 
 ## Options

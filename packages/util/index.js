@@ -1,22 +1,5 @@
-import { Agent } from 'node:https'
-import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
-
-export const awsClientDefaultOptions = {
-  // useFipsEndpoint: true,
-  // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
-  requestHandler: new NodeHttpHandler({
-    httpsAgent: new Agent({
-      keepAlive: true,
-      secureProtocol: 'TLSv1_2_method'
-    })
-  })
-}
-
 export const createPrefetchClient = (options) => {
-  const awsClientOptions = {
-    ...awsClientDefaultOptions,
-    ...options.awsClientOptions
-  }
+  const { awsClientOptions } = options
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
