@@ -1,16 +1,8 @@
 import middy from '@middy/core'
-import { SQSClient, SQSClientConfig } from '@aws-sdk/client-sqs'
-import { Options as MiddyOptions } from '@middy/util'
 
-interface Options<AwsSQSClient = SQSClient>
-  extends Pick<
-  MiddyOptions<AwsSQSClient, SQSClientConfig>,
-  | 'AwsClient'
-  | 'awsClientOptions'
-  | 'awsClientAssumeRole'
-  | 'awsClientCapture'
-  | 'disablePrefetch'
-  > {}
+interface Options {
+  logger?: (reason: any, record: any) => void
+}
 
 declare function sqsPartialBatchFailure (options?: Options): middy.MiddlewareObj
 
