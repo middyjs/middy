@@ -53,7 +53,7 @@ const httpRouteHandler = (routes) => {
   }
 }
 
-const regexpDynamicWildcards = /\/\{proxy\+\}$/
+const regexpDynamicWildcards = /\/\{(proxy)\+\}$/
 const regexpDynamicParameters = /\/\{([^/]+)\}/g
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
@@ -82,7 +82,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
     routesType[method] = []
   }
   path = path
-    .replace(regexpDynamicWildcards, '/?(.*)')
+    .replace(regexpDynamicWildcards, '/?(?<$1>.*)')
     .replace(regexpDynamicParameters, '/(?<$1>[^/]+)')
   path = new RegExp(`^${path}/?$`) // Adds in optional `/`
   routesType[method].push({ path, handler })

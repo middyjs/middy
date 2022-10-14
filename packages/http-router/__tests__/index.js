@@ -108,7 +108,10 @@ test('It should route to a dynamic route (/) with `{proxy+}`', async (t) => {
     {
       method: 'GET',
       path: '/{proxy+}',
-      handler: () => true
+      handler: () => {
+        t.deepEqual(event.pathParameters, { proxy: 'any' })
+        return true
+      }
     }
   ])
   const response = await handler(event, context)
@@ -124,7 +127,10 @@ test('It should route to a dynamic route (/path) with `{proxy+}`', async (t) => 
     {
       method: 'GET',
       path: '/path/{proxy+}',
-      handler: () => true
+      handler: () => {
+        t.deepEqual(event.pathParameters, { proxy: '' })
+        return true
+      }
     }
   ])
   const response = await handler(event, context)
@@ -140,7 +146,10 @@ test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) 
     {
       method: 'GET',
       path: '/path/{proxy+}',
-      handler: () => true
+      handler: (event) => {
+        t.deepEqual(event.pathParameters, { proxy: 'to' })
+        return true
+      }
     }
   ])
   const response = await handler(event, context)
