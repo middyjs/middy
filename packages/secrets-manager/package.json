@@ -1,6 +1,6 @@
 {
   "name": "@middy/secrets-manager",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "Secrets Manager middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -60,7 +60,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.6.0"
+    "@middy/util": "3.6.1"
   },
   "devDependencies": {
     "@aws-sdk/client-secrets-manager": "^3.186.0",

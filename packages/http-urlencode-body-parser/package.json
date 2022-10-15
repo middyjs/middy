@@ -63,7 +63,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.6.0",
+    "@middy/util": "3.6.1",
     "qs": "6.11.0"
   },
   "devDependencies": {
