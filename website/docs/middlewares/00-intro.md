@@ -11,6 +11,7 @@ Each middleware should do a single task. We try to balance each to be as perform
 
 ## Misc
 
+- [`cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
 - [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`error-logger`](/docs/middlewares/error-logger): Logs errors
 - [`input-output-logger`](/docs/middlewares/input-output-logger): Logs request and response
