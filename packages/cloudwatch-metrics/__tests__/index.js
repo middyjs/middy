@@ -5,17 +5,15 @@ import awsEmbeddedMetrics from 'aws-embedded-metrics'
 import metrics from '../index.js'
 
 const sandbox = sinon.createSandbox()
-const flushStub = sandbox.stub()
-const setNamespaceStub = sandbox.stub()
-const setDimensionsStub = sandbox.stub()
 const metricsLoggerMock = {
-  flush: flushStub,
-  setNamespace: setNamespaceStub,
-  setDimensions: setDimensionsStub
+  flush: sandbox.stub(),
+  setNamespace: sandbox.stub(),
+  setDimensions: sandbox.stub()
 }
-const createMetricsLoggerStub = sinon
-  .stub(awsEmbeddedMetrics, 'createMetricsLogger')
-  .returns(metricsLoggerMock)
+const createMetricsLoggerStub = sandbox.stub().returns(metricsLoggerMock)
+sinon.stub(awsEmbeddedMetrics, 'createMetricsLogger').get(function getterFn () {
+  return createMetricsLoggerStub
+})
 
 const event = {}
 const defaultContext = {
@@ -29,17 +27,15 @@ test.afterEach((t) => {
 test.serial(
   'It should add a MetricLogger instance on context.metrics',
   async (t) => {
-    const handler = middy(() => {})
-
-    const middleware = (request) => {
-      t.true(createMetricsLoggerStub.called)
-      t.deepEqual(request.context, {
+    const handler = middy((event, context) => {
+      t.deepEqual(context, {
         ...defaultContext,
         metrics: metricsLoggerMock
       })
-    }
+      t.true(createMetricsLoggerStub.called)
+    })
 
-    handler.use(metrics()).before(middleware)
+    handler.use(metrics())
 
     const context = { ...defaultContext }
     await handler(event, context)
@@ -52,7 +48,7 @@ test.serial(
     const handler = middy(() => {})
 
     const middleware = () => {
-      t.true(flushStub.calledOnce)
+      t.true(metricsLoggerMock.flush.calledOnce)
     }
 
     handler.use(metrics()).after(middleware)
@@ -68,7 +64,7 @@ test.serial(
     const handler = middy(() => {})
 
     const middleware = () => {
-      t.true(setNamespaceStub.calledWith('myNamespace'))
+      t.true(metricsLoggerMock.setNamespace.calledWith('myNamespace'))
     }
 
     handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
@@ -85,7 +81,7 @@ test.serial(
 
     const middleware = () => {
       t.true(
-        setDimensionsStub.calledWith({
+        metricsLoggerMock.setDimensions.calledWith({
           Runtime: 'NodeJS',
           Platform: 'ECS',
           Agent: 'CloudWatchAgent',

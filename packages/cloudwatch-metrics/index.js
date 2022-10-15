@@ -3,19 +3,18 @@ import awsEmbeddedMetrics from 'aws-embedded-metrics'
 const defaults = {}
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-
+  const { namespace, dimensions } = { ...defaults, ...opts }
   const cloudwatchMetricsBefore = (request) => {
     const metrics = awsEmbeddedMetrics.createMetricsLogger()
 
     // If not set, defaults to aws-embedded-metrics
-    if (options.namespace) {
-      metrics.setNamespace(options.namespace)
+    if (namespace) {
+      metrics.setNamespace(namespace)
     }
 
     // If not set, defaults to ServiceName, ServiceType and LogGroupName
-    if (options.dimensions) {
-      metrics.setDimensions(...options.dimensions)
+    if (dimensions) {
+      metrics.setDimensions(...dimensions)
     }
     Object.assign(request.context, { metrics })
   }
