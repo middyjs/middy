@@ -59,7 +59,7 @@ Transpile Fluent (.ftl) localization file into ajv compatible format. Allows the
 
 ## Sample usage
 
-Example for input validation:
+Example for event validation:
 
 ```javascript
 import middy from '@middy/core'
@@ -100,7 +100,7 @@ handler(event, {}, (err, res) => {
 })
 ```
 
-Example for output validation:
+Example for response validation:
 
 ```javascript
 import middy from '@middy/core'
@@ -197,6 +197,28 @@ import eventSchema from './schema.event.json'
 
 const en = transpileLocale(await readFile('./en.ftl'))
 const fr = transpileLocale(await readFile('./fr.ftl'))
+
+export const handler = middy()
+  .use(
+    validator({
+      eventSchema: transpileSchema(eventSchema),
+      languages: { en, fr }
+    })
+  )
+  .handler((event, context) => {
+    return {}
+  })
+```
+
+## Transpile during cold-start with default messages
+
+```javascript
+import { readFile } from 'node:fs/promises'
+import middy from '@middy/core'
+import validator from '@middy/validator'
+import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
+import { en, fr } from 'ajv-ftl-i18n' // `ajv-i18n` can also be used
+import eventSchema from './schema.event.json'
 
 export const handler = middy()
   .use(

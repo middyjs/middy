@@ -2,6 +2,7 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import validator from '../index.js'
 import { transpileSchema } from '../transpile.js'
+import localize from 'ajv-ftl-i18n'
 
 const event = {}
 const context = {
@@ -282,7 +283,10 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
 
   handler.use(
     validator({
-      eventSchema: transpileSchema(schema)
+      eventSchema: transpileSchema(schema),
+      languages: {
+        en: localize.en
+      }
     })
   )
 
@@ -307,39 +311,42 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
   }
 })
 
-test('It should handle invalid schema as a BadRequest in a different language', async (t) => {
-  const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
-  })
+const cases = [
+  { lang: 'fr', message: 'requiert la propriété foo' },
+  { lang: 'zh', message: '应当有必需属性 foo' },
+  { lang: 'zh-TW', message: '應該有必須屬性 foo' }
+]
 
-  const schema = {
-    type: 'object',
-    required: ['body', 'foo'],
-    properties: {
-      // this will pass validation
-      body: {
-        type: 'string'
-      },
-      // this won't as it won't be in the event
-      foo: {
-        type: 'string'
+for (const c of cases) {
+  test(`It should handle invalid schema as a BadRequest in a different language (${c.lang})`, async (t) => {
+    const handler = middy((event, context) => {
+      return event.body // propagates the body as a response
+    })
+
+    const schema = {
+      type: 'object',
+      required: ['body', 'foo'],
+      properties: {
+        // this will pass validation
+        body: {
+          type: 'string'
+        },
+        // this won't as it won't be in the event
+        foo: {
+          type: 'string'
+        }
       }
     }
-  }
 
-  handler.use(
-    validator({
-      eventSchema: transpileSchema(schema)
-    })
-  )
+    handler.use(
+      validator({
+        eventSchema: transpileSchema(schema),
+        languages: {
+          [c.lang]: localize[c.lang]
+        }
+      })
+    )
 
-  const cases = [
-    { lang: 'fr', message: 'requiert la propriété foo' },
-    { lang: 'zh', message: '应当有必需属性 foo' },
-    { lang: 'zh-TW', message: '應該有必須屬性 foo' }
-  ]
-
-  for (const c of cases) {
     // invokes the handler, note that property foo is missing
     const event = {
       preferredLanguage: c.lang,
@@ -360,8 +367,8 @@ test('It should handle invalid schema as a BadRequest in a different language', 
         }
       ])
     }
-  }
-})
+  })
+}
 
 test('It should handle invalid schema as a BadRequest in a different language (with normalization)', async (t) => {
   const handler = middy((event, context) => {
@@ -385,7 +392,10 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   handler.use(
     validator({
-      eventSchema: transpileSchema(schema)
+      eventSchema: transpileSchema(schema),
+      languages: {
+        'pt-BR': localize['pt-BR']
+      }
     })
   )
 
@@ -433,8 +443,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
 
   handler.use(
     validator({
-      eventSchema: transpileSchema(schema),
-      i18nEnabled: false
+      eventSchema: transpileSchema(schema)
     })
   )
 

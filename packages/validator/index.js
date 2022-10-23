@@ -1,11 +1,9 @@
 import { createError } from '@middy/util'
-import localize from 'ajv-ftl-i18n'
 
 const defaults = {
   eventSchema: undefined,
   contextSchema: undefined,
   responseSchema: undefined,
-  i18nEnabled: true,
   defaultLanguage: 'en',
   languages: {}
 }
@@ -15,7 +13,6 @@ const validatorMiddleware = (opts = {}) => {
     eventSchema,
     contextSchema,
     responseSchema,
-    i18nEnabled,
     defaultLanguage,
     languages
   } = { ...defaults, ...opts }
@@ -25,14 +22,10 @@ const validatorMiddleware = (opts = {}) => {
       const validEvent = await eventSchema(request.event)
 
       if (!validEvent) {
-        if (i18nEnabled) {
-          const language = chooseLanguage(request.event, defaultLanguage)
-          if (languages[language]) {
-            languages[language](eventSchema.errors)
-          } else {
-            localize[language](eventSchema.errors)
-          }
-        }
+        const localize =
+          languages[request.event.preferredLanguage] ??
+          languages[defaultLanguage]
+        localize?.(eventSchema.errors)
 
         // Bad Request
         throw createError(400, 'Event object failed validation', {
@@ -68,17 +61,6 @@ const validatorMiddleware = (opts = {}) => {
       eventSchema ?? contextSchema ? validatorMiddlewareBefore : undefined,
     after: responseSchema ? validatorMiddlewareAfter : undefined
   }
-}
-
-const availableLanguages = Object.keys(localize)
-const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {
-  if (preferredLanguage) {
-    if (availableLanguages.includes(preferredLanguage)) {
-      return preferredLanguage
-    }
-  }
-
-  return defaultLanguage
 }
 
 export default validatorMiddleware
