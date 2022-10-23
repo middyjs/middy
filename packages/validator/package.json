@@ -62,7 +62,7 @@
   "homepage": "https://middy.js.org",
   "dependencies": {
     "@middy/util": "4.0.0-alpha.0",
-    "ajv-cmd": "0.1.9"
+    "ajv-cmd": "0.1.10"
   },
   "devDependencies": {
     "@middy/core": "4.0.0-alpha.0",
