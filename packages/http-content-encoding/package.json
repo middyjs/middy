@@ -4,7 +4,7 @@
   "description": "Http content encoding middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=12"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -65,8 +65,6 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@datastream/compress": "0.0.8",
-    "@datastream/core": "0.0.8",
     "@middy/util": "4.0.0-alpha.3"
   },
   "devDependencies": {

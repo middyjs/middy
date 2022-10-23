@@ -1,13 +1,10 @@
+import { Readable } from 'node:stream'
+
 import {
-  pipejoin,
-  createReadableStream,
-  streamToString
-} from '@datastream/core'
-import {
-  brotliCompressStream,
-  gzipCompressStream,
-  deflateCompressStream
-} from '@datastream/compress'
+  createBrotliCompress as brotliCompressStream,
+  createGzip as gzipCompressStream,
+  createDeflate as deflateCompressStream
+} from 'node:zlib'
 
 import { normalizeHttpResponse } from '@middy/util'
 
@@ -66,11 +63,12 @@ const httpContentEncodingMiddleware = (opts) => {
       break
     }
 
-    const stream = pipejoin([
-      createReadableStream(response.body),
-      contentEncodingStream
-    ])
-    const body = await streamToString(stream)
+    const stream = Readable.from(response.body).pipe(contentEncodingStream)
+
+    let body = ''
+    for await (const chunk of stream) {
+      body += chunk
+    }
 
     // Only apply encoding if it's smaller
     if (body.length < response.body.length) {
