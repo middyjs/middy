@@ -1,6 +1,6 @@
 {
   "name": "middy-monorepo",
-  "version": "3.6.1",
+  "version": "3.6.2",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "type": "module",
   "engines": {
@@ -58,7 +58,7 @@
     "@commitlint/config-conventional": "^17.0.0",
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.135",
-    "ava": "^4.0.0",
+    "ava": "^5.0.0",
     "aws-sdk-client-mock": "2.0.0",
     "benchmark": "^2.1.4",
     "c8": "^7.0.0",
