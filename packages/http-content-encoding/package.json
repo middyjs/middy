@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-encoding",
-  "version": "4.0.0-alpha.0",
+  "version": "4.0.0-alpha.1",
   "description": "Http content encoding middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -67,10 +67,10 @@
   "dependencies": {
     "@datastream/compress": "0.0.8",
     "@datastream/core": "0.0.8",
-    "@middy/util": "4.0.0-alpha.0"
+    "@middy/util": "4.0.0-alpha.1"
   },
   "devDependencies": {
-    "@middy/core": "4.0.0-alpha.0"
+    "@middy/core": "4.0.0-alpha.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
