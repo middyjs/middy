@@ -63,7 +63,8 @@ Example for input validation:
 
 ```javascript
 import middy from '@middy/core'
-import validator, { transpileSchema } from '@middy/validator'
+import validator from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
 
 const handler = middy((event, context) => {
   return {}
@@ -103,7 +104,8 @@ Example for output validation:
 
 ```javascript
 import middy from '@middy/core'
-import validator, { transpileSchema } from '@middy/validator'
+import validator from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
 
 const handler = middy((event, context) => {
   return {}
@@ -189,7 +191,8 @@ export const handler = middy()
 ```javascript
 import { readFile } from 'node:fs/promises'
 import middy from '@middy/core'
-import validator, { transpileSchema, transpileLocale } from '@middy/validator'
+import validator from '@middy/validator'
+import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
 import eventSchema from './schema.event.json'
 
 const en = transpileLocale(await readFile('./en.ftl'))

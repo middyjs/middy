@@ -22,11 +22,22 @@
         "types": "./index.d.ts",
         "default": "./index.cjs"
       }
+    },
+    "./transpile": {
+      "import": {
+        "types": "./transpile.d.ts",
+        "default": "./transpile.js"
+      },
+      "require": {
+        "types": "./transpile.d.ts",
+        "default": "./transpile.cjs"
+      }
     }
   },
   "types": "index.d.ts",
   "files": [
     "index.js",
+    "transpile.js",
     "index.cjs",
     "index.d.ts"
   ],

@@ -1,5 +1,4 @@
 import { createError } from '@middy/util'
-import { compile, ftl } from 'ajv-cmd'
 import localize from 'ajv-ftl-i18n'
 
 const defaults = {
@@ -70,23 +69,6 @@ const validatorMiddleware = (opts = {}) => {
     after: responseSchema ? validatorMiddlewareAfter : undefined
   }
 }
-
-const ajvDefaults = {
-  strict: true,
-  coerceTypes: 'array', // important for query string params
-  allErrors: true,
-  useDefaults: 'empty',
-  messages: true // needs to be true to allow errorMessage to work
-}
-
-// This is pulled out due to it's performance cost (50-100ms on cold start)
-// Precompile your schema during a build step is recommended.
-export const transpileSchema = (schema, ajvOptions) => {
-  const options = { ...ajvDefaults, ...ajvOptions }
-  return compile(schema, options)
-}
-
-export const transpileLocale = ftl
 
 const availableLanguages = Object.keys(localize)
 const chooseLanguage = ({ preferredLanguage }, defaultLanguage) => {

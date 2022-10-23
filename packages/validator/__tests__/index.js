@@ -1,6 +1,7 @@
 import test from 'ava'
 import middy from '../../core/index.js'
-import validator, { transpileSchema } from '../index.js'
+import validator from '../index.js'
+import { transpileSchema } from '../transpile.js'
 
 const event = {}
 const context = {
