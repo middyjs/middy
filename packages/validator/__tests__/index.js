@@ -497,14 +497,11 @@ test('It should make requests with invalid context fails with an Internal Server
     })
     .use(validator({ contextSchema: transpileSchema(contextSchema) }))
 
-  let response
-
   try {
-    response = await handler(event, context)
+    await handler(event, context)
   } catch (e) {
     t.not(e, null)
     t.is(e.message, 'Context object failed validation')
-    t.not(response, null) // it doesn't destroy the response so it gets logged
   }
 })
 
@@ -558,14 +555,11 @@ test('It should make requests with invalid responses fail with an Internal Serve
 
   handler.use(validator({ responseSchema: transpileSchema(schema) }))
 
-  let response
-
   try {
-    response = await handler(event, context)
+    await handler(event, context)
   } catch (e) {
     t.not(e, null)
     t.is(e.message, 'Response object failed validation')
-    t.not(response, null) // it doesn't destroy the response so it gets logged
   }
 })
 
