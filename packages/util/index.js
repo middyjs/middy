@@ -100,7 +100,6 @@ export const sanitizeKey = (key) => {
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (options, fetch = () => undefined, request) => {
   const { cacheExpiry, cacheKey } = options
-  if (cacheKey === '__proto__') throw new Error('Invalid cacheKey')
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
     const unexpired =
@@ -108,10 +107,10 @@ export const processCache = (options, fetch = () => undefined, request) => {
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
-      cache[cacheKey] = {
+      cache[cacheKey] = Object.create({
         value: { ...cached.value, ...value },
         expiry: cached.expiry
-      }
+      })
       return cache[cacheKey]
     }
     if (unexpired) {

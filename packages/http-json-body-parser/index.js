@@ -1,6 +1,6 @@
 import { createError } from '@middy/util'
 
-const mimePattern = /^application\/(.+\+|)json(|;.*)$/
+const mimePattern = /^application\/(.+\+|)json(|;.+)$/
 
 const defaults = {
   reviver: undefined
