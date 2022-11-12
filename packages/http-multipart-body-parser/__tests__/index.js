@@ -292,22 +292,3 @@ test('It should parse a field with multiple files successfully', async (t) => {
   t.true(Object.keys(response).includes('files'))
   t.is(response.files.length, 3)
 })
-
-test('It should parse an array from a multipart/form-data request en dash in binary when charset is passed', async (t) => {
-  const handler = middy((event, context) => {
-    return event.body // propagates the body as a response
-  })
-
-  handler.use(httpMultipartBodyParser({ charset: 'binary' }))
-
-  const event = {
-    headers: {
-      'Content-Type': 'multipart/form-data; boundary=TEST'
-    },
-    body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar–"}\r\n--TEST--',
-    isBase64Encoded: false
-  }
-  const response = await handler(event, defaultContext)
-
-  t.deepEqual(response, { PartName: '{"foo":"bar–"}' })
-})
