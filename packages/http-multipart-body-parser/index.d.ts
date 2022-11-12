@@ -18,7 +18,7 @@ interface Options {
       parts?: number
       headerPairs?: number
     }
-  },
+  }
   charset?: string
 }
 
