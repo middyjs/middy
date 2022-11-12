@@ -6,7 +6,8 @@ const fieldnamePattern = /(.+)\[(.*)]$/
 
 const defaults = {
   // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
-  busboy: {}
+  busboy: {},
+  charset: 'utf8'
 }
 
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
@@ -19,7 +20,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
     if (!mimePattern.test(contentType)) return
 
-    return parseMultipartData(request.event, options.busboy)
+    return parseMultipartData(request.event, options)
       .then((multipartData) => {
         // request.event.rawBody = body
         request.event.body = multipartData
@@ -41,9 +42,10 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 const parseMultipartData = (event, options) => {
   const multipartData = {}
+  const charset = event.isBase64Encoded ? 'base64' : options.charset
   // header must be lowercase (content-type)
   const busboy = BusBoy({
-    ...options,
+    ...options.busboy,
     headers: {
       'content-type':
         event.headers['Content-Type'] ?? event.headers['content-type']
@@ -90,7 +92,7 @@ const parseMultipartData = (event, options) => {
       .on('close', () => resolve(multipartData))
       .on('error', (e) => reject(e))
 
-    busboy.write(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
+    busboy.write(event.body, charset)
     busboy.end()
   })
 }

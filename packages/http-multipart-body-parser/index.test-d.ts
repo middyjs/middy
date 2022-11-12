@@ -23,6 +23,7 @@ middleware = multipartBodyParser({
       parts: 100,
       headerPairs: 100
     }
-  }
+  },
+  charset: 'utf-8'
 })
 expectType<middy.MiddlewareObj<Event>>(middleware)
