@@ -219,7 +219,7 @@ test('It should parse an array from a multipart/form-data request (base64)', asy
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler.use(httpMultipartBodyParser({ charset: 'base64' }))
 
   const event = {
     headers: {
@@ -240,7 +240,7 @@ test('It should parse an array from a multipart/form-data request with ASCII das
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler.use(httpMultipartBodyParser({ charset: 'utf8' }))
 
   const event = {
     headers: {
@@ -252,6 +252,33 @@ test('It should parse an array from a multipart/form-data request with ASCII das
   const response = await handler(event, defaultContext)
 
   t.deepEqual(response, { PartName: '{"foo":"bar-"}' })
+})
+
+test('It should parse an array from a multipart/form-data request (binary)', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(httpMultipartBodyParser({ charset: 'binary' }))
+
+  const event = {
+    headers: {
+      'content-type': 'multipart/form-data; boundary=TEST'
+    },
+    body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="file.bat"\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\r\n--TEST--',
+    isBase64Encoded: false
+  }
+  const response = await handler(event)
+
+  t.deepEqual(response, {
+    file: {
+      content: Buffer.from(''),
+      encoding: 'binary',
+      filename: 'file.bat',
+      mimetype: 'application/octet-stream',
+      truncated: false
+    }
+  })
 })
 
 test('It should parse an array from a multipart/form-data request en dash (utf8)', async (t) => {
