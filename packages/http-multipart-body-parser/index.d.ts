@@ -19,6 +19,7 @@ interface Options {
       headerPairs?: number
     }
   }
+  charset?: string
 }
 
 export type Event = Omit<APIGatewayEvent, 'body'> & {
