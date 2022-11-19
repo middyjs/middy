@@ -83,12 +83,16 @@ test('It should not process the body if malformed body is passed', async (t) => 
   // invokes the handler
   const event = {
     body: JSON.stringify({ foo: 'bar' }),
-    headers: {}
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
   }
 
-  const body = await handler(event, defaultContext)
-
-  t.is(body, '{"foo":"bar"}')
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 422)
+  }
 })
 
 test('It should handle base64 body', async (t) => {

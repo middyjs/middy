@@ -3,11 +3,10 @@ import { URL } from 'url'
 
 import { canPrefetch, createPrefetchClient, createClient } from '@middy/util'
 
-import S3 from 'aws-sdk/clients/s3.js' // v2
-// import { S3 } from '@aws-sdk/client-s3' // v3
+import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
 
 const defaults = {
-  AwsClient: S3,
+  AwsClient: S3Client,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -63,12 +62,12 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     request.response.Body ??= request.response.body
     delete request.response.body
 
-    await client
-      .writeGetObjectResponse({
+    await client.send(
+      new WriteGetObjectResponseCommand({
         ...request.response,
         ...request.internal.s3ObjectResponse
       })
-      .promise()
+    )
 
     return { statusCode: 200 }
   }

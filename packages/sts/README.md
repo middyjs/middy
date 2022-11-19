@@ -46,11 +46,10 @@ To install this middleware you can use NPM:
 npm install --save @middy/sts
 ```
 
-
 ## Options
 
-- `AwsClient` (object) (default `AWS.STS`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.STS class constructor.
+- `AwsClient` (object) (default `STSClient`): STSClient class constructor (e.g. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sts`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to STSClient class constructor.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
@@ -59,6 +58,7 @@ npm install --save @middy/sts
 - `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `sts:AssumeRole`
 - `setToContext` are included for legacy support and should be avoided for performance and security reasons. See main documentation for best practices.
 
@@ -73,32 +73,30 @@ const handler = middy((event, context) => {
     statusCode: 200,
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
-  };
+  }
 
   return response
 })
 
-handler
-  .use(sts({
+handler.use(
+  sts({
     fetchData: {
       assumeRole: {
         RoleArn: '...',
-        RoleSessionName:'' // optional
+        RoleSessionName: '' // optional
       }
     }
-  }))
+  })
+)
 ```
-
 
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
 
-
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

@@ -1,6 +1,6 @@
 import { createError } from '@middy/util'
 
-const mimePattern = /^application\/(.+\+)?json(;.*)?$/
+const mimePattern = /^application\/(.+\+)?json($|;.+)/
 
 const defaults = {
   reviver: undefined
@@ -20,14 +20,12 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
         ? Buffer.from(body, 'base64').toString()
         : body
 
-      request.event.rawBody = body // TODO deprecate in v4
       request.event.body = JSON.parse(data, reviver)
     } catch (cause) {
       // UnprocessableEntity
-      // throw createError(422, 'Invalid or malformed JSON was provided', { cause })
-      const error = createError(422, 'Invalid or malformed JSON was provided')
-      error.cause = cause
-      throw error
+      throw createError(422, 'Invalid or malformed JSON was provided', {
+        cause
+      })
     }
   }
 

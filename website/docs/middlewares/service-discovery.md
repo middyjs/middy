@@ -10,13 +10,13 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/service-discovery
+npm install --save-dev @aws-sdk/client-servicediscovery
 ```
-
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.STS`): AWS.STS class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.STS class constructor.
+- `AwsClient` (object) (default `ServiceDiscoveryClient`): ServiceDiscoveryClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-servicediscovery`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to ServiceDiscoveryClient class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
@@ -26,6 +26,7 @@ npm install --save @middy/service-discovery
 - `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `servicediscovery:DiscoverInstances`
 
 ## Sample usage
@@ -39,21 +40,23 @@ const handler = middy((event, context) => {
     statusCode: 200,
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
-  };
+  }
 
   return response
 })
 
-handler
-  .use(serviceDiscovery({
+handler.use(
+  serviceDiscovery({
     fetchData: {
       instances: {
         NamespaceName: '...',
-        ServiceName:'...'
+        ServiceName: '...'
       }
     }
-  }))
+  })
+)
 ```
 
 ## Bundling
+
 To exclude `aws-sdk` add `aws-sdk/clients/servicediscovery.js` to the exclude list.

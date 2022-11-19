@@ -1,11 +1,11 @@
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import SSM from 'aws-sdk/clients/ssm'
+import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm'
 import { JsonValue } from 'type-fest'
 
-interface Options<S = SSM>
-  extends MiddyOptions<S, SSM.Types.ClientConfiguration> {}
+interface Options<AwsSSMClient = SSMClient>
+  extends MiddyOptions<AwsSSMClient, SSMClientConfig> {}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ExtractSingles<T> = T extends `/${infer _}` ? never : T

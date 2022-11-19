@@ -7,11 +7,10 @@ import {
   processCache,
   modifyCache
 } from '@middy/util'
-import STS from 'aws-sdk/clients/sts.js' // v2
-// import { STS } from '@aws-sdk/client-sts' // v3
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts'
 
 const defaults = {
-  AwsClient: STS,
+  AwsClient: STSClient,
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
   awsClientCapture: undefined,
@@ -35,8 +34,7 @@ const stsMiddleware = (opts = {}) => {
       assumeRoleOptions.RoleSessionName ??=
         'middy-sts-session-' + Math.ceil(Math.random() * 99999)
       values[internalKey] = client
-        .assumeRole(assumeRoleOptions)
-        .promise() // Required for aws-sdk v2
+        .send(new AssumeRoleCommand(assumeRoleOptions))
         .then((resp) => ({
           accessKeyId: resp.Credentials.AccessKeyId,
           secretAccessKey: resp.Credentials.SecretAccessKey,

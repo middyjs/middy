@@ -2,9 +2,8 @@ import Benchmark from 'benchmark'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-import sinon from 'sinon'
-import STS from 'aws-sdk/clients/sts.js' // v2
-// import { STS } from '@aws-sdk/client-sts' // v3
+import { mockClient } from 'aws-sdk-client-mock'
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts'
 
 const suite = new Benchmark.Suite('@middy/rds-signer')
 
@@ -12,12 +11,9 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  const sandbox = sinon.createSandbox()
-  const mock = sandbox.stub()
-  STS.prototype.assumeRole = mock
-  mock
-    .onCall()
-    .yields(null, {
+  mockClient(STSClient)
+    .on(AssumeRoleCommand)
+    .resolves({
       Credentials: {
         AccessKeyId: 'accessKeyId',
         SecretAccessKey: 'secretAccessKey',
@@ -28,7 +24,7 @@ const setupHandler = (options = {}) => {
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: STS
+      AwsClient: STSClient
     })
   )
 }

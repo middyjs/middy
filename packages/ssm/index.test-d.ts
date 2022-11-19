@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import SSM from 'aws-sdk/clients/ssm'
+import { SSMClient } from '@aws-sdk/client-ssm'
 import { captureAWSClient } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import ssm, { Context } from '.'
@@ -9,9 +9,13 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm())
 
 // use with all options
 const options = {
-  AwsClient: SSM,
+  AwsClient: SSMClient,
   awsClientOptions: {
-    secretAccessKey: 'abc'
+    credentials: {
+      secretAccessKey: 'secret',
+      sessionToken: 'token',
+      accessKeyId: 'key'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,

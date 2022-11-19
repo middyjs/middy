@@ -3,8 +3,7 @@ import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import sinon from 'sinon'
-import RDS from 'aws-sdk/clients/rds.js' // v2
-// import {RDS:{Signer}} from '@aws-sdk/client-rds' // v3
+import { Signer } from '@aws-sdk/rds-signer'
 
 const suite = new Benchmark.Suite('@middy/rds-signer')
 
@@ -14,7 +13,7 @@ const context = {
 const setupHandler = (options = {}) => {
   const sandbox = sinon.createSandbox()
   const mock = sandbox.stub()
-  RDS.Signer.prototype.getAuthToken = mock
+  Signer.prototype.getAuthToken = mock
   mock
     .onCall()
     .yields(null, 'https://rds.amazonaws.com?X-Amz-Security-Token=token')
@@ -22,7 +21,7 @@ const setupHandler = (options = {}) => {
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: RDS.Signer
+      AwsClient: Signer
     })
   )
 }

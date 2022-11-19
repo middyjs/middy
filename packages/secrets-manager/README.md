@@ -56,8 +56,8 @@ npm install --save @middy/secrets-manager
 
 ## Options
 
-- `AwsClient` (object) (default `AWS.SecretsManager`): AWS.SecretsManager class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.SecretsManager class constructor.
+- `AwsClient` (object) (default `SecretsManagerClient`): SecretsManagerClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-secrets-manager`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to SecretsManagerClient class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
@@ -67,6 +67,7 @@ npm install --save @middy/secrets-manager
 - `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
 
 ## Sample usage
@@ -79,21 +80,23 @@ const handler = middy((event, context) => {
   return {}
 })
 
-handler.use(secretsManager({
-  fetchData: {
-    apiToken: 'dev/api_token'
-  },
-  awsClientOptions: {
-    region: 'us-east-1',
-  },
-  setToContext: true,
-}))
+handler.use(
+  secretsManager({
+    fetchData: {
+      apiToken: 'dev/api_token'
+    },
+    awsClientOptions: {
+      region: 'us-east-1'
+    },
+    setToContext: true
+  })
+)
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/api_token has two keys, 'Username' and 'Password'
-  t.is(context.apiToken.Username,'username')
-  t.is(context.apiToken.Password,'password')
+  t.is(context.apiToken.Username, 'username')
+  t.is(context.apiToken.Password, 'password')
 })
 ```
 

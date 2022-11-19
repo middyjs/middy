@@ -1,10 +1,10 @@
 {
   "name": "@middy/service-discovery",
-  "version": "3.6.2",
+  "version": "4.0.0-alpha.4",
   "description": "Service Discovery (Cloud Map) instances middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -61,12 +61,12 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.6.2"
+    "@middy/util": "4.0.0-alpha.4"
   },
   "devDependencies": {
-    "@middy/core": "3.6.2",
+    "@aws-sdk/client-servicediscovery": "^3.186.0",
+    "@middy/core": "4.0.0-alpha.4",
     "@types/aws-lambda": "^8.10.101",
-    "aws-sdk": "^2.939.0",
     "aws-xray-sdk": "^3.3.3"
   },
   "gitHead": "b84840ec8afd289f6decfd0d645be4899051792d"

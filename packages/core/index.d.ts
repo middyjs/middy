@@ -21,7 +21,7 @@ interface PluginObject {
   requestEnd?: PluginHookPromise
 }
 
-interface Request<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> {
+export interface Request<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> {
   event: TEvent
   context: TContext
   response: TResult | null

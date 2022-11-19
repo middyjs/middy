@@ -1,10 +1,10 @@
 {
   "name": "@middy/validator",
-  "version": "3.6.2",
+  "version": "4.0.0-alpha.4",
   "description": "Validator middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -22,13 +22,25 @@
         "types": "./index.d.ts",
         "default": "./index.cjs"
       }
+    },
+    "./transpile": {
+      "import": {
+        "types": "./transpile.d.ts",
+        "default": "./transpile.js"
+      },
+      "require": {
+        "types": "./transpile.d.ts",
+        "default": "./transpile.cjs"
+      }
     }
   },
   "types": "index.d.ts",
   "files": [
     "index.js",
     "index.cjs",
-    "index.d.ts"
+    "index.d.ts",
+    "transpile.js",
+    "transpile.cjs"
   ],
   "scripts": {
     "test": "npm run test:unit",
@@ -61,16 +73,11 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "3.6.2",
-    "ajv": "8.11.0",
-    "ajv-formats": "2.1.1",
-    "ajv-formats-draft2019": "1.6.1",
-    "ajv-i18n": "4.2.0",
-    "ajv-keywords": "5.1.0",
-    "fast-uri": "2.1.0"
+    "@middy/util": "4.0.0-alpha.4",
+    "ajv-cmd": "0.1.10"
   },
   "devDependencies": {
-    "@middy/core": "3.6.2",
+    "@middy/core": "4.0.0-alpha.4",
     "@types/http-errors": "^1.8.1",
     "ajv-bsontype": "^1.0.7"
   },

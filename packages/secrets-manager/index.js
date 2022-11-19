@@ -8,11 +8,13 @@ import {
   modifyCache,
   jsonSafeParse
 } from '@middy/util'
-import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
-// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand
+} from '@aws-sdk/client-secrets-manager'
 
 const defaults = {
-  AwsClient: SecretsManager,
+  AwsClient: SecretsManagerClient,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -36,8 +38,11 @@ const secretsManagerMiddleware = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
       values[internalKey] = client
-        .getSecretValue({ SecretId: options.fetchData[internalKey] })
-        .promise() // Required for aws-sdk v2
+        .send(
+          new GetSecretValueCommand({
+            SecretId: options.fetchData[internalKey]
+          })
+        )
         .then((resp) => jsonSafeParse(resp.SecretString))
         .catch((e) => {
           const value = getCache(options.cacheKey).value ?? {}

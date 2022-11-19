@@ -9,12 +9,15 @@ import {
   getInternal,
   sanitizeKey
 } from '@middy/util'
-import SSM from 'aws-sdk/clients/ssm.js' // v2
-// import { SSM } from '@aws-sdk/client-ssm' // v3
+import {
+  SSMClient,
+  GetParametersCommand,
+  GetParametersByPathCommand
+} from '@aws-sdk/client-ssm'
 
 const awsRequestLimit = 10
 const defaults = {
-  AwsClient: SSM, // Allow for XRay
+  AwsClient: SSMClient, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -58,8 +61,12 @@ const ssmMiddleware = (opts = {}) => {
       }
 
       batchReq = client
-        .getParameters({ Names: batchFetchKeys, WithDecryption: true })
-        .promise() // Required for aws-sdk v2
+        .send(
+          new GetParametersCommand({
+            Names: batchFetchKeys,
+            WithDecryption: true
+          })
+        )
         .then((resp) => {
           // Don't sanitize key, mapped to set value in options
           return Object.assign(
@@ -117,13 +124,14 @@ const ssmMiddleware = (opts = {}) => {
 
   const fetchPath = (path, nextToken, values = {}) => {
     return client
-      .getParametersByPath({
-        Path: path,
-        NextToken: nextToken,
-        Recursive: true,
-        WithDecryption: true
-      })
-      .promise() // Required for aws-sdk v2
+      .send(
+        new GetParametersByPathCommand({
+          Path: path,
+          NextToken: nextToken,
+          Recursive: true,
+          WithDecryption: true
+        })
+      )
       .then((resp) => {
         Object.assign(
           values,

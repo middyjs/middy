@@ -1,9 +1,12 @@
 import test from 'ava'
 import sinon from 'sinon'
+import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
-import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
-// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand
+} from '@aws-sdk/client-secrets-manager'
 import secretsManager from '../index.js'
 
 let sandbox
@@ -16,44 +19,15 @@ test.afterEach((t) => {
   clearCache()
 })
 
-const mockService = (client, responseOne, responseTwo) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) {
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
-  }
-  client.prototype.getSecretValue = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
-  // mock.onFirstCall().resolves(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
-
-  return mock
-}
-
-const mockServiceError = (client, error) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().returns({ promise: () => Promise.reject(error) })
-  client.prototype.getSecretValue = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
-  // mock.onFirstCall().rejects(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
-
-  return mock
-}
-
 const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
 test.serial('It should set secret to internal storage (token)', async (t) => {
-  mockService(SecretsManager, {
-    SecretString: 'token'
-  })
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolvesOnce({ SecretString: 'token' })
   const handler = middy(() => {})
 
   const middleware = async (request) => {
@@ -64,7 +38,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
   handler
     .use(
       secretsManager({
-        AwsClient: SecretsManager,
+        AwsClient: SecretsManagerClient,
         cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
@@ -77,15 +51,11 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
 })
 
 test.serial('It should set secrets to internal storage (token)', async (t) => {
-  mockService(
-    SecretsManager,
-    {
-      SecretString: 'token1'
-    },
-    {
-      SecretString: 'token2'
-    }
-  )
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key1' })
+    .resolvesOnce({ SecretString: 'token1' })
+    .on(GetSecretValueCommand, { SecretId: 'api_key2' })
+    .resolvesOnce({ SecretString: 'token2' })
 
   const handler = middy(() => {})
 
@@ -98,7 +68,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
   handler
     .use(
       secretsManager({
-        AwsClient: SecretsManager,
+        AwsClient: SecretsManagerClient,
         cacheExpiry: 0,
         fetchData: {
           token1: 'api_key1',
@@ -113,9 +83,9 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
 
 test.serial('It should set secrets to internal storage (json)', async (t) => {
   const credentials = { username: 'admin', password: 'secret' }
-  mockService(SecretsManager, {
-    SecretString: JSON.stringify(credentials)
-  })
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'rds_login' })
+    .resolvesOnce({ SecretString: JSON.stringify(credentials) })
 
   const handler = middy(() => {})
 
@@ -130,7 +100,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
   handler
     .use(
       secretsManager({
-        AwsClient: SecretsManager,
+        AwsClient: SecretsManagerClient,
         cacheExpiry: 0,
         fetchData: {
           credentials: 'rds_login'
@@ -145,9 +115,9 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
 test.serial(
   'It should set SecretsManager secret to internal storage without prefetch',
   async (t) => {
-    mockService(SecretsManager, {
-      SecretString: 'token'
-    })
+    mockClient(SecretsManagerClient)
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolvesOnce({ SecretString: 'token' })
 
     const handler = middy(() => {})
 
@@ -159,7 +129,7 @@ test.serial(
     handler
       .use(
         secretsManager({
-          AwsClient: SecretsManager,
+          AwsClient: SecretsManagerClient,
           cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
@@ -174,9 +144,9 @@ test.serial(
 )
 
 test.serial('It should set SecretsManager secret to context', async (t) => {
-  mockService(SecretsManager, {
-    SecretString: 'token'
-  })
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolvesOnce({ SecretString: 'token' })
 
   const handler = middy(() => {})
 
@@ -187,7 +157,7 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   handler
     .use(
       secretsManager({
-        AwsClient: SecretsManager,
+        AwsClient: SecretsManagerClient,
         cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
@@ -203,9 +173,10 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
-    const stub = mockService(SecretsManager, {
-      SecretString: 'token'
-    })
+    const mockService = mockClient(SecretsManagerClient)
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolvesOnce({ SecretString: 'token' })
+    const sendStub = mockService.send
 
     const handler = middy(() => {})
 
@@ -217,7 +188,7 @@ test.serial(
     handler
       .use(
         secretsManager({
-          AwsClient: SecretsManager,
+          AwsClient: SecretsManagerClient,
           cacheExpiry: -1,
           fetchData: {
             token: 'api_key'
@@ -229,23 +200,17 @@ test.serial(
     await handler(event, context)
     await handler(event, context)
 
-    t.is(stub.callCount, 1)
+    t.is(sendStub.callCount, 1)
   }
 )
 
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
-    const stub = mockService(
-      SecretsManager,
-      {
-        SecretString: 'token'
-      },
-      {
-        SecretString: 'token'
-      }
-    )
-
+    const mockService = mockClient(SecretsManagerClient)
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolves({ SecretString: 'token' })
+    const sendStub = mockService.send
     const handler = middy(() => {})
 
     const middleware = async (request) => {
@@ -256,7 +221,7 @@ test.serial(
     handler
       .use(
         secretsManager({
-          AwsClient: SecretsManager,
+          AwsClient: SecretsManagerClient,
           cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
@@ -268,16 +233,19 @@ test.serial(
     await handler(event, context)
     await handler(event, context)
 
-    t.is(stub.callCount, 2)
+    t.is(sendStub.callCount, 2)
   }
 )
 
 test.serial('It should catch if an error is returned from fetch', async (t) => {
-  const stub = mockServiceError(SecretsManager, new Error('timeout'))
+  const mockService = mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .rejects('timeout')
+  const sendStub = mockService.send
 
   const handler = middy(() => {}).use(
     secretsManager({
-      AwsClient: SecretsManager,
+      AwsClient: SecretsManagerClient,
       cacheExpiry: 0,
       fetchData: {
         token: 'api_key'
@@ -289,7 +257,7 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(stub.callCount, 1)
+    t.is(sendStub.callCount, 1)
     t.is(e.message, 'Failed to resolve internal values')
     t.deepEqual(e.cause, [new Error('timeout')])
   }

@@ -1,24 +1,17 @@
-/*
- * `zstd` disabled due to lack of support in browsers
- * https://github.com/Fyrd/caniuse/issues/4065
- * https://github.com/andrew-aladev/brotli-vs-zstd
- */
+import { Readable } from 'node:stream'
 
-// import {pipeline} from 'stream/promises'
-import stream, { Readable, Writable } from 'stream'
-import eventEmitter from 'events'
-import { promisify } from 'util' // For polyfill
-
-import { createBrotliCompress, createGzip, createDeflate } from 'zlib'
-// import {ZSTDCompress as createZstdCompress} from 'simple-zstd'
+import {
+  createBrotliCompress as brotliCompressStream,
+  createGzip as gzipCompressStream,
+  createDeflate as deflateCompressStream
+} from 'node:zlib'
 
 import { normalizeHttpResponse } from '@middy/util'
 
 const contentEncodingStreams = {
-  br: (opts = {}) => createBrotliCompress(opts),
-  // zstd: (opt = {}) => createZstdCompress(opts),
-  gzip: (opts = {}) => createGzip(opts),
-  deflate: (opts = {}) => createDeflate(opts)
+  br: brotliCompressStream,
+  gzip: gzipCompressStream,
+  deflate: deflateCompressStream
 }
 
 const defaults = {
@@ -28,6 +21,12 @@ const defaults = {
   deflate: undefined,
   overridePreferredEncoding: []
 }
+
+/*
+ * `zstd` disabled due to lack of support in browsers
+ * https://github.com/Fyrd/caniuse/issues/4065
+ * https://github.com/andrew-aladev/brotli-vs-zstd
+ */
 
 const httpContentEncodingMiddleware = (opts) => {
   const options = { ...defaults, ...opts }
@@ -45,12 +44,11 @@ const httpContentEncodingMiddleware = (opts) => {
     if (
       response.isBase64Encoded ||
       !preferredEncoding ||
-      !supportedContentEncodings.includes(preferredEncoding)
+      !supportedContentEncodings.includes(preferredEncoding) ||
+      !response.body
     ) {
       return
     }
-
-    const bodyIsString = typeof response.body === 'string'
 
     let contentEncodingStream = contentEncodingStreams[preferredEncoding](
       options[preferredEncoding]
@@ -65,33 +63,20 @@ const httpContentEncodingMiddleware = (opts) => {
       break
     }
 
-    if (bodyIsString) {
-      const readStream = Readable.from(response.body, { objectMode: false })
+    const stream = Readable.from(response.body).pipe(contentEncodingStream)
 
-      const chunks = []
-      const writeStream = new Writable({
-        write (chunk, encoding, callback) {
-          chunks.push(chunk)
-          callback()
-        }
-      })
+    let body = ''
+    for await (const chunk of stream) {
+      body += chunk
+    }
 
-      await pipeline(readStream, contentEncodingStream, writeStream)
-
-      const body = Buffer.concat(chunks).toString('base64')
-
-      // Only apply encoding if it's smaller
-      if (body.length < response.body.length) {
-        response.headers['Content-Encoding'] = contentEncoding
-        response.body = body
-        response.isBase64Encoded = true
-      }
-    } else if (isReadableStream(response.body)) {
-      // Note: body to not cast to string to allow stream chaining
+    // Only apply encoding if it's smaller
+    if (body.length < response.body.length) {
       response.headers['Content-Encoding'] = contentEncoding
-      response.body = response.body.pipe(contentEncodingStream)
+      response.body = body
       response.isBase64Encoded = true
     }
+
     request.response = response
   }
 
@@ -105,20 +90,5 @@ const httpContentEncodingMiddleware = (opts) => {
     onError: httpContentEncodingMiddlewareOnError
   }
 }
-
-const isReadableStream = (stream) => {
-  return stream instanceof eventEmitter && stream.readable !== false
-}
-
-// START pipeline polyfill
-const polyfillPipelinePromise = () => {
-  if (process.version < 'v15.0.0') {
-    return promisify(stream.pipeline)
-  } else {
-    return stream.promises.pipeline
-  }
-}
-const pipeline = polyfillPipelinePromise()
-// END pipeline polyfill
 
 export default httpContentEncodingMiddleware

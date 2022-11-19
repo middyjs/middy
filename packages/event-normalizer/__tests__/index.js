@@ -212,6 +212,7 @@ test('It should parse DynamoDB event keys/images', async (t) => {
     StreamViewType: 'NEW_AND_OLD_IMAGES'
   })
 })
+
 test('It should parse DynamoDB event with wrapNumbers set', async (t) => {
   const handler = middy((event) => event).use(
     eventNormalizer({ wrapNumbers: true })
@@ -238,6 +239,7 @@ test('It should parse DynamoDB event with wrapNumbers set', async (t) => {
     StreamViewType: 'NEW_AND_OLD_IMAGES'
   })
 })
+
 test('It should catch DynamoDB event with invalid BigInt', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())
 
@@ -256,6 +258,7 @@ test('It should catch DynamoDB event with invalid BigInt', async (t) => {
     )
   }
 })
+
 test('It should catch DynamoDB event with unknown type', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())
 

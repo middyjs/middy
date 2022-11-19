@@ -61,7 +61,7 @@
   const period = `${d.toISOString().substr(0,10).replace(d.getFullYear(), d.getFullYear()-1)}:${d.toISOString().substr(0,10)}`
   const dailyStats = {}
   const weeklyStats = {}
-  const yearlyStats = {}
+  //const yearlyStats = {}
   
   for(const pkg of pkgs.concat(pkgAws)) {
     const pkgColor = pickColor(pkg)

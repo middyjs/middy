@@ -18,13 +18,10 @@ test('It should log errors and propagate the error', async (t) => {
 
   handler.use(errorLogger({ logger }))
 
-  let response
-
   try {
-    response = await handler(defaultEvent, defaultContext)
+    await handler(defaultEvent, defaultContext)
   } catch (e) {
     t.true(logger.calledWith(error))
-    t.is(response, undefined)
     t.deepEqual(e, error)
   }
 })

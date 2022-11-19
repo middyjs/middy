@@ -1,10 +1,12 @@
-import ApiGatewayManagementApi from 'aws-sdk/clients/apigatewaymanagementapi.js' // v2
-// import {ApiGatewayManagementApi} from '@aws-sdk/client-apigatewaymanagementapi' // v3
+import {
+  ApiGatewayManagementApiClient,
+  PostToConnectionCommand
+} from '@aws-sdk/client-apigatewaymanagementapi'
 
 import { canPrefetch, createClient, createPrefetchClient } from '@middy/util'
 
 const defaults = {
-  AwsClient: ApiGatewayManagementApi,
+  AwsClient: ApiGatewayManagementApiClient,
   awsClientOptions: {}, // { endpoint }
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -35,7 +37,7 @@ const wsResponseMiddleware = (opts) => {
       client = await createClient(options, request)
     }
 
-    await client.postToConnection(response).promise()
+    await client.send(new PostToConnectionCommand(response))
 
     request.response.statusCode = 200
   }

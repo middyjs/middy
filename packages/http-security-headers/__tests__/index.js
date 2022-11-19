@@ -198,7 +198,7 @@ test('It should support array responses', async (t) => {
   const response = await handler(event, defaultContext)
 
   t.deepEqual(response.body, [{ firstname: 'john', lastname: 'doe' }])
-  t.is(response.statusCode, undefined)
+  t.is(response.statusCode, 200)
   t.is(response.headers['Referrer-Policy'], 'no-referrer')
   t.is(
     response.headers['Strict-Transport-Security'],

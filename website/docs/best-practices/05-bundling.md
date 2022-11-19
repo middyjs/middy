@@ -27,7 +27,7 @@ node_modules/.bin/tsc
     "preserveConstEnums": true,
     "strictNullChecks": true,
     "allowJs": false,
-    "target": "es6",
+    "target": "es2021",
     "typeRoots": ["node_modules/@types"],
     "resolveJsonModule": true,
     "moduleResolution": "node"
@@ -68,13 +68,13 @@ export default (input) => ({
   plugins,
   external: [
     // AWS SDK
-    'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
-    'aws-sdk/clients/rds.js', // @middy/rds-signer
-    'aws-sdk/clients/s3.js', // @middy/s3-object-response
-    'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
-    'aws-sdk/clients/servicediscovery.js', // @middy/service-discovery
-    'aws-sdk/clients/ssm.js', // @middy/ssm
-    'aws-sdk/clients/sts.js' // @middy/sts
+    '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/client-rds', // @middy/rds-signer
+    '@aws-sdk/client-s3', // @middy/s3-object-response
+    '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager
+    '@aws-sdk/client-servicediscovery', // @middy/service-discovery
+    '@aws-sdk/client-ssm', // @middy/ssm
+    '@aws-sdk/client-sts' // @middy/sts
   ]
 })
 ```
@@ -118,18 +118,18 @@ export default {
   externals: [
     // NodeJS modules
     'events', // @middy/core
-    'https', // @middy/s3-object-response @middy/util
+    'https', // @middy/s3-object-response
     'stream', // @middy/http-content-encoding @middy/s3-object-response
     'util', // @middy/http-content-encoding
     'zlib', // @middy/http-content-encoding
     // AWS SDK
-    'aws-sdk/clients/apigatewaymanagementapi.js', // @middy/ws-response
-    'aws-sdk/clients/rds.js', // @middy/rds-signer
-    'aws-sdk/clients/s3.js', // @middy/s3-object-response
-    'aws-sdk/clients/secretsmanager.js', // @middy/sercrets-manager
-    'aws-sdk/clients/servicediscovery.js', // @middy/service-discovery
-    'aws-sdk/clients/ssm.js', // @middy/ssm
-    'aws-sdk/clients/sts.js' // @middy/sts
+    '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/client-rds', // @middy/rds-signer
+    '@aws-sdk/client-s3', // @middy/s3-object-response
+    '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager
+    '@aws-sdk/client-servicediscovery', // @middy/service-discovery
+    '@aws-sdk/client-ssm', // @middy/ssm
+    '@aws-sdk/client-sts' // @middy/sts
   ]
 }
 ```
@@ -149,7 +149,7 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
       "@babel/preset-env",
       {
         "targets": {
-          "node": "14"
+          "node": "16"
         }
       }
     ]
@@ -176,7 +176,7 @@ node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
     "parser": {
       "syntax": "ecmascript"
     },
-    "target": "es2020"
+    "target": "es2021"
   },
   "module": {
     "type": "commonjs"

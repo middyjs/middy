@@ -1,30 +1,5 @@
-import { Agent } from 'https'
-// import { NodeHttpHandler } from '@aws-sdk/node-http-handler' // aws-sdk v3
-
-export const awsClientDefaultOptions = {
-  // useFipsEndpoint: true,
-  // AWS SDK v3
-  // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/enforcing-tls.html
-  /* requestHandler: new NodeHttpHandler({
-    httpsAgent: new Agent({
-      keepAlive: true,
-      secureProtocol: 'TLSv1_2_method'
-    })
-  }) */
-  // Docs: https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/enforcing-tls.html
-  httpOptions: {
-    agent: new Agent({
-      keepAlive: true,
-      secureProtocol: 'TLSv1_2_method'
-    })
-  }
-}
-
 export const createPrefetchClient = (options) => {
-  const awsClientOptions = {
-    ...awsClientDefaultOptions,
-    ...options.awsClientOptions
-  }
+  const { awsClientOptions } = options
   const client = new options.AwsClient(awsClientOptions)
 
   // AWS XRay
@@ -103,10 +78,7 @@ export const getInternal = async (variables, request) => {
     .filter((res) => res.status === 'rejected')
     .map((res) => res.reason)
   if (errors.length) {
-    // throw new Error('Failed to resolve internal values', { cause: errors })
-    const error = new Error('Failed to resolve internal values')
-    error.cause = errors
-    throw error
+    throw new Error('Failed to resolve internal values', { cause: errors })
   }
   return keys.reduce(
     (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),
@@ -135,10 +107,10 @@ export const processCache = (options, fetch = () => undefined, request) => {
 
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
-      cache[cacheKey] = {
+      cache[cacheKey] = Object.create({
         value: { ...cached.value, ...value },
         expiry: cached.expiry
-      }
+      })
       return cache[cacheKey]
     }
     if (unexpired) {
@@ -211,8 +183,9 @@ export const normalizeHttpResponse = (request) => {
     typeof response?.body === 'undefined' &&
     typeof response?.headers === 'undefined'
   ) {
-    response = { body: response }
+    response = { statusCode: 200, body: response }
   }
+  response.statusCode ??= 500
   response.headers ??= {}
   request.response = response
   return response
@@ -226,10 +199,7 @@ export class HttpError extends Error {
       message = undefined
     }
     message ??= httpErrorCodes[code]
-    super(message) // super(message, options)
-
-    // polyfill
-    this.cause = options.cause
+    super(message, options)
 
     const name = httpErrorCodes[code].replace(createErrorRegexp, '')
     this.name = name.substr(-5) !== 'Error' ? name + 'Error' : name

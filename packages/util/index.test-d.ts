@@ -1,10 +1,14 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
-import SSM from 'aws-sdk/clients/ssm'
+import { SSMClient } from '@aws-sdk/client-ssm'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 import * as util from '.'
 
-const sampleRequest: middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error> = {
+const sampleRequest: middy.Request<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error
+> = {
   event: {
     body: '',
     headers: {},
@@ -52,15 +56,16 @@ const sampleRequest: middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, 
     callbackWaitsForEmptyEventLoop: true,
     functionName: 'myfunction',
     functionVersion: '1.0',
-    invokedFunctionArn: 'arn:aws:lambda:us-west-2:123456789012:function:my-function',
+    invokedFunctionArn:
+      'arn:aws:lambda:us-west-2:123456789012:function:my-function',
     memoryLimitInMB: '17',
     awsRequestId: 'abc22',
     logGroupName: 'my-function-lg',
     logStreamName: 'my-function-ls',
     getRemainingTimeInMillis: () => 22222222,
-    done: () => { },
-    fail: () => { },
-    succeed: () => { }
+    done: () => {},
+    fail: () => {},
+    succeed: () => {}
   },
   response: null,
   error: null,
@@ -79,13 +84,18 @@ const sampleRequest: middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, 
   }
 }
 
-const prefetchClient = util.createPrefetchClient<SSM, {}>({ AwsClient: SSM })
-expectType<SSM>(prefetchClient)
+const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
+  AwsClient: SSMClient
+})
+expectType<SSMClient>(prefetchClient)
 
-const client = util.createClient<SSM, {}>({ AwsClient: SSM }, sampleRequest)
-expectType<Promise<SSM>>(client)
+const client = util.createClient<SSMClient, {}>(
+  { AwsClient: SSMClient },
+  sampleRequest
+)
+expectType<Promise<SSMClient>>(client)
 
-const canPrefetch = util.canPrefetch<SSM, {}>({ AwsClient: SSM })
+const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
 async function testGetInternal (): Promise<any> {
@@ -103,7 +113,11 @@ expectType<Promise<any>>(testGetInternalField())
 const sanitizedKey = util.sanitizeKey('aaaaa')
 expectType<string>(sanitizedKey)
 
-const { value, expiry } = util.processCache<SSM, {}>({}, request => request, sampleRequest)
+const { value, expiry } = util.processCache<SSMClient, {}>(
+  {},
+  (request) => request,
+  sampleRequest
+)
 expectType<any>(value)
 expectType<number>(expiry)
 

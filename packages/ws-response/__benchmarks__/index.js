@@ -2,9 +2,11 @@ import Benchmark from 'benchmark'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-import sinon from 'sinon'
-import ApiGatewayManagementApi from 'aws-sdk/clients/apigatewaymanagementapi.js' // v2
-// import { ApiGatewayManagementApi } from '@aws-sdk/client-apigatewaymanagementapi' // v3
+import { mockClient } from 'aws-sdk-client-mock'
+import {
+  ApiGatewayManagementApiClient,
+  PostToConnectionCommand
+} from '@aws-sdk/client-apigatewaymanagementapi'
 
 const suite = new Benchmark.Suite('@middy/ws-response')
 
@@ -13,10 +15,9 @@ const context = {
 }
 
 const setupHandler = (options = {}) => {
-  const sandbox = sinon.createSandbox()
-  const mock = sandbox.stub()
-  ApiGatewayManagementApi.prototype.postToConnection = mock
-  mock.onCall().yields(null, { statusCode: 200 })
+  mockClient(ApiGatewayManagementApiClient)
+    .on(PostToConnectionCommand)
+    .resolves({ statusCode: 200 })
   const baseHandler = () => {
     return {
       ConnectionId: 'id',
@@ -26,7 +27,7 @@ const setupHandler = (options = {}) => {
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: ApiGatewayManagementApi
+      AwsClient: ApiGatewayManagementApiClient
     })
   )
 }

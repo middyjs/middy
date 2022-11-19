@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import SecretsManager from 'aws-sdk/clients/secretsmanager'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { captureAWSClient } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import rdsSigner, { Context } from '.'
@@ -10,9 +10,13 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
 )
 
 const options = {
-  AwsClient: SecretsManager,
+  AwsClient: SecretsManagerClient,
   awsClientOptions: {
-    secretAccessKey: 'abc'
+    credentials: {
+      secretAccessKey: 'secret',
+      sessionToken: 'token',
+      accessKeyId: 'key'
+    }
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSClient,

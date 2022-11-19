@@ -47,19 +47,23 @@ npm install --save @middy/ws-response
 ```
 
 ## Options
-- `AwsClient` (object) (default `AWS.ApiGatewayManagementApi`): AWS.ApiGatewayManagementApi class constructor (e.g. that has been instrumented with AWS XRay). Must be from `aws-sdk` v2.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AWS.ApiGatewayManagementApi class constructor.
+
+- `AwsClient` (object) (default `ApiGatewayManagementApiClient`): ApiGatewayManagementApiClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-apigatewaymanagementapi`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to ApiGatewayManagementApiClient class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/packages/sts/README.md) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 
 NOTES:
+
 - Lambda is required to have IAM permission for `execute-api:ManageConnections`
 - If `awsClientOptions.endpoint` is not set it will be set using `event.requestContext.{domainName,stage}`
 - If response does not contain `ConnectId`, it will be set from `event.requestContext.connectionId`
 
 ## Sample usage
+
 ### API Gateway
+
 ```javascript
 import middy from '@middy/core'
 import wsResponse from '@middy/ws-response'
@@ -68,11 +72,11 @@ export const handler = middy((event, context) => {
   return 'message'
 })
 
-handler
-  .use(wsResponse())
+handler.use(wsResponse())
 ```
 
 ### General
+
 ```javascript
 import middy from '@middy/core'
 import wsResponse from '@middy/ws-response'
@@ -84,25 +88,22 @@ export const handler = middy((event, context) => {
   }
 })
 
-handler
-  .use(wsResponse({
+handler.use(
+  wsResponse({
     awsClientOptions: {
       endpoint: '...'
     }
-  }))
+  })
+)
 ```
-
-
 
 ## Middy documentation and examples
 
 For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
 
-
 ## Contributing
 
 Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
 
 ## License
 

@@ -156,7 +156,7 @@ const convertValue = {
   },
   B: (value) => value,
   S: (value) => value,
-  L: (value, options) => value.map((item) => convertToNative(item, options)),
+  L: (value) => value.map((item) => convertToNative(item)),
   M: (value) =>
     Object.entries(value).reduce(
       (acc, [key, value]) => ({

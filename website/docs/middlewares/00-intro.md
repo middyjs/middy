@@ -9,7 +9,6 @@ These middleware focus on common use cases when using Lambda with other AWS serv
 
 Each middleware should do a single task. We try to balance each to be as performant as possible while meeting the majority of developer needs.
 
-
 ## Misc
 
 - [`cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
@@ -17,7 +16,6 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`error-logger`](/docs/middlewares/error-logger): Logs errors
 - [`input-output-logger`](/docs/middlewares/input-output-logger): Logs request and response
 - [`warmup`](/docs/middlewares/warmup): Used to pre-warm a lambda function
-
 
 ## Request Transformation
 
@@ -43,7 +41,6 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-response-serializer`](/docs/middlewares/http-response-serializer): HTTP response serializer.
 - [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches.
 - [`ws-response`](/docs/middlewares/ws-response): Forwards response to WebSocket endpoint.
-
 
 ## Fetch Data
 

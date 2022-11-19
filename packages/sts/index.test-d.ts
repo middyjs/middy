@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import STS from 'aws-sdk/clients/sts'
+import { STSClient } from '@aws-sdk/client-sts'
 import { captureAWSClient } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import sts, { Context } from '.'
@@ -9,9 +9,11 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(sts())
 
 // use with all options
 const options = {
-  AwsClient: STS,
-  awsClientOptions: {
-    secretAccessKey: 'abc'
+  AwsClient: STSClient,
+  credentials: {
+    secretAccessKey: 'secret',
+    sessionToken: 'token',
+    accessKeyId: 'key'
   },
   awsClientCapture: captureAWSClient,
   disablePrefetch: true

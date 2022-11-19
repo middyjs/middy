@@ -7,11 +7,13 @@ import {
   processCache,
   modifyCache
 } from '@middy/util'
-import ServiceDiscovery from 'aws-sdk/clients/servicediscovery.js' // v2
-// import { ServiceDiscovery } from '@aws-sdk/client-servicediscovery' // v3
+import {
+  ServiceDiscoveryClient,
+  DiscoverInstancesCommand
+} from '@aws-sdk/client-servicediscovery'
 
 const defaults = {
-  AwsClient: ServiceDiscovery,
+  AwsClient: ServiceDiscoveryClient,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -32,8 +34,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
       if (cachedValues[internalKey]) continue
 
       values[internalKey] = client
-        .discoverInstances(options.fetchData[internalKey])
-        .promise() // Required for aws-sdk v2
+        .send(new DiscoverInstancesCommand(options.fetchData[internalKey]))
         .then((resp) => resp.Instances)
         .catch((e) => {
           const value = getCache(options.cacheKey).value ?? {}

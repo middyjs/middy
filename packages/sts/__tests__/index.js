@@ -1,9 +1,9 @@
 import test from 'ava'
 import sinon from 'sinon'
+import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
-import STS from 'aws-sdk/clients/sts.js' // v2
-// import { STS } from '@aws-sdk/client-sts' // v3
+import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts'
 import sts from '../index.js'
 
 let sandbox
@@ -16,48 +16,21 @@ test.afterEach((t) => {
   clearCache()
 })
 
-const mockService = (client, responseOne, responseTwo) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().returns({ promise: () => Promise.resolve(responseOne) })
-  if (responseTwo) {
-    mock.onSecondCall().returns({ promise: () => Promise.resolve(responseTwo) })
-  }
-  client.prototype.assumeRole = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
-  // mock.onFirstCall().resolves(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
-
-  return mock
-}
-
-const mockServiceError = (client, error) => {
-  // aws-sdk v2
-  const mock = sandbox.stub()
-  mock.onFirstCall().returns({ promise: () => Promise.reject(error) })
-  client.prototype.assumeRole = mock
-  // aws-sdk v3
-  // const mock = sandbox.stub(client.prototype, 'getSecretValue')
-  // mock.onFirstCall().resolves(responseOne)
-  // if (responseTwo) mock.onSecondCall().resolves(responseTwo)
-
-  return mock
-}
-
 const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
 test.serial('It should set credential to internal storage', async (t) => {
-  mockService(STS, {
-    Credentials: {
-      AccessKeyId: 'accessKeyId',
-      SecretAccessKey: 'secretAccessKey',
-      SessionToken: 'sessionToken'
-    }
-  })
+  mockClient(STSClient)
+    .on(AssumeRoleCommand)
+    .resolvesOnce({
+      Credentials: {
+        AccessKeyId: 'accessKeyId',
+        SecretAccessKey: 'secretAccessKey',
+        SessionToken: 'sessionToken'
+      }
+    })
 
   const handler = middy(() => {})
 
@@ -73,7 +46,7 @@ test.serial('It should set credential to internal storage', async (t) => {
   handler
     .use(
       sts({
-        AwsClient: STS,
+        AwsClient: STSClient,
         cacheExpiry: 0,
         fetchData: {
           role: {
@@ -90,13 +63,15 @@ test.serial('It should set credential to internal storage', async (t) => {
 test.serial(
   'It should set STS secret to internal storage without prefetch',
   async (t) => {
-    mockService(STS, {
-      Credentials: {
-        AccessKeyId: 'accessKeyId',
-        SecretAccessKey: 'secretAccessKey',
-        SessionToken: 'sessionToken'
-      }
-    })
+    mockClient(STSClient)
+      .on(AssumeRoleCommand)
+      .resolvesOnce({
+        Credentials: {
+          AccessKeyId: 'accessKeyId',
+          SecretAccessKey: 'secretAccessKey',
+          SessionToken: 'sessionToken'
+        }
+      })
 
     const handler = middy(() => {})
 
@@ -112,7 +87,7 @@ test.serial(
     handler
       .use(
         sts({
-          AwsClient: STS,
+          AwsClient: STSClient,
           cacheExpiry: 0,
           fetchData: {
             role: {
@@ -129,13 +104,15 @@ test.serial(
 )
 
 test.serial('It should set STS secret to context', async (t) => {
-  mockService(STS, {
-    Credentials: {
-      AccessKeyId: 'accessKeyId',
-      SecretAccessKey: 'secretAccessKey',
-      SessionToken: 'sessionToken'
-    }
-  })
+  mockClient(STSClient)
+    .on(AssumeRoleCommand)
+    .resolvesOnce({
+      Credentials: {
+        AccessKeyId: 'accessKeyId',
+        SecretAccessKey: 'secretAccessKey',
+        SessionToken: 'sessionToken'
+      }
+    })
 
   const handler = middy(() => {})
 
@@ -150,7 +127,7 @@ test.serial('It should set STS secret to context', async (t) => {
   handler
     .use(
       sts({
-        AwsClient: STS,
+        AwsClient: STSClient,
         cacheExpiry: 0,
         fetchData: {
           role: {
@@ -168,13 +145,16 @@ test.serial('It should set STS secret to context', async (t) => {
 test.serial(
   'It should not call aws-sdk again if parameter is cached',
   async (t) => {
-    const stub = mockService(STS, {
-      Credentials: {
-        AccessKeyId: 'accessKeyId',
-        SecretAccessKey: 'secretAccessKey',
-        SessionToken: 'sessionToken'
-      }
-    })
+    const mockService = mockClient(STSClient)
+      .on(AssumeRoleCommand)
+      .resolvesOnce({
+        Credentials: {
+          AccessKeyId: 'accessKeyId',
+          SecretAccessKey: 'secretAccessKey',
+          SessionToken: 'sessionToken'
+        }
+      })
+    const sendStub = mockService.send
 
     const handler = middy(() => {})
 
@@ -190,7 +170,7 @@ test.serial(
     handler
       .use(
         sts({
-          AwsClient: STS,
+          AwsClient: STSClient,
           cacheExpiry: -1,
           fetchData: {
             role: {
@@ -204,30 +184,23 @@ test.serial(
     await handler(event, context)
     await handler(event, context)
 
-    t.is(stub.callCount, 1)
+    t.is(sendStub.callCount, 1)
   }
 )
 
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
-    const stub = mockService(
-      STS,
-      {
+    const mockService = mockClient(STSClient)
+      .on(AssumeRoleCommand)
+      .resolves({
         Credentials: {
           AccessKeyId: 'accessKeyId',
           SecretAccessKey: 'secretAccessKey',
           SessionToken: 'sessionToken'
         }
-      },
-      {
-        Credentials: {
-          AccessKeyId: 'accessKeyId',
-          SecretAccessKey: 'secretAccessKey',
-          SessionToken: 'sessionToken'
-        }
-      }
-    )
+      })
+    const sendStub = mockService.send
 
     const handler = middy(() => {})
 
@@ -243,7 +216,7 @@ test.serial(
     handler
       .use(
         sts({
-          AwsClient: STS,
+          AwsClient: STSClient,
           cacheExpiry: 0,
           fetchData: {
             role: {
@@ -257,16 +230,19 @@ test.serial(
     await handler(event, context)
     await handler(event, context)
 
-    t.is(stub.callCount, 2)
+    t.is(sendStub.callCount, 2)
   }
 )
 
 test.serial('It should catch if an error is returned from fetch', async (t) => {
-  const stub = mockServiceError(STS, new Error('timeout'))
+  const mockService = mockClient(STSClient)
+    .on(AssumeRoleCommand)
+    .rejects('timeout')
+  const sendStub = mockService.send
 
   const handler = middy(() => {}).use(
     sts({
-      AwsClient: STS,
+      AwsClient: STSClient,
       cacheExpiry: 0,
       fetchData: {
         role: {
@@ -280,7 +256,7 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(stub.callCount, 1)
+    t.is(sendStub.callCount, 1)
     t.is(e.message, 'Failed to resolve internal values')
     t.deepEqual(e.cause, [new Error('timeout')])
   }

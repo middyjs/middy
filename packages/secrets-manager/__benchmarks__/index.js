@@ -2,9 +2,11 @@ import Benchmark from 'benchmark'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-import sinon from 'sinon'
-import SecretsManager from 'aws-sdk/clients/secretsmanager.js' // v2
-// import { SecretsManager } from '@aws-sdk/client-secrets-manager'  // v3
+import { mockClient } from 'aws-sdk-client-mock'
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand
+} from '@aws-sdk/client-secrets-manager'
 
 const suite = new Benchmark.Suite('@middy/secrets-manager')
 
@@ -12,15 +14,14 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  const sandbox = sinon.createSandbox()
-  const mock = sandbox.stub()
-  SecretsManager.prototype.getSecretValue = mock
-  mock.onCall().yields(null, { SecretString: 'token' })
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand)
+    .resolves({ SecretString: 'token' })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: SecretsManager
+      AwsClient: SecretsManagerClient
     })
   )
 }
