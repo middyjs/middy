@@ -28,11 +28,11 @@ npm install --save @middy/validator
 ## Options
 
 - `eventSchema` (function) (default `undefined`): The compiled ajv validator that will be used
-  to validate the input (`request.event`) of the Lambda handler. Supports alias `inputSchema`
+  to validate the input (`request.event`) of the Lambda handler.
 - `contextSchema` (function) (default `undefined`): The compiled ajv validator that will be used
   to validate the input (`request.context`) of the Lambda handler. Has additional support for `typeof` keyword to allow validation of `"typeof":"function"`.
 - `responseSchema` (function) (default `undefined`): The compiled ajv validator that will be used
-  to validate the output (`request.response`) of the Lambda handler. Supports alias `inputSchema`
+  to validate the output (`request.response`) of the Lambda handler.
 - `i18nEnabled` (boolean) (default `true`): Option to disable i18n default package.
 - `defaultLanguage` (string) (default `en`): When language not found, what language to fallback to.
 - `languages` (object) (default: `{}`): Localization overrides
