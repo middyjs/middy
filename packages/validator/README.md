@@ -67,7 +67,7 @@ npm install --save @middy/validator
  - `contextSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
   to validate the input (`request.context`) of the Lambda handler. Has additional support for `typeof` keyword to allow validation of `"typeof":"function"`.
  - `responseSchema` (object|function) (default `undefined`): The JSON schema object or compiled ajv validator that will be used
-   to validate the output (`request.response`) of the Lambda handler. Supports alias `inputSchema`
+   to validate the output (`request.response`) of the Lambda handler. Supports alias `outputSchema`
  - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
     class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: false, defaultLanguage: 'en' }`.
  - `i18nEnabled` (boolean) (default `true`): Option to disable i18n default package.
