@@ -50,7 +50,7 @@ export interface MiddyfiedHandler<TEvent = any, TResult = any, TErr = Error, TCo
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
-  handler: (handler: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+  handler: <TAdditional>(handler: MiddlewareHandler<LambdaHandler<TEvent & TAdditional, TResult>, TContext>) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
 }
 
 declare type AttachMiddlewareFn<TEvent = any, TResult = any, TErr = Error, TContext extends LambdaContext = LambdaContext> =
