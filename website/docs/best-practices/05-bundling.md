@@ -12,13 +12,16 @@ This page is a work in progress. If you want to help us to make this page better
 Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function.
 
 ## Compilers
+
 ### typescript
+
 ```bash
 npm i -D typescript
 node_modules/.bin/tsc
 ```
 
 #### tsconfig.json
+
 ```json
 {
   "compilerOptions": {
@@ -35,29 +38,36 @@ node_modules/.bin/tsc
 }
 ```
 
-
 ## Bundlers
+
 ### esbuild
+
 ```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --format=esm --external:aws-sdk/clients/* index.js --bundle --outfile=index.bundle.esbuild.mjs
+
+# --banner:js hack from https://github.com/evanw/esbuild/pull/2067
+node_modules/.bin/esbuild index.js \
+    --platform=node --format=esm  --target=node18 --bundle --minify \
+    --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);" \
+    --legal-comments=external --sourcemap=external \
+    --allow-overwrite --outfile=index.mjs
+
 ```
 
 ### rollup
+
 ```bash
 npm i -D rollup @rollup/plugin-node-resolve @rollup/plugin-commonjs
 node_modules/.bin/rollup --config
 ```
 
 #### rollup.config.mjs
+
 ```javascript
 import { nodeResolve } from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
 
-const plugins = [
-  nodeResolve({ preferBuiltins: true }),
-  commonjs()
-]
+const plugins = [nodeResolve({ preferBuiltins: true }), commonjs()]
 
 export default (input) => ({
   input: 'index.js',
@@ -80,6 +90,7 @@ export default (input) => ({
 ```
 
 ### swc/pack
+
 ```bash
 npm i -D @swc/cli @swc/core
 node_modules/.bin/spack
@@ -92,28 +103,30 @@ Incomplete
 :::
 
 ### webpack
+
 ```bash
 npm i -D webpack-cli webpack
 node_modules/.bin/webpack
 ```
 
 #### webpack.config.mjs
+
 ```javascript
-import path from "node:path"
-import { fileURLToPath } from "node:url"
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 export default {
-  mode: "development",
-  entry: "./index.js",
+  mode: 'development',
+  entry: './index.js',
   output: {
-    filename: "index.bundle.webpack.mjs",
+    filename: 'index.bundle.webpack.mjs',
     path: __dirname
   },
   experiments: {
-    outputModule: true,
+    outputModule: true
   },
   externals: [
     // NodeJS modules
@@ -135,13 +148,16 @@ export default {
 ```
 
 ## Transpilers
+
 ### babel
+
 ```bash
 npm i -D @babel/cli @babel/core @babel/preset-env
 node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
 ```
 
 #### babel.config.json
+
 ```json
 {
   "presets": [
@@ -158,18 +174,21 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
 ```
 
 ### esbuild
+
 ```bash
 npm i -D esbuild
 node_modules/.bin/esbuild --platform=node --target=node14 --format=cjs index.js --outfile=index.transpile.esbuild.cjs
 ```
 
 ### swc
+
 ```bash
 npm i -D @swc/cli @swc/core
 node_modules/.bin/swc index.js --out-file index.transpile.swc.cjs
 ```
 
 #### .swcrc
+
 ```json
 {
   "jsc": {
