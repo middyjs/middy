@@ -36,59 +36,6 @@
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-header-normalizer">https://middy.js.org/docs/middlewares/http-header-normalizer</a></p>
 </div>
 
-This middleware normalizes HTTP header names to their canonical format. Very useful if clients are
-not using the canonical names of header (e.g. `content-type` as opposed to `Content-Type`).
-
-API Gateway does not perform any normalization, so the headers are propagated to Lambda
-exactly as they were sent by the client.
-
-Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyParser`](#urlencodebodyparser)
-will rely on headers to be in the canonical format, so if you want to support non-normalized headers in your
-app you have to use this middleware before those ones.
-
-This middleware will copy the original headers in `event.rawHeaders`.
-
-## Install
-
-To install this middleware you can use NPM:
-
-```bash
-npm install --save @middy/http-header-normalizer
-```
-
-
-## Options
-
- - `normalizeHeaderKey` (function): a function that accepts an header name as a parameter and returns its
-  canonical representation.
- - `canonical` (boolean) (default `false`): if true, modifies the headers to canonical format, otherwise the headers are normalized to lowercase
-
-
-## Sample usage
-
-```javascript
-import middy from '@middy/core'
-import httpHeaderNormalizer from '@middy/http-header-normalizer'
-
-const handler = middy((event, context) => {
-  return {}
-})
-
-handler
-  .use(httpHeaderNormalizer({canonical: true}))
-```
-
-
-## Middy documentation and examples
-
-For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
-
-
-## Contributing
-
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
-
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).

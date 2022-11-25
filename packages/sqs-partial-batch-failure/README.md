@@ -36,55 +36,6 @@
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/sqs-partial-batch-failure">https://middy.js.org/docs/middlewares/sqs-partial-batch-failure</a></p>
 </div>
 
-Middleware for handling partially failed SQS batches.
-
-## Install
-
-To install this middleware you can use NPM:
-
-```bash
-npm install --save @middy/sqs-partial-batch-failure
-```
-
-## Options
-- `logger` (function) (default `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
-
-NOTES:
-- Include the value `ReportBatchItemFailures` in the Lambda `FunctionResponseTypes` list
-- If you're using this feature with a FIFO queue, your function should stop processing messages after the first failure and return all failed and unprocessed messages. This helps preserve the ordering of messages in your queue.
-
-## Sample usage
-
-```javascript
-import middy from '@middy/core'
-import sqsPartialBatchFailureMiddleware from '@middy/sqs-partial-batch-failure'
-
-const lambdaHandler = (event, context) => {
-  if (event.Event === 's3:TestEvent') {
-    console.log('s3:TestEvent')
-    return null
-  }
-  
-  const recordPromises = event.Records.map(async (record, index) => { 
-    /* Custom message processing logic */
-  })
-  return Promise.allSettled(recordPromises)
-}
-
-const handler = middy(lambdaHandler)
-  .use(sqsPartialBatchFailureMiddleware())
-```
-
-## Middy documentation and examples
-
-For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
-
-
-## Contributing
-
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
-
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).

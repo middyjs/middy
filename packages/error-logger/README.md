@@ -36,54 +36,6 @@
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/error-logger">https://middy.js.org/docs/middlewares/error-logger</a></p>
 </div>
 
-Logs the error and propagates it to the next middleware.
-
-By default AWS Lambda does not print errors in the CloudWatch logs. If you want to make sure that you don't miss error logs, you would have to catch any error and pass it through `console.error` yourself.
-
-This middleware will take care to intercept any error and log it for you. The middleware is not going to interfere with other error handlers because it will propagate the error to the next error handler middleware without handling it. You just have to make sure to attach this middleware before any other error handling middleware.
-
-By default, the logging operate by using the `console.error` function. You can pass as a parameter a custom logger with additional logic if you need. It can be useful if you want to process the log by doing a http call or anything else.
-
-
-## Install
-
-To install this middleware you can use NPM:
-
-```bash
-npm install --save @middy/error-logger
-```
-
-
-## Options
-
-- `logger` (function) (default `console.error`) - a logging function that is invoked with the current error as an argument. You can pass `false` if you don't want the logging to happen.
-
-
-## Sample usage
-
-```javascript
-import middy from '@middy/core'
-import errorLogger from '@middy/error-logger'
-
-const handler = middy((event, context) => {
-  // your handler logic
-})
-
-handler
-  .use(errorLogger())
-```
-
-
-## Middy documentation and examples
-
-For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
-
-
-## Contributing
-
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
-
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).

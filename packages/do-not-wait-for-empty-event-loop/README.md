@@ -36,59 +36,6 @@
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop">https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop</a></p>
 </div>
 
-This middleware sets `context.callbackWaitsForEmptyEventLoop` property to `false`.
-This will prevent Lambda from timing out because of open database connections, etc.
-
-
-## Install
-
-To install this middleware you can use NPM:
-
-```bash
-npm install --save @middy/do-not-wait-for-empty-event-loop
-```
-
-
-## Options
-
-By default the middleware sets the `callbackWaitsForEmptyEventLoop` property to `false` only in the `before` phase,
-meaning you can override it in handler to `true` if needed. You can set it in all steps with the options:
-
-- `runOnBefore` (boolean) (default `true`) - sets property before running your handler
-- `runOnAfter` (boolean) (default `false`)
-- `runOnError` (boolean) (default `false`)
-
-
-## Sample usage
-
-```javascript
-import middy from '@middy/core'
-import doNotWaitForEmptyEventLoop from '@middy/do-not-wait-for-empty-event-loop'
-
-const handler = middy((event, context) => {
-  return {}
-})
-
-handler.use(doNotWaitForEmptyEventLoop({runOnError: true}))
-
-// When Lambda runs the handler it gets context with callbackWaitsForEmptyEventLoop property set to false
-
-handler(event, context, (_, response) => {
-  t.is(context.callbackWaitsForEmptyEventLoop,false)
-})
-```
-
-
-## Middy documentation and examples
-
-For more documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org).
-
-
-## Contributing
-
-Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
-
-
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
