@@ -177,7 +177,7 @@ node_modules/.bin/babel index.js --out-file index.transpile.babel.cjs
 
 ```bash
 npm i -D esbuild
-node_modules/.bin/esbuild --platform=node --target=node14 --format=cjs index.js --outfile=index.transpile.esbuild.cjs
+node_modules/.bin/esbuild --platform=node --target=node16 --format=cjs index.js --outfile=index.cjs
 ```
 
 ### swc
