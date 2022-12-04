@@ -12,13 +12,7 @@ middleware = validator({
   eventSchema: {},
   contextSchema: {},
   responseSchema: {},
-  ajvOptions: {
-    strict: true,
-    strictTypes: true,
-    strictTuples: true
-  },
-  ajvInstance: new Ajv(),
   defaultLanguage: 'en',
-  i18nEnabled: false
+  languages: {}
 })
 expectType<middy.MiddlewareObj>(middleware)
