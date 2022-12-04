@@ -2,7 +2,7 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import httpContentEncoding from '../index.js'
 
-import { brotliCompressSync, gzipSync, deflateSync } from 'zlib'
+import { brotliCompressSync, gzipSync, deflateSync } from 'node:zlib'
 
 const context = {
   getRemainingTimeInMillis: () => 1000
@@ -24,7 +24,7 @@ test('It should encode using br', async (t) => {
 
   t.deepEqual(response, {
     statusCode: 200,
-    body: brotliCompressSync(body).toString('utf8'),
+    body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
   })
@@ -44,7 +44,7 @@ test('It should encode using gzip', async (t) => {
 
   t.deepEqual(response, {
     statusCode: 200,
-    body: gzipSync(body).toString('utf8'),
+    body: gzipSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'gzip' },
     isBase64Encoded: true
   })
@@ -63,7 +63,7 @@ test('It should encode using deflate', async (t) => {
 
   t.deepEqual(response, {
     statusCode: 200,
-    body: deflateSync(body).toString('utf8'),
+    body: deflateSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'deflate' },
     isBase64Encoded: true
   })
@@ -87,7 +87,7 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
 
   t.deepEqual(response, {
     statusCode: 200,
-    body: brotliCompressSync(body).toString('utf8'),
+    body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
     isBase64Encoded: true
   })

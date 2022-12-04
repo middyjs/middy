@@ -65,10 +65,11 @@ const httpContentEncodingMiddleware = (opts) => {
 
     const stream = Readable.from(response.body).pipe(contentEncodingStream)
 
-    let body = ''
+    const chunks = []
     for await (const chunk of stream) {
-      body += chunk
+      chunks.push(chunk)
     }
+    const body = Buffer.concat(chunks).toString('base64')
 
     // Only apply encoding if it's smaller
     if (body.length < response.body.length) {
