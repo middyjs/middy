@@ -1,13 +1,13 @@
 import middy from '@middy/core'
 
 interface Options {
-  eventSchema?: function | any
-  contextSchema?: function | any
-  responseSchema?: function | any
+  eventSchema?: Function | any
+  contextSchema?: Function | any
+  responseSchema?: Function | any
   defaultLanguage?: string
   languages?: object | any
 }
 
-declare function validator (options?: Options): middy.MiddlewareObj
+declare function validator(options?: Options): middy.MiddlewareObj
 
 export default validator
