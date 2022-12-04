@@ -1,6 +1,5 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import Ajv from 'ajv'
 import validator from '.'
 
 // use with default options
