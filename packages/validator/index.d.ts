@@ -8,6 +8,6 @@ interface Options {
   languages?: object | any
 }
 
-declare function validator(options?: Options): middy.MiddlewareObj
+declare function validator (options?: Options): middy.MiddlewareObj
 
 export default validator
