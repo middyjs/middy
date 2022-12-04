@@ -8,9 +8,9 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = validator({
-  eventSchema: {},
-  contextSchema: {},
-  responseSchema: {},
+  eventSchema: () => {},
+  contextSchema: () => {},
+  responseSchema: () => {},
   defaultLanguage: 'en',
   languages: {}
 })
