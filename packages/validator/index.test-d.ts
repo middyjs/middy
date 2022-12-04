@@ -1,6 +1,5 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import Ajv from 'ajv'
 import validator from '.'
 
 // use with default options
@@ -9,9 +8,9 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = validator({
-  eventSchema: {},
-  contextSchema: {},
-  responseSchema: {},
+  eventSchema: () => {},
+  contextSchema: () => {},
+  responseSchema: () => {},
   defaultLanguage: 'en',
   languages: {}
 })
