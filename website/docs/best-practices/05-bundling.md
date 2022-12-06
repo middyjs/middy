@@ -9,7 +9,8 @@ This page is a work in progress. If you want to help us to make this page better
 
 :::
 
-Lambda runtime already includes `aws-sdk` by default and as such you normally don't need to package it in your function.
+Always bundle the `aws-sdk` with your project eventhough the Lambda runtime already includes it by default. 
+This gives you full control of when to update the sdk to prevent unexpected errors from a bad sdk version, and allows you to ensure that you are running the latest version with the most up to date fixes and features.
 
 ## Compilers
 
