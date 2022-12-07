@@ -87,7 +87,7 @@ const schema = {
 
 handler.use(
   validator({
-    inputSchema: transpileSchema(schema)
+    eventSchema: transpileSchema(schema)
   })
 )
 
