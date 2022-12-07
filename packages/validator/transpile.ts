@@ -5,4 +5,4 @@ export function transpileSchema (
   ajvOptions?: Partial<AjvOptions>
 ): Ajv
 
-export function transpileLocale (src: string, options?: object | any): function
+export function transpileLocale (src: string, options?: object | any): Function
