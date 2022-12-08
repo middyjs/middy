@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { ServiceDiscoveryClient } from '@aws-sdk/client-servicediscovery'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import serviceDiscovery, { Context } from '.'
 
@@ -13,7 +13,7 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
 const options = {
   AwsClient: ServiceDiscoveryClient,
   awsClientOptions: {},
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   disablePrefetch: true
 }
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(

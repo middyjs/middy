@@ -1,7 +1,7 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
 import { ApiGatewayManagementApiClient } from '@aws-sdk/client-apigatewaymanagementapi'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import wsResponse from '.'
 
 // use with default options
@@ -11,7 +11,7 @@ expectType<middy.MiddlewareObj>(middleware)
 // use with all options
 middleware = wsResponse({
   AwsClient: ApiGatewayManagementApiClient,
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   disablePrefetch: true
 })
 expectType<middy.MiddlewareObj>(middleware)

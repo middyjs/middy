@@ -26,7 +26,7 @@ npm install --save-dev @aws-sdk/client-ssm
 - `AwsClient` (object) (default `SSMClient`): SSMClient class constructor (i.e. that has been instrumented with AWS X-Ray). Must be from `@aws-sdk/client-ssm`.
 - `awsClientOptions` (object) (optional): Options to pass to SSMClient class constructor.
 - `awsClientAssumeRole` (string) (optional): Internal key where role tokens are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
-- `awsClientCapture` (function) (optional): Enable AWS X-Ray by passing `captureAWSClient` from `aws-xray-sdk` in.
+- `awsClientCapture` (function) (optional): Enable AWS X-Ray by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `Names`/`Path`. `SecureString` are automatically decrypted.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `ssm`): Cache key for the fetched data responses. Must be unique across all middleware.

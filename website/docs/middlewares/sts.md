@@ -17,7 +17,7 @@ npm install --save-dev @aws-sdk/client-st
 
 - `AwsClient` (object) (default `STSClient`): STSClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-sts`.
 - `awsClientOptions` (object) (optional): Options to pass to STSClient class constructor.
-- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSClient` from `aws-xray-sdk` in.
+- `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `sts`): Cache key for the fetched data responses. Must be unique across all middleware.

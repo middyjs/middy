@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import rdsSigner, { Context } from '.'
 
@@ -19,7 +19,7 @@ const options = {
     }
   },
   awsClientAssumeRole: 'some-role',
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   fetchData: { foo: 'bar' },
   disablePrefetch: true,
   cacheKey: 'some-key',

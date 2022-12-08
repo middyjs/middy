@@ -1,7 +1,7 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
 import { Signer } from '@aws-sdk/rds-signer'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import rdsSigner from '.'
 
 // use with default options
@@ -18,7 +18,7 @@ middleware = rdsSigner({
     }
   },
   awsClientAssumeRole: 'some-role',
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   fetchData: { foo: 'bar' },
   disablePrefetch: true,
   cacheKey: 'some-key',

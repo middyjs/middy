@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { SSMClient } from '@aws-sdk/client-ssm'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import ssm, { Context } from '.'
 
@@ -18,7 +18,7 @@ const options = {
     }
   },
   awsClientAssumeRole: 'some-role',
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   disablePrefetch: true
 }
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(

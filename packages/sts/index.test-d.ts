@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { STSClient } from '@aws-sdk/client-sts'
-import { captureAWSClient } from 'aws-xray-sdk'
+import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import sts, { Context } from '.'
 
@@ -15,7 +15,7 @@ const options = {
     sessionToken: 'token',
     accessKeyId: 'key'
   },
-  awsClientCapture: captureAWSClient,
+  awsClientCapture: captureAWSv3Client,
   disablePrefetch: true
 }
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
