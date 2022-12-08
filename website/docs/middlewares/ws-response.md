@@ -66,4 +66,4 @@ handler.use(
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/apigatewaymanagementapi.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-apigatewaymanagementapi` to the exclude list.

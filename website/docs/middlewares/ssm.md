@@ -106,4 +106,4 @@ handler
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/ssm.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-ssm` to the exclude list.

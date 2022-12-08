@@ -10,7 +10,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/sts
-npm install --save-dev @aws-sdk/client-st
+npm install --save-dev @aws-sdk/client-sts
 ```
 
 ## Options
@@ -59,4 +59,4 @@ handler.use(
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/sts.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-sts` to the exclude list.

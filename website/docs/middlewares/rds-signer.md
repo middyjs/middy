@@ -60,4 +60,4 @@ handler.use(
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/rds.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/rds-signer` to the exclude list.

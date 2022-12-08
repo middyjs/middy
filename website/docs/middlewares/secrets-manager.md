@@ -69,4 +69,4 @@ handler(event, context, (_, response) => {
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/secretsmanager.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-secrets-manager` to the exclude list.

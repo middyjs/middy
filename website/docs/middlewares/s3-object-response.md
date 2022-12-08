@@ -77,4 +77,4 @@ handler.use(
 
 ## Bundling
 
-To exclude `aws-sdk` add `aws-sdk/clients/s3.js` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-s3` to the exclude list.
