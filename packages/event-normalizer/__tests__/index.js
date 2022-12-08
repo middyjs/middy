@@ -279,7 +279,7 @@ test('It should parse Apache Kafka event', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())
 
   const event = {
-    eventSource: 'aws:SelfManagedKafka',
+    eventSource: 'SelfManagedKafka',
     bootstrapServers:
       'b-2.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092,b-1.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092',
     records: {
