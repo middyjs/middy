@@ -17,7 +17,7 @@ const eventNormalizerMiddleware = (opts = {}) => {
 }
 
 const parseEvent = (event) => {
-  // event.eventSource => aws:amq, aws:kafka, aws:SelfManagedKafka
+  // event.eventSource => aws:amq, aws:kafka, SelfManagedKafka
   // event.deliveryStreamArn => aws:lambda:events
   let eventSource = event.eventSource ?? event.deliveryStreamArn
 
@@ -100,7 +100,7 @@ const events = {
   'aws:s3:batch': (task) => {
     task.s3Key = normalizeS3Key(task.s3Key)
   },
-  'aws:SelfManagedKafka': (event) => {
+  SelfManagedKafka: (event) => {
     events['aws:kafka'](event)
   },
   'aws:sns': (record) => {
