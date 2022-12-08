@@ -2,11 +2,11 @@ import middy from '@middy/core'
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
-import rdsSigner, { Context } from '.'
+import secretsManager, { Context } from '.'
 
 // use with default options
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
-  rdsSigner()
+  secretsManager()
 )
 
 const options = {
@@ -29,5 +29,5 @@ const options = {
 
 // use with all options
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
-  rdsSigner(options)
+  secretsManager(options)
 )
