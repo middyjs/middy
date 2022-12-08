@@ -84,7 +84,7 @@ export const handler = middy()
   })
 ```
 
-## Need configs? We have you covered there as well
+## How about configs? We have you covered there as well
 
 ```javascript
 import middy from '@middy/core'
