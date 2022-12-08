@@ -1,5 +1,6 @@
 import middy from '@middy/core'
 import {
+  ALBEvent,
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
@@ -23,6 +24,7 @@ export interface Route<TEvent> {
 
 declare function httpRouterHandler<
   TEvent extends
+  | ALBEvent
   | APIGatewayProxyEvent
   | APIGatewayProxyEventV2 = APIGatewayProxyEvent
 > (routes: Array<Route<TEvent>>): middy.MiddyfiedHandler
