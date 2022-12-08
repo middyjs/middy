@@ -1,4 +1,5 @@
-import { compile, ftl } from 'ajv-cmd'
+import compileSchema from 'ajv-cmd/compile.js'
+import transpileFTL from 'ajv-cmd/ftl.js'
 
 const ajvDefaults = {
   strict: true,
@@ -12,7 +13,7 @@ const ajvDefaults = {
 // Precompile your schema during a build step is recommended.
 export const transpileSchema = (schema, ajvOptions) => {
   const options = { ...ajvDefaults, ...ajvOptions }
-  return compile(schema, options)
+  return compileSchema(schema, options)
 }
 
-export const transpileLocale = ftl
+export const transpileLocale = transpileFTL

@@ -1,6 +1,6 @@
 {
   "name": "@middy/error-logger",
-  "version": "4.0.0",
+  "version": "4.0.2",
   "description": "Input and output logger middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,7 +62,7 @@
   },
   "homepage": "https://middy.js.org",
   "devDependencies": {
-    "@middy/core": "4.0.0",
+    "@middy/core": "4.0.2",
     "@types/node": "^18.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
