@@ -80,6 +80,30 @@ export const handler = middy()
     request.context.secrets = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context = { rdsSigner, secretsManager, ssm, sts }
+    // context.secrets = { rdsSigner, secretsManager, ssm, sts }
+  })
+```
+
+## Need configs? We have you covered there as well
+
+```javascript
+import middy from '@middy/core'
+import { getInternal } from '@middy/util'
+import appConfigMiddleware from '@middy/appconfig'
+import ssmMiddleware from '@middy/ssm'
+
+export const handler = middy()
+  .use(
+    ssmMiddleware({
+      fetchData: {
+        ssm: '/dev/service_name/key_name'
+      }
+    })
+  )
+  .before(async (request) => {
+    request.context.configs = await getInternal(true, request)
+  })
+  .handler(async (event, context, { signal }) => {
+    // context.configs = { appConfig, ssm }
   })
 ```
