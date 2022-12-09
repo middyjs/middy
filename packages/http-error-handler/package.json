@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "4.0.3",
+  "version": "4.0.4",
   "description": "Http error handler middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -63,10 +63,10 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "4.0.3"
+    "@middy/util": "4.0.4"
   },
   "devDependencies": {
-    "@middy/core": "4.0.3",
+    "@middy/core": "4.0.4",
     "@types/http-errors": "^2.0.0",
     "@types/node": "^18.0.0"
   },
