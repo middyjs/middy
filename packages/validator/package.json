@@ -40,7 +40,8 @@
     "index.cjs",
     "index.d.ts",
     "transpile.js",
-    "transpile.cjs"
+    "transpile.cjs",
+    "transpile.d.ts"
   ],
   "scripts": {
     "test": "npm run test:unit",
