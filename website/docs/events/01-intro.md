@@ -104,6 +104,6 @@ export const handler = middy()
     request.context.configs = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context.configs = { appConfig, ssm }
+    // context.configs = { appConfig, dynamodb, s3, ssm }
   })
 ```
