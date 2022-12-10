@@ -1,5 +1,5 @@
-import compileSchema from 'ajv-cmd/compile.js'
-import transpileFTL from 'ajv-cmd/ftl.js'
+import compileSchema from 'ajv-cmd/compile'
+import transpileFTL from 'ajv-cmd/ftl'
 
 const ajvDefaults = {
   strict: true,
