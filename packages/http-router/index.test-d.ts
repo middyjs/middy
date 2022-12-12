@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import httpRouterHandler, { Method } from '.';
+import httpRouterHandler, { Method } from '.'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
