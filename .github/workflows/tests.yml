@@ -44,4 +44,4 @@ jobs:
       - name: Test cjs can be required
         run: |
           node -e 'const middy = require("./packages/core/index.cjs"); middy()'
-          node -e 'const {transpileSchema} = require("./packages/validator/transpile.cjs"); transpileSchema({});'
+          node -e 'const {transpileSchema, transpileLocale} = require("./packages/validator/transpile.cjs"); transpileSchema({}); transpileLocale("")'
