@@ -94,6 +94,18 @@ import ssmMiddleware from '@middy/ssm'
 
 export const handler = middy()
   .use(
+    appConfigMiddleware({
+      fetchData: {
+        appConfig: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
+      }
+    })
+  )
+  .use(
     ssmMiddleware({
       fetchData: {
         ssm: '/dev/service_name/key_name'
