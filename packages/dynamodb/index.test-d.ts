@@ -1,4 +1,4 @@
-/*import middy from '@middy/core'
+/* import middy from '@middy/core'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
