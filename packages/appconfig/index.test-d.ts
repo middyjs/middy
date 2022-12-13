@@ -1,3 +1,4 @@
+/*
 import middy from '@middy/core'
 import { AppConfigClient } from '@aws-sdk/client-appconfig'
 import { captureAWSv3Client } from 'aws-xray-sdk'
@@ -38,3 +39,4 @@ const options = {
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   appConfig(options)
 )
+*/

@@ -1,3 +1,4 @@
+/*
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
@@ -20,3 +21,4 @@ declare function appConfig<TOptions extends Options | undefined>(
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
 export default appConfig
+*/
