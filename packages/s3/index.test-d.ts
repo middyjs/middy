@@ -1,3 +1,4 @@
+/*
 import middy from '@middy/core'
 import { S3Client } from '@aws-sdk/client-s3'
 import { captureAWSv3Client } from 'aws-xray-sdk'
@@ -34,3 +35,4 @@ const options = {
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   s3(options)
 )
+*/
