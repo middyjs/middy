@@ -60,8 +60,7 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "4.0.7",
-    "r": "0.0.5"
+    "@middy/util": "4.0.7"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.186.0",
