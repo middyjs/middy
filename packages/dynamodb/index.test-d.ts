@@ -54,7 +54,8 @@ expectError(dynamodb({ ...options, fetchData: undefined }))
 expectError(dynamodb({ ...options, fetchData: 'not an object' }))
 
 expectError(dynamodb({
-  ...options, fetchData: {
+  ...options,
+  fetchData: {
     // @ts-expect-error - fetchData must be an object of objects
     key: 'null',
     // @ts-expect-error - fetchData must be an object of objects
