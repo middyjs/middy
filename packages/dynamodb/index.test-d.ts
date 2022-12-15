@@ -47,7 +47,6 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'conf
   dynamodb({ ...options, setToContext: true })
 )
 
-
 // @ts-expect-error - fetchData must be an object
 dynamodb({ ...options, fetchData: 'not an object' })
 
