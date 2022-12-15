@@ -1,9 +1,9 @@
-import middy from '@middy/core'
-import { Context as LambdaContext } from 'aws-lambda'
+import type middy from '@middy/core'
+import type { Context as LambdaContext } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
-import { expectError, expectType } from 'tsd'
-import dynamodb, { Context } from '.'
+import { expectType } from 'tsd'
+import dynamodb, { type Context } from '.'
 
 const options = {
   AwsClient: DynamoDBClient,
@@ -48,12 +48,12 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'supe
 )
 
 // @ts-expect-error - fetchData is required
-expectError(dynamodb({ ...options, fetchData: undefined }))
+dynamodb({ ...options, fetchData: undefined })
 
 // @ts-expect-error - fetchData must be an object
-expectError(dynamodb({ ...options, fetchData: 'not an object' }))
+dynamodb({ ...options, fetchData: 'not an object' })
 
-expectError(dynamodb({
+dynamodb({
   ...options,
   fetchData: {
     // @ts-expect-error - fetchData must be an object of objects
@@ -69,4 +69,4 @@ expectError(dynamodb({
     // @ts-expect-error - fetchData must be an object of objects
     key6: Symbol('key6')
   }
-}))
+})
