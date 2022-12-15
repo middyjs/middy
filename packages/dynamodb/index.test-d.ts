@@ -1,5 +1,5 @@
-import type middy from '@middy/core'
-import type { Context as LambdaContext } from 'aws-lambda'
+import middy from '@middy/core'
+import { Context as LambdaContext } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
