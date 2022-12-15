@@ -1,7 +1,8 @@
-/* import middy from '@middy/core'
+import middy from '@middy/core'
+import { Context as LambdaContext } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
-import { expectType } from 'tsd'
+import { expectError, expectType } from 'tsd'
 import dynamodb, { Context } from '.'
 
 // use with default options
@@ -21,21 +22,31 @@ const options = {
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSv3Client,
   fetchData: {
-    config: {
-      Application: 'app',
-      ClientId: '0001',
-      Configuration: 'lambda-n',
-      Environment: 'development'
+    superSecretAccessToken: {
+      TableName: 'superSecretTable',
+      Key: {
+        pk: {
+          S: 'superSecretKey'
+        }
+      }
     }
   },
   disablePrefetch: true,
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
-  setToContext: true
-}
+  setToContext: false
+} as const
 
 // use with all options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
   dynamodb(options)
 )
-*/
+
+// use with setToContext: true
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'superSecretAccessToken', any>>>(
+  dynamodb({ ...options, setToContext: true })
+)
+
+// @ts-expect-error - fetchData is required
+expectError(dynamodb({ ...options, fetchData: undefined }))
+
