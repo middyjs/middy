@@ -17,11 +17,11 @@ const options = {
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSv3Client,
   fetchData: {
-    superSecretAccessToken: {
-      TableName: 'superSecretTable',
+    configurationObjFromDynamo: {
+      TableName: 'someConfigTableName',
       Key: {
         pk: {
-          S: 'superSecretKey'
+          S: 'someConfigItemPrimaryKey'
         }
       }
     }
@@ -43,7 +43,7 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
 )
 
 // use with setToContext: true
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'superSecretAccessToken', any>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'configurationObjFromDynamo', any>>>(
   dynamodb({ ...options, setToContext: true })
 )
 
