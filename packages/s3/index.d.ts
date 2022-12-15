@@ -3,7 +3,7 @@ import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import { GetObjectCommandInput, S3Client, S3ClientConfig } from '@aws-sdk/client-s3'
 
-type Options<AwsS3Client = S3Client> = Omit<MiddyOptions<AwsS3Client, S3ClientConfig>, 'fetchData'>
+export type Options<AwsS3Client = S3Client> = Omit<MiddyOptions<AwsS3Client, S3ClientConfig>, 'fetchData'>
 & {
   fetchData?: {
     [key: string]: Omit<GetObjectCommandInput, 'ChecksumMode'> & {
