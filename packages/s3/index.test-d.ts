@@ -5,7 +5,7 @@ import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import s3 from '.'
 
-const options: Parameters<typeof s3>[0] = {
+const options = {
   AwsClient: S3Client,
   awsClientOptions: {
     credentials: {
