@@ -1,11 +1,16 @@
-/*
 import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
-import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3'
+import { GetObjectCommandInput, S3Client, S3ClientConfig } from '@aws-sdk/client-s3'
 
-interface Options<AwsS3Client = S3Client>
-  extends MiddyOptions<AwsS3Client, S3ClientConfig> {}
+type Options<AwsS3Client = S3Client> = Omit<MiddyOptions<AwsS3Client, S3ClientConfig>, 'fetchData'>
+& {
+  fetchData?: {
+    [key: string]: Omit<GetObjectCommandInput, 'ChecksumMode'> & {
+      ChecksumMode?: never
+    }
+  }
+}
 
 export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
@@ -13,9 +18,8 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   ? LambdaContext & Record<keyof TOptions['fetchData'], any>
   : LambdaContext
 
-declare function s3<TOptions extends Options | undefined> (
+declare function s3Middleware<TOptions extends Options | undefined> (
   options?: TOptions
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
-export default s3
-*/
+export default s3Middleware
