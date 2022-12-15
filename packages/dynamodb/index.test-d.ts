@@ -3,7 +3,7 @@ import { Context as LambdaContext } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
-import dynamodb, { type Context } from '.'
+import dynamodb, { Context } from '.'
 
 const options = {
   AwsClient: DynamoDBClient,
