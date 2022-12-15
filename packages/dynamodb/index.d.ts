@@ -6,7 +6,7 @@ import { DynamoDBClient, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb'
 type Options<AwsDynamoDBClient = DynamoDBClient> = Omit<MiddyOptions<AwsDynamoDBClient, DynamoDBClientConfig>, 'fetchData'>
 &
 {
-  fetchData: {
+  fetchData?: {
     // TODO: add more precise type
     [key: string]: Record<string, any>
   }

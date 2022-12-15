@@ -1,9 +1,9 @@
-import type middy from '@middy/core'
-import type { Context as LambdaContext } from 'aws-lambda'
+import middy from '@middy/core'
+import { Context as LambdaContext } from 'aws-lambda'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
-import dynamodb, { type Context } from '.'
+import dynamodb, { Context } from '.'
 
 const options = {
   AwsClient: DynamoDBClient,
@@ -47,8 +47,6 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'conf
   dynamodb({ ...options, setToContext: true })
 )
 
-// @ts-expect-error - fetchData is required
-dynamodb({ ...options, fetchData: undefined })
 
 // @ts-expect-error - fetchData must be an object
 dynamodb({ ...options, fetchData: 'not an object' })
