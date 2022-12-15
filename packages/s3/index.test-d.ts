@@ -37,7 +37,7 @@ expectType < middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
 )
 
 // use with setToContext: true
-expectType < middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'someS3Object', any>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'someS3Object', any>>>(
   s3({
     ...options,
     setToContext: true
