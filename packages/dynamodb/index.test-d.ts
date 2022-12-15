@@ -5,11 +5,6 @@ import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectError, expectType } from 'tsd'
 import dynamodb, { Context } from '.'
 
-// use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
-  dynamodb()
-)
-
 const options = {
   AwsClient: DynamoDBClient,
   awsClientOptions: {
@@ -37,6 +32,11 @@ const options = {
   setToContext: false
 } as const
 
+// use with default options
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
+  dynamodb()
+)
+
 // use with all options
 expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
   dynamodb(options)
@@ -50,3 +50,22 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'supe
 // @ts-expect-error - fetchData is required
 expectError(dynamodb({ ...options, fetchData: undefined }))
 
+// @ts-expect-error - fetchData must be an object
+expectError(dynamodb({ ...options, fetchData: 'not an object' }))
+
+expectError(dynamodb({
+  ...options, fetchData: {
+    // @ts-expect-error - fetchData must be an object of objects
+    key: 'null',
+    // @ts-expect-error - fetchData must be an object of objects
+    key2: null,
+    // @ts-expect-error - fetchData must be an object of objects
+    key3: undefined,
+    // @ts-expect-error - fetchData must be an object of objects
+    key4: 1,
+    // @ts-expect-error - fetchData must be an object of objects
+    key5: true,
+    // @ts-expect-error - fetchData must be an object of objects
+    key6: Symbol('key6')
+  }
+}))
