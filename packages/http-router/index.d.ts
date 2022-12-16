@@ -1,6 +1,7 @@
-import middy from '@middy/core'
+import middy, { MiddyfiedHandler } from '@middy/core'
 import {
   ALBEvent,
+  ALBResult,
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
@@ -17,10 +18,12 @@ export enum Method {
   Any = 'ANY'
 }
 
+type TResult = ALBResult | APIGatewayProxyResult
+
 export interface Route<TEvent> {
   method: Method
   path: string
-  handler: LambdaHandler<TEvent, APIGatewayProxyResult>
+  handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult, any, any>
 }
 
 declare function httpRouterHandler<
