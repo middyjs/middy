@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-negotiation",
-  "version": "4.0.7",
+  "version": "4.0.8",
   "description": "Http content negotiation middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,11 +62,11 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "4.0.7",
+    "@middy/util": "4.0.8",
     "negotiator": "0.6.3"
   },
   "devDependencies": {
-    "@middy/core": "4.0.7"
+    "@middy/core": "4.0.8"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
