@@ -43,7 +43,7 @@ const httpRouteHandler = (routes) => {
     for (const route of routesDynamic[method] ?? []) {
       const match = path.match(route.path)
       if (match) {
-        event.pathParameters ??= match.groups
+        event.pathParameters ??= {...match.groups}
         return route.handler(event, context, abort)
       }
     }
