@@ -156,6 +156,22 @@ test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) 
   t.true(response)
 })
 
+test('It should add pathParameters with object prototype', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/path/to'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/path/{proxy+}',
+      handler: () => true
+    }
+  ])
+  await handler(event, context)
+  t.truthy(event.pathParameters.__proto__)
+})
+
 test('It should thrown 404 when route not found', async (t) => {
   const event = {
     httpMethod: 'GET',
