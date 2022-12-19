@@ -45,8 +45,8 @@ const httpRouteHandler = (routes) => {
       if (match) {
         event.pathParameters = {
           ...match.groups,
-          ...event.pathParameters,
-        };
+          ...event.pathParameters
+        }
         return route.handler(event, context, abort)
       }
     }

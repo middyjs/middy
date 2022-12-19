@@ -162,7 +162,7 @@ test('It should populate pathParameters to a dynamic route even if they already 
     httpMethod: 'GET',
     path: '/user/123',
     pathParameters: {
-      previous: '321',
+      previous: '321'
     }
   }
   const handler = httpRouter([
