@@ -157,6 +157,29 @@ test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) 
   t.true(response)
 })
 
+test('It should populate pathParameters to a dynamic route even if they already exist in the event', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/123',
+    pathParameters: {
+      previous: '321'
+    }
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{id}',
+      handler: (event) => {
+        t.deepEqual(event.pathParameters, { id: '123', previous: '321' })
+        t.truthy(event.pathParameters.__proto__) // eslint-disable-line no-proto
+        return true
+      }
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
 test('It should thrown 404 when route not found', async (t) => {
   const event = {
     httpMethod: 'GET',
