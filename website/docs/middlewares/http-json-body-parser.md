@@ -9,8 +9,6 @@ if used in combination with `httpErrorHandler`.
 It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
 
-If the body has been parsed as JSON, you can access the original body (e.g. for webhook signature validation) through the `request.event.rawBody`.
-
 
 ## Install
 
