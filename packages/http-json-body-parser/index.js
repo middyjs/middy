@@ -21,6 +21,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
         : body
 
       request.event.body = JSON.parse(data, reviver)
+      request.event.rawBody = body
     } catch (cause) {
       // UnprocessableEntity
       throw createError(422, 'Invalid or malformed JSON was provided', {

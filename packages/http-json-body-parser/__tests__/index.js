@@ -203,3 +203,23 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
   }
 })
+
+test('It should retain the stringified source in rawBody', async (t) => {
+  const handler = middy((event) => {
+    return event // propagates the processed event as a response
+  })
+
+  handler.use(jsonBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: '{ "foo" :   "bar"   }'
+  }
+
+  const processedEvent = await handler(event, defaultContext)
+
+  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
+})
