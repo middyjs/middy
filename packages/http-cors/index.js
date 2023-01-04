@@ -18,6 +18,7 @@ const getOrigin = (incomingOrigin, options = {}) => {
 const defaults = {
   getOrigin,
   credentials: undefined,
+  enablePreflightReply: true,
   headers: undefined,
   methods: undefined,
   origin: '*',
@@ -32,6 +33,14 @@ const defaults = {
 
 const httpCorsMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
+
+  const httpCorsMiddlewareBefore = async (request) => {
+    if (options.enablePreflightReply) {
+      if (request.event.httpMethod === "OPTIONS") {
+        return true;
+      }
+    }
+  }
 
   const httpCorsMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
