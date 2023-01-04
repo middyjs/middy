@@ -140,6 +140,7 @@ const httpCorsMiddleware = (opts = {}) => {
     return httpCorsMiddlewareAfter(request)
   }
   return {
+    before: httpCorsMiddlewareBefore,
     after: httpCorsMiddlewareAfter,
     onError: httpCorsMiddlewareOnError
   }
