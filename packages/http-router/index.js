@@ -68,7 +68,7 @@ export const Method = {
   Options: 'OPTIONS',
   Any: 'ANY'
 }
-const methods = Object.values(Method)
+const methods = Object.values(Method).filter((method) => method !== 'ANY')
 
 const attachStaticRoute = (method, path, handler, routesType) => {
   if (method === 'ANY') {
