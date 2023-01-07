@@ -10,7 +10,7 @@ export type Event = APIGatewayEvent & {
   body: JsonValue
 }
 
-declare function urlEncodeBodyParser(
+declare function urlEncodeBodyParser (
   options?: Options
 ): middy.MiddlewareObj<Event>
 
