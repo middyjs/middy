@@ -68,7 +68,7 @@ export const Method = {
   OPTIONS: 'OPTIONS',
   ANY: 'ANY'
 }
-const methods = Object.keys(Method)
+const methods = Object.values(Method)
 
 const attachStaticRoute = (method, path, handler, routesType) => {
   if (method === 'ANY') {
