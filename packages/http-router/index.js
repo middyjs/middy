@@ -60,13 +60,13 @@ const regexpDynamicWildcards = /\/\{(proxy)\+\}$/
 const regexpDynamicParameters = /\/\{([^/]+)\}/g
 
 export const Method = {
-  GET: 'GET',
-  POST: 'POST',
-  PUT: 'PUT',
-  PATCH: 'PATCH',
-  DELETE: 'DELETE',
-  OPTIONS: 'OPTIONS',
-  ANY: 'ANY'
+  Get: 'GET',
+  Post: 'POST',
+  Put: 'PUT',
+  Patch: 'PATCH',
+  Delete: 'DELETE',
+  Options: 'OPTIONS',
+  Any: 'ANY'
 }
 const methods = Object.values(Method)
 
