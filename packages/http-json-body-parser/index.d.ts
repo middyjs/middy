@@ -4,6 +4,7 @@ import { JsonValue } from 'type-fest'
 
 interface Options {
   reviver?: (key: string, value: any) => any
+  disableContentTypeError?: boolean
 }
 
 export type Event = Omit<APIGatewayEvent, 'body'> & {
@@ -13,6 +14,6 @@ export type Event = Omit<APIGatewayEvent, 'body'> & {
   body: JsonValue
 }
 
-declare function jsonBodyParser (options?: Options): middy.MiddlewareObj<Event>
+declare function jsonBodyParser(options?: Options): middy.MiddlewareObj<Event>
 
 export default jsonBodyParser

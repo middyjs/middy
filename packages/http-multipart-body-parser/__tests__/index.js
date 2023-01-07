@@ -197,7 +197,7 @@ test("It shouldn't process the body if headers are passed without content type",
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler.use(httpMultipartBodyParser({ disableContentTypeError: true }))
 
   // invokes the handler
   const event = {
@@ -212,6 +212,30 @@ test("It shouldn't process the body if headers are passed without content type",
     response,
     'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
   )
+})
+
+test("It shouldn't process the body and throw error if no header is passed", async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(httpMultipartBodyParser({ disableContentTypeError: false }))
+
+  // invokes the handler
+  const event = {
+    headers: {
+      accept: 'application/json'
+    },
+    body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
+  }
+
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 415)
+    t.is(e.message, '@middy/http-multipart-body-parser Unsupported Media Type')
+    t.is(e.cause, undefined)
+  }
 })
 
 test('It should parse an array from a multipart/form-data request (base64)', async (t) => {

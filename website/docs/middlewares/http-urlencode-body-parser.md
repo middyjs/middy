@@ -5,7 +5,6 @@ title: http-urlencode-body-parser
 This middleware automatically parses HTTP requests with URL-encoded body (typically the result
 of a form submit).
 
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -13,6 +12,10 @@ To install this middleware you can use NPM:
 ```bash npm2yarn
 npm install --save @middy/http-urlencode-body-parser
 ```
+
+## Options
+
+- `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `true`, will default to `false` in next major version.
 
 ## Sample usage
 
@@ -25,9 +28,7 @@ const handler = middy((event, context) => {
   return event.body // propagates the body as response
 })
 
-handler
-  .use(httpHeaderNormalizer())
-  .use(httpUrlEncodeBodyParser())
+handler.use(httpHeaderNormalizer()).use(httpUrlEncodeBodyParser())
 
 // When Lambda runs the handler with a sample event...
 const event = {
