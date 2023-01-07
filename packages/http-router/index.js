@@ -58,7 +58,17 @@ const httpRouteHandler = (routes) => {
 
 const regexpDynamicWildcards = /\/\{(proxy)\+\}$/
 const regexpDynamicParameters = /\/\{([^/]+)\}/g
-const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+
+export const Method = {
+  GET: 'GET',
+  POST: 'POST',
+  PUT: 'PUT',
+  PATCH: 'PATCH',
+  DELETE: 'DELETE',
+  OPTIONS: 'OPTIONS',
+  ANY: 'ANY'
+}
+const methods = Object.keys(Method)
 
 const attachStaticRoute = (method, path, handler, routesType) => {
   if (method === 'ANY') {
