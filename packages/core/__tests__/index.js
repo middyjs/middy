@@ -743,3 +743,27 @@ test('Should not invoke timeoutEarlyResponse on success', async (t) => {
 
   t.false(timeoutCalled)
 })
+
+test('Should not invoke timeoutEarlyResponse on error', async (t) => {
+  let timeoutCalled = false
+  const plugin = {
+    timeoutEarlyInMillis: 50,
+    timeoutEarlyResponse: () => {
+      timeoutCalled = true
+    }
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const error = new Error('Oops!')
+  const handler = middy(async (event, context, { signal }) => {
+    throw error
+  }, plugin)
+
+  const response = await handler(event, context).catch((err) => err)
+  t.is(response, error)
+
+  await setTimeout(100)
+
+  t.false(timeoutCalled)
+})
