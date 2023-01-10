@@ -110,6 +110,7 @@ const runRequest = async (
           ? setTimeout(
             request.context.getRemainingTimeInMillis() -
                 plugin.timeoutEarlyInMillis,
+            undefined,
             { signal: timeoutAbort.signal }
           ).then(() => {
             handlerAbort.abort()
