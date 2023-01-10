@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises'
 import test from 'ava'
 import sinon from 'sinon'
 import middy from '../index.js'
@@ -718,4 +719,51 @@ test('Should abort timeout', async (t) => {
 
   const response = await handler(event, context)
   t.true(response)
+})
+
+test('Should not invoke timeoutEarlyResponse on success', async (t) => {
+  let timeoutCalled = false
+  const plugin = {
+    timeoutEarlyInMillis: 50,
+    timeoutEarlyResponse: () => {
+      timeoutCalled = true
+    }
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const handler = middy(async (event, context, { signal }) => {
+    return true
+  }, plugin)
+
+  const response = await handler(event, context)
+  t.true(response)
+
+  await setTimeout(200)
+
+  t.false(timeoutCalled)
+})
+
+test('Should not invoke timeoutEarlyResponse on error', async (t) => {
+  let timeoutCalled = false
+  const plugin = {
+    timeoutEarlyInMillis: 50,
+    timeoutEarlyResponse: () => {
+      timeoutCalled = true
+    }
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const error = new Error('Oops!')
+  const handler = middy(async (event, context, { signal }) => {
+    throw error
+  }, plugin)
+
+  const response = await handler(event, context).catch((err) => err)
+  t.is(response, error)
+
+  await setTimeout(100)
+
+  t.false(timeoutCalled)
 })
