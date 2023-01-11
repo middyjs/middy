@@ -107,7 +107,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 422)
+    t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
     t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
   }
@@ -131,7 +131,7 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 422)
+    t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
     t.is(e.cause.message, 'Unexpected token u in JSON at position 0')
   }
@@ -142,7 +142,7 @@ test("It shouldn't process the body if no header is passed", async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(jsonBodyParser())
+  handler.use(jsonBodyParser({ disableContentTypeError: true }))
 
   // invokes the handler
   const event = {
@@ -153,6 +153,28 @@ test("It shouldn't process the body if no header is passed", async (t) => {
   const body = await handler(event, defaultContext)
 
   t.is(body, '{"foo":"bar"}')
+})
+
+test("It shouldn't process the body and throw error if no header is passed", async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(jsonBodyParser({ disableContentTypeError: false }))
+
+  // invokes the handler
+  const event = {
+    headers: {},
+    body: JSON.stringify({ foo: 'bar' })
+  }
+
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 415)
+    t.is(e.message, '@middy/http-json-body-parser Unsupported Media Type')
+    t.is(e.cause, undefined)
+  }
 })
 
 test('It should handle a base64 body', async (t) => {

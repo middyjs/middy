@@ -91,6 +91,7 @@ const runRequest = async (
   onErrorMiddlewares,
   plugin
 ) => {
+  let timeoutAbort
   const timeoutEarly =
     plugin.timeoutEarly && request.context.getRemainingTimeInMillis // disable when AWS context missing (tests, containers)
   try {
@@ -100,7 +101,7 @@ const runRequest = async (
       plugin.beforeHandler?.()
 
       const handlerAbort = new AbortController()
-      let timeoutAbort
+
       if (timeoutEarly) timeoutAbort = new AbortController()
       request.response = await Promise.race([
         lambdaHandler(request.event, request.context, {
@@ -110,6 +111,7 @@ const runRequest = async (
           ? setTimeout(
             request.context.getRemainingTimeInMillis() -
                 plugin.timeoutEarlyInMillis,
+            undefined,
             { signal: timeoutAbort.signal }
           ).then(() => {
             handlerAbort.abort()
@@ -117,12 +119,14 @@ const runRequest = async (
           })
           : Promise.race([])
       ])
-      if (timeoutEarly) timeoutAbort.abort() // lambdaHandler may not be a promise
+      timeoutAbort?.abort() // lambdaHandler may not be a promise
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
+    timeoutAbort?.abort() // timeout should be aborted on errors
+
     // Reset response changes made by after stack before error thrown
     request.response = undefined
     request.error = e

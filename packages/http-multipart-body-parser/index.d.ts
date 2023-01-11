@@ -20,6 +20,7 @@ interface Options {
     }
   }
   charset?: string
+  disableContentTypeError?: boolean
 }
 
 export type Event = Omit<APIGatewayEvent, 'body'> & {

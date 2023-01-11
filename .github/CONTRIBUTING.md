@@ -8,4 +8,4 @@ If you are a maintainer and want to release a new version of Middy, consult the 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2022 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2023 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
