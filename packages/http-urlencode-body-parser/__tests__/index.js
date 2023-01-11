@@ -60,7 +60,7 @@ test('It should not process the body if no headers are passed', async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(urlEncodeBodyParser())
+  handler.use(urlEncodeBodyParser({ disableContentTypeError: true }))
 
   // invokes the handler
   const event = {
@@ -71,6 +71,28 @@ test('It should not process the body if no headers are passed', async (t) => {
   const body = await handler(event, defaultContext)
 
   t.is(body, 'a[b][c][d]=i')
+})
+
+test("It shouldn't process the body and throw error if no header is passed", async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(urlEncodeBodyParser({ disableContentTypeError: false }))
+
+  // invokes the handler
+  const event = {
+    headers: {},
+    body: 'a[b][c][d]=i'
+  }
+
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 415)
+    t.is(e.message, '@middy/http-urlencode-body-parser Unsupported Media Type')
+    t.is(e.cause, undefined)
+  }
 })
 
 test('It should not process the body if malformed body is passed', async (t) => {
@@ -91,7 +113,7 @@ test('It should not process the body if malformed body is passed', async (t) => 
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 422)
+    t.is(e.statusCode, 415)
   }
 })
 

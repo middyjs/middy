@@ -4,6 +4,7 @@ import { JsonValue } from 'type-fest'
 
 interface Options {
   reviver?: (key: string, value: any) => any
+  disableContentTypeError?: boolean
 }
 
 export type Event = Omit<APIGatewayEvent, 'body'> & {
