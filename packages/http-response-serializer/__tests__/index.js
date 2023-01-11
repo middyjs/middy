@@ -40,7 +40,9 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
         [key]: 'text/plain'
       }
     })
-    const handler = middy((event, context) => handlerResponse)
+    const handler = middy((event, context) =>
+      Object.assign({}, handlerResponse)
+    )
 
     handler.use(httpResponseSerializer(standardConfiguration))
 
@@ -49,7 +51,7 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
     }
     const response = await handler(event, context)
 
-    t.is(response, handlerResponse)
+    t.deepEqual(response, handlerResponse)
   })
 }
 

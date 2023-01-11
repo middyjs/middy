@@ -1,25 +1,29 @@
-import middy from '@middy/core'
+import middy, { MiddyfiedHandler } from '@middy/core'
 import {
   ALBEvent,
+  ALBResult,
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-export type Method =
-  | 'GET'
-  | 'POST'
-  | 'PUT'
-  | 'PATCH'
-  | 'DELETE'
-  | 'OPTIONS'
-  | 'ANY'
+export enum Method {
+  Get = 'GET',
+  Post = 'POST',
+  Put = 'PUT',
+  Patch = 'PATCH',
+  Delete = 'DELETE',
+  Options = 'OPTIONS',
+  Any = 'ANY'
+}
+
+type TResult = ALBResult | APIGatewayProxyResult
 
 export interface Route<TEvent> {
   method: Method
   path: string
-  handler: LambdaHandler<TEvent, APIGatewayProxyResult>
+  handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult, any, any>
 }
 
 declare function httpRouterHandler<

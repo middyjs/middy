@@ -43,7 +43,10 @@ const httpRouteHandler = (routes) => {
     for (const route of routesDynamic[method] ?? []) {
       const match = path.match(route.path)
       if (match) {
-        event.pathParameters ??= match.groups
+        event.pathParameters = {
+          ...match.groups,
+          ...event.pathParameters
+        }
         return route.handler(event, context, abort)
       }
     }
@@ -55,7 +58,17 @@ const httpRouteHandler = (routes) => {
 
 const regexpDynamicWildcards = /\/\{(proxy)\+\}$/
 const regexpDynamicParameters = /\/\{([^/]+)\}/g
-const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+
+export const Method = {
+  Get: 'GET',
+  Post: 'POST',
+  Put: 'PUT',
+  Patch: 'PATCH',
+  Delete: 'DELETE',
+  Options: 'OPTIONS',
+  Any: 'ANY'
+}
+const methods = Object.values(Method).filter((method) => method !== 'ANY')
 
 const attachStaticRoute = (method, path, handler, routesType) => {
   if (method === 'ANY') {

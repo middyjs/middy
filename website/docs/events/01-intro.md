@@ -90,6 +90,8 @@ export const handler = middy()
 import middy from '@middy/core'
 import { getInternal } from '@middy/util'
 import appConfigMiddleware from '@middy/appconfig'
+import s3Middleware from '@middy/s3'
+import dynamoDBMiddleware from '@middy/dynamodb'
 import ssmMiddleware from '@middy/ssm'
 
 export const handler = middy()
@@ -101,6 +103,26 @@ export const handler = middy()
           ClientId: '...',
           Configuration: '...',
           Environment: '...'
+        }
+      }
+    })
+  )
+  .use(
+    s3Middleware({
+      fetchData: {
+        s3: {
+          Bucket: '...',
+          Key: '...'
+        }
+      }
+    })
+  )
+  .use(
+    dynamoDBMiddleware({
+      fetchData: {
+        dynamodb: {
+          TableName: '...',
+          Key: { '...' }
         }
       }
     })

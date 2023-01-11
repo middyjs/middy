@@ -7,7 +7,8 @@ const fieldnamePattern = /(.+)\[(.*)]$/
 const defaults = {
   // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
   busboy: {},
-  charset: 'utf8'
+  charset: 'utf8',
+  disableContentTypeError: true
 }
 
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
@@ -18,7 +19,18 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
     const contentType = headers['Content-Type'] ?? headers['content-type']
 
-    if (!mimePattern.test(contentType)) return
+    if (!mimePattern.test(contentType)) {
+      if (options.disableContentTypeError) {
+        return
+      }
+      throw createError(
+        415,
+        '@middy/http-multipart-body-parser Unsupported Media Type',
+        {
+          cause: contentType
+        }
+      )
+    }
 
     return parseMultipartData(request.event, options)
       .then((multipartData) => {
@@ -28,7 +40,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
       .catch((cause) => {
         // UnprocessableEntity
         throw createError(
-          422,
+          415,
           'Invalid or malformed multipart/form-data was provided',
           { cause }
         )
