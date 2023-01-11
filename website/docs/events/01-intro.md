@@ -89,10 +89,20 @@ export const handler = middy()
 ```javascript
 import middy from '@middy/core'
 import { getInternal } from '@middy/util'
-import appConfigMiddleware from '@middy/appconfig'
+import dynamoDBMiddleware from '@middy/dynamodb'
 import ssmMiddleware from '@middy/ssm'
 
 export const handler = middy()
+  .use(
+    dynamoDBMiddleware({
+      fetchData: {
+        dynamodb: {
+          // Bucket: '...',
+          // Key: '...'
+        }
+      }
+    })
+  )
   .use(
     ssmMiddleware({
       fetchData: {
