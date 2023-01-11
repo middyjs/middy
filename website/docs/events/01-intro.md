@@ -96,6 +96,18 @@ import ssmMiddleware from '@middy/ssm'
 
 export const handler = middy()
   .use(
+    appConfigMiddleware({
+      fetchData: {
+        appConfig: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
+      }
+    })
+  )
+  .use(
     s3Middleware({
       fetchData: {
         s3: {
