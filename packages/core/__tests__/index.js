@@ -708,17 +708,21 @@ test('Should abort handler', async (t) => {
 
 test('Should abort timeout', async (t) => {
   const plugin = {
-    timeoutEarlyInMillis: 999
+    timeoutEarlyInMillis: 50
   }
   const context = {
-    getRemainingTimeInMillis: () => 999
+    getRemainingTimeInMillis: () => 100
   }
-  const handler = middy((event, context, { signal }) => {
+  const handler = middy(async (event, context, { signal }) => {
+    await setTimeout(200)
     return true
   }, plugin)
 
-  const response = await handler(event, context)
-  t.true(response)
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'Timeout')
+  }
 })
 
 test('Should not invoke timeoutEarlyResponse on success', async (t) => {

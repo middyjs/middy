@@ -119,13 +119,13 @@ const runRequest = async (
           })
           : Promise.race([])
       ])
-      if (timeoutEarly) timeoutAbort.abort() // lambdaHandler may not be a promise
+      timeoutAbort?.abort() // lambdaHandler may not be a promise
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
-    if (timeoutEarly && timeoutAbort) timeoutAbort.abort() // timeout should be aborted on errors
+    timeoutAbort?.abort() // timeout should be aborted on errors
 
     // Reset response changes made by after stack before error thrown
     request.response = undefined
