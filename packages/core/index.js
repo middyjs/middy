@@ -115,7 +115,7 @@ const runRequest = async (
             { signal: timeoutAbort.signal }
           ).then(() => {
             handlerAbort.abort()
-            return plugin.timeoutEarlyResponse()
+            return plugin.timeoutEarlyResponse(request)
           })
           : Promise.race([])
       ])

@@ -16,7 +16,7 @@ interface PluginObject {
   afterMiddleware?: PluginHookWithMiddlewareName
   beforeHandler?: PluginHook
   timeoutEarlyInMillis?: number
-  timeoutEarlyResponse?: PluginHook
+  timeoutEarlyResponse?: PluginHookPromise
   afterHandler?: PluginHook
   requestEnd?: PluginHookPromise
 }

@@ -12,12 +12,14 @@ const lambdaHandler = (event, context, {signal}) => {
   signal.onabort = () => {
     // cancel events
   }
-  // ... 
+  // ...
 }
 
 export const handler = middy(lambdaHandler, {
   timeoutEarlyInMillis: 50,
-  timeoutEarlyResponse: () => {
+  timeoutEarlyResponse: ({event, context}) => {
+    // You can also access the event and context of the current request
+
     return {
       statusCode: 408
     }

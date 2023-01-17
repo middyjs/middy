@@ -771,3 +771,27 @@ test('Should not invoke timeoutEarlyResponse on error', async (t) => {
 
   t.false(timeoutCalled)
 })
+
+test('Should pass the request to the timeoutEarlyResponse handler', async (t) => {
+  const event = {}
+  const context = {
+    getRemainingTimeInMillis: () => 20
+  }
+
+  const plugin = {
+    timeoutEarlyInMillis: 10,
+    timeoutEarlyResponse: (request) => {
+      t.is(request.event, event)
+      t.is(request.context, context)
+      return 'timeout'
+    }
+  }
+
+  const handler = middy(async (event, context) => {
+    await setTimeout(30)
+  }, plugin)
+
+  const response = await handler(event, context)
+
+  t.is(response, 'timeout')
+})
