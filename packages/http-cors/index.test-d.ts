@@ -9,7 +9,7 @@ expectType<middy.MiddlewareObj>(middleware)
 // use with all options
 middleware = httpCors({
   credentials: true, // Access-Control-Allow-Credentials
-  enablePreflightReply: true, // answer preflight requests accordingly
+  disableBeforePreflightResponse: true, // answer preflight requests accordingly
   headers: 'X-Custom-Header, Upgrade-Insecure-Requests', // 'Access-Control-Allow-Headers',
   methods: 'POST, GET, OPTIONS', // 'Access-Control-Allow-Methods'
   origin: 'foo.bar.com',
