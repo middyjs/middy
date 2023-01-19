@@ -10,7 +10,6 @@ This middleware will take care to intercept any error and log it for you. The mi
 
 By default, the logging operate by using the `console.error` function. You can pass as a parameter a custom logger with additional logic if you need. It can be useful if you want to process the log by doing a http call or anything else.
 
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -19,11 +18,9 @@ To install this middleware you can use NPM:
 npm install --save @middy/error-logger
 ```
 
-
 ## Options
 
-- `logger` property: a function (default `console.error`) that is used to define the logging logic. It receives the Error object as first and only parameter.
-
+- `logger` property: a function (default `console.error`) that is used to define the logging logic. It receives the Error object as first and only parameter. Some errors may include `cause` and should be handled appropriately.
 
 ## Sample usage
 
@@ -35,6 +32,5 @@ const handler = middy((event, context) => {
   // your handler logic
 })
 
-handler
-  .use(errorLogger())
+handler.use(errorLogger())
 ```

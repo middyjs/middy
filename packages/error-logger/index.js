@@ -1,5 +1,7 @@
 const defaults = {
-  logger: console.error
+  logger: (err) => {
+    console.error(err.stack, { cause: err.cause })
+  }
 }
 
 const errorLoggerMiddleware = (opts = {}) => {

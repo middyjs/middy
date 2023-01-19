@@ -9,7 +9,7 @@ const defaultContext = {
 }
 
 test('It should log errors and propagate the error', async (t) => {
-  const error = new Error('something bad happened')
+  const error = new Error('something bad happened', { cause: 'cause' })
   const logger = sinon.spy()
 
   const handler = middy(() => {
@@ -23,6 +23,9 @@ test('It should log errors and propagate the error', async (t) => {
   } catch (e) {
     t.true(logger.calledWith(error))
     t.deepEqual(e, error)
+    t.deepEqual(e.message, error.message)
+    t.deepEqual(e.stack, error.stack)
+    t.deepEqual(e.cause, error.cause)
   }
 })
 
