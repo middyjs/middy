@@ -9,10 +9,31 @@ const context = {
 test('Access-Control-Allow-Origin header should default to "*"', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
-  handler.use(cors())
+  handler.use(cors({ disableBeforePreflightResponse: false }))
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*'
+    }
+  })
+})
+
+test('It should skip responding during `before` when disableBeforePreflightResponse:true', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(cors({ disableBeforePreflightResponse: true }))
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -32,10 +53,11 @@ test('It should not override already declared Access-Control-Allow-Origin header
   }))
 
   // other middleware that puts the cors header
-  handler.use(cors())
+  handler.use(cors({ disableBeforePreflightResponse: true }))
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -54,18 +76,20 @@ test('It should use custom getOrigin', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       getOrigin: () => 'https://species.com'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://species.com',
       Vary: 'Origin'
@@ -78,19 +102,20 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       getOrigin: (incomingOrigin, options) => incomingOrigin
     })
   )
 
   const event = {
-    httpMethod: 'GET',
+    httpMethod: 'OPTIONS',
     headers: { Origin: 'https://incoming.com' }
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://incoming.com',
       Vary: 'Origin'
@@ -103,18 +128,20 @@ test('It should use origin specified in options', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       origin: 'https://example.com'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
       Vary: 'Origin'
@@ -127,19 +154,20 @@ test('It should return whitelisted origin', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://another-example.com']
     })
   )
 
   const event = {
-    httpMethod: 'GET',
+    httpMethod: 'OPTIONS',
     headers: { Origin: 'https://another-example.com' }
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://another-example.com',
       Vary: 'Origin'
@@ -152,19 +180,20 @@ test('It should return first origin as default if no match', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://another-example.com']
     })
   )
 
   const event = {
-    httpMethod: 'GET',
+    httpMethod: 'OPTIONS',
     headers: { Origin: 'https://unknown.com' }
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
       Vary: 'Origin'
@@ -180,6 +209,7 @@ test('It should add headers even onError', async (t) => {
   handler
     .use(
       cors({
+        disableBeforePreflightResponse: true,
         origin: 'https://example.com'
       })
     )
@@ -188,7 +218,8 @@ test('It should add headers even onError', async (t) => {
     })
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -207,7 +238,7 @@ test('It should not swallow errors', async (t) => {
     throw new Error('handler')
   })
 
-  handler.use(cors())
+  handler.use(cors({ disableBeforePreflightResponse: true }))
 
   try {
     await handler()
@@ -226,13 +257,14 @@ test('It should not override already declared Access-Control-Allow-Headers heade
     })
     .use(
       cors({
+        disableBeforePreflightResponse: true,
         headers: 'x-example-2'
       })
     )
-    .onError(() => {})
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -251,18 +283,20 @@ test('It should use allowed headers specified in options', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       headers: 'x-example'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'x-example'
@@ -280,13 +314,15 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     })
     .use(
       cors({
+        disableBeforePreflightResponse: true,
         credentials: true
       })
     )
     .onError(() => {})
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -304,6 +340,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
   const handler = middy((event, context) => ({ statusCode: 200 }))
     .use(
       cors({
+        disableBeforePreflightResponse: true,
         credentials: false
       })
     )
@@ -316,7 +353,8 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     })
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -334,12 +372,13 @@ test('It should use change credentials as specified in options (true)', async (t
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       credentials: true
     })
   )
 
   const event = {
-    httpMethod: 'GET',
+    httpMethod: 'OPTIONS',
     headers: {
       Origin: 'https://example.com'
     }
@@ -348,7 +387,7 @@ test('It should use change credentials as specified in options (true)', async (t
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'https://example.com',
@@ -362,12 +401,13 @@ test('It should use change credentials as specified in options (true) with lower
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       credentials: true
     })
   )
 
   const event = {
-    httpMethod: 'GET',
+    httpMethod: 'OPTIONS',
     headers: {
       origin: 'https://example-lowercase.com'
     }
@@ -376,7 +416,7 @@ test('It should use change credentials as specified in options (true) with lower
   const response = await handler(event, context)
 
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Origin': 'https://example-lowercase.com',
@@ -390,17 +430,19 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       methods: 'GET,PUT'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,PUT'
@@ -416,12 +458,14 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       methods: 'GET,PUT'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -439,17 +483,19 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       exposeHeaders: 'X-Middleware'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Expose-Headers': 'X-Middleware'
@@ -465,12 +511,14 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       exposeHeaders: 'X-Middleware'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -488,17 +536,19 @@ test('it should set Access-Control-Max-Age header if present in config', async (
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       maxAge: '3600'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Max-Age': '3600'
@@ -514,12 +564,14 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       maxAge: '3600'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -537,17 +589,19 @@ test('it should set Access-Control-Request-Headers header if present in config',
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       requestHeaders: 'X-Middleware'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Headers': 'X-Middleware'
@@ -563,12 +617,14 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       requestHeaders: 'X-Middleware'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -586,17 +642,19 @@ test('it should set Access-Control-Request-Methods header if present in config',
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       requestMethods: 'GET,PUT'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Request-Methods': 'GET,PUT'
@@ -612,12 +670,14 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       requestMethods: 'GET,PUT'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -635,17 +695,19 @@ test('it should set Cache-Control header if present in config and http method OP
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
     })
   )
 
   const event = {
-    httpMethod: 'OPTIONS'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
@@ -659,6 +721,7 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
 
     handler.use(
       cors({
+        disableBeforePreflightResponse: false,
         cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
       })
     )
@@ -683,12 +746,14 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
     })
   )
 
   const event = {
-    httpMethod: 'OPTIONS'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -709,12 +774,14 @@ test('it should not overwrite Vary header if already set', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: true,
       vary: 'Access-Control-Request-Method'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
@@ -732,17 +799,19 @@ test('it should set Vary header if present in config', async (t) => {
 
   handler.use(
     cors({
+      disableBeforePreflightResponse: false,
       vary: 'Access-Control-Request-Method'
     })
   )
 
   const event = {
-    httpMethod: 'GET'
+    httpMethod: 'OPTIONS',
+    headers: {}
   }
 
   const response = await handler(event, context)
   t.deepEqual(response, {
-    statusCode: 200,
+    statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       Vary: 'Access-Control-Request-Method'

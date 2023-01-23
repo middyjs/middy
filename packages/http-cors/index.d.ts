@@ -3,6 +3,7 @@ import middy from '@middy/core'
 export interface Options {
   getOrigin?: (incomingOrigin: string, options: Options) => string
   credentials?: boolean | string
+  disableBeforePreflightResponse: true
   headers?: string
   methods?: string
   origin?: string
