@@ -3,7 +3,7 @@ import middy from '@middy/core'
 export interface Options {
   getOrigin?: (incomingOrigin: string, options: Options) => string
   credentials?: boolean | string
-  disableBeforePreflightResponse: true
+  disableBeforePreflightResponse?: boolean
   headers?: string
   methods?: string
   origin?: string
@@ -15,6 +15,6 @@ export interface Options {
   cacheControl?: string
 }
 
-declare function httpCors (options?: Options): middy.MiddlewareObj
+declare function httpCors(options?: Options): middy.MiddlewareObj
 
 export default httpCors
