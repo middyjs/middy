@@ -64,8 +64,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
     await client.send(
       new WriteGetObjectResponseCommand({
-        ...request.response,
-        ...request.internal.s3ObjectResponse
+        ...request.internal.s3ObjectResponse,
+        ...request.response
       })
     )
 
