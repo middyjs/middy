@@ -1,6 +1,6 @@
 {
   "name": "@middy/validator",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "description": "Validator middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -74,11 +74,11 @@
   },
   "homepage": "https://middy.js.org",
   "dependencies": {
-    "@middy/util": "4.2.2",
+    "@middy/util": "4.2.3",
     "ajv-cmd": "0.3.1"
   },
   "devDependencies": {
-    "@middy/core": "4.2.2",
+    "@middy/core": "4.2.3",
     "@types/http-errors": "^2.0.0",
     "ajv-bsontype": "^1.0.7"
   },
