@@ -75,7 +75,7 @@ test.serial(
 )
 
 test.serial(
-  'It should call metrics.setDimensions when option passed',
+  'It should call metrics.setDimensions when option passed using plain object',
   async (t) => {
     const handler = middy(() => {})
 
@@ -99,6 +99,44 @@ test.serial(
             Agent: 'CloudWatchAgent',
             Version: 2
           }
+        })
+      )
+      .before(middleware)
+
+    const context = { ...defaultContext }
+    await handler(event, context)
+  }
+)
+
+test.serial(
+  'It should call metrics.setDimensions when option passed using an array of objects',
+  async (t) => {
+    const handler = middy(() => {})
+
+    const middleware = () => {
+      t.true(
+        metricsLoggerMock.setDimensions.calledWith([
+          {
+            Runtime: 'NodeJS',
+            Platform: 'ECS',
+            Agent: 'CloudWatchAgent',
+            Version: 2
+          }
+        ])
+      )
+    }
+
+    handler
+      .use(
+        metrics({
+          dimensions: [
+            {
+              Runtime: 'NodeJS',
+              Platform: 'ECS',
+              Agent: 'CloudWatchAgent',
+              Version: 2
+            }
+          ]
         })
       )
       .before(middleware)
