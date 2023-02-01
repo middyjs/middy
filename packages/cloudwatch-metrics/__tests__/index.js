@@ -93,14 +93,12 @@ test.serial(
     handler
       .use(
         metrics({
-          dimensions: [
-            {
-              Runtime: 'NodeJS',
-              Platform: 'ECS',
-              Agent: 'CloudWatchAgent',
-              Version: 2
-            }
-          ]
+          dimensions: {
+            Runtime: 'NodeJS',
+            Platform: 'ECS',
+            Agent: 'CloudWatchAgent',
+            Version: 2
+          }
         })
       )
       .before(middleware)
