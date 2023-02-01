@@ -12,7 +12,7 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
       metrics.setNamespace(namespace)
     }
 
-    // If not set, keeps defaults as defined here https://github.com/awslabs/aws-embedded-metrics-node/#configuration 
+    // If not set, keeps defaults as defined here https://github.com/awslabs/aws-embedded-metrics-node/#configuration
     if (dimensions) {
       metrics.setDimensions(dimensions)
     }

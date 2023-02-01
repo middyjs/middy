@@ -15,6 +15,6 @@ export interface Options {
   cacheControl?: string
 }
 
-declare function httpCors(options?: Options): middy.MiddlewareObj
+declare function httpCors (options?: Options): middy.MiddlewareObj
 
 export default httpCors
