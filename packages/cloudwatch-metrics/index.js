@@ -12,9 +12,9 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
       metrics.setNamespace(namespace)
     }
 
-    // If not set, defaults to ServiceName, ServiceType and LogGroupName
+    // If not set, keeps defaults as defined here https://github.com/awslabs/aws-embedded-metrics-node/#configuration
     if (dimensions) {
-      metrics.setDimensions(...dimensions)
+      metrics.setDimensions(dimensions)
     }
     Object.assign(request.context, { metrics })
   }

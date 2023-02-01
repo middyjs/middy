@@ -19,15 +19,7 @@ npm install --save @middy/cloudwatch-metrics
 ## Options
 
 - `namespace` (`string`) (optional): Defaults to `aws-embedded-metrics`. Sets the CloudWatch [namespace](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html#Namespace) that extracted metrics should be published to.
-- `dimensions` (`Record<String, String>[]`) (optional): Defaults to
-  ```json
-  [
-    { "ServiceName": "myLambdaFunctionName" },
-    { "ServiceType": "AWS::Lambda::Function" },
-    { "LogGroupName": "logGroupNameUsedByMyLambda" }
-  ]
-  ```
-  Explicitly override all dimensions. This will remove the default dimensions. You can provide an empty array to record all metrics without dimensions.
+- `dimensions` (`Record<String, String> | Record<String, String>[]`) (optional): Explicitly overrides all dimensions. This will remove the default dimensions. You can provide an empty array to record all metrics without dimensions. For dimensions defaults and configuration see the [aws-embedded-metrics docs](https://github.com/awslabs/aws-embedded-metrics-node/tree/v4.1.0#configuration).
 
 ## Sample usage
 
