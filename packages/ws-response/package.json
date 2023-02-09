@@ -64,7 +64,7 @@
     "@middy/util": "4.2.3"
   },
   "devDependencies": {
-    "@aws-sdk/client-apigatewaymanagementapi": "^3.186.0",
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.0.0",
     "@middy/core": "4.2.3",
     "@types/aws-lambda": "^8.10.97",
     "aws-xray-sdk": "^3.3.3"
