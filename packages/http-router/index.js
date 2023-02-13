@@ -66,6 +66,7 @@ export const Method = {
   Patch: 'PATCH',
   Delete: 'DELETE',
   Options: 'OPTIONS',
+  Head: 'HEAD',
   Any: 'ANY'
 }
 const methods = Object.values(Method).filter((method) => method !== 'ANY')

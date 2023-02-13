@@ -15,6 +15,7 @@ export enum Method {
   Patch = 'PATCH',
   Delete = 'DELETE',
   Options = 'OPTIONS',
+  Head = 'HEAD',
   Any = 'ANY'
 }
 
