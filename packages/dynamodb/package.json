@@ -1,6 +1,6 @@
 {
   "name": "@middy/dynamodb",
-  "version": "4.2.4",
+  "version": "4.2.5",
   "description": "DynamoDB middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -59,13 +59,17 @@
     "url": "https://github.com/middyjs/middy/issues"
   },
   "homepage": "https://middy.js.org",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/willfarrell"
+  },
   "dependencies": {
-    "@middy/util": "4.2.4"
+    "@middy/util": "4.2.5"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.245.0",
     "@aws-sdk/util-dynamodb": "^3.245.0",
-    "@middy/core": "4.2.4",
+    "@middy/core": "4.2.5",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },
