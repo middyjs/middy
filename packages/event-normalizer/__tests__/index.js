@@ -305,6 +305,35 @@ test('It should parse Apache Kafka event', async (t) => {
   t.deepEqual(response.records.mytopic0[0].value, 'Hello, this is a test.')
 })
 
+test('It should parse Apache Kafka event without a record value', async (t) => {
+  const handler = middy((event) => event).use(eventNormalizer())
+
+  const event = {
+    eventSource: 'SelfManagedKafka',
+    bootstrapServers:
+      'b-2.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092,b-1.demo-cluster-1.a1bcde.c1.kafka.us-east-1.amazonaws.com:9092',
+    records: {
+      mytopic0: [
+        {
+          topic: 'mytopic',
+          partition: '0',
+          offset: 15,
+          timestamp: 1545084650987,
+          timestampType: 'CREATE_TIME',
+          headers: [
+            {
+              headerKey: [104, 101, 97, 100, 101, 114, 86, 97, 108, 117, 101]
+            }
+          ]
+        }
+      ]
+    }
+  }
+  const response = await handler(event, context)
+
+  t.deepEqual(response.records.mytopic0[0].topic, 'mytopic')
+})
+
 // Kinesis Firehose
 test('It should parse Kinesis Firehose event data', async (t) => {
   const handler = middy((event) => event).use(eventNormalizer())

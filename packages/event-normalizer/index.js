@@ -82,7 +82,7 @@ const events = {
   'aws:kafka': (event) => {
     for (const record in event.records) {
       for (const topic of event.records[record]) {
-        topic.value = base64Parse(topic.value)
+        if (topic.value) topic.value = base64Parse(topic.value)
       }
     }
   },
