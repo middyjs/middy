@@ -16,7 +16,7 @@ This page is a work in progress. If you want to help us to make this page better
 
 ```javascript
 import middy from '@middy/core'
-import httpRouterHandler from '@middy/http-router'
+import httpRouteHandler from '@middy/http-router'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
@@ -88,5 +88,5 @@ export const handler = middy({
   )
   .use(httpPartialResponseMiddleware())
   .use(httpErrorHandlerMiddleware())
-  .handler(httpRouterHandler(routes))
+  .handler(httpRouteHandler(routes))
 ```

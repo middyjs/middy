@@ -27,11 +27,11 @@ export interface Route<TEvent> {
   handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult, any, any>
 }
 
-declare function httpRouterHandler<
+declare function httpRouteHandler<
   TEvent extends
   | ALBEvent
   | APIGatewayProxyEvent
   | APIGatewayProxyEventV2 = APIGatewayProxyEvent
 > (routes: Array<Route<TEvent>>): middy.MiddyfiedHandler
 
-export default httpRouterHandler
+export default httpRouteHandler

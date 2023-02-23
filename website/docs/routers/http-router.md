@@ -30,7 +30,7 @@ NOTES:
 
 ```javascript
 import middy from '@middy/core'
-import httpRouterHandler from '@middy/http-router'
+import httpRouteHandler from '@middy/http-router'
 import validatorMiddleware from '@middy/validator'
 
 const getHandler = middy()
@@ -66,6 +66,6 @@ const routes = [
 
 export const handler = middy()
   .use(httpHeaderNormalizer())
-  .handler(httpRouterHandler(routes))
+  .handler(httpRouteHandler(routes))
 
 ```
