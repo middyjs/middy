@@ -16,13 +16,9 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
       if (options.disableContentTypeError) {
         return
       }
-      throw createError(
-        415,
-        '@middy/http-urlencode-body-parser Unsupported Media Type',
-        {
-          cause: contentType
-        }
-      )
+      throw createError(415, 'Unsupported Media Type', {
+        cause: contentType
+      })
     }
 
     const data = request.event.isBase64Encoded

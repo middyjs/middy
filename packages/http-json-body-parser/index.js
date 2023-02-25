@@ -18,13 +18,9 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
       if (options.disableContentTypeError) {
         return
       }
-      throw createError(
-        415,
-        '@middy/http-json-body-parser Unsupported Media Type',
-        {
-          cause: contentType
-        }
-      )
+      throw createError(415, 'Unsupported Media Type', {
+        cause: contentType
+      })
     }
 
     try {
