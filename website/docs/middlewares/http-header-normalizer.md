@@ -2,14 +2,15 @@
 title: http-header-normalizer
 ---
 
-This middleware normalizes HTTP header names to their canonical format. Very useful if clients are
-not using the canonical names of header (e.g. `content-type` as opposed to `Content-Type`).
+This middleware normalizes HTTP header names. By default, it normalizes to lowercase. It
+can also normalize to canonical form.
 
-API Gateway does not perform any normalization, so the headers are propagated to Lambda
-exactly as they were sent by the client.
+API Gateway does not perform any normalization, so without this middleware headers
+are propagated to Lambda exactly as they were sent by the client. Headers names are
+case insensitive, so normalization allows code reading header values to be simplified.
 
 Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyParser`](#urlencodebodyparser)
-will rely on headers to be in the canonical format, so if you want to support non-normalized headers in your
+will rely on headers to be one of the normalized formats, so if you want to support non-normalized headers in your
 app you have to use this middleware before those ones.
 
 This middleware will copy the original headers in `event.rawHeaders`.
