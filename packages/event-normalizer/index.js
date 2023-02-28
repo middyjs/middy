@@ -17,7 +17,7 @@ const eventNormalizerMiddleware = (opts = {}) => {
 }
 
 const parseEvent = (event) => {
-  // event.eventSource => aws:amq, aws:kafka, SelfManagedKafka
+  // event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
   // event.deliveryStreamArn => aws:lambda:events
   let eventSource = event.eventSource ?? event.deliveryStreamArn
 
@@ -25,8 +25,13 @@ const parseEvent = (event) => {
   // event.records => aws:lambda:events
   // event.messages => aws:amq
   // event.tasks => aws:s3:batch
+  // event.events => aws:docdb
   const records =
-    event.Records ?? event.records ?? event.messages ?? event.tasks
+    event.Records ??
+    event.records ??
+    event.messages ??
+    event.tasks ??
+    event.events
 
   if (!Array.isArray(records)) {
     // event.configRuleId => aws:config
@@ -74,6 +79,7 @@ const events = {
     event.invokingEvent = jsonSafeParse(event.invokingEvent)
     event.ruleParameters = jsonSafeParse(event.ruleParameters)
   },
+  // 'aws:docdb': (record) => {},
   'aws:dynamodb': (record) => {
     record.dynamodb.Keys = unmarshall(record.dynamodb.Keys)
     record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage)
