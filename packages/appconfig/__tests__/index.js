@@ -465,3 +465,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
     t.deepEqual(e.cause, [new Error('timeout')])
   }
 })
+
+test.todo('Should not parse configuration is mime type is not application/json')
+test.todo(
+  'Should catch error if an error is returned from StartConfigurationSessionCommand'
+)
