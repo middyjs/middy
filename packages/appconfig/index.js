@@ -32,6 +32,7 @@ const appConfigMiddleware = (opts = {}) => {
     ...opts
   }
   const configurationTokenCache = {}
+  const configurationCache = {}
 
   function fetchLatestConfiguration (configToken, internalKey) {
     return client
@@ -43,11 +44,16 @@ const appConfigMiddleware = (opts = {}) => {
       .then((configResp) => {
         configurationTokenCache[internalKey] =
           configResp.NextPollConfigurationToken
-        let value = String.fromCharCode.apply(null, configResp.Configuration)
 
+        if (configResp.Configuration == null) {
+          return configurationCache[internalKey]
+        }
+
+        let value = String.fromCharCode.apply(null, configResp.Configuration)
         if (contentTypePattern.test(configResp.ContentType)) {
           value = jsonSafeParse(value)
         }
+        configurationCache[internalKey] = value
         return value
       })
       .catch((e) => {
