@@ -134,6 +134,44 @@ handler({}, {}, (err, response) => {
 })
 ```
 
+Example for body validation:
+
+```javascript
+import middy from '@middy/core'
+import httpJsonBodyParser from '@middy/http-json-body-parser'
+import validator from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
+
+const handler = middy((event, context) => {
+  return {}
+})
+
+const schema = {
+  type: 'object',
+  required: ['body'],
+  properties: {
+    body: {
+      type: 'object',
+      required: ['name', 'email'],
+      properties: {
+				name: { type: 'string' },
+				email: { type: 'string', format: 'email' }
+        // schema options https://ajv.js.org/json-schema.html#json-data-type
+			},
+    },
+  }
+}
+
+// to validate the body we need to parse it first
+handler
+  .use(httpJsonBodyParser())
+  .use(
+    validator({
+      eventSchema: transpileSchema(schema)
+    })
+  )
+```
+
 ## Pre-transpiling example (recommended)
 
 Run a build script to before running tests & deployment.
