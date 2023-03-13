@@ -68,6 +68,7 @@
   },
   "devDependencies": {
     "@aws-sdk/client-appconfig": "^3.0.0",
+    "@aws-sdk/client-appconfigdata": "^3.289.0",
     "@middy/core": "4.2.6",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
