@@ -306,7 +306,7 @@ test('It should run middleware that are part of route handler', async (t) => {
   t.true(response)
 })
 
-test('It should middleware part of router', async (t) => {
+test('It should run middleware part of router', async (t) => {
   const event = {
     httpMethod: 'GET',
     path: '/'

@@ -123,11 +123,7 @@ export const processCache = (options, fetch = () => undefined, request) => {
   if (cacheExpiry) {
     const refresh =
       cacheExpiry > 0
-        ? setInterval(() => {
-          const value = fetch(request)
-          const expiry = Date.now() + cacheExpiry
-          Object.assign(cache[cacheKey], { value, expiry })
-        }, cacheExpiry)
+        ? setInterval(() => processCache(options, fetch, request), cacheExpiry)
         : undefined
     cache[cacheKey] = { value, expiry, refresh }
   }

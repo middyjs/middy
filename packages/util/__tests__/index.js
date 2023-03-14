@@ -338,10 +338,10 @@ test.serial('processCache should cache and expire', async (t) => {
   await setTimeout(100)
   let cache = getCache('key')
   t.not(cache, undefined)
-  await setTimeout(100)
+  await setTimeout(250) // expire twice
   cache = getCache('key')
   t.true(cache.expiry > Date.now())
-  t.is(fetch.callCount, 2)
+  t.is(fetch.callCount, 3)
   clearCache()
 })
 

@@ -7,10 +7,11 @@ The following middlewares are created and maintained outside this project. We ca
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
 ## Version 2.x - 3.x
+
 - [aws-lambda-powertools-typescript](https://github.com/awslabs/aws-lambda-powertools-typescript): A suite of utilities for AWS Lambda Functions that makes structured logging, creating custom metrics asynchronously and tracing with AWS X-Ray easier
-  - [logger](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/logger): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
-  - [metrics](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/metrics): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
-  - [tracer](https://github.com/awslabs/aws-lambda-powertools-typescript/tree/main/docs/middlewares/tracer): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
+  - [logger](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#capturing-lambda-context-info): Structured logging made easier, and a middleware to enrich log items with key details of the Lambda context
+  - [metrics](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#middy-middleware): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
+  - [tracer](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/tracer/#lambda-handler): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
 - [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
@@ -25,6 +26,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
 
 ## Version 1.x
+
 - [middy-redis](https://www.npmjs.com/package/middy-redis): Redis connection middleware
 - [middy-extractor](https://www.npmjs.com/package/middy-extractor): Extracts data from events using expressions
 - [@keboola/middy-error-logger](https://www.npmjs.com/package/@keboola/middy-error-logger): middleware that catches thrown exceptions and rejected promises and logs them comprehensibly to the console
