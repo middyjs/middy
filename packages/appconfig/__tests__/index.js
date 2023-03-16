@@ -58,9 +58,9 @@ test.serial(
           cacheExpiry: 0,
           fetchData: {
             key: {
-              ApplicationIdentifier: 'xb0nby2',
-              ConfigurationProfileIdentifier: 'ofexqm2',
-              EnvironmentIdentifier: '7tp0goq'
+              ApplicationIdentifier: '...',
+              ConfigurationProfileIdentifier: '...',
+              EnvironmentIdentifier: '...'
             }
           }
         })
@@ -127,7 +127,7 @@ test.serial(
 )
 
 test.serial(
-  'It should keep previous configuration value if getLatestConfiguration returns null configuration',
+  'It should keep previous configuration value if getLatestConfiguration returns empty configuration array',
   async (t) => {
     mockClient(AppConfigDataClient)
       .on(StartConfigurationSessionCommand)
@@ -148,7 +148,7 @@ test.serial(
       })
       .resolvesOnce({
         ContentType: 'application/json',
-        Configuration: null,
+        Configuration: strToUintArray(''),
         NextPollConfigurationToken: 'NextConfigToken'
       })
 
