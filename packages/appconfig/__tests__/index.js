@@ -466,7 +466,81 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   }
 })
 
-test.todo('Should not parse configuration is mime type is not application/json')
-test.todo(
-  'Should catch error if an error is returned from StartConfigurationSessionCommand'
+test.serial(
+  'It should catch if an error is returned from start configuration session command',
+  async (t) => {
+    const mockService = mockClient(AppConfigDataClient)
+    mockService.on(StartConfigurationSessionCommand).rejects('timeout')
+
+    const handler = middy(() => {}).use(
+      appConfig({
+        AwsClient: AppConfigDataClient,
+        cacheExpiry: 0,
+        fetchData: {
+          key: {
+            ApplicationIdentifier: '...',
+            ConfigurationProfileIdentifier: '...',
+            EnvironmentIdentifier: '...'
+          }
+        },
+        setToContext: true
+      })
+    )
+
+    try {
+      await handler(event, context)
+    } catch (e) {
+      t.is(mockService.send.callCount, 1)
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause, [new Error('timeout')])
+    }
+  }
+)
+
+test.serial(
+  'Should not parse configuration is mime type is not application/json',
+  async (t) => {
+    mockClient(AppConfigDataClient)
+      .on(StartConfigurationSessionCommand)
+      .resolvesOnce({
+        ContentType: 'application/json',
+        InitialConfigurationToken: 'InitialToken...'
+      })
+      .on(GetLatestConfigurationCommand, {
+        ConfigurationToken: 'InitialToken...'
+      })
+      .resolvesOnce({
+        ContentType: 'application/xml',
+        Configuration: strToUintArray(
+          '<?xml version="1.0" encoding="UTF-8" ?><option>value</option>'
+        ),
+        NextPollConfigurationToken: 'nextConfigToken'
+      })
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(
+        values.key,
+        '<?xml version="1.0" encoding="UTF-8" ?><option>value</option>'
+      )
+    }
+
+    const handler = middy(() => {})
+      .use(
+        appConfig({
+          AwsClient: AppConfigDataClient,
+          cacheExpiry: 0,
+          fetchData: {
+            key: {
+              ApplicationIdentifier: 'xb0nby2',
+              ConfigurationProfileIdentifier: 'ofexqm2',
+              EnvironmentIdentifier: '7tp0goq'
+            }
+          }
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context)
+  }
 )
