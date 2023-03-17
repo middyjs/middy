@@ -7,7 +7,6 @@ import {
   StartConfigurationSessionRequest
 } from '@aws-sdk/client-appconfigdata'
 
-
 export type Options<AwsAppConfigClient = AppConfigDataClient>
   = Omit<MiddyOptions<AwsAppConfigClient, AppConfigDataClientConfig>, 'fetchData'>
   & {

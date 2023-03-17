@@ -15,7 +15,6 @@ const options = {
     }
   },
   awsClientAssumeRole: 'some-role',
-  // TODO this does not match
   awsClientCapture: captureAWSv3Client,
   fetchData: {
     config: {
