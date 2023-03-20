@@ -29,6 +29,76 @@ const strToUintArray = (str) =>
   Uint8Array.from(str.split('').map((x) => x.charCodeAt()))
 
 test.serial(
+  'It should set AppConfigData param value to internal storage for multiple parameters',
+  async (t) => {
+    mockClient(AppConfigDataClient)
+      .on(StartConfigurationSessionCommand, {
+        ApplicationIdentifier: 'app1',
+        ConfigurationProfileIdentifier: 'cpi1',
+        EnvironmentIdentifier: 'ei1'
+      })
+      .resolvesOnce({
+        ContentType: 'application/json',
+        InitialConfigurationToken: 'initialToken1'
+      })
+      .on(StartConfigurationSessionCommand, {
+        ApplicationIdentifier: 'app2',
+        ConfigurationProfileIdentifier: 'cpi2',
+        EnvironmentIdentifier: 'ei2'
+      })
+      .resolvesOnce({
+        ContentType: 'application/json',
+        InitialConfigurationToken: 'initialToken2'
+      })
+      .on(GetLatestConfigurationCommand, {
+        ConfigurationToken: 'initialToken1'
+      })
+      .resolvesOnce({
+        ContentType: 'application/json',
+        Configuration: strToUintArray('{"option1":"value1"}'),
+        NextPollConfigurationToken: 'nextConfigToken'
+      })
+      .on(GetLatestConfigurationCommand, {
+        ConfigurationToken: 'initialToken2'
+      })
+      .resolvesOnce({
+        ContentType: 'application/json',
+        Configuration: strToUintArray('{"option2":"value2"}'),
+        NextPollConfigurationToken: 'nextConfigToken2'
+      })
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.key1?.option1, 'value1')
+      t.is(values.key2?.option2, 'value2')
+    }
+
+    const handler = middy(() => {})
+      .use(
+        appConfig({
+          AwsClient: AppConfigDataClient,
+          cacheExpiry: 0,
+          fetchData: {
+            key1: {
+              ApplicationIdentifier: 'app1',
+              ConfigurationProfileIdentifier: 'cpi1',
+              EnvironmentIdentifier: 'ei1'
+            },
+            key2: {
+              ApplicationIdentifier: 'app2',
+              ConfigurationProfileIdentifier: 'cpi2',
+              EnvironmentIdentifier: 'ei2'
+            }
+          }
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context)
+  }
+)
+
+test.serial(
   'It should set AppConfigData param value to internal storage',
   async (t) => {
     mockClient(AppConfigDataClient)
