@@ -23,7 +23,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   if (!['stream', 'promise'].includes(options.bodyType)) {
-    throw new Error('[s3-object-response] bodyType is invalid')
+    throw new Error('bodyType is invalid', {
+      cause: { package: '@middy/s3-object-response' }
+    })
   }
 
   if (options.httpsCapture) {

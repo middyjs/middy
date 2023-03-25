@@ -417,8 +417,12 @@ test('It should throw error if InvalidParameters returned', async (t) => {
   } catch (e) {
     t.is(e.message, 'Failed to resolve internal values')
     t.deepEqual(e.cause, [
-      new Error('[ssm] InvalidParameter invalid-ssm-param-name'),
-      new Error('[ssm] InvalidParameter another-invalid-ssm-param')
+      new Error('InvalidParameter invalid-ssm-param-name', {
+        cause: { pacakge: '@middy/ssm' }
+      }),
+      new Error('InvalidParameter another-invalid-ssm-param', {
+        cause: { pacakge: '@middy/ssm' }
+      })
     ])
   }
 })

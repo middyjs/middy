@@ -40,7 +40,7 @@ npm install --save @middy/validator
 NOTES:
 
 - At least one of `eventSchema` or `responseSchema` is required.
-- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause`, the original response can be found at `request.error.response`.
+- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data`, the original response can be found at `request.error.response`.
 - **Important** Transpiling schemas & locales on the fly will cause a 50-150ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 
 ## transpileSchema
@@ -154,22 +154,20 @@ const schema = {
       type: 'object',
       required: ['name', 'email'],
       properties: {
-				name: { type: 'string' },
-				email: { type: 'string', format: 'email' }
+        name: { type: 'string' },
+        email: { type: 'string', format: 'email' }
         // schema options https://ajv.js.org/json-schema.html#json-data-type
-			},
-    },
+      }
+    }
   }
 }
 
 // to validate the body we need to parse it first
-handler
-  .use(httpJsonBodyParser())
-  .use(
-    validator({
-      eventSchema: transpileSchema(schema)
-    })
-  )
+handler.use(httpJsonBodyParser()).use(
+  validator({
+    eventSchema: transpileSchema(schema)
+  })
+)
 ```
 
 ## Pre-transpiling example (recommended)

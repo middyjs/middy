@@ -16,7 +16,7 @@ test('It should throw error when invalid version', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, '[http-event-normalizer] Unknown http event format')
+    t.is(e.message, 'Unknown http event format')
   }
 })
 
@@ -29,7 +29,7 @@ test('It should do nothing if not HTTP event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, '[http-event-normalizer] Unknown http event format')
+    t.is(e.message, 'Unknown http event format')
   }
 })
 

@@ -109,7 +109,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
+    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
   }
 })
 
@@ -133,7 +133,7 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.message, 'Unexpected token u in JSON at position 0')
+    t.is(e.cause.data.message, 'Unexpected token u in JSON at position 0')
   }
 })
 
@@ -173,7 +173,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause, undefined)
+    t.is(e.cause.data, undefined)
   }
 })
 
@@ -222,6 +222,6 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
+    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
   }
 })

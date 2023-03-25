@@ -34,7 +34,9 @@ const rdsSignerMiddleware = (opts = {}) => {
         .then((token) => {
           // Catch Missing token, this usually means their is something wrong with the credentials
           if (!token.includes('X-Amz-Security-Token=')) {
-            throw new Error('[rds-signer] X-Amz-Security-Token Missing')
+            throw new Error('X-Amz-Security-Token Missing', {
+              cause: { package: '@middy/rds-signer' }
+            })
           }
           return token
         })

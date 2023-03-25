@@ -24,7 +24,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: contentType
+        cause: { package: '@middy/multipart-body-parser', data: contentType }
       })
     }
 
@@ -33,12 +33,12 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         // request.event.rawBody = body
         request.event.body = multipartData
       })
-      .catch((cause) => {
+      .catch((err) => {
         // UnprocessableEntity
         throw createError(
           415,
           'Invalid or malformed multipart/form-data was provided',
-          { cause }
+          { cause: { package: '@middy/multipart-body-parser', data: err } }
         )
       })
   }

@@ -94,7 +94,7 @@ test('It should handle invalid form data (undefined) as an UnprocessableEntity',
   } catch (e) {
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
     t.is(
-      e.cause.message,
+      e.cause.data.message,
       'The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined'
     )
   }
@@ -121,7 +121,7 @@ test('It should handle invalid form data (null) as an UnprocessableEntity', asyn
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.is(e.cause.message, 'May not write null values to stream')
+    t.is(e.cause.data.message, 'May not write null values to stream')
   }
 })
 
@@ -146,7 +146,7 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.is(e.cause.message, 'Unexpected end of form')
+    t.is(e.cause.data.message, 'Unexpected end of form')
   }
 })
 
@@ -234,7 +234,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause, undefined)
+    t.is(e.cause.data, undefined)
   }
 })
 

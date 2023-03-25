@@ -12,7 +12,9 @@ const wsRouteHandler = (routes) => {
   return (event, context, abort) => {
     const { routeKey } = event.requestContext ?? {}
     if (!routeKey) {
-      throw new Error('[ws-router] Unknown ws event format')
+      throw new Error('Unknown WebSocket event format', {
+        cause: { package: '@middy/ws-router' }
+      })
     }
 
     // Static
@@ -22,7 +24,9 @@ const wsRouteHandler = (routes) => {
     }
 
     // Not Found
-    throw createError(404, 'Route does not exist')
+    throw createError(404, 'Route does not exist', {
+      cause: { pacakge: '@middy/ws-router', data: routeKey }
+    })
   }
 }
 

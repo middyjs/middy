@@ -9,7 +9,9 @@ const httpRouteHandler = (routes) => {
 
     // Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
     if (!enumMethods.includes(method)) {
-      throw new Error('[http-router] Method not allowed')
+      throw new Error('Method not allowed', {
+        cause: { package: '@middy/http-router' }
+      })
     }
 
     // remove trailing slash, but not if it's the first one
@@ -30,7 +32,9 @@ const httpRouteHandler = (routes) => {
   return (event, context, abort) => {
     const { method, path } = getVersionRoute[event.version ?? '1.0']?.(event)
     if (!method) {
-      throw new Error('[http-router] Unknown http event format')
+      throw new Error('Unknown http event format', {
+        cause: { package: '@middy/http-router', data: event }
+      })
     }
 
     // Static
@@ -52,7 +56,9 @@ const httpRouteHandler = (routes) => {
     }
 
     // Not Found
-    throw createError(404, 'Route does not exist')
+    throw createError(404, 'Route does not exist', {
+      cause: { pacakge: '@middy/http-router', data: path }
+    })
   }
 }
 

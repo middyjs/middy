@@ -18,7 +18,9 @@ export const createClient = async (options, request) => {
   // Role Credentials
   if (options.awsClientAssumeRole) {
     if (!request) {
-      throw new Error('Request required when assuming role')
+      throw new Error('Request required when assuming role', {
+        cause: { package: '@middy/util' }
+      })
     }
     awsClientCredentials = await getInternal(
       { credentials: options.awsClientAssumeRole },
@@ -78,7 +80,9 @@ export const getInternal = async (variables, request) => {
     .filter((res) => res.status === 'rejected')
     .map((res) => res.reason)
   if (errors.length) {
-    throw new Error('Failed to resolve internal values', { cause: errors })
+    throw new Error('Failed to resolve internal values', {
+      cause: { package: '@middy/util', data: errors }
+    })
   }
   return keys.reduce(
     (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),

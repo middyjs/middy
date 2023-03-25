@@ -721,7 +721,8 @@ test('Should abort timeout', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Timeout')
+    t.is(e.name, 'TimeoutError')
+    t.is(e.message, '[AbortError]: The operation was aborted.')
   }
 })
 

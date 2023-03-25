@@ -5,7 +5,9 @@ const httpEventNormalizerMiddleware = () => {
     const version = event.version ?? '1.0'
     const isHttpEvent = isVersionHttpEvent[version]?.(event)
     if (!isHttpEvent) {
-      throw new Error('[http-event-normalizer] Unknown http event format')
+      throw new Error('Unknown http event format', {
+        cause: { package: '@middy/http-event-normalizer' }
+      })
     }
 
     // event.headers ??= {} // Will always have at least one header

@@ -69,7 +69,7 @@ test.serial('It should throw when unknown bodyType used', async (t) => {
       })
     )
   } catch (e) {
-    t.is(e.message, '[s3-object-response] bodyType is invalid')
+    t.is(e.message, 'bodyType is invalid')
   }
 })
 

@@ -17,7 +17,10 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: contentType
+        cause: {
+          package: '@middy/http-urlencode-body-parser',
+          data: contentType
+        }
       })
     }
 
@@ -33,7 +36,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
       throw createError(
         415,
         'Invalid or malformed URL encoded form was provided',
-        { cause: '@middy/http-urlencode-body-parser unable to parse body' }
+        { cause: { package: '@middy/http-urlencode-body-parser' } }
       )
     }
   }

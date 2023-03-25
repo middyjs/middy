@@ -314,7 +314,9 @@ test.serial(
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
       t.deepEqual(e.cause, [
-        new Error('[rds-signer] X-Amz-Security-Token Missing')
+        new Error('X-Amz-Security-Token Missing', {
+          cause: { package: '@middy/rds-signer' }
+        })
       ])
     }
   }

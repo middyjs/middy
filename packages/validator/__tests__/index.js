@@ -299,7 +299,7 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
     await handler(event, context)
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause, [
+    t.deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -357,7 +357,7 @@ for (const c of cases) {
       await handler(event, context)
     } catch (e) {
       t.is(e.message, 'Event object failed validation')
-      t.deepEqual(e.cause, [
+      t.deepEqual(e.cause.data, [
         {
           instancePath: '',
           keyword: 'required',
@@ -409,7 +409,7 @@ test('It should handle invalid schema as a BadRequest in a different language (w
     await handler(event, context)
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause, [
+    t.deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -457,7 +457,7 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
     await handler(event, context)
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause, [
+    t.deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -580,7 +580,7 @@ test('It should not allow bad email format', async (t) => {
     // This same email is not a valid one in 'full' validation mode
     await handler(event, context)
   } catch (e) {
-    t.is(e.cause[0].message, 'must match format "email"')
+    t.is(e.cause.data[0].message, 'must match format "email"')
   }
 })
 
@@ -643,7 +643,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     await handler({ foo: 'a' })
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause, [{
+    t.deepEqual(e.cause.data, [{
       instancePath: '',
       keyword: 'errorMessage',
       params: {

@@ -178,7 +178,11 @@ const convertValue = {
 
 const convertToNative = (data) => {
   for (const [key, value] of Object.entries(data)) {
-    if (!convertValue[key]) throw new Error(`Unsupported type passed: ${key}`)
+    if (!convertValue[key]) {
+      throw new Error(`Unsupported type passed: ${key}`, {
+        cause: { package: '@middy/event-normalizer' }
+      })
+    }
     if (typeof value === 'undefined') continue
     return convertValue[key](value)
   }

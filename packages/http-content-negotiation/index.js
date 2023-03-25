@@ -105,7 +105,8 @@ const parseHeader = (
     // NotAcceptable
     throw createError(
       406,
-      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
+      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`,
+      { cause: { package: '@middy/http-content-negotiation' } }
     )
   }
 }

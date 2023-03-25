@@ -4,7 +4,11 @@ const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => {
-    throw new Error('Timeout')
+    const err = new Error('[AbortError]: The operation was aborted.', {
+      cause: { package: '@middy/core' }
+    })
+    err.name = 'TimeoutError'
+    throw err
   }
 }
 

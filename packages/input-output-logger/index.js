@@ -15,9 +15,11 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   }
 
   if (typeof logger !== 'function') {
-    throw new Error(
-      '[input-output-logger-middleware]: logger must be a function'
-    )
+    throw new Error('logger must be a function', {
+      cause: {
+        pacakge: '@middy/input-output-logger'
+      }
+    })
   }
 
   const omitPathTree = buildPathTree(omitPaths)
