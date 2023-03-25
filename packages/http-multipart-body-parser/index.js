@@ -8,7 +8,7 @@ const defaults = {
   // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
   busboy: {},
   charset: 'utf8',
-  disableContentTypeError: true
+  disableContentTypeError: false
 }
 
 const httpMultipartBodyParserMiddleware = (opts = {}) => {

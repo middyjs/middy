@@ -3,7 +3,7 @@ import parse from 'qs/lib/parse.js'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 const defaults = {
-  disableContentTypeError: true
+  disableContentTypeError: false
 }
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }

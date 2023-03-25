@@ -155,7 +155,7 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler.use(httpMultipartBodyParser({ disableContentTypeError: false }))
 
   // invokes the handler
   const event = {
@@ -163,12 +163,13 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
     body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
   }
 
-  const response = await handler(event, defaultContext)
-
-  t.is(
-    response,
-    'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
-  )
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 415)
+    t.is(e.message, 'Unsupported Media Type')
+    t.is(e.cause.data, undefined)
+  }
 })
 
 test("It shouldn't process the body if the content type is not multipart/form-data", async (t) => {
@@ -176,7 +177,7 @@ test("It shouldn't process the body if the content type is not multipart/form-da
     return event.body // propagates the body as a response
   })
 
-  handler.use(httpMultipartBodyParser())
+  handler.use(httpMultipartBodyParser({ disableContentTypeError: false }))
 
   // invokes the handler
   const event = {
@@ -185,11 +186,14 @@ test("It shouldn't process the body if the content type is not multipart/form-da
     },
     body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
   }
-  const response = await handler(event, defaultContext)
-  t.is(
-    response,
-    'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
-  )
+
+  try {
+    await handler(event, defaultContext)
+  } catch (e) {
+    t.is(e.statusCode, 415)
+    t.is(e.message, 'Unsupported Media Type')
+    t.is(e.cause.data, 'application/json')
+  }
 })
 
 test("It shouldn't process the body if headers are passed without content type", async (t) => {

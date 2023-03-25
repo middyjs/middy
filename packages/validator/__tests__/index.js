@@ -622,8 +622,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
   }
 })
 
-// TODO Not support yet with ajv v7
-/* test('It should use out-of-the-box ajv-errors plugin', async (t) => {
+test('It should use out-of-the-box ajv-errors plugin', async (t) => {
   const schema = {
     type: 'object',
     required: ['foo'],
@@ -637,28 +636,33 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     return {}
   })
 
-  handler.use(validator({ eventSchema: schema }))
+  handler.use(validator({ eventSchema: transpileSchema(schema) }))
 
   try {
     await handler({ foo: 'a' })
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause.data, [{
-      instancePath: '',
-      keyword: 'errorMessage',
-      params: {
-        errors: [{
-          instancePath: '/foo',
-          emUsed: true,
-          keyword: 'type',
-          params: {
-            type: 'integer',
-          },
-          schemaPath: '#/properties/foo/type'
-        }]
-      },
-      schemaPath: '#/errorMessage',
-      message: 'must be an object with an integer property foo only'
-    }])
+    t.deepEqual(e.cause.data, [
+      {
+        instancePath: '',
+        keyword: 'errorMessage',
+        params: {
+          errors: [
+            {
+              instancePath: '/foo',
+              emUsed: true,
+              keyword: 'type',
+              message: 'must be integer',
+              params: {
+                type: 'integer'
+              },
+              schemaPath: '#/properties/foo/type'
+            }
+          ]
+        },
+        schemaPath: '#/errorMessage',
+        message: 'must be an object with an integer property foo only'
+      }
+    ])
   }
-}) */
+})

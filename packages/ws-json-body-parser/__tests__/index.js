@@ -22,7 +22,6 @@ test('It should parse a JSON request', async (t) => {
   const processedEvent = await handler(event, defaultContext)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
-  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {

@@ -14,7 +14,6 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
         ? Buffer.from(body, 'base64').toString()
         : body
 
-      request.event.rawBody = body
       request.event.body = JSON.parse(data, options.reviver)
     } catch (err) {
       // UnprocessableEntity

@@ -16,7 +16,7 @@ const getOrigin = (incomingOrigin, options = {}) => {
 }
 
 const defaults = {
-  disableBeforePreflightResponse: true, // TODO change to false in v5
+  disableBeforePreflightResponse: false,
   getOrigin,
   credentials: undefined,
   headers: undefined,
