@@ -35,7 +35,7 @@ npm install --save-dev @aws-sdk/client-ssm
 
 NOTES:
 
-- Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting.
+- Lambda is required to have IAM permission for `ssm:GetParameters` and/or `ssm:GetParametersByPath` depending on what you're requesting, along with `kms:Decrypt`.
 - `SSM` has [throughput limitations](https://docs.aws.amazon.com/general/latest/gr/ssm.html). Switching to Advanced Parameter type or increasing `maxRetries` and `retryDelayOptions.base` in `awsClientOptions` may be required.
 
 ## Sample usage
