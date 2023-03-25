@@ -27,7 +27,7 @@ npm install --save-dev @aws-sdk/client-appconfig
 
 NOTES:
 
-- Lambda is required to have IAM permission for `appconfig:GetConfiguration`
+- Lambda is required to have IAM permission for `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`
 
 ## Sample usage
 
