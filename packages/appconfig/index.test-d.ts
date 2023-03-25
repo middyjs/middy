@@ -1,12 +1,12 @@
 import middy from '@middy/core'
-import { AppConfigClient } from '@aws-sdk/client-appconfig'
+import { AppConfigDataClient } from '@aws-sdk/client-appconfigdata'
 import { Context as LambdaContext } from 'aws-lambda'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import appConfig from '.'
 
 const options = {
-  AwsClient: AppConfigClient,
+  AwsClient: AppConfigDataClient,
   awsClientOptions: {
     credentials: {
       secretAccessKey: 'secret',
@@ -18,10 +18,9 @@ const options = {
   awsClientCapture: captureAWSv3Client,
   fetchData: {
     config: {
-      Application: 'app',
-      ClientId: '0001',
-      Configuration: 'lambda-n',
-      Environment: 'development'
+      ApplicationIdentifier: 'app',
+      ConfigurationProfileIdentifier: 'configId',
+      EnvironmentIdentifier: 'development'
     }
   },
   disablePrefetch: true,
@@ -53,13 +52,11 @@ appConfig({
   fetchData: {
     config: {
       // @ts-expect-error - Application must be a string
-      Application: 123,
-      // @ts-expect-error - ClientId must be a string
-      ClientId: 123,
+      ApplicationIdentifier: 123,
       // @ts-expect-error - Configuration must be a string
-      Configuration: 123,
+      ConfigurationProfileIdentifier: 123,
       // @ts-expect-error - Environment must be a string
-      Environment: 123
+      EnvironmentIdentifier: 123
     }
   }
 })

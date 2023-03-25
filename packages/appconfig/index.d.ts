@@ -2,16 +2,16 @@ import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import {
-  AppConfigClient,
-  AppConfigClientConfig,
-  GetConfigurationRequest
-} from '@aws-sdk/client-appconfig'
+  AppConfigDataClient,
+  AppConfigDataClientConfig,
+  StartConfigurationSessionRequest
+} from '@aws-sdk/client-appconfigdata'
 
-export type Options<AwsAppConfigClient = AppConfigClient>
-  = Omit<MiddyOptions<AwsAppConfigClient, AppConfigClientConfig>, 'fetchData'>
+export type Options<AwsAppConfigClient = AppConfigDataClient>
+  = Omit<MiddyOptions<AwsAppConfigClient, AppConfigDataClientConfig>, 'fetchData'>
   & {
     fetchData?: {
-      [configurationRequestKey: string]: GetConfigurationRequest
+      [configurationRequestKey: string]: StartConfigurationSessionRequest
     }
   }
 
