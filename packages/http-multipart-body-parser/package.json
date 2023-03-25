@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-multipart-body-parser",
-  "version": "4.2.7",
+  "version": "4.2.8",
   "description": "Http event normalizer middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -66,11 +66,11 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "4.2.7",
+    "@middy/util": "4.2.8",
     "busboy": "1.6.0"
   },
   "devDependencies": {
-    "@middy/core": "4.2.7",
+    "@middy/core": "4.2.8",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^3.0.0"
   },
