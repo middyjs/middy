@@ -39,10 +39,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       request.response.Body = request.response.body
       delete request.response.body
     }
-    console.log({
-      ...request.internal.s3ObjectResponse,
-      ...request.response
-    })
+
     await client.send(
       new WriteGetObjectResponseCommand({
         ...request.internal.s3ObjectResponse,
