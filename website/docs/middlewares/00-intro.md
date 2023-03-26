@@ -44,7 +44,10 @@ Each middleware should do a single task. We try to balance each to be as perform
 
 ## Fetch Data
 
+- [`appconfig`](/docs/middlewares/appconfig): Fetch JSON configurations from AppConfig.
+- [`dynamodb`](/docs/middlewares/dynamodb): Fetch configurations from DynamoDB.
 - [`rds-signer`](/docs/middlewares/rds-signer): Fetches token for connecting to RDS with IAM users.
+- [`s3`](/docs/middlewares/s3): Fetch JSON configurations from S3.
 - [`s3-object-response`](/docs/middlewares/s3-object-response): Gets and write S3 object response.
 - [`secrets-manager`](/docs/middlewares/secrets-manager): Fetches parameters from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).
 - [`service-discovery`](/docs/middlewares/service-discovery): Fetches Service Discovery instances to be used when connecting to other AWS services.

@@ -57,9 +57,10 @@
         .setAttribute('href', `https://www.npmtrends.com/${pkgs.join('-vs-')}`)
       // AWS Middlewares
       const pkgAws = [
-        '@aws-lambda-powertools/tracer',
         '@aws-lambda-powertools/logger',
-        '@aws-lambda-powertools/metrics'
+        '@aws-lambda-powertools/metrics',
+        '@aws-lambda-powertools/parameters',
+        '@aws-lambda-powertools/tracer'
         //'@aws-lambda-powertools/commons'
       ]
       const colors = {
