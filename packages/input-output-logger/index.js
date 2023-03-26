@@ -1,5 +1,3 @@
-import { jsonSafeParse, jsonSafeStringify } from '@middy/util'
-
 const defaults = {
   logger: console.log,
   awsContext: false,
@@ -30,7 +28,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       message.context = pick(request.context, awsContextKeys)
     }
 
-    const cloneMessage = jsonSafeParse(jsonSafeStringify(message, replacer)) // Full clone to prevent nested mutations
+    const cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
     omit(cloneMessage, { [param]: omitPathTree[param] })
 
     logger(cloneMessage)
