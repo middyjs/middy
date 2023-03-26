@@ -10,7 +10,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/appconfig
-npm install --save-dev @aws-sdk/client-appconfig
+npm install --save-dev @aws-sdk/client-appconfigdata
 ```
 
 ## Options
