@@ -67,7 +67,8 @@ type MiddyInputHandler<
   event: TEvent,
   context: TContext,
   callback: LambdaCallback<TResult>
-) => void | Promise<TResult>
+) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+void | Promise<TResult>
 type MiddyInputPromiseHandler<
   TEvent,
   TResult,
@@ -80,15 +81,15 @@ export interface MiddyfiedHandler<
   TErr = Error,
   TContext extends LambdaContext = LambdaContext
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
-    MiddyInputPromiseHandler<TEvent, TResult, TContext> {
+  MiddyInputPromiseHandler<TEvent, TResult, TContext> {
   use: UseFn<TEvent, TResult, TErr, TContext>
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
   handler: <TAdditional>(
     handler: MiddlewareHandler<
-      LambdaHandler<TEvent & TAdditional, TResult>,
-      TContext
+    LambdaHandler<TEvent & TAdditional, TResult>,
+    TContext
     >
   ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
 }
@@ -119,17 +120,17 @@ declare type UseFn<
 > = <TMiddleware extends MiddlewareObj<any, any, Error, any>>(
   middlewares: TMiddleware | TMiddleware[]
 ) => TMiddleware extends MiddlewareObj<
-  infer TMiddlewareEvent,
-  any,
-  Error,
-  infer TMiddlewareContext
+infer TMiddlewareEvent,
+any,
+Error,
+infer TMiddlewareContext
 >
   ? MiddyfiedHandler<
-      TMiddlewareEvent & TEvent,
-      TResult,
-      TErr,
-      TMiddlewareContext & TContext
-    > // always true
+  TMiddlewareEvent & TEvent,
+  TResult,
+  TErr,
+  TMiddlewareContext & TContext
+  > // always true
   : never
 
 declare type MiddlewareHandler<
@@ -149,7 +150,7 @@ declare function middy<
   TResult = any,
   TErr = Error,
   TContext extends LambdaContext = LambdaContext
->(
+> (
   handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>,
   plugin?: PluginObject
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
