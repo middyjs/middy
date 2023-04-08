@@ -1,3 +1,5 @@
+/* global awslambda */
+import { pipeline } from 'node:stream/promises'
 import { setTimeout } from 'node:timers/promises'
 
 const defaultLambdaHandler = () => {}
@@ -5,7 +7,8 @@ const defaultPlugin = {
   timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => {
     throw new Error('Timeout')
-  }
+  },
+  streamifyResponse: false
 }
 
 const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
@@ -22,7 +25,8 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  const middy = (event = {}, context = {}) => {
+  // streamifyResponse
+  const middyHandler = (event = {}, context = {}) => {
     plugin.requestStart?.()
     const request = {
       event,
@@ -41,6 +45,21 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       plugin
     )
   }
+  const middy = plugin.streamifyResponse
+    ? awslambda.streamifyResponse(async (event, responseStream, context) => {
+      console.log({ event, responseStream, context })
+      const response = await middyHandler(event, context)
+      const body = response.body
+      delete response.body
+
+      responseStream = awslambda.HttpResponseStream.from(
+        responseStream,
+        response
+      )
+
+      await pipeline(body, responseStream)
+    })
+    : middyHandler
 
   middy.use = (middlewares) => {
     if (!Array.isArray(middlewares)) {

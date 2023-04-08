@@ -1,6 +1,12 @@
 import { setTimeout } from 'node:timers/promises'
 import test from 'ava'
 import sinon from 'sinon'
+import {
+  createReadableStream,
+  createPassThroughStream,
+  createWritableStream,
+  pipejoin
+} from '@datastream/core'
 import middy from '../index.js'
 
 const event = {}
@@ -770,4 +776,65 @@ test('Should not invoke timeoutEarlyResponse on error', async (t) => {
   await setTimeout(100)
 
   t.false(timeoutCalled)
+})
+
+// streamifyResponse
+globalThis.awslambda = {
+  streamifyResponse: (cb) => cb,
+  HttpResponseStream: {
+    from: (responseStream, metadata) => {
+      return responseStream
+    }
+  }
+}
+test('Should return with streamifyResponse:true using ReadableStream', async (t) => {
+  const input = 'aaa'
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'plain/text'
+        },
+        body: createReadableStream(input)
+      }
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+})
+
+test('Should return with streamifyResponse:true using ReadableStream.pipe(...)', async (t) => {
+  const input = 'aaa'
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'plain/text'
+        },
+        body: pipejoin([createReadableStream(input), createPassThroughStream()])
+      }
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
 })
