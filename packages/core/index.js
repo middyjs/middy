@@ -1,4 +1,5 @@
 /* global awslambda */
+import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout } from 'node:timers/promises'
 
@@ -48,8 +49,21 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   const middy = plugin.streamifyResponse
     ? awslambda.streamifyResponse(async (event, responseStream, context) => {
       const response = await middyHandler(event, context)
-      const body = response.body
-      delete response.body
+      let body = response.body
+
+      // Source @datastream/core (MIT)
+      if (typeof body === 'string') {
+        function * iterator () {
+          const size = 16 * 1024 // Node.js default
+          let position = 0
+          const length = response.body.length
+          while (position < length) {
+            yield response.body.substring(position, position + size)
+            position += size
+          }
+        }
+        body = Readable.from(iterator())
+      }
 
       responseStream = awslambda.HttpResponseStream.from(
         responseStream,
