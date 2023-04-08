@@ -26,7 +26,6 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   const afterMiddlewares = []
   const onErrorMiddlewares = []
 
-  // streamifyResponse
   const middyHandler = (event = {}, context = {}) => {
     plugin.requestStart?.()
     const request = {
@@ -49,22 +48,24 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   const middy = plugin.streamifyResponse
     ? awslambda.streamifyResponse(async (event, responseStream, context) => {
       const response = await middyHandler(event, context)
-      let body = response.body
+      response.body ??= ''
+      let { body } = response
 
       // Source @datastream/core (MIT)
       if (typeof body === 'string') {
-        function * iterator () {
+        function * iterator (input) {
           const size = 16 * 1024 // Node.js default
           let position = 0
-          const length = response.body.length
+          const length = input.length
           while (position < length) {
-            yield response.body.substring(position, position + size)
+            yield input.substring(position, position + size)
             position += size
           }
         }
-        body = Readable.from(iterator())
+        body = Readable.from(iterator(response.body))
       }
 
+      // delete response.body // Not needed
       responseStream = awslambda.HttpResponseStream.from(
         responseStream,
         response

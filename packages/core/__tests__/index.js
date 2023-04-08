@@ -788,22 +788,44 @@ globalThis.awslambda = {
   }
 }
 
-test('Should return with streamifyResponse:true using string', async (t) => {
-  const input = 'x'.repeat(1024 * 1024)
+test('Should return with streamifyResponse:true using undefined', async (t) => {
+  const input = ''
   const handler = middy(
     (event, context, { signal }) => {
       return {
         statusCode: 200,
         headers: {
           'Content-Type': 'plain/text'
-        },
-        body: input
+        }
       }
     },
     {
       streamifyResponse: true
     }
   )
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+})
+
+test('Should return with streamifyResponse:true using string', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const handler = middy({
+    streamifyResponse: true
+  }).handler((event, context, { signal }) => {
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'plain/text'
+      },
+      body: input
+    }
+  })
 
   let chunkResponse = ''
   const responseStream = createWritableStream((chunk) => {
