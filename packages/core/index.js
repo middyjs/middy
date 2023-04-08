@@ -47,7 +47,6 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   }
   const middy = plugin.streamifyResponse
     ? awslambda.streamifyResponse(async (event, responseStream, context) => {
-      console.log({ event, responseStream, context })
       const response = await middyHandler(event, context)
       const body = response.body
       delete response.body
