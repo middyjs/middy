@@ -62,6 +62,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
+    "@datastream/core": "0.0.29",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^18.0.0"
   },

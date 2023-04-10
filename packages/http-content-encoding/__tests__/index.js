@@ -10,7 +10,7 @@ const context = {
 
 const compressibleBody = JSON.stringify(new Array(100).fill(0))
 
-test('It should encode using br', async (t) => {
+test('It should encode string using br', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body })).use(
     httpContentEncoding()
@@ -30,7 +30,7 @@ test('It should encode using br', async (t) => {
   })
 })
 
-test('It should encode using gzip', async (t) => {
+test('It should encode string using gzip', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body })).use(
     httpContentEncoding()
@@ -50,7 +50,7 @@ test('It should encode using gzip', async (t) => {
   })
 })
 
-test('It should encode using deflate', async (t) => {
+test('It should encode string using deflate', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
