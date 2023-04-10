@@ -349,12 +349,11 @@ for (const c of cases) {
 
     // invokes the handler, note that property foo is missing
     const event = {
-      preferredLanguage: c.lang,
       body: JSON.stringify({ something: 'somethingelse' })
     }
 
     try {
-      await handler(event, context)
+      await handler(event, { ...context, preferredLanguage: c.lang })
     } catch (e) {
       t.is(e.message, 'Event object failed validation')
       t.deepEqual(e.cause.data, [
@@ -401,12 +400,11 @@ test('It should handle invalid schema as a BadRequest in a different language (w
 
   // invokes the handler, note that property foo is missing
   const event = {
-    preferredLanguage: 'pt-BR',
     body: JSON.stringify({ something: 'somethingelse' })
   }
 
   try {
-    await handler(event, context)
+    await handler(event, { ...context, preferredLanguage: 'pt-BR' })
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
     t.deepEqual(e.cause.data, [
@@ -449,12 +447,11 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
 
   // invokes the handler, note that property foo is missing
   const event = {
-    preferredLanguage: 'pt-BR',
     body: JSON.stringify({ something: 'somethingelse' })
   }
 
   try {
-    await handler(event, context)
+    await handler(event, { ...context, preferredLanguage: 'pt-BR' })
   } catch (e) {
     t.is(e.message, 'Event object failed validation')
     t.deepEqual(e.cause.data, [

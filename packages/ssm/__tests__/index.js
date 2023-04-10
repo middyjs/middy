@@ -416,7 +416,7 @@ test('It should throw error if InvalidParameters returned', async (t) => {
     t.true(false)
   } catch (e) {
     t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [
+    t.deepEqual(e.cause.data, [
       new Error('InvalidParameter invalid-ssm-param-name', {
         cause: { pacakge: '@middy/ssm' }
       }),
@@ -451,7 +451,7 @@ test.serial(
     } catch (e) {
       t.is(sendStub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, [new Error('timeout')])
+      t.deepEqual(e.cause.data, [new Error('timeout')])
     }
   }
 )
@@ -480,7 +480,7 @@ test.serial(
     } catch (e) {
       t.is(sendStub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, [new Error('timeout')])
+      t.deepEqual(e.cause.data, [new Error('timeout')])
     }
   }
 )

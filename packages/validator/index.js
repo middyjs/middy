@@ -23,7 +23,7 @@ const validatorMiddleware = (opts = {}) => {
 
       if (!validEvent) {
         const localize =
-          languages[request.event.preferredLanguage] ??
+          languages[request.context.preferredLanguage] ??
           languages[defaultLanguage]
         localize?.(eventSchema.errors)
 

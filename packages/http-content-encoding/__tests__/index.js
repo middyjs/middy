@@ -69,7 +69,7 @@ test('It should encode string using deflate', async (t) => {
   })
 })
 
-test('It should encode using br when event.preferredEncoding is gzip, but has overridePreferredEncoding set', async (t) => {
+test('It should encode using br when context.preferredEncoding is gzip, but has overridePreferredEncoding set', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(
@@ -93,7 +93,7 @@ test('It should encode using br when event.preferredEncoding is gzip, but has ov
   })
 })
 
-test('It should not encode when missing event.preferredEncoding', async (t) => {
+test('It should not encode when missing context.preferredEncoding', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
@@ -105,7 +105,7 @@ test('It should not encode when missing event.preferredEncoding', async (t) => {
   t.deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
-test('It should not encode when missing event.preferredEncoding === `identity`', async (t) => {
+test('It should not encode when missing context.preferredEncoding === `identity`', async (t) => {
   const body = 'test'
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())

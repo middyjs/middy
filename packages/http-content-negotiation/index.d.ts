@@ -12,7 +12,9 @@ interface Options {
   failOnMismatch?: boolean
 }
 
-export interface Event {
+export interface Event {}
+
+export interface Context {
   preferredCharsets: string[]
   preferredCharset: string
   preferredEncodings: string[]
@@ -23,7 +25,7 @@ export interface Event {
   preferredMediaType: string
 }
 
-declare function httpContentNegotiation (
+declare function httpContentNegotiation(
   options?: Options
 ): middy.MiddlewareObj<Event>
 
