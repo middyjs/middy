@@ -51,17 +51,18 @@
         // 'ts-lambda-api',
         // 'vandium',
         // 'curveball',
+        // '@midwayjs/decorator',
       ]
       document
         .getElementById('npmtrends')
         .setAttribute('href', `https://www.npmtrends.com/${pkgs.join('-vs-')}`)
       // AWS Middlewares
       const pkgAws = [
+        //'@aws-lambda-powertools/commons',
         '@aws-lambda-powertools/logger',
         '@aws-lambda-powertools/metrics',
-        '@aws-lambda-powertools/parameters',
+        //'@aws-lambda-powertools/parameters',
         '@aws-lambda-powertools/tracer'
-        //'@aws-lambda-powertools/commons'
       ]
       const colors = {
         '@middy/core': '#ffa600'
