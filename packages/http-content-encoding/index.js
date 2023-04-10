@@ -63,6 +63,13 @@ const httpContentEncodingMiddleware = (opts) => {
       break
     }
 
+    // Support streamifyResponse
+    if (response.body?._readableState) {
+      request.response.headers['Content-Encoding'] = contentEncoding
+      request.response.body.pipe(contentEncodingStream)
+      return
+    }
+
     const stream = Readable.from(response.body).pipe(contentEncodingStream)
 
     const chunks = []

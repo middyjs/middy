@@ -1,7 +1,8 @@
 ---
 title: Function URL
 ---
-Same as API Gateway (HTTP)
+
+Same as API Gateway (HTTP), but with support for response streams.
 
 ## AWS Documentation
 
@@ -38,7 +39,8 @@ export const handler = middy({
     return {
       statusCode: 408
     }
-  }
+  },
+  streamifyResponse: true
 })
   .use(warmupMiddleware())
   .use(httpEventNormalizerMiddleware())
