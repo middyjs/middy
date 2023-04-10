@@ -36,7 +36,7 @@ const httpContentEncodingMiddleware = (opts) => {
   const httpContentEncodingMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
     const {
-      event: { preferredEncoding, preferredEncodings },
+      context: { preferredEncoding, preferredEncodings },
       response
     } = request
 
