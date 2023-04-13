@@ -9,19 +9,19 @@ If you want to do this you can invoke `return response` in your middleware.
 
 **Note**: this will totally stop the execution of successive middlewares in any phase (`before`, `after`, `onError`) and returns
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
-like output serialization or error handling, these won't be invoked in this case.
+like output serialization, error handling or clean, these won't be invoked in this case. They will have to be handled before the return.
 
 In this example, we can use this capability for building a sample caching middleware:
 
 ```javascript
 // some function that calculates the cache id based on the current event
-const calculateCacheId = event => {
+const calculateCacheId = (event) => {
   /* ... */
 }
 const storage = {}
 
 // middleware
-const cacheMiddleware = options => {
+const cacheMiddleware = (options) => {
   let cacheKey
 
   const cacheMiddlewareBefore = async (request) => {
