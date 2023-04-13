@@ -68,7 +68,7 @@ const FeatureList = [
           write your own custom middlewares
         </Link>
         . And, if that's not enough, you can even extend middy itself through
-        its <Link to='/docs/intro/plugins'>plugin system</Link>.
+        its <Link to='/docs/intro/hooks'>hooks</Link>.
       </>
     )
   }
