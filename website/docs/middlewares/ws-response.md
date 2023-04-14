@@ -9,7 +9,7 @@ Post message to WebSocket connection.
 To install this middleware you can use NPM:
 
 ```bash npm2yarn
-npm install --save @middy/ws-responder
+npm install --save @middy/ws-response
 npm install --save-dev @aws-sdk/client-apigatewaymanagementapi
 ```
 
@@ -33,20 +33,20 @@ NOTES:
 
 ```javascript
 import middy from '@middy/core'
-import wsResonse from '@middy/ws-responder'
+import wsResponse from '@middy/ws-response'
 
 export const handler = middy((event, context) => {
   return 'message'
 })
 
-handler.use(wsResonse())
+handler.use(wsResponse())
 ```
 
 ### General
 
 ```javascript
 import middy from '@middy/core'
-import wsResonse from '@middy/ws-responder'
+import wsResponse from '@middy/ws-response'
 
 export const handler = middy((event, context) => {
   return {
@@ -56,7 +56,7 @@ export const handler = middy((event, context) => {
 })
 
 handler.use(
-  wsResonse({
+  wsResponse({
     awsClientOptions: {
       endpoint: '...'
     }
