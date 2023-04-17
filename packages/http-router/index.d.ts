@@ -8,16 +8,7 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-export enum Method {
-  Get = 'GET',
-  Post = 'POST',
-  Put = 'PUT',
-  Patch = 'PATCH',
-  Delete = 'DELETE',
-  Options = 'OPTIONS',
-  Head = 'HEAD',
-  Any = 'ANY'
-}
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'ANY'
 
 type TResult = ALBResult | APIGatewayProxyResult
 
