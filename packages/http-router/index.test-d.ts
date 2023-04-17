@@ -1,6 +1,6 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
-import httpRouterHandler, { Method } from '.'
+import httpRouterHandler from '.'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
@@ -16,7 +16,7 @@ const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> 
 
 const middleware = httpRouterHandler([
   {
-    method: Method.Get,
+    method: 'GET',
     path: '/',
     handler: lambdaHandler
   }
