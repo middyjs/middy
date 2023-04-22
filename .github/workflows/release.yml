@@ -14,6 +14,9 @@ jobs:
       matrix:
         node-version: [18.x]
 
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@master
@@ -52,3 +55,5 @@ jobs:
         #  if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
         run: |
           npm run lerna:publish
+        #env: |
+        #  NPM_CONFIG_PROVENANCE: true
