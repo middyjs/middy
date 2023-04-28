@@ -788,7 +788,27 @@ globalThis.awslambda = {
   }
 }
 
-test('Should return with streamifyResponse:true using undefined', async (t) => {
+test('Should throw with streamifyResponse:true using object', async (t) => {
+  const input = {}
+  const handler = middy(
+    (event, context, { signal }) => {
+      return input
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  const responseStream = createWritableStream((chunk) => {})
+  try {
+    await handler(event, responseStream, context)
+  } catch (e) {
+    console.log(e)
+    t.is(e.message, 'handler response not a ReadableStream')
+  }
+})
+
+test('Should return with streamifyResponse:true using body undefined', async (t) => {
   const input = ''
   const handler = middy(
     (event, context, { signal }) => {
@@ -818,6 +838,23 @@ test('Should return with streamifyResponse:true using string', async (t) => {
   const handler = middy({
     streamifyResponse: true
   }).handler((event, context, { signal }) => {
+    return input
+  })
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+})
+
+test('Should return with streamifyResponse:true using body string', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const handler = middy({
+    streamifyResponse: true
+  }).handler((event, context, { signal }) => {
     return {
       statusCode: 200,
       headers: {
@@ -837,6 +874,26 @@ test('Should return with streamifyResponse:true using string', async (t) => {
 })
 
 test('Should return with streamifyResponse:true using ReadableStream', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return createReadableStream(input)
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+})
+
+test('Should return with streamifyResponse:true using body ReadableStream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
     async (event, context, { signal }) => {
@@ -863,6 +920,26 @@ test('Should return with streamifyResponse:true using ReadableStream', async (t)
 })
 
 test('Should return with streamifyResponse:true using ReadableStream.pipe(...)', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return pipejoin([createReadableStream(input), createPassThroughStream()])
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+})
+
+test('Should return with streamifyResponse:true using body ReadableStream.pipe(...)', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
     async (event, context, { signal }) => {
