@@ -231,4 +231,8 @@ The above code will output a CloudWatch EMF object similar to the following:
 
 This EMF object will be sent to CloudWatch asynchronously by the CloudWatch service. You do not need any custom stacks, and there is no impact to Lambda function latency.
 
-## 
+## Best practices
+
+### Using multiple utilities
+
+### Cleaning up on early returns
