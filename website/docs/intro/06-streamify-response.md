@@ -58,7 +58,7 @@ const lambda = new LambdaClient()
 
 const res = await lambda.send(
   new InvokeWithResponseStreamCommand({
-    FunctionName: 'rds-data-reader-api',
+    FunctionName: 'function-name',
     Payload: JSON.stringify({...})
   })
 )
