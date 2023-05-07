@@ -10,6 +10,7 @@ take advantage of the async nature of node especially when you have multiple mid
 external APIs.
 
 Here is a middleware boilerplate using this pattern:
+
 ```javascript
 import { canPrefetch, getInternal, processCache } from '@middy/util'
 
@@ -28,30 +29,26 @@ const customMiddleware = (opts = {}) => {
     const values = {}
     // Start your custom fetch
     for (const internalKey of Object.keys(options.fetchData)) {
-      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(res => res.text())
+      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(
+        (res) => res.text()
+      )
     }
     // End your custom fetch
     return values
   }
 
-  let prefetch, client, init
   if (canPrefetch(options)) {
-    init = true
-    prefetch = processCache(options, fetch)
+    processCache(options, fetch)
   }
 
   const customMiddlewareBefore = async (request) => {
-    let cached
-    if (init) {
-      cached = prefetch
-    } else {
-      cached = processCache(options, fetch, request)
+    const { value } = processCache(options, fetch, request)
+
+    Object.assign(request.internal, value)
+    if (options.setToContext) {
+      const data = await getInternal(Object.keys(options.fetchData), request)
+      Object.assign(request.context, data)
     }
-
-    Object.assign(request.internal, cached)
-    if (options.setToContext) Object.assign(request.context, await getInternal(Object.keys(options.fetchData), request))
-
-    else init = false
   }
 
   return {

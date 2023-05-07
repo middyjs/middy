@@ -54,7 +54,8 @@ test.serial(
               Configuration: '...',
               Environment: '...'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -125,7 +126,8 @@ test.serial('It should set AppConfig param value to context', async (t) => {
             Environment: '...'
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -240,7 +242,8 @@ test.serial(
               Configuration: '...',
               Environment: '...'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -270,7 +273,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           Environment: '...'
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 
