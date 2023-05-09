@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   release:
     types:
       - published
@@ -56,4 +57,4 @@ jobs:
         run: |
           npm run lerna:publish
         env: |
-          NPM_CONFIG_PROVENANCE: true
+          NPM_CONFIG_PROVENANCE: 'true'
