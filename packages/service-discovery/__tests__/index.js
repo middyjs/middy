@@ -70,7 +70,8 @@ test.serial('It should set instances to internal storage', async (t) => {
             NamespaceName: 'example.com',
             ServiceName: 'example'
           }
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -182,7 +183,8 @@ test.serial('It should set STS secret to context', async (t) => {
             ServiceName: 'example'
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -300,7 +302,8 @@ test.serial(
               NamespaceName: 'example.com',
               ServiceName: 'example'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -328,7 +331,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           ServiceName: 'example'
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

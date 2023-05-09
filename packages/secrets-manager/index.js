@@ -54,10 +54,10 @@ const secretsManagerMiddleware = (opts = {}) => {
     return values
   }
 
-  let prefetch, client
+  let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
-    prefetch = processCache(options, fetch)
+    processCache(options, fetch)
   }
 
   const secretsManagerMiddlewareBefore = async (request) => {
@@ -65,7 +65,7 @@ const secretsManagerMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    const { value } = prefetch ?? processCache(options, fetch, request)
+    const { value } = processCache(options, fetch, request)
 
     Object.assign(request.internal, value)
 
@@ -73,8 +73,6 @@ const secretsManagerMiddleware = (opts = {}) => {
       const data = await getInternal(Object.keys(options.fetchData), request)
       Object.assign(request.context, data)
     }
-
-    prefetch = null
   }
 
   return {
