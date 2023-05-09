@@ -56,5 +56,5 @@ jobs:
         #  if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
         run: |
           npm run lerna:publish
-        env: |
+        env:
           NPM_CONFIG_PROVENANCE: 'true'
