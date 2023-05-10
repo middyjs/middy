@@ -91,61 +91,7 @@ As you can see, the log entry includes several fields that are automatically cap
 
 The Logger utility also allows you to append arbitary keys to the log entry at both [the global level](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#appending-persistent-additional-log-keys-and-values), at the [invocation level](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#clearing-all-state), and at the [single log level](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#appending-additional-data-to-a-single-log-item). For example, there might be some keys that you want to include in all log entries, such as the `environment` key to differentiate between the `prod` and `dev` environments, or in other cases you might want to include some keys only for a specific log entry, such as the `customer_id` key to identify the customer that triggered the Lambda invocation.
 
-```javascript
-import middy from '@middy/core';
-import { Logger, injectLambdaContext } from '@aws-lambda-powertools/logger';
-
-const logger = new Logger({
-  service: 'serverlessAirline',
-  // these keys will be included in all log entries
-  persistentLogAttributes: {
-    aws_account_id: '123456789012',
-    aws_region: 'eu-west-1',
-  },
-});
-
-const lambdaHandler = async (_event, _context) => {
-  // this key will be included in all log entries ONLY for this invocation
-  logger.appendKeys({
-    customer_id: '1234567890',
-  })
-
-  // these keys will be included in this log entry only
-  logger.info('This is an INFO log with some context', {
-    foo: {
-      bar: 'baz'
-    }
-  });
-};
-
-export const handler = middy(lambdaHandler)
-  .use(injectLambdaContext(logger, { clearState: true }));
-```
-
-Logger can also be configured to [log the Lambda invocation event](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#log-incoming-event), which can be useful when you're troubleshooting a problem and want to see the event that triggered the Lambda invocation. You can also use Logger across your code and [create child loggers](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#using-multiple-logger-instances-across-your-code) that inherit the parent logger's configuration, while allowing you to override selected configuration options. For example, you might want to create a child logger that uses certain attributes, while another child logger uses different attributes or an entirely different log level.
-
-```javascript
-import middy from '@middy/core';
-import { Logger, injectLambdaContext } from '@aws-lambda-powertools/logger';
-
-// this logger uses the default log level (INFO) and includes a service name
-const logger = new Logger({
-  service: 'serverlessAirline',
-  logLevel: 'INFO',
-});
-
-// This child logger overrides the parent logger's log level
-// while still inheriting the parent logger's service name
-const childLogger = logger.createChildLogger({
-  logLevel: 'DEBUG',
-});
-
-export const handler = middy(() => { /* ... */ })
-  // each invocation will automatically log the incoming event for you
-  .use(injectLambdaContext(logger, { logEvent: true }));
-```
-
-Finally, Logger allows you to [define a custom log formatter](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#custom-log-formatter-bring-your-own-formatter) to output logs in a different JSON structure from the default one. This is useful when you want to output logs in a structure that is compatible with your organization's requirements.
+Additionally, you can also configure Logger to [log the Lambda invocation event](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#log-incoming-event), which can be useful when you're troubleshooting a problem and want to see the event that triggered the Lambda invocation. Finally, Logger allows you to [define a custom log formatter](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/logger/#custom-log-formatter-bring-your-own-formatter) to output logs in a different JSON structure from the default one. This is useful when you want to output logs in a structure that is compatible with your organization's requirements.
 
 ## Tracer
 
@@ -164,11 +110,37 @@ npm install --save @aws-lambda-powertools/tracer
 
 ### Options
 
+Class constructor accepts the following options, which are all optional:
+- `serviceName` (string): Service name to use that will be used in all log statements. Defaults to `service_undefined`.
+- `enabled` (boolean): Whether to enable tracing. Defaults to `true`.
+- `captureHTTPsRequests` (boolean): Whether to capture outgoing HTTP(S) requests as segment metadata. Defaults to `true`.
+
+Middleware accepts the following options:
+- `tracer` (Tracer) (required): An instance of the Tracer class.
+- `option` (object) (optional): An object with the following keys:
+  - `captureResponse` (boolean) (optional): Whether to capture the Lambda invocation result as segment metadata. Defaults to `true`.
+
 ### Sample usage
 
 ```javascript
+import middy from '@middy/core';
+import { Tracer, captureLambdaHandler } from '@aws-lambda-powertools/tracer';
 
+const tracer = new Tracer({
+  serviceName: 'serverlessAirline'
+});
+
+const lambdaHandler = async (_event, _context) => {
+  tracer.putAnnotation('successfulBooking', true);
+};
+
+export const handler = middy(lambdaHandler)
+  .use(captureLambdaHandler(tracer));
 ```
+
+The above code instructs the Tracer utility to create a custom segment named `## index.handler` and to add an annotation to it with the key `successfulBooking` and the value `true`. The segment name is automatically generated based on the handler name, and the `##` prefix is used to indicate that this is a custom segment. The Tracer utility also automatically captures the cold start and service name as annotations, and the Lambda invocation result or any error thrown [as metadata](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/tracer/#annotations-metadata). The segment data will be automatically sent to AWS X-Ray when the Lambda function completes its execution.
+
+Tracer also automatically [captures and traces any outgoing HTTP(S) requests](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/tracer/#tracing-http-requests) made by the Lambda function. For example, if your function makes a request to a custom API, the Tracer utility will automatically create a segment for that request which will appear in your trace data and service map. Additionally, it will also [capture any AWS SDK calls](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/tracer/#patching-aws-sdk-clients) made by the function, and do the same for them.
 
 ## Metrics
 
@@ -187,6 +159,16 @@ npm install --save @aws-lambda-powertools/metrics
 ```
 
 ### Options
+
+Class constructor accepts the following options, which are all optional:
+- `serviceName` (string): Service name to use that will be used in all log statements. Defaults to `service_undefined`.
+- `defaultNamespace` (string): Default namespace to use for all metrics. Defaults to `default_namespace`.
+
+Middleware accepts the following options:
+- `metrics` (Metric) (required): An instance of the Metrics class.
+- `option` (object) (optional): An object with the following keys:
+  - `throwOnEmptyMetrics` (boolean) (optional): Whether to throw an error if no metrics were added. Defaults to `false`.
+  - `captureColdStartMetric` (boolean) (optional): Whether to capture the cold start metric. Defaults to `true`.
 
 ### Sample usage
 
@@ -231,8 +213,76 @@ The above code will output a CloudWatch EMF object similar to the following:
 
 This EMF object will be sent to CloudWatch asynchronously by the CloudWatch service. You do not need any custom stacks, and there is no impact to Lambda function latency.
 
+The Metrics utility supports [high-resolution metrics](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#adding-high-resolution-metrics) as well as [multi-value metrics](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#adding-multi-value-metrics). It also allows you to add [default dimensions](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#adding-default-dimensions) that are used in all the metrics emitted by your application or [create a one-off metric](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#single-metric-with-different-dimensions) with different dimensions.
+
 ## Best practices
 
 ### Using multiple utilities
 
+You can use multiple Powertools utilities in your Lambda function by chaining the respective middlewares together. When doing so the Powertools team recommends that you place the Tracer middleware at the top of the middleware chain, followed by the Logger and any other middlewares.
+
+This is because the Tracer middleware will create a new segment for each Lambda invocation, and the Logger might want to log the event that triggered the Lambda invocation. With this placement you will be able to have a segment that closely matches the actual duration of your Lambda function, and you will be able to see the event that triggered the function invocation before it's potentially modified by other middlewares.
+
+```javascript
+export const handler = middy(() => { /* ... */ })
+  .use(captureLambdaHandler(tracer))
+  .use(injectLambdaContext(logger, { logEvent: true }))
+  .use(logMetrics(metrics, { captureColdStartMetric: true }));
+```
+
 ### Cleaning up on early returns
+
+As discussed in the [early return section](/docs/intro/early-interrupt), some middlewares might need to stop the whole execution flow and return a response immediately. In this case, if you are writing your own middleware that will work with the Powertools utilities, you must make sure to clean up the utilities before returning.
+
+For example, if you are using the Tracer utility, you must make sure to call the `close` method so that the Tracer can properly close the current segment and send it to X-Ray. Likewise, if you are using the Metrics utility, it's a good practice to call the `clearMetrics` method so that the Metrics utility can emit the metrics that were stored in the buffer and avoid you losing any data.
+
+Following the example described in the linked section, you can clean up all the utilities by doing the following:
+```javascript
+import { clearPowertools } from '@aws-lambda-powertools/commons';
+
+// some function that calculates the cache id based on the current event
+const calculateCacheId = (event) => {
+  /* ... */
+}
+const storage = {}
+
+// middleware
+const cacheMiddleware = (options) => {
+  let cacheKey
+
+  const cacheMiddlewareBefore = async (request) => {
+    cacheKey = options.calculateCacheId(request.event)
+    if (options.storage.hasOwnProperty(cacheKey)) {
+      // clean up the Powertools utilities before returning
+      clearPowertools()
+
+      // exits early and returns the value from the cache if it's already there
+      return options.storage[cacheKey]
+    }
+  }
+
+  const cacheMiddlewareAfter = async (request) => {
+    // stores the calculated response in the cache
+    options.storage[cacheKey] = request.response
+  }
+
+  return {
+    before: cacheMiddlewareBefore,
+    after: cacheMiddlewareAfter
+  }
+}
+
+// sample usage
+const handler = middy((event, context) => {
+  /* ... */
+})
+.use(captureLambdaHandler(tracer))
+.use(injectLambdaContext(logger, { logEvent: true }))
+.use(logMetrics(metrics, { captureColdStartMetric: true }))
+.use(
+  cacheMiddleware({
+    calculateCacheId,
+    storage
+  })
+);
+```
