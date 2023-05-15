@@ -28,16 +28,18 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       message.context = pick(request.context, awsContextKeys)
     }
 
-    const cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
-    omit(cloneMessage, { [param]: omitPathTree[param] })
-
+    let cloneMessage = message
+    if (omitPaths.length) {
+      cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
+      omit(cloneMessage, { [param]: omitPathTree[param] })
+    }
     logger(cloneMessage)
   }
 
   const omit = (obj, pathTree = {}) => {
     if (Array.isArray(obj) && pathTree['[]']) {
-      for (const value of obj) {
-        omit(value, pathTree['[]'])
+      for (let i = 0, l = obj.length; i < l; i++) {
+        omit(obj[i], pathTree['[]'])
       }
     } else if (isObject(obj)) {
       for (const key in pathTree) {
