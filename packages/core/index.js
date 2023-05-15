@@ -13,7 +13,7 @@ const defaultPlugin = {
     err.name = 'TimeoutError'
     throw err
   },
-  streamifyResponse: false
+  streamifyResponse: false // Deprecate need for this when AWS provides a flag for when it's looking for it
 }
 
 const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
@@ -51,14 +51,24 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   }
   const middy = plugin.streamifyResponse
     ? awslambda.streamifyResponse(async (event, responseStream, context) => {
-      const response = await middyHandler(event, context)
-      response.body ??= ''
-      let { body } = response
+      const handlerResponse = await middyHandler(event, context)
+
+      let handlerBody = handlerResponse
+      if (handlerResponse.statusCode) {
+        handlerBody = handlerResponse.body ?? ''
+        responseStream = awslambda.HttpResponseStream.from(
+          responseStream,
+          handlerResponse
+        )
+      }
 
       // Source @datastream/core (MIT)
-      if (typeof body === 'string') {
+      let handlerStream
+      if (handlerBody._readableState) {
+        handlerStream = handlerBody
+      } else if (typeof handlerBody === 'string') {
         function * iterator (input) {
-          const size = 16 * 1024 // Node.js default
+          const size = 16384 // 16 * 1024 // Node.js default
           let position = 0
           const length = input.length
           while (position < length) {
@@ -66,16 +76,14 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
             position += size
           }
         }
-        body = Readable.from(iterator(response.body))
+        handlerStream = Readable.from(iterator(handlerBody))
       }
 
-      // delete response.body // Not needed
-      responseStream = awslambda.HttpResponseStream.from(
-        responseStream,
-        response
-      )
+      if (!handlerStream) {
+        throw new Error('handler response not a ReadableStream')
+      }
 
-      await pipeline(body, responseStream)
+      await pipeline(handlerStream, responseStream)
     })
     : middyHandler
 

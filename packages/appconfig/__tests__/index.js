@@ -89,7 +89,8 @@ test.serial(
               ConfigurationProfileIdentifier: 'cpi2',
               EnvironmentIdentifier: 'ei2'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -327,7 +328,8 @@ test.serial('It should set AppConfig param value to context', async (t) => {
             EnvironmentIdentifier: '...'
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -472,7 +474,8 @@ test.serial(
               ConfigurationProfileIdentifier: '...',
               EnvironmentIdentifier: '...'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -523,7 +526,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           EnvironmentIdentifier: '...'
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

@@ -44,7 +44,8 @@ test.serial('It should set SSM param value to internal storage', async (t) => {
         cacheExpiry: 0,
         fetchData: {
           key: '/dev/service_name/key_name'
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -77,7 +78,8 @@ test.serial('It should set SSM param path to internal storage', async (t) => {
         cacheExpiry: 0,
         fetchData: {
           key: '/dev/service_name/'
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -130,7 +132,8 @@ test.serial(
           cacheExpiry: 0,
           fetchData: {
             key: '/dev/service_name/'
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -189,7 +192,8 @@ test.serial('It should set SSM param value to context', async (t) => {
         fetchData: {
           key: '/dev/service_name/key_name'
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -277,7 +281,8 @@ test.serial(
             key12: '/dev/service_name/key_name12',
             key13: '/dev/service_name/key_name13',
             key14: '/dev/service_name/key_name14'
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -378,7 +383,8 @@ test.serial(
           cacheExpiry: 0,
           fetchData: {
             key: '/dev/service_name/key_name'
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -442,7 +448,8 @@ test.serial(
         fetchData: {
           key: '/dev/service_name/key_name'
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
 
@@ -471,7 +478,8 @@ test.serial(
         fetchData: {
           path: '/dev/service_path/'
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
 

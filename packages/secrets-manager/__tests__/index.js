@@ -42,7 +42,8 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
         cacheExpiry: 0,
         fetchData: {
           token: 'api_key'
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -73,7 +74,8 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
         fetchData: {
           token1: 'api_key1',
           token2: 'api_key2'
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -104,7 +106,8 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
         cacheExpiry: 0,
         fetchData: {
           credentials: 'rds_login'
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -162,7 +165,8 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
         fetchData: {
           token: 'api_key'
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -225,7 +229,8 @@ test.serial(
           cacheExpiry: 0,
           fetchData: {
             token: 'api_key'
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -250,7 +255,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
       fetchData: {
         token: 'api_key'
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

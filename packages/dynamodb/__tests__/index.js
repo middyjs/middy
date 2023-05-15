@@ -53,7 +53,8 @@ test.serial(
                 }
               }
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -134,7 +135,8 @@ test.serial('It should set DynamoDB param value to context', async (t) => {
             }
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -264,7 +266,8 @@ test.serial(
                 }
               }
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -296,7 +299,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           }
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

@@ -52,7 +52,8 @@ test.serial('It should set S3 param value to internal storage', async (t) => {
             Bucket: '...',
             Key: '...'
           }
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -120,7 +121,8 @@ test.serial('It should set S3 param value to context', async (t) => {
             Key: '...'
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -235,7 +237,8 @@ test.serial(
               Bucket: '...',
               Key: '...'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -263,7 +266,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           Key: '...'
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

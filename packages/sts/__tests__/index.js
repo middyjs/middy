@@ -52,7 +52,8 @@ test.serial('It should set credential to internal storage', async (t) => {
           role: {
             RoleArn: '.../role'
           }
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -134,7 +135,8 @@ test.serial('It should set STS secret to context', async (t) => {
             RoleArn: '.../role'
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -222,7 +224,8 @@ test.serial(
             role: {
               RoleArn: '.../role'
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -249,7 +252,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           RoleArn: '.../role'
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 

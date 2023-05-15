@@ -57,7 +57,8 @@ test.serial('It should set token to internal storage (token)', async (t) => {
             database: 'database',
             port: 5432
           }
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -99,7 +100,8 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
             database: 'database2',
             port: 5432
           }
-        }
+        },
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -168,7 +170,8 @@ test.serial('It should set Signer token to context', async (t) => {
             port: 5432
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
     .before(middleware)
@@ -244,7 +247,8 @@ test.serial(
               database: 'database',
               port: 5432
             }
-          }
+          },
+          disablePrefetch: true
         })
       )
       .before(middleware)
@@ -272,7 +276,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           port: 5432
         }
       },
-      setToContext: true
+      setToContext: true,
+      disablePrefetch: true
     })
   )
 
@@ -303,7 +308,8 @@ test.serial(
             port: 5432
           }
         },
-        setToContext: true
+        setToContext: true,
+        disablePrefetch: true
       })
     )
 

@@ -134,7 +134,7 @@ const normalizeS3Key = (key) =>
 
 // Start: AWS SDK unmarshall
 // Reference: https://github.com/aws/aws-sdk-js-v3/blob/v3.113.0/packages/util-dynamodb/src/convertToNative.ts
-export const unmarshall = (data) => convertValue.M(data ?? {})
+const unmarshall = (data) => convertValue.M(data ?? {})
 
 const convertValue = {
   NULL: () => null,
