@@ -1,6 +1,6 @@
 {
   "name": "@middy/appconfig",
-  "version": "4.4.1",
+  "version": "4.4.2",
   "description": "AppConfig middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -64,11 +64,11 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "4.4.1"
+    "@middy/util": "4.4.2"
   },
   "devDependencies": {
     "@aws-sdk/client-appconfig": "^3.0.0",
-    "@middy/core": "4.4.1",
+    "@middy/core": "4.4.2",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },
