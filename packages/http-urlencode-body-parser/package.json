@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@middy/util": "4.4.2",
-    "qs": "6.11.1"
+    "qs": "6.11.2"
   },
   "devDependencies": {
     "@middy/core": "4.4.2",

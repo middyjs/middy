@@ -63,7 +63,7 @@
     "@aws-sdk/client-ssm": "^3.0.0",
     "@middy/core": "4.4.2",
     "@types/aws-lambda": "^8.10.76",
-    "@types/node": "^18.0.0",
+    "@types/node": "^20.0.0",
     "aws-xray-sdk": "^3.3.3"
   },
   "homepage": "https://middy.js.org",
