@@ -22,10 +22,16 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
   const cloudwatchMetricsAfter = async (request) => {
     await request.context.metrics.flush()
   }
+  const cloudwatchMetricsOnError = async (request) => {
+    try {
+      await cloudwatchMetricsAfter(request)
+    } catch (e) {}
+  }
 
   return {
     before: cloudwatchMetricsBefore,
-    after: cloudwatchMetricsAfter
+    after: cloudwatchMetricsAfter,
+    onError: cloudwatchMetricsOnError
   }
 }
 
