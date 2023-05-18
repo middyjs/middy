@@ -3,7 +3,7 @@ title: http-json-body-parser
 ---
 
 This middleware automatically parses HTTP requests with a JSON body and converts the body into an
-object. Also handles gracefully broken JSON as _UnprocessableEntity_ (415 errors)
+object. Also handles gracefully broken JSON as _Unsupported Media Type_ (415 errors)
 if used in combination with `httpErrorHandler`.
 
 It can also be used in combination with validator as a prior step to normalize the
