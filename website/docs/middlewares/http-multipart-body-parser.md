@@ -3,7 +3,7 @@ title: http-multipart-body-parser
 ---
 
 Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an
-object. Also handles gracefully broken JSON as UnprocessableEntity (422 errors)
+object. Also handles gracefully broken JSON as UnprocessableEntity (415 errors)
 if used in combination with `httpErrorHandler`.
 
 It can also be used in combination with validator so that the content can be validated.
