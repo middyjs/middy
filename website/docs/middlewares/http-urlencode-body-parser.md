@@ -3,7 +3,7 @@ title: http-urlencode-body-parser
 ---
 
 This middleware automatically parses HTTP requests with URL-encoded body (typically the result
-of a form submit).
+of a form submit). Also handles gracefully broken URL encoding as _Unsupported Media Type_ (415 errors)
 
 ## Install
 

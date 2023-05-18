@@ -72,7 +72,7 @@
   "devDependencies": {
     "@middy/core": "5.0.0-alpha.0",
     "@types/http-errors": "^2.0.0",
-    "@types/node": "^18.0.0"
+    "@types/node": "^20.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
