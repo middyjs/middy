@@ -20,8 +20,9 @@
   <a href="https://snyk.io/test/github/middyjs/middy">
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
-  <a href="https://lgtm.com/projects/g/middyjs/middy/context:javascript">
-    <img src="https://img.shields.io/lgtm/grade/javascript/g/middyjs/middy.svg?logo=lgtm&logoWidth=18" alt="Language grade: JavaScript" style="max-width:100%;">
+  <a href="https://github.com/middyjs/middy/actions/workflows/sast.yml">
+    <img src="https://github.com/middyjs/middy/actions/workflows/sast.yml/badge.svg
+?branch=main&event=push" alt="CodeQL" style="max-width:100%;">
   </a>
   <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
     <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">
