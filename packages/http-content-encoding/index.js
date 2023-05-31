@@ -76,6 +76,7 @@ const httpContentEncodingMiddleware = (opts) => {
     for await (const chunk of stream) {
       chunks.push(chunk)
     }
+    // TODO update to btoa if faster
     const body = Buffer.concat(chunks).toString('base64')
 
     // Only apply encoding if it's smaller

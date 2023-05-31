@@ -4,6 +4,7 @@ import {
   APIGatewayProxyEventMultiValueQueryStringParameters,
   APIGatewayProxyEventPathParameters,
   APIGatewayProxyEventQueryStringParameters
+  // TODO add in VPC Lattice event
 } from 'aws-lambda'
 
 export type Event = APIGatewayEvent & {
@@ -12,6 +13,6 @@ export type Event = APIGatewayEvent & {
   queryStringParameters: APIGatewayProxyEventQueryStringParameters
 }
 
-declare function httpEventNormalizer (): middy.MiddlewareObj<Event>
+declare function httpEventNormalizer(): middy.MiddlewareObj<Event>
 
 export default httpEventNormalizer

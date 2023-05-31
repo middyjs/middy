@@ -33,7 +33,7 @@ test('It should do nothing if not HTTP event', async (t) => {
   }
 })
 
-test('It should default queryStringParameters', async (t) => {
+test('It should default queryStringParameters with REST API', async (t) => {
   const event = {
     httpMethod: 'GET'
   }
@@ -60,6 +60,43 @@ test('It should default queryStringParameters with HTTP API', async (t) => {
   t.deepEqual(normalizedEvent.queryStringParameters, {})
 })
 
+test('It should default queryStringParameters with VPC Lattice', async (t) => {
+  const event = {
+    method: 'GET'
+  }
+
+  const handler = middy((event) => event).use(httpEventNormalizer())
+  const normalizedEvent = await handler(event, context)
+
+  t.deepEqual(normalizedEvent.queryStringParameters, {})
+})
+
+test('It should set queryStringParameters with VPC Lattice', async (t) => {
+  const event = {
+    method: 'GET',
+    query_string_parameters: {
+      foo: 'bar'
+    }
+  }
+
+  const handler = middy((event) => event).use(httpEventNormalizer())
+  const normalizedEvent = await handler(event, context)
+
+  t.deepEqual(normalizedEvent.queryStringParameters, { foo: 'bar' })
+})
+
+test('It should set isBase64Encoded with VPC Lattice', async (t) => {
+  const event = {
+    method: 'GET',
+    is_base64_encoded: false
+  }
+
+  const handler = middy((event) => event).use(httpEventNormalizer())
+  const normalizedEvent = await handler(event, context)
+
+  t.is(normalizedEvent.isBase64Encoded, false)
+})
+
 test('It should default multiValueQueryStringParameters', async (t) => {
   const event = {
     httpMethod: 'GET'
@@ -71,7 +108,7 @@ test('It should default multiValueQueryStringParameters', async (t) => {
   t.deepEqual(normalizedEvent.multiValueQueryStringParameters, {})
 })
 
-test('It should default pathParameters', async (t) => {
+test('It should default pathParameters with REST API', async (t) => {
   const event = {
     httpMethod: 'GET'
   }

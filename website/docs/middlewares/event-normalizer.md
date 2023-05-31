@@ -43,6 +43,7 @@ https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 | SES                | No       | Normalization not required                      |
 | SNS                | Yes      | JSON parse `Message`                            |
 | SQS                | Yes      | JSON parse `body`                               |
+| VPC Lattice        | No \*    | See middleware prefixed with `@middy/http-`     |
 
 \* Handled in another dedicated middleware(s)
 

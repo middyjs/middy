@@ -28,7 +28,7 @@ const httpRouteHandler = (routes) => {
   }
 
   return (event, context, abort) => {
-    const { method, path } = getVersionRoute[event.version ?? '1.0']?.(event)
+    const { method, path } = getVersionRoute[pickVersion(event)]?.(event)
     if (!method) {
       throw new Error('[http-router] Unknown http event format')
     }
@@ -92,6 +92,11 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
   routesType[method].push({ path, handler })
 }
 
+const pickVersion = (event) => {
+  // '1.0' is a safer default
+  return event.version ?? (event.method ? 'vpc' : '1.0')
+}
+
 const getVersionRoute = {
   '1.0': (event) => ({
     method: event.httpMethod,
@@ -100,6 +105,10 @@ const getVersionRoute = {
   '2.0': (event) => ({
     method: event.requestContext.http.method,
     path: event.requestContext.http.path
+  }),
+  vpc: (event) => ({
+    method: event.method,
+    path: event.raw_path.split('?')[0]
   })
 }
 

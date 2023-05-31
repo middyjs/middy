@@ -266,6 +266,22 @@ test('It should route to a dynamic ANY method', async (t) => {
 })
 
 // event versions
+test('It should route to a REST v1 event', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/',
+      handler: () => true
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
 test('It should route to a v2 event', async (t) => {
   const event = {
     version: '2.0',
@@ -275,6 +291,22 @@ test('It should route to a v2 event', async (t) => {
         path: '/'
       }
     }
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/',
+      handler: () => true
+    }
+  ])
+  const response = await handler(event, context)
+  t.true(response)
+})
+
+test('It should route to a VPC Lattice event', async (t) => {
+  const event = {
+    method: 'GET',
+    raw_path: '/'
   }
   const handler = httpRouter([
     {
