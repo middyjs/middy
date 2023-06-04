@@ -134,3 +134,8 @@ expectType<any>(parsed)
 
 const normalizedResponse = util.normalizeHttpResponse({}, {})
 expectType<any>(normalizedResponse)
+
+// should be able to use HttpError as a proper class 
+const err = util.createError(500, 'An unexpected error occurred');
+expectType<util.HttpError>(err)
+err instanceof util.HttpError // would throw a type error if not a class
