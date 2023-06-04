@@ -12,7 +12,7 @@ interface Options<Client, ClientOptions> {
   setToContext?: boolean
 }
 
-type HttpError = Error & {
+declare class HttpError extends Error {
   status: number
   statusCode: number
   expose: boolean
