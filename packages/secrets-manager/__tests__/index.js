@@ -1,3 +1,4 @@
+import { setTimeout } from 'node:timers/promises'
 import test from 'ava'
 import sinon from 'sinon'
 import { mockClient } from 'aws-sdk-client-mock'
@@ -5,6 +6,7 @@ import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
 import {
   SecretsManagerClient,
+  DescribeSecretCommand,
   GetSecretValueCommand
 } from '@aws-sdk/client-secrets-manager'
 import secretsManager from '../index.js'
@@ -239,6 +241,45 @@ test.serial(
     await handler(event, context)
 
     t.is(sendStub.callCount, 2)
+  }
+)
+
+test.serial(
+  'It should call aws-sdk if cache enabled but cached param has expired using rotation',
+  async (t) => {
+    const mockService = mockClient(SecretsManagerClient)
+      .on(DescribeSecretCommand, { SecretId: 'api_key' })
+      .resolves({ NextRotationDate: Date.now() + 50 })
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolves({ SecretString: 'token' })
+    const sendStub = mockService.send
+    const handler = middy(() => {})
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.token, 'token')
+    }
+
+    handler
+      .use(
+        secretsManager({
+          AwsClient: SecretsManagerClient,
+          cacheExpiry: 0,
+          fetchData: {
+            token: 'api_key'
+          },
+          fetchRotationDate: true,
+          disablePrefetch: true
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context) // fetch x 2
+    await handler(event, context)
+    await setTimeout(100)
+    await handler(event, context) // fetch x 2
+
+    t.is(sendStub.callCount, 2 * 2)
   }
 )
 

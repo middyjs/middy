@@ -268,6 +268,25 @@ test.serial('processCache should cache when not expired', async (t) => {
   t.is(fetch.callCount, 1)
   clearCache()
 })
+test.serial(
+  'processCache should cache when not expired w/ unix timestamp',
+  async (t) => {
+    const fetch = sinon.stub().resolves('value')
+    const options = {
+      cacheKey: 'key',
+      cacheExpiry: Date.now() + 100
+    }
+    processCache(options, fetch, cacheRequest)
+    await setTimeout(50)
+    const cacheValue = getCache('key').value
+    t.is(await cacheValue, 'value')
+    const { value, cache } = processCache(options, fetch, cacheRequest)
+    t.is(await value, 'value')
+    t.is(cache, true)
+    t.is(fetch.callCount, 1)
+    clearCache()
+  }
+)
 
 test.serial(
   'processCache should clear and re-fetch modified cache',
@@ -331,19 +350,40 @@ test.serial(
 test.serial('processCache should cache and expire', async (t) => {
   const fetch = sinon.stub().resolves('value')
   const options = {
-    cacheKey: 'key',
+    cacheKey: 'key-cache-expire',
     cacheExpiry: 150
   }
   processCache(options, fetch, cacheRequest)
   await setTimeout(100)
-  let cache = getCache('key')
+  let cache = getCache('key-cache-expire')
   t.not(cache, undefined)
   await setTimeout(250) // expire twice
-  cache = getCache('key')
+  cache = getCache('key-cache-expire')
   t.true(cache.expiry > Date.now())
   t.is(fetch.callCount, 3)
   clearCache()
 })
+
+test.serial(
+  'processCache should cache and expire w/ unix timestamp',
+  async (t) => {
+    const fetch = sinon.stub().resolves('value')
+    const options = {
+      cacheKey: 'key-cache-unix-expire',
+      cacheExpiry: Date.now() + 155
+    }
+    processCache(options, fetch, cacheRequest)
+    await setTimeout(100)
+    let cache = getCache('key-cache-unix-expire')
+    t.not(cache, undefined)
+    await setTimeout(250) // expire once, then doesn't cache
+    cache = getCache('key-cache-unix-expire')
+
+    t.true(cache.expiry < Date.now())
+    t.is(fetch.callCount, 3)
+    clearCache()
+  }
+)
 
 test.serial('processCache should clear single key cache', async (t) => {
   const fetch = sinon.stub().resolves('value')
