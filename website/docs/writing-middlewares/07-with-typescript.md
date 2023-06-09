@@ -12,7 +12,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 const middleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxyResult> => {
   const before: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
     request
-  ): Promise<void> => {
+  ): Promise<APIGatewayProxyResult> => {
     // Your middleware logic
   }
 

@@ -11,11 +11,7 @@ to fail with the error: `TypeError: Cannot read property 'userId' of undefined`.
 A simple solution would be to add an `if` statement to verify if the `pathParameters` (or `queryStringParameters`/`multiValueQueryStringParameters`)
 exists before accessing one of its parameters, but this approach is very verbose and error prone.
 
-This middleware normalizes the API Gateway event, making sure that an object for
-`queryStringParameters`, `multiValueQueryStringParameters` and `pathParameters` is always available (resulting in empty objects
-when no parameter is available), this way you don't have to worry about adding extra `if`
-statements before trying to read a property and calling `event.pathParameters.userId` will
-result in `undefined` when no path parameter is available, but not in an error.
+This middleware normalizes the API Gateway, ALB, Function URLs, and VPC Lattice events, making sure that an object for `queryStringParameters`, `multiValueQueryStringParameters`, `pathParameters`, and `isBase64Encoded` is always available (resulting in empty objects when no parameter is available), this way you don't have to worry about adding extra `if` statements before trying to read a property and calling `event.pathParameters.userId` will result in `undefined` when no path parameter is available, but not in an error.
 
 > Important note : API Gateway HTTP API format 2.0 doesn't have `multiValueQueryStringParameters` fields. Duplicate query strings are combined with commas and included in the `queryStringParameters` field.
 

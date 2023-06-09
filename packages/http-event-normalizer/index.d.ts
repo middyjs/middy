@@ -4,6 +4,7 @@ import {
   APIGatewayProxyEventMultiValueQueryStringParameters,
   APIGatewayProxyEventPathParameters,
   APIGatewayProxyEventQueryStringParameters
+  // TODO add in VPC Lattice event
 } from 'aws-lambda'
 
 export type Event = APIGatewayEvent & {

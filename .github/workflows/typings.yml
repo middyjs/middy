@@ -23,9 +23,6 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Use npm 8
-        run: |
-          npm install -g npm@8
       - name: Install dependencies
         run: |
           npm install
