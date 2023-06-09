@@ -36,7 +36,7 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 
 NOTES:
 
-- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
+- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`. If using `fetchRotationDate` add `secretsmanager:DescribeSecret` in as well.
 
 ## Sample usage
 
