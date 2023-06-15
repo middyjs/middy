@@ -165,10 +165,10 @@ const convertValue = {
   L: (value) => value.map((item) => convertToNative(item)),
   M: (value) =>
     Object.entries(value).reduce(
-      (acc, [key, value]) => ({
-        ...acc,
-        [key]: convertToNative(value)
-      }),
+      (acc, [key, value]) => {
+        acc[key] = convertToNative(value)
+        return acc
+      },
       {}
     ),
   NS: (value) => new Set(value.map(convertValue.N)),
