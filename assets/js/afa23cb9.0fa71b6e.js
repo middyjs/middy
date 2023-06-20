@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmiddy=self.webpackChunkmiddy||[]).push([[6161],{2982:e=>{e.exports=JSON.parse('{"title":"Middlewares","slug":"/category/middlewares","permalink":"/docs/category/middlewares","navigation":{"previous":{"title":"Sponsoring","permalink":"/docs/intro/sponsoring"},"next":{"title":"Official middlewares","permalink":"/docs/middlewares/intro"}}}')}}]);
