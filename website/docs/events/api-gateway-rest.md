@@ -9,10 +9,12 @@ This page is a work in progress. If you want to help us to make this page better
 :::
 
 ## AWS Documentation
+
 - [Using AWS Lambda with Amazon API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
 - [Working with REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-rest-api.html)
 
 ## Example
+
 ```javascript
 import middy from '@middy/core'
 import errorLoggerMiddleware from '@middy/error-logger'
@@ -30,7 +32,7 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import validatorMiddleware from 'validator' // or `middy-ajv`
+import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
 import eventSchema from './eventSchema.json' assert { type: 'json' }
