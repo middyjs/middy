@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Middy s3 middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-  <p><strong>Secrets Manager middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>Amazon S3 middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 <p>
   <a href="https://www.npmjs.com/package/@middy/s3?activeTab=versions">
     <img src="https://badge.fury.io/js/%40middy%2Fs3.svg" alt="npm version" style="max-width:100%;">
