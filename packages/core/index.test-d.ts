@@ -1,5 +1,5 @@
 import { expectType } from 'tsd'
-import middy, { MiddyfiedHandler } from '.'
+import middy from '.'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
@@ -192,7 +192,7 @@ customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
 expectType<MutableContextHandler>(customCtxHandler)
 
 let streamifiedResponseHandler = middy({ streamifyResponse: true })
-expectType<MiddyfiedHandler>(streamifiedResponseHandler)
+expectType<middy.MiddyfiedHandler>(streamifiedResponseHandler)
 
 streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
