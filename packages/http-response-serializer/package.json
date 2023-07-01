@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "4.5.3",
+  "version": "4.5.4",
   "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "type": "module",
   "engines": {
@@ -70,10 +70,10 @@
   },
   "dependencies": {
     "@hapi/accept": "6.0.1",
-    "@middy/util": "4.5.3"
+    "@middy/util": "4.5.4"
   },
   "devDependencies": {
-    "@middy/core": "4.5.3"
+    "@middy/core": "4.5.4"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
