@@ -151,7 +151,7 @@ declare function middy<
   TErr = Error,
   TContext extends LambdaContext = LambdaContext
 > (
-  handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>,
+  handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext> | PluginObject,
   plugin?: PluginObject
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
 
