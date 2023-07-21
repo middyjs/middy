@@ -32,7 +32,7 @@ import httpResponseSerializerMiddleware from '@middy/http-response-serializer'
 import httpSecurityHeadersMiddleware from '@middy/http-security-headers'
 import httpUrlencodeBodyParserMiddleware from '@middy/http-urlencode-body-parser'
 import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-path-parser'
-import validatorMiddleware from 'validator' // or `middy-ajv`
+import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
 import eventSchema from './eventSchema.json' assert { type: 'json' }

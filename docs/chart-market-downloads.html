@@ -32,12 +32,10 @@
       const pkgs = [
         '@middy/core',
         'middy',
-        '@dazn/lambda-powertools-pattern-basic', // wrapper around middy
 
         // APIs Only
         '@vendia/serverless-express',
         'lambda-api',
-        '@midwayjs/decorator',
         '@fastify/aws-lambda',
 
         // Deprecated
@@ -46,6 +44,8 @@
         'aws-serverless-express' // merged into `@vendia/serverless-express`
 
         // Don't meet requirements
+        // '@midwayjs/decorator',
+        // '@dazn/lambda-powertools-pattern-basic', // wrapper around middy
         // '@lambda-middleware/compose'
         // 'serverless-express',
         // 'ts-lambda-api',

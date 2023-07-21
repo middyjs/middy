@@ -190,3 +190,9 @@ const typeErrorMiddleware = {
 
 customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
 expectType<MutableContextHandler>(customCtxHandler)
+
+const streamifiedResponseHandler = middy({ streamifyResponse: true })
+expectType<middy.MiddyfiedHandler<unknown>>(streamifiedResponseHandler)
+
+streamifiedResponseHandler.handler(lambdaHandler)
+streamifiedResponseHandler.use(middlewareObj)

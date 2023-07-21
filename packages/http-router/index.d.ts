@@ -5,12 +5,13 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
+  APIGatewayProxyResultV2,
   Handler as LambdaHandler
 } from 'aws-lambda'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'ANY'
 
-type TResult = ALBResult | APIGatewayProxyResult
+type TResult = ALBResult | APIGatewayProxyResult | APIGatewayProxyResultV2
 
 export interface Route<TEvent> {
   method: Method
