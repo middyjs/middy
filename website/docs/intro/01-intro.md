@@ -27,6 +27,7 @@ import middy from '@middy/core' // esm Node v14+
 import jsonBodyParser from '@middy/http-json-body-parser'
 import httpErrorHandler from '@middy/http-error-handler'
 import validator from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
 
 // This is your common handler, in no way different than what you are used to doing every day in AWS Lambda
 const lambdaHandler = async (event, context) => {
@@ -43,7 +44,7 @@ const lambdaHandler = async (event, context) => {
 // Notice that in the handler you only added base business logic (no deserialization,
 // validation or error handler), we will add the rest with middlewares
 
-const eventSchema = {
+const schema = {
  type: 'object',
  properties: {
    body: {
@@ -64,7 +65,7 @@ const eventSchema = {
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
 const handler = middy()
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
-  .use(validator({eventSchema})) // validates the input
+  .use(validator({eventSchema: transpile(schema)})) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses
   .handler(lambdaHandler)
 
