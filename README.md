@@ -42,7 +42,7 @@
 ## Sponsors
 
 <a href="https://fourtheorem.com">
-  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/img/logo/fourthereom.svg" style="max-width:50%"/>
+  <img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/website/static/img/logo/fourthereom.svg" style="max-width:50%"/>
 </a>
 
 ## License
