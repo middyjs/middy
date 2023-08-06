@@ -33,7 +33,7 @@
     <img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;">
   </a>
   <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052">
-    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;">
+    <img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;" width="380">
   </a>
 </p>
 <p>You can read the documentation at: <a href="https://middy.js.org">https://middy.js.org</a></p>
