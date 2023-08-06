@@ -16,7 +16,10 @@
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;">
   </a>
   <a href="https://snyk.io/test/github/middyjs/middy">
-    <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
+    <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="snyk Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
+  </a>
+  <a href="https://socket.dev/npm/package/@middy/core">
+    <img src="hhttps://socket.dev/api/badge/npm/package/@middy/core" alt="Socket Supply chain Security" style="max-width:100%;">
   </a>
   <a href="https://github.com/middyjs/middy/actions/workflows/sast.yml">
     <img src="https://github.com/middyjs/middy/actions/workflows/sast.yml/badge.svg
@@ -35,6 +38,12 @@
 </p>
 <p>You can read the documentation at: <a href="https://middy.js.org">https://middy.js.org</a></p>
 </div>
+
+## Sponsors
+
+<a href="https://fourtheorem.com">
+  <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/img/logo/fourthereom.svg" style="max-width:50%"/>
+</a>
 
 ## License
 
