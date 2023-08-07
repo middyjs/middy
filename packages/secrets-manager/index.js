@@ -23,20 +23,16 @@ const defaults = {
   fetchRotationDate: false, // true: apply to all or {key: true} for individual
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
+  cacheKeyExpiry: {},
   cacheExpiry: -1, // ignored when fetchRotationRules is true/object
   setToContext: false
 }
 
-const future = Date.now() * 2
 const secretsManagerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const fetch = (request, cachedValues = {}) => {
     const values = {}
-
-    if (options.fetchRotationRules) {
-      options.cacheExpiry = 0
-    }
 
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
@@ -54,9 +50,14 @@ const secretsManagerMiddleware = (opts = {}) => {
                 })
               )
               .then((resp) => {
-                if (resp.NextRotationDate) {
-                  options.cacheExpiry = Math.min(
-                    options.cacheExpiry || future,
+                if (options.cacheExpiry < 0) {
+                  options.cacheKeyExpiry[internalKey] =
+                    resp.NextRotationDate * 1000
+                } else {
+                  options.cacheKeyExpiry[internalKey] = Math.min(
+                    Math.max(resp.LastRotationDate, resp.LastChangedDate) *
+                      1000 +
+                      options.cacheExpiry,
                     resp.NextRotationDate * 1000
                   )
                 }

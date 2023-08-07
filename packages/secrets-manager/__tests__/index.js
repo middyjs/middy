@@ -245,11 +245,14 @@ test.serial(
 )
 
 test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired using rotation',
+  'It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate',
   async (t) => {
     const mockService = mockClient(SecretsManagerClient)
       .on(DescribeSecretCommand, { SecretId: 'api_key' })
-      .resolves({ NextRotationDate: Date.now() + 50 })
+      .resolves({
+        LastRotationDate: Date.now() / 1000 - 50,
+        LastChangedDate: Date.now() / 1000 - 50
+      })
       .on(GetSecretValueCommand, { SecretId: 'api_key' })
       .resolves({ SecretString: 'token' })
     const sendStub = mockService.send
@@ -264,7 +267,89 @@ test.serial(
       .use(
         secretsManager({
           AwsClient: SecretsManagerClient,
-          cacheExpiry: 0,
+          cacheExpiry: 100,
+          fetchData: {
+            token: 'api_key'
+          },
+          fetchRotationDate: true,
+          disablePrefetch: true
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context) // fetch x 2
+    await handler(event, context)
+    await setTimeout(100)
+    await handler(event, context) // fetch x 2
+
+    t.is(sendStub.callCount, 2 * 2)
+  }
+)
+
+test.serial(
+  'It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate',
+  async (t) => {
+    const mockService = mockClient(SecretsManagerClient)
+      .on(DescribeSecretCommand, { SecretId: 'api_key' })
+      .resolves({
+        LastRotationDate: Date.now() / 1000 - 25,
+        LastChangedDate: Date.now() / 1000 - 25,
+        NextRotationDate: Date.now() / 1000 + 50
+      })
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolves({ SecretString: 'token' })
+    const sendStub = mockService.send
+    const handler = middy(() => {})
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.token, 'token')
+    }
+
+    handler
+      .use(
+        secretsManager({
+          AwsClient: SecretsManagerClient,
+          cacheExpiry: 100,
+          fetchData: {
+            token: 'api_key'
+          },
+          fetchRotationDate: true,
+          disablePrefetch: true
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context) // fetch x 2
+    await handler(event, context)
+    await setTimeout(100)
+    await handler(event, context) // fetch x 2
+
+    t.is(sendStub.callCount, 2 * 2)
+  }
+)
+
+test.serial(
+  'It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate',
+  async (t) => {
+    const mockService = mockClient(SecretsManagerClient)
+      .on(DescribeSecretCommand, { SecretId: 'api_key' })
+      .resolves({ NextRotationDate: Date.now() / 1000 + 50 })
+      .on(GetSecretValueCommand, { SecretId: 'api_key' })
+      .resolves({ SecretString: 'token' })
+    const sendStub = mockService.send
+    const handler = middy(() => {})
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.token, 'token')
+    }
+
+    handler
+      .use(
+        secretsManager({
+          AwsClient: SecretsManagerClient,
+          cacheExpiry: -1,
           fetchData: {
             token: 'api_key'
           },
