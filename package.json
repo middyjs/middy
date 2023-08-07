@@ -62,7 +62,7 @@
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.135",
     "ava": "^5.0.0",
-    "aws-sdk-client-mock": "^2.0.0",
+    "aws-sdk-client-mock": "^3.0.0",
     "benchmark": "^2.1.4",
     "c8": "^8.0.0",
     "husky": "^8.0.0",
