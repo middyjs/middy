@@ -287,6 +287,46 @@ test.serial(
     clearCache()
   }
 )
+test.serial(
+  'processCache should cache when not expired using cacheKeyExpire',
+  async (t) => {
+    const fetch = sinon.stub().resolves('value')
+    const options = {
+      cacheKey: 'key',
+      cacheExpiry: 0,
+      cacheKeyExpiry: { key: Date.now() + 100 }
+    }
+    processCache(options, fetch, cacheRequest)
+    await setTimeout(50)
+    const cacheValue = getCache('key').value
+    t.is(await cacheValue, 'value')
+    const { value, cache } = processCache(options, fetch, cacheRequest)
+    t.is(await value, 'value')
+    t.is(cache, true)
+    t.is(fetch.callCount, 1)
+    clearCache()
+  }
+)
+test.serial(
+  'processCache should cache when not expired using cacheKeyExpire w/ unix timestamp',
+  async (t) => {
+    const fetch = sinon.stub().resolves('value')
+    const options = {
+      cacheKey: 'key',
+      cacheExpiry: Date.now() + 0,
+      cacheKeyExpiry: { key: Date.now() + 100 }
+    }
+    processCache(options, fetch, cacheRequest)
+    await setTimeout(50)
+    const cacheValue = getCache('key').value
+    t.is(await cacheValue, 'value')
+    const { value, cache } = processCache(options, fetch, cacheRequest)
+    t.is(await value, 'value')
+    t.is(cache, true)
+    t.is(fetch.callCount, 1)
+    clearCache()
+  }
+)
 
 test.serial(
   'processCache should clear and re-fetch modified cache',

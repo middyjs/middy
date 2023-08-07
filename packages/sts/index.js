@@ -17,6 +17,7 @@ const defaults = {
   fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

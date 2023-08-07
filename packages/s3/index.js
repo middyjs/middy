@@ -17,6 +17,7 @@ const defaults = {
   fetchData: {},
   disablePrefetch: false,
   cacheKey: 's3',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

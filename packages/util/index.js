@@ -99,7 +99,8 @@ export const sanitizeKey = (key) => {
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (options, fetch = () => undefined, request) => {
-  const { cacheExpiry, cacheKey } = options
+  let { cacheKey, cacheKeyExpiry, cacheExpiry } = options
+  cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
     const unexpired =
