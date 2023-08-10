@@ -24,6 +24,7 @@ const defaults = {
   fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

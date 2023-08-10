@@ -22,6 +22,7 @@ const defaults = {
   fetchData: {},
   disablePrefetch: false,
   cacheKey: 'appconfig',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

@@ -20,6 +20,7 @@ const defaults = {
   fetchData: {}, // { contextKey: {NamespaceName, ServiceName, HealthStatus} }
   disablePrefetch: false,
   cacheKey: 'cloud-map',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

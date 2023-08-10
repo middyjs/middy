@@ -13,6 +13,7 @@ const defaults = {
   fetchData: {},
   disablePrefetch: false,
   cacheKey: 'rds-signer',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }

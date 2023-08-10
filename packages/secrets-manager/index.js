@@ -10,6 +10,7 @@ import {
 } from '@middy/util'
 import {
   SecretsManagerClient,
+  DescribeSecretCommand,
   GetSecretValueCommand
 } from '@aws-sdk/client-secrets-manager'
 
@@ -18,10 +19,12 @@ const defaults = {
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
-  fetchData: {}, // If more than 2, consider writing own using ListSecrets
+  fetchData: {},
+  fetchRotationDate: false, // true: apply to all or {key: true} for individual
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
-  cacheExpiry: -1,
+  cacheKeyExpiry: {},
+  cacheExpiry: -1, // ignored when fetchRotationRules is true/object
   setToContext: false
 }
 
@@ -31,17 +34,42 @@ const secretsManagerMiddleware = (opts = {}) => {
   const fetch = (request, cachedValues = {}) => {
     const values = {}
 
-    // Multiple secrets can be requested in a single requests,
-    // however this is likely uncommon IRL, increases complexity to handle,
-    // and will require recursive promise resolution impacting performance.
-    // See https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SecretsManager.html#listSecrets-property
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
-      values[internalKey] = client
-        .send(
-          new GetSecretValueCommand({
-            SecretId: options.fetchData[internalKey]
-          })
+
+      values[internalKey] = Promise.resolve()
+        .then(() => {
+          if (
+            options.fetchRotationDate === true ||
+            options.fetchRotationDate?.[internalKey]
+          ) {
+            return client
+              .send(
+                new DescribeSecretCommand({
+                  SecretId: options.fetchData[internalKey]
+                })
+              )
+              .then((resp) => {
+                if (options.cacheExpiry < 0) {
+                  options.cacheKeyExpiry[internalKey] =
+                    resp.NextRotationDate * 1000
+                } else {
+                  options.cacheKeyExpiry[internalKey] = Math.min(
+                    Math.max(resp.LastRotationDate, resp.LastChangedDate) *
+                      1000 +
+                      options.cacheExpiry,
+                    resp.NextRotationDate * 1000
+                  )
+                }
+              })
+          }
+        })
+        .then(() =>
+          client.send(
+            new GetSecretValueCommand({
+              SecretId: options.fetchData[internalKey]
+            })
+          )
         )
         .then((resp) => jsonSafeParse(resp.SecretString))
         .catch((e) => {

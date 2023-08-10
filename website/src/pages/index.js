@@ -6,6 +6,7 @@ import styles from './index.module.css'
 import HomepageFeatures from '../components/HomepageFeatures'
 // import HomepageWhatUsersSay from '../components/HomepageWhatUsersSay'
 // import HomepageWhoUses from '../components/HomepageWhoUses'
+import HomepageSponsors from '../components/HomepageSponsors'
 import Example from '../components/Example'
 import GetStartedHero from '../components/GetStartedHero'
 import Logo from '../components/logo'
@@ -64,6 +65,7 @@ export default function Home () {
       <main>
         <HomepageFeatures />
         <Example />
+        <HomepageSponsors />
         <GetStartedHero />
       </main>
     </Layout>
