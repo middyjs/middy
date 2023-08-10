@@ -99,7 +99,8 @@ export const sanitizeKey = (key) => {
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (options, fetch = () => undefined, request) => {
-  const { cacheExpiry, cacheKey } = options
+  let { cacheKey, cacheKeyExpiry, cacheExpiry } = options
+  cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
     const unexpired =
@@ -118,12 +119,14 @@ export const processCache = (options, fetch = () => undefined, request) => {
     }
   }
   const value = fetch(request)
-  const expiry = Date.now() + cacheExpiry
-
+  const now = Date.now()
+  // secrets-manager overrides to unix timestamp
+  const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry
+  const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry
   if (cacheExpiry) {
     const refresh =
-      cacheExpiry > 0
-        ? setInterval(() => processCache(options, fetch, request), cacheExpiry)
+      duration > 0
+        ? setInterval(() => processCache(options, fetch, request), duration)
         : undefined
     cache[cacheKey] = { value, expiry, refresh }
   }

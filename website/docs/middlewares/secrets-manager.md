@@ -28,6 +28,7 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 - `awsClientAssumeRole` (string) (optional): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `SecretId`.
+- `fetchRotationDate` (boolean|object) (default `false`): Boolean to apply to all or mapping of internal key name to boolean. This indicates what secrets should fetch and cached based on `NextRotationDate`/`LastRotationDate`/`LastChangedDate`. `cacheExpiry` of `-1` will use `NextRotationDate`, while any other value will be added to the `LastRotationDate` or `LastChangedDate`, whichever is more recent. If secrets have different rotation schedules, use multiple instances of this middleware.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
@@ -35,7 +36,7 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 
 NOTES:
 
-- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`
+- Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`. If using `fetchRotationDate` add `secretsmanager:DescribeSecret` in as well.
 
 ## Sample usage
 

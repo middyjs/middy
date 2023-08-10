@@ -18,6 +18,7 @@ const defaults = {
   fetchData: {},
   disablePrefetch: false,
   cacheKey: 'dynamodb',
+  cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }
