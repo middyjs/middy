@@ -10,8 +10,6 @@ interface Options<AwsSSMClient = SSMClient>
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ExtractSingles<T> = T extends `/${infer _}` ? never : T
 
-export type Internal<TOptions extends Options> = Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
-
 export type Context<TOptions extends Options | undefined = undefined> = TOptions extends {
   setToContext: true
 }
