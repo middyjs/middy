@@ -10,6 +10,8 @@ interface Options<AwsSSMClient = SSMClient>
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type ExtractSingles<T> = T extends `/${infer _}` ? never : T
 
+export type Internal<TOptions extends Options> = Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
+
 export type Context<TOptions extends Options | undefined> = TOptions extends {
   setToContext: true
 }
@@ -23,6 +25,6 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
 
 declare function ssm<TOptions extends Options> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default ssm

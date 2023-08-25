@@ -3,6 +3,7 @@ import { SSMClient } from '@aws-sdk/client-ssm'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
 import ssm, { Context } from '.'
+import { JsonValue } from 'type-fest'
 
 // use with default options
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm())
@@ -24,3 +25,25 @@ const options = {
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   ssm(options)
 )
+
+
+// checks that values fetched are actually enriching the context correctly (#1084)
+middy()
+  .use(
+    ssm({
+      fetchData: {
+        accessToken: '/dev/service_name/access_token', // single value
+        dbParams: '/dev/service_name/database/', // object of values, key for each path
+        defaults: '/dev/defaults'
+      },
+      setToContext: true
+    })
+  )
+  .before((request) => {
+    // checks that the context is correctly enriched in before
+    expectType<Record<"accessToken" | "dbParams" | "defaults", JsonValue>>(request.context)
+  })
+  .handler(async (req, context) => {
+    // checks that the context is correctly enriched in handler
+    expectType<Record<"accessToken" | "dbParams" | "defaults", JsonValue>>(context)
+  })
