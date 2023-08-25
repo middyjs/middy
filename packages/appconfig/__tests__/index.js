@@ -102,8 +102,13 @@ test.serial(
 test.serial(
   'It should set AppConfigData param value to internal storage',
   async (t) => {
+    const params = {
+      ApplicationIdentifier: '...',
+      ConfigurationProfileIdentifier: '...',
+      EnvironmentIdentifier: '...'
+    }
     mockClient(AppConfigDataClient)
-      .on(StartConfigurationSessionCommand)
+      .on(StartConfigurationSessionCommand, params)
       .resolvesOnce({
         ContentType: 'application/json',
         InitialConfigurationToken: 'InitialToken...'
@@ -127,12 +132,9 @@ test.serial(
         appConfig({
           AwsClient: AppConfigDataClient,
           cacheExpiry: 0,
+          disablePrefetch: true,
           fetchData: {
-            key: {
-              ApplicationIdentifier: '...',
-              ConfigurationProfileIdentifier: '...',
-              EnvironmentIdentifier: '...'
-            }
+            key: params
           }
         })
       )
@@ -145,8 +147,13 @@ test.serial(
 test.serial(
   'It should use previous configuration token on subsequent app config fetch',
   async (t) => {
+    const params = {
+      ApplicationIdentifier: '...',
+      ConfigurationProfileIdentifier: '...',
+      EnvironmentIdentifier: '...'
+    }
     mockClient(AppConfigDataClient)
-      .on(StartConfigurationSessionCommand)
+      .on(StartConfigurationSessionCommand, params)
       .resolvesOnce({
         ContentType: 'application/json',
         InitialConfigurationToken: 'InitialToken...'
@@ -178,12 +185,9 @@ test.serial(
         appConfig({
           AwsClient: AppConfigDataClient,
           cacheExpiry: 0,
+          disablePrefetch: true,
           fetchData: {
-            key: {
-              ApplicationIdentifier: '...',
-              ConfigurationProfileIdentifier: '...',
-              EnvironmentIdentifier: '...'
-            }
+            key: params
           }
         })
       )
@@ -233,6 +237,7 @@ test.serial(
         appConfig({
           AwsClient: AppConfigDataClient,
           cacheExpiry: 0,
+          disablePrefetch: true,
           fetchData: {
             key: {
               ApplicationIdentifier: '...',
@@ -550,6 +555,7 @@ test.serial(
       appConfig({
         AwsClient: AppConfigDataClient,
         cacheExpiry: 0,
+        disablePrefetch: true,
         fetchData: {
           key: {
             ApplicationIdentifier: '...',
@@ -574,8 +580,13 @@ test.serial(
 test.serial(
   'Should not parse configuration is mime type is not application/json',
   async (t) => {
+    const params = {
+      ApplicationIdentifier: 'xb0nby2',
+      ConfigurationProfileIdentifier: 'ofexqm2',
+      EnvironmentIdentifier: '7tp0goq'
+    }
     mockClient(AppConfigDataClient)
-      .on(StartConfigurationSessionCommand)
+      .on(StartConfigurationSessionCommand, params)
       .resolvesOnce({
         ContentType: 'application/json',
         InitialConfigurationToken: 'InitialToken...'
@@ -604,12 +615,9 @@ test.serial(
         appConfig({
           AwsClient: AppConfigDataClient,
           cacheExpiry: 0,
+          disablePrefetch: true,
           fetchData: {
-            key: {
-              ApplicationIdentifier: 'xb0nby2',
-              ConfigurationProfileIdentifier: 'ofexqm2',
-              EnvironmentIdentifier: '7tp0goq'
-            }
+            key: params
           }
         })
       )

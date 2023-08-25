@@ -86,6 +86,7 @@ const appConfigMiddleware = (opts = {}) => {
             modifyCache(options.cacheKey, value)
             throw e
           })
+
         continue
       }
       values[internalKey] = fetchLatestConfiguration(
