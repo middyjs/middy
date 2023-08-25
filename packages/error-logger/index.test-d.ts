@@ -8,6 +8,6 @@ expectType<middy.MiddlewareObj>(middleware)
 
 // use with all options
 middleware = errorLogger({
-  logger: ({error}) => console.log(error)
+  logger: ({ error }) => console.log(error)
 })
 expectType<middy.MiddlewareObj>(middleware)
