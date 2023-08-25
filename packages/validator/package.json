@@ -79,7 +79,7 @@
   },
   "dependencies": {
     "@middy/util": "5.0.0-alpha.0",
-    "ajv-cmd": "0.3.3"
+    "ajv-cmd": "0.3.4"
   },
   "devDependencies": {
     "@middy/core": "5.0.0-alpha.0",
