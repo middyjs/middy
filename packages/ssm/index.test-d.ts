@@ -1,12 +1,12 @@
 import middy from '@middy/core'
 import { SSMClient } from '@aws-sdk/client-ssm'
 import { captureAWSv3Client } from 'aws-xray-sdk'
-import { expectType } from 'tsd'
+import { expectType, expectAssignable } from 'tsd'
 import ssm, { Context } from '.'
 import { JsonValue } from 'type-fest'
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm())
+expectType<middy.MiddlewareObj<unknown, any, Error, Context>>(ssm())
 
 // use with all options
 const options = {
@@ -40,9 +40,9 @@ middy()
   )
   .before((request) => {
     // checks that the context is correctly enriched in before
-    expectType<Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(request.context)
+    expectAssignable<Context & Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(request.context)
   })
   .handler(async (req, context) => {
     // checks that the context is correctly enriched in handler
-    expectType<Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(context)
+    expectAssignable<Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(context)
   })

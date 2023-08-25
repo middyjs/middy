@@ -43,7 +43,7 @@ declare type MiddlewareFn<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
 > = (request: Request<TEvent, TResult, TErr, TContext>) => any
 
 export interface MiddlewareObj<
@@ -51,7 +51,6 @@ export interface MiddlewareObj<
   TResult = any,
   TErr = Error,
   TContext extends LambdaContext = LambdaContext,
-  TInternal = {}
 > {
   before?: MiddlewareFn<TEvent, TResult, TErr, TContext>
   after?: MiddlewareFn<TEvent, TResult, TErr, TContext>

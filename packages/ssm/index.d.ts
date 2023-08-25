@@ -12,7 +12,7 @@ type ExtractSingles<T> = T extends `/${infer _}` ? never : T
 
 export type Internal<TOptions extends Options> = Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue>
 
-export type Context<TOptions extends Options | undefined> = TOptions extends {
+export type Context<TOptions extends Options | undefined = undefined> = TOptions extends {
   setToContext: true
 }
   ? LambdaContext &
@@ -25,6 +25,6 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
 
 declare function ssm<TOptions extends Options> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
 
 export default ssm
