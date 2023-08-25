@@ -26,7 +26,6 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   ssm(options)
 )
 
-
 // checks that values fetched are actually enriching the context correctly (#1084)
 middy()
   .use(
@@ -41,9 +40,9 @@ middy()
   )
   .before((request) => {
     // checks that the context is correctly enriched in before
-    expectType<Record<"accessToken" | "dbParams" | "defaults", JsonValue>>(request.context)
+    expectType<Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(request.context)
   })
   .handler(async (req, context) => {
     // checks that the context is correctly enriched in handler
-    expectType<Record<"accessToken" | "dbParams" | "defaults", JsonValue>>(context)
+    expectType<Record<'accessToken' | 'dbParams' | 'defaults', JsonValue>>(context)
   })
