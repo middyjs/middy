@@ -1,5 +1,4 @@
 import test from 'ava'
-import sinon from 'sinon'
 import middy from '../../core/index.js'
 import errorLogger from '../index.js'
 
@@ -10,19 +9,31 @@ const defaultContext = {
 
 test('It should log errors and propagate the error', async (t) => {
   const error = new Error('something bad happened')
-  const logger = sinon.spy()
+
+  let loggerCalledResolve = null
+  let loggerRequestReceived = null
+  const loggerHasBeenCalled = new Promise((resolve) => {
+    loggerCalledResolve = resolve
+  })
+
+  const mockLogger = (request) => {
+    loggerRequestReceived = request
+    loggerCalledResolve()
+  }
 
   const handler = middy(() => {
     throw error
   })
 
-  handler.use(errorLogger({ logger }))
+  handler.use(errorLogger({ logger: mockLogger }))
 
   try {
     await handler(defaultEvent, defaultContext)
   } catch (e) {
-    t.true(logger.calledWith(error))
-    t.deepEqual(e, error)
+    // the call to the logger is async so we need to make sure the invocation is complete
+    // before checking
+    await loggerHasBeenCalled
+    t.deepEqual(loggerRequestReceived.error, error)
   }
 })
 

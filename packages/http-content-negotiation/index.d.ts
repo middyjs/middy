@@ -12,6 +12,7 @@ interface Options {
   failOnMismatch?: boolean
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface Event {}
 
 export interface Context {
@@ -25,7 +26,7 @@ export interface Context {
   preferredMediaType: string
 }
 
-declare function httpContentNegotiation(
+declare function httpContentNegotiation (
   options?: Options
 ): middy.MiddlewareObj<Event>
 
