@@ -69,7 +69,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@hapi/accept": "6.0.1",
+    "@hapi/accept": "6.0.2",
     "@middy/util": "5.0.0-alpha.0"
   },
   "devDependencies": {
