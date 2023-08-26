@@ -28,33 +28,34 @@ export interface Request<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
 > {
   event: TEvent
   context: TContext
   response: TResult | null
   error: TErr | null
-  internal: {
-    [key: string]: any
-  }
+  internal: TInternal
 }
 
 declare type MiddlewareFn<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
-> = (request: Request<TEvent, TResult, TErr, TContext>) => any
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
+> = (request: Request<TEvent, TResult, TErr, TContext, TInternal>) => any
 
 export interface MiddlewareObj<
   TEvent = unknown,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
 > {
-  before?: MiddlewareFn<TEvent, TResult, TErr, TContext>
-  after?: MiddlewareFn<TEvent, TResult, TErr, TContext>
-  onError?: MiddlewareFn<TEvent, TResult, TErr, TContext>
+  before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+  after?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+  onError?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
 }
 
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
@@ -79,57 +80,63 @@ export interface MiddyfiedHandler<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
   MiddyInputPromiseHandler<TEvent, TResult, TContext> {
-  use: UseFn<TEvent, TResult, TErr, TContext>
-  before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
-  after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
-  onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext>
+  use: UseFn<TEvent, TResult, TErr, TContext, TInternal>
+  before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+  after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+  onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   handler: <TAdditional>(
     handler: MiddlewareHandler<
     LambdaHandler<TEvent & TAdditional, TResult>,
     TContext
     >
-  ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+  ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 }
 
 declare type AttachMiddlewareFn<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
 > = (
-  middleware: MiddlewareFn<TEvent, TResult, TErr, TContext>
-) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+  middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 
 declare type AttachMiddlewareObj<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
 > = (
-  middleware: MiddlewareObj<TEvent, TResult, TErr, TContext>
-) => MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+  middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>
+) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 
 declare type UseFn<
   TEvent = any,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
-> = <TMiddleware extends MiddlewareObj<any, any, Error, any>>(
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
+> = <TMiddleware extends MiddlewareObj<any, any, Error, any, any>>(
   middlewares: TMiddleware | TMiddleware[]
 ) => TMiddleware extends MiddlewareObj<
 infer TMiddlewareEvent,
 any,
 Error,
-infer TMiddlewareContext
+infer TMiddlewareContext,
+infer TMiddlewareInternal
 >
   ? MiddyfiedHandler<
   TMiddlewareEvent & TEvent,
   TResult,
   TErr,
-  TMiddlewareContext & TContext
+  TMiddlewareContext & TContext,
+  TMiddlewareInternal & TInternal
   > // always true
   : never
 
@@ -149,11 +156,14 @@ declare function middy<
   TEvent = unknown,
   TResult = any,
   TErr = Error,
-  TContext extends LambdaContext = LambdaContext
-> (
-  handler?: MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext> | PluginObject,
+  TContext extends LambdaContext = LambdaContext,
+  TInternal extends Record<string, unknown> = {}
+>(
+  handler?:
+    | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>
+    | PluginObject,
   plugin?: PluginObject
-): MiddyfiedHandler<TEvent, TResult, TErr, TContext>
+): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 
 declare namespace middy {
   export {

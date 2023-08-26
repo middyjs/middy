@@ -21,8 +21,13 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
     : unknown)
   : LambdaContext
 
+// TODO This is simply taking all keys from fetchData, while the Context type has more complex logic - check it
+export type Internal<TOptions extends Options | undefined> = TOptions extends Options
+  ? Record<keyof TOptions['fetchData'], JsonValue>
+  : Record<string, unknown>
+
 declare function ssm<TOptions extends Options> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default ssm
