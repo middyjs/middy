@@ -33,11 +33,11 @@ declare function canPrefetch<Client, ClientOptions> (
   options: Options<Client, ClientOptions>
 ): boolean
 
-type InternalOutput<TVariables> = TVariables extends string[] ? {[key in TVariables[number]]: unknown} : never;
+type InternalOutput<TVariables> = TVariables extends string[] ? { [key in TVariables[number]]: unknown } : never
 
 // TODO this can also be "true" to get all variables or an object to remap key names -
 //  add alternative types to TVariables and extend InternalOutput to infer correct return type
-declare function getInternal<TInternal extends Record<string, unknown>, TVariables extends (keyof TInternal)[]> (
+declare function getInternal<TInternal extends Record<string, unknown>, TVariables extends Array<keyof TInternal>> (
   variables: TVariables,
   request: middy.Request<any, any, any, any, TInternal>
 ): Promise<InternalOutput<TVariables>>
