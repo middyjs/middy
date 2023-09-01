@@ -102,3 +102,37 @@ test('Should return only the rejected messageIds', async (t) => {
   })
   t.is(logger.callCount, 1)
 })
+
+test('Should reject all messageIds when error is thrown', async (t) => {
+  const event = createEvent.default('aws:sqs', {
+    Records: [
+      {
+        messageAttributes: {
+          resolveOrReject: {
+            stringValue: 'resolve'
+          }
+        },
+        body: ''
+      }
+    ]
+  })
+  const logger = sinon.spy()
+
+  const handler = middy(lambdaHandler)
+    .before(() => {
+      throw new Error('before', {
+        cause: {
+          package: '@middy/core'
+        }
+      })
+    })
+    .use(sqsPartialBatchFailure({ logger }))
+
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    batchItemFailures: event.Records.map((r) => ({
+      itemIdentifier: r.messageId
+    }))
+  })
+  t.is(logger.callCount, 1)
+})
