@@ -60,7 +60,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    return omitAndLog('response', request)
+    omitAndLog('response', request)
   }
 
   return {

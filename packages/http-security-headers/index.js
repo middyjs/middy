@@ -278,7 +278,7 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
   }
   const httpSecurityHeadersMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    httpSecurityHeadersMiddlewareAfter(request)
+    await httpSecurityHeadersMiddlewareAfter(request)
   }
   return {
     after: httpSecurityHeadersMiddlewareAfter,
