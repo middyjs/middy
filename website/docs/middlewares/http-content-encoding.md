@@ -33,7 +33,7 @@ import { constants } from 'node:zlib'
 
 export const handler = middy()
   .use(httpContentNegotiation())
-  .use(httpCompressMiddleware({
+  .use(httpContentEncoding({
     br: {
       params: {
         [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_TEXT, // adjusted for UTF-8 text
@@ -61,7 +61,7 @@ import { createReadableStream } from '@datastream/core'
 
 export const handler = middy({ streamifyResponse: true })
   .use(httpContentNegotiation())
-  .use(httpCompressMiddleware({
+  .use(httpContentEncoding({
     br: {
       params: {
         [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_TEXT, // adjusted for UTF-8 text

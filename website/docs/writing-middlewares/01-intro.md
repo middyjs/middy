@@ -12,9 +12,33 @@ A middleware is an object that should contain at least 1 of 3 possible keys:
 `before`, `after` and `onError` functions need to have the following signature:
 
 ```javascript
-async (request) => {
+const defaults = {
   // ...
 }
+
+const nameMiddleware = (opts = {}) => {
+  const options = { ...defaults, ...opts }
+
+  const nameMiddlewareBefore = async (request) => {
+    // ...
+  }
+  
+  const nameMiddlewareAfter = async (request) => {
+    // ...
+  }
+  
+  const nameMiddlewareOnError = async (request) => {
+    // ...
+  }
+  
+  return {
+    before: nameMiddlewareBefore,
+    after: nameMiddlewareAfter,
+    onError: nameMiddlewareOnError
+  }
+}
+
+export default nameMiddleware
 ```
 
 Where:

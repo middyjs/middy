@@ -59,7 +59,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 
   const httpResponseSerializerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    httpResponseSerializerMiddlewareAfter(request)
+    await httpResponseSerializerMiddlewareAfter(request)
   }
   return {
     after: httpResponseSerializerMiddlewareAfter,

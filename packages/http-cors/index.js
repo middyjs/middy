@@ -59,7 +59,7 @@ const httpCorsMiddleware = (opts = {}) => {
   }
   const httpCorsMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    httpCorsMiddlewareAfter(request)
+    await httpCorsMiddlewareAfter(request)
   }
   return {
     before: httpCorsMiddlewareBefore,

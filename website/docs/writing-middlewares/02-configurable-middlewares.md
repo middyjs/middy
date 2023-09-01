@@ -30,7 +30,7 @@ const customMiddleware = (opts) => {
 
   const customMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    return customMiddlewareAfter(request)
+    await customMiddlewareAfter(request)
   }
 
   return {
