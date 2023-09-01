@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-header-normalizer",
-  "version": "4.6.0",
+  "version": "4.6.1",
   "description": "Http header normalizer middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -69,6 +69,6 @@
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
   "devDependencies": {
-    "@middy/core": "4.6.0"
+    "@middy/core": "4.6.1"
   }
 }
