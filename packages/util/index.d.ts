@@ -37,6 +37,15 @@ declare function canPrefetch<Client, ClientOptions> (
 
 type InternalOutput<TVariables> = TVariables extends string[] ? { [key in TVariables[number]]: unknown } : never
 
+// NOTE: The following type definition is imperfect but it works for the most common use cases.
+// `getInternal()` is a polymorphic function with a very dynamic return type, so it's challenging to map its full
+// behaviour correctly to TypeScript types.
+// Some Things that are currently missing that might be achievable with some high degree of TypeScript wizardry:
+// - The remapping function can do nested remapping if using a dot syntax such as 
+//   `property.subproperty`. This will currently be typed as `unknown`
+// - If internal contains a promise, the return value should be the resolved version of 
+//   that promise (right now it keeps the promise).
+//
 // single variable
 declare function getInternal<TInternal extends Record<string, unknown>, TVars extends keyof TInternal | string> (
   variables: TVars,
