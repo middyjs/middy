@@ -179,4 +179,5 @@ const ssmMiddleware = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
+
 export default ssmMiddleware

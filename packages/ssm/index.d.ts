@@ -21,9 +21,12 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
     : unknown)
   : LambdaContext
 
-// TODO This is simply taking all keys from fetchData, while the Context type has more complex logic - check it
 export type Internal<TOptions extends Options | undefined> = TOptions extends Options
-  ? Record<keyof TOptions['fetchData'], JsonValue>
+  ? Record<keyof TOptions['fetchData'], JsonValue> &
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (keyof TOptions['fetchData'] extends `${infer _P}/${infer _S}`
+    ? Record<string, JsonValue>
+    : unknown)
   : Record<string, unknown>
 
 declare function ssm<TOptions extends Options> (
