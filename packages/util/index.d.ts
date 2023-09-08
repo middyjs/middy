@@ -41,9 +41,9 @@ type InternalOutput<TVariables> = TVariables extends string[] ? { [key in TVaria
 // `getInternal()` is a polymorphic function with a very dynamic return type, so it's challenging to map its full
 // behaviour correctly to TypeScript types.
 // Some Things that are currently missing that might be achievable with some high degree of TypeScript wizardry:
-// - The remapping function can do nested remapping if using a dot syntax such as 
+// - The remapping function can do nested remapping if using a dot syntax such as
 //   `property.subproperty`. This will currently be typed as `unknown`
-// - If internal contains a promise, the return value should be the resolved version of 
+// - If internal contains a promise, the return value should be the resolved version of
 //   that promise (right now it keeps the promise).
 //
 // single variable
