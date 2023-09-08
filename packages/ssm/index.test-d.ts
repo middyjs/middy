@@ -2,7 +2,7 @@ import middy from '@middy/core'
 import { getInternal } from '@middy/util'
 import { SSMClient } from '@aws-sdk/client-ssm'
 import { captureAWSv3Client } from 'aws-xray-sdk'
-import { expectType } from 'tsd'
+import { expectType, expectAssignable } from 'tsd'
 import ssm, { Context } from '.'
 import { JsonValue } from 'type-fest'
 import { Context as LambdaContext } from 'aws-lambda/handler'
@@ -41,6 +41,7 @@ const handler = middy(async (event: {}, context: LambdaContext) => {
   return await Promise.resolve({})
 })
 
+// chain of multiple ssm middleware
 handler
   .use(
     ssm({
@@ -57,7 +58,8 @@ handler
         dbParams: '/dev/service_name/database/' // object of values, key for each path
       },
       cacheExpiry: 15 * 60 * 1000,
-      cacheKey: 'ssm-secrets'
+      cacheKey: 'ssm-secrets',
+      setToContext: true
     })
   )
   // ... other middleware that fetch
@@ -71,5 +73,6 @@ handler
       dbParams: JsonValue
       defaults: JsonValue
     }>(data)
-    Object.assign(request.context, data)
+
+    expectAssignable<Record<'accessToken' | 'dbParams', JsonValue>>(request.context)
   })

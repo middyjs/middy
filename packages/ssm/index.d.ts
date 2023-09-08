@@ -22,11 +22,7 @@ export type Context<TOptions extends Options | undefined> = TOptions extends {
   : LambdaContext
 
 export type Internal<TOptions extends Options | undefined> = TOptions extends Options
-  ? Record<keyof TOptions['fetchData'], JsonValue> &
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (keyof TOptions['fetchData'] extends `${infer _P}/${infer _S}`
-    ? Record<string, JsonValue>
-    : unknown)
+  ? Record<keyof TOptions['fetchData'], JsonValue>
   : Record<string, unknown>
 
 declare function ssm<TOptions extends Options> (
