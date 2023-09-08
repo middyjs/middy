@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 
-type Flattened<T> = T extends Array<infer U> ? Flattened<U> : T;
+type Flattened<T> = T extends Array<infer U> ? Flattened<U> : T
 
 interface Options<Client, ClientOptions> {
   AwsClient?: new (...[config]: [any] | any) => Client
@@ -60,11 +60,11 @@ declare function getInternal<TInternal extends Record<string, unknown>, TMap ext
 }>
 // all variables (with true)
 declare function getInternal<TInternal extends Record<string, unknown>> (
-    variables: true,
-    request: middy.Request<any, any, any, any, TInternal>
-  ): Promise<{
-    [P in keyof TInternal]: TInternal[P]
-  }>
+  variables: true,
+  request: middy.Request<any, any, any, any, TInternal>
+): Promise<{
+  [P in keyof TInternal]: TInternal[P]
+}>
 
 declare function sanitizeKey (key: string): string
 

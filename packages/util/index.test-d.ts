@@ -4,15 +4,16 @@ import { SSMClient } from '@aws-sdk/client-ssm'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context as LambdaContext } from 'aws-lambda'
 import * as util from '.'
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type TInternal = {
-  boolean: true,
-  number: 1,
-  string: 'string',
-  array: [],
+  boolean: true
+  number: 1
+  string: 'string'
+  array: []
   object: {
     key: 'value'
-  },
-  promise: Promise<string>,
+  }
+  promise: Promise<string>
   promiseObject: Promise<{
     key: 'value'
   }>
@@ -115,31 +116,38 @@ const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
 // getInternal single field
-async function testGetInternalField () {
-  return await util.getInternal('number', sampleRequest)
+async function testGetInternalField (): Promise<{ number: 1 }> {
+  const result = await util.getInternal('number', sampleRequest)
+  expectType<{ number: 1 }>(result)
+  return result
 }
 expectType<Promise<{ number: 1 }>>(testGetInternalField())
 
 // getInternal multiple fields
-async function testGetInternalFields () {
-  return await util.getInternal(['number', 'boolean'], sampleRequest)
+async function testGetInternalFields (): Promise<{ number: 1, boolean: true }> {
+  const result = await util.getInternal(['number', 'boolean'], sampleRequest)
+  expectType<{ number: 1, boolean: true }>(result)
+  return result
 }
 expectType<Promise<{ number: 1, boolean: true }>>(testGetInternalFields())
 
-
 // getInternal all fields (true)
-async function testGetAllInternal () {
-  return await util.getInternal(true, sampleRequest)
+async function testGetAllInternal (): Promise<TInternal> {
+  const result = await util.getInternal(true, sampleRequest)
+  expectType<TInternal>(result)
+  return result
 }
 expectType<Promise<TInternal>>(testGetAllInternal())
 
 // getInternal with mapping object
-async function testGeAndRemapInternal () {
-  return await util.getInternal({
+async function testGeAndRemapInternal (): Promise<{ a: 1, b: 'string', c: true }> {
+  const result = await util.getInternal({
     a: 'number',
     b: 'string',
     c: 'boolean'
   }, sampleRequest)
+  expectType<{ a: 1, b: 'string', c: true }>(result)
+  return result
 }
 expectType<Promise<{ a: 1, b: 'string', c: true }>>(testGeAndRemapInternal())
 
