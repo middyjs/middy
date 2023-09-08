@@ -1,13 +1,29 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
 import { SSMClient } from '@aws-sdk/client-ssm'
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context as LambdaContext } from 'aws-lambda'
 import * as util from '.'
+
+type TInternal = {
+  boolean: true,
+  number: 1,
+  string: 'string',
+  array: [],
+  object: {
+    key: 'value'
+  },
+  promise: Promise<string>,
+  promiseObject: Promise<{
+    key: 'value'
+  }>
+}
 
 const sampleRequest: middy.Request<
 APIGatewayProxyEvent,
 APIGatewayProxyResult,
-Error
+Error,
+LambdaContext,
+TInternal
 > = {
   event: {
     body: '',
@@ -98,17 +114,34 @@ expectType<Promise<SSMClient>>(client)
 const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
-async function testGetInternal (): Promise<any> {
-  const values = await util.getInternal(true, sampleRequest)
-  expectType<any>(values) // this will actually be an object
+// getInternal single field
+async function testGetInternalField () {
+  return await util.getInternal('number', sampleRequest)
 }
-expectType<Promise<any>>(testGetInternal())
+expectType<Promise<{ number: 1 }>>(testGetInternalField())
 
-async function testGetInternalField (): Promise<any> {
-  const value = await util.getInternal('number', sampleRequest)
-  expectType<any>(value) // this will actually be a number
+// getInternal multiple fields
+async function testGetInternalFields () {
+  return await util.getInternal(['number', 'boolean'], sampleRequest)
 }
-expectType<Promise<any>>(testGetInternalField())
+expectType<Promise<{ number: 1, boolean: true }>>(testGetInternalFields())
+
+
+// getInternal all fields (true)
+async function testGetAllInternal () {
+  return await util.getInternal(true, sampleRequest)
+}
+expectType<Promise<TInternal>>(testGetAllInternal())
+
+// getInternal with mapping object
+async function testGeAndRemapInternal () {
+  return await util.getInternal({
+    a: 'number',
+    b: 'string',
+    c: 'boolean'
+  }, sampleRequest)
+}
+expectType<Promise<{ a: 1, b: 'string', c: true }>>(testGeAndRemapInternal())
 
 const sanitizedKey = util.sanitizeKey('aaaaa')
 expectType<string>(sanitizedKey)

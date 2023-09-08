@@ -1,5 +1,7 @@
 import middy from '@middy/core'
 
+type Flattened<T> = T extends Array<infer U> ? Flattened<U> : T;
+
 interface Options<Client, ClientOptions> {
   AwsClient?: new (...[config]: [any] | any) => Client
   awsClientOptions?: Partial<ClientOptions>
@@ -35,12 +37,34 @@ declare function canPrefetch<Client, ClientOptions> (
 
 type InternalOutput<TVariables> = TVariables extends string[] ? { [key in TVariables[number]]: unknown } : never
 
-// TODO this can also be "true" to get all variables or an object to remap key names -
-//  add alternative types to TVariables and extend InternalOutput to infer correct return type
-declare function getInternal<TInternal extends Record<string, unknown>, TVariables extends Array<keyof TInternal>> (
-  variables: TVariables,
+// single variable
+declare function getInternal<TInternal extends Record<string, unknown>, TVars extends keyof TInternal | string> (
+  variables: TVars,
   request: middy.Request<any, any, any, any, TInternal>
-): Promise<InternalOutput<TVariables>>
+): Promise<{
+  [P in TVars]: (TVars extends keyof TInternal ? TInternal[TVars] : unknown)
+}>
+// array of variables
+declare function getInternal<TInternal extends Record<string, unknown>, TVars extends Array<keyof TInternal | string>> (
+  variables: TVars,
+  request: middy.Request<any, any, any, any, TInternal>
+): Promise<{
+  [P in Flattened<TVars>]: (P extends keyof TInternal ? TInternal[P] : unknown)
+}>
+// mapping object
+declare function getInternal<TInternal extends Record<string, unknown>, TMap extends Record<string, keyof TInternal | string>> (
+  variables: TMap,
+  request: middy.Request<any, any, any, any, TInternal>
+): Promise<{
+  [P in keyof TMap]: (TMap[P] extends keyof TInternal ? TInternal[TMap[P]] : unknown)
+}>
+// all variables (with true)
+declare function getInternal<TInternal extends Record<string, unknown>> (
+    variables: true,
+    request: middy.Request<any, any, any, any, TInternal>
+  ): Promise<{
+    [P in keyof TInternal]: TInternal[P]
+  }>
 
 declare function sanitizeKey (key: string): string
 
