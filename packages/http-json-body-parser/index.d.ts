@@ -7,13 +7,15 @@ interface Options {
   disableContentTypeError?: boolean
 }
 
-export type Event<APIGatewayVersionedEvent = APIGatewayEvent | APIGatewayProxyEventV2> = Omit<APIGatewayVersionedEvent, 'body'> & {
+type VersionedApiGatewayEvent = APIGatewayEvent | APIGatewayProxyEventV2
+
+export type Event<APIGatewayEventType extends VersionedApiGatewayEvent = VersionedApiGatewayEvent> = Omit<APIGatewayEventType, 'body'> & {
   /**
    * The body of the HTTP request.
    */
   body: JsonValue
 }
 
-declare function jsonBodyParser<APIGatewayVersionedEvent = APIGatewayEvent | APIGatewayProxyEventV2> (options?: Options): middy.MiddlewareObj<Event<APIGatewayVersionedEvent>>
+declare function jsonBodyParser<APIGatewayEventType extends VersionedApiGatewayEvent = VersionedApiGatewayEvent> (options?: Options): middy.MiddlewareObj<Event<APIGatewayEventType>>
 
 export default jsonBodyParser
