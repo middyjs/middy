@@ -1,7 +1,7 @@
+import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 import middy from '@middy/core'
 import { expectType } from 'tsd'
 import jsonBodyParser, { Event } from '.'
-import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 
 // use with default options
 let middleware = jsonBodyParser()
