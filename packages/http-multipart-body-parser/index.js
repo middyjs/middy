@@ -17,7 +17,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
     const { headers } = request.event
 
-    const contentType = headers['Content-Type'] ?? headers['content-type']
+    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
