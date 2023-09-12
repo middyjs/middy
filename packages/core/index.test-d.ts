@@ -4,17 +4,17 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
   Callback,
-  Context,
+  Context
 } from 'aws-lambda'
 
 // extended Handler type from aws-lambda
 // to include non Async TResult
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type LambdaHandler<TEvent = any, TResult = any> = (
   event: TEvent,
   context: Context,
   callback: Callback<TResult>,
-) => void | Promise<TResult> | TResult;
-
+) => void | Promise<TResult> | TResult
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
@@ -313,7 +313,7 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  return handler(sampleEvent, sampleContext, () => {}) // synced handler
+  return syncedHandler(sampleEvent, sampleContext, () => {}) // synced handler
 }
 invokSyncedHandler().catch(console.error)
 
