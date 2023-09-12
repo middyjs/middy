@@ -207,7 +207,7 @@ streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
 
 // non async handler
-const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
+const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
