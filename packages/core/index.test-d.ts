@@ -9,11 +9,11 @@ import {
 
 // extended Handler type from aws-lambda
 // to include non Async TResult
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type LambdaHandler<TEvent = any, TResult = any> = (
   event: TEvent,
   context: Context,
   callback: Callback<TResult>,
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 ) => void | Promise<TResult> | TResult
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
@@ -313,7 +313,9 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  return syncedHandler(sampleEvent, sampleContext, () => {}) // synced handler
+  // synced handler but could be void | Promise<TResult> | TResult
+  // so it needs to be awaited
+  return await syncedHandler(sampleEvent, sampleContext, () => {})
 }
 invokSyncedHandler().catch(console.error)
 
