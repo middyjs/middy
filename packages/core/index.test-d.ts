@@ -313,8 +313,6 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  // synced handler but could be void | Promise<TResult> | TResult
-  // so it needs to be awaited
   return await syncedHandler(sampleEvent, sampleContext, () => {})
 }
 invokSyncedHandler().catch(console.error)
