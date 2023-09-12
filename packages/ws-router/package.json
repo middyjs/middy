@@ -1,6 +1,6 @@
 {
   "name": "@middy/ws-router",
-  "version": "4.6.1",
+  "version": "4.6.2",
   "description": "WebSocket event router for the middy framework",
   "type": "module",
   "engines": {
@@ -66,10 +66,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "4.6.1"
+    "@middy/util": "4.6.2"
   },
   "devDependencies": {
-    "@middy/core": "4.6.1",
+    "@middy/core": "4.6.2",
     "@types/aws-lambda": "^8.10.100"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
