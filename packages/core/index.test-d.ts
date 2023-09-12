@@ -8,7 +8,7 @@ import {
 } from 'aws-lambda'
 
 // extended Handler type from aws-lambda
-// to include non Async TResult
+// to include synced TResult
 type LambdaHandler<TEvent = any, TResult = any> = (
   event: TEvent,
   context: Context,
@@ -216,7 +216,7 @@ const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyRe
 
 // initialize
 let syncedHandler = middy(syncedLambdaHandler)
-expectType<Handler>(handler)
+expectType<Handler>(syncedHandler)
 
 // initialize with empty plugin
 syncedHandler = middy(syncedLambdaHandler, {})
