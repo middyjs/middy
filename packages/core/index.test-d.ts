@@ -7,13 +7,13 @@ import {
   Handler as AWSLambdaHandler
 } from 'aws-lambda'
 
+// extends Handler type from aws-lambda
 type ModifyReturnType<T, NewReturn> = T extends (
   ...args: infer A
 ) => infer R
   ? (...args: A) => R | NewReturn
   : never;
   
-// extended Handler type from aws-lambda
 type LambdaHandler<TEvent = any, TResult = any> = ModifyReturnType<AWSLambdaHandler<TEvent, TResult>, TResult>
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
