@@ -3,18 +3,18 @@ import middy from '.'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
-  Callback,
-  Context
+  Context,
+  Handler as AWSLambdaHandler
 } from 'aws-lambda'
 
+type ModifyReturnType<T, NewReturn> = T extends (
+  ...args: infer A
+) => infer R
+  ? (...args: A) => R | NewReturn
+  : never;
+  
 // extended Handler type from aws-lambda
-// to include synced TResult
-type LambdaHandler<TEvent = any, TResult = any> = (
-  event: TEvent,
-  context: Context,
-  callback: Callback<TResult>,
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-) => void | Promise<TResult> | TResult
+type LambdaHandler<TEvent = any, TResult = any> = ModifyReturnType<AWSLambdaHandler<TEvent, TResult>, TResult>
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
@@ -206,7 +206,7 @@ expectType<middy.MiddyfiedHandler<unknown>>(streamifiedResponseHandler)
 streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
 
-// non async handler
+// synced handler
 const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = (event) => {
   return {
     statusCode: 200,
