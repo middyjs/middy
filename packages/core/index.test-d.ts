@@ -12,8 +12,8 @@ type ModifyReturnType<T, NewReturn> = T extends (
   ...args: infer A
 ) => infer R
   ? (...args: A) => R | NewReturn
-  : never;
-  
+  : never
+
 type LambdaHandler<TEvent = any, TResult = any> = ModifyReturnType<AWSLambdaHandler<TEvent, TResult>, TResult>
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
