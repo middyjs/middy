@@ -132,15 +132,28 @@ async function testGetInternalFields (): Promise<{ number: 1, boolean: true }> {
 expectType<Promise<{ number: 1, boolean: true }>>(testGetInternalFields())
 
 // getInternal all fields (true)
-async function testGetAllInternal (): Promise<TInternal> {
+type DeepAwaitedTInternal = {
+  boolean: true;
+  number: 1;
+  string: "string";
+  array: [];
+  object: {
+      key: "value";
+  };
+  promise: string; // this was Promise<string> in TInternal;
+  promiseObject: { // this was Promise<{key: "value"}> in TInternal
+      key: "value";
+  };
+}
+async function testGetAllInternal (): Promise<DeepAwaitedTInternal> {
   const result = await util.getInternal(true, sampleRequest)
-  expectType<TInternal>(result)
+  expectType<DeepAwaitedTInternal>(result)
   return result
 }
-expectType<Promise<TInternal>>(testGetAllInternal())
+expectType<Promise<DeepAwaitedTInternal>>(testGetAllInternal())
 
 // getInternal with mapping object
-async function testGeAndRemapInternal (): Promise<{ a: 1, b: 'string', c: true }> {
+async function testGetAndRemapInternal (): Promise<{ a: 1, b: 'string', c: true }> {
   const result = await util.getInternal({
     a: 'number',
     b: 'string',
@@ -149,7 +162,15 @@ async function testGeAndRemapInternal (): Promise<{ a: 1, b: 'string', c: true }
   expectType<{ a: 1, b: 'string', c: true }>(result)
   return result
 }
-expectType<Promise<{ a: 1, b: 'string', c: true }>>(testGeAndRemapInternal())
+expectType<Promise<{ a: 1, b: 'string', c: true }>>(testGetAndRemapInternal())
+
+// getInternal with a Promise
+async function testGetInternalWithPromise (): Promise<{promiseObject: {key: 'value'}}> {
+  const result = await util.getInternal('promiseObject', sampleRequest)
+  expectType<{promiseObject: {key: 'value'}}>(result)
+  return result
+}
+expectType<Promise<{promiseObject: {key: 'value'}}>>(testGetInternalWithPromise())
 
 const sanitizedKey = util.sanitizeKey('aaaaa')
 expectType<string>(sanitizedKey)
