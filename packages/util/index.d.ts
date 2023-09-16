@@ -1,5 +1,6 @@
 import middy from '@middy/core'
-import {Context as LambdaContext} from 'aws-lambda'
+import { Context as LambdaContext } from 'aws-lambda'
+import { ArrayValues, Choose, DeepAwaited, IsUnknown, SanitizeKey, SanitizeKeys } from './type-utils'
 
 interface Options<Client, ClientOptions> {
   AwsClient?: new (...[config]: [any] | any) => Client
@@ -36,72 +37,75 @@ declare function canPrefetch<Client, ClientOptions> (
 
 type InternalOutput<TVariables> = TVariables extends string[] ? { [key in TVariables[number]]: unknown } : never
 
-// NOTE: The following type definition is imperfect but it works for the most common use cases.
-// `getInternal()` is a polymorphic function with a very dynamic return type, so it's challenging to map its full
-// behaviour correctly to TypeScript types.
-// Some Things that are currently missing that might be achievable with some high degree of TypeScript wizardry:
-// - The remapping function can do nested remapping if using a dot syntax such as
-//   `property.subproperty`. This will currently be typed as `unknown`
-// - If internal contains a promise, the return value should be the resolved version of
-//   that promise (right now it keeps the promise).
-//
-// single variable
+// get an empty object if false is passed
+declare function getInternal<
+  TContext extends LambdaContext,
+  TInternal extends Record<string, unknown>
+> (
+  variables: false,
+  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+): Promise<{}>
 
-type Flattened<T> = T extends Array<infer U> ? Flattened<U> : T;
+// get all internal values if true is passed (with promises resolved)
+declare function getInternal<
+  TContext extends LambdaContext,
+  TInternal extends Record<string, unknown>
+> (
+  variables: true,
+  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+): Promise<DeepAwaited<TInternal>>
 
-// finds TKey in TInternal, recursively, even if it's a deeply nested one
-type Resolve<TInternal, TKey> = TKey extends keyof TInternal
-  ? TInternal[TKey]
-  : TKey extends string
-  ? {
-      [P in keyof TInternal]: TInternal[P] extends object
-        ? Resolve<TInternal[P], TKey>
-        : never;
-    }[keyof TInternal]
-  : never;
-
-// for when TVars is an object, find all keys in TInternal that match the values in TVars
-type DeepResolve<TInternal, TVars> = {
-  [P in keyof TVars]: Resolve<TInternal, TVars[P]>;
-};
-
-// Resolves all the promises recursively
-type DeepAwaited<TInternal> = {
-  [P in keyof TInternal]:
-    TInternal[P] extends Promise<infer R>
-    ? R // if it's a Promise resolve
-    : TInternal[P] extends object // if it's an object recurse all it's properties
-    ? DeepAwaited<TInternal[P]>
-    : TInternal[P] // otherwise just use the value as is
-}
-
-// all possible shapes that TVars can have (this is based on your declarations)
-type TVars<T, K> = true | keyof T | (keyof T)[] | Record<string, K>;
-
-// all possible return values that getInternal() can produce (also based on your declaration)
-type TGetInternalResults<TVars, TInternal> =
-  TVars extends keyof TInternal
-  ? { [P in TVars]: Awaited<TInternal[TVars]> }
-  : TVars extends Array<keyof TInternal | string>
-  ? {[P in Flattened<TVars>]: P extends keyof TInternal ? Awaited<TInternal[P]> : unknown}
-  : TVars extends object
-  ? DeepResolve<TInternal, TVars>  // <-- this is for the mapped case
-  : DeepAwaited<TInternal>;  // <-- this is for the "true" case
-
-
-// "K extends string" seems useless but it isn't. Without it, the (nested) mapped case doesn't work
-// I removed "TInternal extends Record<string, unknown>" part because it doesn't do anything useful in my examples.
+// get a single value
 declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>,
-  K extends string,
-  T extends TVars<TInternal, K>
->(
-  variables: T,
+  TVars extends keyof TInternal | string
+> (
+  variables: TVars,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
-): Promise<TGetInternalResults<T, TInternal>>
+): TVars extends keyof TInternal
+  ? Promise<DeepAwaited<{ [_ in SanitizeKey<TVars>]: TInternal[TVars] }>>
+  : TVars extends string
+    ? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
+      ? unknown // could not find the path
+      : Promise<{ [_ in SanitizeKey<TVars>]: Choose<DeepAwaited<TInternal>, TVars> }>
+    : never // path is not a string or a keyof TInternal
 
-declare function sanitizeKey (key: string): string
+// get multiple values
+declare function getInternal<
+  TContext extends LambdaContext,
+  TInternal extends Record<string, unknown>,
+  TVars extends Array<keyof TInternal | string>
+> (
+  variables: TVars,
+  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+): Promise<SanitizeKeys<{
+  [TVar in ArrayValues<TVars>]:
+  TVar extends keyof TInternal
+    ? DeepAwaited<TInternal[TVar]>
+    : TVar extends string
+      ? Choose<DeepAwaited<TInternal>, TVar>
+      : never // path is not a string or a keyof TInternal
+}>>
+
+// remap object
+declare function getInternal<
+  TContext extends LambdaContext,
+  TInternal extends Record<string, unknown>,
+  TMap extends Record<string, keyof TInternal | string>
+> (
+  variables: TMap,
+  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+): Promise<{
+  [P in keyof TMap]:
+  TMap[P] extends keyof TInternal
+    ? DeepAwaited<TInternal[TMap[P]]>
+    : TMap[P] extends string
+      ? Choose<DeepAwaited<TInternal>, TMap[P]>
+      : never // path is not a string or a keyof TInternal
+}>
+
+declare function sanitizeKey<T extends string> (key: T): SanitizeKey<T>
 
 declare function processCache<Client, ClientOptions> (
   options: Options<Client, ClientOptions>,

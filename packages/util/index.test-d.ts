@@ -115,35 +115,27 @@ expectType<Promise<SSMClient>>(client)
 const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
-// getInternal single field
-async function testGetInternalField (): Promise<{ number: 1 }> {
-  const result = await util.getInternal('number', sampleRequest)
-  expectType<{ number: 1 }>(result)
+// getInternal should get none from internal store
+async function testGetInternalNone (): Promise<{}> {
+  const result = await util.getInternal(false, sampleRequest)
+  expectType<{}>(result)
   return result
 }
-expectType<Promise<{ number: 1 }>>(testGetInternalField())
+expectType<Promise<{}>>(testGetInternalNone())
 
-// getInternal multiple fields
-async function testGetInternalFields (): Promise<{ number: 1, boolean: true }> {
-  const result = await util.getInternal(['number', 'boolean'], sampleRequest)
-  expectType<{ number: 1, boolean: true }>(result)
-  return result
-}
-expectType<Promise<{ number: 1, boolean: true }>>(testGetInternalFields())
-
-// getInternal all fields (true)
-type DeepAwaitedTInternal = {
-  boolean: true;
-  number: 1;
-  string: "string";
-  array: [];
+// getInternal should get all from internal store
+interface DeepAwaitedTInternal {
+  boolean: true
+  number: 1
+  string: 'string'
+  array: []
   object: {
-      key: "value";
-  };
-  promise: string; // this was Promise<string> in TInternal;
+    key: 'value'
+  }
+  promise: string // this was Promise<string> in TInternal;
   promiseObject: { // this was Promise<{key: "value"}> in TInternal
-      key: "value";
-  };
+    key: 'value'
+  }
 }
 async function testGetAllInternal (): Promise<DeepAwaitedTInternal> {
   const result = await util.getInternal(true, sampleRequest)
@@ -152,28 +144,41 @@ async function testGetAllInternal (): Promise<DeepAwaitedTInternal> {
 }
 expectType<Promise<DeepAwaitedTInternal>>(testGetAllInternal())
 
-// getInternal with mapping object
-async function testGetAndRemapInternal (): Promise<{ a: 1, b: 'string', c: true }> {
-  const result = await util.getInternal({
-    a: 'number',
-    b: 'string',
-    c: 'boolean'
-  }, sampleRequest)
-  expectType<{ a: 1, b: 'string', c: true }>(result)
+// getInternal should get from internal store when string
+async function testGetInternalField (): Promise<{ number: 1 }> {
+  const result = await util.getInternal('number', sampleRequest)
+  expectType<{ number: 1 }>(result)
   return result
 }
-expectType<Promise<{ a: 1, b: 'string', c: true }>>(testGetAndRemapInternal())
+expectType<Promise<{ number: 1 }>>(testGetInternalField())
 
-// getInternal with a Promise
-async function testGetInternalWithPromise (): Promise<{promiseObject: {key: 'value'}}> {
-  const result = await util.getInternal('promiseObject', sampleRequest)
-  expectType<{promiseObject: {key: 'value'}}>(result)
+// getInternal should get from internal store when array[string]
+async function testGetInternalFields (): Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }> {
+  const result = await util.getInternal(['boolean', 'string', 'promiseObject.key'], sampleRequest)
+  expectType<{ boolean: true, string: 'string', promiseObject_key: 'value' }>(result)
   return result
 }
-expectType<Promise<{promiseObject: {key: 'value'}}>>(testGetInternalWithPromise())
+expectType<Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }>>(testGetInternalFields())
 
-const sanitizedKey = util.sanitizeKey('aaaaa')
-expectType<string>(sanitizedKey)
+// getInternal should get from internal store when object
+async function testGetAndRemapInternal (): Promise<{ newKey: string, newKey2: 'value' }> {
+  const result = await util.getInternal({ newKey: 'promise', newKey2: 'promiseObject.key' }, sampleRequest)
+  expectType<{ newKey: string, newKey2: 'value' }>(result)
+  return result
+}
+expectType<Promise<{ newKey: string, newKey2: 'value' }>>(testGetAndRemapInternal())
+
+// getInternal should get from internal store a nested value
+async function testGetInternalNested (): Promise<{ promiseObject_key: 'value' }> {
+  const result = await util.getInternal('promiseObject.key', sampleRequest)
+  expectType<{ promiseObject_key: 'value' }>(result)
+  return result
+}
+expectType<Promise<{ promiseObject_key: 'value' }>>(testGetInternalNested())
+
+// sanitizeKey
+expectType<'_0key'>(util.sanitizeKey('0key'))
+expectType<'api_secret_key0_pem'>(util.sanitizeKey('api//secret-key0.pem'))
 
 const { value, expiry } = util.processCache<SSMClient, {}>(
   {},
