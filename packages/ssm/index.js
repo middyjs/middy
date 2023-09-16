@@ -181,3 +181,6 @@ const ssmMiddleware = (opts = {}) => {
 }
 
 export default ssmMiddleware
+export function ssmParam (name) {
+  return name
+}

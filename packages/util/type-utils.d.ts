@@ -5,7 +5,7 @@ type LetterLower = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
 type LetterUpper = Uppercase<LetterLower>
 type AlphaNumeric = Digit | LetterLower | LetterUpper
 
-export type SanitizeKeyPrefixLeadingNumber<T> =
+type SanitizeKeyPrefixLeadingNumber<T> =
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   T extends `${infer _ extends Digit}${any}`
     ? `_${T}`
@@ -34,26 +34,32 @@ type RemoveRepeatedUnderscore<T> =
       ? T
       : never
 
-type SanitizeKey<T> =
+export type SanitizeKey<T> =
   RemoveRepeatedUnderscore<
   SanitizeKeyRemoveDisallowedChar<
   SanitizeKeyPrefixLeadingNumber<T>
   >
   >
 
-type SanitizeKeys<T extends Record<string, unknown>> = {
+export type SanitizeKeys<T extends Record<string, unknown>> = {
   [P in keyof T as SanitizeKey<P>]: T[P]
 }
 
-type DeepAwaited<T> =
-T extends Promise<infer R>
-  ? Awaited<R>
-  : {
-      [P in keyof T]:
-      T[P] extends Promise<infer R>
-        ? Awaited<R> // if it's a Promise resolve
-        : DeepAwaited<T[P]>
-    }
+// recursion limit hack from https://www.angularfix.com/2022/01/why-am-i-getting-instantiation-is.html
+type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+export type DeepAwaited<T, RecursionDepth extends Prev[number] = 4> =
+  [RecursionDepth] extends [never]
+    ? never
+    : T extends Promise<infer R>
+      ? Awaited<R>
+      : T extends Record<any, any>
+        ? {
+            [P in keyof T]:
+            T[P] extends Promise<infer R>
+              ? Awaited<R> // if it's a Promise resolve
+              : DeepAwaited<T[P], Prev[RecursionDepth]>
+          }
+        : T
 
 export type Choose<
   T extends Record<string | number, any>,
