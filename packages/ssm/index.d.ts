@@ -26,10 +26,10 @@ export type Internal<TOptions extends SSMOptions | undefined> =
 TOptions extends SSMOptions
   ? TOptions extends { fetchData: infer TFetchData }
     ? {
-      [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-        ? T
-        : unknown
-    }
+        [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+          ? T
+          : unknown
+      }
     : {}
   : {}
 
