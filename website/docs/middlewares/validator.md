@@ -5,6 +5,11 @@ title: validator
 This middleware automatically validates incoming events and outgoing responses against custom
 schemas defined with the [JSON schema syntax](http://json-schema.org/).
 
+Want to use another validator? Try one of the community validators:
+
+- [ajv](https://www.npmjs.com/package/middy-ajv)
+- [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi)
+
 If an incoming event fails validation a `BadRequest` error is raised.
 If an outgoing response fails validation a `InternalServerError` error is
 raised.
@@ -23,6 +28,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/validator
+npm install --save-dev ajv-cmd # Optional: for pre-transpiling
 ```
 
 ## Options
