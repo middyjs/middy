@@ -9,16 +9,17 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 ## Version 2.x - 4.x
 
 - [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
-- [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
+- [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
+- [middy-console-logger](https://github.com/serkan-ozal/middy-console-logger): Middleware for filtering logs printed over console logging methods. If the level of the console logging method is equal or bigger than configured level, the log is printed, Otherwise, it is ignored.
+- [middy-event-loop-tracer](https://github.com/serkan-ozal/middy-event-loop-tracer): Middleware for dumping active tasks with their stacktraces in the event queue just before AWS Lambda function timeouts. So you can understand what was going on in the function when timeout happens.
 - [middy-idempotent](https://www.npmjs.com/package/middy-idempotent): idempotency middleware for middy
+- [middy-invocation](https://github.com/serkan-ozal/middy-invocation): Middleware for accessing current AWS Lambda invocation event and context from anywhere without need to passing event and context as arguments through your code.- [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
 - [middy-jsonapi](https://www.npmjs.com/package/middy-jsonapi): JSONAPI middleware for middy
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
+- [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
-- [middy-event-loop-tracer](https://github.com/serkan-ozal/middy-event-loop-tracer): Middleware for dumping active tasks with their stacktraces in the event queue just before AWS Lambda function timeouts. So you can understand what was going on in the function when timeout happens.
-- [middy-console-logger](https://github.com/serkan-ozal/middy-console-logger): Middleware for filtering logs printed over console logging methods. If the level of the console logging method is equal or bigger than configured level, the log is printed, Otherwise, it is ignored.
-- [middy-invocation](https://github.com/serkan-ozal/middy-invocation): Middleware for accessing current AWS Lambda invocation event and context from anywhere without need to passing event and context as arguments through your code.
-- [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
+- [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 
 ## Version 2.x - 3.x
 
@@ -28,8 +29,6 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
   - [metrics](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/metrics/#middy-middleware): Custom Metrics created asynchronously via CloudWatch Embedded Metric Format (EMF)
   - [parameters](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/utilities/parameters/): The Parameters utility provides high-level functions to retrieve one or multiple parameter values from AWS Systems Manager Parameter Store, AWS Secrets Manager, AWS AppConfig, Amazon DynamoDB, or your own parameter store.
   - [tracer](https://awslabs.github.io/aws-lambda-powertools-typescript/latest/core/tracer/#lambda-handler): Utilities to trace Lambda function handlers, and both synchronous and asynchronous functions
-
-- [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
 
 ## Version 1.x
 
