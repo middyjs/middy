@@ -6,6 +6,7 @@ import parser, {
   responseParsingErrorMessage
 } from '../index.js'
 import { z } from 'zod'
+import { createError } from '@middy/util'
 
 const event = {}
 const context = {
@@ -257,5 +258,39 @@ test('It should not allow bad email format', async (t) => {
     await handler(event, context)
   } catch (e) {
     t.is(e.cause.issues[0].message, 'Invalid email')
+  }
+})
+
+test('It should throw a custom error when passed createErrorFunc option', async (t) => {
+  const eventSchema = z.object({
+    email: z.string().email()
+  })
+  const handler = middy((event, context) => {
+    return {}
+  })
+
+  handler.use(
+    parser({
+      eventSchema,
+      createErrorFunc: (statusCode, message, { cause }) => {
+        if (message === eventParsingErrorMessage) {
+          return createError(
+            400,
+            JSON.stringify({ code: '10003', message: 'Invalid email' }),
+            { cause }
+          )
+        }
+
+        return createError(statusCode, message, { cause })
+      }
+    })
+  )
+
+  const event = { email: 'abc@abc' }
+  try {
+    // This same email is not a valid one in 'full' validation mode
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, '{"code":"10003","message":"Invalid email"}')
   }
 })
