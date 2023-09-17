@@ -17,11 +17,11 @@ declare function parser<
   T extends ZodSchema | undefined = undefined,
   U extends ZodSchema | undefined = undefined,
   V extends ZodSchema | undefined = undefined
->(options?: Options<T, U, V>): middy.MiddlewareObj<
-  T extends ZodSchema ? Infer<T> : unknown,
-  V extends ZodSchema ? Infer<V> : unknown,
-  Error,
-  U extends ZodSchema ? Infer<U> & Context : Context
+> (options?: Options<T, U, V>): middy.MiddlewareObj<
+T extends ZodSchema ? Infer<T> : unknown,
+V extends ZodSchema ? Infer<V> : any,
+Error,
+U extends ZodSchema ? Infer<U> & Context : Context
 >
 
 export default parser
