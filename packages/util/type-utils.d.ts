@@ -49,7 +49,7 @@ export type SanitizeKeys<T extends Record<string, unknown>> = {
 type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 export type DeepAwaited<T, RecursionDepth extends Prev[number] = 4> =
   [RecursionDepth] extends [never]
-    ? never
+    ? unknown // stop evaluating recursively rather than failing with never
     : T extends Promise<infer R>
       ? Awaited<R>
       : T extends Record<any, any>

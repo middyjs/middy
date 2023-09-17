@@ -69,7 +69,7 @@ declare function getInternal<
     ? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
       ? unknown // could not find the path
       : Promise<{ [_ in SanitizeKey<TVars>]: Choose<DeepAwaited<TInternal>, TVars> }>
-    : never // path is not a string or a keyof TInternal
+    : unknown // path is not a string or a keyof TInternal
 
 // get multiple values
 declare function getInternal<
@@ -85,7 +85,7 @@ declare function getInternal<
     ? DeepAwaited<TInternal[TVar]>
     : TVar extends string
       ? Choose<DeepAwaited<TInternal>, TVar>
-      : never // path is not a string or a keyof TInternal
+      : unknown // path is not a string or a keyof TInternal
 }>>
 
 // remap object
@@ -102,7 +102,7 @@ declare function getInternal<
     ? DeepAwaited<TInternal[TMap[P]]>
     : TMap[P] extends string
       ? Choose<DeepAwaited<TInternal>, TMap[P]>
-      : never // path is not a string or a keyof TInternal
+      : unknown // path is not a string or a keyof TInternal
 }>
 
 declare function sanitizeKey<T extends string> (key: T): SanitizeKey<T>
