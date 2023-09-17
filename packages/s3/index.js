@@ -32,15 +32,10 @@ const s3Middleware = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
       values[internalKey] = client
-        .send(
-          new GetObjectCommand({
-            ...options.fetchData[internalKey],
-            ChecksumMode: true
-          })
-        )
+        .send(new GetObjectCommand(options.fetchData[internalKey]))
         .then(async (resp) => {
           let value = await resp.Body.transformToString()
-          if (contentTypePattern.test(resp.headers.ContentType)) {
+          if (contentTypePattern.test(resp.ContentType)) {
             value = jsonSafeParse(value)
           }
           return value
