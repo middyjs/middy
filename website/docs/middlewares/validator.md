@@ -28,7 +28,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/validator
-npm install --save-dev ajv-cmd
+npm install --save-dev ajv-cmd # Optional: for pre-transpiling
 ```
 
 ## Options
