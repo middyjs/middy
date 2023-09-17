@@ -28,7 +28,7 @@ middy().use(fullMiddleware).handler(async (event, context) => {
 const eventMiddleware = parser({
   eventSchema: z.object({ body: z.object({ records: z.array(z.string()).min(1).max(100) }) })
 })
-expectType<middy.MiddlewareObj<{ body: { records: string[] } }, unknown, Error, Context>>(eventMiddleware)
+expectType<middy.MiddlewareObj<{ body: { records: string[] } }, any, Error, Context>>(eventMiddleware)
 
 // with a customError
 const customErrorMiddleware = parser({
@@ -44,4 +44,4 @@ const customErrorMiddleware = parser({
     return createError(status, message, { cause })
   }
 })
-expectType<middy.MiddlewareObj<{ body: { records: string[] } }, unknown, Error, Context>>(customErrorMiddleware)
+expectType<middy.MiddlewareObj<{ body: { records: string[] } }, any, Error, Context>>(customErrorMiddleware)
