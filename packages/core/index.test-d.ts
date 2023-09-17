@@ -4,8 +4,19 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
   Context,
-  Handler as LambdaHandler
+  Handler as AWSLambdaHandler
 } from 'aws-lambda'
+
+// extends Handler type from aws-lambda
+type EnhanceHandlerType<T, NewReturn> = T extends (
+  event: infer TEvent,
+  context: infer TContextType,
+  callback: infer TCallbackType
+) => infer R
+  ? (event: TEvent, context: TContextType, callback: TCallbackType) => R | NewReturn
+  : never
+
+type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<AWSLambdaHandler<TEvent, TResult>, TResult>
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
@@ -196,3 +207,176 @@ expectType<middy.MiddyfiedHandler<unknown>>(streamifiedResponseHandler)
 
 streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
+
+// synced handler
+const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = (event) => {
+  return {
+    statusCode: 200,
+    body: `Hello from ${event.path}`
+  }
+}
+
+// initialize
+let syncedHandler = middy(syncedLambdaHandler)
+expectType<Handler>(syncedHandler)
+
+// initialize with empty plugin
+syncedHandler = middy(syncedLambdaHandler, {})
+expectType<Handler>(syncedHandler)
+
+// initialize with plugin with few hooks
+syncedHandler = middy(syncedLambdaHandler, {
+  beforePrefetch () { console.log('beforePrefetch') }
+})
+expectType<Handler>(syncedHandler)
+
+// initialize with plugin with all hooks
+syncedHandler = middy(syncedLambdaHandler, {
+  beforePrefetch () { console.log('beforePrefetch') },
+  requestStart () { console.log('requestStart') },
+  beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },
+  afterMiddleware (name: string) { console.log('afterMiddleware', name) },
+  beforeHandler () { console.log('beforeHandler') },
+  afterHandler () { console.log('afterHandler') },
+  async requestEnd () { console.log('requestEnd') }
+})
+expectType<Handler>(syncedHandler)
+
+// invokes the handler to test that it is callable
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
+  const sampleEvent: APIGatewayProxyEvent = {
+    resource: '/',
+    path: '/',
+    httpMethod: 'GET',
+    requestContext: {
+      resourcePath: '/',
+      httpMethod: 'GET',
+      path: '/Prod/',
+      accountId: 'x',
+      apiId: 'y',
+      authorizer: {},
+      protocol: 'p',
+      identity: {
+        accessKey: '',
+        accountId: '',
+        apiKey: '',
+        apiKeyId: '',
+        caller: '',
+        clientCert: null,
+        cognitoAuthenticationProvider: '',
+        cognitoAuthenticationType: '',
+        cognitoIdentityId: '',
+        cognitoIdentityPoolId: '',
+        principalOrgId: '',
+        sourceIp: '',
+        user: '',
+        userAgent: '',
+        userArn: ''
+      },
+      stage: '',
+      requestId: '',
+      requestTimeEpoch: 12345567,
+      resourceId: ''
+    },
+    headers: {
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      'accept-encoding': 'gzip, deflate, br',
+      Host: '70ixmpl4fl.execute-api.us-east-2.amazonaws.com',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
+      'X-Amzn-Trace-Id': 'Root=1-5e66d96f-7491f09xmpl79d18acf3d050'
+    },
+    multiValueHeaders: {
+      accept: [
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9'
+      ],
+      'accept-encoding': [
+        'gzip, deflate, br'
+      ]
+    },
+    queryStringParameters: null,
+    multiValueQueryStringParameters: null,
+    pathParameters: null,
+    stageVariables: null,
+    body: null,
+    isBase64Encoded: false
+  }
+  const sampleContext: Context = {
+    callbackWaitsForEmptyEventLoop: true,
+    functionName: '',
+    functionVersion: '',
+    invokedFunctionArn: '',
+    memoryLimitInMB: '234',
+    awsRequestId: '',
+    logGroupName: '',
+    logStreamName: '',
+    getRemainingTimeInMillis: (): number => 1,
+    done: () => { },
+    fail: (_) => { },
+    succeed: () => { }
+  }
+  return await syncedHandler(sampleEvent, sampleContext, () => {})
+}
+invokSyncedHandler().catch(console.error)
+
+// use with 1 middleware
+syncedHandler = syncedHandler.use(middlewareObj)
+expectType<Handler>(syncedHandler)
+
+// use with array of middlewares
+syncedHandler = syncedHandler.use([middlewareObj])
+expectType<Handler>(syncedHandler)
+
+// before
+syncedHandler = syncedHandler.before((request: Request) => { console.log('Before', request) })
+expectType<Handler>(syncedHandler)
+
+// after
+syncedHandler = syncedHandler.after((request: Request) => { console.log('After', request) })
+expectType<Handler>(syncedHandler)
+
+// error
+syncedHandler = syncedHandler.onError((request: Request) => { console.log('OnError', request) })
+expectType<Handler>(syncedHandler)
+
+interface MutableContext extends Context {
+  name: string
+}
+
+function syncedMutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): APIGatewayProxyResult {
+  return {
+    statusCode: 200,
+    body: `Hello from ${context.name}`
+  }
+}
+
+let customSyncedCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(syncedMutableContextDependantHandler)
+expectType<MutableContextHandler>(customSyncedCtxHandler)
+
+// @ts-expect-error
+customSyncedCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(syncedMutableContextDependantHandler)
+
+const mutableSyncedContextMiddleware = {
+  before: (request: MutableContextRequest) => {
+    request.context.name = 'Foo'
+  }
+}
+
+customSyncedCtxHandler = customSyncedCtxHandler.use(mutableSyncedContextMiddleware)
+expectType<MutableContextHandler>(customSyncedCtxHandler)
+
+const syncedTypeErrorMiddleware = {
+  before: (request: MutableContextRequest) => {
+    // @ts-expect-error
+    request.context.test = 'Bar'
+  }
+}
+
+customSyncedCtxHandler = customSyncedCtxHandler.use(syncedTypeErrorMiddleware)
+expectType<MutableContextHandler>(customSyncedCtxHandler)
+
+const syncedStreamifiedResponseHandler = middy({ streamifyResponse: true })
+expectType<middy.MiddyfiedHandler<unknown>>(syncedStreamifiedResponseHandler)
+
+syncedStreamifiedResponseHandler.handler(syncedLambdaHandler)
+syncedStreamifiedResponseHandler.use(middlewareObj)
