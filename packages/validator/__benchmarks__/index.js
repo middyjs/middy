@@ -1,6 +1,7 @@
 import Benchmark from 'benchmark'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
+import { transpileSchema } from '../transpile.js'
 
 const suite = new Benchmark.Suite('@middy/validator')
 
@@ -11,8 +12,8 @@ const setupHandler = () => {
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
-      eventSchema: { type: 'object' },
-      responseSchema: { type: 'object' }
+      eventSchema: transpileSchema({ type: 'object' }),
+      responseSchema: transpileSchema({ type: 'object' })
     })
   )
 }
