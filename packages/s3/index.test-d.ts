@@ -17,10 +17,10 @@ const options = {
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSv3Client,
   fetchData: {
-    someS3Object: s3FetchData<{key: string}>({
+    someS3Object: {
       Bucket: 'bucket',
       Key: 'path/to/key.json' // {key: 'value'}
-    })
+    }
   },
   disablePrefetch: true,
   cacheKey: 'some-key',

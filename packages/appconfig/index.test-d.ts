@@ -3,7 +3,8 @@ import { AppConfigClient } from '@aws-sdk/client-appconfig'
 import { Context as LambdaContext } from 'aws-lambda'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
-import appConfig from '.'
+import appConfig, { Context, appConfigReq } from '.'
+import { getInternal } from '@middy/util'
 
 const options = {
   AwsClient: AppConfigClient,
@@ -16,14 +17,6 @@ const options = {
   },
   awsClientAssumeRole: 'some-role',
   awsClientCapture: captureAWSv3Client,
-  fetchData: {
-    config: {
-      Application: 'app',
-      ClientId: '0001',
-      Configuration: 'lambda-n',
-      Environment: 'development'
-    }
-  },
   disablePrefetch: true,
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
@@ -36,13 +29,40 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
 )
 
 // use with all options
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
   appConfig(options)
 )
 
+// use with setToContext: false
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext, Record<'config', unknown>>>(
+  appConfig({
+    ...options,
+    fetchData: {
+      config: {
+        Application: 'app',
+        ClientId: '0001',
+        Configuration: 'lambda-n',
+        Environment: 'development'
+      }
+    },
+    setToContext: false
+  })
+)
+
 // use with setToContext: true
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'config', any>>>(
-  appConfig({ ...options, setToContext: true })
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'config', unknown>, Record<'config', unknown>>>(
+  appConfig({
+    ...options,
+    fetchData: {
+      config: {
+        Application: 'app',
+        ClientId: '0001',
+        Configuration: 'lambda-n',
+        Environment: 'development'
+      }
+    },
+    setToContext: true
+  })
 )
 
 // @ts-expect-error - fetchData must be an object
@@ -71,3 +91,45 @@ appConfig({
     config: {}
   }
 })
+
+const handler = middy(async (event: {}, context: LambdaContext) => {
+  return await Promise.resolve({})
+})
+
+handler.use(
+  appConfig({
+    fetchData: {
+      config: appConfigReq<{ config1: string, config2: string, config3: number }>({
+        Application: 'app',
+        ClientId: '0001',
+        Configuration: 'lambda-n',
+        Environment: 'development'
+      })
+    },
+    setToContext: true
+  })
+)
+  .before(async (request) => {
+    expectType<{ config1: string, config2: string, config3: number }>(request.context.config)
+
+    const data = await getInternal('config', request)
+    expectType<string>(data.config.config1)
+  })
+
+handler.use(
+  appConfig({
+    fetchData: {
+      config: appConfigReq<{ config1: string, config2: string, config3: number }>({
+        Application: 'app',
+        ClientId: '0001',
+        Configuration: 'lambda-n',
+        Environment: 'development'
+      })
+    },
+    setToContext: false
+  })
+)
+  .before(async (request) => {
+    const data = await getInternal('config', request)
+    expectType<{ config1: string, config2: string, config3: number }>(data.config)
+  })

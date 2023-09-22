@@ -7,22 +7,38 @@ import {
   GetConfigurationRequest
 } from '@aws-sdk/client-appconfig'
 
-export type Options<AwsAppConfigClient = AppConfigClient>
-  = Omit<MiddyOptions<AwsAppConfigClient, AppConfigClientConfig>, 'fetchData'>
-  & {
-    fetchData?: {
-      [configurationRequestKey: string]: GetConfigurationRequest
-    }
-  }
+export type ParamType<T> = GetConfigurationRequest & { __returnType?: T }
+export declare function appConfigReq<T> (req: GetConfigurationRequest): ParamType<T>
 
-export type Context<TOptions extends Options | undefined> = TOptions extends {
-  setToContext: true
+export interface AppConfigOptions<AwsAppConfigClient = AppConfigClient>
+  extends Omit<MiddyOptions<AwsAppConfigClient, AppConfigClientConfig>, 'fetchData'> {
+  fetchData?: { [key: string]: GetConfigurationRequest | ParamType<unknown> }
 }
-  ? LambdaContext & Record<keyof TOptions['fetchData'], any>
+
+export type Context<TOptions extends AppConfigOptions | undefined> =
+TOptions extends { setToContext: true }
+  ? TOptions extends { fetchData: infer TFetchData }
+    ? LambdaContext & {
+      [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+        ? T
+        : unknown
+    }
+    : never
   : LambdaContext
 
-declare function appConfigMiddleware<TOptions extends Options | undefined> (
+export type Internal<TOptions extends AppConfigOptions | undefined> =
+TOptions extends AppConfigOptions
+  ? TOptions extends { fetchData: infer TFetchData }
+    ? {
+        [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+          ? T
+          : unknown
+      }
+    : {}
+  : {}
+
+declare function appConfigMiddleware<TOptions extends AppConfigOptions> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default appConfigMiddleware
