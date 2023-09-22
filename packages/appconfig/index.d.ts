@@ -7,12 +7,12 @@ import {
   StartConfigurationSessionRequest
 } from '@aws-sdk/client-appconfigdata'
 
-export type ParamType<T> = GetConfigurationRequest & { __returnType?: T }
-export declare function appConfigReq<T> (req: GetConfigurationRequest): ParamType<T>
+export type ParamType<T> = StartConfigurationSessionRequest & { __returnType?: T }
+export declare function appConfigReq<T> (req: StartConfigurationSessionRequest): ParamType<T>
 
-export interface AppConfigOptions<AwsAppConfigClient = AppConfigClient>
-  extends Omit<MiddyOptions<AwsAppConfigClient, AppConfigClientConfig>, 'fetchData'> {
-  fetchData?: { [key: string]: GetConfigurationRequest | ParamType<unknown> }
+export interface AppConfigOptions<AwsAppConfigClient = AppConfigDataClient>
+  extends Omit<MiddyOptions<AwsAppConfigClient, AppConfigDataClientConfig>, 'fetchData'> {
+  fetchData?: { [key: string]: StartConfigurationSessionRequest | ParamType<unknown> }
 }
 
 export type Context<TOptions extends AppConfigOptions | undefined> =

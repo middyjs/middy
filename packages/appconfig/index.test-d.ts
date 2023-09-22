@@ -39,10 +39,9 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext, Record<'confi
     ...options,
     fetchData: {
       config: {
-        Application: 'app',
-        ClientId: '0001',
-        Configuration: 'lambda-n',
-        Environment: 'development'
+        ApplicationIdentifier: 'app',
+        ConfigurationProfileIdentifier: 'configId',
+        EnvironmentIdentifier: 'development'
       }
     },
     setToContext: false
@@ -55,10 +54,9 @@ expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'conf
     ...options,
     fetchData: {
       config: {
-        Application: 'app',
-        ClientId: '0001',
-        Configuration: 'lambda-n',
-        Environment: 'development'
+        ApplicationIdentifier: 'app',
+        ConfigurationProfileIdentifier: 'configId',
+        EnvironmentIdentifier: 'development'
       }
     },
     setToContext: true
@@ -98,10 +96,9 @@ handler.use(
   appConfig({
     fetchData: {
       config: appConfigReq<{ config1: string, config2: string, config3: number }>({
-        Application: 'app',
-        ClientId: '0001',
-        Configuration: 'lambda-n',
-        Environment: 'development'
+        ApplicationIdentifier: 'app',
+        ConfigurationProfileIdentifier: 'configId',
+        EnvironmentIdentifier: 'development'
       })
     },
     setToContext: true
@@ -118,10 +115,9 @@ handler.use(
   appConfig({
     fetchData: {
       config: appConfigReq<{ config1: string, config2: string, config3: number }>({
-        Application: 'app',
-        ClientId: '0001',
-        Configuration: 'lambda-n',
-        Environment: 'development'
+        ApplicationIdentifier: 'app',
+        ConfigurationProfileIdentifier: 'configId',
+        EnvironmentIdentifier: 'development'
       })
     },
     setToContext: false
