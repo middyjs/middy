@@ -31,9 +31,7 @@ test.serial('It should set S3 param value to internal storage', async (t) => {
   mockClient(S3Client)
     .on(GetObjectCommand)
     .resolvesOnce({
-      headers: {
-        ContentType: 'application/json'
-      },
+      ContentType: 'application/json',
       Body: s3Response('{"option":"value"}')
     })
 
@@ -67,7 +65,6 @@ test.serial(
     mockClient(S3Client)
       .on(GetObjectCommand)
       .resolvesOnce({
-        headers: {},
         Body: s3Response('{"option":"value"}')
       })
 
@@ -100,9 +97,7 @@ test.serial('It should set S3 param value to context', async (t) => {
   mockClient(S3Client)
     .on(GetObjectCommand)
     .resolvesOnce({
-      headers: {
-        ContentType: 'application/json'
-      },
+      ContentType: 'application/json',
       Body: s3Response('{"option":"value"}')
     })
 
@@ -136,9 +131,7 @@ test.serial(
     const mockService = mockClient(S3Client)
       .on(GetObjectCommand)
       .resolvesOnce({
-        headers: {
-          ContentType: 'application/json'
-        },
+        ContentType: 'application/json',
         Body: s3Response('{"option":"value"}')
       })
     const sendStub = mockService.send
@@ -175,9 +168,7 @@ test.serial(
     const mockService = mockClient(S3Client)
       .on(GetObjectCommand)
       .resolvesOnce({
-        headers: {
-          ContentType: 'application/json'
-        },
+        ContentType: 'application/json',
         Body: s3Response('{"option":"value"}')
       })
     const sendStub = mockService.send
@@ -215,9 +206,7 @@ test.serial(
     const mockService = mockClient(S3Client)
       .on(GetObjectCommand)
       .resolves({
-        headers: {
-          ContentType: 'application/json'
-        },
+        ContentType: 'application/json',
         Body: s3Response('{"option":"value"}')
       })
     const sendStub = mockService.send
@@ -276,6 +265,6 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   } catch (e) {
     t.is(sendStub.callCount, 1)
     t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('timeout')])
+    t.deepEqual(e.cause.data, [new Error('timeout')])
   }
 })

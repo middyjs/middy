@@ -5,7 +5,9 @@ const httpEventNormalizerMiddleware = () => {
     const version = pickVersion(event)
     const isHttpEvent = isVersionHttpEvent[version]?.(event)
     if (!isHttpEvent) {
-      throw new Error('[http-event-normalizer] Unknown http event format')
+      throw new Error('Unknown http event format', {
+        cause: { package: '@middy/http-event-normalizer' }
+      })
     }
     // VPC Lattice is an http event, however uses a different notation
     // - query_string_parameters

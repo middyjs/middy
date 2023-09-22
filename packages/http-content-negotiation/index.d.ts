@@ -12,7 +12,10 @@ interface Options {
   failOnMismatch?: boolean
 }
 
-export interface Event {
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface Event {}
+
+export interface Context {
   preferredCharsets: string[]
   preferredCharset: string
   preferredEncodings: string[]

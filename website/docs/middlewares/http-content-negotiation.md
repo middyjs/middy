@@ -5,7 +5,7 @@ title: http-content-negotiation
 This middleware parses `Accept-*` headers and provides utilities for [HTTP content negotiation](https://tools.ietf.org/html/rfc7231#section-5.3) (charset, encoding, language and media type).
 
 By default the middleware parses charsets (`Accept-Charset`), languages (`Accept-Language`), encodings (`Accept-Encoding`) and media types (`Accept`) during the
-`before` phase and expands the `event` object by adding the following properties:
+`before` phase and expands the `context` object by adding the following properties:
 
 - `preferredCharsets` (`array`) - The list of charsets that can be safely used by the app (as the result of the negotiation)
 - `preferredCharset` (`string`) - The preferred charset (as the result of the negotiation)
@@ -19,7 +19,6 @@ By default the middleware parses charsets (`Accept-Charset`), languages (`Accept
 This middleware expects the headers in canonical format, so it should be attached after the [`httpHeaderNormalizer`](#httpheadernormalizer) middleware.
 It also can throw an HTTP exception, so it can be convenient to use it in combination with the [`httpErrorHandler`](#httperrorhandler).
 
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -27,7 +26,6 @@ To install this middleware you can use NPM:
 ```bash npm2yarn
 npm install --save @middy/http-content-negotiation
 ```
-
 
 ## Options
 
@@ -41,7 +39,6 @@ npm install --save @middy/http-content-negotiation
 - `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
 - `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
 
-
 ## Sample usage
 
 ```javascript
@@ -53,7 +50,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 export const handler = middy((event, context) => {
   let message, body
 
-  switch (event.preferredLanguage) {
+  switch (context.preferredLanguage) {
     case 'it-it':
       message = 'Ciao Mondo'
       break
@@ -64,7 +61,7 @@ export const handler = middy((event, context) => {
       message = 'Hello world'
   }
 
-  switch (event.preferredMediaType) {
+  switch (context.preferredMediaType) {
     case 'application/xml':
       body = `<message>${message}</message>`
       break
@@ -86,12 +83,18 @@ export const handler = middy((event, context) => {
 
 handler
   .use(httpHeaderNormalizer())
-  .use(httpContentNegotiation({
-    parseCharsets: false,
-    parseEncodings: false,
-    availableLanguages: ['it-it', 'fr-fr', 'en'],
-    availableMediaTypes: ['application/xml', 'application/yaml', 'application/json', 'text/plain']
-  }))
+  .use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['it-it', 'fr-fr', 'en'],
+      availableMediaTypes: [
+        'application/xml',
+        'application/yaml',
+        'application/json',
+        'text/plain'
+      ]
+    })
+  )
   .use(httpErrorHandler())
-
 ```

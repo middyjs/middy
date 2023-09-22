@@ -69,7 +69,7 @@ type MiddyInputHandler<
   context: TContext,
   callback: LambdaCallback<TResult>
 ) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-void | Promise<TResult>
+void | Promise<TResult> | TResult
 type MiddyInputPromiseHandler<
   TEvent,
   TResult,

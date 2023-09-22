@@ -78,7 +78,9 @@ const ssmMiddleware = (opts = {}) => {
                   const value = getCache(options.cacheKey).value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
-                  throw new Error('[ssm] InvalidParameter ' + fetchKey)
+                  throw new Error('InvalidParameter ' + fetchKey, {
+                    cause: { package: '@middy/ssm' }
+                  })
                 })
               }
             }),

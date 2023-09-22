@@ -3,21 +3,25 @@ import parse from 'qs/lib/parse.js'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 const defaults = {
-  disableContentTypeError: true
+  disableContentTypeError: false
 }
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
-    const contentType = headers['Content-Type'] ?? headers['content-type']
+
+    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: contentType
+        cause: {
+          package: '@middy/http-urlencode-body-parser',
+          data: contentType
+        }
       })
     }
 
@@ -33,7 +37,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
       throw createError(
         415,
         'Invalid or malformed URL encoded form was provided',
-        { cause: '@middy/http-urlencode-body-parser unable to parse body' }
+        { cause: { package: '@middy/http-urlencode-body-parser' } }
       )
     }
   }

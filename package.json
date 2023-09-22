@@ -1,11 +1,11 @@
 {
   "name": "@middy/monorepo",
-  "version": "4.6.0",
+  "version": "5.0.0-alpha.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "engineStrict": true,
   "scripts": {
@@ -28,7 +28,7 @@
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update && npm install",
-    "lerna:outdated": "lerna exec --concurrency 5 npm outdated",
+    "lerna:outdated": "lerna exec --concurrency 5 --no-bail npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
     "lerna:fund": "lerna exec --concurrency 2 npm fund",
     "lerna:sync": "lerna exec --bail --concurrency 2 npm install && lerna publish --exact --yes --skip-npm --skip-git --repo-version $npm_package_version",
@@ -67,7 +67,7 @@
     "c8": "^8.0.0",
     "husky": "^8.0.0",
     "lerna": "^6.0.0",
-    "lint-staged": "^13.0.0",
+    "lint-staged": "^14.0.0",
     "prettier": "^3.0.0",
     "sinon": "^15.0.0",
     "ts-standard": "^12.0.0",

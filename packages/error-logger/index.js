@@ -1,5 +1,5 @@
 const defaults = {
-  logger: console.error
+  logger: ({ error }) => console.error(error)
 }
 
 const errorLoggerMiddleware = (opts = {}) => {
@@ -7,7 +7,7 @@ const errorLoggerMiddleware = (opts = {}) => {
   if (typeof logger !== 'function') logger = null
 
   const errorLoggerMiddlewareOnError = async (request) => {
-    logger(request.error)
+    logger(request)
   }
   return {
     onError: logger ? errorLoggerMiddlewareOnError : null

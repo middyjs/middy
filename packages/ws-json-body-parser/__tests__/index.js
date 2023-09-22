@@ -22,7 +22,6 @@ test('It should parse a JSON request', async (t) => {
   const processedEvent = await handler(event, defaultContext)
 
   t.deepEqual(processedEvent.body, { foo: 'bar' })
-  t.deepEqual(processedEvent.rawBody, '{ "foo" :   "bar"   }')
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
@@ -60,7 +59,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
+    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
   }
 })
 
@@ -103,6 +102,6 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.message, 'Unexpected token m in JSON at position 0')
+    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
   }
 })

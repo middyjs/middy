@@ -2,10 +2,10 @@ import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import {
-  AppConfigClient,
-  AppConfigClientConfig,
-  GetConfigurationRequest
-} from '@aws-sdk/client-appconfig'
+  AppConfigDataClient,
+  AppConfigDataClientConfig,
+  StartConfigurationSessionRequest
+} from '@aws-sdk/client-appconfigdata'
 
 export type ParamType<T> = GetConfigurationRequest & { __returnType?: T }
 export declare function appConfigReq<T> (req: GetConfigurationRequest): ParamType<T>

@@ -286,7 +286,7 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   } catch (e) {
     t.is(stub.callCount, 1)
     t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, [new Error('timeout')])
+    t.deepEqual(e.cause.data, [new Error('timeout')])
   }
 })
 
@@ -319,8 +319,10 @@ test.serial(
     } catch (e) {
       t.is(stub.callCount, 1)
       t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, [
-        new Error('[rds-signer] X-Amz-Security-Token Missing')
+      t.deepEqual(e.cause.data, [
+        new Error('X-Amz-Security-Token Missing', {
+          cause: { package: '@middy/rds-signer' }
+        })
       ])
     }
   }

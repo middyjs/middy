@@ -20,7 +20,7 @@ const defaults = {
   // defaultToFirstEncoding: false, // Should not be used
   parseLanguages: true,
   availableLanguages: undefined,
-  defaultToFirstLanguage: false,
+  // defaultToFirstLanguage: false, // Should not be used
   parseMediaTypes: true,
   availableMediaTypes: undefined,
   // defaultToFirstMediaType: false, // Should not be used
@@ -31,7 +31,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpContentNegotiationMiddlewareBefore = async (request) => {
-    const { event } = request
+    const { event, context } = request
     if (!event.headers) return
     if (options.parseCharsets) {
       parseHeader(
@@ -40,7 +40,8 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         options.availableCharsets,
         options.defaultToFirstCharset,
         options.failOnMismatch,
-        event
+        event,
+        context
       )
     }
 
@@ -51,7 +52,8 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         options.availableEncodings,
         options.defaultToFirstEncoding,
         options.failOnMismatch,
-        event
+        event,
+        context
       )
     }
 
@@ -62,7 +64,8 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         options.availableLanguages,
         options.defaultToFirstLanguage,
         options.failOnMismatch,
-        event
+        event,
+        context
       )
     }
 
@@ -73,7 +76,8 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         options.availableMediaTypes,
         options.defaultToFirstMediaType,
         options.failOnMismatch,
-        event
+        event,
+        context
       )
     }
   }
@@ -89,23 +93,26 @@ const parseHeader = (
   availableValues,
   defaultToFirstValue,
   failOnMismatch,
-  event
+  event,
+  context
 ) => {
   const resultsName = `preferred${type}s`
   const resultName = `preferred${type}`
   const headerValue =
     event.headers[headerName] ?? event.headers[headerName.toLowerCase()]
-  event[resultsName] = parseFn[type](headerValue, availableValues)
-  event[resultName] = event[resultsName][0]
 
-  if (defaultToFirstValue && event[resultName] === undefined) {
-    event[resultName] = availableValues[0]
+  context[resultsName] = parseFn[type](headerValue, availableValues)
+  context[resultName] = context[resultsName][0]
+
+  if (defaultToFirstValue && context[resultName] === undefined) {
+    context[resultName] = availableValues[0]
   }
-  if (failOnMismatch && event[resultName] === undefined) {
+  if (failOnMismatch && context[resultName] === undefined) {
     // NotAcceptable
     throw createError(
       406,
-      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`
+      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`,
+      { cause: { package: '@middy/http-content-negotiation' } }
     )
   }
 }

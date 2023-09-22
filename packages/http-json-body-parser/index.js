@@ -4,7 +4,7 @@ const mimePattern = /^application\/(.+\+)?json($|;.+)/
 
 const defaults = {
   reviver: undefined,
-  disableContentTypeError: true
+  disableContentTypeError: false
 }
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
@@ -12,14 +12,14 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
 
-    const contentType = headers['Content-Type'] ?? headers['content-type']
+    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: contentType
+        cause: { package: '@middy/http-json-body-parser', data: contentType }
       })
     }
 
@@ -29,10 +29,10 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
         : body
 
       request.event.body = JSON.parse(data, options.reviver)
-    } catch (cause) {
+    } catch (err) {
       // UnprocessableEntity
       throw createError(415, 'Invalid or malformed JSON was provided', {
-        cause
+        cause: { package: '@middy/http-json-body-parser', data: err }
       })
     }
   }

@@ -15,5 +15,7 @@ title: History
 - 2021-02-02: [2021 Review](https://loige.co/2021-a-year-in-review#middy) from [@lmammino](https://github.com/lmammino)
 - 2022-05-12: v3.0.0 Released
 - 2022-11-24: v4.0.0 Released
+- 2023-08-22: [JSAwardsIE 2023 Most valued JavaScript open source project](https://www.linkedin.com/posts/jsdayie_javascript-nodejs-activity-7099445347520757760-hsUQ)
+- 2023-11-??: v5.0.0 Released
 
 **Fun Fact**: The adding of the emoji-icon was the [2nd commit](https://github.com/middyjs/middy/commit/a0acf430bb72f6f6f604e38cfd8a571912b6b4d7) to the project.

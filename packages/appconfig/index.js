@@ -9,11 +9,13 @@ import {
   jsonSafeParse
 } from '@middy/util'
 import {
-  AppConfigClient,
-  GetConfigurationCommand
-} from '@aws-sdk/client-appconfig'
+  StartConfigurationSessionCommand,
+  GetLatestConfigurationCommand,
+  AppConfigDataClient
+} from '@aws-sdk/client-appconfigdata'
+
 const defaults = {
-  AwsClient: AppConfigClient,
+  AwsClient: AppConfigDataClient,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
@@ -30,25 +32,67 @@ const appConfigMiddleware = (opts = {}) => {
     ...defaults,
     ...opts
   }
+  const configurationTokenCache = {}
+  const configurationCache = {}
+
+  function fetchLatestConfiguration (configToken, internalKey) {
+    return client
+      .send(
+        new GetLatestConfigurationCommand({
+          ConfigurationToken: configToken
+        })
+      )
+      .then((configResp) => {
+        configurationTokenCache[internalKey] =
+          configResp.NextPollConfigurationToken
+
+        if (configResp.Configuration.length === 0) {
+          return configurationCache[internalKey]
+        }
+
+        let value = String.fromCharCode.apply(null, configResp.Configuration)
+        if (contentTypePattern.test(configResp.ContentType)) {
+          value = jsonSafeParse(value)
+        }
+        configurationCache[internalKey] = value
+        return value
+      })
+      .catch((e) => {
+        const value = getCache(options.cacheKey).value ?? {}
+        value[internalKey] = undefined
+        modifyCache(options.cacheKey, value)
+        throw e
+      })
+  }
+
   const fetch = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
-      values[internalKey] = client
-        .send(new GetConfigurationCommand(options.fetchData[internalKey]))
-        .then((resp) => {
-          let value = String.fromCharCode.apply(null, resp.Content)
-          if (contentTypePattern.test(resp.ContentType)) {
-            value = jsonSafeParse(value)
-          }
-          return value
-        })
-        .catch((e) => {
-          const value = getCache(options.cacheKey).value ?? {}
-          value[internalKey] = undefined
-          modifyCache(options.cacheKey, value)
-          throw e
-        })
+      if (configurationTokenCache[internalKey] == null) {
+        values[internalKey] = client
+          .send(
+            new StartConfigurationSessionCommand(options.fetchData[internalKey])
+          )
+          .then((configSessionResp) =>
+            fetchLatestConfiguration(
+              configSessionResp.InitialConfigurationToken,
+              internalKey
+            )
+          )
+          .catch((e) => {
+            const value = getCache(options.cacheKey).value ?? {}
+            value[internalKey] = undefined
+            modifyCache(options.cacheKey, value)
+            throw e
+          })
+
+        continue
+      }
+      values[internalKey] = fetchLatestConfiguration(
+        configurationTokenCache[internalKey],
+        internalKey
+      )
     }
     return values
   }

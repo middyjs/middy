@@ -14,14 +14,12 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
         ? Buffer.from(body, 'base64').toString()
         : body
 
-      request.event.rawBody = body
       request.event.body = JSON.parse(data, options.reviver)
-    } catch (cause) {
+    } catch (err) {
       // UnprocessableEntity
-      // throw createError(422, 'Invalid or malformed JSON was provided', { cause })
-      const error = createError(422, 'Invalid or malformed JSON was provided')
-      error.cause = cause
-      throw error
+      throw createError(422, 'Invalid or malformed JSON was provided', {
+        cause: { package: '@middy/ws-json-body-parser', data: err }
+      })
     }
   }
 

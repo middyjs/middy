@@ -1,5 +1,3 @@
-import { jsonSafeParse, jsonSafeStringify } from '@middy/util'
-
 const defaults = {
   logger: console.log,
   awsContext: false,
@@ -15,9 +13,11 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   }
 
   if (typeof logger !== 'function') {
-    throw new Error(
-      '[input-output-logger-middleware]: logger must be a function'
-    )
+    throw new Error('logger must be a function', {
+      cause: {
+        pacakge: '@middy/input-output-logger'
+      }
+    })
   }
 
   const omitPathTree = buildPathTree(omitPaths)
@@ -28,16 +28,18 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       message.context = pick(request.context, awsContextKeys)
     }
 
-    const cloneMessage = jsonSafeParse(jsonSafeStringify(message, replacer)) // Full clone to prevent nested mutations
-    omit(cloneMessage, { [param]: omitPathTree[param] })
-
+    let cloneMessage = message
+    if (omitPaths.length) {
+      cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
+      omit(cloneMessage, { [param]: omitPathTree[param] })
+    }
     logger(cloneMessage)
   }
 
   const omit = (obj, pathTree = {}) => {
     if (Array.isArray(obj) && pathTree['[]']) {
-      for (const value of obj) {
-        omit(value, pathTree['[]'])
+      for (let i = 0, l = obj.length; i < l; i++) {
+        omit(obj[i], pathTree['[]'])
       }
     } else if (isObject(obj)) {
       for (const key in pathTree) {
@@ -60,7 +62,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     omitAndLog('response', request)
   const inputOutputLoggerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    return omitAndLog('response', request)
+    omitAndLog('response', request)
   }
 
   return {
