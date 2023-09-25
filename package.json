@@ -24,7 +24,6 @@
     "test:packages:typings": "lerna exec --bail --concurrency 5 tsd",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:lock",
-    "lerna:rm:cjs": "lerna exec -- rm -rf index.cjs && lerna exec -- rm -rf index.cjs.bak",
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update && npm install",
