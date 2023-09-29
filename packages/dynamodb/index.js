@@ -74,4 +74,9 @@ const dynamodbMiddleware = (opts = {}) => {
   }
 }
 
+// used for TS type inference (see index.d.ts)
+export function dynamoDbReq (req) {
+  return req
+}
+
 export default dynamodbMiddleware
