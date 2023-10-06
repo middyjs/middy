@@ -4,7 +4,7 @@ import { Context as LambdaContext } from 'aws-lambda'
 import { SignerConfig, Signer } from '@aws-sdk/rds-signer'
 
 type ExtendedSignerConfig = SignerConfig & {
-  database?: string
+  database?: string // NOTE: is this really needed?
 }
 
 export type RdsSignerOptions<AwsSigner = Signer> = Omit<MiddyOptions<AwsSigner, ExtendedSignerConfig>, 'fetchData'> & {
@@ -19,7 +19,7 @@ TOptions extends { setToContext: true }
     ? LambdaContext & {
       [Key in keyof TFetchData]: string
     }
-    : never
+    : LambdaContext
   : LambdaContext
 
 export type Internal<TOptions extends RdsSignerOptions | undefined> =
@@ -32,7 +32,7 @@ TOptions extends RdsSignerOptions
   : {}
 
 declare function rdsSigner<TOptions extends RdsSignerOptions | undefined> (
-  options?: RdsSignerOptions
+  options?: TOptions
 ): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default rdsSigner

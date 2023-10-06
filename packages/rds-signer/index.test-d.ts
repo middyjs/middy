@@ -1,14 +1,15 @@
 import { expectType } from 'tsd'
 import middy from '@middy/core'
 import { Signer } from '@aws-sdk/rds-signer'
+import { Context as LambdaContext } from 'aws-lambda'
 import rdsSigner from '.'
+import { getInternal } from '@middy/util'
 
 // use with default options
-let middleware = rdsSigner()
+const middleware = rdsSigner()
 expectType<middy.MiddlewareObj>(middleware)
 
-// use with all options
-middleware = rdsSigner({
+const options = {
   AwsClient: Signer,
   awsClientOptions: {
     credentials: {
@@ -30,5 +31,40 @@ middleware = rdsSigner({
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
   setToContext: true
+}
+
+// use with no options
+expectType<middy.MiddlewareObj>(rdsSigner())
+
+// use with all options
+expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext, { foo: string }>>(rdsSigner(options))
+
+const handler = middy(async (event: {}, context: LambdaContext) => {
+  return await Promise.resolve({})
 })
-expectType<middy.MiddlewareObj>(middleware)
+
+// use with setToContext: true
+handler.use(
+  rdsSigner({
+    ...options,
+    setToContext: true
+  })
+)
+  .before(async (request) => {
+    expectType<string>(request.context.foo)
+
+    const data = await getInternal('foo', request)
+    expectType<string>(data.foo)
+  })
+
+// use with setToContext: false
+handler.use(
+  rdsSigner({
+    ...options,
+    setToContext: false
+  })
+)
+  .before(async (request) => {
+    const data = await getInternal('foo', request)
+    expectType<string>(data.foo)
+  })
