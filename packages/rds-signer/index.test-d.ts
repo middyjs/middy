@@ -17,7 +17,15 @@ middleware = rdsSigner({
     }
   },
   awsClientAssumeRole: 'some-role',
-  fetchData: { foo: 'bar' },
+  fetchData: {
+    foo: {
+      region: 'ca-central-1',
+      hostname: '***.rds.amazonaws.com',
+      username: 'iam_role',
+      database: 'postgres',
+      port: 5432
+    }
+  },
   disablePrefetch: true,
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,

@@ -33,12 +33,12 @@ const options = {
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(s3())
 
 // use with all options
-expectType <middy.MiddlewareObj<unknown, any, Error, Context<typeof options>, {'someS3Object': unknown}>>(
+expectType <middy.MiddlewareObj<unknown, any, Error, Context<typeof options>, { 'someS3Object': unknown }>>(
   s3(options)
 )
 
 // use with setToContext: true
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options> & {'someS3Object': unknown}, {'someS3Object': unknown}>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options> & { 'someS3Object': unknown }, { 'someS3Object': unknown }>>(
   s3({
     ...options,
     setToContext: true
