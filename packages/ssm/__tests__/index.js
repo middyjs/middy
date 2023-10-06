@@ -201,6 +201,82 @@ test.serial('It should set SSM param value to context', async (t) => {
   await handler(event, context)
 })
 
+const ssmOrderTest = async (t, fetchData) => {
+  mockClient(SSMClient)
+    .on(GetParametersByPathCommand)
+    .resolvesOnce({
+      Parameters: [
+        {
+          Name: '/dev/service_name/path0',
+          Value: 'path-value-0'
+        },
+        {
+          Name: '/dev/service_name/path1',
+          Value: 'path-value-1'
+        }
+      ]
+    })
+    .on(GetParametersCommand)
+    .resolvesOnce({
+      Parameters: [
+        { Name: '/dev/service_name/key_name0', Value: 'key-value-0' },
+        { Name: '/dev/service_name/key_name1', Value: 'key-value-1' }
+      ]
+    })
+
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    t.deepEqual(values, {
+      key0: 'key-value-0',
+      key1: 'key-value-1',
+      key2: { path0: 'path-value-0', path1: 'path-value-1' }
+    })
+  }
+
+  const handler = middy(() => {})
+    .use(
+      ssm({
+        AwsClient: SSMClient,
+        cacheExpiry: 0,
+        fetchData,
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event)
+}
+
+test.serial(
+  'It should set SSM param values to context with mix of paths and names [paths first]',
+  ssmOrderTest,
+  {
+    key2: '/dev/service_name/',
+    key0: '/dev/service_name/key_name0',
+    key1: '/dev/service_name/key_name1'
+  }
+)
+
+test.serial(
+  'It should set SSM param values to context with mix of paths and names [paths middle]',
+  ssmOrderTest,
+  {
+    key0: '/dev/service_name/key_name0',
+    key2: '/dev/service_name/',
+    key1: '/dev/service_name/key_name1'
+  }
+)
+
+test.serial(
+  'It should set SSM param values to context with mix of paths and names [paths last]',
+  ssmOrderTest,
+  {
+    key0: '/dev/service_name/key_name0',
+    key1: '/dev/service_name/key_name1',
+    key2: '/dev/service_name/'
+  }
+)
+
 test.serial(
   'It should set SSM param value to internal storage when request > 10 params',
   async (t) => {
