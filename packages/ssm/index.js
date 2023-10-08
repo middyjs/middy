@@ -44,19 +44,24 @@ const ssmMiddleware = (opts = {}) => {
     let batchReq = null
     let batchInternalKeys = []
     let batchFetchKeys = []
+    const namedKeys = []
 
     const internalKeys = Object.keys(options.fetchData)
     const fetchKeys = Object.values(options.fetchData)
-    for (const [idx, internalKey] of internalKeys.entries()) {
+    for (const internalKey of internalKeys) {
       if (cachedValues[internalKey]) continue
+      if (options.fetchData[internalKey].substr(-1) === '/') continue // Skip path passed in
+      namedKeys.push(internalKey)
+    }
+
+    for (const [idx, internalKey] of namedKeys.entries()) {
       const fetchKey = options.fetchData[internalKey]
-      if (fetchKey.substr(-1) === '/') continue // Skip path passed in
       batchInternalKeys.push(internalKey)
       batchFetchKeys.push(fetchKey)
       // from the first to the batch size skip, unless it's the last entry
       if (
         (!idx || (idx + 1) % awsRequestLimit !== 0) &&
-        !(idx + 1 === internalKeys.length)
+        !(idx + 1 === namedKeys.length)
       ) {
         continue
       }
