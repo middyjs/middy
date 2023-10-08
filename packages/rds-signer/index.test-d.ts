@@ -23,7 +23,6 @@ const options = {
       region: 'ca-central-1',
       hostname: '***.rds.amazonaws.com',
       username: 'iam_role',
-      database: 'postgres',
       port: 5432
     }
   },

@@ -3,13 +3,9 @@ import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import { SignerConfig, Signer } from '@aws-sdk/rds-signer'
 
-type ExtendedSignerConfig = SignerConfig & {
-  database?: string // NOTE: is this really needed?
-}
-
-export type RdsSignerOptions<AwsSigner = Signer> = Omit<MiddyOptions<AwsSigner, ExtendedSignerConfig>, 'fetchData'> & {
+export type RdsSignerOptions<AwsSigner = Signer> = Omit<MiddyOptions<AwsSigner, SignerConfig>, 'fetchData'> & {
   fetchData?: {
-    [key: string]: ExtendedSignerConfig
+    [key: string]: SignerConfig
   }
 }
 
