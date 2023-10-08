@@ -107,3 +107,48 @@ handler
 ## Bundling
 
 To exclude `@aws-sdk` add `@aws-sdk/client-ssm` to the exclude list.
+
+## Usage with TypeScript
+
+Data in SSM can be stored as arbitrary JSON values. It's not possible to know in advance what shape the fetched SSM parameters will have, so by default the fetched parameters will have type `unknown`.
+
+You can provide some type hints by leveraging the `ssmParam` utility function. This function allows you to specify what's the expected type that will be fetched for every parameter.
+
+The idea is that, for every parameter specified in the `fetchData` option, rather than just providing the parameter path as a string, you can wrap it in a `ssmParam<ParamType>(parameterPath)` call. Internally, `ssmParam` is a function that will return `parameterPath` as received, but it allows you to use generics to provide type hints for the expected type for that parameter.
+
+This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
+
+The following example illustrates how to use `ssmParam`:
+
+
+```typescript
+import middy from '@middy/core'
+import { getInternal } from '@middy/util'
+import ssm, {ssmParam} from '@middy/ssm'
+
+const handler = middy((event, context) => {
+  return {}
+})
+
+let globalDefaults = {}
+handler
+  .use(
+    ssm({
+      fetchData: {
+        accessToken: ssmParam<string>('/dev/service_name/access_token'), // single value (will be typed as string)
+        dbParams: ssmParam<{user: string, pass: string}>('/dev/service_name/database/') // object of values (typed as {user: string, pass: string})
+      },
+      cacheExpiry: 15 * 60 * 1000,
+      cacheKey: 'ssm-secrets'
+    })
+  )
+  // ... other middleware that fetch
+  .before(async (request) => {
+    const data = await getInternal(
+      ['accessToken', 'dbParams', ],
+      request
+    )
+    // data.accessToken (string)
+    // data.dbParams ({user: string, pass: string})
+  })
+```

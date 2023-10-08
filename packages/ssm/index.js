@@ -186,4 +186,10 @@ const ssmMiddleware = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
+
 export default ssmMiddleware
+
+// used for TS type inference (see index.d.ts)
+export function ssmParam (name) {
+  return name
+}

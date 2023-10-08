@@ -2,27 +2,39 @@ import middy from '@middy/core'
 import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm'
-import { JsonValue } from 'type-fest'
 
-interface Options<AwsSSMClient = SSMClient>
-  extends MiddyOptions<AwsSSMClient, SSMClientConfig> {}
+export type ParamType<T> = string & { __returnType?: T }
+export declare function ssmParam<T> (path: string): ParamType<T>
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type ExtractSingles<T> = T extends `/${infer _}` ? never : T
-
-export type Context<TOptions extends Options | undefined> = TOptions extends {
-  setToContext: true
+export interface SSMOptions<AwsSSMClient = SSMClient>
+  extends Omit<MiddyOptions<AwsSSMClient, SSMClientConfig>, 'fetchData'> {
+  fetchData?: { [key: string]: string | ParamType<unknown> }
 }
-  ? LambdaContext &
-  Record<ExtractSingles<keyof TOptions['fetchData']>, JsonValue> &
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (keyof TOptions['fetchData'] extends `${infer _P}/${infer _S}`
-    ? Record<string, JsonValue>
-    : unknown)
+
+export type Context<TOptions extends SSMOptions | undefined> =
+TOptions extends { setToContext: true }
+  ? TOptions extends { fetchData: infer TFetchData }
+    ? LambdaContext & {
+      [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+        ? T
+        : unknown
+    }
+    : never
   : LambdaContext
 
-declare function ssm<TOptions extends Options> (
+export type Internal<TOptions extends SSMOptions | undefined> =
+TOptions extends SSMOptions
+  ? TOptions extends { fetchData: infer TFetchData }
+    ? {
+        [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+          ? T
+          : unknown
+      }
+    : {}
+  : {}
+
+declare function ssm<TOptions extends SSMOptions> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default ssm

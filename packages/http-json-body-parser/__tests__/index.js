@@ -109,7 +109,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
+    t.regex(e.cause.data.message, /^Unexpected token/)
   }
 })
 
@@ -133,7 +133,10 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.data.message, 'Unexpected token u in JSON at position 0')
+    t.regex(
+      e.cause.data.message,
+      /(^Unexpected token)|"undefined" is not valid JSON/
+    )
   }
 })
 
@@ -222,6 +225,6 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.is(e.cause.data.message, 'Unexpected token m in JSON at position 0')
+    t.regex(e.cause.data.message, /^Unexpected token/)
   }
 })

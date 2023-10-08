@@ -66,8 +66,7 @@
     "@aws-sdk/client-ssm": "^3.0.0",
     "@middy/core": "5.0.0-alpha.0",
     "@types/aws-lambda": "^8.10.101",
-    "aws-xray-sdk": "^3.3.3",
-    "type-fest": "^4.0.0"
+    "aws-xray-sdk": "^3.3.3"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
