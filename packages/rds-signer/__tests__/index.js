@@ -54,7 +54,6 @@ test.serial('It should set token to internal storage (token)', async (t) => {
             region: 'us-east-1',
             hostname: 'hostname',
             username: 'username',
-            database: 'database',
             port: 5432
           }
         },
@@ -88,16 +87,14 @@ test.serial('It should set tokens to internal storage (token)', async (t) => {
         fetchData: {
           token1: {
             region: 'us-east-1',
-            hostname: 'hostname',
+            hostname: 'hostname-reader',
             username: 'username',
-            database: 'database1',
             port: 5432
           },
           token2: {
             region: 'us-east-1',
-            hostname: 'hostname',
+            hostname: 'hostname-writer',
             username: 'username',
-            database: 'database2',
             port: 5432
           }
         },
@@ -131,7 +128,6 @@ test.serial(
               region: 'us-east-1',
               hostname: 'hostname',
               username: 'username',
-              database: 'database',
               port: 5432
             }
           },
@@ -166,7 +162,6 @@ test.serial('It should set Signer token to context', async (t) => {
             region: 'us-east-1',
             hostname: 'hostname',
             username: 'username',
-            database: 'database',
             port: 5432
           }
         },
@@ -203,7 +198,6 @@ test.serial(
               region: 'us-east-1',
               hostname: 'hostname',
               username: 'username',
-              database: 'database',
               port: 5432
             }
           }
@@ -244,7 +238,6 @@ test.serial(
               region: 'us-east-1',
               hostname: 'hostname',
               username: 'username',
-              database: 'database',
               port: 5432
             }
           },
@@ -272,7 +265,6 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
           region: 'us-east-1',
           hostname: 'hostname',
           username: 'username',
-          database: 'database',
           port: 5432
         }
       },
@@ -304,7 +296,6 @@ test.serial(
             region: 'us-east-1',
             hostname: 'hostname',
             username: 'username',
-            database: 'database',
             port: 5432
           }
         },
