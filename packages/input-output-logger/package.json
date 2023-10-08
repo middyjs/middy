@@ -1,6 +1,6 @@
 {
   "name": "@middy/input-output-logger",
-  "version": "5.0.0-alpha.1",
+  "version": "5.0.0-alpha.2",
   "description": "Input and output logger middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -60,8 +60,8 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
-    "@middy/core": "5.0.0-alpha.1",
+    "@middy/core": "5.0.0-alpha.2",
     "@types/node": "^20.0.0"
   },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+  "gitHead": "ebce8d5df8783077fa49ba62ee9be20e8486a7f1"
 }

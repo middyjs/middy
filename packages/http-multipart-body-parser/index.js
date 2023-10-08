@@ -1,33 +1,32 @@
 import BusBoy from 'busboy'
 import { createError } from '@middy/util'
-
 const mimePattern = /^multipart\/form-data(;.*)?$/
 const fieldnamePattern = /(.+)\[(.*)]$/
-
 const defaults = {
   // busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
   busboy: {},
   charset: 'utf8',
   disableContentTypeError: false
 }
-
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-
+  const options = {
+    ...defaults,
+    ...opts
+  }
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
     const { headers } = request.event
-
     const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
-
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: { package: '@middy/multipart-body-parser', data: contentType }
+        cause: {
+          package: '@middy/multipart-body-parser',
+          data: contentType
+        }
       })
     }
-
     return parseMultipartData(request.event, options)
       .then((multipartData) => {
         // request.event.rawBody = body
@@ -38,16 +37,19 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         throw createError(
           415,
           'Invalid or malformed multipart/form-data was provided',
-          { cause: { package: '@middy/multipart-body-parser', data: err } }
+          {
+            cause: {
+              package: '@middy/multipart-body-parser',
+              data: err
+            }
+          }
         )
       })
   }
-
   return {
     before: httpMultipartBodyParserMiddlewareBefore
   }
 }
-
 const parseMultipartData = (event, options) => {
   const multipartData = {}
   const charset = event.isBase64Encoded ? 'base64' : options.charset
@@ -59,7 +61,6 @@ const parseMultipartData = (event, options) => {
         event.headers['Content-Type'] ?? event.headers['content-type']
     }
   })
-
   return new Promise((resolve, reject) => {
     busboy
       .on('file', (fieldname, file, info) => {
@@ -69,9 +70,7 @@ const parseMultipartData = (event, options) => {
           mimetype,
           encoding
         }
-
         const chunks = []
-
         file.on('data', (data) => {
           chunks.push(data)
         })
@@ -99,7 +98,6 @@ const parseMultipartData = (event, options) => {
       })
       .on('close', () => resolve(multipartData))
       .on('error', (e) => reject(e))
-
     busboy.write(event.body, charset)
     busboy.end()
   })

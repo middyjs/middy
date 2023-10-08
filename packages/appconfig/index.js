@@ -13,7 +13,6 @@ import {
   GetLatestConfigurationCommand,
   AppConfigDataClient
 } from '@aws-sdk/client-appconfigdata'
-
 const defaults = {
   AwsClient: AppConfigDataClient,
   awsClientOptions: {},
@@ -34,7 +33,6 @@ const appConfigMiddleware = (opts = {}) => {
   }
   const configurationTokenCache = {}
   const configurationCache = {}
-
   function fetchLatestConfiguration (configToken, internalKey) {
     return client
       .send(
@@ -45,11 +43,9 @@ const appConfigMiddleware = (opts = {}) => {
       .then((configResp) => {
         configurationTokenCache[internalKey] =
           configResp.NextPollConfigurationToken
-
         if (configResp.Configuration.length === 0) {
           return configurationCache[internalKey]
         }
-
         let value = String.fromCharCode.apply(null, configResp.Configuration)
         if (contentTypePattern.test(configResp.ContentType)) {
           value = jsonSafeParse(value)
@@ -64,7 +60,6 @@ const appConfigMiddleware = (opts = {}) => {
         throw e
       })
   }
-
   const fetch = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
@@ -86,7 +81,6 @@ const appConfigMiddleware = (opts = {}) => {
             modifyCache(options.cacheKey, value)
             throw e
           })
-
         continue
       }
       values[internalKey] = fetchLatestConfiguration(
@@ -117,10 +111,7 @@ const appConfigMiddleware = (opts = {}) => {
   }
 }
 export default appConfigMiddleware
-
 // used for TS type inference (see index.d.ts)
 export function appConfigReq (req) {
   return req
-}
-
-// # sourceMappingURL=index.js.map
+} // # sourceMappingURL=index.js.map

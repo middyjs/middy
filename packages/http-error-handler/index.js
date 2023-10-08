@@ -1,24 +1,22 @@
 import { jsonSafeParse, normalizeHttpResponse } from '@middy/util'
-
 const defaults = {
   logger: console.error,
   fallbackMessage: null
 }
-
 const httpErrorHandlerMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-
+  const options = {
+    ...defaults,
+    ...opts
+  }
   const httpErrorHandlerMiddlewareOnError = async (request) => {
     if (request.response !== undefined) return
     if (typeof options.logger === 'function') {
       options.logger(request.error)
     }
-
     // Set default expose value, only passes in when there is an override
     if (request.error.statusCode && request.error.expose === undefined) {
       request.error.expose = request.error.statusCode < 500
     }
-
     // Non-http error OR expose set to false
     if (
       options.fallbackMessage &&
@@ -30,7 +28,6 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
         expose: true
       }
     }
-
     if (request.error.expose) {
       normalizeHttpResponse(request)
       const { statusCode, message, headers } = request.error
@@ -49,7 +46,6 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
       }
     }
   }
-
   return {
     onError: httpErrorHandlerMiddlewareOnError
   }

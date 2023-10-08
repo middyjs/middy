@@ -6,7 +6,6 @@ const httpUrlencodePathParserMiddlewareBefore = async (request) => {
     )
   }
 }
-
 const httpUrlencodePathParserMiddleware = () => ({
   before: httpUrlencodePathParserMiddlewareBefore
 })

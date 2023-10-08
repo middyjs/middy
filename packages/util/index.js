@@ -1,48 +1,44 @@
 export const createPrefetchClient = (options) => {
   const { awsClientOptions } = options
   const client = new options.AwsClient(awsClientOptions)
-
   // AWS XRay
   if (options.awsClientCapture && options.disablePrefetch) {
     return options.awsClientCapture(client)
   } else if (options.awsClientCapture) {
     console.warn('Unable to apply X-Ray outside of handler invocation scope.')
   }
-
   return client
 }
-
 export const createClient = async (options, request) => {
   let awsClientCredentials = {}
-
   // Role Credentials
   if (options.awsClientAssumeRole) {
     if (!request) {
       throw new Error('Request required when assuming role', {
-        cause: { package: '@middy/util' }
+        cause: {
+          package: '@middy/util'
+        }
       })
     }
     awsClientCredentials = await getInternal(
-      { credentials: options.awsClientAssumeRole },
+      {
+        credentials: options.awsClientAssumeRole
+      },
       request
     )
   }
-
   awsClientCredentials = {
     ...awsClientCredentials,
     ...options.awsClientOptions
   }
-
   return createPrefetchClient({
     ...options,
     awsClientOptions: awsClientCredentials
   })
 }
-
 export const canPrefetch = (options = {}) => {
   return !options.awsClientAssumeRole && !options.disablePrefetch
 }
-
 // Internal Context
 export const getInternal = async (variables, request) => {
   if (!variables || !request) return {}
@@ -81,17 +77,21 @@ export const getInternal = async (variables, request) => {
     .map((res) => res.reason)
   if (errors.length) {
     throw new Error('Failed to resolve internal values', {
-      cause: { package: '@middy/util', data: errors }
+      cause: {
+        package: '@middy/util',
+        data: errors
+      }
     })
   }
   return keys.reduce(
-    (obj, key, index) => ({ ...obj, [sanitizeKey(key)]: values[index].value }),
+    (obj, key, index) => ({
+      ...obj,
+      [sanitizeKey(key)]: values[index].value
+    }),
     {}
   )
 }
-
 const isPromise = (promise) => typeof promise?.then === 'function'
-
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g
 export const sanitizeKey = (key) => {
@@ -99,7 +99,6 @@ export const sanitizeKey = (key) => {
     .replace(sanitizeKeyPrefixLeadingNumber, '_$1')
     .replace(sanitizeKeyRemoveDisallowedChar, '_')
 }
-
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (options, fetch = () => undefined, request) => {
@@ -109,17 +108,22 @@ export const processCache = (options, fetch = () => undefined, request) => {
     const cached = getCache(cacheKey)
     const unexpired =
       cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
-
     if (unexpired && cached.modified) {
       const value = fetch(request, cached.value)
       cache[cacheKey] = Object.create({
-        value: { ...cached.value, ...value },
+        value: {
+          ...cached.value,
+          ...value
+        },
         expiry: cached.expiry
       })
       return cache[cacheKey]
     }
     if (unexpired) {
-      return { ...cached, cache: true }
+      return {
+        ...cached,
+        cache: true
+      }
     }
   }
   const value = fetch(request)
@@ -132,23 +136,31 @@ export const processCache = (options, fetch = () => undefined, request) => {
       duration > 0
         ? setInterval(() => processCache(options, fetch, request), duration)
         : undefined
-    cache[cacheKey] = { value, expiry, refresh }
+    cache[cacheKey] = {
+      value,
+      expiry,
+      refresh
+    }
   }
-  return { value, expiry }
+  return {
+    value,
+    expiry
+  }
 }
-
 export const getCache = (key) => {
   if (!cache[key]) return {}
   return cache[key]
 }
-
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
   if (!cache[cacheKey]) return
   clearInterval(cache[cacheKey]?.refresh)
-  cache[cacheKey] = { ...cache[cacheKey], value, modified: true }
+  cache[cacheKey] = {
+    ...cache[cacheKey],
+    value,
+    modified: true
+  }
 }
-
 export const clearCache = (keys = null) => {
   keys = keys ?? Object.keys(cache)
   if (!Array.isArray(keys)) keys = [keys]
@@ -157,7 +169,6 @@ export const clearCache = (keys = null) => {
     cache[cacheKey] = undefined
   }
 }
-
 export const jsonSafeParse = (text, reviver) => {
   if (typeof text !== 'string') return text
   const firstChar = text[0]
@@ -165,18 +176,14 @@ export const jsonSafeParse = (text, reviver) => {
   try {
     return JSON.parse(text, reviver)
   } catch (e) {}
-
   return text
 }
-
 export const jsonSafeStringify = (value, replacer, space) => {
   try {
     return JSON.stringify(value, replacer, space)
   } catch (e) {}
-
   return value
 }
-
 export const normalizeHttpResponse = (request) => {
   let { response } = request
   if (typeof response === 'undefined') {
@@ -186,14 +193,16 @@ export const normalizeHttpResponse = (request) => {
     typeof response?.body === 'undefined' &&
     typeof response?.headers === 'undefined'
   ) {
-    response = { statusCode: 200, body: response }
+    response = {
+      statusCode: 200,
+      body: response
+    }
   }
   response.statusCode ??= 500
   response.headers ??= {}
   request.response = response
   return response
 }
-
 const createErrorRegexp = /[^a-zA-Z]/g
 export class HttpError extends Error {
   constructor (code, message, options = {}) {
@@ -203,19 +212,15 @@ export class HttpError extends Error {
     }
     message ??= httpErrorCodes[code]
     super(message, options)
-
     const name = httpErrorCodes[code].replace(createErrorRegexp, '')
     this.name = name.substr(-5) !== 'Error' ? name + 'Error' : name
-
     this.status = this.statusCode = code // setting `status` for backwards compatibility w/ `http-errors`
     this.expose = options.expose ?? code < 500
   }
 }
-
 export const createError = (code, message, properties = {}) => {
   return new HttpError(code, message, properties)
 }
-
 const httpErrorCodes = {
   100: 'Continue',
   101: 'Switching Protocols',

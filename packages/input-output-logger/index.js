@@ -5,13 +5,11 @@ const defaults = {
   mask: undefined,
   replacer: undefined
 }
-
 const inputOutputLoggerMiddleware = (opts = {}) => {
   const { logger, awsContext, omitPaths, mask, replacer } = {
     ...defaults,
     ...opts
   }
-
   if (typeof logger !== 'function') {
     throw new Error('logger must be a function', {
       cause: {
@@ -19,23 +17,23 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       }
     })
   }
-
   const omitPathTree = buildPathTree(omitPaths)
   const omitAndLog = (param, request) => {
-    const message = { [param]: request[param] }
-
+    const message = {
+      [param]: request[param]
+    }
     if (awsContext) {
       message.context = pick(request.context, awsContextKeys)
     }
-
     let cloneMessage = message
     if (omitPaths.length) {
       cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
-      omit(cloneMessage, { [param]: omitPathTree[param] })
+      omit(cloneMessage, {
+        [param]: omitPathTree[param]
+      })
     }
     logger(cloneMessage)
   }
-
   const omit = (obj, pathTree = {}) => {
     if (Array.isArray(obj) && pathTree['[]']) {
       for (let i = 0, l = obj.length; i < l; i++) {
@@ -55,7 +53,6 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       }
     }
   }
-
   const inputOutputLoggerMiddlewareBefore = async (request) =>
     omitAndLog('event', request)
   const inputOutputLoggerMiddlewareAfter = async (request) =>
@@ -64,14 +61,12 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     if (request.response === undefined) return
     omitAndLog('response', request)
   }
-
   return {
     before: inputOutputLoggerMiddlewareBefore,
     after: inputOutputLoggerMiddlewareAfter,
     onError: inputOutputLoggerMiddlewareOnError
   }
 }
-
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
 const awsContextKeys = [
   'functionName',
@@ -85,7 +80,6 @@ const awsContextKeys = [
   'clientContext',
   'callbackWaitsForEmptyEventLoop'
 ]
-
 // move to util, if ever used elsewhere
 const pick = (originalObject = {}, keysToPick = []) => {
   const newObject = {}
@@ -97,7 +91,6 @@ const pick = (originalObject = {}, keysToPick = []) => {
   }
   return newObject
 }
-
 const buildPathTree = (paths) => {
   const tree = {}
   for (let path of paths.sort().reverse()) {
@@ -117,8 +110,6 @@ const buildPathTree = (paths) => {
   }
   return tree
 }
-
 const isObject = (value) =>
   value && typeof value === 'object' && value.constructor === Object
-
 export default inputOutputLoggerMiddleware
