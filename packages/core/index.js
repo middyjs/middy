@@ -1,35 +1,35 @@
-/* global awslambda */ import { Readable } from 'node:stream'
+/* global awslambda */
+import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout } from 'node:timers/promises'
+
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => {
     const err = new Error('[AbortError]: The operation was aborted.', {
-      cause: {
-        package: '@middy/core'
-      }
+      cause: { package: '@middy/core' }
     })
     err.name = 'TimeoutError'
     throw err
   },
   streamifyResponse: false // Deprecate need for this when AWS provides a flag for when it's looking for it
 }
+
 const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   // Allow base handler to be set using .handler()
   if (typeof lambdaHandler !== 'function') {
     plugin = lambdaHandler
     lambdaHandler = defaultLambdaHandler
   }
-  plugin = {
-    ...defaultPlugin,
-    ...plugin
-  }
+  plugin = { ...defaultPlugin, ...plugin }
   plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0
+
   plugin.beforePrefetch?.()
   const beforeMiddlewares = []
   const afterMiddlewares = []
   const onErrorMiddlewares = []
+
   const middyHandler = (event = {}, context = {}) => {
     plugin.requestStart?.()
     const request = {
@@ -39,6 +39,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       error: undefined,
       internal: plugin.internal ?? {}
     }
+
     return runRequest(
       request,
       [...beforeMiddlewares],
@@ -51,6 +52,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   const middy = plugin.streamifyResponse
     ? awslambda.streamifyResponse(async (event, responseStream, context) => {
       const handlerResponse = await middyHandler(event, context)
+
       let handlerBody = handlerResponse
       if (handlerResponse.statusCode) {
         handlerBody = handlerResponse.body ?? ''
@@ -59,6 +61,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
           handlerResponse
         )
       }
+
       // Source @datastream/core (MIT)
       let handlerStream
       if (handlerBody._readableState) {
@@ -75,29 +78,35 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
         }
         handlerStream = Readable.from(iterator(handlerBody))
       }
+
       if (!handlerStream) {
         throw new Error('handler response not a ReadableStream')
       }
+
       await pipeline(handlerStream, responseStream)
     })
     : middyHandler
+
   middy.use = (middlewares) => {
     if (!Array.isArray(middlewares)) {
       middlewares = [middlewares]
     }
     for (const middleware of middlewares) {
       const { before, after, onError } = middleware
+
       if (!before && !after && !onError) {
         throw new Error(
           'Middleware must be an object containing at least one key among "before", "after", "onError"'
         )
       }
+
       if (before) middy.before(before)
       if (after) middy.after(after)
       if (onError) middy.onError(onError)
     }
     return middy
   }
+
   // Inline Middlewares
   middy.before = (beforeMiddleware) => {
     beforeMiddlewares.push(beforeMiddleware)
@@ -115,8 +124,10 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
     lambdaHandler = replaceLambdaHandler
     return middy
   }
+
   return middy
 }
+
 const runRequest = async (
   request,
   beforeMiddlewares,
@@ -133,7 +144,9 @@ const runRequest = async (
     // Check if before stack hasn't exit early
     if (typeof request.response === 'undefined') {
       plugin.beforeHandler?.()
+
       const handlerAbort = new AbortController()
+
       if (timeoutEarly) timeoutAbort = new AbortController()
       request.response = await Promise.race([
         lambdaHandler(request.event, request.context, {
@@ -144,9 +157,7 @@ const runRequest = async (
             request.context.getRemainingTimeInMillis() -
                 plugin.timeoutEarlyInMillis,
             undefined,
-            {
-              signal: timeoutAbort.signal
-            }
+            { signal: timeoutAbort.signal }
           ).then(() => {
             handlerAbort.abort()
             return plugin.timeoutEarlyResponse()
@@ -154,11 +165,13 @@ const runRequest = async (
           : Promise.race([])
       ])
       timeoutAbort?.abort() // lambdaHandler may not be a promise
+
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
     timeoutAbort?.abort() // timeout should be aborted on errors
+
     // Reset response changes made by after stack before error thrown
     request.response = undefined
     request.error = e
@@ -168,6 +181,7 @@ const runRequest = async (
       // Save error that wasn't handled
       e.originalError = request.error
       request.error = e
+
       throw request.error
     }
     // Catch if onError stack hasn't handled the error
@@ -175,8 +189,10 @@ const runRequest = async (
   } finally {
     await plugin.requestEnd?.(request)
   }
+
   return request.response
 }
+
 const runMiddlewares = async (request, middlewares, plugin) => {
   for (const nextMiddleware of middlewares) {
     plugin.beforeMiddleware?.(nextMiddleware.name)
@@ -189,4 +205,5 @@ const runMiddlewares = async (request, middlewares, plugin) => {
     }
   }
 }
+
 export default middy

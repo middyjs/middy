@@ -70,6 +70,7 @@ const s3Middleware = (opts = {}) => {
   }
 }
 export default s3Middleware
+
 // used for TS type inference (see index.d.ts)
 export function s3Req (req) {
   return req

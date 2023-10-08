@@ -1,4 +1,5 @@
 import { normalizeHttpResponse } from '@middy/util'
+
 const getOrigin = (incomingOrigin, options = {}) => {
   if (options.origins.length > 0) {
     if (incomingOrigin && options.origins.includes(incomingOrigin)) {
@@ -13,6 +14,7 @@ const getOrigin = (incomingOrigin, options = {}) => {
     return options.origin
   }
 }
+
 const defaults = {
   disableBeforePreflightResponse: true,
   getOrigin,
@@ -35,6 +37,7 @@ const httpCorsMiddleware = (opts = {}) => {
   }
   const httpCorsMiddlewareBefore = async (request) => {
     if (options.disableBeforePreflightResponse) return
+
     const method = getVersionHttpMethod[request.event.version ?? '1.0']?.(
       request.event
     )
@@ -47,6 +50,7 @@ const httpCorsMiddleware = (opts = {}) => {
       return request.response
     }
   }
+
   const httpCorsMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
     const { headers } = request.response
@@ -67,6 +71,7 @@ const getVersionHttpMethod = {
   '1.0': (event) => event.httpMethod,
   '2.0': (event) => event.requestContext.http.method
 }
+
 const modifyHeaders = (headers, options, request) => {
   const existingHeaders = Object.keys(headers)
   if (existingHeaders.includes('Access-Control-Allow-Credentials')) {
@@ -128,9 +133,7 @@ const modifyHeaders = (headers, options, request) => {
   )
   if (!httpMethod) {
     throw new Error('Unknown http event format', {
-      cause: {
-        package: '@middy/http-cors'
-      }
+      cause: { package: '@middy/http-cors' }
     })
   }
   if (
@@ -141,4 +144,5 @@ const modifyHeaders = (headers, options, request) => {
     headers['Cache-Control'] = options.cacheControl
   }
 }
+
 export default httpCorsMiddleware

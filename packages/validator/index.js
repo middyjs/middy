@@ -1,4 +1,5 @@
 import { createError } from '@middy/util'
+
 const defaults = {
   eventSchema: undefined,
   contextSchema: undefined,
@@ -6,6 +7,7 @@ const defaults = {
   defaultLanguage: 'en',
   languages: {}
 }
+
 const validatorMiddleware = (opts = {}) => {
   const {
     eventSchema,
@@ -13,18 +15,18 @@ const validatorMiddleware = (opts = {}) => {
     responseSchema,
     defaultLanguage,
     languages
-  } = {
-    ...defaults,
-    ...opts
-  }
+  } = { ...defaults, ...opts }
+
   const validatorMiddlewareBefore = async (request) => {
     if (eventSchema) {
       const validEvent = await eventSchema(request.event)
+
       if (!validEvent) {
         const localize =
           languages[request.context.preferredLanguage] ??
           languages[defaultLanguage]
         localize?.(eventSchema.errors)
+
         // Bad Request
         throw createError(400, 'Event object failed validation', {
           cause: {
@@ -34,8 +36,10 @@ const validatorMiddleware = (opts = {}) => {
         })
       }
     }
+
     if (contextSchema) {
       const validContext = await contextSchema(request.context)
+
       if (!validContext) {
         // Internal Server Error
         throw createError(500, 'Context object failed validation', {
@@ -47,8 +51,10 @@ const validatorMiddleware = (opts = {}) => {
       }
     }
   }
+
   const validatorMiddlewareAfter = async (request) => {
     const validResponse = await responseSchema(request.response)
+
     if (!validResponse) {
       // Internal Server Error
       throw createError(500, 'Response object failed validation', {
@@ -65,4 +71,5 @@ const validatorMiddleware = (opts = {}) => {
     after: responseSchema ? validatorMiddlewareAfter : undefined
   }
 }
+
 export default validatorMiddleware

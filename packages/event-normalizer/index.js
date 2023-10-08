@@ -1,13 +1,12 @@
 import { jsonSafeParse } from '@middy/util'
+
 const defaults = {
   wrapNumbers: undefined
 }
+
 let _wrapNumbers
 const eventNormalizerMiddleware = (opts = {}) => {
-  const { wrapNumbers } = {
-    ...defaults,
-    ...opts
-  }
+  const { wrapNumbers } = { ...defaults, ...opts }
   _wrapNumbers = wrapNumbers
   const eventNormalizerMiddlewareBefore = async (request) => {
     parseEvent(request.event)
@@ -16,10 +15,12 @@ const eventNormalizerMiddleware = (opts = {}) => {
     before: eventNormalizerMiddlewareBefore
   }
 }
+
 const parseEvent = (event) => {
   // event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
   // event.deliveryStreamArn => aws:lambda:events
   let eventSource = event.eventSource ?? event.deliveryStreamArn
+
   // event.Records => default
   // event.records => aws:lambda:events
   // event.messages => aws:amq
@@ -31,6 +32,7 @@ const parseEvent = (event) => {
     event.messages ??
     event.tasks ??
     event.events
+
   if (!Array.isArray(records)) {
     // event.configRuleId => aws:config
     // event.awslogs => aws:cloudwatch
@@ -44,6 +46,7 @@ const parseEvent = (event) => {
     }
     return
   }
+
   // record.eventSource => default
   // record.EventSource => aws:sns
   // record.s3Key => aws:s3:batch
@@ -55,6 +58,7 @@ const parseEvent = (event) => {
     events[eventSource]?.(record)
   }
 }
+
 const normalizeS3KeyReplacePlus = /\+/g
 const events = {
   'aws:amq': (message) => {
@@ -127,18 +131,19 @@ const base64Parse = (data) =>
   jsonSafeParse(Buffer.from(data, 'base64').toString('utf-8'))
 const normalizeS3Key = (key) =>
   decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, ' ')) // decodeURIComponent(key.replaceAll('+', ' '))
+
 // Start: AWS SDK unmarshall
 // Reference: https://github.com/aws/aws-sdk-js-v3/blob/v3.113.0/packages/util-dynamodb/src/convertToNative.ts
 const unmarshall = (data) => convertValue.M(data ?? {})
+
 const convertValue = {
   NULL: () => null,
   BOOL: Boolean,
   N: (value) => {
     if (_wrapNumbers) {
-      return {
-        value
-      }
+      return { value }
     }
+
     const num = Number(value)
     if (
       (Number.MAX_SAFE_INTEGER < num || num < Number.MIN_SAFE_INTEGER) &&
@@ -167,13 +172,12 @@ const convertValue = {
   BS: (value) => new Set(value.map(convertValue.B)),
   SS: (value) => new Set(value.map(convertValue.S))
 }
+
 const convertToNative = (data) => {
   for (const [key, value] of Object.entries(data)) {
     if (!convertValue[key]) {
       throw new Error(`Unsupported type passed: ${key}`, {
-        cause: {
-          package: '@middy/event-normalizer'
-        }
+        cause: { package: '@middy/event-normalizer' }
       })
     }
     if (typeof value === 'undefined') continue
@@ -181,4 +185,5 @@ const convertToNative = (data) => {
   }
 }
 // End: AWS SDK unmarshall
+
 export default eventNormalizerMiddleware

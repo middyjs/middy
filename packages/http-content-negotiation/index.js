@@ -3,12 +3,14 @@ import encoding from 'negotiator/lib/encoding.js'
 import language from 'negotiator/lib/language.js'
 import mediaType from 'negotiator/lib/mediaType.js'
 import { createError } from '@middy/util'
+
 const parseFn = {
   Charset: charset,
   Encoding: encoding,
   Language: language,
   MediaType: mediaType
 }
+
 const defaults = {
   parseCharsets: true,
   availableCharsets: undefined,
@@ -24,11 +26,10 @@ const defaults = {
   // defaultToFirstMediaType: false, // Should not be used
   failOnMismatch: true
 }
+
 const httpContentNegotiationMiddleware = (opts = {}) => {
-  const options = {
-    ...defaults,
-    ...opts
-  }
+  const options = { ...defaults, ...opts }
+
   const httpContentNegotiationMiddlewareBefore = async (request) => {
     const { event, context } = request
     if (!event.headers) return
@@ -43,6 +44,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         context
       )
     }
+
     if (options.parseEncodings) {
       parseHeader(
         'Accept-Encoding',
@@ -54,6 +56,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         context
       )
     }
+
     if (options.parseLanguages) {
       parseHeader(
         'Accept-Language',
@@ -65,6 +68,7 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         context
       )
     }
+
     if (options.parseMediaTypes) {
       parseHeader(
         'Accept',
@@ -77,10 +81,12 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
       )
     }
   }
+
   return {
     before: httpContentNegotiationMiddlewareBefore
   }
 }
+
 const parseHeader = (
   headerName,
   type,
@@ -94,8 +100,10 @@ const parseHeader = (
   const resultName = `preferred${type}`
   const headerValue =
     event.headers[headerName] ?? event.headers[headerName.toLowerCase()]
+
   context[resultsName] = parseFn[type](headerValue, availableValues)
   context[resultName] = context[resultsName][0]
+
   if (defaultToFirstValue && context[resultName] === undefined) {
     context[resultName] = availableValues[0]
   }
@@ -104,12 +112,9 @@ const parseHeader = (
     throw createError(
       406,
       `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`,
-      {
-        cause: {
-          package: '@middy/http-content-negotiation'
-        }
-      }
+      { cause: { package: '@middy/http-content-negotiation' } }
     )
   }
 }
+
 export default httpContentNegotiationMiddleware

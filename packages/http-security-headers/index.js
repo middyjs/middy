@@ -1,5 +1,7 @@
 import { normalizeHttpResponse } from '@middy/util'
+
 // Code and Defaults heavily based off https://helmetjs.github.io/
+
 const defaults = {
   contentSecurityPolicy: {
     // Fetch directives
@@ -128,8 +130,10 @@ const defaults = {
     reportTo: 'xss'
   }
 }
+
 const helmet = {}
 const helmetHtmlOnly = {}
+
 // *** https://github.com/helmetjs/helmet/tree/main/middlewares *** //
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
 helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
@@ -155,8 +159,10 @@ helmetHtmlOnly.crossOriginOpenerPolicy = (headers, config) => {
 helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
   headers['Cross-Origin-Resource-Policy'] = config.policy
 }
+
 // DEPRECATED: expectCt
 // DEPRECATED: hpkp
+
 // https://www.permissionspolicy.com/
 helmetHtmlOnly.permissionsPolicy = (headers, config) => {
   headers['Permissions-Policy'] = Object.keys(config)
@@ -166,13 +172,16 @@ helmetHtmlOnly.permissionsPolicy = (headers, config) => {
     )
     .join(', ')
 }
+
 helmet.originAgentCluster = (headers, config) => {
   headers['Origin-Agent-Cluster'] = '?1'
 }
+
 // https://github.com/helmetjs/referrer-policy
 helmet.referrerPolicy = (headers, config) => {
   headers['Referrer-Policy'] = config.policy
 }
+
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
     .map((group) => {
@@ -187,6 +196,7 @@ helmetHtmlOnly.reportTo = (headers, config) => {
     .filter((str) => str)
     .join(', ')
 }
+
 // https://github.com/helmetjs/hsts
 helmet.strictTransportSecurity = (headers, config) => {
   let header = 'max-age=' + Math.round(config.maxAge)
@@ -198,28 +208,35 @@ helmet.strictTransportSecurity = (headers, config) => {
   }
   headers['Strict-Transport-Security'] = header
 }
+
 // noCache - N/A - separate middleware
+
 // X-* //
 // https://github.com/helmetjs/dont-sniff-mimetype
 helmet.contentTypeOptions = (headers, config) => {
   headers['X-Content-Type-Options'] = config.action
 }
+
 // https://github.com/helmetjs/dns-Prefetch-control
 helmet.dnsPrefetchControl = (headers, config) => {
   headers['X-DNS-Prefetch-Control'] = config.allow ? 'on' : 'off'
 }
+
 // https://github.com/helmetjs/ienoopen
 helmet.downloadOptions = (headers, config) => {
   headers['X-Download-Options'] = config.action
 }
+
 // https://github.com/helmetjs/frameOptions
 helmetHtmlOnly.frameOptions = (headers, config) => {
   headers['X-Frame-Options'] = config.action.toUpperCase()
 }
+
 // https://github.com/helmetjs/crossdomain
 helmet.permittedCrossDomainPolicies = (headers, config) => {
   headers['X-Permitted-Cross-Domain-Policies'] = config.policy
 }
+
 // https://github.com/helmetjs/hide-powered-by
 helmet.poweredBy = (headers, config) => {
   if (config.server) {
@@ -229,6 +246,7 @@ helmet.poweredBy = (headers, config) => {
     delete headers['X-Powered-By']
   }
 }
+
 // https://github.com/helmetjs/x-xss-protection
 helmetHtmlOnly.xssProtection = (headers, config) => {
   let header = '1; mode=block'
@@ -237,28 +255,23 @@ helmetHtmlOnly.xssProtection = (headers, config) => {
   }
   headers['X-XSS-Protection'] = header
 }
+
 const httpSecurityHeadersMiddleware = (opts = {}) => {
-  const options = {
-    ...defaults,
-    ...opts
-  }
+  const options = { ...defaults, ...opts }
+
   const httpSecurityHeadersMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
+
     Object.keys(helmet).forEach((key) => {
       if (!options[key]) return
-      const config = {
-        ...defaults[key],
-        ...options[key]
-      }
+      const config = { ...defaults[key], ...options[key] }
       helmet[key](request.response.headers, config)
     })
+
     if (request.response.headers['Content-Type']?.includes('text/html')) {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         if (!options[key]) return
-        const config = {
-          ...defaults[key],
-          ...options[key]
-        }
+        const config = { ...defaults[key], ...options[key] }
         helmetHtmlOnly[key](request.response.headers, config)
       })
     }

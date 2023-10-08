@@ -1,6 +1,6 @@
 {
   "name": "@middy/s3",
-  "version": "5.0.0-alpha.2",
+  "version": "5.0.0-alpha.1",
   "description": "S3 middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -58,13 +58,13 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.0.0-alpha.2"
+    "@middy/util": "5.0.0-alpha.1"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
-    "@middy/core": "5.0.0-alpha.2",
+    "@middy/core": "5.0.0-alpha.1",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },
-  "gitHead": "ebce8d5df8783077fa49ba62ee9be20e8486a7f1"
+  "gitHead": "4780887d818be31d9b6f1e2ced99c954d11a4a81"
 }

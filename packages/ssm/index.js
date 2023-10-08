@@ -14,36 +14,38 @@ import {
   GetParametersCommand,
   GetParametersByPathCommand
 } from '@aws-sdk/client-ssm'
+
 const awsRequestLimit = 10
 const defaults = {
-  AwsClient: SSMClient,
+  AwsClient: SSMClient, // Allow for XRay
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
-  fetchData: {},
+  fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
   disablePrefetch: false,
   cacheKey: 'ssm',
   cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }
+
 const ssmMiddleware = (opts = {}) => {
-  const options = {
-    ...defaults,
-    ...opts
-  }
+  const options = { ...defaults, ...opts }
+
   const fetch = (request, cachedValues) => {
     return {
       ...fetchSingle(request, cachedValues),
       ...fetchByPath(request, cachedValues)
     }
   }
+
   const fetchSingle = (request, cachedValues = {}) => {
     const values = {}
     let batchReq = null
     let batchInternalKeys = []
     let batchFetchKeys = []
     const namedKeys = []
+
     const internalKeys = Object.keys(options.fetchData)
     const fetchKeys = Object.values(options.fetchData)
     for (const internalKey of internalKeys) {
@@ -51,6 +53,7 @@ const ssmMiddleware = (opts = {}) => {
       if (options.fetchData[internalKey].substr(-1) === '/') continue // Skip path passed in
       namedKeys.push(internalKey)
     }
+
     for (const [idx, internalKey] of namedKeys.entries()) {
       const fetchKey = options.fetchData[internalKey]
       batchInternalKeys.push(internalKey)
@@ -62,6 +65,7 @@ const ssmMiddleware = (opts = {}) => {
       ) {
         continue
       }
+
       batchReq = client
         .send(
           new GetParametersCommand({
@@ -80,17 +84,13 @@ const ssmMiddleware = (opts = {}) => {
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
                   throw new Error('InvalidParameter ' + fetchKey, {
-                    cause: {
-                      package: '@middy/ssm'
-                    }
+                    cause: { package: '@middy/ssm' }
                   })
                 })
               }
             }),
             ...(resp.Parameters ?? []).map((param) => {
-              return {
-                [param.Name]: parseValue(param)
-              }
+              return { [param.Name]: parseValue(param) }
             })
           )
         })
@@ -100,17 +100,20 @@ const ssmMiddleware = (opts = {}) => {
           modifyCache(options.cacheKey, value)
           throw e
         })
+
       for (const internalKey of batchInternalKeys) {
         values[internalKey] = batchReq.then((params) => {
           return params[options.fetchData[internalKey]]
         })
       }
+
       batchInternalKeys = []
       batchFetchKeys = []
       batchReq = null
     }
     return values
   }
+
   const fetchByPath = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey in options.fetchData) {
@@ -126,6 +129,7 @@ const ssmMiddleware = (opts = {}) => {
     }
     return values
   }
+
   const fetchPath = (path, nextToken, values = {}) => {
     return client
       .send(
@@ -149,33 +153,42 @@ const ssmMiddleware = (opts = {}) => {
         return values
       })
   }
+
   const parseValue = (param) => {
     if (param.Type === 'StringList') {
       return param.Value.split(',')
     }
     return jsonSafeParse(param.Value)
   }
+
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
     processCache(options, fetch)
   }
+
   const ssmMiddlewareBefore = async (request) => {
     if (!client) {
       client = await createClient(options, request)
     }
+
     const { value } = processCache(options, fetch, request)
+
     Object.assign(request.internal, value)
+
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
       Object.assign(request.context, data)
     }
   }
+
   return {
     before: ssmMiddlewareBefore
   }
 }
+
 export default ssmMiddleware
+
 // used for TS type inference (see index.d.ts)
 export function ssmParam (name) {
   return name

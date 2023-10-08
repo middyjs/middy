@@ -13,28 +13,30 @@ import {
   DescribeSecretCommand,
   GetSecretValueCommand
 } from '@aws-sdk/client-secrets-manager'
+
 const defaults = {
   AwsClient: SecretsManagerClient,
   awsClientOptions: {},
   awsClientAssumeRole: undefined,
   awsClientCapture: undefined,
   fetchData: {},
-  fetchRotationDate: false,
+  fetchRotationDate: false, // true: apply to all or {key: true} for individual
   disablePrefetch: false,
   cacheKey: 'secrets-manager',
   cacheKeyExpiry: {},
-  cacheExpiry: -1,
+  cacheExpiry: -1, // ignored when fetchRotationRules is true/object
   setToContext: false
 }
+
 const secretsManagerMiddleware = (opts = {}) => {
-  const options = {
-    ...defaults,
-    ...opts
-  }
+  const options = { ...defaults, ...opts }
+
   const fetch = (request, cachedValues = {}) => {
     const values = {}
+
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
+
       values[internalKey] = Promise.resolve()
         .then(() => {
           if (
@@ -79,27 +81,34 @@ const secretsManagerMiddleware = (opts = {}) => {
     }
     return values
   }
+
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
     processCache(options, fetch)
   }
+
   const secretsManagerMiddlewareBefore = async (request) => {
     if (!client) {
       client = await createClient(options, request)
     }
+
     const { value } = processCache(options, fetch, request)
+
     Object.assign(request.internal, value)
+
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
       Object.assign(request.context, data)
     }
   }
+
   return {
     before: secretsManagerMiddlewareBefore
   }
 }
 export default secretsManagerMiddleware
+
 // used for TS type inference (see index.d.ts)
 export function secret (name) {
   return name

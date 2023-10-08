@@ -9,6 +9,7 @@ import {
 } from '@middy/util'
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
+
 const defaults = {
   AwsClient: DynamoDBClient,
   awsClientOptions: {},
@@ -26,12 +27,14 @@ const dynamodbMiddleware = (opts = {}) => {
     ...defaults,
     ...opts
   }
+
   // force marshall of Key during cold start
   for (const internalKey in options.fetchData) {
     options.fetchData[internalKey].Key = marshall(
       options.fetchData[internalKey].Key
     )
   }
+
   const fetch = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey in options.fetchData) {
@@ -49,6 +52,7 @@ const dynamodbMiddleware = (opts = {}) => {
     }
     return values
   }
+
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
@@ -69,8 +73,10 @@ const dynamodbMiddleware = (opts = {}) => {
     before: dynamodbMiddlewareBefore
   }
 }
+
 // used for TS type inference (see index.d.ts)
 export function dynamoDbReq (req) {
   return req
 }
+
 export default dynamodbMiddleware

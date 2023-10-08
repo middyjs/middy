@@ -8,25 +8,26 @@ import {
   modifyCache
 } from '@middy/util'
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts'
+
 const defaults = {
   AwsClient: STSClient,
   awsClientOptions: {},
   // awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
   awsClientCapture: undefined,
-  fetchData: {},
+  fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
   disablePrefetch: false,
   cacheKey: 'sts',
   cacheKeyExpiry: {},
   cacheExpiry: -1,
   setToContext: false
 }
+
 const stsMiddleware = (opts = {}) => {
-  const options = {
-    ...defaults,
-    ...opts
-  }
+  const options = { ...defaults, ...opts }
+
   const fetch = (request, cachedValues = {}) => {
     const values = {}
+
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
       const assumeRoleOptions = options.fetchData[internalKey]
@@ -47,24 +48,31 @@ const stsMiddleware = (opts = {}) => {
           throw e
         })
     }
+
     return values
   }
+
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
     processCache(options, fetch)
   }
+
   const stsMiddlewareBefore = async (request) => {
     if (!client) {
       client = await createClient(options, request)
     }
+
     const { value } = processCache(options, fetch, request)
+
     Object.assign(request.internal, value)
+
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
       if (options.setToContext) Object.assign(request.context, data)
     }
   }
+
   return {
     before: stsMiddlewareBefore
   }
