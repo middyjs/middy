@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-partial-response",
-  "version": "4.6.4",
+  "version": "4.6.5",
   "description": "Http partial response middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -67,11 +67,11 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "4.6.4",
+    "@middy/util": "4.6.5",
     "json-mask": "2.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
   "devDependencies": {
-    "@middy/core": "4.6.4"
+    "@middy/core": "4.6.5"
   }
 }
