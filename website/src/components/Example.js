@@ -67,7 +67,7 @@ export default function Example () {
               </p>
               <p>
                 The code is hard to understand and maintain. What if you need to
-                reuse some of the non-funcitonal logic in another handler?
+                reuse some of the non-functional logic in another handler?
               </p>
             </div>
           </div>
