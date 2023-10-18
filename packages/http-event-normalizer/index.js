@@ -30,7 +30,7 @@ const httpEventNormalizerMiddleware = () => {
 
 const pickVersion = (event) => {
   // '1.0' is a safer default
-  return event.version ?? (event.method ? 'vpc' : '1.0')
+  return event.version ?? (event.httpMethod ? '1.0' : event.method ? 'vpc' : '1.0')
 }
 
 const isVersionHttpEvent = {
