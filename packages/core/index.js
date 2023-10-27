@@ -7,7 +7,9 @@ const defaultLambdaHandler = () => {}
 const defaultPlugin = {
   timeoutEarlyInMillis: 5,
   timeoutEarlyResponse: () => {
-    throw new Error('Timeout')
+    const httpError = new Error('Timeout')
+    httpError.statusCode = 408
+    throw httpError
   },
   streamifyResponse: false // Deprecate need for this when AWS provides a flag for when it's looking for it
 }
