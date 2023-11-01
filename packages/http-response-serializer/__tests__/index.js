@@ -350,3 +350,46 @@ test('It should return false when response body is falsey', async (t) => {
     body: false
   })
 })
+
+test('It should handle undefined response without throwing error', async (t) => {
+  const handler = middy((event, context) => {
+    return undefined
+  })
+
+  const event = {
+    headers: {
+      Accept: 'text/plain'
+    }
+  }
+  handler.use(httpResponseSerializer(standardConfiguration))
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 500,
+    headers: {
+      'Content-Type': 'text/plain'
+    },
+    body: undefined
+  })
+})
+
+test('It should handle undefined event without throwing error', async (t) => {
+  const handler = middy((event, context) => createHttpResponse())
+
+  const event = undefined
+  handler.use(
+    httpResponseSerializer({
+      ...standardConfiguration,
+      defaultContentType: 'text/plain'
+    })
+  )
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/plain'
+    },
+    body: 'Hello World'
+  })
+})
