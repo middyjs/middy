@@ -21,6 +21,7 @@ const httpEventNormalizerMiddleware = () => {
     // event.headers ??= {} // Will always have at least one header
     event.pathParameters ??= {}
     event.queryStringParameters ??= {}
+    event.headers ??= {}
   }
 
   return {

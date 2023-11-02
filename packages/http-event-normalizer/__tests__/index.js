@@ -206,3 +206,28 @@ test('It should not overwrite pathParameters with HTTP API', async (t) => {
 
   t.deepEqual(normalizedEvent.pathParameters, { param: 'hello' })
 })
+
+test('It should default headers prop with HTTP API', async (t) => {
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const handler = middy((event) => event).use(httpEventNormalizer())
+  const normalizedEvent = await handler(event, context)
+
+  t.deepEqual(normalizedEvent.headers, {})
+})
+
+test('It should not overwrite headers prop with HTTP API', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    headers: {
+      foo: true
+    }
+  }
+
+  const handler = middy((event) => event).use(httpEventNormalizer())
+  const normalizedEvent = await handler(event, context)
+
+  t.deepEqual(normalizedEvent.headers, { foo: true })
+})
