@@ -26,7 +26,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
       types = [request.event.requiredContentType]
     } else {
       const acceptHeader =
-        request.event.headers.Accept ?? request.event.headers.accept
+        request.event.headers?.Accept ?? request.event.headers?.accept
       types = [
         ...((acceptHeader && Accept.mediaTypes(acceptHeader)) ?? []),
         request.event.preferredContentType,

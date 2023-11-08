@@ -56,6 +56,7 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
 }
 
 for (const [accept, result] of [
+  [undefined, '{"message":"Hello World"}'],
   [
     'application/xml, text/x-dvi; q=0.8, text/x-c',
     '<message>Hello World</message>'
@@ -71,9 +72,9 @@ for (const [accept, result] of [
   ['text/plain, text/x-c', 'Hello World']
 ]) {
   test(`${accept} returns ${result}`, async (t) => {
-    const handler = middy((event, context) => createHttpResponse())
-
-    handler.use(httpResponseSerializer(standardConfiguration))
+    const handler = middy()
+      .use(httpResponseSerializer(standardConfiguration))
+      .handler(createHttpResponse)
 
     const event = {
       headers: {
@@ -86,6 +87,18 @@ for (const [accept, result] of [
     t.is(response.body, result)
   })
 }
+
+test('missing headers skips', async (t) => {
+  const handler = middy()
+    .use(httpResponseSerializer(standardConfiguration))
+    .handler(createHttpResponse)
+
+  const event = {}
+
+  const response = await handler(event, context)
+
+  t.is(response.body, '{"message":"Hello World"}')
+})
 
 test('It should use `event.requiredContentType` instead of accept headers', async (t) => {
   const handler = middy((event, context) => {
