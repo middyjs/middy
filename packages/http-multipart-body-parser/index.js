@@ -56,7 +56,7 @@ const parseMultipartData = (event, options) => {
     ...options.busboy,
     headers: {
       'content-type':
-        event.headers['Content-Type'] ?? event.headers['content-type']
+        event.headers?.['Content-Type'] ?? event.headers?.['content-type']
     }
   })
 
