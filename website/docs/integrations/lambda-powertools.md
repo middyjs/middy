@@ -18,6 +18,7 @@ Powertools is a collection of utilities that can be used independently or togeth
 - [**Logger**](https://s12d.com/middy-logger) - Structured logging made easier with a middleware to capture key fields from the Lambda context, cold starts, and more. Compatible with Amazon CloudWatch, Datadog, and more.
 - [**Tracer**](https://s12d.com/middy-tracer) - An opinionated wrapper around AWS X-Ray SDK for Node.js with a middleware to automatically capture traces for function invocations, HTTP requests, and AWS SDK calls, and more.
 - [**Metrics**](https://s12d.com/middy-metrics) - Create Amazon CloudWatch custom metrics asynchronously with a middleware that takes care of capturing cold starts, and flushes metrics to CloudWatch in [EMF-formatted](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html) batches.
+- [**Idempotency**](https://s12d.com/middy-idempotency) - Middleware to make your Lambda functions idempotent and prevent duplicate execution based on payload content.
 
 ## Logger
 
@@ -53,7 +54,7 @@ Middleware accepts the following options:
 import middy from '@middy/core';
 import { Logger, injectLambdaContext } from '@aws-lambda-powertools/logger';
 
-const logger = new Logger({ service: 'serverlessAirline' });
+const logger = new Logger({ serviceName: 'serverlessAirline' });
 
 const lambdaHandler = async (_event, _context) => {
   logger.info('This is an INFO log with some context', {
@@ -219,6 +220,72 @@ The above code will output a CloudWatch EMF object similar to the following:
 This EMF object will be sent to CloudWatch asynchronously by the CloudWatch service. You do not need any custom stacks, and there is no impact to Lambda function latency.
 
 The Metrics utility supports [high-resolution metrics](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-high-resolution-metrics) as well as [multi-value metrics](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-multi-value-metrics). It also allows you to add [default dimensions](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-default-dimensions) that are used in all the metrics emitted by your application or [create a one-off metric](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#single-metric-with-different-dimensions) with different dimensions.
+
+## Idempotency
+
+Key features:
+- Prevent Lambda handler from executing more than once on the same event payload during a time window
+- Ensure Lambda handler returns the same result when called with the same payload
+- Select a subset of the event as the idempotency key using JMESPath expressions
+- Set a time window in which records with the same payload should be considered duplicates
+- Expires in-progress executions if the Lambda function times out halfway through
+
+The property of idempotency means that an operation does not cause additional side effects if it is called more than once with the same input parameters. Idempotent operations will return the same result when they are called multiple times with the same parameters. This makes idempotent operations safe to retry.
+
+### Install
+
+```bash npm2yarn
+npm install --save @aws-lambda-powertools/idempotency @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+```
+
+### Options
+
+Middleware accepts the following options:
+- `persistenceStore` ([`BasePersistenceLayer`](https://docs.powertools.aws.dev/lambda/typescript/latest/api/classes/_aws_lambda_powertools_idempotency.persistence.BasePersistenceLayer.html)): Class used to interact with a [persistence store](https://docs.powertools.aws.dev/lambda/typescript/latest/utilities/idempotency/#persistence-layers).
+- `config` ([`IdempotencyConfig`](https://docs.powertools.aws.dev/lambda/typescript/latest/api/classes/_aws_lambda_powertools_idempotency.index.IdempotencyConfig.html)) (optional): Configuration object to customize the [default behavior](https://docs.powertools.aws.dev/lambda/typescript/latest/utilities/idempotency/#customizing-the-default-behavior) of the idempotency feature.
+
+### Sample usage
+
+```javascript
+import middy from '@middy/core';
+import { randomUUID } from 'node:crypto';
+import { makeHandlerIdempotent } from '@aws-lambda-powertools/idempotency/middleware';
+import { DynamoDBPersistenceLayer } from '@aws-lambda-powertools/idempotency/dynamodb';
+
+const persistenceStore = new DynamoDBPersistenceLayer({
+  tableName: 'idempotencyTableName',
+});
+
+const createSubscriptionPayment = async (
+  event
+) => {
+  // ... create payment
+  return {
+    id: randomUUID(),
+    productId: event.productId,
+  };
+};
+
+export const handler = middy(
+  async (event, _context) => {
+    try {
+      const payment = await createSubscriptionPayment(event);
+
+      return {
+        paymentId: payment.id,
+        message: 'success',
+        statusCode: 200,
+      };
+    } catch (error) {
+      throw new Error('Error creating payment');
+    }
+  }
+).use(
+  makeHandlerIdempotent({
+    persistenceStore,
+  })
+);
+```
 
 ## Best practices
 

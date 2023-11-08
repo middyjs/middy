@@ -1,8 +1,9 @@
 import middy from '@middy/core'
 
 interface Options {
-  normalizeHeaderKey?: (key: string) => string
   canonical?: boolean
+  defaultHeaders?: Record<string, string>
+  normalizeHeaderKey?: (key: string) => string
 }
 
 export interface Event {
