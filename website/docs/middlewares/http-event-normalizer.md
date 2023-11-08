@@ -38,22 +38,3 @@ const handler = middy((event, context) => {
 
 handler.use(httpEventNormalizer())
 ```
-
-## Need to set default `Content-Type` of other missing headers?
-
-```javascript
-import middy from '@middy/core'
-import httpEventNormalizer from '@middy/http-event-normalizer'
-
-const handler = middy()
-  .before((request) => {
-    request.event.headers['Content-Type'] ??= 'application/json'
-  })
-  .use(httpEventNormalizer())
-  .handler((event, context) => {
-    console.log(`Hello user ${event.pathParameters.userId}`)
-    // might produce `Hello user undefined`, but not an error
-
-    return {}
-  })
-```

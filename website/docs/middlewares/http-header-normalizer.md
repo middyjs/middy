@@ -23,13 +23,12 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-header-normalizer
 ```
 
-
 ## Options
 
- - `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
+- `canonical` (bool) (optional): if true, modifies the headers to canonical format, otherwise the headers are normalized to lowercase (default `false`)
+- `defaultHeaders` (object) (optional): Default headers to used if any are missing. i.e. `Content-Type` (default `{}`)
+- `normalizeHeaderKey` (function) (optional): a function that accepts an header name as a parameter and returns its
   canonical representation.
- - `canonical` (bool) (optional): if true, modifies the headers to canonical format, otherwise the headers are normalized to lowercase (default `false`)
-
 
 ## Sample usage
 
@@ -37,10 +36,9 @@ npm install --save @middy/http-header-normalizer
 import middy from '@middy/core'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 
-const handler = middy((event, context) => {
-  return {}
-})
-
-handler
+const handler = middy()
   .use(httpHeaderNormalizer())
+  .handler((event, context) => {
+    return {}
+  })
 ```

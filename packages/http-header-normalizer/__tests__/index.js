@@ -107,6 +107,47 @@ test('It can use custom normalization function', async (t) => {
   t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
+test('It should normalize (lowercase) all the headers with defaults', async (t) => {
+  const handler = middy()
+    .use(
+      httpHeaderNormalizer({
+        defaultHeaders: {
+          'Content-Type': 'application/json',
+          Accept: '*/*'
+        }
+      })
+    )
+    .handler((event, context) => event)
+
+  const event = {
+    headers: {
+      'x-aPi-key': '123456',
+      tcn: 'abc',
+      te: 'cde',
+      DNS: 'd',
+      FOO: 'bar',
+      Accept: 'application/json'
+    }
+  }
+
+  const expectedHeaders = {
+    'x-api-key': '123456',
+    tcn: 'abc',
+    te: 'cde',
+    dns: 'd',
+    foo: 'bar',
+    accept: 'application/json',
+    'content-type': 'application/json'
+  }
+
+  const originalHeaders = { ...event.headers }
+
+  const resultingEvent = await handler(event, context)
+
+  t.deepEqual(resultingEvent.headers, expectedHeaders)
+  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
+})
+
 // multiValueHeaders
 
 test('It should normalize (lowercase) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
@@ -174,6 +215,47 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
 
   const expectedHeaders = {
     COOKIE: ['123456', '654321']
+  }
+
+  const originalHeaders = { ...event.multiValueHeaders }
+
+  const resultingEvent = await handler(event, context)
+
+  t.deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
+  t.deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
+})
+
+test('It should normalize (lowercase) all the multiValueHeaders with defaults', async (t) => {
+  const handler = middy()
+    .use(
+      httpHeaderNormalizer({
+        defaultHeaders: {
+          'Content-Type': 'application/json',
+          Accept: '*/*'
+        }
+      })
+    )
+    .handler((event, context) => event)
+
+  const event = {
+    multiValueHeaders: {
+      'x-aPi-key': '123456',
+      tcn: 'abc',
+      te: 'cde',
+      DNS: 'd',
+      FOO: 'bar',
+      Accept: 'application/json'
+    }
+  }
+
+  const expectedHeaders = {
+    'x-api-key': '123456',
+    tcn: 'abc',
+    te: 'cde',
+    dns: 'd',
+    foo: 'bar',
+    accept: 'application/json',
+    'content-type': 'application/json'
   }
 
   const originalHeaders = { ...event.multiValueHeaders }
