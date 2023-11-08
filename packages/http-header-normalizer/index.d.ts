@@ -10,7 +10,7 @@ export interface Event {
   rawHeaders: Record<string, string>
 }
 
-declare function httpHeaderNormalizer(
+declare function httpHeaderNormalizer (
   options?: Options
 ): middy.MiddlewareObj<Event>
 
