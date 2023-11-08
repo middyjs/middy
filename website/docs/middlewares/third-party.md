@@ -20,6 +20,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
+- [@iress/middy-http-path-router](https://www.npmjs.com/package/@iress/middy-http-path-router): Routes AWS API Gateway events to handlers based on static and dynamic paths
 
 ## Version 2.x - 3.x
 
