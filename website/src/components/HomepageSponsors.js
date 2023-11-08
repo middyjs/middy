@@ -28,6 +28,13 @@ const SponsorListLevel2 = [
     img: '/img/logo/fourthereom.svg'
     // 2023-07 - 2024-06
   },
+  {
+    title:
+      'Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)',
+    url: 'https://github.com/aws',
+    img: '/img/logo/amazon-web-services.svg'
+    // 2023-11-08
+  },
   emptySponsor
 ]
 
