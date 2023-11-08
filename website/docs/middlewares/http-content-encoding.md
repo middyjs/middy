@@ -59,6 +59,13 @@ import httpContentEncoding from '@middy/http-content-encoding'
 import { constants } from 'node:zlib'
 import { createReadableStream } from '@datastream/core'
 
+const lambdaHandler = (event, context) => {
+  return {
+    statusCode: 200,
+    body: createReadableStream('{...}')
+  }
+}
+
 export const handler = middy({ streamifyResponse: true })
   .use(httpContentNegotiation())
   .use(httpContentEncoding({
@@ -70,10 +77,5 @@ export const handler = middy({ streamifyResponse: true })
     },
     overridePreferredEncoding: ['br', 'gzip', 'deflate']
   })
-  .handler((event, context) => {
-    return {
-      statusCode: 200,
-      body: createReadableStream('{...}')
-    }
-  })
+  .handler(lambdaHandler)
 ```

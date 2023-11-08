@@ -19,6 +19,7 @@ npm install --save @middy/ws-router
   - `handler` (function) (required): Any `handler(event, context, {signal})` function
 
 NOTES:
+
 - Errors should be handled as part of the router middleware stack **or** the lambdaHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 
@@ -42,16 +43,18 @@ const disconnectHandler = middy()
     return 'disconnected'
   })
 
+const routes = [
+  {
+    routeKey: '$connect',
+    handler: connectHandler
+  },
+  {
+    routeKey: '$disconnect',
+    handler: disconnectHandler
+  }
+]
+
 export const handler = middy()
   .use(wsResponseMiddleware())
-  .handler(wsRouterHandler([
-    {
-      routeKey: '$connect',
-      handler: connectHandler
-    },
-    {
-      routeKey: '$disconnect',
-      handler: disconnectHandler
-    }
-  ]))
+  .handler(wsRouterHandler(routes))
 ```

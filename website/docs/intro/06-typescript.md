@@ -11,7 +11,9 @@ Here's an example of how you might be using Middy with TypeScript for a Lambda r
 import middy from '@middy/core'
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 
-async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+async function lambdaHandler(
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> {
   // the returned response will be checked against the type `APIGatewayProxyResult`
   return {
     statusCode: 200,
@@ -19,9 +21,10 @@ async function lambdaHandler (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 }
 
-let handler = middy(lambdaHandler)
+let handler = middy()
   .use(someMiddleware)
   .use(someOtherMiddleware)
+  .handler(lambdaHandler)
 
 export default handler
 ```

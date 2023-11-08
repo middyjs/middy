@@ -69,7 +69,7 @@ const schema = {
 }
 
 // Let's "middyfy" our handler, then we will be able to attach middlewares to it
-const handler = middy()
+export const handler = middy()
   .use(jsonBodyParser()) // parses the request body when it's a JSON and converts it to an object
   .use(validator({ eventSchema: transpileSchema(schema) })) // validates the input
   .use(httpErrorHandler()) // handles common http errors and returns proper responses

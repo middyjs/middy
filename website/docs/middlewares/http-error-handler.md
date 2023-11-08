@@ -28,11 +28,10 @@ npm install --save @middy/http-error-handler
 import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   throw new createError.UnprocessableEntity()
-})
-
-handler.use(httpErrorHandler())
+}
+export const handler = middy().use(httpErrorHandler()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {

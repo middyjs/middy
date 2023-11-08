@@ -34,10 +34,13 @@ import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'
 import cors from '@middy/http-cors'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   throw new createError.UnprocessableEntity()
-})
-handler.use(httpErrorHandler()).use(cors())
+}
+export const handler = middy()
+  .use(httpErrorHandler())
+  .use(cors())
+  .handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
@@ -55,11 +58,10 @@ handler({}, {}, (_, response) => {
 import middy from '@middy/core'
 import cors from '@middy/http-cors'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
-
-handler.use(cors())
+}
+export const handler = middy().use(cors()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {

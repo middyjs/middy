@@ -70,34 +70,36 @@ When planning to use `Accept`, an external input, it is recommended to validate 
 import middy from '@middy/core'
 import httpResponseSerializer from '@middy/http-response-serializer'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const body = 'Hello World'
 
   return {
     statusCode: 200,
     body
   }
-})
+}
 
-handler.use(
-  httpResponseSerializer({
-    serializers: [
-      {
-        regex: /^application\/xml$/,
-        serializer: ({ body }) => `<message>${body}</message>`
-      },
-      {
-        regex: /^application\/json$/,
-        serializer: ({ body }) => JSON.stringify(body)
-      },
-      {
-        regex: /^text\/plain$/,
-        serializer: ({ body }) => body
-      }
-    ],
-    defaultContentType: 'application/json'
-  })
-)
+export const handler = middy()
+  .use(
+    httpResponseSerializer({
+      serializers: [
+        {
+          regex: /^application\/xml$/,
+          serializer: ({ body }) => `<message>${body}</message>`
+        },
+        {
+          regex: /^application\/json$/,
+          serializer: ({ body }) => JSON.stringify(body)
+        },
+        {
+          regex: /^text\/plain$/,
+          serializer: ({ body }) => body
+        }
+      ],
+      defaultContentType: 'application/json'
+    })
+  )
+  .handler(lambdaHandler)
 
 const event = {
   headers: {

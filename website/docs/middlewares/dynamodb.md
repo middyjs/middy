@@ -35,7 +35,7 @@ NOTES:
 import middy from '@middy/core'
 import dynamodb from '@middy/dynamodb'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     headers: {},
@@ -43,26 +43,27 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
-  dynamodb({
-    fetchData: {
-      config: {
-        TableName: '...'
-        Key: {
-          pk: '0000'
+export const handler = middy()
+  .use(
+    dynamodb({
+      fetchData: {
+        config: {
+          TableName: '...',
+          Key: {
+            pk: '0000'
+          }
         }
       }
-    }
-  })
-)
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Bundling
 
 To exclude `@aws-sdk` add `@aws-sdk/client-dynamodb` to the exclude list.
-
 
 ## Usage with TypeScript
 
@@ -75,7 +76,6 @@ The idea is that, for every request specified in the `fetchData` option, rather 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
 The following example illustrates how to use `dynamoDbReq`:
-
 
 ```typescript
 import middy from '@middy/core'

@@ -46,7 +46,7 @@ export default customMiddleware
 With this convention in mind, using a middleware will always look like the following example:
 
 ```javascript
-import middy  from '@middy/core'
+import middy from '@middy/core'
 import customMiddleware from 'customMiddleware.js'
 
 const lambdaHandler = async (event, context) => {
@@ -54,9 +54,12 @@ const lambdaHandler = async (event, context) => {
   return {}
 }
 
-export const handler = middy(lambdaHandler)
-  .use(customMiddleware({
-    option1: 'foo',
-    option2: 'bar'
-  }))
+export const handler = middy()
+  .use(
+    customMiddleware({
+      option1: 'foo',
+      option2: 'bar'
+    })
+  )
+  .handler(lambdaHandler)
 ```

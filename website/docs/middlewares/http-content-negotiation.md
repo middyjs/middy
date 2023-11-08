@@ -47,7 +47,7 @@ import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpErrorHandler from '@middy/http-error-handler'
 
-export const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   let message, body
 
   switch (context.preferredLanguage) {
@@ -79,9 +79,9 @@ export const handler = middy((event, context) => {
     statusCode: 200,
     body
   }
-})
+}
 
-handler
+export const handler = middy()
   .use(httpHeaderNormalizer())
   .use(
     httpContentNegotiation({
@@ -97,4 +97,5 @@ handler
     })
   )
   .use(httpErrorHandler())
+  .handler(lambdaHandler)
 ```

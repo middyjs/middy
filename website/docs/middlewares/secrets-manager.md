@@ -44,21 +44,23 @@ NOTES:
 import middy from '@middy/core'
 import secretsManager from '@middy/secrets-manager'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
-handler.use(
-  secretsManager({
-    fetchData: {
-      apiToken: 'dev/api_token'
-    },
-    awsClientOptions: {
-      region: 'us-east-1'
-    },
-    setToContext: true
-  })
-)
+export const handler = middy()
+  .use(
+    secretsManager({
+      fetchData: {
+        apiToken: 'dev/api_token'
+      },
+      awsClientOptions: {
+        region: 'us-east-1'
+      },
+      setToContext: true
+    })
+  )
+  .handler(lambdaHandler)
 
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
@@ -72,7 +74,6 @@ handler(event, context, (_, response) => {
 
 To exclude `@aws-sdk` add `@aws-sdk/client-secrets-manager` to the exclude list.
 
-
 ## Usage with TypeScript
 
 Data stored in SecretsManager can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched secrets will have type `unknown`.
@@ -85,12 +86,11 @@ This way TypeScript can understand how to treat the additional data attached to 
 
 The following example illustrates how to use `secret`:
 
-
 ```typescript
 import middy from '@middy/core'
 import secretsManager, { secret } from '@middy/secrets-manager'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   console.log(context.config)
   const response = {
     statusCode: 200,
@@ -99,9 +99,10 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
+export const handler = middy()
+.use(
   secretsManager({
     fetchData: {
       someSecret: secret<{User: string, Password: string}>('someHiddenSecret')
@@ -117,4 +118,5 @@ handler.use(
   // request.context.someSecret.User (string)
   // request.context.someSecret.Password (string)
 })
+.handler(lambdaHandler)
 ```

@@ -72,9 +72,9 @@ import middy from '@middy/core'
 import validator from '@middy/validator'
 import { transpileSchema } from '@middy/validator/transpile'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
 const schema = {
   type: 'object',
@@ -91,11 +91,13 @@ const schema = {
   }
 }
 
-handler.use(
-  validator({
-    eventSchema: transpileSchema(schema)
-  })
-)
+export const handler = middy()
+  .use(
+    validator({
+      eventSchema: transpileSchema(schema)
+    })
+  )
+  .handler(lambdaHandler)
 
 // invokes the handler, note that property foo is missing
 const event = {
@@ -113,9 +115,9 @@ import middy from '@middy/core'
 import validator from '@middy/validator'
 import { transpileSchema } from '@middy/validator/transpile'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
 const responseSchema = transpileSchema({
   type: 'object',
@@ -130,8 +132,11 @@ const responseSchema = transpileSchema({
   }
 })
 
-handler.use(validator({ responseSchema }))
+export const handler = middy()
+  .use(validator({ responseSchema }))
+  .handler(lambdaHandler)
 
+//
 handler({}, {}, (err, response) => {
   t.not(err, null)
   t.is(err.message, 'Response object failed validation')
@@ -148,11 +153,11 @@ import httpJsonBodyParser from '@middy/http-json-body-parser'
 import validator from '@middy/validator'
 import { transpileSchema } from '@middy/validator/transpile'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
-const schema = {
+const eventSchema = {
   type: 'object',
   required: ['body'],
   properties: {
@@ -168,12 +173,15 @@ const schema = {
   }
 }
 
-// to validate the body we need to parse it first
-handler.use(httpJsonBodyParser()).use(
-  validator({
-    eventSchema: transpileSchema(schema)
-  })
-)
+export const handler = middy()
+  // to validate the body we need to parse it first
+  .use(httpJsonBodyParser())
+  .use(
+    validator({
+      eventSchema: transpileSchema(eventSchema)
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Pre-transpiling example (recommended)
@@ -216,6 +224,10 @@ import eventSchema from './schema.event.js'
 import en from './en.js'
 import fr from './fr.js'
 
+const lambdaHandler = (event, context) => {
+  return {}
+}
+
 export const handler = middy()
   .use(
     validator({
@@ -223,9 +235,7 @@ export const handler = middy()
       languages: { en, fr }
     })
   )
-  .handler((event, context) => {
-    return {}
-  })
+  .handler(lambdaHandler)
 ```
 
 ## Transpile during cold-start
@@ -237,6 +247,10 @@ import validator from '@middy/validator'
 import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
 import eventSchema from './schema.event.json'
 
+const lambdaHandler = (event, context) => {
+  return {}
+}
+
 const en = transpileLocale(await readFile('./en.ftl'))
 const fr = transpileLocale(await readFile('./fr.ftl'))
 
@@ -247,9 +261,7 @@ export const handler = middy()
       languages: { en, fr }
     })
   )
-  .handler((event, context) => {
-    return {}
-  })
+  .handler(lambdaHandler)
 ```
 
 ## Transpile during cold-start with default messages
@@ -262,6 +274,10 @@ import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
 import { en, fr } from 'ajv-ftl-i18n' // `ajv-i18n` can also be used
 import eventSchema from './schema.event.json'
 
+const lambdaHandler = (event, context) => {
+  return {}
+}
+
 export const handler = middy()
   .use(
     validator({
@@ -269,7 +285,5 @@ export const handler = middy()
       languages: { en, fr }
     })
   )
-  .handler((event, context) => {
-    return {}
-  })
+  .handler(lambdaHandler)
 ```

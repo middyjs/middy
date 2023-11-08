@@ -37,15 +37,15 @@ import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const readStream = await context.s3ObjectFetch.then(res => res.body)
   const transformStream = zlib.createBrotliCompress()
   return {
     Body: readStream.pipe(transformStream)
   }
-})
+}
 
-handler.use(s3ObjectResponse())
+export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler)
 ```
 
 ### JSON
@@ -55,15 +55,15 @@ import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
 
-const handler = middy(async (event, context) => {
+const lambdaHandler = async (event, context) => {
   let body = await context.s3ObjectFetch.then((res) => res.json())
   // change body
   return {
     Body: JSON.stringify(body)
   }
-})
+}
 
-handler.use(s3ObjectResponse())
+export const handler = middy().use(s3ObjectResponse()).handler(lambdaHandler)
 ```
 
 ## Bundling

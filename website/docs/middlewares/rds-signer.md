@@ -33,7 +33,7 @@ NOTES:
 import middy from '@middy/core'
 import rdsSigner from '@middy/rds-signer'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     headers: {},
@@ -41,20 +41,22 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
-  rdsSigner({
-    fetchData: {
-      rdsToken: {
-        region: 'ca-central-1',
-        hostname: '***.rds.amazonaws.com',
-        username: 'iam_role',
-        port: 5432
+export const handler = middy()
+  .use(
+    rdsSigner({
+      fetchData: {
+        rdsToken: {
+          region: 'ca-central-1',
+          hostname: '***.rds.amazonaws.com',
+          username: 'iam_role',
+          port: 5432
+        }
       }
-    }
-  })
-)
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Bundling

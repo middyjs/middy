@@ -35,34 +35,33 @@ NOTES:
 import middy from '@middy/core'
 import appConfig from '@middy/appconfig'
 
-const handler = middy((event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
-
-  return response
-})
-
-handler.use(
-  appConfig({
-    fetchData: {
-      config: {
-        Application: '...',
-        ClientId: '...',
-        Configuration: '...',
-        Environment: '...'
+const handler = middy()
+  .use(
+    appConfig({
+      fetchData: {
+        config: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
       }
+    })
+  )
+  .handler((event, context) => {
+    const response = {
+      statusCode: 200,
+      headers: {},
+      body: JSON.stringify({ message: 'hello world' })
     }
+
+    return response
   })
-)
 ```
 
 ## Bundling
 
 To exclude `@aws-sdk` add `@aws-sdk/client-appconfig` to the exclude list.
-
 
 ## Usage with TypeScript
 
@@ -76,37 +75,36 @@ This way TypeScript can understand how to treat the additional data attached to 
 
 The following example illustrates how to use `appConfigReq`:
 
-
 ```typescript
 import middy from '@middy/core'
-import appConfig, {appConfigReq} from '@middy/appconfig'
+import appConfig, { appConfigReq } from '@middy/appconfig'
 
-const handler = middy((event, context) => {
-  const response = {
+const lambdaHandler = (event, context) => {
+  return {
     statusCode: 200,
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
   }
-
-  return response
 })
 
-handler.use(
-  appConfig({
-    fetchData: {
-      config: appConfigReq<{ field1: string, field2: string, field3: number }>({
-        Application: '...',
-        ClientId: '...',
-        Configuration: '...',
-        Environment: '...'
-      })
-    }
+export const handler = middy()
+  .use(
+    appConfig({
+      fetchData: {
+        config: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
+      }
+    })
+  )
+  .before(async (request) => {
+    const data = await getInternal('config', request)
+    // data.config.field1 (string)
+    // data.config.field2 (string)
+    // data.config.field3 (number)
   })
-)
-.before(async (request) => {
-  const data = await getInternal('config', request)
-  // data.config.field1 (string)
-  // data.config.field2 (string)
-  // data.config.field3 (number)
-})
+.handler(lambdaHandler)
 ```

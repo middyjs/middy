@@ -35,7 +35,7 @@ NOTES:
 import middy from '@middy/core'
 import sts from '@middy/sts'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     headers: {},
@@ -43,18 +43,20 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
-  sts({
-    fetchData: {
-      assumeRole: {
-        RoleArn: '...',
-        RoleSessionName: '' // optional
+export const handler = middy()
+  .use(
+    sts({
+      fetchData: {
+        assumeRole: {
+          RoleArn: '...',
+          RoleSessionName: '' // optional
+        }
       }
-    }
-  })
-)
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Bundling

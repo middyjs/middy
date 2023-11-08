@@ -24,11 +24,14 @@ import middy from '@middy/core'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpUrlEncodeBodyParser from '@middy/http-urlencode-body-parser'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return event.body // propagates the body as response
-})
+}
 
-handler.use(httpHeaderNormalizer()).use(httpUrlEncodeBodyParser())
+export const handler = middy()
+  .use(httpHeaderNormalizer())
+  .use(httpUrlEncodeBodyParser())
+  .handler(lambdaHandler)
 
 // When Lambda runs the handler with a sample event...
 const event = {

@@ -32,7 +32,7 @@ const lambdaHandler = (event, context) => {
   return Promise.allSettled(recordPromises)
 }
 
-export const handler = middy(lambdaHandler).use(sqsBatch())
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
 ```
 
 ## Important

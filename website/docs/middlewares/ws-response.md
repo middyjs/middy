@@ -48,20 +48,22 @@ handler.use(wsResponse())
 import middy from '@middy/core'
 import wsResponse from '@middy/ws-response'
 
-export const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {
     ConnectionId: '...',
     Data: 'message'
   }
-})
+}
 
-handler.use(
-  wsResponse({
-    awsClientOptions: {
-      endpoint: '...'
-    }
-  })
-)
+export const handler = middy()
+  .use(
+    wsResponse({
+      awsClientOptions: {
+        endpoint: '...'
+      }
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Bundling

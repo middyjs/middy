@@ -44,12 +44,12 @@ NOTES:
 import middy from '@middy/core'
 import ssm from '@middy/ssm'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
 let globalDefaults = {}
-handler
+export const handler = middy()
   .use(
     ssm({
       fetchData: {
@@ -63,6 +63,7 @@ handler
   .before((request) => {
     globalDefaults = request.context.defaults.global
   })
+  .handler(lambdaHandler)
 ```
 
 ```javascript
@@ -70,12 +71,12 @@ import middy from '@middy/core'
 import { getInternal } from '@middy/util'
 import ssm from '@middy/ssm'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
 let globalDefaults = {}
-handler
+export const handler = middy()
   .use(
     ssm({
       fetchData: {
@@ -102,6 +103,7 @@ handler
     )
     Object.assign(request.context, data)
   })
+  .handler(lambdaHandler)
 ```
 
 ## Bundling
@@ -120,23 +122,24 @@ This way TypeScript can understand how to treat the additional data attached to 
 
 The following example illustrates how to use `ssmParam`:
 
-
 ```typescript
 import middy from '@middy/core'
 import { getInternal } from '@middy/util'
-import ssm, {ssmParam} from '@middy/ssm'
+import ssm, { ssmParam } from '@middy/ssm'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
 let globalDefaults = {}
-handler
+export const handler = middy()
   .use(
     ssm({
       fetchData: {
         accessToken: ssmParam<string>('/dev/service_name/access_token'), // single value (will be typed as string)
-        dbParams: ssmParam<{user: string, pass: string}>('/dev/service_name/database/') // object of values (typed as {user: string, pass: string})
+        dbParams: ssmParam<{ user: string; pass: string }>(
+          '/dev/service_name/database/'
+        ) // object of values (typed as {user: string, pass: string})
       },
       cacheExpiry: 15 * 60 * 1000,
       cacheKey: 'ssm-secrets'
@@ -144,11 +147,9 @@ handler
   )
   // ... other middleware that fetch
   .before(async (request) => {
-    const data = await getInternal(
-      ['accessToken', 'dbParams', ],
-      request
-    )
+    const data = await getInternal(['accessToken', 'dbParams'], request)
     // data.accessToken (string)
     // data.dbParams ({user: string, pass: string})
   })
+  .handler(lambdaHandler)
 ```
