@@ -20,7 +20,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     }
 
     // Non-http error OR expose set to false
-    if (!request.error.expose || !request.error.statusCode)) {
+    if (!request.error.expose || !request.error.statusCode) {
       request.error = {
         statusCode: 500,
         message: options.fallbackMessage || 'Internal Server Error',
