@@ -1,6 +1,6 @@
 {
   "name": "@middy/warmup",
-  "version": "4.6.6",
+  "version": "4.7.0",
   "description": "Warmup (cold start mitigation) middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -66,7 +66,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
-    "@middy/core": "4.6.6"
+    "@middy/core": "4.7.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
