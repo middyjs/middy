@@ -96,7 +96,7 @@ export default function Example () {
           Do you want to see some more <em>realistic</em> examples?
         </h3>
 
-        <p className='text--center'>
+        <p className={styles.buttons_list}>
           <Link
             to='/docs/events/api-gateway-http'
             className='button button--info'
