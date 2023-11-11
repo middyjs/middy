@@ -1,19 +1,11 @@
 import middy from '@middy/core'
-import { APIGatewayEvent } from 'aws-lambda'
-import { JsonValue } from 'type-fest'
+import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 
 interface Options {
   reviver?: (key: string, value: any) => any
   disableContentTypeError?: boolean
 }
 
-export type Event = Omit<APIGatewayEvent, 'body'> & {
-  /**
-   * The body of the HTTP request.
-   */
-  body: JsonValue
-}
-
-declare function jsonBodyParser (options?: Options): middy.MiddlewareObj<Event>
+declare function jsonBodyParser (options?: Options): middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2>
 
 export default jsonBodyParser
