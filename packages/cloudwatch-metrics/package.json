@@ -63,7 +63,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "aws-embedded-metrics": "4.1.0"
+    "aws-embedded-metrics": "4.1.1"
   },
   "devDependencies": {
     "@middy/core": "5.0.0-alpha.2",
