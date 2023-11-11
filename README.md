@@ -45,6 +45,10 @@
   <img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/website/static/img/logo/fourthereom.svg" style="max-width:50%" width="380"/>
 </a>
 
+<a href="https://github.com/aws">
+  <img alt="Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)" src="https://raw.githubusercontent.com/middyjs/middy/main/website/static/img/logo/amazon-web-services.svg" style="max-width:50%" width="380"/>
+</a>
+
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2023 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell) and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).

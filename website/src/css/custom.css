@@ -35,10 +35,14 @@ html[data-theme='dark'] {
 }
 
 html[data-theme='dark'] .docusaurus-highlight-code-line {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(181, 24, 24, 0.3);
 }
 
 html[data-theme='dark'] .navbar__logo img,
 html[data-theme='dark'] img[alt="Middy middleware engine diagram"] {
   filter: invert(1);
+}
+
+.token-line.theme-code-block-highlighted-line {
+  background-color: rgba(245, 203, 67, 0.154) !important;
 }
