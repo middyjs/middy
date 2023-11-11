@@ -98,6 +98,6 @@ test('It should throw when not a ws event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, '[ws-router] Unknown ws event format')
+    t.is(e.message, 'Unknown WebSocket event format')
   }
 })

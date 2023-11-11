@@ -87,5 +87,5 @@ const lambdaHandler = (event, context) => {
   }
 }
 
-const handler = middy(lambdaHandler).use(eventNormalizer())
+export const handler = middy().use(eventNormalizer()).handler(lambdaHandler)
 ```

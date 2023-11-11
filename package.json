@@ -1,11 +1,11 @@
 {
   "name": "@middy/monorepo",
-  "version": "4.7.0",
+  "version": "5.0.0-alpha.2",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "engineStrict": true,
   "scripts": {
@@ -24,11 +24,10 @@
     "test:packages:typings": "lerna exec --bail --concurrency 5 tsd",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "lerna:rm": "npm run lerna:rm:node_modules && npm run lerna:rm:lock",
-    "lerna:rm:cjs": "lerna exec -- rm -rf index.cjs && lerna exec -- rm -rf index.cjs.bak",
     "lerna:rm:lock": "lerna exec -- rm -rf package-lock.json",
     "lerna:rm:node_modules": "lerna exec -- rm -rf node_modules",
     "lerna:update": "lerna exec --bail --concurrency 5 npm update && npm install",
-    "lerna:outdated": "lerna exec --concurrency 5 npm outdated --no-bail",
+    "lerna:outdated": "lerna exec --concurrency 5 --no-bail npm outdated",
     "lerna:audit": "lerna exec --concurrency 2 npm audit fix",
     "lerna:fund": "lerna exec --concurrency 2 npm fund",
     "lerna:sync": "lerna exec --bail --concurrency 2 npm install && lerna publish --exact --yes --skip-npm --skip-git --repo-version $npm_package_version",

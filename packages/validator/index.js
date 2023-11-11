@@ -23,13 +23,16 @@ const validatorMiddleware = (opts = {}) => {
 
       if (!validEvent) {
         const localize =
-          languages[request.event.preferredLanguage] ??
+          languages[request.context.preferredLanguage] ??
           languages[defaultLanguage]
         localize?.(eventSchema.errors)
 
         // Bad Request
         throw createError(400, 'Event object failed validation', {
-          cause: eventSchema.errors
+          cause: {
+            pacakge: '@middy/validator',
+            data: eventSchema.errors
+          }
         })
       }
     }
@@ -40,7 +43,10 @@ const validatorMiddleware = (opts = {}) => {
       if (!validContext) {
         // Internal Server Error
         throw createError(500, 'Context object failed validation', {
-          cause: contextSchema.errors
+          cause: {
+            package: '@middy/validator',
+            data: contextSchema.errors
+          }
         })
       }
     }
@@ -52,7 +58,10 @@ const validatorMiddleware = (opts = {}) => {
     if (!validResponse) {
       // Internal Server Error
       throw createError(500, 'Response object failed validation', {
-        cause: responseSchema.errors
+        cause: {
+          package: '@middy/validator',
+          data: responseSchema.errors
+        }
       })
     }
   }

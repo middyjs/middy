@@ -27,18 +27,19 @@ npm install --save @middy/cloudwatch-metrics
 const middy = require('@middy/core')
 const cloudwatchMetrics = require('@middy/cloudwatch-metrics')
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   context.metrics.putMetric('ProcessingLatency', 100, 'Milliseconds')
   context.metrics.setProperty(
     'RequestId',
     '422b1569-16f6-4a03-b8f0-fe3fd9b100f8'
   )
-})
-
-handler.use(
-  cloudwatchMetrics({
-    namespace: 'myAppliction',
-    dimensions: [{ Action: 'Buy' }]
-  })
-)
+}
+export const handler = middy()
+  .use(
+    cloudwatchMetrics({
+      namespace: 'myAppliction',
+      dimensions: [{ Action: 'Buy' }]
+    })
+  )
+  .handler(lambdaHandler)
 ```

@@ -11,6 +11,7 @@ If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless
 **Important:** AWS recently announced Lambda [Provisioned Concurrency](https://aws.amazon.com/about-aws/whats-new/2019/12/aws-lambda-announces-provisioned-concurrency/). If you have this enabled, you do not need this middleware.
 
 To update your code to use Provisioned Concurrency see:
+
 - [AWS Console](https://aws.amazon.com/blogs/compute/new-for-aws-lambda-predictable-start-up-times-with-provisioned-concurrency/)
 - [Serverless](https://serverless.com/blog/aws-lambda-provisioned-concurrency/)
 - [Terraform](https://www.terraform.io/docs/providers/aws/r/lambda_provisioned_concurrency_config.html)
@@ -23,11 +24,10 @@ To install this middleware you can use NPM:
 npm install --save @middy/warmup
 ```
 
-
 ## Options
 
- - `isWarmingUp`: a function that accepts the `event` object as a parameter
-   and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
+- `isWarmingUp`: a function that accepts the `event` object as a parameter
+  and returns `true` if the current event is a warmup event and `false` if it's a regular execution. The default function will check if the `event` object has a `source` property set to `serverless-plugin-warmup`.
 
 ## Sample usage
 
@@ -35,12 +35,13 @@ npm install --save @middy/warmup
 const middy = require('@middy/core')
 const warmup = require('@middy/warmup')
 
-const isWarmingUp = (event) => event.isWarmingUp === true
-
-const originalHandler = (event, context, cb) => {
+const lambdaHandler = (event, context, cb) => {
   /* ... */
 }
 
-const handler = middy(originalHandler)
+const isWarmingUp = (event) => event.isWarmingUp === true
+
+export const handler = middy()
   .use(warmup({ isWarmingUp }))
+  .handler(lambdaHandler)
 ```

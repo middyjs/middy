@@ -12,19 +12,17 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-security-headers
 ```
 
-
 ## Options
 
- - `dnsPrefetchControl` controls browser DNS prefetching
- - `expectCt` for handling Certificate Transparency (Future Feature)
- - `frameguard` to prevent clickjacking
- - `hidePoweredBy` to remove the Server/X-Powered-By header
- - `hsts` for HTTP Strict Transport Security
- - `ieNoOpen` sets X-Download-Options for IE8+
- - `noSniff` to keep clients from sniffing the MIME type
- - `referrerPolicy` to hide the Referer header
- - `xssFilter` adds some small XSS protections
-
+- `dnsPrefetchControl` controls browser DNS prefetching
+- `expectCt` for handling Certificate Transparency (Future Feature)
+- `frameguard` to prevent clickjacking
+- `hidePoweredBy` to remove the Server/X-Powered-By header
+- `hsts` for HTTP Strict Transport Security
+- `ieNoOpen` sets X-Download-Options for IE8+
+- `noSniff` to keep clients from sniffing the MIME type
+- `referrerPolicy` to hide the Referer header
+- `xssFilter` adds some small XSS protections
 
 ## Sample usage
 
@@ -32,10 +30,9 @@ npm install --save @middy/http-security-headers
 import middy from '@middy/core'
 import httpSecurityHeaders from '@middy/http-security-headers'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
-handler
-  .use(httpSecurityHeaders())
+export const handler = middy().use(httpSecurityHeaders()).handler(lambdaHandler)
 ```

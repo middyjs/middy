@@ -1,33 +1,27 @@
 {
   "name": "@middy/ws-json-body-parser",
-  "version": "4.7.0",
+  "version": "5.0.0-alpha.2",
   "description": "WebSocket JSON body parser middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "engineStrict": true,
   "publishConfig": {
     "access": "public"
   },
-  "main": "./index.cjs",
   "module": "./index.js",
   "exports": {
     ".": {
       "import": {
         "types": "./index.d.ts",
         "default": "./index.js"
-      },
-      "require": {
-        "types": "./index.d.ts",
-        "default": "./index.cjs"
       }
     }
   },
   "types": "index.d.ts",
   "files": [
     "index.js",
-    "index.cjs",
     "index.d.ts"
   ],
   "scripts": {
@@ -68,10 +62,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "4.7.0"
+    "@middy/util": "5.0.0-alpha.2"
   },
   "devDependencies": {
-    "@middy/core": "4.7.0",
+    "@middy/core": "5.0.0-alpha.2",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^4.0.0"
   },

@@ -1,13 +1,30 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
 import { SSMClient } from '@aws-sdk/client-ssm'
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context as LambdaContext } from 'aws-lambda'
 import * as util from '.'
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+type TInternal = {
+  boolean: true
+  number: 1
+  string: 'string'
+  array: []
+  object: {
+    key: 'value'
+  }
+  promise: Promise<string>
+  promiseObject: Promise<{
+    key: 'value'
+  }>
+}
 
 const sampleRequest: middy.Request<
 APIGatewayProxyEvent,
 APIGatewayProxyResult,
-Error
+Error,
+LambdaContext,
+TInternal
 > = {
   event: {
     body: '',
@@ -98,20 +115,70 @@ expectType<Promise<SSMClient>>(client)
 const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient })
 expectType<boolean>(canPrefetch)
 
-async function testGetInternal (): Promise<any> {
-  const values = await util.getInternal(true, sampleRequest)
-  expectType<any>(values) // this will actually be an object
+// getInternal should get none from internal store
+async function testGetInternalNone (): Promise<{}> {
+  const result = await util.getInternal(false, sampleRequest)
+  expectType<{}>(result)
+  return result
 }
-expectType<Promise<any>>(testGetInternal())
+expectType<Promise<{}>>(testGetInternalNone())
 
-async function testGetInternalField (): Promise<any> {
-  const value = await util.getInternal('number', sampleRequest)
-  expectType<any>(value) // this will actually be a number
+// getInternal should get all from internal store
+interface DeepAwaitedTInternal {
+  boolean: true
+  number: 1
+  string: 'string'
+  array: []
+  object: {
+    key: 'value'
+  }
+  promise: string // this was Promise<string> in TInternal;
+  promiseObject: { // this was Promise<{key: "value"}> in TInternal
+    key: 'value'
+  }
 }
-expectType<Promise<any>>(testGetInternalField())
+async function testGetAllInternal (): Promise<DeepAwaitedTInternal> {
+  const result = await util.getInternal(true, sampleRequest)
+  expectType<DeepAwaitedTInternal>(result)
+  return result
+}
+expectType<Promise<DeepAwaitedTInternal>>(testGetAllInternal())
 
-const sanitizedKey = util.sanitizeKey('aaaaa')
-expectType<string>(sanitizedKey)
+// getInternal should get from internal store when string
+async function testGetInternalField (): Promise<{ number: 1 }> {
+  const result = await util.getInternal('number', sampleRequest)
+  expectType<{ number: 1 }>(result)
+  return result
+}
+expectType<Promise<{ number: 1 }>>(testGetInternalField())
+
+// getInternal should get from internal store when array[string]
+async function testGetInternalFields (): Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }> {
+  const result = await util.getInternal(['boolean', 'string', 'promiseObject.key'], sampleRequest)
+  expectType<{ boolean: true, string: 'string', promiseObject_key: 'value' }>(result)
+  return result
+}
+expectType<Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }>>(testGetInternalFields())
+
+// getInternal should get from internal store when object
+async function testGetAndRemapInternal (): Promise<{ newKey: string, newKey2: 'value' }> {
+  const result = await util.getInternal({ newKey: 'promise', newKey2: 'promiseObject.key' }, sampleRequest)
+  expectType<{ newKey: string, newKey2: 'value' }>(result)
+  return result
+}
+expectType<Promise<{ newKey: string, newKey2: 'value' }>>(testGetAndRemapInternal())
+
+// getInternal should get from internal store a nested value
+async function testGetInternalNested (): Promise<{ promiseObject_key: 'value' }> {
+  const result = await util.getInternal('promiseObject.key', sampleRequest)
+  expectType<{ promiseObject_key: 'value' }>(result)
+  return result
+}
+expectType<Promise<{ promiseObject_key: 'value' }>>(testGetInternalNested())
+
+// sanitizeKey
+expectType<'_0key'>(util.sanitizeKey('0key'))
+expectType<'api_secret_key0_pem'>(util.sanitizeKey('api//secret-key0.pem'))
 
 const { value, expiry } = util.processCache<SSMClient, {}>(
   {},

@@ -36,9 +36,11 @@ npm install --save @middy/http-header-normalizer
 import middy from '@middy/core'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 
-const handler = middy()
+const lambdaHandler = (event, context) => {
+  return {}
+}
+
+export const handler = middy()
   .use(httpHeaderNormalizer())
-  .handler((event, context) => {
-    return {}
-  })
+  .handler(lambdaHandler)
 ```

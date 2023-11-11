@@ -8,7 +8,6 @@ This page is a work in progress. If you want to help us to make this page better
 
 :::
 
-
 ```javascript
 import middy from '@middy/core'
 import { ApolloServer, gql } from 'apollo-server-lambda'
@@ -24,5 +23,5 @@ const graphQL = new ApolloServer({
 })
 
 // Do not use: `@middy/http-json-body-parser` it is already handled within apollo
-export const handler = middy(graphQL.createHandler())
+export const handler = middy().handler(graphQL.createHandler())
 ```

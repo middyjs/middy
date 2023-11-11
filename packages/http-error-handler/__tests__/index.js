@@ -51,18 +51,18 @@ test('It should create a response for HTTP errors (json)', async (t) => {
   })
 })
 
-test('It should NOT handle non HTTP errors', async (t) => {
+test('It should handle non HTTP errors when fallback not set', async (t) => {
   const handler = middy(() => {
     throw new Error('non-http error')
   })
 
   handler.use(httpErrorHandler({ logger: false }))
 
-  try {
-    await handler(event, context)
-  } catch (error) {
-    t.is(error.message, 'non-http error')
-  }
+  const response = await handler(event, context)
+  t.deepEqual(response, {
+    statusCode: 500,
+    headers: {}
+  })
 })
 
 test('It should handle non HTTP errors when fallback set', async (t) => {

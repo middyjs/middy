@@ -91,7 +91,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   } catch (e) {
     t.is(e.statusCode, 415)
     t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause, undefined)
+    t.is(e.cause.data, undefined)
   }
 })
 

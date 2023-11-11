@@ -1,18 +1,8 @@
 import styles from './HomepageSponsors.module.css'
 import React from 'react'
 import clsx from 'clsx'
-
-/*
-AWS Powertools team
- */
-
-/*
- {
-   title: 'Organization Name',
-   url: 'https://github.com/{github username}', // https://github.com/{username}/{repo}
-   img: '/img/logo/{from github}.png'
- },
- */
+import FourTheoremLogo from './sponsors/fourtheorem'
+import AwsLogo from './sponsors/aws'
 
 const emptySponsor = {
   title: 'Sponsor',
@@ -20,19 +10,22 @@ const emptySponsor = {
   img: '/img/logo/reserved.svg'
 }
 
-// const SponsorListLevel1 = []
 const SponsorListLevel2 = [
   {
-    title: 'fourThereom',
     url: 'https://fourtheorem.com',
-    img: '/img/logo/fourthereom.svg'
+    Component: (
+      <FourTheoremLogo className={styles.featureSvg} title='fourThereom' />
+    )
     // 2023-07 - 2024-06
   },
   {
-    title:
-      'Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)',
     url: 'https://github.com/aws',
-    img: '/img/logo/amazon-web-services.svg'
+    Component: (
+      <AwsLogo
+        className={styles.featureSvg}
+        title='Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)'
+      />
+    )
     // 2023-11-08
   },
   emptySponsor
@@ -47,11 +40,11 @@ const SponsorListLevel4 = [
   }, */
 ]
 
-function Feature ({ title, url, img, size }) {
+function Feature ({ title, url, Component, size }) {
   return (
     <div className={clsx('col')}>
       <a href={url} className='padding-horiz--md'>
-        <img className={styles.featureSvg} alt={title} src={img} />
+        {Component}
       </a>
     </div>
   )

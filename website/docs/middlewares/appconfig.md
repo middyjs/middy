@@ -10,7 +10,7 @@ To install this middleware you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/appconfig
-npm install --save-dev @aws-sdk/client-appconfig
+npm install --save-dev @aws-sdk/client-appconfigdata
 ```
 
 ## Options
@@ -27,7 +27,7 @@ npm install --save-dev @aws-sdk/client-appconfig
 
 NOTES:
 
-- Lambda is required to have IAM permission for `appconfig:GetConfiguration`
+- Lambda is required to have IAM permission for `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration`
 
 ## Sample usage
 
@@ -35,30 +35,76 @@ NOTES:
 import middy from '@middy/core'
 import appConfig from '@middy/appconfig'
 
-const handler = middy((event, context) => {
-  const response = {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ message: 'hello world' })
-  }
-
-  return response
-})
-
-handler.use(
-  appConfig({
-    fetchData: {
-      config: {
-        Application: '...',
-        ClientId: '...',
-        Configuration: '...',
-        Environment: '...'
+const handler = middy()
+  .use(
+    appConfig({
+      fetchData: {
+        config: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
       }
+    })
+  )
+  .handler((event, context) => {
+    const response = {
+      statusCode: 200,
+      headers: {},
+      body: JSON.stringify({ message: 'hello world' })
     }
+
+    return response
   })
-)
 ```
 
 ## Bundling
 
 To exclude `@aws-sdk` add `@aws-sdk/client-appconfig` to the exclude list.
+
+## Usage with TypeScript
+
+Data in AppConfig can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched parameters will have type `unknown`.
+
+You can provide some type hints by leveraging the `appConfigReq` utility function. This function allows you to specify what's the expected type that will be fetched for every AppConfig request.
+
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter path as a string, you can wrap it in a `appConfigReq<ParamType>(config)` call. Internally, `appConfigReq` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected type for that parameter.
+
+This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
+
+The following example illustrates how to use `appConfigReq`:
+
+```typescript
+import middy from '@middy/core'
+import appConfig, { appConfigReq } from '@middy/appconfig'
+
+const lambdaHandler = (event, context) => {
+  return {
+    statusCode: 200,
+    headers: {},
+    body: JSON.stringify({ message: 'hello world' })
+  }
+})
+
+export const handler = middy()
+  .use(
+    appConfig({
+      fetchData: {
+        config: {
+          Application: '...',
+          ClientId: '...',
+          Configuration: '...',
+          Environment: '...'
+        }
+      }
+    })
+  )
+  .before(async (request) => {
+    const data = await getInternal('config', request)
+    // data.config.field1 (string)
+    // data.config.field2 (string)
+    // data.config.field3 (number)
+  })
+.handler(lambdaHandler)
+```

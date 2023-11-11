@@ -39,10 +39,7 @@ test('It should throw error when invalid logger', async (t) => {
       })
     )
   } catch (e) {
-    t.is(
-      e.message,
-      '[input-output-logger-middleware]: logger must be a function'
-    )
+    t.is(e.message, 'logger must be a function')
   }
 })
 

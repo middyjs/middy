@@ -2,7 +2,7 @@ import { jsonSafeParse, normalizeHttpResponse } from '@middy/util'
 
 const defaults = {
   logger: console.error,
-  fallbackMessage: null
+  fallbackMessage: undefined
 }
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
@@ -20,10 +20,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     }
 
     // Non-http error OR expose set to false
-    if (
-      options.fallbackMessage &&
-      (!request.error.statusCode || !request.error.expose)
-    ) {
+    if (!request.error.expose || !request.error.statusCode) {
       request.error = {
         statusCode: 500,
         message: options.fallbackMessage,
@@ -34,18 +31,23 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
     if (request.error.expose) {
       normalizeHttpResponse(request)
       const { statusCode, message, headers } = request.error
+
       request.response = {
         ...request.response,
         statusCode,
-        body: message,
         headers: {
-          ...headers,
           ...request.response.headers,
-          'Content-Type':
-            typeof jsonSafeParse(message) === 'string'
-              ? 'text/plain'
-              : 'application/json'
+          ...headers
         }
+      }
+
+      if (message) {
+        const headerContentType =
+          typeof jsonSafeParse(message) === 'string'
+            ? 'text/plain'
+            : 'application/json'
+        request.response.body = message
+        request.response.headers['Content-Type'] = headerContentType
       }
     }
   }

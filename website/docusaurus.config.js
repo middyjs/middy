@@ -1,7 +1,8 @@
 // @ts-check
+const { themes } = require('prism-react-renderer')
 
-const lightCodeTheme = require('prism-react-renderer/themes/github')
-const darkCodeTheme = require('prism-react-renderer/themes/dracula')
+const lightCodeTheme = themes.jettwaveLight
+const darkCodeTheme = themes.nightOwl
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {

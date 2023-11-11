@@ -26,8 +26,21 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     request.response = { batchItemFailures }
   }
 
+  const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
+    if (request.response !== undefined) return
+
+    // Force all to be sent to DLQ
+    const recordPromises = request.event.Records.map(async (record, index) => {
+      throw request.error
+    })
+    request.response = await Promise.allSettled(recordPromises)
+
+    await sqsPartialBatchFailureMiddlewareAfter(request)
+  }
+
   return {
-    after: sqsPartialBatchFailureMiddlewareAfter
+    after: sqsPartialBatchFailureMiddlewareAfter,
+    onError: sqsPartialBatchFailureMiddlewareOnError
   }
 }
 

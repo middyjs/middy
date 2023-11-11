@@ -9,7 +9,7 @@ This page is a work in progress. If you want to help us to make this page better
 
 :::
 
-Always bundle the `@aws-sdk/*` with your project eventhough the Lambda runtime already includes it by default (Note: nodejs16.x does not have AWS SDK v3 included). 
+Always bundle the `@aws-sdk/*` with your project eventhough the Lambda runtime already includes it by default (Note: nodejs16.x does not have AWS SDK v3 included).
 This gives you full control of when to update the SDK to prevent unexpected errors from a bad SDK version, allows you to ensure that you are running the latest version with the most up to date fixes and features, and has been shown to decrease cold start times.
 
 ## Compilers

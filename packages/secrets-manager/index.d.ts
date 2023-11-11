@@ -3,20 +3,41 @@ import { Options as MiddyOptions } from '@middy/util'
 import { Context as LambdaContext } from 'aws-lambda'
 import { SecretsManagerClient, SecretsManagerClientConfig } from '@aws-sdk/client-secrets-manager'
 
-interface Options<AwsSecretsManagerClient = SecretsManagerClient>
-  extends MiddyOptions<
+export type SecretType<T> = string & { __returnType?: T }
+export declare function secret<T> (path: string): SecretType<T>
+
+interface SecretsManagerOptions<AwsSecretsManagerClient = SecretsManagerClient>
+  extends Omit<MiddyOptions<
   AwsSecretsManagerClient,
   SecretsManagerClientConfig
-  > {}
-
-export type Context<TOptions extends Options | undefined> = TOptions extends {
-  setToContext: true
+  >, 'fetchData'> {
+  fetchData?: { [key: string]: string | SecretType<unknown> }
 }
-  ? LambdaContext & Record<keyof TOptions['fetchData'], any>
-  : LambdaContext
 
-declare function secretsManager<TOptions extends Options | undefined> (
+export type Context<TOptions extends SecretsManagerOptions | undefined> =
+  TOptions extends { setToContext: true }
+    ? TOptions extends { fetchData: infer TFetchData }
+      ? LambdaContext & {
+        [Key in keyof TFetchData]: TFetchData[Key] extends SecretType<infer T>
+          ? T
+          : unknown
+      }
+      : never
+    : LambdaContext
+
+export type Internal<TOptions extends SecretsManagerOptions | undefined> =
+    TOptions extends SecretsManagerOptions
+      ? TOptions extends { fetchData: infer TFetchData }
+        ? {
+            [Key in keyof TFetchData]: TFetchData[Key] extends SecretType<infer T>
+              ? T
+              : unknown
+          }
+        : {}
+      : {}
+
+declare function secretsManager<TOptions extends SecretsManagerOptions | undefined> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default secretsManager

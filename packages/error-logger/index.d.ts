@@ -1,7 +1,7 @@
 import middy from '@middy/core'
 
 interface Options {
-  logger?: (error: any) => void
+  logger?: (request: any) => void
 }
 
 declare function errorLogger (options?: Options): middy.MiddlewareObj

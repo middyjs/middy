@@ -32,11 +32,9 @@ const lambdaHandler = (event, context) => {
   return Promise.allSettled(recordPromises)
 }
 
-export const handler = middy(lambdaHandler).use(sqsBatch())
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
 ```
 
 ## Important
 
 The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping`. See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html#services-sqs-batchfailurereporting) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
-
-When being used with `@middy/validator`, ensure errors are caught and handled properly to avoid infinite loops.

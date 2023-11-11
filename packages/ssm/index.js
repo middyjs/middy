@@ -83,7 +83,9 @@ const ssmMiddleware = (opts = {}) => {
                   const value = getCache(options.cacheKey).value ?? {}
                   value[internalKey] = undefined
                   modifyCache(options.cacheKey, value)
-                  throw new Error('[ssm] InvalidParameter ' + fetchKey)
+                  throw new Error('InvalidParameter ' + fetchKey, {
+                    cause: { package: '@middy/ssm' }
+                  })
                 })
               }
             }),
@@ -184,4 +186,10 @@ const ssmMiddleware = (opts = {}) => {
     before: ssmMiddlewareBefore
   }
 }
+
 export default ssmMiddleware
+
+// used for TS type inference (see index.d.ts)
+export function ssmParam (name) {
+  return name
+}

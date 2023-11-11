@@ -35,7 +35,7 @@ NOTES:
 import middy from '@middy/core'
 import serviceDiscovery from '@middy/service-discovery'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     headers: {},
@@ -43,18 +43,20 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
-  serviceDiscovery({
-    fetchData: {
-      instances: {
-        NamespaceName: '...',
-        ServiceName: '...'
+export const handler = middy()
+  .use(
+    serviceDiscovery({
+      fetchData: {
+        instances: {
+          NamespaceName: '...',
+          ServiceName: '...'
+        }
       }
-    }
-  })
-)
+    })
+  )
+  .handler(lambdaHandler)
 ```
 
 ## Bundling
