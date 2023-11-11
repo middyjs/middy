@@ -5,9 +5,16 @@
 .heading2 {
   text-align: center;
   font-size: 3em;
+  margin-bottom: 2rem;
 }
 
 .heading3 {
   text-align: center;
   font-size: 2.5em;
+  margin-bottom: 1.5rem;
+}
+
+.buttons_list {
+  text-align: center;
+  line-height: 3rem;
 }

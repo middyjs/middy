@@ -3,8 +3,16 @@
   align-items: center;
   padding: 2rem 0;
   width: 100%;
+  text-align: center;
+}
+
+.features h2 {
+  font-size: 2.5rem;
+  margin-bottom: 2.75rem;
 }
 
 .featureSvg {
   width: 100%;
+  max-width: 250px;
+  max-height: 100px;
 }
