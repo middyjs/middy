@@ -1,25 +1,24 @@
 import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 import middy from '@middy/core'
-import { expectType, expectError } from 'tsd'
+import { expectType } from 'tsd'
 import jsonBodyParser from '.'
-import { APIGatewayProxyEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 
 // use with default options
 let middleware = jsonBodyParser()
-expectType<middy.MiddlewareObj<APIGatewayProxyEvent | APIGatewayProxyEventV2>>(middleware)
+expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2>>(middleware)
 
 // use with all options
 middleware = jsonBodyParser({
   reviver: (key: string, value: any) => Boolean(value)
 })
-expectType<middy.MiddlewareObj<APIGatewayProxyEvent | APIGatewayProxyEventV2>>(middleware)
+expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2>>(middleware)
 
-const baseEvent: Omit<APIGatewayProxyEvent, 'body'> = {
+const baseEvent: Omit<APIGatewayEvent, 'body'> = {
   headers: {},
-  multiValueHeaders: {},
-  httpMethod: 'GET',
   isBase64Encoded: false,
+  httpMethod: 'GET',
   path: '/',
+  multiValueHeaders: {},
   pathParameters: null,
   queryStringParameters: null,
   multiValueQueryStringParameters: null,
@@ -74,11 +73,10 @@ middifiedHandler({
   ...baseEvent,
   // @ts-expect-error
   body: {}
-}, {} as any)
-expectType<middy.MiddlewareObj<Event>>(middleware)
+}, {} as any).then(() => {}).catch(() => {})
 
 // allow specifying the event type
 const apiGatewayV1Middleware = jsonBodyParser<APIGatewayEvent>()
-expectType<middy.MiddlewareObj<Event<APIGatewayEvent>>>(apiGatewayV1Middleware)
+expectType<middy.MiddlewareObj<APIGatewayEvent>>(apiGatewayV1Middleware)
 const apiGatewayV2Middleware = jsonBodyParser<APIGatewayProxyEventV2>()
-expectType<middy.MiddlewareObj<Event<APIGatewayProxyEventV2>>>(apiGatewayV2Middleware)
+expectType<middy.MiddlewareObj<APIGatewayProxyEventV2>>(apiGatewayV2Middleware)
