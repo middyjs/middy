@@ -58,7 +58,7 @@ const baseEvent: Omit<APIGatewayProxyEvent, 'body'> = {
 
 // allow body to only be string or null
 middleware = jsonBodyParser()
-const middifiedHandler = middy(()=>{}).use(middleware)
+const middifiedHandler = middy(() => {}).use(middleware)
 
 expectType<Promise<void>>(middifiedHandler({
   ...baseEvent,
