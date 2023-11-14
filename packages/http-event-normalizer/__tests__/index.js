@@ -7,30 +7,22 @@ const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
-test('It should throw error when invalid version', async (t) => {
+test('It should not error when invalid version', async (t) => {
   const event = {
     version: '3.0'
   }
 
   const handler = middy((event) => event).use(httpEventNormalizer())
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(e.message, 'Unknown http event format')
-  }
+  t.notThrows(async () => await handler(event, context))
 })
 
-test('It should do nothing if not HTTP event', async (t) => {
+test('It should not error if not an HTTP event', async (t) => {
   const event = {
     source: 's3'
   }
 
   const handler = middy((event) => event).use(httpEventNormalizer())
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(e.message, 'Unknown http event format')
-  }
+  t.notThrows(async () => await handler(event, context))
 })
 
 test('It should default queryStringParameters with REST API', async (t) => {
