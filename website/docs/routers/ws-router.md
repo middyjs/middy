@@ -14,7 +14,7 @@ npm install --save @middy/ws-router
 
 ## Options
 
-- `routes` (array[{routeKey, handler}]) (required): Array of route objects.
+- `routes` (array[\{routeKey, handler\}]) (required): Array of route objects.
   - `routeKey` (string) (required): AWS formatted route key. ie `$connect`, `$disconnect`, `$default`
   - `handler` (function) (required): Any `handler(event, context, {signal})` function
 
