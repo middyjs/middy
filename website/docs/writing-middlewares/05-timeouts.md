@@ -10,19 +10,19 @@ You can set `timeoutEarlyInMillis` to 0 to disable this functionality. If you wa
 ```javascript
 import middy from '@middy/core'
 
-const lambdaHandler = (event, context, {signal}) => {
+const lambdaHandler = (event, context, { signal }) => {
   signal.onabort = () => {
     // cancel events
   }
-  // ... 
+  // ...
 }
 
-export const handler = middy(lambdaHandler, {
+export const handler = middy({
   timeoutEarlyInMillis: 50,
   timeoutEarlyResponse: () => {
     return {
       statusCode: 408
     }
   }
-})
+}).handler(lambdaHandler)
 ```

@@ -44,12 +44,15 @@ const cacheMiddleware = (options) => {
 }
 
 // sample usage
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   /* ... */
-}).use(
-  cacheMiddleware({
-    calculateCacheId,
-    storage
-  })
-)
+}
+export const handler = middy()
+  .use(
+    cacheMiddleware({
+      calculateCacheId,
+      storage
+    })
+  )
+  .handler(lambdaHandler)
 ```

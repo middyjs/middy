@@ -4,10 +4,11 @@ import { Context as LambdaContext } from 'aws-lambda'
 import {
   ServiceDiscoveryClient,
   ServiceDiscoveryClientConfig,
+  DiscoverInstancesCommandInput,
   HttpInstanceSummary
 } from '@aws-sdk/client-servicediscovery'
 
-interface Options<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
+interface ServiceDiscoveryOptions<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
   extends Pick<
   MiddyOptions<
   AwsServiceDiscoveryClient,
@@ -16,21 +17,34 @@ interface Options<AwsServiceDiscoveryClient = ServiceDiscoveryClient>
   | 'AwsClient'
   | 'awsClientOptions'
   | 'awsClientCapture'
-  | 'fetchData'
   | 'disablePrefetch'
   | 'cacheKey'
   | 'cacheExpiry'
   | 'setToContext'
-  > {}
-
-export type Context<TOptions extends Options | undefined> = TOptions extends {
-  setToContext: true
+  > {
+  fetchData?: { [key: string]: DiscoverInstancesCommandInput }
 }
-  ? LambdaContext & Record<keyof TOptions['fetchData'], HttpInstanceSummary>
-  : LambdaContext
 
-declare function serviceDiscovery<TOptions extends Options | undefined> (
+export type Context<TOptions extends ServiceDiscoveryOptions | undefined> =
+  TOptions extends { setToContext: true }
+    ? TOptions extends { fetchData: infer TFetchData }
+      ? LambdaContext & {
+        [Key in keyof TFetchData]: HttpInstanceSummary[]
+      }
+      : never
+    : LambdaContext
+
+export type Internal<TOptions extends ServiceDiscoveryOptions | undefined> =
+    TOptions extends ServiceDiscoveryOptions
+      ? TOptions extends { fetchData: infer TFetchData }
+        ? {
+            [Key in keyof TFetchData]: HttpInstanceSummary[]
+          }
+        : {}
+      : {}
+
+declare function serviceDiscovery<TOptions extends ServiceDiscoveryOptions | undefined> (
   options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>>
+): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
 
 export default serviceDiscovery

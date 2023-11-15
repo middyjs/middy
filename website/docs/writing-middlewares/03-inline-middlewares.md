@@ -15,9 +15,11 @@ Let's see how inline middlewares work with a simple example:
 ```javascript
 import middy from '@middy/core'
 
-export const handler = middy((event, context) => {
-    // do stuff
-  })
+const lambdaHandler = (event, context) => {
+  // do stuff
+}
+
+export const handler = middy()
   .before(async (request) => {
     // do something in the before phase
   })
@@ -27,6 +29,7 @@ export const handler = middy((event, context) => {
   .onError(async (request) => {
     // do something in the on error phase
   })
+  .handler(lambdaHandler)
 ```
 
 As you can see above, a middy instance also exposes the `before`, `after` and `onError`

@@ -3,7 +3,8 @@ import { Context as LambdaContext } from 'aws-lambda'
 import { S3Client } from '@aws-sdk/client-s3'
 import { captureAWSv3Client } from 'aws-xray-sdk'
 import { expectType } from 'tsd'
-import s3 from '.'
+import s3, { Context, s3Req } from '.'
+import { getInternal } from '@middy/util'
 
 const options = {
   AwsClient: S3Client,
@@ -19,30 +20,30 @@ const options = {
   fetchData: {
     someS3Object: {
       Bucket: 'bucket',
-      Key: 'path/to/key.ext'
+      Key: 'path/to/key.json' // {key: 'value'}
     }
   },
   disablePrefetch: true,
   cacheKey: 'some-key',
   cacheExpiry: 60 * 60 * 5,
   setToContext: false
-} as const
+}
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(s3())
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(s3())
 
 // use with all options
-expectType < middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
+expectType <middy.MiddlewareObj<unknown, any, Error, Context<typeof options>, { 'someS3Object': unknown }>>(
   s3(options)
 )
 
 // use with setToContext: true
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext & Record<'someS3Object', any>>>(
+expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options> & { 'someS3Object': unknown }, { 'someS3Object': unknown }>>(
   s3({
     ...options,
     setToContext: true
-  }
-  ))
+  })
+)
 
 // @ts-expect-error - fetchData must be an object
 s3({ ...options, fetchData: 'not an object' })
@@ -71,3 +72,67 @@ s3({
     }
   }
 })
+
+const handler = middy(async (event: {}, context: LambdaContext) => {
+  return await Promise.resolve({})
+})
+
+handler.use(
+  s3({
+    ...options,
+    setToContext: true
+  })
+)
+  .before(async (request) => {
+    expectType<unknown>(request.context.someS3Object)
+
+    const data = await getInternal('someS3Object', request)
+    expectType<unknown>(data.someS3Object)
+  })
+
+handler.use(
+  s3({
+    ...options,
+    setToContext: false
+  })
+)
+  .before(async (request) => {
+    const data = await getInternal('someS3Object', request)
+    expectType<unknown>(data.someS3Object)
+  })
+
+handler.use(
+  s3({
+    ...options,
+    fetchData: {
+      someS3Object: s3Req<{ param1: string, param2: string, param3: number }>({
+        Bucket: 'bucket',
+        Key: 'path/to/key.json' // {key: 'value'}
+      })
+    },
+    setToContext: true
+  })
+)
+  .before(async (request) => {
+    expectType<{ param1: string, param2: string, param3: number }>(request.context.someS3Object)
+
+    const data = await getInternal('someS3Object', request)
+    expectType<{ param1: string, param2: string, param3: number }>(data.someS3Object)
+  })
+
+handler.use(
+  s3({
+    ...options,
+    fetchData: {
+      someS3Object: s3Req<{ param1: string, param2: string, param3: number }>({
+        Bucket: 'bucket',
+        Key: 'path/to/key.json' // {key: 'value'}
+      })
+    },
+    setToContext: false
+  })
+)
+  .before(async (request) => {
+    const data = await getInternal('someS3Object', request)
+    expectType<{ param1: string, param2: string, param3: number }>(data.someS3Object)
+  })

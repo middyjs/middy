@@ -1,33 +1,27 @@
 {
   "name": "@middy/input-output-logger",
-  "version": "4.7.0",
+  "version": "5.0.0",
   "description": "Input and output logger middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "engineStrict": true,
   "publishConfig": {
     "access": "public"
   },
-  "main": "./index.cjs",
   "module": "./index.js",
   "exports": {
     ".": {
       "import": {
         "types": "./index.d.ts",
         "default": "./index.js"
-      },
-      "require": {
-        "types": "./index.d.ts",
-        "default": "./index.cjs"
       }
     }
   },
   "types": "index.d.ts",
   "files": [
     "index.js",
-    "index.cjs",
     "index.d.ts"
   ],
   "scripts": {
@@ -65,11 +59,8 @@
     "type": "github",
     "url": "https://github.com/sponsors/willfarrell"
   },
-  "dependencies": {
-    "@middy/util": "4.7.0"
-  },
   "devDependencies": {
-    "@middy/core": "4.7.0",
+    "@middy/core": "5.0.0",
     "@types/node": "^20.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

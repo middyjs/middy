@@ -6,7 +6,6 @@ Filtering the data returned in an object or JSON stringified response has never 
 
 This middleware is based on the awesome `json-mask` package written by [Yuriy Nemtsov](https://github.com/nemtsov)
 
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -15,11 +14,9 @@ To install this middleware you can use NPM:
 npm install --save @middy/http-partial-response
 ```
 
-
 ## Options
 
 - `filteringKeyName` (`string`) (optional): defaults to `fields` the querystring key that will be used to filter the response.
-
 
 ## Sample usage
 
@@ -27,7 +24,7 @@ npm install --save @middy/http-partial-response
 import middy from '@middy/core'
 import httpPartialResponse from '@middy/http-partial-response'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     body: {
@@ -43,9 +40,9 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(httpPartialResponse())
+export const handler = middy().use(httpPartialResponse()).handler(lambdaHandler)
 
 const event = {
   queryStringParameters: {

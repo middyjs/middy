@@ -108,3 +108,8 @@ const secretsManagerMiddleware = (opts = {}) => {
   }
 }
 export default secretsManagerMiddleware
+
+// used for TS type inference (see index.d.ts)
+export function secret (name) {
+  return name
+}

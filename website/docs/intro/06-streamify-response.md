@@ -20,17 +20,17 @@ Middy also supports streamed responses.
 import middy from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
-export const handler = middy({ streamifyResponse: true }).handler(
-  (event, context) => {
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'text/csv'
-      },
-      body: createReadableStream('...') // or string
-    }
+const lambdaHandler = (event, context) => {
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/csv'
+    },
+    body: createReadableStream('...') // or string
   }
-)
+}
+
+export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
 ```
 
 ## Lambda InvokeWithResponseStream Example
@@ -39,11 +39,10 @@ export const handler = middy({ streamifyResponse: true }).handler(
 import middy from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
-export const handler = middy({ streamifyResponse: true }).handler(
-  (event, context) => {
-    return createReadableStream('...') // or string
-  }
-)
+const lambdaHandler = (event, context) => {
+  return createReadableStream('...') // or string
+}
+export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
 ```
 
 ### Requesting Lambda

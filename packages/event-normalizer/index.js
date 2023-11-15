@@ -164,13 +164,10 @@ const convertValue = {
   S: (value) => value,
   L: (value) => value.map((item) => convertToNative(item)),
   M: (value) =>
-    Object.entries(value).reduce(
-      (acc, [key, value]) => {
-        acc[key] = convertToNative(value)
-        return acc
-      },
-      {}
-    ),
+    Object.entries(value).reduce((acc, [key, value]) => {
+      acc[key] = convertToNative(value)
+      return acc
+    }, {}),
   NS: (value) => new Set(value.map(convertValue.N)),
   BS: (value) => new Set(value.map(convertValue.B)),
   SS: (value) => new Set(value.map(convertValue.S))
@@ -178,7 +175,11 @@ const convertValue = {
 
 const convertToNative = (data) => {
   for (const [key, value] of Object.entries(data)) {
-    if (!convertValue[key]) throw new Error(`Unsupported type passed: ${key}`)
+    if (!convertValue[key]) {
+      throw new Error(`Unsupported type passed: ${key}`, {
+        cause: { package: '@middy/event-normalizer' }
+      })
+    }
     if (typeof value === 'undefined') continue
     return convertValue[key](value)
   }

@@ -16,7 +16,7 @@ const getOrigin = (incomingOrigin, options = {}) => {
 }
 
 const defaults = {
-  disableBeforePreflightResponse: true, // TODO change to false in v5
+  disableBeforePreflightResponse: true,
   getOrigin,
   credentials: undefined,
   headers: undefined,
@@ -132,7 +132,9 @@ const modifyHeaders = (headers, options, request) => {
     request.event
   )
   if (!httpMethod) {
-    throw new Error('[http-cors] Unknown http event format')
+    throw new Error('Unknown http event format', {
+      cause: { package: '@middy/http-cors' }
+    })
   }
   if (
     httpMethod === 'OPTIONS' &&

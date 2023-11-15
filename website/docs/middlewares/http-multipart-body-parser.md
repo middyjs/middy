@@ -33,10 +33,15 @@ If you really have to deal with big files, then you might also want to consider 
 import middy from '@middy/core'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpMultipartBodyParser from '@middy/http-multipart-body-parser'
-const handler = middy((event, context) => {
+
+const lambdaHandler = (event, context) => {
   return {}
-})
-handler.use(httpHeaderNormalizer()).use(httpMultipartBodyParser())
+}
+
+export const handler = middy()
+  .use(httpHeaderNormalizer())
+  .use(httpMultipartBodyParser())
+  .handler(lambdaHandler)
 
 // invokes the handler
 const event = {

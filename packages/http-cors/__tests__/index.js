@@ -828,6 +828,6 @@ test('it should throw when not a http event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, '[http-cors] Unknown http event format')
+    t.is(e.message, 'Unknown http event format')
   }
 })

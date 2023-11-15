@@ -28,16 +28,16 @@ npm install --save @middy/input-output-logger
 import middy from '@middy/core'
 import inputOutputLogger from '@middy/input-output-logger'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   const response = {
     statusCode: 200,
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
   }
   return response
-})
+}
 
-handler.use(inputOutputLogger())
+export const handler = middy().use(inputOutputLogger()).handler(lambdaHandler)
 ```
 
 ```javascript
@@ -47,18 +47,20 @@ import pino from 'pino'
 
 const logger = pino()
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   // ...
   return response
-})
+}
 
-handler.use(
-  inputOutputLogger({
-    logger: (request) => {
-      const child = logger.child(request.context)
-      child.info(request.event ?? request.response)
-    },
-    awsContext: true
-  })
-)
+export const handler = middy()
+  .use(
+    inputOutputLogger({
+      logger: (request) => {
+        const child = logger.child(request.context)
+        child.info(request.event ?? request.response)
+      },
+      awsContext: true
+    })
+  )
+  .handler(lambdaHandler)
 ```

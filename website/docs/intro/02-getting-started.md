@@ -30,7 +30,6 @@ simple and requires just few steps:
     the middlewares you need.
 4.  Attach all the middlewares you need using the function `.use(somemiddleware())`
 
-
 ## Example
 
 ```javascript
@@ -43,32 +42,28 @@ const lambdaHandler = (event, context) => {
   /* your business logic */
 }
 
-export const handler = middy(lambdaHandler)
-
-handler
+export const handler = middy()
   .use(middleware1())
   .use(middleware2())
   .use(middleware3())
-
+  .handler(lambdaHandler)
 ```
 
 `.use()` takes a single middleware or an array of middlewares, so you can attach multiple middlewares in a single call:
 
 ```javascript
-import middy from "@middy/core"
-import middleware1 from "sample-middleware1"
-import middleware2 from "sample-middleware2"
-import middleware3 from "sample-middleware3"
-const middlewares = [middleware1(), middleware2(), middleware3()]
+import middy from '@middy/core'
+import middleware1 from 'sample-middleware1'
+import middleware2 from 'sample-middleware2'
+import middleware3 from 'sample-middleware3'
 
 const lambdaHandler = (event, context) => {
   /* your business logic */
-};
+}
 
-export const handler = middy(lambdaHandler)
-
-handler.use(middlewares)
-
+export const handler = middy()
+  .use([middleware1(), middleware2(), middleware3()])
+  .handler(lambdaHandler)
 ```
 
 You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.

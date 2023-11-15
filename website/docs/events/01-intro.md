@@ -47,7 +47,6 @@ export const handler = middy()
           region: process.env.AWS_REGION,
           hostname: process.env.RDS_HOSTNAME,
           username: 'iam_role',
-          database: 'database',
           port: 5555
         }
       }

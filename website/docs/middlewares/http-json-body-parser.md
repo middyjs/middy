@@ -29,11 +29,14 @@ import middy from '@middy/core'
 import httpHeaderNormalizer from '@middy/http-header-normalizer'
 import httpJsonBodyParser from '@middy/http-json-body-parser'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   return {}
-})
+}
 
-handler.use(httpHeaderNormalizer()).use(httpJsonBodyParser())
+export const handler = middy()
+  .use(httpHeaderNormalizer())
+  .use(httpJsonBodyParser())
+  .handler(lambdaHandler)
 
 // invokes the handler
 const event = {
