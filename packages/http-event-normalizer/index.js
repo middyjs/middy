@@ -3,6 +3,9 @@ const httpEventNormalizerMiddleware = () => {
     const { event } = request
 
     const version = pickVersion(event)
+    // VPC Lattice is an http event, however uses a different notation
+    // - query_string_parameters
+    // - is_base64_encoded
 
     if (version === '1.0') {
       event.multiValueQueryStringParameters ??= {}
