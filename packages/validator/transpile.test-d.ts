@@ -1,5 +1,5 @@
 import { expectType } from 'tsd'
-import { transpileSchema, transpileLocale } from './transpile'
+import type { transpileSchema, transpileLocale } from './transpile.t.ds'
 
 const schema = transpileSchema({ type: 'object' }, {})
 expectType<any>(schema)
