@@ -23,7 +23,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "codes.js"
+    "type-utils.d.ts"
   ],
   "scripts": {
     "test": "npm run test:unit",
