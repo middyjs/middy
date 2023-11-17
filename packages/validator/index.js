@@ -30,7 +30,7 @@ const validatorMiddleware = (opts = {}) => {
         // Bad Request
         throw createError(400, 'Event object failed validation', {
           cause: {
-            pacakge: '@middy/validator',
+            package: '@middy/validator',
             data: eventSchema.errors
           }
         })
