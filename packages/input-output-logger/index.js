@@ -15,7 +15,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   if (typeof logger !== 'function') {
     throw new Error('logger must be a function', {
       cause: {
-        pacakge: '@middy/input-output-logger'
+        package: '@middy/input-output-logger'
       }
     })
   }

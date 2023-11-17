@@ -25,7 +25,7 @@ const wsRouteHandler = (routes) => {
 
     // Not Found
     throw createError(404, 'Route does not exist', {
-      cause: { pacakge: '@middy/ws-router', data: routeKey }
+      cause: { package: '@middy/ws-router', data: routeKey }
     })
   }
 }

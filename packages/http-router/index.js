@@ -57,7 +57,7 @@ const httpRouteHandler = (routes) => {
 
     // Not Found
     throw createError(404, 'Route does not exist', {
-      cause: { pacakge: '@middy/http-router', data: path }
+      cause: { package: '@middy/http-router', data: path }
     })
   }
 }
