@@ -43,3 +43,31 @@ Note that when using TypeScript, you should use what we call the _Middleware-fir
 This approach makes sure that, as you attach middlewares, the type system understands how the `event` and the `context` arguments are augmented by the various middlewares and inside your handler code you can have a nice type-checking and auto-completion experience.
 
 You can also [write custom middlewares with TypeScript](/docs/writing-middlewares/intro).
+
+This is an example tsconfig.json file that can be used for typescript projects
+
+```
+{
+  "compilerOptions": {
+    "incremental": true,
+    "target": "es2020",
+    "module": "es2020",
+    "declaration": true,
+    "sourceMap": true,
+    "composite": true,
+    "strict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "preserveConstEnums": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "rootDir": ".",
+    "outDir": "lib"
+  }
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules"]
+}
+
+```
