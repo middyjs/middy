@@ -2,6 +2,7 @@ import test from 'ava'
 import middy from '../../core/index.js'
 import { createError } from '../../util/index.js'
 
+import httpContentNegotiation from '../../http-content-negotiation/index.js'
 import httpErrorHandler from '../../http-error-handler/index.js'
 import httpResponseSerializer from '../index.js'
 
@@ -49,7 +50,7 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
     const event = {
       headers: {}
     }
-    const response = await handler(event, context)
+    const response = await handler(event, { ...context })
 
     t.deepEqual(response, handlerResponse)
   })
@@ -73,6 +74,7 @@ for (const [accept, result] of [
 ]) {
   test(`${accept} returns ${result}`, async (t) => {
     const handler = middy()
+      .use(httpContentNegotiation())
       .use(httpResponseSerializer(standardConfiguration))
       .handler(createHttpResponse)
 
@@ -82,7 +84,7 @@ for (const [accept, result] of [
       }
     }
 
-    const response = await handler(event, context)
+    const response = await handler(event, { ...context })
 
     t.is(response.body, result)
   })
@@ -95,11 +97,12 @@ test('missing headers skips', async (t) => {
 
   const event = {}
 
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.is(response.body, '{"message":"Hello World"}')
 })
 
+// TODO deprecate in v6
 test('It should use `event.requiredContentType` instead of accept headers', async (t) => {
   const handler = middy((event, context) => {
     event.requiredContentType = 'text/plain'
@@ -107,7 +110,9 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
     return createHttpResponse()
   })
 
-  handler.use(httpResponseSerializer(standardConfiguration))
+  handler
+    .use(httpContentNegotiation())
+    .use(httpResponseSerializer(standardConfiguration))
 
   const event = {
     headers: {
@@ -115,7 +120,7 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
     }
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -134,7 +139,7 @@ test('It should use the defaultContentType when no accept preferences are given'
   const event = {
     headers: {}
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -166,7 +171,7 @@ test('It should allow the return of the entire response', async (t) => {
   const event = {
     headers: {}
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -179,12 +184,12 @@ test('It should allow the return of the entire response', async (t) => {
 
 test('It should use the defaultContentType when no matching accept preferences are found', async (t) => {
   const handler = middy((event, context) => {
-    event.preferredContentType = 'text/java'
-
     return createHttpResponse()
   })
 
-  handler.use(httpResponseSerializer(standardConfiguration))
+  handler
+    .use(httpContentNegotiation())
+    .use(httpResponseSerializer(standardConfiguration))
 
   const event = {
     headers: {
@@ -192,7 +197,7 @@ test('It should use the defaultContentType when no matching accept preferences a
     }
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -203,19 +208,21 @@ test('It should use the defaultContentType when no matching accept preferences a
   })
 })
 
-test('It should use `event.preferredContentType` instead of the defaultContentType', async (t) => {
+test('It should use `context.preferredMediaTypes` instead of the defaultContentType', async (t) => {
   const handler = middy((event, context) => {
-    event.preferredContentType = 'text/plain'
-
     return createHttpResponse()
   })
 
-  handler.use(httpResponseSerializer(standardConfiguration))
+  handler
+    .use(httpContentNegotiation())
+    .use(httpResponseSerializer(standardConfiguration))
 
   const event = {
-    headers: {}
+    headers: {
+      Accept: 'text/plain'
+    }
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -238,7 +245,7 @@ test('It should pass-through when no preference or defaultContentType is found',
   const event = {
     headers: {}
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -258,7 +265,7 @@ test('It should not pass-through when request content-type is set', async (t) =>
     }
   }
 
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,
@@ -291,7 +298,7 @@ test('It should replace the response object when the serializer returns an objec
   const event = {
     headers: {}
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 204,
@@ -314,7 +321,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
   const event = {
     headers: {}
   }
-  const response = await handler(event, context)
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 422,
@@ -336,7 +343,7 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
     headers: {}
   }
   try {
-    await handler(event, context)
+    await handler(event, { ...context })
   } catch (e) {
     t.deepEqual(e.message, 'test')
   }
@@ -352,8 +359,10 @@ test('It should return false when response body is falsey', async (t) => {
       Accept: 'text/plain'
     }
   }
-  handler.use(httpResponseSerializer(standardConfiguration))
-  const response = await handler(event, context)
+  handler
+    .use(httpContentNegotiation())
+    .use(httpResponseSerializer(standardConfiguration))
+  const response = await handler(event, { ...context })
 
   t.deepEqual(response, {
     statusCode: 200,

@@ -26,7 +26,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
       types = [request.event.requiredContentType]
     } else {
       types = [
-        ...request.context.preferredMediaTypes, // from @middy/http-content-negotiation
+        ...(request.context.preferredMediaTypes ?? []), // from @middy/http-content-negotiation
         defaultContentType
       ]
     }
