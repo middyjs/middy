@@ -15,10 +15,7 @@ npm install --save @middy/http-response-serializer
 ## Options
 
 - `defaultContentType` (optional): used if the request and handler don't specify what type is wanted.
-
-## Configuration
-
-The middleware is configured by defining some `serializers`.
+- `serializers` (array): Array for regex and serializer function.
 
 ```javascript
 {
@@ -56,9 +53,8 @@ The header is not the only way the middleware decides which serializer to execut
 
 The content type is determined in the following order:
 
-- `context.requiredContentType` -- allows the handler to override everything else
-- The `Accept` header via [accept](https://www.npmjs.com/package/accept)
-- `context.preferredContentType` -- allows the handler to override the default, but lets the request ask first
+- `event.requiredContentType` -- allows the handler to override everything else (legacy, will be deprecated in v6)
+- `context.preferredMediaTypes` -- allows the handler to override the default, but lets the request ask first
 - `defaultContentType` middleware configuration
 
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
@@ -68,6 +64,7 @@ When planning to use `Accept`, an external input, it is recommended to validate 
 
 ```javascript
 import middy from '@middy/core'
+import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpResponseSerializer from '@middy/http-response-serializer'
 
 const lambdaHandler = (event, context) => {
@@ -80,6 +77,7 @@ const lambdaHandler = (event, context) => {
 }
 
 export const handler = middy()
+  .use(httpContentNegotiation()) // Creates `context.preferredMediaTypes`
   .use(
     httpResponseSerializer({
       serializers: [
