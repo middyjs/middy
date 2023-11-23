@@ -1,5 +1,4 @@
 import { normalizeHttpResponse } from '@middy/util'
-import Accept from '@hapi/accept'
 
 const defaults = {
   serializers: [],
@@ -22,14 +21,12 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     // find accept value(s)
     let types
 
+    // TODO deprecate `requiredContentType` in v6
     if (request.event.requiredContentType) {
       types = [request.event.requiredContentType]
     } else {
-      const acceptHeader =
-        request.event.headers?.Accept ?? request.event.headers?.accept
       types = [
-        ...((acceptHeader && Accept.mediaTypes(acceptHeader)) ?? []),
-        request.event.preferredContentType,
+        ...request.context.preferredMediaTypes, // from @middy/http-content-negotiation
         defaultContentType
       ]
     }
