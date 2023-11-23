@@ -56,6 +56,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       let handlerBody = handlerResponse
       if (handlerResponse.statusCode) {
         handlerBody = handlerResponse.body ?? ''
+        delete handlerResponse.body // #1137
         responseStream = awslambda.HttpResponseStream.from(
           responseStream,
           handlerResponse
