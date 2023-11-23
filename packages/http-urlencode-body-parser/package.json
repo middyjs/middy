@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-body-parser",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "description": "Urlencode body parser middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -61,11 +61,11 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.0.2",
+    "@middy/util": "5.0.3",
     "qs": "6.11.2"
   },
   "devDependencies": {
-    "@middy/core": "5.0.2",
+    "@middy/core": "5.0.3",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^4.0.0"
   },
