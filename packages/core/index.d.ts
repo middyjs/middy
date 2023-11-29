@@ -56,6 +56,7 @@ export interface MiddlewareObj<
   before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   after?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   onError?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
+  name?: string
 }
 
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
