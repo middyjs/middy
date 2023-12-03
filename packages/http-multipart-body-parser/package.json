@@ -61,7 +61,7 @@
   },
   "dependencies": {
     "@middy/util": "5.0.3",
-    "busboy": "1.6.0"
+    "@fastify/busboy": "2.1.0"
   },
   "devDependencies": {
     "@middy/core": "5.0.3",

@@ -1,4 +1,4 @@
-import BusBoy from 'busboy'
+import BusBoy from '@fastify/busboy'
 import { createError } from '@middy/util'
 
 const mimePattern = /^multipart\/form-data(;.*)?$/
@@ -97,7 +97,7 @@ const parseMultipartData = (event, options) => {
           multipartData[matches[1]].push(value)
         }
       })
-      .on('close', () => resolve(multipartData))
+      .on('finish', () => resolve(multipartData))
       .on('error', (e) => reject(e))
 
     busboy.write(event.body, charset)
