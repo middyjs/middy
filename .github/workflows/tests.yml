@@ -28,11 +28,11 @@ jobs:
         run: |
           npm install
 
-      - name: Transpile for Node.js ${{ matrix.node-version }} (esm)
-        run: |
-          ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.esm.config.json --source-maps false index.js --out-file index.js
+      #- name: Transpile for Node.js ${{ matrix.node-version }} (esm)
+      #  run: |
+      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.esm.config.json --source-maps false index.js --out-file index.js
+      #    ./node_modules/.bin/swc --config-file ./swc.esm.config.json --source-maps false packages/validator/transpile.js --out-file packages/validator/transpile.js
 
-          ./node_modules/.bin/swc --config-file ./swc.esm.config.json --source-maps false packages/validator/transpile.js --out-file packages/validator/transpile.js
       #- name: Transpile for Node.js ${{ matrix.node-version }} (cjs)
       #  run: |
       #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.cjs.config.json --source-maps false index.js --out-file index.cjs
