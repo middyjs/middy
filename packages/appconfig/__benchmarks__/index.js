@@ -1,12 +1,14 @@
+/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import { mockClient } from 'aws-sdk-client-mock'
 import {
-  SecretsManagerClient,
-  GetSecretValueCommand
-} from '@aws-sdk/client-appconfig'
+  StartConfigurationSessionCommand,
+  GetLatestConfigurationCommand,
+  AppConfigDataClient
+} from '@aws-sdk/client-appconfigdata'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -14,14 +16,25 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  mockClient(SecretsManagerClient)
-    .on(GetSecretValueCommand)
-    .resolves({ SecretString: 'token' })
+  mockClient(AppConfigDataClient)
+    .on(StartConfigurationSessionCommand, params)
+    .resolves({
+      ContentType: 'application/json',
+      InitialConfigurationToken: 'InitialToken...'
+    })
+    .on(GetLatestConfigurationCommand, {
+      ConfigurationToken: 'InitialToken...'
+    })
+    .resolves({
+      ContentType: 'application/json',
+      Configuration: strToUintArray('{"option":"value"}'),
+      NextPollConfigurationToken: 'nextConfigToken'
+    })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: SecretsManagerClient
+      AwsClient: AppConfigDataClient
     })
   )
 }
@@ -44,3 +57,4 @@ await bench
   .run()
 
 console.table(bench.table())
+*/

@@ -1,3 +1,4 @@
+/*
 import { Bench } from 'tinybench'
 import createEvent from '@serverless/event-mocks'
 import middy from '../../core/index.js'
@@ -45,7 +46,7 @@ await bench
   .add('Kinesis Event', async (event = { ...kinesisEvent }) => {
     await warmHandler(event, context)
   })
-
   .run()
 
 console.table(bench.table())
+*/

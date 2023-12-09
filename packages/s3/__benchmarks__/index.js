@@ -1,3 +1,4 @@
+/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
@@ -41,3 +42,4 @@ await bench
   .run()
 
 console.table(bench.table())
+*/
