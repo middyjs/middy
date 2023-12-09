@@ -1,11 +1,11 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import sinon from 'sinon'
 import { Signer } from '@aws-sdk/rds-signer'
 
-const suite = new Benchmark.Suite('@middy/rds-signer')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000
@@ -29,7 +29,7 @@ const setupHandler = (options = {}) => {
 const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
-suite
+await bench
   .add('without cache', async (event = {}) => {
     try {
       await coldHandler(event, context)
@@ -40,7 +40,7 @@ suite
       await warmHandler(event, context)
     } catch (e) {}
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+
+  .run()
+
+console.table(bench.table())

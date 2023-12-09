@@ -660,125 +660,6 @@ test('"onError" middleware should be able to short circuit response', async (t) 
   t.deepEqual(executed, ['b1', 'e2'])
 })
 
-// Plugin
-test('Should trigger all plugin hooks', async (t) => {
-  const plugin = {
-    beforePrefetch: sinon.spy(),
-    requestStart: sinon.spy(),
-    beforeMiddleware: sinon.spy(),
-    afterMiddleware: sinon.spy(),
-    beforeHandler: sinon.spy(),
-    afterHandler: sinon.spy(),
-    requestEnd: sinon.spy()
-  }
-  const beforeMiddleware = sinon.spy()
-  const lambdaHandler = sinon.spy()
-  const afterMiddleware = sinon.spy()
-
-  const handler = middy(lambdaHandler, plugin)
-    .before(beforeMiddleware)
-    .after(afterMiddleware)
-
-  await handler(event, context)
-
-  t.is(plugin.beforePrefetch.callCount, 1)
-  t.is(plugin.requestStart.callCount, 1)
-  t.is(plugin.beforeMiddleware.callCount, 2)
-  t.is(plugin.afterMiddleware.callCount, 2)
-  t.is(plugin.beforeHandler.callCount, 1)
-  t.is(plugin.afterHandler.callCount, 1)
-  t.is(plugin.requestEnd.callCount, 1)
-})
-
-test('Should abort handler', async (t) => {
-  const plugin = {
-    timeoutEarlyInMillis: 1,
-    timeoutEarlyResponse: () => true
-  }
-  const context = {
-    getRemainingTimeInMillis: () => 2
-  }
-
-  const handler = middy((event, context, { signal }) => {
-    signal.onabort = function (abort) {
-      t.true(abort.target.aborted)
-    }
-    return Promise.race([])
-  }, plugin)
-
-  try {
-    const response = await handler(event, context)
-    t.true(response)
-  } catch (e) {}
-})
-
-test('Should abort timeout', async (t) => {
-  const plugin = {
-    timeoutEarlyInMillis: 50
-  }
-  const context = {
-    getRemainingTimeInMillis: () => 100
-  }
-  const handler = middy(async (event, context, { signal }) => {
-    await setTimeout(200)
-    return true
-  }, plugin)
-
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(e.name, 'TimeoutError')
-    t.is(e.message, '[AbortError]: The operation was aborted.')
-  }
-})
-
-test('Should not invoke timeoutEarlyResponse on success', async (t) => {
-  let timeoutCalled = false
-  const plugin = {
-    timeoutEarlyInMillis: 50,
-    timeoutEarlyResponse: () => {
-      timeoutCalled = true
-    }
-  }
-  const context = {
-    getRemainingTimeInMillis: () => 100
-  }
-  const handler = middy(async (event, context, { signal }) => {
-    return true
-  }, plugin)
-
-  const response = await handler(event, context)
-  t.true(response)
-
-  await setTimeout(200)
-
-  t.false(timeoutCalled)
-})
-
-test('Should not invoke timeoutEarlyResponse on error', async (t) => {
-  let timeoutCalled = false
-  const plugin = {
-    timeoutEarlyInMillis: 50,
-    timeoutEarlyResponse: () => {
-      timeoutCalled = true
-    }
-  }
-  const context = {
-    getRemainingTimeInMillis: () => 100
-  }
-  const error = new Error('Oops!')
-  const handler = middy(async (event, context, { signal }) => {
-    throw error
-  }, plugin)
-
-  const response = await handler(event, context).catch((err) => err)
-  t.is(response, error)
-
-  await setTimeout(100)
-
-  t.false(timeoutCalled)
-})
-
 // streamifyResponse
 globalThis.awslambda = {
   streamifyResponse: (cb) => cb,
@@ -964,4 +845,123 @@ test('Should return with streamifyResponse:true using body ReadableStream.pipe(.
   const response = await handler(event, responseStream, context)
   t.is(response, undefined)
   t.is(chunkResponse, input)
+})
+
+// Plugin
+test('Should trigger all plugin hooks', async (t) => {
+  const plugin = {
+    beforePrefetch: sinon.spy(),
+    requestStart: sinon.spy(),
+    beforeMiddleware: sinon.spy(),
+    afterMiddleware: sinon.spy(),
+    beforeHandler: sinon.spy(),
+    afterHandler: sinon.spy(),
+    requestEnd: sinon.spy()
+  }
+  const beforeMiddleware = sinon.spy()
+  const lambdaHandler = sinon.spy()
+  const afterMiddleware = sinon.spy()
+
+  const handler = middy(lambdaHandler, plugin)
+    .before(beforeMiddleware)
+    .after(afterMiddleware)
+
+  await handler(event, context)
+
+  t.is(plugin.beforePrefetch.callCount, 1)
+  t.is(plugin.requestStart.callCount, 1)
+  t.is(plugin.beforeMiddleware.callCount, 2)
+  t.is(plugin.afterMiddleware.callCount, 2)
+  t.is(plugin.beforeHandler.callCount, 1)
+  t.is(plugin.afterHandler.callCount, 1)
+  t.is(plugin.requestEnd.callCount, 1)
+})
+
+test('Should abort handler', async (t) => {
+  const plugin = {
+    timeoutEarlyInMillis: 1,
+    timeoutEarlyResponse: () => true
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 2
+  }
+
+  const handler = middy((event, context, { signal }) => {
+    signal.onabort = function (abort) {
+      t.true(abort.target.aborted)
+    }
+    return Promise.race([])
+  }, plugin)
+
+  try {
+    const response = await handler(event, context)
+    t.true(response)
+  } catch (e) {}
+})
+
+test('Should abort timeout', async (t) => {
+  const plugin = {
+    timeoutEarlyInMillis: 50
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const handler = middy(async (event, context, { signal }) => {
+    await setTimeout(200)
+    return true
+  }, plugin)
+
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.name, 'TimeoutError')
+    t.is(e.message, '[AbortError]: The operation was aborted.')
+  }
+})
+
+test('Should not invoke timeoutEarlyResponse on success', async (t) => {
+  let timeoutCalled = false
+  const plugin = {
+    timeoutEarlyInMillis: 50,
+    timeoutEarlyResponse: () => {
+      timeoutCalled = true
+    }
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const handler = middy(async (event, context, { signal }) => {
+    return true
+  }, plugin)
+
+  const response = await handler(event, context)
+  t.true(response)
+
+  await setTimeout(200)
+
+  t.false(timeoutCalled)
+})
+
+test('Should not invoke timeoutEarlyResponse on error', async (t) => {
+  let timeoutCalled = false
+  const plugin = {
+    timeoutEarlyInMillis: 50,
+    timeoutEarlyResponse: () => {
+      timeoutCalled = true
+    }
+  }
+  const context = {
+    getRemainingTimeInMillis: () => 100
+  }
+  const error = new Error('Oops!')
+  const handler = middy(async (event, context, { signal }) => {
+    throw error
+  }, plugin)
+
+  const response = await handler(event, context).catch((err) => err)
+  t.is(response, error)
+
+  await setTimeout(100)
+
+  t.false(timeoutCalled)
 })

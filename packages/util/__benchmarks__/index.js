@@ -1,4 +1,4 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 
 import {
   getInternal,
@@ -7,9 +7,9 @@ import {
   normalizeHttpResponse
 } from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/util')
+const bench = new Bench({ time: 1_000 })
 
-suite
+await bench
   .add('getInternal', async (event = {}) => {
     await getInternal(true, {
       internal: {
@@ -26,7 +26,7 @@ suite
   .add('normalizeHttpResponse', async (event = {}) => {
     await normalizeHttpResponse({})
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+
+  .run()
+
+console.table(bench.table())

@@ -1,9 +1,9 @@
 /*
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/cloudwatch-metrics')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000
@@ -17,7 +17,7 @@ const setupHandler = () => {
 const warmHandler = setupHandler()
 
 // TODO fix error
-suite
+await bench
   .add('Cold Invocation', async (event = {}) => {
     const coldHandler = setupHandler()
     try {
@@ -29,7 +29,7 @@ suite
       await warmHandler(event, context)
     } catch (e) {}
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true }) */
+
+  .run()
+
+console.table(bench.table()) */

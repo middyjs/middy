@@ -1,8 +1,8 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/http-content-encoding')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000
@@ -17,7 +17,7 @@ const setupHandler = (options) => {
 const gzHandler = setupHandler({ preferredEncoding: 'gz' })
 const brHandler = setupHandler({ preferredEncoding: 'br' })
 
-suite
+await bench
   .add('gzip Response', async (event = {}) => {
     try {
       await gzHandler(event, context)
@@ -28,7 +28,7 @@ suite
       await brHandler(event, context)
     } catch (e) {}
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+
+  .run()
+
+console.table(bench.table())

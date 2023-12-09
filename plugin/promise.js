@@ -1,24 +1,32 @@
-import memwatch from '@airbnb/node-memwatch'
-
+import { createHook } from 'async_hooks'
 const defaults = {
   logger: console.log,
   enabled: true
 }
 
-const memoryPlugin = (opts = {}) => {
+let count = 0
+const hook = createHook({
+  init (asyncId, type) {
+    if (type === 'PROMISE') {
+      count++
+    }
+  }
+})
+
+const promisePlugin = (opts = {}) => {
   const { logger, enabled } = { ...defaults, ...opts }
   if (!enabled) {
     return {}
   }
+  hook.enable()
 
   let cold = true
   const store = {}
-
   const start = (id) => {
-    store[id] = new memwatch.HeapDiff()
+    store[id] = count
   }
   const stop = (id) => {
-    logger(id, store[id].end())
+    logger(id, count - store[id])
   }
 
   const beforePrefetch = () => start('prefetch')
@@ -45,4 +53,4 @@ const memoryPlugin = (opts = {}) => {
     requestEnd
   }
 }
-export default memoryPlugin
+export default promisePlugin

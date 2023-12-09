@@ -1,9 +1,9 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import createEvent from '@serverless/event-mocks'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/event-normalizer')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000
@@ -29,7 +29,7 @@ const deepJsonEvent = createEvent.default('aws:sqs')
 snsEvent.Records[0].Sns.Message = JSON.stringify(sqsEvent)
 deepJsonEvent.Records[0].body = JSON.stringify(snsEvent)
 
-suite
+await bench
   .add('S3 Event', async (event = { ...s3Event }) => {
     await warmHandler(event, context)
   })
@@ -45,7 +45,7 @@ suite
   .add('Kinesis Event', async (event = { ...kinesisEvent }) => {
     await warmHandler(event, context)
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+
+  .run()
+
+console.table(bench.table())

@@ -1,8 +1,8 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/ws-json-body-parser')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000
@@ -13,7 +13,7 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
-suite
+await bench
   .add(
     'Parse body',
     async (
@@ -26,7 +26,7 @@ suite
       } catch (e) {}
     }
   )
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+
+  .run()
+
+console.table(bench.table())

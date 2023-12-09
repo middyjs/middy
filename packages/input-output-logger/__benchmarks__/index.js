@@ -1,8 +1,8 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/input-output-logger')
+const bench = new Bench({ time: 1_000 })
 
 const context = {
   getRemainingTimeInMillis: () => 30000,
@@ -22,49 +22,48 @@ const warmHandler = setupHandler({
   awsContext: false,
   omitPaths: []
 })
-suite.add(
-  'log objects as is',
-  async (
-    event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
-  ) => {
-    try {
-      await warmHandler(event, context)
-    } catch (e) {}
-  }
-)
 
 const shallowHandler = setupHandler({
   awsContext: false,
   omitPaths: ['event.zooloo', 'event.hoo', 'response.hoo']
 })
-suite.add(
-  'omit shallow values',
-  async (
-    event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
-  ) => {
-    try {
-      await shallowHandler(event, context)
-    } catch (e) {}
-  }
-)
 
 const deepHandler = setupHandler({
   awsContext: false,
   omitPaths: ['event.hoo', 'response.foo.[].foo']
 })
-suite.add(
-  'omit deep values',
-  async (
-    event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
-  ) => {
-    try {
-      await deepHandler(event, context)
-    } catch (e) {}
-  }
-)
 
-suite
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
-  })
-  .run({ async: true })
+await bench
+  .add(
+    'log objects as is',
+    async (
+      event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
+    ) => {
+      try {
+        await warmHandler(event, context)
+      } catch (e) {}
+    }
+  )
+  .add(
+    'omit shallow values',
+    async (
+      event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
+    ) => {
+      try {
+        await shallowHandler(event, context)
+      } catch (e) {}
+    }
+  )
+  .add(
+    'omit deep values',
+    async (
+      event = { foo: [{ foo: 'bar', fuu: { boo: 'baz' } }], hoo: false }
+    ) => {
+      try {
+        await deepHandler(event, context)
+      } catch (e) {}
+    }
+  )
+  .run()
+
+console.table(bench.table())

@@ -1,35 +1,102 @@
-import Benchmark from 'benchmark'
+import { Bench } from 'tinybench'
 import middy from '../index.js'
 
-const suite = new Benchmark.Suite('@middy/core')
+const bench = new Bench({ time: 1_000 })
 
+const middleware = (opts = {}) => {
+  const middlewareBefore = (request) => {}
+  const middlewareAfter = (request) => {}
+  const middlewareOnError = (request) => {
+    if (request.response !== undefined) return
+    middlewareAfter(request)
+  }
+  return {
+    before: middlewareBefore,
+    after: middlewareAfter,
+    onError: middlewareOnError
+  }
+}
+const middlewareAsync = (opts = {}) => {
+  const middlewareBefore = async (request) => {}
+  const middlewareAfter = async (request) => {}
+  const middlewareOnError = async (request) => {
+    if (request.response !== undefined) return
+    await middlewareAfter(request)
+  }
+  return {
+    before: middlewareBefore,
+    after: middlewareAfter,
+    onError: middlewareOnError
+  }
+}
+const baseHandler = () => {}
+const baseHandlerAsync = async () => {}
 const context = {
   getRemainingTimeInMillis: () => 30000
 }
-const setupHandler = (timeoutEarlyInMillis = 0) => {
-  const baseHandler = () => {}
-  return middy(baseHandler, { timeoutEarlyInMillis })
-}
 
-const warmHandler = setupHandler()
-const warmtimeoutHandler = setupHandler(1000)
+const warmHandler = middy().handler(baseHandler)
+const warmAsyncHandler = middy().handler(baseHandlerAsync)
+const middlewares = new Array(25)
+middlewares.fill(middleware())
+const warmMiddlewareHandler = middy().use(middlewares).handler(baseHandler)
+const middlewaresAsync = new Array(25)
+middlewaresAsync.fill(middlewareAsync())
+const warmAsyncMiddlewareHandler = middy()
+  .use(middlewaresAsync)
+  .handler(baseHandler)
+const warmTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
+  baseHandler
+)
 
-suite
+// const warmNextHandler = middyNext().handler(baseHandler)
+// const warmNextMiddlewareHandler = middyNext()
+//   .use([middleware()])
+//   .handler(baseHandler)
+// const warmNextAsyncMiddlewareHandler = middyNext()
+//   .use([middlewareAsync()])
+//   .handler(baseHandler)
+// const warmNextTimeoutHandler = middyNext({ timeoutEarlyInMillis: 0 }).handler(
+//   baseHandler
+// )
+
+await bench
   .add('Cold Invocation', async (event = {}) => {
-    const coldHandler = setupHandler()
+    const coldHandler = middy().handler(baseHandler)
     await coldHandler(event, context)
   })
-  .add('Cold Invocation w/ Timeout', async (event = {}) => {
-    const coldHandler = setupHandler(1000)
+  .add('Cold Invocation with middleware', async (event = {}) => {
+    const middlewares = new Array(25)
+    middlewares.fill(middleware())
+    const coldHandler = middy().use(middlewares).handler(baseHandler)
     await coldHandler(event, context)
   })
   .add('Warm Invocation', async (event = {}) => {
     await warmHandler(event, context)
   })
-  .add('Warm Invocation with Timeout', async (event = {}) => {
-    await warmtimeoutHandler(event, context)
+  // .add('Warm Invocation * next', async (event = {}) => {
+  //   await warmNextHandler(event, context)
+  // })
+  .add('Warm Async Invocation', async (event = {}) => {
+    await warmAsyncHandler(event, context)
   })
-  .on('cycle', (event) => {
-    console.log(suite.name, String(event.target))
+  .add('Warm Invocation without Timeout', async (event = {}) => {
+    await warmTimeoutHandler(event, context)
   })
-  .run({ async: true })
+  // .add('Warm Invocation with Timeout * next', async (event = {}) => {
+  //   await warmNextTimeoutHandler(event, context)
+  // })
+  // TODO StreamifyResponse
+  .add('Warm Invocation with middleware', async (event = {}) => {
+    await warmMiddlewareHandler(event, context)
+  })
+  // .add('Warm Invocation with middleware * next', async (event = {}) => {
+  //   await warmNextMiddlewareHandler(event, context)
+  // })
+  .add('Warm Invocation with async middleware', async (event = {}) => {
+    await warmAsyncMiddlewareHandler(event, context)
+  })
+
+  .run()
+
+console.table(bench.table())
