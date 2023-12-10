@@ -1,5 +1,6 @@
 import { Bench } from 'tinybench'
 import middy from '../index.js'
+// import middyNext from '../index.next.js'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -45,7 +46,7 @@ middlewaresAsync.fill(middlewareAsync())
 const warmAsyncMiddlewareHandler = middy()
   .use(middlewaresAsync)
   .handler(baseHandler)
-const warmTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
+const warmDisableTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
   baseHandler
 )
 
@@ -60,40 +61,41 @@ const warmTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
 //   baseHandler
 // )
 
+const event = {}
 await bench
-  .add('Cold Invocation', async (event = {}) => {
+  .add('Cold Invocation', async () => {
     const coldHandler = middy().handler(baseHandler)
     await coldHandler(event, context)
   })
-  .add('Cold Invocation with middleware', async (event = {}) => {
+  .add('Cold Invocation with middleware', async () => {
     const middlewares = new Array(25)
     middlewares.fill(middleware())
     const coldHandler = middy().use(middlewares).handler(baseHandler)
     await coldHandler(event, context)
   })
-  .add('Warm Invocation', async (event = {}) => {
+  .add('Warm Invocation', async () => {
     await warmHandler(event, context)
   })
   // .add('Warm Invocation * next', async (event = {}) => {
   //   await warmNextHandler(event, context)
   // })
-  .add('Warm Async Invocation', async (event = {}) => {
+  .add('Warm Async Invocation', async () => {
     await warmAsyncHandler(event, context)
   })
-  .add('Warm Invocation without Timeout', async (event = {}) => {
-    await warmTimeoutHandler(event, context)
+  .add('Warm Invocation with disabled Timeout', async () => {
+    await warmDisableTimeoutHandler(event, context)
   })
-  // .add('Warm Invocation with Timeout * next', async (event = {}) => {
+  // .add('Warm Invocation with disabled Timeout * next', async (event = {}) => {
   //   await warmNextTimeoutHandler(event, context)
   // })
   // TODO StreamifyResponse
-  .add('Warm Invocation with middleware', async (event = {}) => {
+  .add('Warm Invocation with middleware', async () => {
     await warmMiddlewareHandler(event, context)
   })
   // .add('Warm Invocation with middleware * next', async (event = {}) => {
   //   await warmNextMiddlewareHandler(event, context)
   // })
-  .add('Warm Invocation with async middleware', async (event = {}) => {
+  .add('Warm Invocation with async middleware', async () => {
     await warmAsyncMiddlewareHandler(event, context)
   })
 

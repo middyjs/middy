@@ -1,7 +1,7 @@
 /* global awslambda */
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { setTimeout } from 'node:timers/promises'
+import { setTimeout } from 'node:timers'
 
 const defaultLambdaHandler = () => {}
 const defaultPlugin = {
@@ -137,7 +137,7 @@ const runRequest = async (
   onErrorMiddlewares,
   plugin
 ) => {
-  let timeoutAbort
+  let timeoutID
   // context.getRemainingTimeInMillis checked for when AWS context missing (tests, containers)
   const timeoutEarly =
     plugin.timeoutEarly && request.context.getRemainingTimeInMillis
@@ -149,7 +149,8 @@ const runRequest = async (
     if (typeof request.response === 'undefined') {
       plugin.beforeHandler?.()
 
-      // Note: signal.abort is slow ~6000ns
+      // Can't manually abort and timeout with same AbortSignal
+      // https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
       const handlerAbort = new AbortController()
       const promises = [
         lambdaHandler(request.event, request.context, {
@@ -157,31 +158,36 @@ const runRequest = async (
         })
       ]
 
-      // Can't manually abort and timeout with same AbortSignal
-      // https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
+      // clearTimeout pattern is 10x faster than using AbortController
+      // Note: signal.abort is slow ~6000ns
       if (timeoutEarly) {
-        timeoutAbort = new AbortController()
-        promises.push(
-          setTimeout(
-            request.context.getRemainingTimeInMillis() -
-              plugin.timeoutEarlyInMillis,
-            undefined,
-            { signal: timeoutAbort.signal }
-          ).then(() => {
+        let timeoutResolve
+        const timeoutPromise = new Promise((resolve, reject) => {
+          timeoutResolve = () => {
             handlerAbort.abort()
-            return plugin.timeoutEarlyResponse()
-          })
+            try {
+              resolve(plugin.timeoutEarlyResponse())
+            } catch (e) {
+              reject(e)
+            }
+          }
+        })
+        timeoutID = setTimeout(
+          timeoutResolve,
+          request.context.getRemainingTimeInMillis() -
+            plugin.timeoutEarlyInMillis
         )
+        promises.push(timeoutPromise)
       }
       request.response = await Promise.race(promises)
-      timeoutAbort?.abort() // lambdaHandler may not support .then()
+      clearTimeout(timeoutID)
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
     // timeout should be aborted when errors happen in handler
-    timeoutAbort?.abort()
+    clearTimeout(timeoutID)
 
     // Reset response changes made by after stack before error thrown
     request.response = undefined
