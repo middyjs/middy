@@ -13,17 +13,11 @@ const bench = new Bench({ time: 1_000 })
 const context = {
   getRemainingTimeInMillis: () => 30000
 }
-
 const setupHandler = (options = {}) => {
   mockClient(ApiGatewayManagementApiClient)
     .on(PostToConnectionCommand)
     .resolves({ statusCode: 200 })
-  const baseHandler = () => {
-    return {
-      ConnectionId: 'id',
-      Data: 'message'
-    }
-  }
+  const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
@@ -32,10 +26,16 @@ const setupHandler = (options = {}) => {
   )
 }
 
+const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
 await bench
-  .add('post message', async (event = {}) => {
+  .add('without cache', async (event = {}) => {
+    try {
+      await coldHandler(event, context)
+    } catch (e) {}
+  })
+  .add('with cache', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

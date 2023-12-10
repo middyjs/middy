@@ -19,13 +19,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    const { inputS3Url, outputRoute, outputToken } =
-      request.event.getObjectContext
-
-    request.internal.s3ObjectResponse = {
-      RequestRoute: outputRoute,
-      RequestToken: outputToken
-    }
+    const { inputS3Url } = request.event.getObjectContext
 
     request.context.s3ObjectFetch = fetch(inputS3Url)
   }
@@ -35,16 +29,16 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
+    request.response.RequestRoute = request.event.getObjectContext.outputRoute
+    request.response.RequestToken = request.event.getObjectContext.outputToken
+
     if (request.response.body) {
       request.response.Body = request.response.body
       delete request.response.body
     }
 
     await client.send(
-      new WriteGetObjectResponseCommand({
-        ...request.internal.s3ObjectResponse,
-        ...request.response
-      })
+      new WriteGetObjectResponseCommand(request.internal.s3ObjectResponse)
     )
 
     return { statusCode: 200 }

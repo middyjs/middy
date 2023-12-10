@@ -2,11 +2,9 @@ import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-import sinon from 'sinon'
 import { mockClient } from 'aws-sdk-client-mock'
 import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
-import { PassThrough } from 'node:stream'
-import https from 'node:https'
+import mockFetch from 'fetch-mock'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -14,16 +12,7 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 
-const mockHttps = (mockResponse) => {
-  const mockStream = new PassThrough()
-  mockStream.push(mockResponse)
-  mockStream.end()
-
-  https.request = () => mockStream
-
-  sinon.spy(mockStream, 'pipe')
-  return https
-}
+mockFetch.get('http://localhost', 200)
 const setupHandler = (options = {}) => {
   mockClient(S3Client)
     .on(WriteGetObjectResponseCommand)
@@ -32,22 +21,26 @@ const setupHandler = (options = {}) => {
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: S3Client,
-      __https: mockHttps('hello world')
+      AwsClient: S3Client
     })
   )
 }
 
-const coldHandler = setupHandler({ cacheExpiry: 0 })
+const coldHandler = setupHandler({ disablePrefetch: true })
 const warmHandler = setupHandler()
 
+const event = {
+  getObjectContext: {
+    inputS3Url: 'http://localhost'
+  }
+}
 await bench
-  .add('without cache', async (event = {}) => {
+  .add('without cache', async () => {
     try {
       await coldHandler(event, context)
     } catch (e) {}
   })
-  .add('with cache', async (event = {}) => {
+  .add('with cache', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}
