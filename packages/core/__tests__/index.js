@@ -877,7 +877,7 @@ test('Should trigger all plugin hooks', async (t) => {
   t.is(plugin.requestEnd.callCount, 1)
 })
 
-test('Should abort handler', async (t) => {
+test('Should abort handler when timeout expires', async (t) => {
   const plugin = {
     timeoutEarlyInMillis: 1,
     timeoutEarlyResponse: () => true
@@ -899,15 +899,15 @@ test('Should abort handler', async (t) => {
   } catch (e) {}
 })
 
-test('Should abort timeout', async (t) => {
+test('Should throw error when timeout expires', async (t) => {
   const plugin = {
-    timeoutEarlyInMillis: 50
+    timeoutEarlyInMillis: 1
   }
   const context = {
     getRemainingTimeInMillis: () => 100
   }
   const handler = middy(async (event, context, { signal }) => {
-    await setTimeout(200)
+    await setTimeout(100)
     return true
   }, plugin)
 
@@ -916,6 +916,7 @@ test('Should abort timeout', async (t) => {
   } catch (e) {
     t.is(e.name, 'TimeoutError')
     t.is(e.message, '[AbortError]: The operation was aborted.')
+    t.deepEqual(e.cause, { package: '@middy/core' })
   }
 })
 

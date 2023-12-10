@@ -42,10 +42,10 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
 
     return runRequest(
       request,
-      [...beforeMiddlewares],
+      beforeMiddlewares,
       lambdaHandler,
-      [...afterMiddlewares],
-      [...onErrorMiddlewares],
+      afterMiddlewares,
+      onErrorMiddlewares,
       plugin
     )
   }

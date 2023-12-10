@@ -1,13 +1,9 @@
-/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import { mockClient } from 'aws-sdk-client-mock'
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand
-} from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -15,14 +11,20 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  mockClient(SecretsManagerClient)
-    .on(GetSecretValueCommand)
-    .resolves({ SecretString: 'token' })
+  mockClient(DynamoDBClient)
+    .on(GetItemCommand)
+    .resolvesOnce({
+      Item: {
+        value: {
+          S: 'value'
+        }
+      }
+    })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: SecretsManagerClient
+      AwsClient: DynamoDBClient
     })
   )
 }
@@ -45,4 +47,3 @@ await bench
   .run()
 
 console.table(bench.table())
-*/

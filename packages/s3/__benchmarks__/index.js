@@ -1,10 +1,9 @@
-/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
 import { mockClient } from 'aws-sdk-client-mock'
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-s3'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -12,14 +11,22 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
-  mockClient(SecretsManagerClient)
-    .on(GetSecretValueCommand)
-    .resolves({ SecretString: 'token' })
+  const s3Response = (content) => {
+    return {
+      transformToString: async () => content
+    }
+  }
+  mockClient(S3Client)
+    .on(GetObjectCommand)
+    .resolvesOnce({
+      ContentType: 'application/json',
+      Body: s3Response('{"option":"value"}')
+    })
   const baseHandler = () => {}
   return middy(baseHandler).use(
     middleware({
       ...options,
-      AwsClient: SecretsManagerClient
+      AwsClient: S3Client
     })
   )
 }
@@ -42,4 +49,3 @@ await bench
   .run()
 
 console.table(bench.table())
-*/

@@ -1,4 +1,3 @@
-/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
@@ -16,8 +15,15 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options = {}) => {
+  const strToUintArray = (str) =>
+    Uint8Array.from(str.split('').map((x) => x.charCodeAt()))
+
   mockClient(AppConfigDataClient)
-    .on(StartConfigurationSessionCommand, params)
+    .on(StartConfigurationSessionCommand, {
+      ApplicationIdentifier: '...',
+      ConfigurationProfileIdentifier: '...',
+      EnvironmentIdentifier: '...'
+    })
     .resolves({
       ContentType: 'application/json',
       InitialConfigurationToken: 'InitialToken...'
@@ -57,4 +63,3 @@ await bench
   .run()
 
 console.table(bench.table())
-*/

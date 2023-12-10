@@ -1,4 +1,3 @@
-/*
 import { Bench } from 'tinybench'
 import createEvent from '@serverless/event-mocks'
 import middy from '../../core/index.js'
@@ -15,38 +14,86 @@ const setupHandler = () => {
 }
 
 const warmHandler = setupHandler()
-const dynamoEvent = createEvent.default('aws:dynamo')
-const kinesisEvent = { event: createEvent.default('aws:kinesis') }
-const s3Event = createEvent.default('aws:s3')
-const sqsEvent = createEvent.default('aws:sqs')
-const snsEvent = createEvent.default('aws:sns')
+const dynamoEvent = () => createEvent.default('aws:dynamo')
+const kinesisEvent = () => {
+  const event = createEvent.default('aws:kinesis')
+  event.Records[0].kinesis.data = Buffer.from(
+    JSON.stringify({ hello: 'world' }),
+    'utf-8'
+  ).toString('base64')
+  return { event }
+}
+const s3Event = () => createEvent.default('aws:s3')
+const sqsEvent = () => createEvent.default('aws:sqs')
+const snsEvent = () => {
+  const event = createEvent.default('aws:sns')
+  event.Records[0].Sns.Message = JSON.stringify(sqsEvent())
+  return event
+}
 
-kinesisEvent.event.Records[0].kinesis.data = Buffer.from(
-  JSON.stringify({ hello: 'world' }),
-  'utf-8'
-).toString('base64')
+const deepJsonEvent = () => {
+  const event = createEvent.default('aws:sqs')
+  event.Records[0].body = JSON.stringify(snsEvent())
+  return event
+}
 
-const deepJsonEvent = createEvent.default('aws:sqs')
-snsEvent.Records[0].Sns.Message = JSON.stringify(sqsEvent)
-deepJsonEvent.Records[0].body = JSON.stringify(snsEvent)
-
+let event
 await bench
-  .add('S3 Event', async (event = { ...s3Event }) => {
-    await warmHandler(event, context)
-  })
-  .add('Shallow JSON (SQS) Event', async (event = { ...sqsEvent }) => {
-    await warmHandler(event, context)
-  })
-  .add('Deep JSON (S3>SNS>SQS) Event', async (event = { ...deepJsonEvent }) => {
-    await warmHandler(event, context)
-  })
-  .add('DynamoDB Event', async (event = { ...dynamoEvent }) => {
-    await warmHandler(event, context)
-  })
-  .add('Kinesis Event', async (event = { ...kinesisEvent }) => {
-    await warmHandler(event, context)
-  })
+  .add(
+    'S3 Event',
+    async () => {
+      await warmHandler(event, context)
+    },
+    {
+      beforeEach: () => {
+        event = s3Event()
+      }
+    }
+  )
+  .add(
+    'Shallow JSON (SQS) Event',
+    async () => {
+      await warmHandler(event, context)
+    },
+    {
+      beforeEach: () => {
+        event = sqsEvent()
+      }
+    }
+  )
+  .add(
+    'Deep JSON (S3>SNS>SQS) Event',
+    async () => {
+      await warmHandler(event, context)
+    },
+    {
+      beforeEach: () => {
+        event = deepJsonEvent()
+      }
+    }
+  )
+  .add(
+    'DynamoDB Event',
+    async () => {
+      await warmHandler(event, context)
+    },
+    {
+      beforeEach: () => {
+        event = dynamoEvent()
+      }
+    }
+  )
+  .add(
+    'Kinesis Event',
+    async () => {
+      await warmHandler(event, context)
+    },
+    {
+      beforeEach: () => {
+        event = kinesisEvent()
+      }
+    }
+  )
   .run()
 
 console.table(bench.table())
-*/

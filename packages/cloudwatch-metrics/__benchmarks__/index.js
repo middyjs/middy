@@ -1,4 +1,3 @@
-/*
 import { Bench } from 'tinybench'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
@@ -8,23 +7,21 @@ const bench = new Bench({ time: 1_000 })
 const context = {
   getRemainingTimeInMillis: () => 30000
 }
-const setupHandler = () => {
+const setupHandler = (options = {}) => {
   const baseHandler = () => {}
-  return middy(baseHandler)
-    .use(middleware({ namespace: 'namespace' }))
+  return middy(baseHandler).use(middleware({ namespace: 'namespace' }))
 }
 
+const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
-// TODO fix error
 await bench
-  .add('Cold Invocation', async (event = {}) => {
-    const coldHandler = setupHandler()
+  .add('without cache', async (event = {}) => {
     try {
       await coldHandler(event, context)
     } catch (e) {}
   })
-  .add('Warm Invocation', async (event = {}) => {
+  .add('with cache', async (event = {}) => {
     try {
       await warmHandler(event, context)
     } catch (e) {}
@@ -32,4 +29,4 @@ await bench
 
   .run()
 
-console.table(bench.table()) */
+console.table(bench.table())
