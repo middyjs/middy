@@ -76,7 +76,7 @@ await bench
   .add('Warm Invocation', async () => {
     await warmHandler(event, context)
   })
-  // .add('Warm Invocation * next', async (event = {}) => {
+  // .add('Warm Invocation * next', async () => {
   //   await warmNextHandler(event, context)
   // })
   .add('Warm Async Invocation', async () => {
@@ -85,14 +85,14 @@ await bench
   .add('Warm Invocation with disabled Timeout', async () => {
     await warmDisableTimeoutHandler(event, context)
   })
-  // .add('Warm Invocation with disabled Timeout * next', async (event = {}) => {
+  // .add('Warm Invocation with disabled Timeout * next', async () => {
   //   await warmNextTimeoutHandler(event, context)
   // })
   // TODO StreamifyResponse
   .add('Warm Invocation with middleware', async () => {
     await warmMiddlewareHandler(event, context)
   })
-  // .add('Warm Invocation with middleware * next', async (event = {}) => {
+  // .add('Warm Invocation with middleware * next', async () => {
   //   await warmNextMiddlewareHandler(event, context)
   // })
   .add('Warm Invocation with async middleware', async () => {

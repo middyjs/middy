@@ -9,8 +9,8 @@ const context = {
 }
 const setupHandler = () => {
   const baseHandler = (event) => {
-    const recordPromises = event.Records.map(async (record, index) => {
-      return record
+    const recordPromises = event.Records.map((record, index) => {
+      return Promise.resolve(record)
     })
     return Promise.allSettled(recordPromises)
   }
@@ -19,13 +19,15 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
+const event = {
+  Records: [{}]
+}
 await bench
-  .add('process failures', async (event = {}) => {
+  .add('process failures', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}
   })
-
   .run()
 
 console.table(bench.table())

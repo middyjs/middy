@@ -14,8 +14,9 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
+const event = {}
 await bench
-  .add('Change Context', async (event = {}) => {
+  .add('Change Context', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

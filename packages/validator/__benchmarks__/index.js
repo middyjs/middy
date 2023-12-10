@@ -20,8 +20,9 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
+const event = {}
 await bench
-  .add('type check input & output', async (event = {}) => {
+  .add('type check input & output', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

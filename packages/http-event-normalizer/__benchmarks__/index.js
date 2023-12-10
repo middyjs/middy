@@ -14,8 +14,9 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
+const event = {}
 await bench
-  .add('Normalize Event', async (event = {}) => {
+  .add('Normalize Event', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

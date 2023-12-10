@@ -17,13 +17,14 @@ const setupHandler = (options) => {
 const gzHandler = setupHandler({ preferredEncoding: 'gz' })
 const brHandler = setupHandler({ preferredEncoding: 'br' })
 
+const event = {}
 await bench
-  .add('gzip Response', async (event = {}) => {
+  .add('gzip Response', async () => {
     try {
       await gzHandler(event, context)
     } catch (e) {}
   })
-  .add('brotli Response', async (event = {}) => {
+  .add('brotli Response', async () => {
     try {
       await brHandler(event, context)
     } catch (e) {}

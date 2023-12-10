@@ -34,13 +34,14 @@ const setupHandler = (options = {}) => {
 const coldHandler = setupHandler({ cacheExpiry: 0 })
 const warmHandler = setupHandler()
 
+const event = {}
 await bench
-  .add('without cache', async (event = {}) => {
+  .add('without cache', async () => {
     try {
       await coldHandler(event, context)
     } catch (e) {}
   })
-  .add('with cache', async (event = {}) => {
+  .add('with cache', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

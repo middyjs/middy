@@ -16,8 +16,9 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler()
 
+const event = {}
 await bench
-  .add('Handle Error', async (event = {}) => {
+  .add('Handle Error', async () => {
     try {
       await warmHandler(event, context)
     } catch (e) {}

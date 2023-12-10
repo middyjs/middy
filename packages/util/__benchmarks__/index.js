@@ -10,20 +10,20 @@ import {
 const bench = new Bench({ time: 1_000 })
 
 await bench
-  .add('getInternal', async (event = {}) => {
+  .add('getInternal', async () => {
     await getInternal(true, {
       internal: {
         key: Promise.resolve('value')
       }
     })
   })
-  .add('processCache', async (event = {}) => {
+  .add('processCache', async () => {
     await processCache({ cacheExpiry: -1, cacheKey: 'key' })
   })
-  .add('jsonSafeParse', async (event = {}) => {
+  .add('jsonSafeParse', async () => {
     await jsonSafeParse('{"key":"value"}')
   })
-  .add('normalizeHttpResponse', async (event = {}) => {
+  .add('normalizeHttpResponse', async () => {
     await normalizeHttpResponse({})
   })
 
