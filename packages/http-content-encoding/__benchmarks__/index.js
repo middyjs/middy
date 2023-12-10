@@ -8,9 +8,8 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 const setupHandler = (options) => {
-  const baseHandler = () => {
-    return JSON.stringify(new Array(100000).fill(0))
-  }
+  const response = JSON.stringify(new Array(100000).fill(0))
+  const baseHandler = () => response
   return middy(baseHandler).use(middleware(options))
 }
 
@@ -20,16 +19,11 @@ const brHandler = setupHandler({ preferredEncoding: 'br' })
 const event = {}
 await bench
   .add('gzip Response', async () => {
-    try {
-      await gzHandler(event, context)
-    } catch (e) {}
+    await gzHandler(event, context)
   })
   .add('brotli Response', async () => {
-    try {
-      await brHandler(event, context)
-    } catch (e) {}
+    await brHandler(event, context)
   })
-
   .run()
 
 console.table(bench.table())
