@@ -23,12 +23,12 @@ const warmHandler = setupHandler()
 
 await bench
   .add(
-    'Parse Headers',
+    'Parse headers',
     async (
       event = {
         headers: {
           'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
-          'Accept-Encoding': '*/*',
+          'Accept-Encoding': 'gzip, deflate, br',
           'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
           Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
         }

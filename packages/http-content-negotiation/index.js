@@ -44,7 +44,6 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
         context
       )
     }
-
     if (options.parseEncodings) {
       parseHeader(
         'Accept-Encoding',
@@ -104,16 +103,17 @@ const parseHeader = (
   context[resultsName] = parseFn[type](headerValue, availableValues)
   context[resultName] = context[resultsName][0]
 
-  if (defaultToFirstValue && context[resultName] === undefined) {
-    context[resultName] = availableValues[0]
-  }
-  if (failOnMismatch && context[resultName] === undefined) {
-    // NotAcceptable
-    throw createError(
-      406,
-      `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`,
-      { cause: { package: '@middy/http-content-negotiation' } }
-    )
+  if (context[resultName] === undefined) {
+    if (defaultToFirstValue) {
+      context[resultName] = availableValues[0]
+    } else if (failOnMismatch) {
+      // NotAcceptable
+      throw createError(
+        406,
+        `Unsupported ${type}. Acceptable values: ${availableValues.join(', ')}`,
+        { cause: { package: '@middy/http-content-negotiation' } }
+      )
+    }
   }
 }
 
