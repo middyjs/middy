@@ -180,14 +180,18 @@ const runRequest = async (
         promises.push(timeoutPromise)
       }
       request.response = await Promise.race(promises)
-      clearTimeout(timeoutID)
+      if (timeoutID) {
+        clearTimeout(timeoutID)
+      }
 
       plugin.afterHandler?.()
       await runMiddlewares(request, afterMiddlewares, plugin)
     }
   } catch (e) {
     // timeout should be aborted when errors happen in handler
-    clearTimeout(timeoutID)
+    if (timeoutID) {
+      clearTimeout(timeoutID)
+    }
 
     // Reset response changes made by after stack before error thrown
     request.response = undefined
