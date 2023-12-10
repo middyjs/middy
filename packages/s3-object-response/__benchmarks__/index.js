@@ -4,7 +4,6 @@ import middleware from '../index.js'
 
 import { mockClient } from 'aws-sdk-client-mock'
 import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
-import mockFetch from 'fetch-mock'
 
 const bench = new Bench({ time: 1_000 })
 
@@ -12,7 +11,7 @@ const context = {
   getRemainingTimeInMillis: () => 30000
 }
 
-mockFetch.get('http://localhost', 200)
+globalThis.fetch = () => Promise.resolve()
 const setupHandler = (options = {}) => {
   mockClient(S3Client)
     .on(WriteGetObjectResponseCommand)
