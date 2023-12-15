@@ -7,8 +7,9 @@ import {
   modifyCache,
   jsonSafeParse,
   getInternal,
-  sanitizeKey
-} from '@middy/util'
+  sanitizeKey,
+  catchInvalidSignatureException
+} from '../util/index.js'
 import {
   SSMClient,
   GetParametersCommand,
@@ -66,13 +67,13 @@ const ssmMiddleware = (opts = {}) => {
         continue
       }
 
+      const command = new GetParametersCommand({
+        Names: batchFetchKeys,
+        WithDecryption: true
+      })
       batchReq = client
-        .send(
-          new GetParametersCommand({
-            Names: batchFetchKeys,
-            WithDecryption: true
-          })
-        )
+        .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then((resp) => {
           // Don't sanitize key, mapped to set value in options
           return Object.assign(
@@ -131,15 +132,15 @@ const ssmMiddleware = (opts = {}) => {
   }
 
   const fetchPath = (path, nextToken, values = {}) => {
+    const command = new GetParametersByPathCommand({
+      Path: path,
+      NextToken: nextToken,
+      Recursive: true,
+      WithDecryption: true
+    })
     return client
-      .send(
-        new GetParametersByPathCommand({
-          Path: path,
-          NextToken: nextToken,
-          Recursive: true,
-          WithDecryption: true
-        })
-      )
+      .send(command)
+      .catch((e) => catchInvalidSignatureException(e, client, command))
       .then((resp) => {
         Object.assign(
           values,
