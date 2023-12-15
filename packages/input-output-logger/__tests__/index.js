@@ -1,10 +1,11 @@
 import test from 'ava'
 import sinon from 'sinon'
+import { createReadableStream, createWritableStream } from '@datastream/core'
 import middy from '../../core/index.js'
 import inputOutputLogger from '../index.js'
 
 // Silence logging
-console.log = () => {}
+// console.log = () => {}
 
 // const event = {}
 const context = {
@@ -24,9 +25,93 @@ test('It should log event and response', async (t) => {
   const event = { foo: 'bar', fuu: 'baz' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event }))
-  t.true(logger.calledWith({ response: event }))
+  t.true(logger.calledWithExactly({ event }))
+  t.true(logger.calledWithExactly({ response: event }))
   t.deepEqual(response, event)
+})
+
+// streamifyResponse
+globalThis.awslambda = {
+  streamifyResponse: (cb) => cb,
+  HttpResponseStream: {
+    from: (responseStream, metadata) => {
+      return responseStream
+    }
+  }
+}
+
+test('It should log with streamifyResponse:true using ReadableStream', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const logger = sinon.spy()
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return createReadableStream(input)
+    },
+    {
+      streamifyResponse: true
+    }
+  ).use(
+    inputOutputLogger({
+      logger
+    })
+  )
+
+  const event = {}
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+  t.true(
+    logger.calledWithExactly({
+      response: input
+    })
+  )
+})
+
+test('It should log with streamifyResponse:true using body ReadableStream', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const logger = sinon.spy()
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'plain/text'
+        },
+        body: createReadableStream(input)
+      }
+    },
+    {
+      streamifyResponse: true
+    }
+  ).use(
+    inputOutputLogger({
+      logger
+    })
+  )
+
+  const event = {}
+  let chunkResponse = ''
+  const responseStream = createWritableStream((chunk) => {
+    chunkResponse += chunk
+  })
+  const response = await handler(event, responseStream, context)
+  t.is(response, undefined)
+  t.is(chunkResponse, input)
+  t.true(
+    logger.calledWithExactly({
+      response: {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'plain/text'
+        },
+        body: input
+      }
+    })
+  )
 })
 
 test('It should throw error when invalid logger', async (t) => {
@@ -56,8 +141,8 @@ test('It should omit paths', async (t) => {
   const event = { foo: 'foo', bar: 'bar' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event: { bar: 'bar' } }))
-  t.true(logger.calledWith({ response: { foo: 'foo' } }))
+  t.true(logger.calledWithExactly({ event: { bar: 'bar' } }))
+  t.true(logger.calledWithExactly({ response: { foo: 'foo' } }))
 
   t.deepEqual(response, event)
 })
@@ -76,8 +161,8 @@ test('It should mask paths', async (t) => {
   const event = { foo: 'foo', bar: 'bar' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event: { foo: '*****', bar: 'bar' } }))
-  t.true(logger.calledWith({ response: { foo: 'foo', bar: '*****' } }))
+  t.true(logger.calledWithExactly({ event: { foo: '*****', bar: 'bar' } }))
+  t.true(logger.calledWithExactly({ response: { foo: 'foo', bar: '*****' } }))
 
   t.deepEqual(response, event)
 })
@@ -95,8 +180,8 @@ test('It should omit nested paths', async (t) => {
   const event = { foo: { foo: 'foo' }, bar: [{ bar: 'bar' }] }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event: { ...event, foo: {} } }))
-  t.true(logger.calledWith({ response: { ...event, bar: [{}] } }))
+  t.true(logger.calledWithExactly({ event: { ...event, foo: {} } }))
+  t.true(logger.calledWithExactly({ response: { ...event, bar: [{}] } }))
 
   t.deepEqual(response, event)
 })
@@ -114,8 +199,8 @@ test('It should omit nested paths with conflicting paths', async (t) => {
   const event = { foo: { foo: 'foo' }, bar: [{ bar: 'bar' }] }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event: { foo: {} } }))
-  t.true(logger.calledWith({ response: event }))
+  t.true(logger.calledWithExactly({ event: { foo: {} } }))
+  t.true(logger.calledWithExactly({ response: event }))
 
   t.deepEqual(response, event)
 })
@@ -154,13 +239,13 @@ test('It should skip paths that do not exist', async (t) => {
   }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event }))
-  t.true(logger.calledWith({ response: event }))
+  t.true(logger.calledWithExactly({ event }))
+  t.true(logger.calledWithExactly({ response: event }))
 
   t.deepEqual(response, event)
 })
 
-test('Should include the AWS lambda context', async (t) => {
+test('It should include the AWS lambda context', async (t) => {
   const logger = sinon.spy()
 
   const handler = middy((event) => event).use(
@@ -181,13 +266,13 @@ test('Should include the AWS lambda context', async (t) => {
   t.deepEqual(response, event)
 
   t.true(
-    logger.calledWith({
+    logger.calledWithExactly({
       event,
       context: { functionName: 'test', awsRequestId: 'xxxxx' }
     })
   )
   t.true(
-    logger.calledWith({
+    logger.calledWithExactly({
       response: event,
       context: { functionName: 'test', awsRequestId: 'xxxxx' }
     })
@@ -212,8 +297,8 @@ test('It should skip logging if error is handled', async (t) => {
   const event = { foo: 'bar', fuu: 'baz' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWith({ event }))
-  t.true(logger.calledWith({ response: event }))
+  t.true(logger.calledWithExactly({ event }))
+  t.true(logger.calledWithExactly({ response: event }))
   t.is(logger.callCount, 2)
   t.deepEqual(response, event)
 })
@@ -233,8 +318,8 @@ test('It should skip logging if error is not handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.true(logger.calledWith({ event }))
-    t.false(logger.calledWith({ response: event }))
+    t.true(logger.calledWithExactly({ event }))
+    t.false(logger.calledWithExactly({ response: event }))
     t.is(logger.callCount, 1)
     t.is(e.message, 'error')
   }
