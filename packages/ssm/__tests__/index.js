@@ -1,6 +1,7 @@
 import test from 'ava'
 import sinon from 'sinon'
 import { mockClient } from 'aws-sdk-client-mock'
+import { setTimeout } from 'node:timers/promises'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
 import {
@@ -13,6 +14,10 @@ import ssm from '../index.js'
 let sandbox
 test.beforeEach((t) => {
   sandbox = sinon.createSandbox()
+  event = {}
+  context = {
+    getRemainingTimeInMillis: () => 1000
+  }
 })
 
 test.afterEach((t) => {
@@ -20,10 +25,8 @@ test.afterEach((t) => {
   clearCache()
 })
 
-const event = {}
-const context = {
-  getRemainingTimeInMillis: () => 1000
-}
+let event = {}
+let context = {}
 
 test.serial('It should set SSM param value to internal storage', async (t) => {
   mockClient(SSMClient)
@@ -434,6 +437,41 @@ test.serial(
   }
 )
 
+test.serial('It should call aws-sdk everytime if cache disabled', async (t) => {
+  const mockService = mockClient(SSMClient)
+    .on(GetParametersCommand, {
+      Names: ['/dev/service_name/key_name'],
+      WithDecryption: true
+    })
+    .resolves({
+      Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+    })
+  const sendStub = mockService.send
+
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    t.is(values.key, 'key-value')
+  }
+
+  const handler = middy(() => {})
+    .use(
+      ssm({
+        AwsClient: SSMClient,
+        cacheExpiry: 0,
+        fetchData: {
+          key: '/dev/service_name/key_name'
+        },
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+  await handler(event, context)
+
+  t.is(sendStub.callCount, 2)
+})
+
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired',
   async (t) => {
@@ -456,7 +494,7 @@ test.serial(
       .use(
         ssm({
           AwsClient: SSMClient,
-          cacheExpiry: 0,
+          cacheExpiry: 4,
           fetchData: {
             key: '/dev/service_name/key_name'
           },
@@ -464,50 +502,55 @@ test.serial(
         })
       )
       .before(middleware)
-
     await handler(event, context)
+    await setTimeout(5)
     await handler(event, context)
-
     t.is(sendStub.callCount, 2)
   }
 )
 
-test('It should throw error if InvalidParameters returned', async (t) => {
-  mockClient(SSMClient)
-    .on(GetParametersCommand)
-    .resolvesOnce({
-      InvalidParameters: ['invalid-ssm-param-name', 'another-invalid-ssm-param']
-    })
-
-  const handler = middy(() => {}).use(
-    ssm({
-      AwsClient: SSMClient,
-      cacheExpiry: 0,
-      fetchData: {
-        a: 'invalid-ssm-param-name',
-        b: 'another-invalid-ssm-param',
-        key: '/dev/service_name/key_name'
-      },
-      disablePrefetch: true,
-      setToContext: true
-    })
-  )
-
-  try {
-    await handler(event, context)
-    t.true(false)
-  } catch (e) {
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause.data, [
-      new Error('InvalidParameter invalid-ssm-param-name', {
-        cause: { package: '@middy/ssm' }
-      }),
-      new Error('InvalidParameter another-invalid-ssm-param', {
-        cause: { package: '@middy/ssm' }
+test.serial(
+  'It should throw error if InvalidParameters returned',
+  async (t) => {
+    mockClient(SSMClient)
+      .on(GetParametersCommand)
+      .resolvesOnce({
+        InvalidParameters: [
+          'invalid-ssm-param-name',
+          'another-invalid-ssm-param'
+        ]
       })
-    ])
+
+    const handler = middy(() => {}).use(
+      ssm({
+        AwsClient: SSMClient,
+        cacheExpiry: 0,
+        fetchData: {
+          a: 'invalid-ssm-param-name',
+          b: 'another-invalid-ssm-param',
+          key: '/dev/service_name/key_name'
+        },
+        disablePrefetch: true,
+        setToContext: true
+      })
+    )
+
+    try {
+      await handler(event, context)
+      t.true(false)
+    } catch (e) {
+      t.is(e.message, 'Failed to resolve internal values')
+      t.deepEqual(e.cause.data, [
+        new Error('InvalidParameter invalid-ssm-param-name', {
+          cause: { package: '@middy/ssm' }
+        }),
+        new Error('InvalidParameter another-invalid-ssm-param', {
+          cause: { package: '@middy/ssm' }
+        })
+      ])
+    }
   }
-})
+)
 
 test.serial(
   'It should catch if an error is returned from fetchSingle',
