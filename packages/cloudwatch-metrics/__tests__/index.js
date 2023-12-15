@@ -64,7 +64,7 @@ test.serial(
     const handler = middy(() => {})
 
     const middleware = () => {
-      t.true(metricsLoggerMock.setNamespace.calledWith('myNamespace'))
+      t.true(metricsLoggerMock.setNamespace.calledWithExactly('myNamespace'))
     }
 
     handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
@@ -81,7 +81,7 @@ test.serial(
 
     const middleware = () => {
       t.true(
-        metricsLoggerMock.setDimensions.calledWith({
+        metricsLoggerMock.setDimensions.calledWithExactly({
           Runtime: 'NodeJS',
           Platform: 'ECS',
           Agent: 'CloudWatchAgent',
@@ -115,7 +115,7 @@ test.serial(
 
     const middleware = () => {
       t.true(
-        metricsLoggerMock.setDimensions.calledWith([
+        metricsLoggerMock.setDimensions.calledWithExactly([
           {
             Runtime: 'NodeJS',
             Platform: 'ECS',

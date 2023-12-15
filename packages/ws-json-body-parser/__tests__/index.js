@@ -40,7 +40,7 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
 
   await handler(event, defaultContext)
 
-  t.true(jsonParseSpy.calledWith(jsonString, reviver))
+  t.true(jsonParseSpy.calledWithExactly(jsonString, reviver))
 })
 
 test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
