@@ -423,7 +423,7 @@ test.serial(
     cache = getCache('key-cache-unix-expire')
 
     t.true(cache.expiry < Date.now())
-    t.is(fetch.callCount, 3)
+    t.is(fetch.callCount, 2)
     clearCache()
   }
 )
