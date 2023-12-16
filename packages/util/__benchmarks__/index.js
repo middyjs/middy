@@ -17,7 +17,10 @@ await bench
       }
     })
   })
-  .add('processCache', async () => {
+  .add('processCache w/ { cacheExpiry: 0 }', async () => {
+    await processCache({ cacheExpiry: 0, cacheKey: 'key' })
+  })
+  .add('processCache w/ { cacheExpiry: -1 }', async () => {
     await processCache({ cacheExpiry: -1, cacheKey: 'key' })
   })
   .add('jsonSafeParse', async () => {
@@ -26,7 +29,6 @@ await bench
   .add('normalizeHttpResponse', async () => {
     await normalizeHttpResponse({})
   })
-
   .run()
 
 console.table(bench.table())
