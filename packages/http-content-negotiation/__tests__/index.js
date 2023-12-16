@@ -44,29 +44,6 @@ test.serial(
   }
 )
 
-test.serial('It should error when unfound preferred locale', async (t) => {
-  const handler = middy((event, context) => context)
-  handler.use(
-    httpContentNegotiation({
-      parseCharsets: false,
-      parseEncodings: false,
-      availableLanguages: ['en-CA'],
-      parseMediaTypes: false
-    })
-  )
-
-  const event = {
-    headers: {
-      'Accept-Language': 'en-us'
-    }
-  }
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(e.message, 'Unsupported Language. Acceptable values: en-CA')
-  }
-})
-
 test.serial(
   'It should parse charset, encoding, language and media type with lowercase headers',
   async (t) => {
@@ -324,4 +301,77 @@ test.serial('It should fail when mismatching', async (t) => {
       'Unsupported MediaType. Acceptable values: text/plain, text/x-dvi'
     )
   }
+})
+
+test.serial('It should error when unfound preferred locale', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en-CA'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en-us'
+    }
+  }
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'Unsupported Language. Acceptable values: en-CA')
+  }
+})
+
+test.serial('It should find language when locale passed in', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en-us'
+    }
+  }
+
+  const resultingContext = await handler(event, context)
+  t.deepEqual(resultingContext, {
+    ...context,
+    preferredLanguages: ['en'],
+    preferredLanguage: 'en'
+  })
+})
+
+test.serial('It should find locale when language passed in', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en-ca'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en'
+    }
+  }
+
+  const resultingContext = await handler(event, context)
+  t.deepEqual(resultingContext, {
+    ...context,
+    preferredLanguages: ['en-ca'],
+    preferredLanguage: 'en-ca'
+  })
 })
