@@ -129,6 +129,8 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   return middy
 }
 
+// shared AbortController, because it's slow
+let handlerAbort = new AbortController()
 const runRequest = async (
   request,
   beforeMiddlewares,
@@ -151,7 +153,9 @@ const runRequest = async (
 
       // Can't manually abort and timeout with same AbortSignal
       // https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
-      const handlerAbort = new AbortController()
+      if (handlerAbort.signal.aborted) {
+        handlerAbort = new AbortController()
+      }
       const promises = [
         lambdaHandler(request.event, request.context, {
           signal: handlerAbort.signal
