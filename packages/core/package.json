@@ -27,7 +27,8 @@
   "scripts": {
     "test": "npm run test:unit",
     "test:unit": "ava",
-    "test:benchmark": "node __benchmarks__/index.js"
+    "test:benchmark": "node __benchmarks__/index.js",
+    "test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
   },
   "license": "MIT",
   "keywords": [
