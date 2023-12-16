@@ -113,10 +113,8 @@ export const processCache = (options, fetch = () => undefined, request) => {
     if (unexpired) {
       if (cached.modified) {
         const value = fetch(request, cached.value)
-        cache[cacheKey] = Object.create({
-          value: { ...cached.value, ...value },
-          expiry: cached.expiry
-        })
+        Object.assign(cached.value, value)
+        cache[cacheKey] = { value: cached.value, expiry: cached.expiry }
         return cache[cacheKey]
       }
       return { ...cached, cache: true }
