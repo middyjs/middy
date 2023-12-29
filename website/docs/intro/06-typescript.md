@@ -5,7 +5,7 @@ position: 6
 
 Middy can be used with TypeScript with typings built in in every official package.
 
-You may need to install additional types for AWS Lambda.
+You may need to install additional types for AWS Lambda events.
 
 ```bash
 npm i -D @types/aws-lambda
