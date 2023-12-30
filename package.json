@@ -61,7 +61,7 @@
     "@commitlint/config-conventional": "^18.0.0",
     "@swc/cli": "^0.1.55",
     "@swc/core": "^1.2.135",
-    "ava": "^5.0.0",
+    "ava": "^6.0.0",
     "aws-sdk-client-mock": "^3.0.0",
     "c8": "^8.0.0",
     "husky": "^8.0.0",
@@ -69,10 +69,10 @@
     "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
     "sinon": "^17.0.0",
-    "speedscope": "1.16.0",
+    "speedscope": "^1.0.0",
     "tinybench": "^2.5.1",
     "ts-standard": "^12.0.0",
-    "tsd": "^0.29.0"
+    "tsd": "^0.30.0"
   },
   "ts-standard": {
     "ignore": [
