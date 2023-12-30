@@ -5,7 +5,8 @@ import {
   getCache,
   getInternal,
   processCache,
-  modifyCache
+  modifyCache,
+  catchInvalidSignatureException
 } from '@middy/util'
 import {
   ServiceDiscoveryClient,
@@ -39,6 +40,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
       )
       values[internalKey] = client
         .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then((resp) => resp.Instances)
         .catch((e) => {
           const value = getCache(options.cacheKey).value ?? {}

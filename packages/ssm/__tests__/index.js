@@ -510,6 +510,55 @@ test.serial(
 )
 
 test.serial(
+  'It should it should recover from an error if cache enabled but cached param has expired',
+  async (t) => {
+    const awsError = new Error(
+      'InvalidSignatureException: Signature expired: 20231103T171116Z is now earlier than 20231103T171224Z (20231103T171724Z - 5 min.)'
+    )
+    awsError.__type = 'InvalidSignatureException'
+    const mockService = mockClient(SSMClient)
+      .on(GetParametersCommand, {
+        Names: ['/dev/service_name/key_name'],
+        WithDecryption: true
+      })
+      .resolvesOnce({
+        Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+      })
+      .rejectsOnce(awsError)
+      .resolves({
+        Parameters: [{ Name: '/dev/service_name/key_name', Value: 'key-value' }]
+      })
+    const sendStub = mockService.send
+
+    const middleware = async (request) => {
+      const values = await getInternal(true, request)
+      t.is(values.key, 'key-value')
+    }
+
+    const handler = middy(() => {})
+      .use(
+        ssm({
+          AwsClient: SSMClient,
+          cacheExpiry: 4,
+          fetchData: {
+            key: '/dev/service_name/key_name'
+          },
+          disablePrefetch: true
+        })
+      )
+      .before(middleware)
+
+    await handler(event, context)
+    await setTimeout(5)
+    await handler(event, context)
+    await setTimeout(5)
+    await handler(event, context)
+
+    t.is(sendStub.callCount, 4)
+  }
+)
+
+test.serial(
   'It should throw error if InvalidParameters returned',
   async (t) => {
     mockClient(SSMClient)

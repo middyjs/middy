@@ -134,6 +134,13 @@ export const processCache = (options, fetch = () => undefined, request) => {
   return { value, expiry }
 }
 
+export const catchInvalidSignatureException = (e, client, command) => {
+  if (e.__type === 'InvalidSignatureException') {
+    return client.send(command)
+  }
+  throw e
+}
+
 export const getCache = (key) => {
   if (!cache[key]) return {}
   return cache[key]

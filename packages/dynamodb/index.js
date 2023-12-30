@@ -5,7 +5,8 @@ import {
   getCache,
   getInternal,
   processCache,
-  modifyCache
+  modifyCache,
+  catchInvalidSignatureException
 } from '@middy/util'
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
@@ -40,8 +41,10 @@ const dynamodbMiddleware = (opts = {}) => {
     for (const internalKey in options.fetchData) {
       if (cachedValues[internalKey]) continue
       const inputParameters = options.fetchData[internalKey]
+      const command = new GetItemCommand(inputParameters)
       values[internalKey] = client
-        .send(new GetItemCommand(inputParameters))
+        .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then((resp) => unmarshall(resp.Item))
         .catch((e) => {
           const value = getCache(options.cacheKey).value ?? {}

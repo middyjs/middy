@@ -6,7 +6,8 @@ import {
   getInternal,
   processCache,
   modifyCache,
-  jsonSafeParse
+  jsonSafeParse,
+  catchInvalidSignatureException
 } from '@middy/util'
 import {
   StartConfigurationSessionCommand,
@@ -36,12 +37,12 @@ const appConfigMiddleware = (opts = {}) => {
   const configurationCache = {}
 
   function fetchLatestConfiguration (configToken, internalKey) {
+    const command = new GetLatestConfigurationCommand({
+      ConfigurationToken: configToken
+    })
     return client
-      .send(
-        new GetLatestConfigurationCommand({
-          ConfigurationToken: configToken
-        })
-      )
+      .send(command)
+      .catch((e) => catchInvalidSignatureException(e, client, command))
       .then((configResp) => {
         configurationTokenCache[internalKey] =
           configResp.NextPollConfigurationToken
@@ -70,10 +71,12 @@ const appConfigMiddleware = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
       if (configurationTokenCache[internalKey] == null) {
+        const command = new StartConfigurationSessionCommand(
+          options.fetchData[internalKey]
+        )
         values[internalKey] = client
-          .send(
-            new StartConfigurationSessionCommand(options.fetchData[internalKey])
-          )
+          .send(command)
+          .catch((e) => catchInvalidSignatureException(e, client, command))
           .then((configSessionResp) =>
             fetchLatestConfiguration(
               configSessionResp.InitialConfigurationToken,
