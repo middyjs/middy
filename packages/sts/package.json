@@ -1,6 +1,6 @@
 {
   "name": "@middy/sts",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "description": "STS (Security Token Service) credentials middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -60,11 +60,11 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.2.0"
+    "@middy/util": "5.2.1"
   },
   "devDependencies": {
     "@aws-sdk/client-sts": "^3.0.0",
-    "@middy/core": "5.2.0",
+    "@middy/core": "5.2.1",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },
