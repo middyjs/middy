@@ -14,7 +14,7 @@ test.serial(
       httpContentNegotiation({
         availableCharsets: ['utf-8'],
         availableEncodings: undefined,
-        availableLanguages: ['en-gb'],
+        availableLanguages: ['en-ca'],
         availableMediaTypes: ['text/plain', 'text/x-dvi']
       })
     )
@@ -23,7 +23,7 @@ test.serial(
       headers: {
         'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
         'Accept-Encoding': '*/*',
-        'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+        'Accept-Language': 'da, en-ca;q=0.8, en;q=0.7',
         Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
@@ -36,8 +36,8 @@ test.serial(
       preferredCharset: 'utf-8',
       preferredEncodings: ['*/*', 'identity'],
       preferredEncoding: '*/*',
-      preferredLanguages: ['en-gb'],
-      preferredLanguage: 'en-gb',
+      preferredLanguages: ['en-ca'],
+      preferredLanguage: 'en-ca',
       preferredMediaTypes: ['text/x-dvi', 'text/plain'],
       preferredMediaType: 'text/x-dvi'
     })
@@ -52,7 +52,7 @@ test.serial(
       httpContentNegotiation({
         availableCharsets: ['utf-16'],
         availableEncodings: ['br', 'gzip'],
-        availableLanguages: ['en-gb'],
+        availableLanguages: ['en-ca'],
         availableMediaTypes: ['text/plain', 'text/x-dvi']
       })
     )
@@ -61,7 +61,7 @@ test.serial(
       headers: {
         'accept-charset': 'utf-16, iso-8859-5, unicode-1-1;q=0.8',
         'accept-encoding': 'gzip, br, deflate',
-        'accept-language': 'da, en-gb;q=0.8, en;q=0.7',
+        'accept-language': 'da, en-ca;q=0.8, en;q=0.7',
         accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
       }
     }
@@ -74,8 +74,8 @@ test.serial(
       preferredCharset: 'utf-16',
       preferredEncodings: ['gzip', 'br'],
       preferredEncoding: 'gzip',
-      preferredLanguages: ['en-gb'],
-      preferredLanguage: 'en-gb',
+      preferredLanguages: ['en-ca'],
+      preferredLanguage: 'en-ca',
       preferredMediaTypes: ['text/x-dvi', 'text/plain'],
       preferredMediaType: 'text/x-dvi'
     })
@@ -132,7 +132,7 @@ test.serial(
       httpContentNegotiation({
         availableCharsets: ['utf-8'],
         availableEncodings: undefined,
-        availableLanguages: ['en-gb'],
+        availableLanguages: ['en-ca'],
         availableMediaTypes: ['text/plain', 'text/x-dvi']
       })
     )
@@ -153,7 +153,7 @@ test.serial('It should not parse charset if disabled', async (t) => {
     httpContentNegotiation({
       parseCharsets: false,
       availableEncodings: undefined,
-      availableLanguages: ['en-gb'],
+      availableLanguages: ['en-ca'],
       availableMediaTypes: ['text/plain', 'text/x-dvi']
     })
   )
@@ -162,7 +162,7 @@ test.serial('It should not parse charset if disabled', async (t) => {
     headers: {
       'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
       'Accept-Encoding': '*/*',
-      'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+      'Accept-Language': 'da, en-ca;q=0.8, en;q=0.7',
       Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     }
   }
@@ -173,8 +173,8 @@ test.serial('It should not parse charset if disabled', async (t) => {
     ...context,
     preferredEncodings: ['*/*', 'identity'],
     preferredEncoding: '*/*',
-    preferredLanguages: ['en-gb'],
-    preferredLanguage: 'en-gb',
+    preferredLanguages: ['en-ca'],
+    preferredLanguage: 'en-ca',
     preferredMediaTypes: ['text/x-dvi', 'text/plain'],
     preferredMediaType: 'text/x-dvi'
   })
@@ -186,7 +186,7 @@ test.serial('It should not parse encoding if disabled', async (t) => {
     httpContentNegotiation({
       availableCharsets: ['utf-8'],
       parseEncodings: undefined,
-      availableLanguages: ['en-gb'],
+      availableLanguages: ['en-ca'],
       availableMediaTypes: ['text/plain', 'text/x-dvi']
     })
   )
@@ -195,7 +195,7 @@ test.serial('It should not parse encoding if disabled', async (t) => {
     headers: {
       'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
       'Accept-Encoding': '*/*',
-      'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+      'Accept-Language': 'da, en-ca;q=0.8, en;q=0.7',
       Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     }
   }
@@ -206,8 +206,8 @@ test.serial('It should not parse encoding if disabled', async (t) => {
     ...context,
     preferredCharsets: ['utf-8'],
     preferredCharset: 'utf-8',
-    preferredLanguages: ['en-gb'],
-    preferredLanguage: 'en-gb',
+    preferredLanguages: ['en-ca'],
+    preferredLanguage: 'en-ca',
     preferredMediaTypes: ['text/x-dvi', 'text/plain'],
     preferredMediaType: 'text/x-dvi'
   })
@@ -228,7 +228,7 @@ test('It should not parse language if disabled', async (t) => {
     headers: {
       'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
       'Accept-Encoding': '*/*',
-      'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+      'Accept-Language': 'da, en-ca;q=0.8, en;q=0.7',
       Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     }
   }
@@ -252,7 +252,7 @@ test.serial('It should not parse media types if disabled', async (t) => {
     httpContentNegotiation({
       availableCharsets: ['utf-8'],
       availableEncodings: undefined,
-      availableLanguages: ['en-gb'],
+      availableLanguages: ['en-ca'],
       parseMediaTypes: false
     })
   )
@@ -261,7 +261,7 @@ test.serial('It should not parse media types if disabled', async (t) => {
     headers: {
       'Accept-Charset': 'utf-8, iso-8859-5, unicode-1-1;q=0.8',
       'Accept-Encoding': '*/*',
-      'Accept-Language': 'da, en-gb;q=0.8, en;q=0.7',
+      'Accept-Language': 'da, en-ca;q=0.8, en;q=0.7',
       Accept: 'text/plain; q=0.5, text/html, text/x-dvi; q=0.8, text/x-c'
     }
   }
@@ -274,8 +274,8 @@ test.serial('It should not parse media types if disabled', async (t) => {
     preferredCharset: 'utf-8',
     preferredEncodings: ['*/*', 'identity'],
     preferredEncoding: '*/*',
-    preferredLanguages: ['en-gb'],
-    preferredLanguage: 'en-gb'
+    preferredLanguages: ['en-ca'],
+    preferredLanguage: 'en-ca'
   })
 })
 
@@ -301,4 +301,77 @@ test.serial('It should fail when mismatching', async (t) => {
       'Unsupported MediaType. Acceptable values: text/plain, text/x-dvi'
     )
   }
+})
+
+test.serial('It should error when unfound preferred locale', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en-CA'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en-us'
+    }
+  }
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.is(e.message, 'Unsupported Language. Acceptable values: en-CA')
+  }
+})
+
+test.serial('It should find language when locale passed in', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en-us'
+    }
+  }
+
+  const resultingContext = await handler(event, context)
+  t.deepEqual(resultingContext, {
+    ...context,
+    preferredLanguages: ['en'],
+    preferredLanguage: 'en'
+  })
+})
+
+test.serial('It should find locale when language passed in', async (t) => {
+  const handler = middy((event, context) => context)
+  handler.use(
+    httpContentNegotiation({
+      parseCharsets: false,
+      parseEncodings: false,
+      availableLanguages: ['en-ca'],
+      parseMediaTypes: false
+    })
+  )
+
+  const event = {
+    headers: {
+      'Accept-Language': 'en'
+    }
+  }
+
+  const resultingContext = await handler(event, context)
+  t.deepEqual(resultingContext, {
+    ...context,
+    preferredLanguages: ['en-ca'],
+    preferredLanguage: 'en-ca'
+  })
 })

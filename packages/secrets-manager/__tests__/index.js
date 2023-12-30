@@ -320,12 +320,12 @@ test.serial(
       )
       .before(middleware)
 
-    await handler(event, context) // fetch x 2
+    await handler(event, context)
     await handler(event, context)
     await setTimeout(100)
-    await handler(event, context) // fetch x 2
+    await handler(event, context)
 
-    t.is(sendStub.callCount, 2 * 2)
+    t.is(sendStub.callCount, 2)
   }
 )
 
@@ -359,12 +359,12 @@ test.serial(
       )
       .before(middleware)
 
-    await handler(event, context) // fetch x 2
+    await handler(event, context)
     await handler(event, context)
     await setTimeout(100)
-    await handler(event, context) // fetch x 2
+    await handler(event, context)
 
-    t.is(sendStub.callCount, 2 * 2)
+    t.is(sendStub.callCount, 2)
   }
 )
 

@@ -96,7 +96,7 @@ test('It should be possible to pass a custom logger function', async (t) => {
 
   await handler(event, context)
 
-  t.true(logger.calledWith(expectedError))
+  t.true(logger.calledWithExactly(expectedError))
 })
 
 test('It should be possible to pass in headers with error', async (t) => {

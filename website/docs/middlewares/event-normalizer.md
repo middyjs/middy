@@ -17,6 +17,7 @@ https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 | CloudFormation     | No       | Normalization not required                      |
 | CloudFront         | No       | Normalization not required                      |
 | CloudTrail         | No       | Normalization not required                      |
+| CloudWatch Alarm   | No       | Normalization not required                      |
 | CloudWatch Logs    | Yes      | Base64 decode and JSON parse `data`             |
 | CodeCommit         | No       | Normalization not required                      |
 | CodePipeline       | Yes      | JSON parse `UserParameters`                     |

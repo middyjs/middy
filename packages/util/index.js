@@ -105,26 +105,23 @@ const cache = {} // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (options, fetch = () => undefined, request) => {
   let { cacheKey, cacheKeyExpiry, cacheExpiry } = options
   cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry
+  const now = Date.now()
   if (cacheExpiry) {
     const cached = getCache(cacheKey)
-    const unexpired =
-      cached.expiry && (cacheExpiry < 0 || cached.expiry > Date.now())
+    const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > now)
 
     if (unexpired) {
       if (cached.modified) {
         const value = fetch(request, cached.value)
-        cache[cacheKey] = Object.create({
-          value: { ...cached.value, ...value },
-          expiry: cached.expiry
-        })
+        Object.assign(cached.value, value)
+        cache[cacheKey] = { value: cached.value, expiry: cached.expiry }
         return cache[cacheKey]
       }
       return { ...cached, cache: true }
     }
   }
   const value = fetch(request)
-  const now = Date.now()
-  // secrets-manager overrides to unix timestamp
+  // secrets-manager can override to unix timestamp
   const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry
   const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry
   if (cacheExpiry) {

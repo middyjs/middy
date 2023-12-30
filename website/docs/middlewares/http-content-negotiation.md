@@ -34,7 +34,7 @@ npm install --save @middy/http-content-negotiation
 - `parseEncodings` (defaults to `true`) - Allows enabling/disabling the encodings parsing
 - `availableEncodings` (defaults to `undefined`) - Allows defining the list of encodings supported by the Lambda function
 - `parseLanguages` (defaults to `true`) - Allows enabling/disabling the languages parsing
-- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function
+- `availableLanguages` (defaults to `undefined`) - Allows defining the list of languages supported by the Lambda function. Setting to `en` will match with locales like `en-*`. Setting to `en-US` will match with language `en`.
 - `parseMediaTypes` (defaults to `true`) - Allows enabling/disabling the media types parsing
 - `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
 - `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)

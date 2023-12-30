@@ -34,15 +34,15 @@
         'middy',
 
         // APIs Only
-        '@vendia/serverless-express',
-        //'@codegenie/serverless-express',
-        'lambda-api',
+        '@codegenie/serverless-express',
         '@fastify/aws-lambda',
+        'lambda-api',
+        'serverless-http',
 
         // Deprecated
-        'aws-lambda-fastify', // Deprecated for @fastify/aws-lambda
-        'serverless-http', // merged into `@vendia/serverless-express`
-        'aws-serverless-express' // merged into `@vendia/serverless-express`
+        '@vendia/serverless-express', // Deprecated for @codegenie/serverless-express
+        'aws-serverless-express', // Deprecated for `@vendia/serverless-express`
+        'aws-lambda-fastify' // Deprecated for @fastify/aws-lambda
 
         // Don't meet requirements
         // '@midwayjs/decorator',
@@ -131,7 +131,7 @@
       }
 
       // join @middy/core & middy
-      const data = []
+      let data = []
       for (let i = 0, l = weeklyStats['@middy/core'].data.length; i < l; i++) {
         data.push({
           x: weeklyStats['@middy/core'].data[i].x,
@@ -140,11 +140,34 @@
             weeklyStats['middy'].data[i].y
         })
       }
-      weeklyStats['@middy/core + middy'] = {
-        label: '@middy/core + middy',
+      weeklyStats['SUM(middy)'] = {
+        label: 'SUM(middy)',
         fill: false,
-        borderColor: weeklyStats['@middy/core'],
-        backgroundColor: weeklyStats['@middy/core'],
+        borderColor: '#000',
+        backgroundColor: '#000',
+        data
+      }
+
+      // serverless-express
+      data = []
+      for (
+        let i = 0, l = weeklyStats['aws-serverless-express'].data.length;
+        i < l;
+        i++
+      ) {
+        data.push({
+          x: weeklyStats['aws-serverless-express'].data[i].x,
+          y:
+            weeklyStats['aws-serverless-express'].data[i].y +
+            weeklyStats['@vendia/serverless-express'].data[i].y +
+            weeklyStats['@codegenie/serverless-express'].data[i].y
+        })
+      }
+      weeklyStats['SUM(serverless-express)'] = {
+        label: 'SUM(serverless-express)',
+        fill: false,
+        borderColor: weeklyStats['aws-serverless-express'].borderColor,
+        backgroundColor: weeklyStats['aws-serverless-express'].backgroundColor,
         data
       }
 

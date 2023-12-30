@@ -1,6 +1,6 @@
 {
   "name": "@middy/core",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "type": "module",
   "engines": {
@@ -27,7 +27,8 @@
   "scripts": {
     "test": "npm run test:unit",
     "test:unit": "ava",
-    "test:benchmark": "node __benchmarks__/index.js"
+    "test:benchmark": "node __benchmarks__/index.js",
+    "test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
   },
   "license": "MIT",
   "keywords": [
