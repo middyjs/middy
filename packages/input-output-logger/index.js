@@ -1,3 +1,5 @@
+import { Transform } from 'node:stream'
+
 const defaults = {
   logger: console.log,
   awsContext: false,
@@ -21,6 +23,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   }
 
   const omitPathTree = buildPathTree(omitPaths)
+  // needs `omitPathTree`, `logger`
   const omitAndLog = (param, request) => {
     const message = { [param]: request[param] }
 
@@ -36,6 +39,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     logger(cloneMessage)
   }
 
+  // needs `mask`
   const omit = (obj, pathTree = {}) => {
     if (Array.isArray(obj) && pathTree['[]']) {
       for (let i = 0, l = obj.length; i < l; i++) {
@@ -56,13 +60,22 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
     }
   }
 
-  const inputOutputLoggerMiddlewareBefore = async (request) =>
+  const inputOutputLoggerMiddlewareBefore = async (request) => {
     omitAndLog('event', request)
-  const inputOutputLoggerMiddlewareAfter = async (request) =>
-    omitAndLog('response', request)
+  }
+  const inputOutputLoggerMiddlewareAfter = async (request) => {
+    if (
+      request.response?._readableState ??
+      request.response?.body?._readableState
+    ) {
+      passThrough(request, omitAndLog)
+    } else {
+      omitAndLog('response', request)
+    }
+  }
   const inputOutputLoggerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    omitAndLog('response', request)
+    inputOutputLoggerMiddlewareAfter(request)
   }
 
   return {
@@ -98,6 +111,9 @@ const pick = (originalObject = {}, keysToPick = []) => {
   return newObject
 }
 
+const isObject = (value) =>
+  value && typeof value === 'object' && value.constructor === Object
+
 const buildPathTree = (paths) => {
   const tree = {}
   for (let path of paths.sort().reverse()) {
@@ -118,7 +134,31 @@ const buildPathTree = (paths) => {
   return tree
 }
 
-const isObject = (value) =>
-  value && typeof value === 'object' && value.constructor === Object
+const passThrough = (request, omitAndLog) => {
+  // required because `core` remove body before `flush` is triggered
+  const hasBody = request.response?.body
+  let body = ''
+  const listen = new Transform({
+    objectMode: false,
+    transform (chunk, encoding, callback) {
+      body += chunk
+      this.push(chunk, encoding)
+      callback()
+    },
+    flush (callback) {
+      if (hasBody) {
+        omitAndLog('response', { response: { ...request.response, body } })
+      } else {
+        omitAndLog('response', { response: body })
+      }
+      callback()
+    }
+  })
+  if (hasBody) {
+    request.response.body = request.response.body.pipe(listen)
+  } else {
+    request.response = request.response.pipe(listen)
+  }
+}
 
 export default inputOutputLoggerMiddleware

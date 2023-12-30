@@ -22,6 +22,8 @@ npm install --save @middy/input-output-logger
 - `mask` string: String to replace omitted values with. Example: `***omitted***`
 - `replacer` function: stringify `replacer` function
 
+Note: If using with `{ streamifyResponse: true }`, your ReadableStream must be of type `string`.
+
 ## Sample usage
 
 ```javascript
