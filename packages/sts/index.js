@@ -5,7 +5,8 @@ import {
   getCache,
   getInternal,
   processCache,
-  modifyCache
+  modifyCache,
+  catchInvalidSignatureException
 } from '@middy/util'
 import { STSClient, AssumeRoleCommand } from '@aws-sdk/client-sts'
 
@@ -34,8 +35,10 @@ const stsMiddleware = (opts = {}) => {
       // Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
       assumeRoleOptions.RoleSessionName ??=
         'middy-sts-session-' + Math.ceil(Math.random() * 99999)
+      const command = new AssumeRoleCommand(assumeRoleOptions)
       values[internalKey] = client
-        .send(new AssumeRoleCommand(assumeRoleOptions))
+        .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then((resp) => ({
           accessKeyId: resp.Credentials.AccessKeyId,
           secretAccessKey: resp.Credentials.SecretAccessKey,

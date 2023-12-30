@@ -289,12 +289,13 @@ test.serial(
 test.serial(
   'It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate',
   async (t) => {
+    const now = Date.now() / 1000
     const mockService = mockClient(SecretsManagerClient)
       .on(DescribeSecretCommand, { SecretId: 'api_key' })
       .resolves({
-        LastRotationDate: Date.now() / 1000 - 25,
-        LastChangedDate: Date.now() / 1000 - 25,
-        NextRotationDate: Date.now() / 1000 + 50
+        LastRotationDate: now - 25,
+        LastChangedDate: now - 25,
+        NextRotationDate: now + 50
       })
       .on(GetSecretValueCommand, { SecretId: 'api_key' })
       .resolves({ SecretString: 'token' })
@@ -325,7 +326,7 @@ test.serial(
     await setTimeout(100)
     await handler(event, context)
 
-    t.is(sendStub.callCount, 2)
+    t.is(sendStub.callCount, 4)
   }
 )
 

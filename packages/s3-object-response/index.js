@@ -1,4 +1,9 @@
-import { canPrefetch, createPrefetchClient, createClient } from '@middy/util'
+import {
+  canPrefetch,
+  createPrefetchClient,
+  createClient
+  // catchInvalidSignatureException
+} from '@middy/util'
 
 import { S3Client, WriteGetObjectResponseCommand } from '@aws-sdk/client-s3'
 
@@ -37,9 +42,11 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       delete request.response.body
     }
 
-    await client.send(
-      new WriteGetObjectResponseCommand(request.internal.s3ObjectResponse)
+    const command = new WriteGetObjectResponseCommand(
+      request.internal.s3ObjectResponse
     )
+    await client.send(command) // Doesn't return a promise?
+    // .catch((e) => catchInvalidSignatureException(e, client, command))
 
     return { statusCode: 200 }
   }
