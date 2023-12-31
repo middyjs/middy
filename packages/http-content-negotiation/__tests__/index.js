@@ -326,6 +326,60 @@ test.serial('It should error when unfound preferred locale', async (t) => {
   }
 })
 
+test.serial(
+  'It should find language when locale passed in when fallback set',
+  async (t) => {
+    const handler = middy((event, context) => context)
+    handler.use(
+      httpContentNegotiation({
+        parseCharsets: false,
+        parseEncodings: false,
+        availableLanguages: ['en-ca', 'en'],
+        parseMediaTypes: false
+      })
+    )
+
+    const event = {
+      headers: {
+        'Accept-Language': 'en-US'
+      }
+    }
+    const resultingContext = await handler(event, context)
+    t.deepEqual(resultingContext, {
+      ...context,
+      preferredLanguages: ['en'],
+      preferredLanguage: 'en'
+    })
+  }
+)
+
+test.serial(
+  'It should find locale when locale passed in when fallback set',
+  async (t) => {
+    const handler = middy((event, context) => context)
+    handler.use(
+      httpContentNegotiation({
+        parseCharsets: false,
+        parseEncodings: false,
+        availableLanguages: ['en-ca', 'en'],
+        parseMediaTypes: false
+      })
+    )
+
+    const event = {
+      headers: {
+        'Accept-Language': 'en-CA'
+      }
+    }
+    const resultingContext = await handler(event, context)
+    t.deepEqual(resultingContext, {
+      ...context,
+      preferredLanguages: ['en-ca', 'en'],
+      preferredLanguage: 'en-ca'
+    })
+  }
+)
+
 test.serial('It should find language when locale passed in', async (t) => {
   const handler = middy((event, context) => context)
   handler.use(
