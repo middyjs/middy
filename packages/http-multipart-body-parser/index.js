@@ -62,8 +62,7 @@ const parseMultipartData = (event, options) => {
 
   return new Promise((resolve, reject) => {
     busboy
-      .on('file', (fieldname, file, info) => {
-        const { filename, encoding, mimeType: mimetype } = info
+      .on('file', (fieldname, file, filename, encoding, mimetype) => {
         const attachment = {
           filename,
           mimetype,
