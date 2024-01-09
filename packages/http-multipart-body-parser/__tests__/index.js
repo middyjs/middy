@@ -301,9 +301,9 @@ test('It should parse an array from a multipart/form-data request (binary)', asy
   t.deepEqual(response, {
     file: {
       content: Buffer.from(''),
-      encoding: undefined, // 'binary',
-      filename: undefined, // 'file.bat',
-      mimetype: undefined, // 'application/octet-stream',
+      encoding: 'binary',
+      filename: 'file.bat',
+      mimetype: 'application/octet-stream',
       truncated: false
     }
   })
