@@ -23,6 +23,10 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
       })
     }
 
+    if (!body) {
+			return;
+		}
+    
     try {
       const data = request.event.isBase64Encoded
         ? Buffer.from(body, 'base64').toString()
