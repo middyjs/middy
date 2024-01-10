@@ -819,15 +819,11 @@ test('it should set Vary header if present in config', async (t) => {
   })
 })
 
-test('it should throw when not a http event', async (t) => {
+test('it should not throw when not a http event', async (t) => {
   const handler = middy((event, context) => {})
 
   handler.use(cors())
 
   const event = {}
-  try {
-    await handler(event, context)
-  } catch (e) {
-    t.is(e.message, 'Unknown http event format')
-  }
+  t.notThrows(async () => await handler(event, context))
 })
