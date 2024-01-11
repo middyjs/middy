@@ -131,11 +131,6 @@ const modifyHeaders = (headers, options, request) => {
   const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(
     request.event
   )
-  if (!httpMethod) {
-    throw new Error('Unknown http event format', {
-      cause: { package: '@middy/http-cors' }
-    })
-  }
   if (
     httpMethod === 'OPTIONS' &&
     options.cacheControl &&
