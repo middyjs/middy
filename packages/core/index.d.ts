@@ -84,15 +84,15 @@ export interface MiddyfiedHandler<
   TContext extends LambdaContext = LambdaContext,
   TInternal extends Record<string, unknown> = {}
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
-    MiddyInputPromiseHandler<TEvent, TResult, TContext> {
+  MiddyInputPromiseHandler<TEvent, TResult, TContext> {
   use: UseFn<TEvent, TResult, TErr, TContext, TInternal>
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   handler: <TAdditional>(
     handler: MiddlewareHandler<
-      LambdaHandler<TEvent & TAdditional, TResult>,
-      TContext
+    LambdaHandler<TEvent & TAdditional, TResult>,
+    TContext
     >
   ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 }
@@ -126,19 +126,19 @@ declare type UseFn<
 > = <TMiddleware extends MiddlewareObj<any, any, Error, any, any>>(
   middlewares: TMiddleware | TMiddleware[]
 ) => TMiddleware extends MiddlewareObj<
-  infer TMiddlewareEvent,
-  any,
-  Error,
-  infer TMiddlewareContext,
-  infer TMiddlewareInternal
+infer TMiddlewareEvent,
+any,
+Error,
+infer TMiddlewareContext,
+infer TMiddlewareInternal
 >
   ? MiddyfiedHandler<
-      TMiddlewareEvent & TEvent,
-      TResult,
-      TErr,
-      TMiddlewareContext & TContext,
-      TMiddlewareInternal & TInternal
-    > // always true
+  TMiddlewareEvent & TEvent,
+  TResult,
+  TErr,
+  TMiddlewareContext & TContext,
+  TMiddlewareInternal & TInternal
+  > // always true
   : never
 
 declare type MiddlewareHandler<
@@ -159,10 +159,10 @@ declare function middy<
   TErr = Error,
   TContext extends LambdaContext = LambdaContext,
   TInternal extends Record<string, unknown> = {}
->(
+> (
   handler?:
-    | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>
-    | PluginObject,
+  | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>
+  | PluginObject,
   plugin?: PluginObject
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 
