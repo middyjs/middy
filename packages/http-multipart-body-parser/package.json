@@ -60,11 +60,9 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@fastify/busboy": "2.1.0",
-    "@middy/util": "5.2.3"
+    "@fastify/busboy": "2.1.0"
   },
   "devDependencies": {
-    "@middy/core": "5.2.3",
     "@types/aws-lambda": "^8.10.101",
     "type-fest": "^4.0.0"
   },

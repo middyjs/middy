@@ -57,13 +57,9 @@
     "type": "github",
     "url": "https://github.com/sponsors/willfarrell"
   },
-  "dependencies": {
-    "@middy/util": "5.2.3"
-  },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.245.0",
     "@aws-sdk/util-dynamodb": "^3.245.0",
-    "@middy/core": "5.2.3",
     "@types/aws-lambda": "^8.10.101",
     "aws-xray-sdk": "^3.3.3"
   },
