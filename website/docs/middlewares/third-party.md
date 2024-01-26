@@ -52,3 +52,4 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-env](https://www.npmjs.com/package/middy-env): Fetch, validate and type cast environment variables
 - [sqs-json-body-parser](https://github.com/Eomm/sqs-json-body-parser): Parse the SQS body to JSON
 - [middy-lesslog](https://www.npmjs.com/package/middy-lesslog/v/legacy): Middleware for `lesslog`, a teeny-tiny and severless-ready logging utility
+- [@nhs/fhir-middy-error-handler](https://www.npmjs.com/package/@nhs/fhir-middy-error-handler): An error handler for use in an AWS Lambda returning FHIR compliant error messages as OperationOutcome resources. Used as part of the [Prescriptions for Patients FHIR API](https://digital.nhs.uk/developer/api-catalogue/prescriptions-for-patients).
