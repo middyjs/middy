@@ -1,5 +1,4 @@
 import {
-  Callback as LambdaCallback,
   Context as LambdaContext,
   Handler as LambdaHandler
 } from 'aws-lambda'
@@ -59,6 +58,14 @@ export interface MiddlewareObj<
   name?: string
 }
 
+export interface MiddyHandlerObject {
+  /**
+   * An abort signal that will be canceled just before the lambda times out.
+   * @see timeoutEarlyInMillis
+   */
+  signal: AbortSignal
+}
+
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type MiddyInputHandler<
@@ -68,7 +75,7 @@ type MiddyInputHandler<
 > = (
   event: TEvent,
   context: TContext,
-  callback: LambdaCallback<TResult>
+  opts: MiddyHandlerObject,
 ) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 void | Promise<TResult> | TResult
 type MiddyInputPromiseHandler<
