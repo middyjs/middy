@@ -1,4 +1,4 @@
-import { expectType } from 'tsd'
+import { expectType, expectAssignable } from 'tsd'
 import middy from '.'
 import {
   APIGatewayProxyEvent,
@@ -11,12 +11,17 @@ import {
 type EnhanceHandlerType<T, NewReturn> = T extends (
   event: infer TEvent,
   context: infer TContextType,
-  callback: infer TCallbackType
+  opts: infer TOptsType
 ) => infer R
-  ? (event: TEvent, context: TContextType, callback: TCallbackType) => R | NewReturn
+  ? (event: TEvent, context: TContextType, opts: TOptsType) => R | NewReturn
   : never
 
-type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<AWSLambdaHandler<TEvent, TResult>, TResult>
+type AWSLambdaHandlerWithoutCallback<TEvent = any, TResult = any> = (
+  event: TEvent,
+  context: Context,
+) => void | Promise<TResult>;
+
+type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<AWSLambdaHandlerWithoutCallback<TEvent, TResult>, TResult>
 
 const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
   return {
@@ -53,6 +58,12 @@ handler = middy(lambdaHandler, {
   async requestEnd () { console.log('requestEnd') }
 })
 expectType<Handler>(handler)
+
+// middy wrapped handler should be assignable to aws-lambda handler type.
+expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(handler)
+
+// Middy handlers third argument is an object containing a abort signal
+middy((event, context, { signal }) => expectType<AbortSignal>(signal));
 
 // invokes the handler to test that it is callable
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
@@ -127,7 +138,7 @@ async function invokeHandler (): Promise<void | APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  return await handler(sampleEvent, sampleContext, () => {})
+  return await handler(sampleEvent, sampleContext)
 }
 invokeHandler().catch(console.error)
 
@@ -315,7 +326,7 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
     fail: (_) => { },
     succeed: () => { }
   }
-  return await syncedHandler(sampleEvent, sampleContext, () => {})
+  return await syncedHandler(sampleEvent, sampleContext)
 }
 invokSyncedHandler().catch(console.error)
 
