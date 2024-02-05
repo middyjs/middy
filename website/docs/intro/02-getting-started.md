@@ -66,6 +66,6 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
-You can also attach [inline middlewares](#inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
+You can also attach [inline middlewares](/docs/writing-middlewares/inline-middlewares) by using the functions `.before`, `.after` and `.onError`.
 
-For a more detailed use case and examples check the [Writing a middleware section](#writing-a-middleware).
+For a more detailed use case and examples check the [Writing a middleware section](/docs/category/writing-middlewares).
