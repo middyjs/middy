@@ -1,5 +1,5 @@
 import { expectType } from 'tsd'
-import {
+import type {
   SanitizeKeyPrefixLeadingNumber,
   SanitizeKeyRemoveDisallowedChar,
   RemoveAllLeadingUnderscore,
@@ -10,7 +10,7 @@ import {
   IsUnknown,
   ArrayValues,
   SanitizeKeys
-} from './type-utils'
+} from './type-utils.d.ts'
 
 // SanitizeKeyPrefixLeadingNumber
 // adds a leading _ if it starts with a number
@@ -27,7 +27,9 @@ expectType<SanitizeKeyPrefixLeadingNumber<'-abcd'>>('-abcd')
 
 // SanitizeKeyRemoveDisallowedChar
 // removes all disallowed chars and replaces them with _
-expectType<SanitizeKeyRemoveDisallowedChar<'1234!@#AA$%^&*()BBB_+{}|:"<>?~CC`-=[D]E\\;,./F'>>('1234___AA_______BBB___________CC____D_E_____F')
+expectType<
+  SanitizeKeyRemoveDisallowedChar<'1234!@#AA$%^&*()BBB_+{}|:"<>?~CC`-=[D]E\\;,./F'>
+>('1234___AA_______BBB___________CC____D_E_____F')
 
 // RemoveAllLeadingUnderscore
 // removes all leading _
@@ -57,11 +59,20 @@ expectType<SanitizeKey<'0key.0key'>>('_0key_0key')
 // SanitizeKeys
 // sanitizes all keys in an object
 expectType<SanitizeKeys<{ '0key': 0 }>>({ _0key: 0 })
-expectType<SanitizeKeys<{ 'api//secret-key0.pem': 0 }>>({ api_secret_key0_pem: 0 })
-expectType<SanitizeKeys<{ '0key': 0, 'api//secret-key0.pem': 0 }>>({ _0key: 0, api_secret_key0_pem: 0 })
+expectType<SanitizeKeys<{ 'api//secret-key0.pem': 0 }>>({
+  api_secret_key0_pem: 0
+})
+expectType<SanitizeKeys<{ '0key': 0; 'api//secret-key0.pem': 0 }>>({
+  _0key: 0,
+  api_secret_key0_pem: 0
+})
 
 // DeepAwaited
-expectType<DeepAwaited<{ level1: { level2: Promise<Promise<{ innerPromise: Promise<22> }>> } }>>({
+expectType<
+  DeepAwaited<{
+    level1: { level2: Promise<Promise<{ innerPromise: Promise<22> }>> }
+  }>
+>({
   level1: {
     level2: {
       innerPromise: Promise.resolve(22) // Note: getInternal does not recurse into resolved promises
@@ -88,7 +99,9 @@ expectType<Choose<TestChoose, 'number'>>(1)
 expectType<Choose<TestChoose, 'object.key'>>('value')
 expectType<Choose<TestChoose, 'promise'>>(Promise.resolve('string'))
 expectType<Choose<DeepAwaited<TestChoose>, 'promise'>>('string')
-expectType<Choose<TestChoose, 'promiseObject'>>(Promise.resolve({ key: 'value' }))
+expectType<Choose<TestChoose, 'promiseObject'>>(
+  Promise.resolve({ key: 'value' })
+)
 expectType<Choose<DeepAwaited<TestChoose>, 'promiseObject'>>({ key: 'value' })
 
 // IsUnknown
