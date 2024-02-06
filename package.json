@@ -1,6 +1,6 @@
 {
   "name": "@middy/monorepo",
-  "version": "5.2.3",
+  "version": "5.2.4",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
@@ -29,9 +29,9 @@
     "update": "npm update --workspaces && npm install --workspaces",
     "outdated": "npm outdated --workspaces",
     "audit": "npm audit fix --workspaces",
-    "lerna:sync": "npm install && lerna publish --exact --yes --skip-npm --skip-git --repo-version $npm_package_version",
-    "lerna:publish": "lerna publish --exact --yes --skip-git --repo-version $npm_package_version",
-    "lerna:publish:next": "lerna publish --exact --yes --skip-git --repo-version $npm_package_version --dist-tag next"
+    "lerna:sync": "npm install && lerna publish --exact --yes --skip-npm --no-git-tag-version --no-push --bump $npm_package_version",
+    "lerna:publish": "lerna publish --exact --yes --no-git-tag-version --no-push --repo-version $npm_package_version",
+    "lerna:publish:next": "lerna publish --exact --yes --no-git-tag-version --no-push --repo-version $npm_package_version --dist-tag next"
   },
   "repository": {
     "type": "git",

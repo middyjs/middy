@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-encoding",
-  "version": "5.2.3",
+  "version": "5.2.4",
   "description": "Http content encoding middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -63,10 +63,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.2.3"
+    "@middy/util": "5.2.4"
   },
   "devDependencies": {
-    "@middy/core": "5.2.3"
+    "@middy/core": "5.2.4"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
