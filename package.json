@@ -20,7 +20,7 @@
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit --workspaces",
     "test:packages:unit": "c8 npm run test:unit --workspaces",
     "test:packages:benchmark": "npm run test:benchmark --workspaces",
-    "test:packages:typings": "tsd --workspaces",
+    "test:packages:typings": "ls packages | xargs -I {} tsd packages/{}",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "rm": "npm run lerna:rm:coverage && npm run lerna:rm:node_modules && npm run lerna:rm:lock",
     "rm:coverage": "rm -rf coverage --workspaces",
