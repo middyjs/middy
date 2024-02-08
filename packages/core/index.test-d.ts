@@ -19,7 +19,8 @@ type EnhanceHandlerType<T, NewReturn> = T extends (
 type AWSLambdaHandlerWithoutCallback<TEvent = any, TResult = any> = (
   event: TEvent,
   context: Context,
-) => void | Promise<TResult>;
+// eslint-disable-next-line
+) => void | Promise<TResult>
 
 type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<AWSLambdaHandlerWithoutCallback<TEvent, TResult>, TResult>
 
@@ -63,7 +64,7 @@ expectType<Handler>(handler)
 expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(handler)
 
 // Middy handlers third argument is an object containing a abort signal
-middy((event, context, { signal }) => expectType<AbortSignal>(signal));
+middy((event, context, { signal }) => expectType<AbortSignal>(signal))
 
 // invokes the handler to test that it is callable
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
