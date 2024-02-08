@@ -28,7 +28,7 @@ expectType<SanitizeKeyPrefixLeadingNumber<'-abcd'>>('-abcd')
 // SanitizeKeyRemoveDisallowedChar
 // removes all disallowed chars and replaces them with _
 expectType<
-  SanitizeKeyRemoveDisallowedChar<'1234!@#AA$%^&*()BBB_+{}|:"<>?~CC`-=[D]E\\;,./F'>
+SanitizeKeyRemoveDisallowedChar<'1234!@#AA$%^&*()BBB_+{}|:"<>?~CC`-=[D]E\\;,./F'>
 >('1234___AA_______BBB___________CC____D_E_____F')
 
 // RemoveAllLeadingUnderscore
@@ -62,16 +62,16 @@ expectType<SanitizeKeys<{ '0key': 0 }>>({ _0key: 0 })
 expectType<SanitizeKeys<{ 'api//secret-key0.pem': 0 }>>({
   api_secret_key0_pem: 0
 })
-expectType<SanitizeKeys<{ '0key': 0; 'api//secret-key0.pem': 0 }>>({
+expectType<SanitizeKeys<{ '0key': 0, 'api//secret-key0.pem': 0 }>>({
   _0key: 0,
   api_secret_key0_pem: 0
 })
 
 // DeepAwaited
 expectType<
-  DeepAwaited<{
-    level1: { level2: Promise<Promise<{ innerPromise: Promise<22> }>> }
-  }>
+DeepAwaited<{
+  level1: { level2: Promise<Promise<{ innerPromise: Promise<22> }>> }
+}>
 >({
   level1: {
     level2: {

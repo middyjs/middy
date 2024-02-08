@@ -29,16 +29,16 @@ declare class HttpError extends Error {
   [key: number]: any
 }
 
-declare function createPrefetchClient<Client, ClientOptions>(
+declare function createPrefetchClient<Client, ClientOptions> (
   options: Options<Client, ClientOptions>
 ): Client
 
-declare function createClient<Client, ClientOptions>(
+declare function createClient<Client, ClientOptions> (
   options: Options<Client, ClientOptions>,
   request: middy.Request
 ): Promise<Client>
 
-declare function canPrefetch<Client, ClientOptions>(
+declare function canPrefetch<Client, ClientOptions> (
   options: Options<Client, ClientOptions>
 ): boolean
 
@@ -50,7 +50,7 @@ type InternalOutput<TVariables> = TVariables extends string[]
 declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>
->(
+> (
   variables: false,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
 ): Promise<{}>
@@ -59,7 +59,7 @@ declare function getInternal<
 declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>
->(
+> (
   variables: true,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
 ): Promise<DeepAwaited<TInternal>>
@@ -69,35 +69,35 @@ declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>,
   TVars extends keyof TInternal | string
->(
+> (
   variables: TVars,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
 ): TVars extends keyof TInternal
   ? Promise<DeepAwaited<{ [_ in SanitizeKey<TVars>]: TInternal[TVars] }>>
   : TVars extends string
-  ? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
-    ? unknown // could not find the path
-    : Promise<{
+    ? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
+      ? unknown // could not find the path
+      : Promise<{
         [_ in SanitizeKey<TVars>]: Choose<DeepAwaited<TInternal>, TVars>
       }>
-  : unknown // path is not a string or a keyof TInternal
+    : unknown // path is not a string or a keyof TInternal
 
 // get multiple values
 declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>,
   TVars extends Array<keyof TInternal | string>
->(
+> (
   variables: TVars,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
 ): Promise<
-  SanitizeKeys<{
-    [TVar in ArrayValues<TVars>]: TVar extends keyof TInternal
-      ? DeepAwaited<TInternal[TVar]>
-      : TVar extends string
+SanitizeKeys<{
+  [TVar in ArrayValues<TVars>]: TVar extends keyof TInternal
+    ? DeepAwaited<TInternal[TVar]>
+    : TVar extends string
       ? Choose<DeepAwaited<TInternal>, TVar>
       : unknown // path is not a string or a keyof TInternal
-  }>
+}>
 >
 
 // remap object
@@ -105,43 +105,43 @@ declare function getInternal<
   TContext extends LambdaContext,
   TInternal extends Record<string, unknown>,
   TMap extends Record<string, keyof TInternal | string>
->(
+> (
   variables: TMap,
   request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
 ): Promise<{
   [P in keyof TMap]: TMap[P] extends keyof TInternal
     ? DeepAwaited<TInternal[TMap[P]]>
     : TMap[P] extends string
-    ? Choose<DeepAwaited<TInternal>, TMap[P]>
-    : unknown // path is not a string or a keyof TInternal
+      ? Choose<DeepAwaited<TInternal>, TMap[P]>
+      : unknown // path is not a string or a keyof TInternal
 }>
 
-declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>
+declare function sanitizeKey<T extends string> (key: T): SanitizeKey<T>
 
-declare function processCache<Client, ClientOptions>(
+declare function processCache<Client, ClientOptions> (
   options: Options<Client, ClientOptions>,
   fetch: (request: middy.Request, cachedValues: any) => any,
   request?: middy.Request
-): { value: any; expiry: number }
+): { value: any, expiry: number }
 
-declare function getCache(keys: string): any
+declare function getCache (keys: string): any
 
-declare function clearCache(keys?: string | string[] | null): void
+declare function clearCache (keys?: string | string[] | null): void
 
-declare function jsonSafeParse(
+declare function jsonSafeParse (
   string: string,
   reviver?: (key: string, value: any) => any
 ): any
 
-declare function normalizeHttpResponse(
+declare function normalizeHttpResponse (
   request: any,
   fallbackResponse?: any
 ): any
 
-declare function createError(
+declare function createError (
   code: number,
   message: string,
   properties?: Record<string, any>
 ): HttpError
 
-declare function modifyCache(cacheKey: string, value: any): void
+declare function modifyCache (cacheKey: string, value: any): void
