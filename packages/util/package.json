@@ -1,6 +1,6 @@
 {
   "name": "@middy/util",
-  "version": "5.2.4",
+  "version": "5.2.5",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
   "type": "module",
   "engines": {
@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@aws-sdk/client-ssm": "^3.0.0",
-    "@middy/core": "5.2.4",
+    "@middy/core": "5.2.5",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^20.0.0",
     "aws-xray-sdk": "^3.3.3"
