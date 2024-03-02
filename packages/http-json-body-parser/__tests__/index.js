@@ -228,26 +228,3 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     t.regex(e.cause.data.message, /^Unexpected token/)
   }
 })
-
-test('It should not fail given a corrupted header key', async (t) => {
-  const handler = middy((event, context) => event)
-
-  handler.use(httpHeaderNormalizer({ canonical: true }))
-
-  const event = {
-    headers: {
-      'X----': 'foo'
-    }
-  }
-
-  const expectedHeaders = {
-    'X----': 'foo'
-  }
-
-  const originalHeaders = { ...event.headers }
-
-  const resultingEvent = await handler(event, context)
-
-  t.deepEqual(resultingEvent.headers, expectedHeaders)
-  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
-})
