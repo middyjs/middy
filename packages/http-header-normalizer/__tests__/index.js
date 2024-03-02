@@ -285,3 +285,26 @@ test('It should not fail if the event does not contain headers', async (t) => {
   t.deepEqual(resultingEvent, expectedEvent)
   t.deepEqual(resultingEvent.rawHeaders, undefined)
 })
+
+test('It should not fail given a corrupted header key', async (t) => {
+  const handler = middy((event, context) => event)
+
+  handler.use(httpHeaderNormalizer({ canonical: true }))
+
+  const event = {
+    headers: {
+      'X----': 'foo'
+    }
+  }
+
+  const expectedHeaders = {
+    'X----': 'foo'
+  }
+
+  const originalHeaders = { ...event.headers }
+
+  const resultingEvent = await handler(event, context)
+
+  t.deepEqual(resultingEvent.headers, expectedHeaders)
+  t.deepEqual(resultingEvent.rawHeaders, originalHeaders)
+})
