@@ -157,7 +157,7 @@ const runRequest = async (
         handlerAbort = new AbortController()
       }
       const promises = [
-        lambdaHandler(request.event, request.context, {
+        lambdaHandler(request.event, request.context, () => undefined, {
           signal: handlerAbort.signal
         })
       ]

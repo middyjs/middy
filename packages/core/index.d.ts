@@ -1,6 +1,7 @@
 import {
   Context as LambdaContext,
-  Handler as LambdaHandler
+  Handler as LambdaHandler,
+  Callback as LambdaCallback
 } from 'aws-lambda'
 
 declare type PluginHook = () => void
@@ -75,6 +76,7 @@ type MiddyInputHandler<
 > = (
   event: TEvent,
   context: TContext,
+  callback: LambdaCallback,
   opts: MiddyHandlerObject,
 ) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 void | Promise<TResult> | TResult

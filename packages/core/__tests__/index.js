@@ -673,7 +673,7 @@ globalThis.awslambda = {
 test('Should throw with streamifyResponse:true using object', async (t) => {
   const input = {}
   const handler = middy(
-    (event, context, { signal }) => {
+    (event, context, callback, { signal }) => {
       return input
     },
     {
@@ -693,7 +693,7 @@ test('Should throw with streamifyResponse:true using object', async (t) => {
 test('Should return with streamifyResponse:true using body undefined', async (t) => {
   const input = ''
   const handler = middy(
-    (event, context, { signal }) => {
+    (event, context, callback, { signal }) => {
       return {
         statusCode: 200,
         headers: {
@@ -719,7 +719,7 @@ test('Should return with streamifyResponse:true using string', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy({
     streamifyResponse: true
-  }).handler((event, context, { signal }) => {
+  }).handler((event, context, callback, { signal }) => {
     return input
   })
 
@@ -736,7 +736,7 @@ test('Should return with streamifyResponse:true using body string', async (t) =>
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy({
     streamifyResponse: true
-  }).handler((event, context, { signal }) => {
+  }).handler((event, context, callback, { signal }) => {
     return {
       statusCode: 200,
       headers: {
@@ -758,7 +758,7 @@ test('Should return with streamifyResponse:true using body string', async (t) =>
 test('Should return with streamifyResponse:true using ReadableStream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
-    async (event, context, { signal }) => {
+    async (event, context, callback, { signal }) => {
       return createReadableStream(input)
     },
     {
@@ -778,7 +778,7 @@ test('Should return with streamifyResponse:true using ReadableStream', async (t)
 test('Should return with streamifyResponse:true using body ReadableStream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
-    async (event, context, { signal }) => {
+    async (event, context, callback, { signal }) => {
       return {
         statusCode: 200,
         headers: {
@@ -804,7 +804,7 @@ test('Should return with streamifyResponse:true using body ReadableStream', asyn
 test('Should return with streamifyResponse:true using ReadableStream.pipe(...)', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
-    async (event, context, { signal }) => {
+    async (event, context, callback, { signal }) => {
       return pipejoin([createReadableStream(input), createPassThroughStream()])
     },
     {
@@ -824,7 +824,7 @@ test('Should return with streamifyResponse:true using ReadableStream.pipe(...)',
 test('Should return with streamifyResponse:true using body ReadableStream.pipe(...)', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
-    async (event, context, { signal }) => {
+    async (event, context, callback, { signal }) => {
       return {
         statusCode: 200,
         headers: {
@@ -886,7 +886,7 @@ test('Should abort handler when timeout expires', async (t) => {
     getRemainingTimeInMillis: () => 2
   }
 
-  const handler = middy((event, context, { signal }) => {
+  const handler = middy((event, context, callback, { signal }) => {
     signal.onabort = function (abort) {
       t.true(abort.target.aborted)
     }
@@ -906,7 +906,7 @@ test('Should throw error when timeout expires', async (t) => {
   const context = {
     getRemainingTimeInMillis: () => 100
   }
-  const handler = middy(async (event, context, { signal }) => {
+  const handler = middy(async (event, context, callback, { signal }) => {
     await setTimeout(100)
     return true
   }, plugin)
@@ -931,7 +931,7 @@ test('Should not invoke timeoutEarlyResponse on success', async (t) => {
   const context = {
     getRemainingTimeInMillis: () => 100
   }
-  const handler = middy(async (event, context, { signal }) => {
+  const handler = middy(async (event, context, callback, { signal }) => {
     return true
   }, plugin)
 
@@ -955,7 +955,7 @@ test('Should not invoke timeoutEarlyResponse on error', async (t) => {
     getRemainingTimeInMillis: () => 100
   }
   const error = new Error('Oops!')
-  const handler = middy(async (event, context, { signal }) => {
+  const handler = middy(async (event, context, callback, { signal }) => {
     throw error
   }, plugin)
 

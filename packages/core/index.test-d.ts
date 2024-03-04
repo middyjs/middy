@@ -1,19 +1,21 @@
 import { expectType, expectAssignable } from 'tsd'
 import middy from '.'
-import {
+import type {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
   Context,
-  Handler as AWSLambdaHandler
+  Handler as AWSLambdaHandler,
+  Callback as LambdaCallback
 } from 'aws-lambda'
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (
   event: infer TEvent,
   context: infer TContextType,
+  callback: infer LambdaCallback,
   opts: infer TOptsType
 ) => infer R
-  ? (event: TEvent, context: TContextType, opts: TOptsType) => R | NewReturn
+  ? (event: TEvent, context: TContextType, callback: LambdaCallback, opts: TOptsType) => R | NewReturn
   : never
 
 type AWSLambdaHandlerWithoutCallback<TEvent = any, TResult = any> = (
@@ -64,7 +66,7 @@ expectType<Handler>(handler)
 expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(handler)
 
 // Middy handlers third argument is an object containing a abort signal
-middy((event, context, { signal }) => expectType<AbortSignal>(signal))
+middy((event, context, callback, { signal }) => expectType<AbortSignal>(signal))
 
 // invokes the handler to test that it is callable
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
