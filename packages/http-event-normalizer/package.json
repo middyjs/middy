@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-event-normalizer",
-  "version": "5.2.6",
+  "version": "5.3.0",
   "description": "Http event normalizer middleware for the middy framework",
   "type": "module",
   "engines": {
