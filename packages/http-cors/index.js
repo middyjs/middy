@@ -4,8 +4,6 @@ const getOrigin = (incomingOrigin, options = {}) => {
   if (options.origins.length > 0) {
     if (incomingOrigin && options.origins.includes(incomingOrigin)) {
       return incomingOrigin
-    } else {
-      return options.origins[0]
     }
   } else {
     if (incomingOrigin && options.credentials && options.origin === '*') {
@@ -13,6 +11,7 @@ const getOrigin = (incomingOrigin, options = {}) => {
     }
     return options.origin
   }
+  return null
 }
 
 const defaults = {
@@ -95,13 +94,17 @@ const modifyHeaders = (headers, options, request) => {
   if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
     const eventHeaders = request.event.headers ?? {}
     const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin
-    headers['Access-Control-Allow-Origin'] = options.getOrigin(
-      incomingOrigin,
-      options
-    )
+    const newOrigin = options.getOrigin(incomingOrigin, options)
+    if (newOrigin) {
+      headers['Access-Control-Allow-Origin'] = newOrigin
+    }
   }
   let vary = options.vary
-  if (headers['Access-Control-Allow-Origin'] !== '*' && !vary) {
+  if (
+    headers['Access-Control-Allow-Origin'] &&
+    headers['Access-Control-Allow-Origin'] !== '*' &&
+    !vary
+  ) {
     vary = 'Origin'
   }
   if (vary && !existingHeaders.includes('Vary')) {
