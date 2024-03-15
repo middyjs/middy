@@ -72,7 +72,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
           const size = 16384 // 16 * 1024 // Node.js default
           let position = 0
           const length = input.length
-          while (position < length) {
+          while (position <= length) {
             yield input.substring(position, position + size)
             position += size
           }
