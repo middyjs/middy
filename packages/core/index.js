@@ -68,16 +68,12 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       if (handlerBody._readableState) {
         handlerStream = handlerBody
       } else if (typeof handlerBody === 'string') {
-        function * iterator (input) {
-          const size = 16384 // 16 * 1024 // Node.js default
-          let position = 0
-          const length = input.length
-          while (position <= length) {
-            yield input.substring(position, position + size)
-            position += size
-          }
-        }
-        handlerStream = Readable.from(iterator(handlerBody))
+        // #1189
+        handlerStream = Readable.from(
+          handlerBody.length < stringIteratorSize
+            ? handlerBody
+            : stringIterator(handlerBody)
+        )
       }
 
       if (!handlerStream) {
@@ -127,6 +123,16 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
   }
 
   return middy
+}
+
+const stringIteratorSize = 16384 // 16 * 1024 // Node.js default
+function * stringIterator (input) {
+  let position = 0
+  const length = input.length
+  while (position < length) {
+    yield input.substring(position, position + stringIteratorSize)
+    position += stringIteratorSize
+  }
 }
 
 // shared AbortController, because it's slow
