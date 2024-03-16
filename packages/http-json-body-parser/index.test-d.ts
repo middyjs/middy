@@ -1,17 +1,17 @@
-import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
+import { ALBEvent, APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
 import middy from '@middy/core'
 import { expectType } from 'tsd'
 import jsonBodyParser from '.'
 
 // use with default options
 let middleware = jsonBodyParser()
-expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2>>(middleware)
+expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>>(middleware)
 
 // use with all options
 middleware = jsonBodyParser({
   reviver: (key: string, value: any) => Boolean(value)
 })
-expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2>>(middleware)
+expectType<middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>>(middleware)
 
 const baseEvent: Omit<APIGatewayEvent, 'body'> = {
   headers: {},
@@ -80,3 +80,5 @@ const apiGatewayV1Middleware = jsonBodyParser<APIGatewayEvent>()
 expectType<middy.MiddlewareObj<APIGatewayEvent>>(apiGatewayV1Middleware)
 const apiGatewayV2Middleware = jsonBodyParser<APIGatewayProxyEventV2>()
 expectType<middy.MiddlewareObj<APIGatewayProxyEventV2>>(apiGatewayV2Middleware)
+const albMiddleware = jsonBodyParser<ALBEvent>()
+expectType<middy.MiddlewareObj<ALBEvent>>(albMiddleware)
