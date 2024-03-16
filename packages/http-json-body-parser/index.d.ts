@@ -6,8 +6,8 @@ interface Options {
   disableContentTypeError?: boolean
 }
 
-export type VersionedApiGatewayEvent = APIGatewayEvent | APIGatewayProxyEventV2
+export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent
 
-declare function jsonBodyParser<EventType extends VersionedApiGatewayEvent | ALBEvent = VersionedApiGatewayEvent | ALBEvent> (options?: Options): middy.MiddlewareObj<EventType>
+declare function jsonBodyParser<EventType extends RequestEvent = RequestEvent> (options?: Options): middy.MiddlewareObj<EventType>
 
 export default jsonBodyParser
