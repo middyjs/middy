@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-import { APIGatewayEvent, APIGatewayProxyEventV2 } from 'aws-lambda'
+import { APIGatewayEvent, APIGatewayProxyEventV2, ALBEvent } from 'aws-lambda'
 
 interface Options {
   reviver?: (key: string, value: any) => any
@@ -8,6 +8,6 @@ interface Options {
 
 export type VersionedApiGatewayEvent = APIGatewayEvent | APIGatewayProxyEventV2
 
-declare function jsonBodyParser<APIGatewayEventType extends VersionedApiGatewayEvent = VersionedApiGatewayEvent> (options?: Options): middy.MiddlewareObj<APIGatewayEventType>
+declare function jsonBodyParser<EventType extends VersionedApiGatewayEvent | ALBEvent = VersionedApiGatewayEvent | ALBEvent> (options?: Options): middy.MiddlewareObj<EventType>
 
 export default jsonBodyParser
