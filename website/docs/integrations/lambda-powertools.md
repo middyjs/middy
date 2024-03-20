@@ -52,7 +52,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Logger, injectLambdaContext } from '@aws-lambda-powertools/logger';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 
 const logger = new Logger({ serviceName: 'serverlessAirline' });
 
@@ -125,7 +126,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Tracer, captureLambdaHandler } from '@aws-lambda-powertools/tracer';
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 
 const tracer = new Tracer({
@@ -180,7 +182,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Metrics, MetricUnits, logMetrics } from '@aws-lambda-powertools/metrics';
+import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
+import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
 
 const metrics = new Metrics({
   namespace: 'serverlessAirline',
