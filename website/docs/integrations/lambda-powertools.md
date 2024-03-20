@@ -126,7 +126,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Tracer, captureLambdaHandler } from '@aws-lambda-powertools/tracer';
+import { Tracer } from '@aws-lambda-powertools/tracer';
+import { captureLambdaHandler } from '@aws-lambda-powertools/tracer/middleware';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 
 const tracer = new Tracer({
