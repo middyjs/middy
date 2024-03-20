@@ -52,7 +52,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Logger, injectLambdaContext } from '@aws-lambda-powertools/logger';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 
 const logger = new Logger({ serviceName: 'serverlessAirline' });
 
