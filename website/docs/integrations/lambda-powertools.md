@@ -182,7 +182,8 @@ Middleware accepts the following options:
 
 ```javascript
 import middy from '@middy/core';
-import { Metrics, MetricUnits, logMetrics } from '@aws-lambda-powertools/metrics';
+import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
+import { logMetrics } from '@aws-lambda-powertools/metrics/middleware';
 
 const metrics = new Metrics({
   namespace: 'serverlessAirline',
