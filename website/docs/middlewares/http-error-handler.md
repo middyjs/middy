@@ -27,6 +27,7 @@ npm install --save @middy/http-error-handler
 ```javascript
 import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'
+import createError from 'http-errors'
 
 const lambdaHandler = (event, context) => {
   throw new createError.UnprocessableEntity()
