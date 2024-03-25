@@ -1,5 +1,5 @@
 import { expectType, expectAssignable } from 'tsd'
-import middy from '.'
+import middy, { MiddyfiedHandler } from '.'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
@@ -64,7 +64,7 @@ expectType<Handler>(handler)
 expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(handler)
 
 // Middy handlers third argument is an object containing a abort signal
-middy((event, context, { signal }) => expectType<AbortSignal>(signal))
+middy((_event: any, _context: any, { signal }: { signal: AbortSignal }) => expectType<AbortSignal>(signal))
 
 // invokes the handler to test that it is callable
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
@@ -392,3 +392,11 @@ expectType<middy.MiddyfiedHandler<unknown>>(syncedStreamifiedResponseHandler)
 
 syncedStreamifiedResponseHandler.handler(syncedLambdaHandler)
 syncedStreamifiedResponseHandler.use(middlewareObj)
+
+// Issue #1176
+const baseHandler: AWSLambdaHandler = async (event) => {
+  console.log('Hello world')
+}
+
+const handler1176 = middy(baseHandler)
+expectType<MiddyfiedHandler<any, any, Error, Context, {}>>(handler1176)
