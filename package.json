@@ -70,7 +70,8 @@
     "speedscope": "^1.0.0",
     "tinybench": "^2.5.1",
     "ts-standard": "^12.0.0",
-    "tsd": "^0.30.0"
+    "tsd": "^0.30.0",
+    "typescript": "^5.4.3"
   },
   "workspaces": [
     "packages/*"

@@ -168,6 +168,7 @@ declare function middy<
   TInternal extends Record<string, unknown> = {}
 > (
   handler?:
+  | LambdaHandler<TEvent, TResult>
   | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>
   | PluginObject,
   plugin?: PluginObject
