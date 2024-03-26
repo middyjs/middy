@@ -8,7 +8,7 @@ You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 :::note
 
-Powertools officially supports `@middy/core` v3.x only. In most cases when using Node.js 16 or higher you can use Powertools with `@middy/core` v4.x, however support is provided on a best-effort basis and we recommend using `@middy/core` v3.x.
+Powertools officially supports `@middy/core` v4.x only. In most cases when using Node.js 20 or higher and ESM you can use Powertools with `@middy/core` v5.x, however support is provided on a best-effort basis and we recommend using `@middy/core` v4.x.
 
 :::
 
@@ -19,6 +19,10 @@ Powertools is a collection of utilities that can be used independently or togeth
 - [**Tracer**](https://s12d.com/middy-tracer) - An opinionated wrapper around AWS X-Ray SDK for Node.js with a middleware to automatically capture traces for function invocations, HTTP requests, and AWS SDK calls, and more.
 - [**Metrics**](https://s12d.com/middy-metrics) - Create Amazon CloudWatch custom metrics asynchronously with a middleware that takes care of capturing cold starts, and flushes metrics to CloudWatch in [EMF-formatted](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html) batches.
 - [**Idempotency**](https://s12d.com/middy-idempotency) - Middleware to make your Lambda functions idempotent and prevent duplicate execution based on payload content.
+
+Powertools also provides other utilities that can be used independently of Middy:
+- [**Parameters**](https://s12d.com/middy-batch-processing) - Handle partial failures when processing batches of records from Amazon SQS, Amazon Kinesis Data Streams, and Amazon DynamoDB Streams.
+- [**Batch Processing**](https://s12d.com/middy-parameters) - Handle partial failures when processing batches of records from Amazon SQS, Amazon Kinesis Data Streams, and Amazon DynamoDB Streams.
 
 ## Logger
 
@@ -91,9 +95,9 @@ The above code will output the following log:
 
 As you can see, the log entry includes several fields that are automatically captured by the Logger utility, and that can help you better understand the context of the log entry. For example, the `cold_start` field indicates whether the Lambda function was cold started or not, and the `xray_trace_id` field contains the AWS X-Ray trace ID for the Lambda invocation. This is useful when you're troubleshooting a problem and want to correlate the logs with the traces.
 
-The Logger utility also allows you to append arbitary keys to the log entry at both [the global level](https://docs.powertools.aws.dev/lambda-typescript/latest/core/logger/#appending-persistent-additional-log-keys-and-values), at the [invocation level](https://docs.powertools.aws.dev/lambda-typescript/latest/core/logger/#clearing-all-state), and at the [single log level](https://docs.powertools.aws.dev/lambda-typescript/latest/core/logger/#appending-additional-data-to-a-single-log-item). For example, there might be some keys that you want to include in all log entries, such as the `environment` key to differentiate between the `prod` and `dev` environments, or in other cases you might want to include some keys only for a specific log entry, such as the `customer_id` key to identify the customer that triggered the Lambda invocation.
+The Logger utility also allows you to append arbitary keys to the log entry at both [the global level](https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#appending-persistent-additional-log-keys-and-values), at the [invocation level](https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#clearing-all-state), and at the [single log level](https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#appending-additional-data-to-a-single-log-item). For example, there might be some keys that you want to include in all log entries, such as the `environment` key to differentiate between the `prod` and `dev` environments, or in other cases you might want to include some keys only for a specific log entry, such as the `customer_id` key to identify the customer that triggered the Lambda invocation.
 
-Additionally, you can also configure Logger to [log the Lambda invocation event](https://docs.powertools.aws.dev/lambda-typescript/latest/core/logger/#log-incoming-event), which can be useful when you're troubleshooting a problem and want to see the event that triggered the Lambda invocation. Finally, Logger allows you to [define a custom log formatter](https://docs.powertools.aws.dev/lambda-typescript/latest/core/logger/#custom-log-formatter-bring-your-own-formatter) to output logs in a different JSON structure from the default one. This is useful when you want to output logs in a structure that is compatible with your organization's requirements.
+Additionally, you can also configure Logger to [log the Lambda invocation event](https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#log-incoming-event), which can be useful when you're troubleshooting a problem and want to see the event that triggered the Lambda invocation. Finally, Logger allows you to [define a custom log formatter](https://docs.powertools.aws.dev/lambda/typescript/latest/core/logger/#custom-log-formatter-bring-your-own-formatter) to output logs in a different JSON structure from the default one. This is useful when you want to output logs in a structure that is compatible with your organization's requirements.
 
 ## Tracer
 
@@ -146,9 +150,9 @@ export const handler = middy(lambdaHandler)
   .use(captureLambdaHandler(tracer));
 ```
 
-The above code instructs the Tracer utility to create a custom segment named `## index.handler` and to add an annotation to it with the key `successfulBooking` and the value `true`. The segment name is automatically generated based on the handler name, and the `##` prefix is used to indicate that this is a custom segment. The Tracer utility also automatically captures the cold start and service name as annotations, and the Lambda invocation result or any error thrown [as metadata](https://docs.powertools.aws.dev/lambda-typescript/latest/core/tracer/#annotations-metadata). The segment data will be automatically sent to AWS X-Ray when the Lambda function completes its execution.
+The above code instructs the Tracer utility to create a custom segment named `## index.handler` and to add an annotation to it with the key `successfulBooking` and the value `true`. The segment name is automatically generated based on the handler name, and the `##` prefix is used to indicate that this is a custom segment. The Tracer utility also automatically captures the cold start and service name as annotations, and the Lambda invocation result or any error thrown [as metadata](https://docs.powertools.aws.dev/lambda/typescript/latest/core/tracer/#annotations-metadata). The segment data will be automatically sent to AWS X-Ray when the Lambda function completes its execution.
 
-Tracer also automatically [captures and traces any outgoing HTTP(S) requests](https://docs.powertools.aws.dev/lambda-typescript/latest/core/tracer/#tracing-http-requests) made by the Lambda function. For example, if your function makes a request to a custom API, the Tracer utility will automatically create a segment for that request which will appear in your trace data and service map. Additionally, it will also [capture any AWS SDK calls](https://docs.powertools.aws.dev/lambda-typescript/latest/core/tracer/#patching-aws-sdk-clients) made by the function, and do the same for them.
+Tracer also automatically [captures and traces any outgoing HTTP(S) requests](https://docs.powertools.aws.dev/lambda/typescript/latest/core/tracer/#tracing-http-requests) made by the Lambda function. For example, if your function makes a request to a custom API, the Tracer utility will automatically create a segment for that request which will appear in your trace data and service map. Additionally, it will also [capture any AWS SDK calls](https://docs.powertools.aws.dev/lambda/typescript/latest/core/tracer/#patching-aws-sdk-clients) made by the function, and do the same for them.
 
 ## Metrics
 
@@ -158,7 +162,7 @@ Key features:
 - Metrics are created asynchronously by the CloudWatch service. You do not need any custom stacks, and there is no impact to Lambda function latency.
 - Creating a one-off metric with different dimensions.
 
-If you're new to Amazon CloudWatch, there are a few terms like `Namespace`, `Dimensions`, `Unit`, etc, that you must be aware of before you start using the Metrics utility. To learn more about these terms, see the [documentation on PowerTools Metrics](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#terminologies).
+If you're new to Amazon CloudWatch, there are a few terms like `Namespace`, `Dimensions`, `Unit`, etc, that you must be aware of before you start using the Metrics utility. To learn more about these terms, see the [documentation on PowerTools Metrics](https://docs.powertools.aws.dev/lambda/typescript/latest/core/metrics/#terminologies).
 
 ### Install
 
@@ -222,7 +226,7 @@ The above code will output a CloudWatch EMF object similar to the following:
 
 This EMF object will be sent to CloudWatch asynchronously by the CloudWatch service. You do not need any custom stacks, and there is no impact to Lambda function latency.
 
-The Metrics utility supports [high-resolution metrics](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-high-resolution-metrics) as well as [multi-value metrics](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-multi-value-metrics). It also allows you to add [default dimensions](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#adding-default-dimensions) that are used in all the metrics emitted by your application or [create a one-off metric](https://docs.powertools.aws.dev/lambda-typescript/latest/core/metrics/#single-metric-with-different-dimensions) with different dimensions.
+The Metrics utility supports [high-resolution metrics](https://docs.powertools.aws.dev/lambda/typescript/latest/core/metrics/#adding-high-resolution-metrics) as well as [multi-value metrics](https://docs.powertools.aws.dev/lambda/typescript/latest/core/metrics/#adding-multi-value-metrics). It also allows you to add [default dimensions](https://docs.powertools.aws.dev/lambda/typescript/latest/core/metrics/#adding-default-dimensions) that are used in all the metrics emitted by your application or [create a one-off metric](https://docs.powertools.aws.dev/lambda/typescript/latest/core/metrics/#single-metric-with-different-dimensions) with different dimensions.
 
 ## Idempotency
 
