@@ -6,7 +6,7 @@ sidebar_position: 100
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.
 If your middleware is missing, feel free to [open a Pull Request](https://github.com/middyjs/middy/pulls).
 
-## Version 2.x - 4.x
+## Version 2.x - 5.x
 
 - [dazn-lambda-powertools](https://github.com/getndazn/dazn-lambda-powertools): A collection of middlewares, AWS clients and helper libraries that make working with lambda easier.
 - [middy-ajv](https://www.npmjs.com/package/middy-ajv): AJV validator optimized for performance
