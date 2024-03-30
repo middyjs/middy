@@ -210,7 +210,7 @@ const runRequest = async (
       await runMiddlewares(request, onErrorMiddlewares, plugin)
     } catch (e) {
       // Save error that wasn't handled
-      const isAssignable = e instanceof Error
+      const isAssignable = e instanceof Error || typeof e === 'object'
       if (isAssignable) {
         e.originalError = request.error
       }
