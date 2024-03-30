@@ -660,6 +660,25 @@ test('"onError" middleware should be able to short circuit response', async (t) 
   t.deepEqual(executed, ['b1', 'e2'])
 })
 
+test('"onError" middleware should be able to throw stringified response object', async (t) => {
+  const middleware1 = () => ({
+    onError: (request) => {
+      const { error } = request
+      const cleanedError = { visibleMessage: error.message }
+      throw JSON.stringify(cleanedError)
+    }
+  })
+
+  const handler = middy(() => {
+    throw new Error('Caboom')
+  }).use(middleware1())
+  try {
+    await handler(event, context)
+  } catch (e) {
+    t.deepEqual(e, '{"visibleMessage":"Caboom"}')
+  }
+})
+
 // streamifyResponse
 
 // mock implementation awslambda.HttpResponseStream
@@ -698,8 +717,8 @@ globalThis.awslambda = {
   }
 }
 
-function createResponseStreamMockAndCapture () {
-  function processChunkResponse (chunkResponse) {
+function createResponseStreamMockAndCapture() {
+  function processChunkResponse(chunkResponse) {
     const indexOf = chunkResponse.indexOf(new Uint8Array(DELIMITER_LEN))
     const prelude = chunkResponse.slice(0, indexOf)
     const content = chunkResponse.slice(indexOf + DELIMITER_LEN * 2 - 1)

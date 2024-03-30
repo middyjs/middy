@@ -126,7 +126,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
 }
 
 const stringIteratorSize = 16384 // 16 * 1024 // Node.js default
-function * stringIterator (input) {
+function* stringIterator(input) {
   let position = 0
   const length = input.length
   while (position < length) {
@@ -210,9 +210,12 @@ const runRequest = async (
       await runMiddlewares(request, onErrorMiddlewares, plugin)
     } catch (e) {
       // Save error that wasn't handled
-      e.originalError = request.error
-      request.error = e
+      const isAssignable = e instanceof Error
+      if (isAssignable) {
+        e.originalError = request.error
+      }
 
+      request.error = e
       throw request.error
     }
     // Catch if onError stack hasn't handled the error
