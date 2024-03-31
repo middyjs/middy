@@ -49,39 +49,42 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       plugin
     )
   }
+
+  const getStreamifiedMiddyHandler = async (event, responseStream, context) => {
+    const handlerResponse = await middyHandler(event, context)
+
+    let handlerBody = handlerResponse
+    if (handlerResponse.statusCode) {
+      handlerBody = handlerResponse.body ?? ''
+      delete handlerResponse.body // #1137
+      responseStream = awslambda.HttpResponseStream.from(
+        responseStream,
+        handlerResponse
+      )
+    }
+
+    // Source @datastream/core (MIT)
+    let handlerStream
+    if (handlerBody._readableState) {
+      handlerStream = handlerBody
+    } else if (typeof handlerBody === 'string') {
+      // #1189
+      handlerStream = Readable.from(
+        handlerBody.length < stringIteratorSize
+          ? handlerBody
+          : stringIterator(handlerBody)
+      )
+    }
+
+    if (!handlerStream) {
+      throw new Error('handler response not a ReadableStream')
+    }
+
+    await pipeline(handlerStream, responseStream)
+  }
+
   const middy = plugin.streamifyResponse
-    ? awslambda.streamifyResponse(async (event, responseStream, context) => {
-      const handlerResponse = await middyHandler(event, context)
-
-      let handlerBody = handlerResponse
-      if (handlerResponse.statusCode) {
-        handlerBody = handlerResponse.body ?? ''
-        delete handlerResponse.body // #1137
-        responseStream = awslambda.HttpResponseStream.from(
-          responseStream,
-          handlerResponse
-        )
-      }
-
-      // Source @datastream/core (MIT)
-      let handlerStream
-      if (handlerBody._readableState) {
-        handlerStream = handlerBody
-      } else if (typeof handlerBody === 'string') {
-        // #1189
-        handlerStream = Readable.from(
-          handlerBody.length < stringIteratorSize
-            ? handlerBody
-            : stringIterator(handlerBody)
-        )
-      }
-
-      if (!handlerStream) {
-        throw new Error('handler response not a ReadableStream')
-      }
-
-      await pipeline(handlerStream, responseStream)
-    })
+    ? awslambda.streamifyResponse(getStreamifiedMiddyHandler)
     : middyHandler
 
   middy.use = (middlewares) => {
