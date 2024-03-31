@@ -717,8 +717,8 @@ globalThis.awslambda = {
   }
 }
 
-function createResponseStreamMockAndCapture() {
-  function processChunkResponse(chunkResponse) {
+function createResponseStreamMockAndCapture () {
+  function processChunkResponse (chunkResponse) {
     const indexOf = chunkResponse.indexOf(new Uint8Array(DELIMITER_LEN))
     const prelude = chunkResponse.slice(0, indexOf)
     const content = chunkResponse.slice(indexOf + DELIMITER_LEN * 2 - 1)

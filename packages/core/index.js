@@ -126,7 +126,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
 }
 
 const stringIteratorSize = 16384 // 16 * 1024 // Node.js default
-function* stringIterator(input) {
+function * stringIterator (input) {
   let position = 0
   const length = input.length
   while (position < length) {
