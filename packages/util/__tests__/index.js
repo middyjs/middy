@@ -7,6 +7,7 @@ import {
   getInternal,
   getCache,
   processCache,
+  catchInvalidSignatureException,
   modifyCache,
   clearCache,
   jsonSafeParse,
@@ -496,6 +497,30 @@ test.serial('processCache should clear all cache', async (t) => {
   t.deepEqual(getCache('other'), {})
   clearCache()
 })
+
+// catchInvalidSignatureException
+test.serial(
+  'catchInvalidSignatureException should retry when InvalidSignatureException',
+  async (t) => {
+    const e = new Error('InvalidSignatureException')
+    e.__type = 'InvalidSignatureException'
+    const client = { send: sinon.stub() }
+    catchInvalidSignatureException(e, client, 'command')
+    t.is(client.send.callCount, 1)
+  }
+)
+
+test.serial(
+  'catchInvalidSignatureException should throw when not InvalidSignatureException',
+  async (t) => {
+    const e = new Error('error')
+    try {
+      catchInvalidSignatureException(e)
+    } catch (e) {
+      t.is(e.message, 'error')
+    }
+  }
+)
 
 // modifyCache
 test.serial(

@@ -6,7 +6,8 @@ import {
   getInternal,
   processCache,
   modifyCache,
-  jsonSafeParse
+  jsonSafeParse,
+  catchInvalidSignatureException
 } from '@middy/util'
 import {
   SecretsManagerClient,
@@ -36,6 +37,9 @@ const secretsManagerMiddleware = (opts = {}) => {
 
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
+      const command = new DescribeSecretCommand({
+        SecretId: options.fetchData[internalKey]
+      })
 
       values[internalKey] = Promise.resolve()
         .then(() => {
@@ -44,11 +48,8 @@ const secretsManagerMiddleware = (opts = {}) => {
             options.fetchRotationDate?.[internalKey]
           ) {
             return client
-              .send(
-                new DescribeSecretCommand({
-                  SecretId: options.fetchData[internalKey]
-                })
-              )
+              .send(command)
+              .catch((e) => catchInvalidSignatureException(e, client, command))
               .then((resp) => {
                 if (options.cacheExpiry < 0) {
                   options.cacheKeyExpiry[internalKey] =
@@ -64,13 +65,14 @@ const secretsManagerMiddleware = (opts = {}) => {
               })
           }
         })
-        .then(() =>
-          client.send(
-            new GetSecretValueCommand({
-              SecretId: options.fetchData[internalKey]
-            })
-          )
-        )
+        .then(() => {
+          const command = new GetSecretValueCommand({
+            SecretId: options.fetchData[internalKey]
+          })
+          return client
+            .send(command)
+            .catch((e) => catchInvalidSignatureException(e, client, command))
+        })
         .then((resp) => jsonSafeParse(resp.SecretString))
         .catch((e) => {
           const value = getCache(options.cacheKey).value ?? {}

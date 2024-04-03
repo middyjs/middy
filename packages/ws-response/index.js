@@ -3,7 +3,12 @@ import {
   PostToConnectionCommand
 } from '@aws-sdk/client-apigatewaymanagementapi'
 
-import { canPrefetch, createClient, createPrefetchClient } from '@middy/util'
+import {
+  canPrefetch,
+  createClient,
+  createPrefetchClient,
+  catchInvalidSignatureException
+} from '@middy/util'
 
 const defaults = {
   AwsClient: ApiGatewayManagementApiClient,
@@ -37,7 +42,10 @@ const wsResponseMiddleware = (opts) => {
       client = await createClient(options, request)
     }
 
-    await client.send(new PostToConnectionCommand(response))
+    const command = new PostToConnectionCommand(response)
+    await client
+      .send(command)
+      .catch((e) => catchInvalidSignatureException(e, client, command))
 
     request.response.statusCode = 200
   }

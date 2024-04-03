@@ -6,7 +6,8 @@ import {
   getInternal,
   processCache,
   modifyCache,
-  jsonSafeParse
+  jsonSafeParse,
+  catchInvalidSignatureException
 } from '@middy/util'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 const defaults = {
@@ -31,8 +32,10 @@ const s3Middleware = (opts = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
+      const command = new GetObjectCommand(options.fetchData[internalKey])
       values[internalKey] = client
-        .send(new GetObjectCommand(options.fetchData[internalKey]))
+        .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then(async (resp) => {
           let value = await resp.Body.transformToString()
           if (contentTypePattern.test(resp.ContentType)) {

@@ -6,7 +6,8 @@ import {
   getInternal,
   processCache,
   modifyCache,
-  jsonSafeParse
+  jsonSafeParse,
+  catchInvalidSignatureException
 } from '@middy/util'
 import {
   AppConfigClient,
@@ -34,8 +35,12 @@ const appConfigMiddleware = (opts = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
+      const command = new GetConfigurationCommand(
+        options.fetchData[internalKey]
+      )
       values[internalKey] = client
-        .send(new GetConfigurationCommand(options.fetchData[internalKey]))
+        .send(command)
+        .catch((e) => catchInvalidSignatureException(e, client, command))
         .then((resp) => {
           let value = String.fromCharCode.apply(null, resp.Content)
           if (contentTypePattern.test(resp.ContentType)) {
