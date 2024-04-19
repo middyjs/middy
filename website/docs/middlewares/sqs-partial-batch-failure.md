@@ -44,16 +44,16 @@ import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
 const lambdaHandler = (event, context) => {
-  const promises = [];
+  const statusPromises = [];
   for (const [idx, record] of Object.entries(Records)) {
     try {
       /* Custom message processing logic */
-      promises.push(Promise.resolve());
+      statusPromises.push(Promise.resolve());
     } catch (error) {
-      promises.push(Promise.reject(error));
+      statusPromises.push(Promise.reject(error));
     }
   }
-  return Promise.allSettled(recordPromises)
+  return Promise.allSettled(statusPromises)
 }
 
 export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
