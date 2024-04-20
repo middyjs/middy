@@ -20,6 +20,8 @@ npm install --save-dev @aws-sdk/client-sqs
 
 ## Sample usage
 
+Standrad Queue (All records handled in parallel):
+
 ```javascript
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
@@ -30,6 +32,28 @@ const lambdaHandler = (event, context) => {
     return record
   })
   return Promise.allSettled(recordPromises)
+}
+
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
+```
+
+FIFO Queue (Records handled sequentially):
+
+```javascript
+import middy from '@middy/core'
+import sqsBatch from '@middy/sqs-partial-batch-failure'
+
+const lambdaHandler = (event, context) => {
+  const statusPromises = [];
+  for (const [idx, record] of Object.entries(Records)) {
+    try {
+      /* Custom message processing logic */
+      statusPromises.push(Promise.resolve());
+    } catch (error) {
+      statusPromises.push(Promise.reject(error));
+    }
+  }
+  return Promise.allSettled(statusPromises)
 }
 
 export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
