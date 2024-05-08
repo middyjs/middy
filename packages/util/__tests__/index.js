@@ -161,10 +161,11 @@ const getInternalRequest = {
     })
   }
 }
+const promiseRejectError = new Error('promiseReject')
 const promiseThrowError = new Error('promiseThrow')
 const getInternalRejected = {
   internal: {
-    promiseReject: Promise.reject('promiseReject'),
+    promiseReject: Promise.reject(promiseRejectError),
     promiseThrow: new Promise(() => {
       throw promiseThrowError
     })
@@ -178,7 +179,7 @@ test('getInternal should throw errors', async (t) => {
     t.is(e.message, 'Failed to resolve internal values')
     t.deepEqual(e.cause, {
       package: '@middy/util',
-      data: ['promiseReject', promiseThrowError]
+      data: [promiseRejectError, promiseThrowError]
     })
   }
 })
