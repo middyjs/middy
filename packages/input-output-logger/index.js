@@ -4,12 +4,11 @@ const defaults = {
   logger: console.log,
   awsContext: false,
   omitPaths: [],
-  mask: undefined,
-  replacer: undefined
+  mask: undefined
 }
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
-  const { logger, awsContext, omitPaths, mask, replacer } = {
+  const { logger, awsContext, omitPaths, mask } = {
     ...defaults,
     ...opts
   }
@@ -33,7 +32,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
     let cloneMessage = message
     if (omitPaths.length) {
-      cloneMessage = structuredClone(message, replacer) // Full clone to prevent nested mutations
+      cloneMessage = structuredClone(message) // Full clone to prevent nested mutations
       omit(cloneMessage, { [param]: omitPathTree[param] })
     }
     logger(cloneMessage)

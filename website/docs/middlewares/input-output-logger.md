@@ -20,7 +20,6 @@ npm install --save @middy/input-output-logger
 - `awsContext` boolean (default `false`): Include [AWS Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html) to the logger
 - `omitPaths` string[] (default `[]`): property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []). Examples: `name`, `user.name`, `users.[].name`
 - `mask` string: String to replace omitted values with. Example: `***omitted***`
-- `replacer` function: stringify `replacer` function
 
 Note: If using with `{ streamifyResponse: true }`, your ReadableStream must be of type `string`.
 
