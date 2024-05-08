@@ -7,6 +7,6 @@ interface Options {
   mask?: string
 }
 
-declare function inputOutputLogger(options?: Options): middy.MiddlewareObj
+declare function inputOutputLogger (options?: Options): middy.MiddlewareObj
 
 export default inputOutputLogger
