@@ -91,7 +91,7 @@ const httpContentEncodingMiddleware = (opts) => {
 
   const httpContentEncodingMiddlewareOnError = async (request) => {
     if (typeof request.response === 'undefined') return
-    httpContentEncodingMiddlewareAfter(request)
+    await httpContentEncodingMiddlewareAfter(request)
   }
 
   return {

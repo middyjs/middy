@@ -74,7 +74,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
   }
   const inputOutputLoggerMiddlewareOnError = async (request) => {
     if (request.response === undefined) return
-    inputOutputLoggerMiddlewareAfter(request)
+    await inputOutputLoggerMiddlewareAfter(request)
   }
 
   return {
