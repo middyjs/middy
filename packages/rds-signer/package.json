@@ -1,6 +1,6 @@
 {
   "name": "@middy/rds-signer",
-  "version": "5.3.3",
+  "version": "5.3.4",
   "description": "RDS (Relational Database Service) credentials middleware for the middy framework",
   "type": "module",
   "engines": {
