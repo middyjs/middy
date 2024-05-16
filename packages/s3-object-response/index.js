@@ -34,17 +34,11 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    request.response.RequestRoute = request.event.getObjectContext.outputRoute
-    request.response.RequestToken = request.event.getObjectContext.outputToken
-
-    if (request.response.body) {
-      request.response.Body = request.response.body
-      delete request.response.body
-    }
-
-    const command = new WriteGetObjectResponseCommand(
-      request.internal.s3ObjectResponse
-    )
+    const command = new WriteGetObjectResponseCommand({
+      RequestRoute: request.event.getObjectContext.outputRoute,
+      RequestToken: request.event.getObjectContext.outputToken,
+      Body: request.response.Body ?? request.response.body
+    })
     await client.send(command) // Doesn't return a promise?
     // .catch((e) => catchInvalidSignatureException(e, client, command))
 

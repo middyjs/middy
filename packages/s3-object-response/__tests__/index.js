@@ -111,3 +111,49 @@ test.serial('It should fetch and forward body', async (t) => {
   t.deepEqual(200, response.statusCode)
   t.is(fetchCount, 1)
 })
+
+test.serial(
+  'It should fetch and forward Body w/ {disablePrefetch:true}',
+  async (t) => {
+    const s3Data = JSON.stringify({ key: 'item', value: 1 })
+    let fetchCount = 0
+    global.fetch = (url, request) => {
+      fetchCount++
+      return Promise.resolve(
+        new Response(s3Data, {
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers({
+            'Content-Type': 'application/json; charset=UTF-8'
+          })
+        })
+      )
+    }
+    mockClient(S3Client)
+      .on(WriteGetObjectResponseCommand, {
+        RequestRoute: defaultEvent.outputRoute,
+        RequestToken: defaultEvent.outputToken,
+        Body: s3Data
+      })
+      .resolvesOnce({ statusCode: 200 })
+
+    const handler = middy(async (event, context) => {
+      t.true(typeof context.s3ObjectFetch.then === 'function')
+      const res = await context.s3ObjectFetch
+      return {
+        Body: await res.text()
+      }
+    })
+
+    handler.use(
+      s3ObejctResponse({
+        AwsClient: S3Client,
+        disablePrefetch: true
+      })
+    )
+
+    const response = await handler(defaultEvent, defaultContext)
+    t.deepEqual(200, response.statusCode)
+    t.is(fetchCount, 1)
+  }
+)
