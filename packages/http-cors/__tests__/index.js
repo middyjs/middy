@@ -258,6 +258,32 @@ test('It should return whitelisted origin', async (t) => {
   })
 })
 
+test('It should return whitelisted origin (wildcard)', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    cors({
+      disableBeforePreflightResponse: false,
+      origins: ['https://example.com', 'https://*.example.com']
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: { Origin: 'https://subdomain.example.com' }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {
+      'Access-Control-Allow-Origin': 'https://subdomain.example.com',
+      Vary: 'Origin'
+    }
+  })
+})
+
 test('It should exclude `Access-Control-Allow-Origin` if no match in origins', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 

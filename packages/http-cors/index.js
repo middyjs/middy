@@ -1,8 +1,18 @@
 import { normalizeHttpResponse } from '@middy/util'
 
 const getOrigin = (incomingOrigin, options = {}) => {
-  if (options.origins.length > 0) {
-    if (incomingOrigin && options.origins.includes(incomingOrigin)) {
+  const { origins } = options
+
+  const wildcardMatch = (origin) => {
+    const regString = origin.replace(/\./g, '\\.').replace(/\*/g, '[^ ]*') // escape periods + convert start symbol to wildcard
+    return new RegExp(regString).test(incomingOrigin)
+  }
+
+  if (origins.length > 0) {
+    if (incomingOrigin && origins.includes(incomingOrigin)) {
+      return incomingOrigin
+    }
+    if (incomingOrigin && origins.some((o) => wildcardMatch(o))) {
       return incomingOrigin
     }
   } else {
