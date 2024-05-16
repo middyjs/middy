@@ -68,7 +68,7 @@
   },
   "dependencies": {
     "@middy/util": "5.3.4",
-    "ajv": "8.12.0",
+    "ajv": "8.13.0",
     "ajv-errors": "3.0.0",
     "ajv-formats": "2.1.1",
     "ajv-formats-draft2019": "1.6.1",
