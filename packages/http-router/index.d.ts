@@ -11,9 +11,7 @@ import {
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'ANY'
 
-type TResult = ALBResult | APIGatewayProxyResult | APIGatewayProxyResultV2
-
-export interface Route<TEvent> {
+export interface Route<TEvent, TResult> {
   method: Method
   path: string
   handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult, any, any>
@@ -23,7 +21,11 @@ declare function httpRouterHandler<
   TEvent extends
   | ALBEvent
   | APIGatewayProxyEvent
-  | APIGatewayProxyEventV2 = APIGatewayProxyEvent
-> (routes: Array<Route<TEvent>>): middy.MiddyfiedHandler
+  | APIGatewayProxyEventV2 = APIGatewayProxyEvent,
+  TResult extends
+  | ALBResult
+  | APIGatewayProxyResult
+  | APIGatewayProxyResultV2 = APIGatewayProxyResult
+> (routes: Array<Route<TEvent, TResult>>): middy.MiddyfiedHandler<TEvent, TResult>
 
 export default httpRouterHandler

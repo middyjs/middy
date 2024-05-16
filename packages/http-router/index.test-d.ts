@@ -2,6 +2,7 @@ import { expectType } from 'tsd'
 import middy from '@middy/core'
 import httpRouterHandler from '.'
 import {
+  ALBEvent, ALBResult,
   APIGatewayProxyEvent,
   APIGatewayProxyEventV2,
   APIGatewayProxyResult,
@@ -23,7 +24,7 @@ const middleware = httpRouterHandler([
     handler: lambdaHandler
   }
 ])
-expectType<middy.MiddyfiedHandler>(middleware)
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(middleware)
 
 const lambdaHandlerV2: LambdaHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2> = async (event) => {
   return {
@@ -39,4 +40,21 @@ const middlewareV2 = httpRouterHandler([
     handler: lambdaHandlerV2
   }
 ])
-expectType<middy.MiddyfiedHandler>(middlewareV2)
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>>(middlewareV2)
+
+const lambdaHandlerALB: LambdaHandler<ALBEvent, ALBResult> = async (event) => {
+  return {
+    statusCode: 200,
+    body: 'Hello world'
+  }
+}
+
+const middlewareALB = httpRouterHandler([
+  {
+    method: 'GET',
+    path: '/',
+    handler: lambdaHandlerALB
+  }
+])
+
+expectType<middy.MiddyfiedHandler<ALBEvent, ALBResult>>(middlewareALB)
