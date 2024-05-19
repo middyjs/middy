@@ -2,7 +2,8 @@ import { normalizeHttpResponse } from '@middy/util'
 
 const getOrigin = (incomingOrigin, options = {}) => {
   const wildcardMatch = (origin) => {
-    const regString = origin.replace(/\./g, '\\.').replace(/\*/g, '[^ ]*') // escape periods + convert asterisk to regex wildcard
+    const escapedString = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regString = escapedString.replace(/\\\*/g, '[^ .]*') // convert asterisk to regex wildcard
     return new RegExp(regString).test(incomingOrigin)
   }
 
