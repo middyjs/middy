@@ -1,31 +1,8 @@
 import { normalizeHttpResponse } from '@middy/util'
 
-const getOrigin = (incomingOrigin, options = {}) => {
-  const wildcardMatch = (origin) => {
-    const escapedString = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regString = escapedString.replace(/\\\*/g, '[^ .]*') // convert asterisk to regex wildcard
-    return new RegExp(regString).test(incomingOrigin)
-  }
-
-  if (options.origins.length > 0) {
-    if (incomingOrigin && options.origins.includes(incomingOrigin)) {
-      return incomingOrigin
-    }
-    if (incomingOrigin && options.origins.some((o) => wildcardMatch(o))) {
-      return incomingOrigin
-    }
-  } else {
-    if (incomingOrigin && options.credentials && options.origin === '*') {
-      return incomingOrigin
-    }
-    return options.origin
-  }
-  return null
-}
-
 const defaults = {
   disableBeforePreflightResponse: true,
-  getOrigin,
+  getOrigin: undefined, // default inserted below
   credentials: undefined,
   headers: undefined,
   methods: undefined,
@@ -39,10 +16,56 @@ const defaults = {
   vary: undefined
 }
 const httpCorsMiddleware = (opts = {}) => {
+  let originAny = false
+  const originStatic = {}
+  const originDynamic = []
+  const getOrigin = (incomingOrigin, options = {}) => {
+    if (options.origins.length > 0) {
+      if (originStatic[incomingOrigin]) {
+        return incomingOrigin
+      }
+      if (originAny) {
+        if (options.credentials) {
+          return incomingOrigin
+        } else {
+          return '*'
+        }
+      }
+      if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
+        return incomingOrigin
+      }
+      // TODO deprecate `else` in v6
+    } else {
+      if (incomingOrigin && options.credentials && options.origin === '*') {
+        return incomingOrigin
+      }
+      return options.origin
+    }
+    return null
+  }
   const options = {
     ...defaults,
+    getOrigin,
     ...opts
   }
+
+  for (const origin of options.origins) {
+    // Static
+    if (origin.indexOf('*') < 0) {
+      originStatic[origin] = true
+      continue
+    }
+    // All
+    if (origin === '*') {
+      originAny = true
+      continue
+    }
+    // Dynamic
+    // TODO: IDN -> puncycode not handled, add in if requested
+    const regExpStr = origin.replaceAll('.', '\\.').replaceAll('*', '[^.]*')
+    originDynamic.push(new RegExp(`^${regExpStr}$`))
+  }
+
   const httpCorsMiddlewareBefore = async (request) => {
     if (options.disableBeforePreflightResponse) return
 

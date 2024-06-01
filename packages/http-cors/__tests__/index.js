@@ -232,7 +232,33 @@ test('It should use Origin when matching origin specified in options', async (t)
   })
 })
 
-test('It should return whitelisted origin', async (t) => {
+test('It should return whitelisted origin (any)', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    cors({
+      disableBeforePreflightResponse: false,
+      origins: ['*']
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: { Origin: 'https://another-example.com' }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {
+      'Access-Control-Allow-Origin': 'https://another-example.com',
+      Vary: 'Origin'
+    }
+  })
+})
+
+test('It should return whitelisted origin (static)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
@@ -258,7 +284,7 @@ test('It should return whitelisted origin', async (t) => {
   })
 })
 
-test('It should return whitelisted origin (wildcard)', async (t) => {
+test('It should return whitelisted origin (dynamic sub-domain)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
@@ -284,30 +310,7 @@ test('It should return whitelisted origin (wildcard)', async (t) => {
   })
 })
 
-test('It should exclude `Access-Control-Allow-Origin` if no match in origins (wildcard)', async (t) => {
-  const handler = middy((event, context) => ({ statusCode: 200 }))
-
-  handler.use(
-    cors({
-      disableBeforePreflightResponse: false,
-      origins: ['https://example.com', 'https://*.example.com']
-    })
-  )
-
-  const event = {
-    httpMethod: 'OPTIONS',
-    headers: { Origin: 'https://nested.subdomain.example.com' }
-  }
-
-  const response = await handler(event, context)
-
-  t.deepEqual(response, {
-    statusCode: 204,
-    headers: {}
-  })
-})
-
-test('It should match nested sub-domains when nested wildcard values are specified', async (t) => {
+test('It should return whitelisted origin (dynamic sub-sub-domain)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
@@ -333,7 +336,7 @@ test('It should match nested sub-domains when nested wildcard values are specifi
   })
 })
 
-test('It should exclude `Access-Control-Allow-Origin` if no match in origins', async (t) => {
+test('It should exclude `Access-Control-Allow-Origin` if no match in origins (static)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
@@ -346,6 +349,52 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins', a
   const event = {
     httpMethod: 'OPTIONS',
     headers: { Origin: 'https://unknown.com' }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {}
+  })
+})
+
+test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dynamic sub-domain)', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    cors({
+      disableBeforePreflightResponse: false,
+      origins: ['https://example.com', 'https://*.example.com']
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: { Origin: 'https://nested.subdomain.example.com' }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {}
+  })
+})
+
+test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dynamic sub-sub-domain)', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    cors({
+      disableBeforePreflightResponse: false,
+      origins: ['https://example.com', 'https://*.*.example.com']
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: { Origin: 'https://subdomain.example.com' }
   }
 
   const response = await handler(event, context)
@@ -476,13 +525,45 @@ test('It should not override already declared Access-Control-Allow-Credentials h
   })
 })
 
+test('It should use change credentials as specified in options (true) w/ origin:*', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    cors({
+      disableBeforePreflightResponse: false,
+      credentials: true,
+      origin: '*'
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: {
+      Origin: 'https://example.com'
+    }
+  }
+
+  const response = await handler(event, context)
+
+  t.deepEqual(response, {
+    statusCode: 204,
+    headers: {
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': 'https://example.com',
+      Vary: 'Origin'
+    }
+  })
+})
+
 test('It should use change credentials as specified in options (true)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
     cors({
       disableBeforePreflightResponse: false,
-      credentials: true
+      credentials: true,
+      origin: null,
+      origins: ['*']
     })
   )
 
@@ -511,7 +592,9 @@ test('It should use change credentials as specified in options (true) with lower
   handler.use(
     cors({
       disableBeforePreflightResponse: false,
-      credentials: true
+      credentials: true,
+      origin: null,
+      origins: ['*']
     })
   )
 
