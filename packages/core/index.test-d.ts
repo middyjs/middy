@@ -4,7 +4,9 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
   Context,
-  Handler as AWSLambdaHandler
+  Handler as AWSLambdaHandler,
+  S3Handler,
+  S3Event
 } from 'aws-lambda'
 
 // extends Handler type from aws-lambda
@@ -400,3 +402,11 @@ const baseHandler: AWSLambdaHandler = async (event) => {
 
 const handler1176 = middy(baseHandler)
 expectType<MiddyfiedHandler<any, any, Error, Context, {}>>(handler1176)
+
+// Issue #1182
+const s3Handler: S3Handler = async (event) => {
+  await Promise.all(event.Records.map(async () => await Promise.resolve()))
+}
+
+const handler1182 = middy(s3Handler)
+expectType<MiddyfiedHandler<S3Event, void, Error, Context, {}>>(handler1182)
