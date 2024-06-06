@@ -235,8 +235,8 @@ test('It should validate an event object with formats', async (t) => {
   const event = {
     body: {
       date: '2000-01-01',
-      time: '00:00:00',
-      'date-time': '2000-01-01T00:00:00',
+      time: '00:00:00-0000',
+      'date-time': '2000-01-01T00:00:00-0000',
       uri: 'https://example.org',
       email: 'username@example.org',
       hostname: 'sub.example.org',
@@ -250,8 +250,8 @@ test('It should validate an event object with formats', async (t) => {
 
   t.deepEqual(body, {
     date: '2000-01-01',
-    time: '00:00:00',
-    'date-time': '2000-01-01T00:00:00',
+    time: '00:00:00-0000',
+    'date-time': '2000-01-01T00:00:00-0000',
     uri: 'https://example.org',
     email: 'username@example.org',
     hostname: 'sub.example.org',
