@@ -197,6 +197,14 @@ test('It should validate an event object with formats', async (t) => {
             type: 'string',
             format: 'date-time'
           },
+          'iso-time': {
+            type: 'string',
+            format: 'iso-time'
+          },
+          'iso-date-time': {
+            type: 'string',
+            format: 'iso-date-time'
+          },
           uri: {
             type: 'string',
             format: 'uri'
@@ -237,6 +245,8 @@ test('It should validate an event object with formats', async (t) => {
       date: '2000-01-01',
       time: '00:00:00-0000',
       'date-time': '2000-01-01T00:00:00-0000',
+      'iso-time': '00:00:00',
+      'iso-date-time': '2000-01-01T00:00:00',
       uri: 'https://example.org',
       email: 'username@example.org',
       hostname: 'sub.example.org',
@@ -252,6 +262,8 @@ test('It should validate an event object with formats', async (t) => {
     date: '2000-01-01',
     time: '00:00:00-0000',
     'date-time': '2000-01-01T00:00:00-0000',
+    'iso-time': '00:00:00',
+    'iso-date-time': '2000-01-01T00:00:00',
     uri: 'https://example.org',
     email: 'username@example.org',
     hostname: 'sub.example.org',
