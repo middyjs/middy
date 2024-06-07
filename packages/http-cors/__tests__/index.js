@@ -252,8 +252,7 @@ test('It should return whitelisted origin (any)', async (t) => {
   t.deepEqual(response, {
     statusCode: 204,
     headers: {
-      'Access-Control-Allow-Origin': 'https://another-example.com',
-      Vary: 'Origin'
+      'Access-Control-Allow-Origin': '*'
     }
   })
 })

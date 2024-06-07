@@ -93,9 +93,13 @@ test('It should handle invalid form data (undefined) as an UnprocessableEntity',
     await handler(event, defaultContext)
   } catch (e) {
     t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.is(
-      e.cause.data.message,
-      'The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined'
+    t.true(
+      [
+        // Node 18
+        'The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined',
+        // Node 20
+        'The "chunk" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined'
+      ].includes(e.cause.data.message)
     )
   }
 })
