@@ -267,8 +267,10 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
       const config = { ...defaults[key], ...options[key] }
       helmet[key](request.response.headers, config)
     })
-
-    if (request.response.headers['Content-Type']?.includes('text/html')) {
+    const contentTypeHeader =
+      request.response.headers['Content-Type'] ??
+      request.response.headers['content-type']
+    if (contentTypeHeader?.includes('text/html')) {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         if (!options[key]) return
         const config = { ...defaults[key], ...options[key] }
