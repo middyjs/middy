@@ -34,6 +34,7 @@ const wsResponseMiddleware = (opts) => {
 
     if (!options.awsClientOptions.endpoint && request.event.requestContext) {
       options.awsClientOptions.endpoint =
+        'https://' +
         request.event.requestContext.domainName +
         '/' +
         request.event.requestContext.stage

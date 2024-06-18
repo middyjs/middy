@@ -39,7 +39,7 @@ test.serial('It should post when api gateway event', async (t) => {
 
   const event = {
     requestContext: {
-      domainName: 'https://xxxxxx.execute-api.region.amazonaws.com',
+      domainName: 'xxxxxx.execute-api.region.amazonaws.com',
       stage: 'production',
       connectionId: 'id'
     }
@@ -64,7 +64,7 @@ test.serial('It should post when endpoint option set', async (t) => {
     wsResponse({
       AwsClient: ApiGatewayManagementApiClient,
       awsClientOptions: {
-        endpoint: 'https://xxxxxx.execute-api.region.amazonaws.com/production'
+        endpoint: 'xxxxxx.execute-api.region.amazonaws.com/production'
       }
     })
   )
