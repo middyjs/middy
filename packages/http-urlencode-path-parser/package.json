@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-urlencode-path-parser",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "description": "Urlencode path parser middleware for the middy framework",
   "type": "module",
   "engines": {

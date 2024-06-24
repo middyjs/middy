@@ -1,6 +1,6 @@
 {
   "name": "@middy/dynamodb",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "description": "DynamoDB middleware for the middy framework",
   "type": "module",
   "engines": {
