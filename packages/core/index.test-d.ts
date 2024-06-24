@@ -408,5 +408,5 @@ const s3Handler: S3Handler = async (event) => {
   await Promise.all(event.Records.map(async () => await Promise.resolve()))
 }
 
-const handler1182 = middy(s3Handler)
+const handler1182 = middy().handler(s3Handler)
 expectType<MiddyfiedHandler<S3Event, void, Error, Context, {}>>(handler1182)
