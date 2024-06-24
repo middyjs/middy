@@ -48,7 +48,7 @@ const wsResponseMiddleware = (opts) => {
       .send(command)
       .catch((e) => catchInvalidSignatureException(e, client, command))
 
-    request.response.statusCode = 200
+    request.response = { statusCode: 200 }
   }
 
   return {
