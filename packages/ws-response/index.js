@@ -27,10 +27,9 @@ const wsResponseMiddleware = (opts) => {
   }
 
   const wsResponseMiddlewareAfter = async (request) => {
-    normalizeWsResponse(request)
-    const { response } = request
+    const normalizedResponse = normalizeWsResponse(request)
 
-    if (!response.ConnectionId) return
+    if (!normalizedResponse.ConnectionId) return
 
     if (!options.awsClientOptions.endpoint && request.event.requestContext) {
       options.awsClientOptions.endpoint =
@@ -43,7 +42,7 @@ const wsResponseMiddleware = (opts) => {
       client = await createClient(options, request)
     }
 
-    const command = new PostToConnectionCommand(response)
+    const command = new PostToConnectionCommand(normalizedResponse)
     await client
       .send(command)
       .catch((e) => catchInvalidSignatureException(e, client, command))
@@ -68,7 +67,6 @@ const normalizeWsResponse = (request) => {
     response = { Data: response }
   }
   response.ConnectionId ??= request.event.requestContext?.connectionId
-  request.response = response
   return response
 }
 
