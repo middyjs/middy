@@ -45,7 +45,7 @@ test.serial('It should post when api gateway event', async (t) => {
     }
   }
   const response = await handler(event, context)
-  t.is(200, response.statusCode)
+  t.deepEqual(response, { statusCode: 200 })
 })
 
 test.serial('It should post when endpoint option set', async (t) => {
@@ -71,7 +71,7 @@ test.serial('It should post when endpoint option set', async (t) => {
 
   const event = {}
   const response = await handler(event, context)
-  t.is(200, response.statusCode)
+  t.deepEqual(response, { statusCode: 200 })
 })
 
 test.serial('It should not post when connection id is not set', async (t) => {
@@ -91,7 +91,7 @@ test.serial('It should not post when connection id is not set', async (t) => {
 
   const event = {}
   const response = await handler(event, context)
-  t.true(response.Data)
+  t.deepEqual(response, true)
 })
 
 test.serial('It should not post when response not set', async (t) => {
@@ -110,5 +110,5 @@ test.serial('It should not post when response not set', async (t) => {
   const event = {}
   const response = await handler(event, context)
 
-  t.deepEqual(response, { ConnectionId: undefined })
+  t.deepEqual(response, undefined)
 })

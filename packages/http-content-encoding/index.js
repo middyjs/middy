@@ -23,8 +23,7 @@ const defaults = {
 }
 
 /*
- * `zstd` disabled due to lack of support in browsers
- * https://github.com/Fyrd/caniuse/issues/4065
+ * `zstd` disabled due to lack of support in nodejs
  * https://github.com/andrew-aladev/brotli-vs-zstd
  */
 
