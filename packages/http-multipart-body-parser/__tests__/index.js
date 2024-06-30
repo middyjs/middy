@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { ok, equal, deepEqual, notEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import httpMultipartBodyParser from '../index.js'
 
@@ -26,7 +27,7 @@ test('It should parse a non-file field from a multipart/form-data request', asyn
   }
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response, { foo: 'bar' })
+  deepEqual(response, { foo: 'bar' })
 })
 
 test('parseMultipartData should resolve with valid data', async (t) => {
@@ -46,7 +47,7 @@ test('parseMultipartData should resolve with valid data', async (t) => {
   }
 
   const response = await handler(event, defaultContext)
-  t.deepEqual(response, { foo: 'bar' })
+  deepEqual(response, { foo: 'bar' })
 })
 
 test('It should parse a file field from a multipart/form-data request', async (t) => {
@@ -68,8 +69,8 @@ test('It should parse a file field from a multipart/form-data request', async (t
 
   const response = await handler(event, defaultContext)
 
-  t.not(response.attachment, undefined)
-  t.not(response.attachment.content, undefined)
+  notEqual(response.attachment, undefined)
+  notEqual(response.attachment.content, undefined)
 })
 
 test('It should handle invalid form data (undefined) as an UnprocessableEntity', async (t) => {
@@ -92,8 +93,8 @@ test('It should handle invalid form data (undefined) as an UnprocessableEntity',
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.true(
+    equal(e.message, 'Invalid or malformed multipart/form-data was provided')
+    ok(
       [
         // Node 18
         'The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined',
@@ -124,8 +125,8 @@ test('It should handle invalid form data (null) as an UnprocessableEntity', asyn
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.is(e.cause.data.message, 'May not write null values to stream')
+    equal(e.message, 'Invalid or malformed multipart/form-data was provided')
+    equal(e.cause.data.message, 'May not write null values to stream')
   }
 })
 
@@ -149,8 +150,8 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed multipart/form-data was provided')
-    t.is(e.cause.data.message, 'Unexpected end of multipart data')
+    equal(e.message, 'Invalid or malformed multipart/form-data was provided')
+    equal(e.cause.data.message, 'Unexpected end of multipart data')
   }
 })
 
@@ -170,9 +171,9 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause.data, undefined)
+    equal(e.statusCode, 415)
+    equal(e.message, 'Unsupported Media Type')
+    equal(e.cause.data, undefined)
   }
 })
 
@@ -194,9 +195,9 @@ test("It shouldn't process the body if the content type is not multipart/form-da
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause.data, 'application/json')
+    equal(e.statusCode, 415)
+    equal(e.message, 'Unsupported Media Type')
+    equal(e.cause.data, 'application/json')
   }
 })
 
@@ -216,7 +217,7 @@ test("It shouldn't process the body if headers are passed without content type",
   }
 
   const response = await handler(event, defaultContext)
-  t.is(
+  equal(
     response,
     'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0='
   )
@@ -240,9 +241,9 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause.data, undefined)
+    equal(e.statusCode, 415)
+    equal(e.message, 'Unsupported Media Type')
+    equal(e.cause.data, undefined)
   }
 })
 
@@ -263,8 +264,8 @@ test('It should parse an array from a multipart/form-data request (base64)', asy
   }
   const response = await handler(event, defaultContext)
 
-  t.not(response.foo, undefined)
-  t.is(response.foo.length, 2)
+  notEqual(response.foo, undefined)
+  equal(response.foo.length, 2)
 })
 
 test('It should parse an array from a multipart/form-data request with ASCII dash (utf8)', async (t) => {
@@ -283,7 +284,7 @@ test('It should parse an array from a multipart/form-data request with ASCII das
   }
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response, { PartName: '{"foo":"bar-"}' })
+  deepEqual(response, { PartName: '{"foo":"bar-"}' })
 })
 
 test('It should parse an array from a multipart/form-data request (binary)', async (t) => {
@@ -302,7 +303,7 @@ test('It should parse an array from a multipart/form-data request (binary)', asy
   }
   const response = await handler(event)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     file: {
       content: Buffer.from(''),
       encoding: 'binary',
@@ -329,7 +330,7 @@ test('It should parse an array from a multipart/form-data request en dash (utf8)
   }
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response, { PartName: '{"foo":"bar–"}' })
+  deepEqual(response, { PartName: '{"foo":"bar–"}' })
 })
 
 test('It should parse a field with multiple files successfully', async (t) => {
@@ -348,6 +349,6 @@ test('It should parse a field with multiple files successfully', async (t) => {
     isBase64Encoded: true
   }
   const response = await handler(event, defaultContext)
-  t.true(Object.keys(response).includes('files'))
-  t.is(response.files.length, 3)
+  ok(Object.keys(response).includes('files'))
+  equal(response.files.length, 3)
 })

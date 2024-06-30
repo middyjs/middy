@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { ok, equal, deepEqual, throws } from 'node:assert/strict'
 import {
   createReadableStream,
   createPassThroughStream,
@@ -13,25 +13,30 @@ const event = {}
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
+
+test.afterEach(async (t) => {
+  t.mock.reset()
+})
+
 // Middleware structure
 test('Middleware attached with "use" must be an object exposing at least a key among "before", "after", "onError"', async (t) => {
   const handler = middy()
-  const error = t.throws(() => {
-    handler.use({ foo: 'bar' })
-  })
-  t.is(
-    error.message,
+  throws(
+    () => {
+      handler.use({ foo: 'bar' })
+    },
+    undefined,
     'Middleware must be an object containing at least one key among "before", "after", "onError"'
   )
 })
 
 test('Middleware attached with "use" must be an array[object]', async (t) => {
   const handler = middy()
-  const error = t.throws(() => {
-    handler.use(['before'])
-  })
-  t.is(
-    error.message,
+  throws(
+    () => {
+      handler.use(['before'])
+    },
+    undefined,
     'Middleware must be an object containing at least one key among "before", "after", "onError"'
   )
 })
@@ -48,7 +53,7 @@ test('"use" should add single before middleware', async (t) => {
     executed.push('handler')
   }).use(middleware1())
   await handler(event, context)
-  t.deepEqual(executed, ['b1', 'handler'])
+  deepEqual(executed, ['b1', 'handler'])
 })
 
 test('"before" should add a before middleware', async (t) => {
@@ -60,7 +65,7 @@ test('"before" should add a before middleware', async (t) => {
     executed.push('handler')
   }).before(before)
   await handler(event, context)
-  t.deepEqual(executed, ['b1', 'handler'])
+  deepEqual(executed, ['b1', 'handler'])
 })
 
 test('"use" should add multiple before middleware', async (t) => {
@@ -79,7 +84,7 @@ test('"use" should add multiple before middleware', async (t) => {
     executed.push('handler')
   }).use([middleware1(), middleware2()])
   await handler(event, context)
-  t.deepEqual(executed, ['b1', 'b2', 'handler'])
+  deepEqual(executed, ['b1', 'b2', 'handler'])
 })
 
 test('"use" should add single after middleware', async (t) => {
@@ -93,7 +98,7 @@ test('"use" should add single after middleware', async (t) => {
     executed.push('handler')
   }).use(middleware1())
   await handler(event, context)
-  t.deepEqual(executed, ['handler', 'a1'])
+  deepEqual(executed, ['handler', 'a1'])
 })
 
 test('"after" should add an after middleware', async (t) => {
@@ -105,7 +110,7 @@ test('"after" should add an after middleware', async (t) => {
     executed.push('handler')
   }).after(after)
   await handler(event, context)
-  t.deepEqual(executed, ['handler', 'a1'])
+  deepEqual(executed, ['handler', 'a1'])
 })
 
 test('"use" should add multiple after middleware', async (t) => {
@@ -124,7 +129,7 @@ test('"use" should add multiple after middleware', async (t) => {
     executed.push('handler')
   }).use([middleware1(), middleware2()])
   await handler(event, context)
-  t.deepEqual(executed, ['handler', 'a2', 'a1'])
+  deepEqual(executed, ['handler', 'a2', 'a1'])
 })
 
 test('"use" should add single onError middleware', async (t) => {
@@ -141,7 +146,7 @@ test('"use" should add single onError middleware', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['handler', 'e1'])
+  deepEqual(executed, ['handler', 'e1'])
 })
 
 test('"onError" should add a before middleware', async (t) => {
@@ -157,7 +162,7 @@ test('"onError" should add a before middleware', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['handler', 'e1'])
+  deepEqual(executed, ['handler', 'e1'])
 })
 
 test('"use" should add multiple onError middleware', async (t) => {
@@ -180,7 +185,7 @@ test('"use" should add multiple onError middleware', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['handler', 'e2', 'e1'])
+  deepEqual(executed, ['handler', 'e2', 'e1'])
 })
 
 test('"use" should add single object with all types of middlewares', async (t) => {
@@ -203,7 +208,7 @@ test('"use" should add single object with all types of middlewares', async (t) =
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['b1', 'handler', 'a1', 'e1'])
+  deepEqual(executed, ['b1', 'handler', 'a1', 'e1'])
 })
 
 test('"use" can add multiple object with all types of middlewares', async (t) => {
@@ -237,7 +242,7 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1', 'e2', 'e1'])
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1', 'e2', 'e1'])
 })
 
 test('"use" can add multiple object with all types of middlewares (async)', async (t) => {
@@ -271,7 +276,7 @@ test('"use" can add multiple object with all types of middlewares (async)', asyn
   try {
     await handler(event, context)
   } catch (e) {}
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1', 'e2', 'e1'])
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1', 'e2', 'e1'])
 })
 
 // Attach handler
@@ -284,7 +289,7 @@ test('"handler" should replace lambdaHandler', async (t) => {
     executed.push('handler')
   })
   await handler(event, context)
-  t.deepEqual(executed, ['handler'])
+  deepEqual(executed, ['handler'])
 })
 
 test('"middy" should allow setting plugin as first arg', async (t) => {
@@ -297,7 +302,7 @@ test('"middy" should allow setting plugin as first arg', async (t) => {
     executed.push('handler')
   })
   await handler(event, context)
-  t.deepEqual(executed, ['beforePrefetch', 'handler'])
+  deepEqual(executed, ['beforePrefetch', 'handler'])
 })
 
 // Throwing an error
@@ -333,9 +338,9 @@ test('Thrown error from"before" middlewares should handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.deepEqual(e, beforeError)
+    deepEqual(e, beforeError)
   }
-  t.deepEqual(executed, ['b1', 'b2', 'e2', 'e1'])
+  deepEqual(executed, ['b1', 'b2', 'e2', 'e1'])
 })
 
 test('Thrown error from handler should handled', async (t) => {
@@ -370,9 +375,9 @@ test('Thrown error from handler should handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.deepEqual(e, handlerError)
+    deepEqual(e, handlerError)
   }
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'e2', 'e1'])
+  deepEqual(executed, ['b1', 'b2', 'handler', 'e2', 'e1'])
 })
 
 test('Thrown error from "after" middlewares should handled', async (t) => {
@@ -407,9 +412,9 @@ test('Thrown error from "after" middlewares should handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.deepEqual(e, afterError)
+    deepEqual(e, afterError)
   }
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'e2', 'e1'])
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'e2', 'e1'])
 })
 
 test('Thrown error from "onError" middlewares should handled', async (t) => {
@@ -448,9 +453,9 @@ test('Thrown error from "onError" middlewares should handled', async (t) => {
     await handler(event, context)
   } catch (e) {
     onErrorError.originalError = afterError
-    t.deepEqual(e, onErrorError)
+    deepEqual(e, onErrorError)
   }
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'e2'])
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'e2'])
 })
 
 // Modifying shared resources
@@ -474,10 +479,10 @@ test('"before" middlewares should be able to mutate event and context', async (t
     .before(mutateLambdaEvent)
     .before(mutateLambdaContext)
     .after((request) => {
-      t.true(request.event.modifiedSpread)
-      t.true(request.event.modifiedAssign)
-      t.true(request.context.modifiedSpread)
-      t.true(request.context.modifiedAssign)
+      ok(request.event.modifiedSpread)
+      ok(request.event.modifiedAssign)
+      ok(request.context.modifiedSpread)
+      ok(request.context.modifiedAssign)
     })
 
   await handler(event, context)
@@ -512,8 +517,8 @@ test('"before" middleware should be able to short circuit response', async (t) =
     executed.push('handler')
   }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
-  t.true(response)
-  t.deepEqual(executed, ['b1'])
+  ok(response)
+  deepEqual(executed, ['b1'])
 })
 
 test('handler should be able to set response', async (t) => {
@@ -545,8 +550,8 @@ test('handler should be able to set response', async (t) => {
     return true
   }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
-  t.true(response)
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1'])
+  ok(response)
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2', 'a1'])
 })
 
 test('"after" middlewares should be able to mutate event and context', async (t) => {
@@ -567,10 +572,10 @@ test('"after" middlewares should be able to mutate event and context', async (t)
 
   const handler = middy()
     .after((request) => {
-      t.true(request.event.modifiedSpread)
-      t.true(request.event.modifiedAssign)
-      t.true(request.context.modifiedSpread)
-      t.true(request.context.modifiedAssign)
+      ok(request.event.modifiedSpread)
+      ok(request.event.modifiedAssign)
+      ok(request.context.modifiedSpread)
+      ok(request.context.modifiedAssign)
     })
     .after(mutateLambdaContext)
     .after(mutateLambdaEvent)
@@ -607,8 +612,8 @@ test('"after" middleware should be able to short circuit response', async (t) =>
     executed.push('handler')
   }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
-  t.true(response)
-  t.deepEqual(executed, ['b1', 'b2', 'handler', 'a2'])
+  ok(response)
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2'])
 })
 
 test('"onError" middlewares should be able to change response', async (t) => {
@@ -623,7 +628,7 @@ test('"onError" middlewares should be able to change response', async (t) => {
   handler.onError(changeResponseMiddleware)
 
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('"onError" middleware should be able to short circuit response', async (t) => {
@@ -656,8 +661,8 @@ test('"onError" middleware should be able to short circuit response', async (t) 
     executed.push('handler')
   }).use([middleware1(), middleware2()])
   const response = await handler(event, context)
-  t.true(response)
-  t.deepEqual(executed, ['b1', 'e2'])
+  ok(response)
+  deepEqual(executed, ['b1', 'e2'])
 })
 
 // streamifyResponse
@@ -734,7 +739,7 @@ test('Should throw with streamifyResponse:true using object', async (t) => {
     await handler(event, responseStream, context)
   } catch (e) {
     console.log(e)
-    t.is(e.message, 'handler response not a ReadableStream')
+    equal(e.message, 'handler response not a ReadableStream')
   }
 })
 
@@ -759,9 +764,9 @@ test('Should return with streamifyResponse:true using body undefined', async (t)
     createResponseStreamMockAndCapture()
 
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(prelude(), JSON.stringify(metadata))
-  t.is(content(), input)
+  equal(response, undefined)
+  equal(prelude(), JSON.stringify(metadata))
+  equal(content(), input)
 })
 
 test('Should return with streamifyResponse:true using string', async (t) => {
@@ -775,8 +780,8 @@ test('Should return with streamifyResponse:true using string', async (t) => {
   const { responseStream, chunkResponse } = createResponseStreamMockAndCapture()
 
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(chunkResponse(), input)
+  equal(response, undefined)
+  equal(chunkResponse(), input)
 })
 
 test('Should return with streamifyResponse:true using body string', async (t) => {
@@ -795,8 +800,8 @@ test('Should return with streamifyResponse:true using body string', async (t) =>
 
   const { responseStream, content } = createResponseStreamMockAndCapture()
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(content(), input)
+  equal(response, undefined)
+  equal(content(), input)
 })
 
 test('Should return with streamifyResponse:true using empty body string and prelude', async (t) => {
@@ -823,9 +828,9 @@ test('Should return with streamifyResponse:true using empty body string and prel
 
   const response = await handler(event, responseStream, context)
 
-  t.is(response, undefined)
-  t.is(prelude(), JSON.stringify(metadata))
-  t.is(content(), input)
+  equal(response, undefined)
+  equal(prelude(), JSON.stringify(metadata))
+  equal(content(), input)
 })
 
 test('Should return with streamifyResponse:true using ReadableStream', async (t) => {
@@ -841,8 +846,8 @@ test('Should return with streamifyResponse:true using ReadableStream', async (t)
 
   const { responseStream, chunkResponse } = createResponseStreamMockAndCapture()
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(chunkResponse(), input)
+  equal(response, undefined)
+  equal(chunkResponse(), input)
 })
 
 test('Should return with streamifyResponse:true using body ReadableStream', async (t) => {
@@ -864,8 +869,8 @@ test('Should return with streamifyResponse:true using body ReadableStream', asyn
 
   const { responseStream, content } = createResponseStreamMockAndCapture()
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(content(), input)
+  equal(response, undefined)
+  equal(content(), input)
 })
 
 test('Should return with streamifyResponse:true using ReadableStream.pipe(...)', async (t) => {
@@ -881,8 +886,8 @@ test('Should return with streamifyResponse:true using ReadableStream.pipe(...)',
 
   const { responseStream, chunkResponse } = createResponseStreamMockAndCapture()
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(chunkResponse(), input)
+  equal(response, undefined)
+  equal(chunkResponse(), input)
 })
 
 test('Should return with streamifyResponse:true using body ReadableStream.pipe(...)', async (t) => {
@@ -904,24 +909,24 @@ test('Should return with streamifyResponse:true using body ReadableStream.pipe(.
 
   const { responseStream, content } = createResponseStreamMockAndCapture()
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(content(), input)
+  equal(response, undefined)
+  equal(content(), input)
 })
 
 // Plugin
 test('Should trigger all plugin hooks', async (t) => {
   const plugin = {
-    beforePrefetch: sinon.spy(),
-    requestStart: sinon.spy(),
-    beforeMiddleware: sinon.spy(),
-    afterMiddleware: sinon.spy(),
-    beforeHandler: sinon.spy(),
-    afterHandler: sinon.spy(),
-    requestEnd: sinon.spy()
+    beforePrefetch: t.mock.fn(),
+    requestStart: t.mock.fn(),
+    beforeMiddleware: t.mock.fn(),
+    afterMiddleware: t.mock.fn(),
+    beforeHandler: t.mock.fn(),
+    afterHandler: t.mock.fn(),
+    requestEnd: t.mock.fn()
   }
-  const beforeMiddleware = sinon.spy()
-  const lambdaHandler = sinon.spy()
-  const afterMiddleware = sinon.spy()
+  const beforeMiddleware = t.mock.fn()
+  const lambdaHandler = t.mock.fn()
+  const afterMiddleware = t.mock.fn()
 
   const handler = middy(lambdaHandler, plugin)
     .before(beforeMiddleware)
@@ -929,13 +934,13 @@ test('Should trigger all plugin hooks', async (t) => {
 
   await handler(event, context)
 
-  t.is(plugin.beforePrefetch.callCount, 1)
-  t.is(plugin.requestStart.callCount, 1)
-  t.is(plugin.beforeMiddleware.callCount, 2)
-  t.is(plugin.afterMiddleware.callCount, 2)
-  t.is(plugin.beforeHandler.callCount, 1)
-  t.is(plugin.afterHandler.callCount, 1)
-  t.is(plugin.requestEnd.callCount, 1)
+  equal(plugin.beforePrefetch.mock.callCount(), 1)
+  equal(plugin.requestStart.mock.callCount(), 1)
+  equal(plugin.beforeMiddleware.mock.callCount(), 2)
+  equal(plugin.afterMiddleware.mock.callCount(), 2)
+  equal(plugin.beforeHandler.mock.callCount(), 1)
+  equal(plugin.afterHandler.mock.callCount(), 1)
+  equal(plugin.requestEnd.mock.callCount(), 1)
 })
 
 test('Should abort handler when timeout expires', async (t) => {
@@ -949,14 +954,14 @@ test('Should abort handler when timeout expires', async (t) => {
 
   const handler = middy((event, context, { signal }) => {
     signal.onabort = function (abort) {
-      t.true(abort.target.aborted)
+      ok(abort.target.aborted)
     }
     return Promise.race([])
   }, plugin)
 
   try {
     const response = await handler(event, context)
-    t.true(response)
+    ok(response)
   } catch (e) {}
 })
 
@@ -975,9 +980,9 @@ test('Should throw error when timeout expires', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.name, 'TimeoutError')
-    t.is(e.message, '[AbortError]: The operation was aborted.')
-    t.deepEqual(e.cause, { package: '@middy/core' })
+    equal(e.name, 'TimeoutError')
+    equal(e.message, '[AbortError]: The operation was aborted.')
+    deepEqual(e.cause, { package: '@middy/core' })
   }
 })
 
@@ -997,11 +1002,11 @@ test('Should not invoke timeoutEarlyResponse on success', async (t) => {
   }, plugin)
 
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 
   await setTimeout(200)
 
-  t.false(timeoutCalled)
+  ok(!timeoutCalled)
 })
 
 test('Should not invoke timeoutEarlyResponse on error', async (t) => {
@@ -1021,9 +1026,9 @@ test('Should not invoke timeoutEarlyResponse on error', async (t) => {
   }, plugin)
 
   const response = await handler(event, context).catch((err) => err)
-  t.is(response, error)
+  equal(response, error)
 
   await setTimeout(100)
 
-  t.false(timeoutCalled)
+  ok(!timeoutCalled)
 })

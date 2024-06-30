@@ -42,7 +42,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  t.deepEqual(body, {
+  deepEqual(body, {
     frappucino: 'muffin',
     'goat[]': 'scone',
     pond: 'moose'

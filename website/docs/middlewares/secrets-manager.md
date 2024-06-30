@@ -65,8 +65,8 @@ export const handler = middy()
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/api_token has two keys, 'Username' and 'Password'
-  t.is(context.apiToken.Username, 'username')
-  t.is(context.apiToken.Password, 'password')
+  equal(context.apiToken.Username, 'username')
+  equal(context.apiToken.Password, 'password')
 })
 ```
 

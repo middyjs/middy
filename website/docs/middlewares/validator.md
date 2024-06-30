@@ -104,7 +104,7 @@ const event = {
   body: JSON.stringify({ something: 'somethingelse' })
 }
 handler(event, {}, (err, res) => {
-  t.is(err.message, 'Event object failed validation')
+  equal(err.message, 'Event object failed validation')
 })
 ```
 
@@ -138,8 +138,8 @@ export const handler = middy()
 
 //
 handler({}, {}, (err, response) => {
-  t.not(err, null)
-  t.is(err.message, 'Response object failed validation')
+  notEqual(err, null)
+  equal(err.message, 'Response object failed validation')
   expect(response).not.toBe(null)
   // it doesn't destroy the response so it can be used by other middlewares
 })

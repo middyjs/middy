@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import createEvent from '@serverless/event-mocks'
 
 import middy from '../../core/index.js'
@@ -33,18 +33,18 @@ test('Should return when there are only failed messages', async (t) => {
       }
     ]
   })
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     batchItemFailures: event.Records.map((r) => ({
       itemIdentifier: r.messageId
     }))
   })
-  t.is(logger.callCount, 1)
+  equal(logger.mock.callCount(), 1)
 })
 
 test('Should resolve when there are no failed messages', async (t) => {
@@ -60,13 +60,13 @@ test('Should resolve when there are no failed messages', async (t) => {
       }
     ]
   })
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
-  t.deepEqual(response, { batchItemFailures: [] })
-  t.is(logger.callCount, 0)
+  deepEqual(response, { batchItemFailures: [] })
+  equal(logger.mock.callCount(), 0)
 })
 
 test('Should return only the rejected messageIds', async (t) => {
@@ -90,17 +90,17 @@ test('Should return only the rejected messageIds', async (t) => {
       }
     ]
   })
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     batchItemFailures: event.Records.filter(
       (r) => r.messageAttributes.resolveOrReject.stringValue === 'reject'
     ).map((r) => ({ itemIdentifier: r.messageId }))
   })
-  t.is(logger.callCount, 1)
+  equal(logger.mock.callCount(), 1)
 })
 
 test('Should reject all messageIds when error is thrown', async (t) => {
@@ -116,7 +116,7 @@ test('Should reject all messageIds when error is thrown', async (t) => {
       }
     ]
   })
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy(lambdaHandler)
     .before(() => {
@@ -129,10 +129,10 @@ test('Should reject all messageIds when error is thrown', async (t) => {
     .use(sqsPartialBatchFailure({ logger }))
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     batchItemFailures: event.Records.map((r) => ({
       itemIdentifier: r.messageId
     }))
   })
-  t.is(logger.callCount, 1)
+  equal(logger.mock.callCount(), 1)
 })

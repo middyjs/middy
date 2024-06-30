@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import { createReadableStream, createWritableStream } from '@datastream/core'
 import middy from '../../core/index.js'
 import inputOutputLogger from '../index.js'
@@ -14,7 +14,7 @@ const context = {
 const defaultContext = context
 
 test('It should log event and response', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -25,9 +25,9 @@ test('It should log event and response', async (t) => {
   const event = { foo: 'bar', fuu: 'baz' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event }))
-  t.true(logger.calledWithExactly({ response: event }))
-  t.deepEqual(response, event)
+  deepEqual(logger.mock.calls[0].arguments, [{ event }])
+  deepEqual(logger.mock.calls[1].arguments, [{ response: event }])
+  deepEqual(response, event)
 })
 
 // streamifyResponse
@@ -42,7 +42,7 @@ globalThis.awslambda = {
 
 test('It should log with streamifyResponse:true using ReadableStream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
   const handler = middy(
     async (event, context, { signal }) => {
       return createReadableStream(input)
@@ -62,18 +62,19 @@ test('It should log with streamifyResponse:true using ReadableStream', async (t)
     chunkResponse += chunk
   })
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(chunkResponse, input)
-  t.true(
-    logger.calledWithExactly({
+  equal(response, undefined)
+  equal(chunkResponse, input)
+  deepEqual(logger.mock.calls[0].arguments, [{ event: {} }])
+  deepEqual(logger.mock.calls[1].arguments, [
+    {
       response: input
-    })
-  )
+    }
+  ])
 })
 
 test('It should log with streamifyResponse:true using body ReadableStream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
   const handler = middy(
     async (event, context, { signal }) => {
       return {
@@ -99,10 +100,11 @@ test('It should log with streamifyResponse:true using body ReadableStream', asyn
     chunkResponse += chunk
   })
   const response = await handler(event, responseStream, context)
-  t.is(response, undefined)
-  t.is(chunkResponse, input)
-  t.true(
-    logger.calledWithExactly({
+  equal(response, undefined)
+  equal(chunkResponse, input)
+  deepEqual(logger.mock.calls[0].arguments, [{ event: {} }])
+  deepEqual(logger.mock.calls[1].arguments, [
+    {
       response: {
         statusCode: 200,
         headers: {
@@ -110,8 +112,8 @@ test('It should log with streamifyResponse:true using body ReadableStream', asyn
         },
         body: input
       }
-    })
-  )
+    }
+  ])
 })
 
 test('It should throw error when invalid logger', async (t) => {
@@ -124,12 +126,12 @@ test('It should throw error when invalid logger', async (t) => {
       })
     )
   } catch (e) {
-    t.is(e.message, 'logger must be a function')
+    equal(e.message, 'logger must be a function')
   }
 })
 
 test('It should omit paths', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -141,14 +143,14 @@ test('It should omit paths', async (t) => {
   const event = { foo: 'foo', bar: 'bar' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event: { bar: 'bar' } }))
-  t.true(logger.calledWithExactly({ response: { foo: 'foo' } }))
+  deepEqual(logger.mock.calls[0].arguments, [{ event: { bar: 'bar' } }])
+  deepEqual(logger.mock.calls[1].arguments, [{ response: { foo: 'foo' } }])
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 })
 
 test('It should mask paths', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -161,14 +163,18 @@ test('It should mask paths', async (t) => {
   const event = { foo: 'foo', bar: 'bar' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event: { foo: '*****', bar: 'bar' } }))
-  t.true(logger.calledWithExactly({ response: { foo: 'foo', bar: '*****' } }))
+  deepEqual(logger.mock.calls[0].arguments, [
+    { event: { foo: '*****', bar: 'bar' } }
+  ])
+  deepEqual(logger.mock.calls[1].arguments, [
+    { response: { foo: 'foo', bar: '*****' } }
+  ])
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 })
 
 test('It should omit nested paths', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -180,14 +186,16 @@ test('It should omit nested paths', async (t) => {
   const event = { foo: { foo: 'foo' }, bar: [{ bar: 'bar' }] }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event: { ...event, foo: {} } }))
-  t.true(logger.calledWithExactly({ response: { ...event, bar: [{}] } }))
+  deepEqual(logger.mock.calls[0].arguments, [{ event: { ...event, foo: {} } }])
+  deepEqual(logger.mock.calls[1].arguments, [
+    { response: { ...event, bar: [{}] } }
+  ])
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 })
 
 test('It should omit nested paths with conflicting paths', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -199,14 +207,14 @@ test('It should omit nested paths with conflicting paths', async (t) => {
   const event = { foo: { foo: 'foo' }, bar: [{ bar: 'bar' }] }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event: { foo: {} } }))
-  t.true(logger.calledWithExactly({ response: event }))
+  deepEqual(logger.mock.calls[0].arguments, [{ event: { foo: {} } }])
+  deepEqual(logger.mock.calls[1].arguments, [{ response: event }])
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 })
 
 test('It should skip paths that do not exist', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -239,14 +247,14 @@ test('It should skip paths that do not exist', async (t) => {
   }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event }))
-  t.true(logger.calledWithExactly({ response: event }))
+  deepEqual(logger.mock.calls[0].arguments, [{ event }])
+  deepEqual(logger.mock.calls[1].arguments, [{ response: event }])
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 })
 
 test('It should include the AWS lambda context', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => event).use(
     inputOutputLogger({
@@ -263,24 +271,25 @@ test('It should include the AWS lambda context', async (t) => {
   }
   const response = await handler(event, context)
 
-  t.deepEqual(response, event)
+  deepEqual(response, event)
 
-  t.true(
-    logger.calledWithExactly({
+  deepEqual(logger.mock.calls[0].arguments, [
+    {
       event,
       context: { functionName: 'test', awsRequestId: 'xxxxx' }
-    })
-  )
-  t.true(
-    logger.calledWithExactly({
+    }
+  ])
+
+  deepEqual(logger.mock.calls[1].arguments, [
+    {
       response: event,
       context: { functionName: 'test', awsRequestId: 'xxxxx' }
-    })
-  )
+    }
+  ])
 })
 
 test('It should skip logging if error is handled', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy(() => {
     throw new Error('error')
@@ -297,14 +306,14 @@ test('It should skip logging if error is handled', async (t) => {
   const event = { foo: 'bar', fuu: 'baz' }
   const response = await handler(event, context)
 
-  t.true(logger.calledWithExactly({ event }))
-  t.true(logger.calledWithExactly({ response: event }))
-  t.is(logger.callCount, 2)
-  t.deepEqual(response, event)
+  deepEqual(logger.mock.calls[0].arguments, [{ event }])
+  deepEqual(logger.mock.calls[1].arguments, [{ response: event }])
+  equal(logger.mock.callCount(), 2)
+  deepEqual(response, event)
 })
 
 test('It should skip logging if error is not handled', async (t) => {
-  const logger = sinon.spy()
+  const logger = t.mock.fn()
 
   const handler = middy((event) => {
     throw new Error('error')
@@ -318,9 +327,8 @@ test('It should skip logging if error is not handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.true(logger.calledWithExactly({ event }))
-    t.false(logger.calledWithExactly({ response: event }))
-    t.is(logger.callCount, 1)
-    t.is(e.message, 'error')
+    deepEqual(logger.mock.calls[0].arguments, [{ event }])
+    equal(logger.mock.callCount(), 1)
+    equal(e.message, 'error')
   }
 })

@@ -1,5 +1,5 @@
-import test from 'ava'
-// import sinon from 'sinon'
+import { test } from 'node:test'
+import { deepEqual } from 'node:assert/strict'
 import middy from '../packages/core/index.js'
 
 // import pluginMemory from '../plugin/memory.js'
@@ -40,7 +40,7 @@ const middlewareAsync = (opts = {}) => {
 }
 
 // promise
-test.serial('Should run with promise plugin', async (t) => {
+test('Should run with promise plugin', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -52,14 +52,14 @@ test.serial('Should run with promise plugin', async (t) => {
   const handler = middy(plugin).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(output, {
+  deepEqual(output, {
     prefetch: 0,
     handler: 12,
     request: 27
   })
 })
 
-test.serial('Should run with promise plugin and middleware', async (t) => {
+test('Should run with promise plugin and middleware', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -70,7 +70,7 @@ test.serial('Should run with promise plugin and middleware', async (t) => {
   const handler = middy(plugin).use(middleware()).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(output, {
+  deepEqual(output, {
     prefetch: 0,
     middlewareBefore: 13,
     handler: 12,
@@ -79,31 +79,28 @@ test.serial('Should run with promise plugin and middleware', async (t) => {
   })
 })
 
-test.serial(
-  'Should run with promise plugin and async middleware',
-  async (t) => {
-    const output = {}
-    const logger = (id, value) => {
-      output[id] = value
-    }
-    const plugin = pluginPromise({ logger })
-    const lambdaHandler = () => {}
-
-    const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler)
-
-    await handler(event, context)
-    t.deepEqual(output, {
-      prefetch: 0,
-      middlewareBefore: 13,
-      handler: 12,
-      middlewareAfter: 3,
-      request: 33
-    })
+test('Should run with promise plugin and async middleware', async (t) => {
+  const output = {}
+  const logger = (id, value) => {
+    output[id] = value
   }
-)
+  const plugin = pluginPromise({ logger })
+  const lambdaHandler = () => {}
+
+  const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler)
+
+  await handler(event, context)
+  deepEqual(output, {
+    prefetch: 0,
+    middlewareBefore: 13,
+    handler: 12,
+    middlewareAfter: 3,
+    request: 33
+  })
+})
 
 // performance.measure
-test.serial('Should run with time plugin', async (t) => {
+test('Should run with time plugin', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -115,7 +112,7 @@ test.serial('Should run with time plugin', async (t) => {
   const handler = middy(plugin).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,
@@ -125,7 +122,7 @@ test.serial('Should run with time plugin', async (t) => {
   )
 })
 
-test.serial('Should run with time plugin and middleware', async (t) => {
+test('Should run with time plugin and middleware', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -136,7 +133,7 @@ test.serial('Should run with time plugin and middleware', async (t) => {
   const handler = middy(plugin).use(middleware()).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,
@@ -148,7 +145,7 @@ test.serial('Should run with time plugin and middleware', async (t) => {
   )
 })
 
-test.serial('Should run with time plugin and async middleware', async (t) => {
+test('Should run with time plugin and async middleware', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -159,7 +156,7 @@ test.serial('Should run with time plugin and async middleware', async (t) => {
   const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,
@@ -172,7 +169,7 @@ test.serial('Should run with time plugin and async middleware', async (t) => {
 })
 
 // hrtime
-test.serial('Should run with hrtime plugin', async (t) => {
+test('Should run with hrtime plugin', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -184,7 +181,7 @@ test.serial('Should run with hrtime plugin', async (t) => {
   const handler = middy(plugin).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,
@@ -194,7 +191,7 @@ test.serial('Should run with hrtime plugin', async (t) => {
   )
 })
 
-test.serial('Should run with hrtime plugin and middleware', async (t) => {
+test('Should run with hrtime plugin and middleware', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -205,7 +202,7 @@ test.serial('Should run with hrtime plugin and middleware', async (t) => {
   const handler = middy(plugin).use(middleware()).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,
@@ -217,7 +214,7 @@ test.serial('Should run with hrtime plugin and middleware', async (t) => {
   )
 })
 
-test.serial('Should run with hrtime plugin and async middleware', async (t) => {
+test('Should run with hrtime plugin and async middleware', async (t) => {
   const output = {}
   const logger = (id, value) => {
     output[id] = value
@@ -228,7 +225,7 @@ test.serial('Should run with hrtime plugin and async middleware', async (t) => {
   const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler)
 
   await handler(event, context)
-  t.deepEqual(
+  deepEqual(
     Object.keys(output),
     Object.keys({
       prefetch: 0.1,

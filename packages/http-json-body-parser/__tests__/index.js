@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual, match } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import jsonBodyParser from '../index.js'
 
@@ -24,7 +24,7 @@ test('It should parse a JSON request', async (t) => {
 
   const processedEvent = await handler(event, defaultContext)
 
-  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  deepEqual(processedEvent.body, { foo: 'bar' })
 })
 
 test('It should parse a JSON with a suffix MediaType request', async (t) => {
@@ -44,7 +44,7 @@ test('It should parse a JSON with a suffix MediaType request', async (t) => {
 
   const processedEvent = await handler(event, defaultContext)
 
-  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  deepEqual(processedEvent.body, { foo: 'bar' })
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
@@ -62,11 +62,11 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
     },
     body: jsonString
   }
-  const jsonParseSpy = sinon.spy(JSON, 'parse')
+  const jsonParseSpy = t.mock.method(JSON, 'parse')
 
   await handler(event, defaultContext)
 
-  t.true(jsonParseSpy.calledWithExactly(jsonString, reviver))
+  deepEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver])
 })
 
 test('It should parse a JSON request with lowercase header', async (t) => {
@@ -86,7 +86,7 @@ test('It should parse a JSON request with lowercase header', async (t) => {
 
   const body = await handler(event, defaultContext)
 
-  t.deepEqual(body, { foo: 'bar' })
+  deepEqual(body, { foo: 'bar' })
 })
 
 test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
@@ -107,9 +107,9 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.regex(e.cause.data.message, /^Unexpected token/)
+    equal(e.statusCode, 415)
+    equal(e.message, 'Invalid or malformed JSON was provided')
+    match(e.cause.data.message, /^Unexpected token/)
   }
 })
 
@@ -131,9 +131,9 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.regex(
+    equal(e.statusCode, 415)
+    equal(e.message, 'Invalid or malformed JSON was provided')
+    match(
       e.cause.data.message,
       /(^Unexpected token)|"undefined" is not valid JSON/
     )
@@ -155,7 +155,7 @@ test("It shouldn't process the body if no header is passed", async (t) => {
 
   const body = await handler(event, defaultContext)
 
-  t.is(body, '{"foo":"bar"}')
+  equal(body, '{"foo":"bar"}')
 })
 
 test("It shouldn't process the body and throw error if no header is passed", async (t) => {
@@ -174,9 +174,9 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.statusCode, 415)
-    t.is(e.message, 'Unsupported Media Type')
-    t.is(e.cause.data, undefined)
+    equal(e.statusCode, 415)
+    equal(e.message, 'Unsupported Media Type')
+    equal(e.cause.data, undefined)
   }
 })
 
@@ -200,7 +200,7 @@ test('It should handle a base64 body', async (t) => {
 
   const body = await handler(event, defaultContext)
 
-  t.deepEqual(body, { foo: 'bar' })
+  deepEqual(body, { foo: 'bar' })
 })
 
 test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t) => {
@@ -224,7 +224,7 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.regex(e.cause.data.message, /^Unexpected token/)
+    equal(e.message, 'Invalid or malformed JSON was provided')
+    match(e.cause.data.message, /^Unexpected token/)
   }
 })

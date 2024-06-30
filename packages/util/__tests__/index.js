@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { ok, equal, deepEqual, notEqual } from 'node:assert/strict'
 import { setTimeout } from 'node:timers/promises'
 import {
   createClient,
@@ -24,29 +24,44 @@ console.warn = () => {}
 
 // createClient
 test('createClient should create AWS Client', async (t) => {
-  const AwsClient = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(...arguments)
+    }
+
+    send = send
+  }
 
   await createClient({
     AwsClient
   })
-  t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
+  equal(constructor.mock.callCount(), 1)
+  deepEqual(constructor.mock.calls[0].arguments, [{}])
 })
 
 test('createClient should create AWS Client with options', async (t) => {
-  const AwsClient = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(...arguments)
+    }
+
+    send = send
+  }
 
   await createClient({
     AwsClient,
     awsClientOptions: { apiVersion: '2014-11-06' }
   })
-  t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['apiVersion'])
-  t.is(AwsClient.args[0][0].apiVersion, '2014-11-06')
+  equal(constructor.mock.callCount(), 1)
+  deepEqual(constructor.mock.calls[0].arguments, [{ apiVersion: '2014-11-06' }])
 })
 
 test('createClient should throw when creating AWS Client with role and no request', async (t) => {
-  const AwsClient = sinon.spy()
+  const AwsClient = { send: t.mock.fn() }
 
   try {
     await createClient({
@@ -54,12 +69,20 @@ test('createClient should throw when creating AWS Client with role and no reques
       awsClientAssumeRole: 'adminRole'
     })
   } catch (e) {
-    t.is(e.message, 'Request required when assuming role')
+    equal(e.message, 'Request required when assuming role')
   }
 })
 
 test('createClient should create AWS Client with role', async (t) => {
-  const AwsClient = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(...arguments)
+    }
+
+    send = send
+  }
 
   const request = {
     internal: {
@@ -73,13 +96,23 @@ test('createClient should create AWS Client with role', async (t) => {
     },
     request
   )
-  t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['credentials'])
-  t.is(AwsClient.args[0][0].credentials, 'creds object')
+  equal(constructor.mock.callCount(), 1)
+  equal(send.mock.callCount(), 0)
+  deepEqual(constructor.mock.calls[0].arguments, [
+    { credentials: 'creds object' }
+  ])
 })
 
 test('createClient should create AWS Client with role from promise', async (t) => {
-  const AwsClient = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(...arguments)
+    }
+
+    send = send
+  }
 
   const request = {
     internal: {
@@ -93,56 +126,74 @@ test('createClient should create AWS Client with role from promise', async (t) =
     },
     request
   )
-  t.is(AwsClient.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), ['credentials'])
-  t.is(AwsClient.args[0][0].credentials, 'creds object')
+  equal(constructor.mock.callCount(), 1)
+  equal(send.mock.callCount(), 0)
+  deepEqual(constructor.mock.calls[0].arguments, [
+    { credentials: 'creds object' }
+  ])
 })
 
 test('createClient should create AWS Client with capture', async (t) => {
-  const AwsClient = sinon.spy()
-  const awsClientCapture = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(arguments)
+    }
+
+    send = send
+  }
+  const awsClientCapture = t.mock.fn()
 
   await createClient({
     AwsClient,
     awsClientCapture,
     disablePrefetch: true
   })
-  t.is(AwsClient.callCount, 1)
-  t.is(awsClientCapture.callCount, 1)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
+  equal(constructor.mock.callCount(), 1)
+  equal(send.mock.callCount(), 0)
+  equal(awsClientCapture.mock.callCount(), 1)
 })
 
 test('createClient should create AWS Client without capture', async (t) => {
-  const AwsClient = sinon.spy()
-  const awsClientCapture = sinon.spy()
+  const constructor = t.mock.fn()
+  const send = t.mock.fn()
+  const AwsClient = class MockClient {
+    constructor () {
+      constructor(arguments)
+    }
+
+    send = send
+  }
+  const awsClientCapture = t.mock.fn()
 
   await createClient({
     AwsClient,
     awsClientCapture
   })
-  t.is(AwsClient.callCount, 1)
-  t.is(awsClientCapture.callCount, 0)
-  t.deepEqual(Object.keys(AwsClient.args[0][0]), [])
+  equal(constructor.mock.callCount(), 1)
+  equal(send.mock.callCount(), 0)
+  equal(awsClientCapture.mock.callCount(), 0)
 })
 
 // canPrefetch
 test('canPrefetch should prefetch', async (t) => {
   const prefetch = canPrefetch()
-  t.is(prefetch, true)
+  equal(prefetch, true)
 })
 
 test('canPrefetch should not prefetch with assume role set', async (t) => {
   const prefetch = canPrefetch({
     awsClientAssumeRole: 'admin'
   })
-  t.is(prefetch, false)
+  equal(prefetch, false)
 })
 
 test('canPrefetch should not prefetch when disabled', async (t) => {
   const prefetch = canPrefetch({
     disablePrefetch: true
   })
-  t.is(prefetch, false)
+  equal(prefetch, false)
 })
 
 // getInternal
@@ -176,8 +227,8 @@ test('getInternal should throw errors', async (t) => {
   try {
     await getInternal(true, getInternalRejected)
   } catch (e) {
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause, {
+    equal(e.message, 'Failed to resolve internal values')
+    deepEqual(e.cause, {
       package: '@middy/util',
       data: [promiseRejectError, promiseThrowError]
     })
@@ -186,12 +237,12 @@ test('getInternal should throw errors', async (t) => {
 
 test('getInternal should get none from internal store', async (t) => {
   const values = await getInternal(false, getInternalRequest)
-  t.deepEqual(values, {})
+  deepEqual(values, {})
 })
 
 test('getInternal should get all from internal store', async (t) => {
   const values = await getInternal(true, getInternalRequest)
-  t.deepEqual(values, {
+  deepEqual(values, {
     array: [],
     boolean: true,
     number: 1,
@@ -208,58 +259,58 @@ test('getInternal should get all from internal store', async (t) => {
 
 test('getInternal should get from internal store when string', async (t) => {
   const values = await getInternal('number', getInternalRequest)
-  t.deepEqual(values, { number: 1 })
+  deepEqual(values, { number: 1 })
 })
 
 test('getInternal should get from internal store when array[string]', async (t) => {
   const values = await getInternal(['boolean', 'string'], getInternalRequest)
-  t.deepEqual(values, { boolean: true, string: 'string' })
+  deepEqual(values, { boolean: true, string: 'string' })
 })
 
 test('getInternal should get from internal store when object', async (t) => {
   const values = await getInternal({ newKey: 'promise' }, getInternalRequest)
-  t.deepEqual(values, { newKey: 'promise' })
+  deepEqual(values, { newKey: 'promise' })
 })
 
 test('getInternal should get from internal store a nested value', async (t) => {
   const values = await getInternal('promiseObject.key', getInternalRequest)
-  t.deepEqual(values, { promiseObject_key: 'value' })
+  deepEqual(values, { promiseObject_key: 'value' })
 })
 
 // sanitizeKey
 test('sanitizeKey should sanitize key', async (t) => {
   const key = sanitizeKey('api//secret-key0.pem')
-  t.is(key, 'api_secret_key0_pem')
+  equal(key, 'api_secret_key0_pem')
 })
 
 test('sanitizeKey should sanitize key with leading number', async (t) => {
   const key = sanitizeKey('0key')
-  t.is(key, '_0key')
+  equal(key, '_0key')
 })
 
 test('sanitizeKey should not sanitize key', async (t) => {
   const key = sanitizeKey('api_secret_key0_pem')
-  t.is(key, 'api_secret_key0_pem')
+  equal(key, 'api_secret_key0_pem')
 })
 
 // processCache / clearCache
 const cacheRequest = {
   internal: {}
 }
-test.serial('processCache should not cache', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+test('processCache should not cache', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: 0
   }
   processCache(options, fetch, cacheRequest)
   const cache = getCache('key')
-  t.deepEqual(cache, {})
+  deepEqual(cache, {})
   clearCache()
 })
 
-test.serial('processCache should cache forever', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+test('processCache should cache forever', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: -1
@@ -267,16 +318,16 @@ test.serial('processCache should cache forever', async (t) => {
   processCache(options, fetch, cacheRequest)
   await setTimeout(100)
   const cacheValue = getCache('key').value
-  t.is(await cacheValue, 'value')
+  equal(await cacheValue, 'value')
   const { value, cache } = processCache(options, fetch, cacheRequest)
-  t.is(await value, 'value')
-  t.true(cache)
-  t.is(fetch.callCount, 1)
+  equal(await value, 'value')
+  ok(cache)
+  equal(fetch.mock.callCount(), 1)
   clearCache()
 })
 
-test.serial('processCache should cache when not expired', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+test('processCache should cache when not expired', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: 100
@@ -284,137 +335,125 @@ test.serial('processCache should cache when not expired', async (t) => {
   processCache(options, fetch, cacheRequest)
   await setTimeout(50)
   const cacheValue = getCache('key').value
-  t.is(await cacheValue, 'value')
+  equal(await cacheValue, 'value')
   const { value, cache } = processCache(options, fetch, cacheRequest)
-  t.is(await value, 'value')
-  t.is(cache, true)
-  t.is(fetch.callCount, 1)
+  equal(await value, 'value')
+  equal(cache, true)
+  equal(fetch.mock.callCount(), 1)
   clearCache()
 })
-test.serial(
-  'processCache should cache when not expired w/ unix timestamp',
-  async (t) => {
-    const fetch = sinon.stub().resolves('value')
-    const options = {
-      cacheKey: 'key',
-      cacheExpiry: Date.now() + 100
-    }
-    processCache(options, fetch, cacheRequest)
-    await setTimeout(50)
-    const cacheValue = getCache('key').value
-    t.is(await cacheValue, 'value')
-    const { value, cache } = processCache(options, fetch, cacheRequest)
-    t.is(await value, 'value')
-    t.is(cache, true)
-    t.is(fetch.callCount, 1)
-    clearCache()
+test('processCache should cache when not expired w/ unix timestamp', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
+  const options = {
+    cacheKey: 'key',
+    cacheExpiry: Date.now() + 100
   }
-)
-test.serial(
-  'processCache should cache when not expired using cacheKeyExpire',
-  async (t) => {
-    const fetch = sinon.stub().resolves('value')
-    const options = {
-      cacheKey: 'key',
-      cacheExpiry: 0,
-      cacheKeyExpiry: { key: Date.now() + 100 }
-    }
-    processCache(options, fetch, cacheRequest)
-    await setTimeout(50)
-    const cacheValue = getCache('key').value
-    t.is(await cacheValue, 'value')
-    const { value, cache } = processCache(options, fetch, cacheRequest)
-    t.is(await value, 'value')
-    t.is(cache, true)
-    t.is(fetch.callCount, 1)
-    clearCache()
+  processCache(options, fetch, cacheRequest)
+  await setTimeout(50)
+  const cacheValue = getCache('key').value
+  equal(await cacheValue, 'value')
+  const { value, cache } = processCache(options, fetch, cacheRequest)
+  equal(await value, 'value')
+  equal(cache, true)
+  equal(fetch.mock.callCount(), 1)
+  clearCache()
+})
+test('processCache should cache when not expired using cacheKeyExpire', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
+  const options = {
+    cacheKey: 'key',
+    cacheExpiry: 0,
+    cacheKeyExpiry: { key: Date.now() + 100 }
   }
-)
-test.serial(
-  'processCache should cache when not expired using cacheKeyExpire w/ unix timestamp',
-  async (t) => {
-    const fetch = sinon.stub().resolves('value')
-    const options = {
-      cacheKey: 'key',
-      cacheExpiry: Date.now() + 0,
-      cacheKeyExpiry: { key: Date.now() + 100 }
-    }
-    processCache(options, fetch, cacheRequest)
-    await setTimeout(50)
-    const cacheValue = getCache('key').value
-    t.is(await cacheValue, 'value')
-    const { value, cache } = processCache(options, fetch, cacheRequest)
-    t.is(await value, 'value')
-    t.is(cache, true)
-    t.is(fetch.callCount, 1)
-    clearCache()
+  processCache(options, fetch, cacheRequest)
+  await setTimeout(50)
+  const cacheValue = getCache('key').value
+  equal(await cacheValue, 'value')
+  const { value, cache } = processCache(options, fetch, cacheRequest)
+  equal(await value, 'value')
+  equal(cache, true)
+  equal(fetch.mock.callCount(), 1)
+  clearCache()
+})
+test('processCache should cache when not expired using cacheKeyExpire w/ unix timestamp', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
+  const options = {
+    cacheKey: 'key',
+    cacheExpiry: Date.now() + 0,
+    cacheKeyExpiry: { key: Date.now() + 100 }
   }
-)
+  processCache(options, fetch, cacheRequest)
+  await setTimeout(50)
+  const cacheValue = getCache('key').value
+  equal(await cacheValue, 'value')
+  const { value, cache } = processCache(options, fetch, cacheRequest)
+  equal(await value, 'value')
+  equal(cache, true)
+  equal(fetch.mock.callCount(), 1)
+  clearCache()
+})
 
-test.serial(
-  'processCache should clear and re-fetch modified cache',
-  async (t) => {
-    const options = {
-      cacheKey: 'key',
-      cacheExpiry: -1
-    }
-    const fetch = sinon.stub().returns({
-      a: 'value',
-      b: new Promise(() => {
-        throw new Error('error')
-      }).catch((e) => {
-        const value = getCache(options.cacheKey).value || { value: {} }
-        const internalKey = 'b'
-        value[internalKey] = undefined
-        modifyCache(options.cacheKey, value)
-        throw e
-      })
+test('processCache should clear and re-fetch modified cache', async (t) => {
+  const options = {
+    cacheKey: 'key',
+    cacheExpiry: -1
+  }
+  const fetch = t.mock.fn(() => ({
+    a: 'value',
+    b: new Promise(() => {
+      throw new Error('error')
+    }).catch((e) => {
+      const value = getCache(options.cacheKey).value || { value: {} }
+      const internalKey = 'b'
+      value[internalKey] = undefined
+      modifyCache(options.cacheKey, value)
+      throw e
     })
-    const fetchCached = (request, cached) => {
-      t.deepEqual(cached, {
-        a: 'value',
-        b: undefined
-      })
-      return {
-        b: 'value'
-      }
+  }))
+  const fetchCached = (request, cached) => {
+    deepEqual(cached, {
+      a: 'value',
+      b: undefined
+    })
+    return {
+      b: 'value'
     }
-
-    const cached = processCache(options, fetch, cacheRequest)
-    const request = {
-      internal: cached.value
-    }
-    try {
-      await getInternal(true, request)
-    } catch (e) {
-      let cache = getCache(options.cacheKey)
-
-      t.true(cache.modified)
-      t.deepEqual(cache.value, {
-        a: 'value',
-        b: undefined
-      })
-      t.is(e.message, 'Failed to resolve internal values')
-      t.deepEqual(e.cause, {
-        package: '@middy/util',
-        data: [new Error('error')]
-      })
-
-      processCache(options, fetchCached, cacheRequest)
-      cache = getCache(options.cacheKey)
-
-      t.is(cache.modified, undefined)
-      t.deepEqual(cache.value, {
-        a: 'value',
-        b: 'value'
-      })
-    }
-    clearCache()
   }
-)
 
-test.serial('processCache should cache and expire', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+  const cached = processCache(options, fetch, cacheRequest)
+  const request = {
+    internal: cached.value
+  }
+  try {
+    await getInternal(true, request)
+  } catch (e) {
+    let cache = getCache(options.cacheKey)
+
+    ok(cache.modified)
+    deepEqual(cache.value, {
+      a: 'value',
+      b: undefined
+    })
+    equal(e.message, 'Failed to resolve internal values')
+    deepEqual(e.cause, {
+      package: '@middy/util',
+      data: [new Error('error')]
+    })
+
+    processCache(options, fetchCached, cacheRequest)
+    cache = getCache(options.cacheKey)
+
+    equal(cache.modified, undefined)
+    deepEqual(cache.value, {
+      a: 'value',
+      b: 'value'
+    })
+  }
+  clearCache()
+})
+
+test('processCache should cache and expire', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key-cache-expire',
     cacheExpiry: 150
@@ -422,37 +461,34 @@ test.serial('processCache should cache and expire', async (t) => {
   processCache(options, fetch, cacheRequest)
   await setTimeout(100)
   let cache = getCache('key-cache-expire')
-  t.not(cache, undefined)
+  notEqual(cache, undefined)
   await setTimeout(250) // expire twice
   cache = getCache('key-cache-expire')
-  t.true(cache.expiry > Date.now())
-  t.is(fetch.callCount, 3)
+  ok(cache.expiry > Date.now())
+  equal(fetch.mock.callCount(), 3)
   clearCache()
 })
 
-test.serial(
-  'processCache should cache and expire w/ unix timestamp',
-  async (t) => {
-    const fetch = sinon.stub().resolves('value')
-    const options = {
-      cacheKey: 'key-cache-unix-expire',
-      cacheExpiry: Date.now() + 155
-    }
-    processCache(options, fetch, cacheRequest)
-    await setTimeout(100)
-    let cache = getCache('key-cache-unix-expire')
-    t.not(cache, undefined)
-    await setTimeout(250) // expire once, then doesn't cache
-    cache = getCache('key-cache-unix-expire')
-
-    t.true(cache.expiry < Date.now())
-    t.is(fetch.callCount, 2)
-    clearCache()
+test('processCache should cache and expire w/ unix timestamp', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
+  const options = {
+    cacheKey: 'key-cache-unix-expire',
+    cacheExpiry: Date.now() + 155
   }
-)
+  processCache(options, fetch, cacheRequest)
+  await setTimeout(100)
+  let cache = getCache('key-cache-unix-expire')
+  notEqual(cache, undefined)
+  await setTimeout(250) // expire once, then doesn't cache
+  cache = getCache('key-cache-unix-expire')
 
-test.serial('processCache should clear single key cache', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+  ok(cache.expiry < Date.now())
+  equal(fetch.mock.callCount(), 2)
+  clearCache()
+})
+
+test('processCache should clear single key cache', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
@@ -470,13 +506,13 @@ test.serial('processCache should clear single key cache', async (t) => {
     cacheRequest
   )
   clearCache('other')
-  t.not(getCache('key').value, undefined)
-  t.deepEqual(getCache('other'), {})
+  notEqual(getCache('key').value, undefined)
+  deepEqual(getCache('other'), {})
   clearCache()
 })
 
-test.serial('processCache should clear multi key cache', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+test('processCache should clear multi key cache', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
@@ -494,13 +530,13 @@ test.serial('processCache should clear multi key cache', async (t) => {
     cacheRequest
   )
   clearCache(['key', 'other'])
-  t.deepEqual(getCache('key'), {})
-  t.deepEqual(getCache('other'), {})
+  deepEqual(getCache('key'), {})
+  deepEqual(getCache('other'), {})
   clearCache()
 })
 
-test.serial('processCache should clear all cache', async (t) => {
-  const fetch = sinon.stub().resolves('value')
+test('processCache should clear all cache', async (t) => {
+  const fetch = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
@@ -518,90 +554,81 @@ test.serial('processCache should clear all cache', async (t) => {
     cacheRequest
   )
   clearCache()
-  t.deepEqual(getCache('key'), {})
-  t.deepEqual(getCache('other'), {})
+  deepEqual(getCache('key'), {})
+  deepEqual(getCache('other'), {})
   clearCache()
 })
 
 // catchInvalidSignatureException
-test.serial(
-  'catchInvalidSignatureException should retry when InvalidSignatureException',
-  async (t) => {
-    const e = new Error('InvalidSignatureException')
-    e.__type = 'InvalidSignatureException'
-    const client = { send: sinon.stub() }
-    catchInvalidSignatureException(e, client, 'command')
-    t.is(client.send.callCount, 1)
-  }
-)
+test('catchInvalidSignatureException should retry when InvalidSignatureException', async (t) => {
+  const e = new Error('InvalidSignatureException')
+  e.__type = 'InvalidSignatureException'
+  const client = { send: t.mock.fn() }
+  catchInvalidSignatureException(e, client, 'command')
+  equal(client.send.mock.callCount(), 1)
+})
 
-test.serial(
-  'catchInvalidSignatureException should throw when not InvalidSignatureException',
-  async (t) => {
-    const e = new Error('error')
-    try {
-      catchInvalidSignatureException(e)
-    } catch (e) {
-      t.is(e.message, 'error')
-    }
+test('catchInvalidSignatureException should throw when not InvalidSignatureException', async (t) => {
+  const e = new Error('error')
+  try {
+    catchInvalidSignatureException(e)
+  } catch (e) {
+    equal(e.message, 'error')
   }
-)
+})
 
 // modifyCache
-test.serial(
-  'modifyCache should not override value when it does not exist',
-  async (t) => {
-    modifyCache('key')
-    t.deepEqual(getCache('key'), {})
-  }
-)
+test('modifyCache should not override value when it does not exist', async (t) => {
+  modifyCache('key')
+  deepEqual(getCache('key'), {})
+})
 
 // jsonSafeParse
 test('jsonSafeParse should parse valid json', async (t) => {
   const value = jsonSafeParse('{}')
-  t.deepEqual(value, {})
+  deepEqual(value, {})
 })
 test('jsonSafeParse should not parse object', async (t) => {
   const value = jsonSafeParse({})
-  t.deepEqual(value, {})
+  deepEqual(value, {})
 })
 test('jsonSafeParse should not parse string', async (t) => {
   const value = jsonSafeParse('value')
-  t.is(value, 'value')
+  equal(value, 'value')
 })
 test('jsonSafeParse should not parse empty string', async (t) => {
   const value = jsonSafeParse('')
-  t.is(value, '')
+  equal(value, '')
 })
 test('jsonSafeParse should not parse null', async (t) => {
   const value = jsonSafeParse(null)
-  t.is(value, null)
+  equal(value, null)
 })
 test('jsonSafeParse should not parse number', async (t) => {
   const value = jsonSafeParse(1)
-  t.is(value, 1)
+  equal(value, 1)
 })
 
 test('jsonSafeParse should not parse nested function', async (t) => {
   const value = jsonSafeParse('{fct:() => {}}')
-  t.is(value, '{fct:() => {}}')
+  equal(value, '{fct:() => {}}')
 })
 
 // jsonSafeStringify
 test('jsonSafeStringify should stringify valid json', async (t) => {
   const value = jsonSafeStringify({ hello: ['world'] })
-  t.is(value, '{"hello":["world"]}')
+  equal(value, '{"hello":["world"]}')
 })
 test('jsonSafeStringify should stringify with replacer', async (t) => {
   const value = jsonSafeStringify(
     JSON.stringify({ msg: JSON.stringify({ hello: ['world'] }) }),
     (key, value) => jsonSafeParse(value)
   )
-  t.is(value, '{"msg":{"hello":["world"]}}')
+  equal(value, '{"msg":{"hello":["world"]}}')
 })
 test('jsonSafeStringify should not stringify if throws error', async (t) => {
   const value = jsonSafeStringify({ bigint: BigInt(9007199254740991) })
-  t.deepEqual(value, { bigint: BigInt(9007199254740991) })
+  deepEqual(value, { bigint: BigInt(9007199254740991) })
 })
 
 // normalizeHttpResponse
@@ -610,23 +637,23 @@ test('normalizeHttpResponse should not change response', async (t) => {
     response: { headers: {} }
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 500, headers: {} })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 500, headers: {} })
+  deepEqual(request, { response })
 })
 test('normalizeHttpResponse should update headers in response', async (t) => {
   const request = {
     response: {}
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 200, headers: {}, body: {} })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 200, headers: {}, body: {} })
+  deepEqual(request, { response })
 })
 
 test('normalizeHttpResponse should update undefined response', async (t) => {
   const request = {}
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 500, headers: {} })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 500, headers: {} })
+  deepEqual(request, { response })
 })
 
 test('normalizeHttpResponse should update incomplete response', async (t) => {
@@ -636,8 +663,8 @@ test('normalizeHttpResponse should update incomplete response', async (t) => {
     }
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 500, headers: {}, body: '' })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 500, headers: {}, body: '' })
+  deepEqual(request, { response })
 })
 
 test('normalizeHttpResponse should update nullish response', async (t) => {
@@ -645,8 +672,8 @@ test('normalizeHttpResponse should update nullish response', async (t) => {
     response: null
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 200, headers: {}, body: null })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 200, headers: {}, body: null })
+  deepEqual(request, { response })
 })
 
 test('normalizeHttpResponse should update string response', async (t) => {
@@ -654,54 +681,54 @@ test('normalizeHttpResponse should update string response', async (t) => {
     response: ''
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 200, headers: {}, body: '' })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 200, headers: {}, body: '' })
+  deepEqual(request, { response })
 })
 test('normalizeHttpResponse should update array response', async (t) => {
   const request = {
     response: []
   }
   const response = normalizeHttpResponse(request)
-  t.deepEqual(response, { statusCode: 200, headers: {}, body: [] })
-  t.deepEqual(request, { response })
+  deepEqual(response, { statusCode: 200, headers: {}, body: [] })
+  deepEqual(request, { response })
 })
 
 // HttpError
 test('HttpError should create error', async (t) => {
   const e = new HttpError(400, 'message', { cause: 'cause' })
-  t.is(e.status, 400)
-  t.is(e.statusCode, 400)
-  t.is(e.name, 'BadRequestError')
-  t.is(e.message, 'message')
-  t.is(e.expose, true)
-  t.is(e.cause, 'cause')
+  equal(e.status, 400)
+  equal(e.statusCode, 400)
+  equal(e.name, 'BadRequestError')
+  equal(e.message, 'message')
+  equal(e.expose, true)
+  equal(e.cause, 'cause')
 })
 test('HttpError should create error with expose false', async (t) => {
   const e = new HttpError(500, { cause: 'cause' })
-  t.is(e.status, 500)
-  t.is(e.statusCode, 500)
-  t.is(e.name, 'InternalServerError')
-  t.is(e.message, 'Internal Server Error')
-  t.is(e.expose, false)
-  t.is(e.cause, 'cause')
+  equal(e.status, 500)
+  equal(e.statusCode, 500)
+  equal(e.name, 'InternalServerError')
+  equal(e.message, 'Internal Server Error')
+  equal(e.expose, false)
+  equal(e.cause, 'cause')
 })
 
 // createError
 test('createError should create error', async (t) => {
   const e = createError(400, 'message', { cause: 'cause' })
-  t.is(e.status, 400)
-  t.is(e.statusCode, 400)
-  t.is(e.name, 'BadRequestError')
-  t.is(e.message, 'message')
-  t.is(e.expose, true)
-  t.is(e.cause, 'cause')
+  equal(e.status, 400)
+  equal(e.statusCode, 400)
+  equal(e.name, 'BadRequestError')
+  equal(e.message, 'message')
+  equal(e.expose, true)
+  equal(e.cause, 'cause')
 })
 
 test('createError should create error with expose false', async (t) => {
   const e = createError(500)
-  t.is(e.status, 500)
-  t.is(e.statusCode, 500)
-  t.is(e.name, 'InternalServerError')
-  t.is(e.message, 'Internal Server Error')
-  t.is(e.expose, false)
+  equal(e.status, 500)
+  equal(e.statusCode, 500)
+  equal(e.name, 'InternalServerError')
+  equal(e.message, 'Internal Server Error')
+  equal(e.expose, false)
 })

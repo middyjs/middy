@@ -1,4 +1,6 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal } from 'node:assert/strict'
+
 import middy from '../../core/index.js'
 import warmup from '../index.js'
 
@@ -18,7 +20,7 @@ test("Should exit with 'warmup' if provided warmup check function is provide and
 
   const response = await handler(defaultEvent, defaultContext)
 
-  t.is(response, 'warmup')
+  equal(response, 'warmup')
 })
 
 test("Should exit not with 'warmup' if provided warmup check function is provide and returns false", async (t) => {
@@ -32,7 +34,7 @@ test("Should exit not with 'warmup' if provided warmup check function is provide
 
   const response = await handler(defaultEvent, defaultContext)
 
-  t.is(response, undefined)
+  equal(response, undefined)
 })
 
 test("Should exit with 'warmup' if event.source === 'serverless-plugin-warmup' if no warmup check function provided", async (t) => {
@@ -45,7 +47,7 @@ test("Should exit with 'warmup' if event.source === 'serverless-plugin-warmup' i
   }
   const response = await handler(event, defaultContext)
 
-  t.is(response, 'warmup')
+  equal(response, 'warmup')
 })
 
 test("Should not exit with 'warmup' if event.source !== 'serverless-plugin-warmup' if no warmup check function provided", async (t) => {
@@ -58,5 +60,5 @@ test("Should not exit with 'warmup' if event.source !== 'serverless-plugin-warmu
   }
   const response = await handler(event, defaultContext)
 
-  t.is(response, undefined)
+  equal(response, undefined)
 })

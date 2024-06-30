@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal, deepEqual, notEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import validator from '../index.js'
 import { transpileSchema } from '../transpile.js'
@@ -165,7 +166,7 @@ test('It should validate an event object', async (t) => {
 
   const body = await handler(event, context)
 
-  t.deepEqual(body, {
+  deepEqual(body, {
     boolean: true,
     integer: 0,
     number: 0.1,
@@ -258,7 +259,7 @@ test('It should validate an event object with formats', async (t) => {
 
   const body = await handler(event, context)
 
-  t.deepEqual(body, {
+  deepEqual(body, {
     date: '2000-01-01',
     time: '00:00:00-0000',
     'date-time': '2000-01-01T00:00:00-0000',
@@ -310,8 +311,8 @@ test('It should handle invalid schema as a BadRequest', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause.data, [
+    equal(e.message, 'Event object failed validation')
+    deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -367,8 +368,8 @@ for (const c of cases) {
     try {
       await handler(event, { ...context, preferredLanguage: c.lang })
     } catch (e) {
-      t.is(e.message, 'Event object failed validation')
-      t.deepEqual(e.cause.data, [
+      equal(e.message, 'Event object failed validation')
+      deepEqual(e.cause.data, [
         {
           instancePath: '',
           keyword: 'required',
@@ -418,8 +419,8 @@ test('It should handle invalid schema as a BadRequest in a different language (w
   try {
     await handler(event, { ...context, preferredLanguage: 'pt-BR' })
   } catch (e) {
-    t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause.data, [
+    equal(e.message, 'Event object failed validation')
+    deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -465,8 +466,8 @@ test('It should handle invalid schema as a BadRequest without i18n', async (t) =
   try {
     await handler(event, { ...context, preferredLanguage: 'pt-BR' })
   } catch (e) {
-    t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause.data, [
+    equal(e.message, 'Event object failed validation')
+    deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'required',
@@ -492,7 +493,7 @@ test('It should validate context object', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, expectedResponse)
+  deepEqual(response, expectedResponse)
 })
 
 test('It should make requests with invalid context fails with an Internal Server Error', async (t) => {
@@ -509,8 +510,8 @@ test('It should make requests with invalid context fails with an Internal Server
   try {
     await handler(event, context)
   } catch (e) {
-    t.not(e, null)
-    t.is(e.message, 'Context object failed validation')
+    notEqual(e, null)
+    equal(e.message, 'Context object failed validation')
   }
 })
 
@@ -541,7 +542,7 @@ test('It should validate response object', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, expectedResponse)
+  deepEqual(response, expectedResponse)
 })
 
 test('It should make requests with invalid responses fail with an Internal Server Error', async (t) => {
@@ -567,8 +568,8 @@ test('It should make requests with invalid responses fail with an Internal Serve
   try {
     await handler(event, context)
   } catch (e) {
-    t.not(e, null)
-    t.is(e.message, 'Response object failed validation')
+    notEqual(e, null)
+    equal(e.message, 'Response object failed validation')
   }
 })
 
@@ -589,7 +590,7 @@ test('It should not allow bad email format', async (t) => {
     // This same email is not a valid one in 'full' validation mode
     await handler(event, context)
   } catch (e) {
-    t.is(e.cause.data[0].message, 'must match format "email"')
+    equal(e.cause.data[0].message, 'must match format "email"')
   }
 })
 
@@ -608,7 +609,7 @@ test('It should error when unsupported keywords used (input)', async (t) => {
     handler.use(validator({ eventSchema: transpileSchema(schema) }))
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
+    equal(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -627,7 +628,7 @@ test('It should error when unsupported keywords used (output)', async (t) => {
     handler.use(validator({ responseSchema: transpileSchema(schema) }))
     await handler(event.context)
   } catch (e) {
-    t.is(e.message, 'strict mode: unknown keyword: "somethingnew"')
+    equal(e.message, 'strict mode: unknown keyword: "somethingnew"')
   }
 })
 
@@ -650,8 +651,8 @@ test('It should use out-of-the-box ajv-errors plugin', async (t) => {
   try {
     await handler({ foo: 'a' })
   } catch (e) {
-    t.is(e.message, 'Event object failed validation')
-    t.deepEqual(e.cause.data, [
+    equal(e.message, 'Event object failed validation')
+    deepEqual(e.cause.data, [
       {
         instancePath: '',
         keyword: 'errorMessage',

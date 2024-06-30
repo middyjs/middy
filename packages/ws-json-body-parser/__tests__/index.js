@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual, match } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import jsonBodyParser from '../index.js'
 
@@ -21,7 +21,7 @@ test('It should parse a JSON request', async (t) => {
 
   const processedEvent = await handler(event, defaultContext)
 
-  t.deepEqual(processedEvent.body, { foo: 'bar' })
+  deepEqual(processedEvent.body, { foo: 'bar' })
 })
 
 test('It should use a reviver when parsing a JSON request', async (t) => {
@@ -36,11 +36,11 @@ test('It should use a reviver when parsing a JSON request', async (t) => {
   const event = {
     body: jsonString
   }
-  const jsonParseSpy = sinon.spy(JSON, 'parse')
+  const jsonParseSpy = t.mock.method(JSON, 'parse')
 
   await handler(event, defaultContext)
 
-  t.true(jsonParseSpy.calledWithExactly(jsonString, reviver))
+  deepEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver])
 })
 
 test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
@@ -58,8 +58,8 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.regex(e.cause.data.message, /^Unexpected token/)
+    equal(e.message, 'Invalid or malformed JSON was provided')
+    match(e.cause.data.message, /^Unexpected token/)
   }
 })
 
@@ -80,7 +80,7 @@ test('It should handle a base64 body', async (t) => {
 
   const body = await handler(event, defaultContext)
 
-  t.deepEqual(body, { foo: 'bar' })
+  deepEqual(body, { foo: 'bar' })
 })
 
 test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t) => {
@@ -101,7 +101,7 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
   try {
     await handler(event, defaultContext)
   } catch (e) {
-    t.is(e.message, 'Invalid or malformed JSON was provided')
-    t.regex(e.cause.data.message, /^Unexpected token/)
+    equal(e.message, 'Invalid or malformed JSON was provided')
+    match(e.cause.data.message, /^Unexpected token/)
   }
 })

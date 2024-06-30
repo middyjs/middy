@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises'
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
@@ -11,13 +11,8 @@ import {
 } from '@aws-sdk/client-secrets-manager'
 import secretsManager from '../index.js'
 
-let sandbox
-test.beforeEach((t) => {
-  sandbox = sinon.createSandbox()
-})
-
 test.afterEach((t) => {
-  sandbox.restore()
+  t.mock.reset()
   clearCache()
 })
 
@@ -26,7 +21,7 @@ const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
-test.serial('It should set secret to internal storage (token)', async (t) => {
+test('It should set secret to internal storage (token)', async (t) => {
   mockClient(SecretsManagerClient)
     .on(GetSecretValueCommand, { SecretId: 'api_key' })
     .resolvesOnce({ SecretString: 'token' })
@@ -34,7 +29,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
-    t.is(values.token, 'token')
+    equal(values.token, 'token')
   }
 
   handler
@@ -53,7 +48,7 @@ test.serial('It should set secret to internal storage (token)', async (t) => {
   await handler(event, context)
 })
 
-test.serial('It should set secrets to internal storage (token)', async (t) => {
+test('It should set secrets to internal storage (token)', async (t) => {
   mockClient(SecretsManagerClient)
     .on(GetSecretValueCommand, { SecretId: 'api_key1' })
     .resolvesOnce({ SecretString: 'token1' })
@@ -64,8 +59,8 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
-    t.is(values.token1, 'token1')
-    t.is(values.token2, 'token2')
+    equal(values.token1, 'token1')
+    equal(values.token2, 'token2')
   }
 
   handler
@@ -85,7 +80,7 @@ test.serial('It should set secrets to internal storage (token)', async (t) => {
   await handler(event, context)
 })
 
-test.serial('It should set secrets to internal storage (json)', async (t) => {
+test('It should set secrets to internal storage (json)', async (t) => {
   const credentials = { username: 'admin', password: 'secret' }
   mockClient(SecretsManagerClient)
     .on(GetSecretValueCommand, { SecretId: 'rds_login' })
@@ -98,7 +93,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
       { username: 'credentials.username', password: 'credentials.password' },
       request
     )
-    t.deepEqual(values, credentials)
+    deepEqual(values, credentials)
   }
 
   handler
@@ -117,38 +112,7 @@ test.serial('It should set secrets to internal storage (json)', async (t) => {
   await handler(event, context)
 })
 
-test.serial(
-  'It should set SecretsManager secret to internal storage without prefetch',
-  async (t) => {
-    mockClient(SecretsManagerClient)
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolvesOnce({ SecretString: 'token' })
-
-    const handler = middy(() => {})
-
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
-
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: 0,
-          fetchData: {
-            token: 'api_key'
-          },
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
-
-    await handler(event, context)
-  }
-)
-
-test.serial('It should set SecretsManager secret to context', async (t) => {
+test('It should set SecretsManager secret to internal storage without prefetch', async (t) => {
   mockClient(SecretsManagerClient)
     .on(GetSecretValueCommand, { SecretId: 'api_key' })
     .resolvesOnce({ SecretString: 'token' })
@@ -156,7 +120,35 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   const handler = middy(() => {})
 
   const middleware = async (request) => {
-    t.is(request.context.token, 'token')
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
+  }
+
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        },
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+})
+
+test('It should set SecretsManager secret to context', async (t) => {
+  mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolvesOnce({ SecretString: 'token' })
+
+  const handler = middy(() => {})
+
+  const middleware = async (request) => {
+    equal(request.context.token, 'token')
   }
 
   handler
@@ -176,200 +168,185 @@ test.serial('It should set SecretsManager secret to context', async (t) => {
   await handler(event, context)
 })
 
-test.serial(
-  'It should not call aws-sdk again if parameter is cached',
-  async (t) => {
-    const mockService = mockClient(SecretsManagerClient)
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolvesOnce({ SecretString: 'token' })
-    const sendStub = mockService.send
+test('It should not call aws-sdk again if parameter is cached', async (t) => {
+  const mockService = mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolvesOnce({ SecretString: 'token' })
+  const sendStub = mockService.send
 
-    const handler = middy(() => {})
+  const handler = middy(() => {})
 
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
-
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: -1,
-          fetchData: {
-            token: 'api_key'
-          }
-        })
-      )
-      .before(middleware)
-
-    await handler(event, context)
-    await handler(event, context)
-
-    t.is(sendStub.callCount, 1)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
   }
-)
 
-test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired',
-  async (t) => {
-    const mockService = mockClient(SecretsManagerClient)
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolves({ SecretString: 'token' })
-    const sendStub = mockService.send
-    const handler = middy(() => {})
-
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
-
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: 0,
-          fetchData: {
-            token: 'api_key'
-          },
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
-
-    await handler(event, context)
-    await handler(event, context)
-
-    t.is(sendStub.callCount, 2)
-  }
-)
-
-test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate',
-  async (t) => {
-    const mockService = mockClient(SecretsManagerClient)
-      .on(DescribeSecretCommand, { SecretId: 'api_key' })
-      .resolves({
-        LastRotationDate: Date.now() / 1000 - 50,
-        LastChangedDate: Date.now() / 1000 - 50
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: -1,
+        fetchData: {
+          token: 'api_key'
+        }
       })
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolves({ SecretString: 'token' })
-    const sendStub = mockService.send
-    const handler = middy(() => {})
+    )
+    .before(middleware)
 
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
+  await handler(event, context)
+  await handler(event, context)
 
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: 100,
-          fetchData: {
-            token: 'api_key'
-          },
-          fetchRotationDate: true,
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
+  equal(sendStub.callCount, 1)
+})
 
-    await handler(event, context) // fetch x 2
-    await handler(event, context)
-    await setTimeout(100)
-    await handler(event, context) // fetch x 2
+test('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
+  const mockService = mockClient(SecretsManagerClient)
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolves({ SecretString: 'token' })
+  const sendStub = mockService.send
+  const handler = middy(() => {})
 
-    t.is(sendStub.callCount, 2 * 2)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
   }
-)
 
-test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate',
-  async (t) => {
-    const now = Date.now() / 1000
-    const mockService = mockClient(SecretsManagerClient)
-      .on(DescribeSecretCommand, { SecretId: 'api_key' })
-      .resolves({
-        LastRotationDate: now - 25,
-        LastChangedDate: now - 25,
-        NextRotationDate: now + 50
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: 0,
+        fetchData: {
+          token: 'api_key'
+        },
+        disablePrefetch: true
       })
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolves({ SecretString: 'token' })
-    const sendStub = mockService.send
-    const handler = middy(() => {})
+    )
+    .before(middleware)
 
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
+  await handler(event, context)
+  await handler(event, context)
 
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: 100,
-          fetchData: {
-            token: 'api_key'
-          },
-          fetchRotationDate: true,
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
+  equal(sendStub.callCount, 2)
+})
 
-    await handler(event, context)
-    await handler(event, context)
-    await setTimeout(100)
-    await handler(event, context)
+test('It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate', async (t) => {
+  const mockService = mockClient(SecretsManagerClient)
+    .on(DescribeSecretCommand, { SecretId: 'api_key' })
+    .resolves({
+      LastRotationDate: Date.now() / 1000 - 50,
+      LastChangedDate: Date.now() / 1000 - 50
+    })
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolves({ SecretString: 'token' })
+  const sendStub = mockService.send
+  const handler = middy(() => {})
 
-    t.is(sendStub.callCount, 4)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
   }
-)
 
-test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate',
-  async (t) => {
-    const mockService = mockClient(SecretsManagerClient)
-      .on(DescribeSecretCommand, { SecretId: 'api_key' })
-      .resolves({ NextRotationDate: Date.now() / 1000 + 50 })
-      .on(GetSecretValueCommand, { SecretId: 'api_key' })
-      .resolves({ SecretString: 'token' })
-    const sendStub = mockService.send
-    const handler = middy(() => {})
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: 100,
+        fetchData: {
+          token: 'api_key'
+        },
+        fetchRotationDate: true,
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
 
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.is(values.token, 'token')
-    }
+  await handler(event, context) // fetch x 2
+  await handler(event, context)
+  await setTimeout(100)
+  await handler(event, context) // fetch x 2
 
-    handler
-      .use(
-        secretsManager({
-          AwsClient: SecretsManagerClient,
-          cacheExpiry: -1,
-          fetchData: {
-            token: 'api_key'
-          },
-          fetchRotationDate: true,
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
+  equal(sendStub.callCount, 2 * 2)
+})
 
-    await handler(event, context)
-    await handler(event, context)
-    await setTimeout(100)
-    await handler(event, context)
+test('It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate', async (t) => {
+  const now = Date.now() / 1000
+  const mockService = mockClient(SecretsManagerClient)
+    .on(DescribeSecretCommand, { SecretId: 'api_key' })
+    .resolves({
+      LastRotationDate: now - 25,
+      LastChangedDate: now - 25,
+      NextRotationDate: now + 50
+    })
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolves({ SecretString: 'token' })
+  const sendStub = mockService.send
+  const handler = middy(() => {})
 
-    t.is(sendStub.callCount, 2)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
   }
-)
 
-test.serial('It should catch if an error is returned from fetch', async (t) => {
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: 100,
+        fetchData: {
+          token: 'api_key'
+        },
+        fetchRotationDate: true,
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+  await handler(event, context)
+  await setTimeout(100)
+  await handler(event, context)
+
+  equal(sendStub.callCount, 4)
+})
+
+test('It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate', async (t) => {
+  const mockService = mockClient(SecretsManagerClient)
+    .on(DescribeSecretCommand, { SecretId: 'api_key' })
+    .resolves({ NextRotationDate: Date.now() / 1000 + 50 })
+    .on(GetSecretValueCommand, { SecretId: 'api_key' })
+    .resolves({ SecretString: 'token' })
+  const sendStub = mockService.send
+  const handler = middy(() => {})
+
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    equal(values.token, 'token')
+  }
+
+  handler
+    .use(
+      secretsManager({
+        AwsClient: SecretsManagerClient,
+        cacheExpiry: -1,
+        fetchData: {
+          token: 'api_key'
+        },
+        fetchRotationDate: true,
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+  await handler(event, context)
+  await setTimeout(100)
+  await handler(event, context)
+
+  equal(sendStub.callCount, 2)
+})
+
+test('It should catch if an error is returned from fetch', async (t) => {
   const mockService = mockClient(SecretsManagerClient)
     .on(GetSecretValueCommand, { SecretId: 'api_key' })
     .rejects('timeout')
@@ -390,8 +367,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(sendStub.callCount, 1)
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause.data, [new Error('timeout')])
+    equal(sendStub.callCount, 1)
+    equal(e.message, 'Failed to resolve internal values')
+    deepEqual(e.cause.data, [new Error('timeout')])
   }
 })

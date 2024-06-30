@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual, doesNotThrow } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import cors from '../index.js'
 
@@ -19,7 +19,7 @@ test('Should return default headers when { }', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*' // TODO v6 remove line
@@ -50,7 +50,7 @@ test('It should add headers even onError', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 500,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
@@ -61,7 +61,7 @@ test('It should add headers even onError', async (t) => {
 
 // *** disableBeforePreflightResponse *** //
 test('It should run handler when { disableBeforePreflightResponse: true }', async (t) => {
-  const trigger = sinon.spy()
+  const trigger = t.mock.fn()
   const handler = middy((event, context) => {
     trigger()
     return { statusCode: 200 }
@@ -76,15 +76,15 @@ test('It should run handler when { disableBeforePreflightResponse: true }', asyn
 
   const response = await handler(event, context)
 
-  t.is(trigger.callCount, 1)
-  t.deepEqual(response, {
+  equal(trigger.mock.callCount(), 1)
+  deepEqual(response, {
     statusCode: 200,
     headers: {}
   })
 })
 
 test('It should respond during `before` when { disableBeforePreflightResponse: false }', async (t) => {
-  const trigger = sinon.spy()
+  const trigger = t.mock.fn()
   const handler = middy((event, context) => {
     trigger()
     return { statusCode: 200 }
@@ -99,8 +99,8 @@ test('It should respond during `before` when { disableBeforePreflightResponse: f
 
   const response = await handler(event, context)
 
-  t.is(trigger.callCount, 0)
-  t.deepEqual(response, {
+  equal(trigger.mock.callCount(), 0)
+  deepEqual(response, {
     statusCode: 204,
     headers: {}
   })
@@ -123,7 +123,7 @@ test('It should exclude `Access-Control-Allow-Origin` when { origin: `null` }', 
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {}
   })
@@ -149,7 +149,7 @@ test('It should not override response Access-Control-Allow-Origin header when { 
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
@@ -170,7 +170,7 @@ test('Access-Control-Allow-Origin header should be "*" when origin is "*"', asyn
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*'
@@ -195,7 +195,7 @@ test('It should use origin specified in options', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
@@ -223,7 +223,7 @@ test('It should use Origin when matching origin specified in options', async (t)
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://example.com',
@@ -249,7 +249,7 @@ test('It should return whitelisted origin (any)', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': '*'
@@ -274,7 +274,7 @@ test('It should return whitelisted origin (static)', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://another-example.com',
@@ -300,7 +300,7 @@ test('It should return whitelisted origin (dynamic sub-domain)', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://subdomain.example.com',
@@ -326,7 +326,7 @@ test('It should return whitelisted origin (dynamic sub-sub-domain)', async (t) =
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://nested.subdomain.example.com',
@@ -352,7 +352,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (st
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {}
   })
@@ -375,7 +375,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {}
   })
@@ -398,7 +398,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {}
   })
@@ -427,7 +427,7 @@ test('It should not override already declared Access-Control-Allow-Headers heade
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Headers': 'x-example'
@@ -453,7 +453,7 @@ test('It should use allowed headers specified in options', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Headers': 'x-example'
@@ -485,7 +485,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Credentials': 'false'
@@ -516,7 +516,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Credentials': 'true'
@@ -544,7 +544,7 @@ test('It should use change credentials as specified in options (true) w/ origin:
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Credentials': 'true',
@@ -575,7 +575,7 @@ test('It should use change credentials as specified in options (true)', async (t
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Credentials': 'true',
@@ -606,7 +606,7 @@ test('It should use change credentials as specified in options (true) with lower
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Credentials': 'true',
@@ -633,7 +633,7 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Methods': 'GET,PUT'
@@ -661,7 +661,7 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Allow-Methods': 'GET,POST'
@@ -686,7 +686,7 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Expose-Headers': 'X-Middleware'
@@ -714,7 +714,7 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Expose-Headers': 'X-Response'
@@ -739,7 +739,7 @@ test('it should set Access-Control-Max-Age header if present in config', async (
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Max-Age': '3600'
@@ -767,7 +767,7 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Max-Age': '-1'
@@ -792,7 +792,7 @@ test('it should set Access-Control-Request-Headers header if present in config',
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Request-Headers': 'X-Middleware'
@@ -820,7 +820,7 @@ test('it should not overwrite Access-Control-Request-Headers header if already s
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Request-Headers': 'X-Response'
@@ -845,7 +845,7 @@ test('it should set Access-Control-Request-Methods header if present in config',
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Request-Methods': 'GET,PUT'
@@ -873,7 +873,7 @@ test('it should not overwrite Access-Control-Request-Methods header if already s
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Access-Control-Request-Methods': 'GET,POST'
@@ -898,7 +898,7 @@ test('it should set Cache-Control header if present in config and http method OP
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Cache-Control': 'max-age=3600, s-maxage=3600, proxy-revalidate'
@@ -921,7 +921,7 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
     const event = { httpMethod }
 
     const response = await handler(event, context)
-    t.deepEqual(response, {
+    deepEqual(response, {
       statusCode: 200,
       headers: {}
     })
@@ -948,7 +948,7 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Cache-Control': 'max-age=1200'
@@ -976,7 +976,7 @@ test('it should not overwrite Vary header if already set', async (t) => {
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       Vary: 'Access-Control-Request-Headers'
@@ -1001,7 +1001,7 @@ test('it should set Vary header if present in config', async (t) => {
   }
 
   const response = await handler(event, context)
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       Vary: 'Access-Control-Request-Method'
@@ -1027,7 +1027,7 @@ test('It should use custom getOrigin', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://default.com',
@@ -1053,7 +1053,7 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Access-Control-Allow-Origin': 'https://incoming.com',
@@ -1073,7 +1073,7 @@ test('It should not swallow errors', async (t) => {
   try {
     await handler()
   } catch (e) {
-    t.is(e.message, 'handler')
+    equal(e.message, 'handler')
   }
 })
 
@@ -1083,5 +1083,5 @@ test('it should not throw when not a http event', async (t) => {
   handler.use(cors())
 
   const event = {}
-  t.notThrows(async () => await handler(event, context))
+  doesNotThrow(async () => await handler(event, context))
 })

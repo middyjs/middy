@@ -47,6 +47,6 @@ const event = {
   body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  t.is(body, { foo: 'bar' })
+  equal(body, { foo: 'bar' })
 })
 ```

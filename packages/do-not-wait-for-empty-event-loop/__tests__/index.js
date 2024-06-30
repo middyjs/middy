@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { ok, equal } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import doNotWaitForEmptyEventLoop from '../index.js'
 
@@ -15,7 +16,7 @@ test('It should set callbackWaitsForEmptyEventLoop to false by default', async (
   const context = { ...defaultContext }
   await handler(event, context)
 
-  t.false(context.callbackWaitsForEmptyEventLoop)
+  ok(!context.callbackWaitsForEmptyEventLoop)
 })
 
 test('callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler', async (t) => {
@@ -26,7 +27,7 @@ test('callbackWaitsForEmptyEventLoop should remain true if was overridden by use
   const context = { ...defaultContext }
   await handler(event, context)
 
-  t.true(context.callbackWaitsForEmptyEventLoop)
+  ok(context.callbackWaitsForEmptyEventLoop)
 })
 
 test('callbackWaitsForEmptyEventLoop should stay false if handler has error', async (t) => {
@@ -41,7 +42,7 @@ test('callbackWaitsForEmptyEventLoop should stay false if handler has error', as
     await handler(event, context)
   } catch (e) {}
 
-  t.false(context.callbackWaitsForEmptyEventLoop)
+  ok(!context.callbackWaitsForEmptyEventLoop)
 })
 
 test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options', async (t) => {
@@ -58,7 +59,7 @@ test('callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
   const context = { ...defaultContext }
   await handler(event, context)
 
-  t.false(context.callbackWaitsForEmptyEventLoop)
+  ok(!context.callbackWaitsForEmptyEventLoop)
 })
 
 test('callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true', async (t) => {
@@ -78,7 +79,7 @@ test('callbackWaitsForEmptyEventLoop should remain true when error occurs even i
     await handler(event, context)
   } catch (e) {}
 
-  t.true(context.callbackWaitsForEmptyEventLoop)
+  ok(context.callbackWaitsForEmptyEventLoop)
 })
 
 test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true', async (t) => {
@@ -99,7 +100,7 @@ test('callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
     await handler(event, context)
   } catch (e) {}
 
-  t.false(context.callbackWaitsForEmptyEventLoop)
+  ok(!context.callbackWaitsForEmptyEventLoop)
 })
 
 test('thrown error should be propagated when it occurs & runOnError is true', async (t) => {
@@ -119,13 +120,13 @@ test('thrown error should be propagated when it occurs & runOnError is true', as
   try {
     await handler(event, context)
   } catch (error) {
-    t.is(error.message, '!')
+    equal(error.message, '!')
   }
 })
 
 test('callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options', async (t) => {
   const handler = middy((event, context) => {
-    t.true(context.callbackWaitsForEmptyEventLoop)
+    ok(context.callbackWaitsForEmptyEventLoop)
   })
 
   handler.use(
@@ -138,5 +139,5 @@ test('callbackWaitsForEmptyEventLoop should be false in handler but true after i
   const context = { ...defaultContext, callbackWaitsForEmptyEventLoop: true }
   await handler(event, context)
 
-  t.false(context.callbackWaitsForEmptyEventLoop)
+  ok(!context.callbackWaitsForEmptyEventLoop)
 })

@@ -1,9 +1,11 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { ok, deepEqual } from 'node:assert/strict'
 import sinon from 'sinon'
 import middy from '../../core/index.js'
 import awsEmbeddedMetrics from 'aws-embedded-metrics'
 import metrics from '../index.js'
 
+// TODO mock.modules supported in v22.3, requres --experimental-test-module-mocks
 const sandbox = sinon.createSandbox()
 const metricsLoggerMock = {
   flush: sandbox.stub(),
@@ -24,124 +26,109 @@ test.afterEach((t) => {
   sandbox.restore()
 })
 
-test.serial(
-  'It should add a MetricLogger instance on context.metrics',
-  async (t) => {
-    const handler = middy((event, context) => {
-      t.deepEqual(context, {
-        ...defaultContext,
-        metrics: metricsLoggerMock
-      })
-      t.true(createMetricsLoggerStub.called)
+test('It should add a MetricLogger instance on context.metrics', async (t) => {
+  const handler = middy((event, context) => {
+    deepEqual(context, {
+      ...defaultContext,
+      metrics: metricsLoggerMock
     })
+    ok(createMetricsLoggerStub.called)
+  })
 
-    handler.use(metrics())
+  handler.use(metrics())
 
-    const context = { ...defaultContext }
-    await handler(event, context)
+  const context = { ...defaultContext }
+  await handler(event, context)
+})
+
+test('It should call metrics.flush after handler invocation', async (t) => {
+  const handler = middy(() => {})
+
+  const middleware = () => {
+    ok(metricsLoggerMock.flush.calledOnce)
   }
-)
 
-test.serial(
-  'It should call metrics.flush after handler invocation',
-  async (t) => {
-    const handler = middy(() => {})
+  handler.use(metrics()).after(middleware)
 
-    const middleware = () => {
-      t.true(metricsLoggerMock.flush.calledOnce)
-    }
+  const context = { ...defaultContext }
+  await handler(event, context)
+})
 
-    handler.use(metrics()).after(middleware)
+test('It should call metrics.setNamespace when option passed', async (t) => {
+  const handler = middy(() => {})
 
-    const context = { ...defaultContext }
-    await handler(event, context)
+  const middleware = () => {
+    ok(metricsLoggerMock.setNamespace.calledWithExactly('myNamespace'))
   }
-)
 
-test.serial(
-  'It should call metrics.setNamespace when option passed',
-  async (t) => {
-    const handler = middy(() => {})
+  handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
 
-    const middleware = () => {
-      t.true(metricsLoggerMock.setNamespace.calledWithExactly('myNamespace'))
-    }
+  const context = { ...defaultContext }
+  await handler(event, context)
+})
 
-    handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
+test('It should call metrics.setDimensions when option passed using plain object', async (t) => {
+  const handler = middy(() => {})
 
-    const context = { ...defaultContext }
-    await handler(event, context)
+  const middleware = () => {
+    ok(
+      metricsLoggerMock.setDimensions.calledWithExactly({
+        Runtime: 'NodeJS',
+        Platform: 'ECS',
+        Agent: 'CloudWatchAgent',
+        Version: 2
+      })
+    )
   }
-)
 
-test.serial(
-  'It should call metrics.setDimensions when option passed using plain object',
-  async (t) => {
-    const handler = middy(() => {})
-
-    const middleware = () => {
-      t.true(
-        metricsLoggerMock.setDimensions.calledWithExactly({
+  handler
+    .use(
+      metrics({
+        dimensions: {
           Runtime: 'NodeJS',
           Platform: 'ECS',
           Agent: 'CloudWatchAgent',
           Version: 2
-        })
-      )
-    }
+        }
+      })
+    )
+    .before(middleware)
 
-    handler
-      .use(
-        metrics({
-          dimensions: {
-            Runtime: 'NodeJS',
-            Platform: 'ECS',
-            Agent: 'CloudWatchAgent',
-            Version: 2
-          }
-        })
-      )
-      .before(middleware)
+  const context = { ...defaultContext }
+  await handler(event, context)
+})
 
-    const context = { ...defaultContext }
-    await handler(event, context)
+test('It should call metrics.setDimensions when option passed using an array of objects', async (t) => {
+  const handler = middy(() => {})
+
+  const middleware = () => {
+    ok(
+      metricsLoggerMock.setDimensions.calledWithExactly([
+        {
+          Runtime: 'NodeJS',
+          Platform: 'ECS',
+          Agent: 'CloudWatchAgent',
+          Version: 2
+        }
+      ])
+    )
   }
-)
 
-test.serial(
-  'It should call metrics.setDimensions when option passed using an array of objects',
-  async (t) => {
-    const handler = middy(() => {})
-
-    const middleware = () => {
-      t.true(
-        metricsLoggerMock.setDimensions.calledWithExactly([
+  handler
+    .use(
+      metrics({
+        dimensions: [
           {
             Runtime: 'NodeJS',
             Platform: 'ECS',
             Agent: 'CloudWatchAgent',
             Version: 2
           }
-        ])
-      )
-    }
+        ]
+      })
+    )
+    .before(middleware)
 
-    handler
-      .use(
-        metrics({
-          dimensions: [
-            {
-              Runtime: 'NodeJS',
-              Platform: 'ECS',
-              Agent: 'CloudWatchAgent',
-              Version: 2
-            }
-          ]
-        })
-      )
-      .before(middleware)
-
-    const context = { ...defaultContext }
-    await handler(event, context)
-  }
-)
+  const context = { ...defaultContext }
+  await handler(event, context)
+})

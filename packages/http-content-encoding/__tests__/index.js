@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import httpContentEncoding from '../index.js'
 
@@ -20,7 +21,7 @@ test('It should encode string using br', async (t) => {
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
@@ -41,7 +42,7 @@ test('It should encode string using gzip', async (t) => {
     preferredEncoding: 'gzip'
   })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     body: gzipSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'gzip' },
@@ -61,7 +62,7 @@ test('It should encode string using deflate', async (t) => {
     preferredEncoding: 'deflate'
   })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     body: deflateSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'deflate' },
@@ -86,7 +87,7 @@ test('It should encode using br when context.preferredEncoding is gzip, but has 
     preferredEncodings: ['gzip', 'deflate', 'br']
   })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'br' },
@@ -103,7 +104,7 @@ test('It should not encode when missing context.preferredEncoding', async (t) =>
 
   const response = await handler(event, context)
 
-  t.deepEqual(response, { statusCode: 200, body, headers: {} })
+  deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when missing context.preferredEncoding === `identity`', async (t) => {
@@ -119,7 +120,7 @@ test('It should not encode when missing context.preferredEncoding === `identity`
     preferredEncodings: ['identity']
   })
 
-  t.deepEqual(response, { statusCode: 200, body, headers: {} })
+  deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.isBase64Encoded is already set to true', async (t) => {
@@ -135,7 +136,7 @@ test('It should not encode when response.isBase64Encoded is already set to true'
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     body,
     headers: {},
@@ -152,7 +153,7 @@ test('It should not encode when response.body is not a string', async (t) => {
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, { statusCode: 200, body, headers: {} })
+  deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is empty string', async (t) => {
@@ -164,7 +165,7 @@ test('It should not encode when response.body is empty string', async (t) => {
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, { statusCode: 200, body, headers: {} })
+  deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is different type', async (t) => {
@@ -176,7 +177,7 @@ test('It should not encode when response.body is different type', async (t) => {
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, { statusCode: 200, body, headers: {} })
+  deepEqual(response, { statusCode: 200, body, headers: {} })
 })
 
 test('It should not encode when response.body is undefined', async (t) => {
@@ -187,7 +188,7 @@ test('It should not encode when response.body is undefined', async (t) => {
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
-  t.deepEqual(response, { statusCode: 200, headers: {} })
+  deepEqual(response, { statusCode: 200, headers: {} })
 })
 
 test('It should not encode when error is not handled', async (t) => {
@@ -201,6 +202,6 @@ test('It should not encode when error is not handled', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'error')
+    equal(e.message, 'error')
   }
 })

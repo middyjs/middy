@@ -106,6 +106,6 @@ const event = {
 }
 
 handler(event, {}, (_, response) => {
-  t.is(response.body, '<message>Hello World</message>')
+  equal(response.body, '<message>Hello World</message>')
 })
 ```

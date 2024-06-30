@@ -36,7 +36,7 @@ export const handler = middy().use(httpErrorHandler()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity'
   })

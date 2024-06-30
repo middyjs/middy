@@ -1,5 +1,6 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { deepEqual } from 'node:assert/strict'
+
 import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import {
@@ -9,20 +10,11 @@ import {
 
 import wsResponse from '../index.js'
 
-let sandbox
-test.beforeEach((t) => {
-  sandbox = sinon.createSandbox()
-})
-
-test.afterEach((t) => {
-  sandbox.restore()
-})
-
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
-test.serial('It should post when api gateway event', async (t) => {
+test('It should post when api gateway event', async (t) => {
   mockClient(ApiGatewayManagementApiClient)
     .on(PostToConnectionCommand)
     .resolves({ statusCode: 200 })
@@ -45,10 +37,10 @@ test.serial('It should post when api gateway event', async (t) => {
     }
   }
   const response = await handler(event, context)
-  t.deepEqual(response, { statusCode: 200 })
+  deepEqual(response, { statusCode: 200 })
 })
 
-test.serial('It should post when endpoint option set', async (t) => {
+test('It should post when endpoint option set', async (t) => {
   mockClient(ApiGatewayManagementApiClient)
     .on(PostToConnectionCommand)
     .resolves({ statusCode: 200 })
@@ -71,10 +63,10 @@ test.serial('It should post when endpoint option set', async (t) => {
 
   const event = {}
   const response = await handler(event, context)
-  t.deepEqual(response, { statusCode: 200 })
+  deepEqual(response, { statusCode: 200 })
 })
 
-test.serial('It should not post when connection id is not set', async (t) => {
+test('It should not post when connection id is not set', async (t) => {
   mockClient(ApiGatewayManagementApiClient)
     .on(PostToConnectionCommand)
     .resolves({ statusCode: 200 })
@@ -91,10 +83,10 @@ test.serial('It should not post when connection id is not set', async (t) => {
 
   const event = {}
   const response = await handler(event, context)
-  t.deepEqual(response, true)
+  deepEqual(response, true)
 })
 
-test.serial('It should not post when response not set', async (t) => {
+test('It should not post when response not set', async (t) => {
   mockClient(ApiGatewayManagementApiClient)
     .on(PostToConnectionCommand)
     .resolves({ statusCode: 200 })
@@ -110,5 +102,5 @@ test.serial('It should not post when response not set', async (t) => {
   const event = {}
   const response = await handler(event, context)
 
-  t.deepEqual(response, undefined)
+  deepEqual(response, undefined)
 })

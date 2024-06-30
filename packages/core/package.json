@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "ava",
+    "test:unit": "node --test __tests__/index.js",
     "test:benchmark": "node __benchmarks__/index.js",
     "test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
   },
@@ -62,6 +62,6 @@
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
   "dependencies": {
-    "@datastream/core": "0.0.35"
+    "@datastream/core": "0.0.36"
   }
 }

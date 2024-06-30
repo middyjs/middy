@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { ok, equal } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import wsRouter from '../index.js'
 
@@ -21,7 +22,7 @@ test('It should route to a static route', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should thrown 404 when route not found', async (t) => {
@@ -39,8 +40,8 @@ test('It should thrown 404 when route not found', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Route does not exist')
-    t.is(e.statusCode, 404)
+    equal(e.message, 'Route does not exist')
+    equal(e.statusCode, 404)
   }
 })
 
@@ -60,7 +61,7 @@ test('It should run middleware that are part of route handler', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should middleware part of router', async (t) => {
@@ -80,7 +81,7 @@ test('It should middleware part of router', async (t) => {
     request.response = true
   })
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 // Errors
@@ -98,6 +99,6 @@ test('It should throw when not a ws event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Unknown WebSocket event format')
+    equal(e.message, 'Unknown WebSocket event format')
   }
 })

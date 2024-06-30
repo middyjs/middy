@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import httpPartialResponse from '../index.js'
 
@@ -45,7 +46,7 @@ test('It should filter a response with default opts (string)', async (t) => {
 
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response.body, 'response')
+  deepEqual(response.body, 'response')
 })
 
 test('It should filter a response with default opts (object)', async (t) => {
@@ -62,7 +63,7 @@ test('It should filter a response with default opts (object)', async (t) => {
 
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response.body, { firstname: 'john' })
+  deepEqual(response.body, { firstname: 'john' })
 })
 
 test('It should filter a response with defined filter key name in opts', async (t) => {
@@ -79,7 +80,7 @@ test('It should filter a response with defined filter key name in opts', async (
 
   const response = await handler(event, defaultContext)
 
-  t.deepEqual(response.body, { lastname: 'doe' })
+  deepEqual(response.body, { lastname: 'doe' })
 })
 
 test('It should filter a stringified response with default opts', async (t) => {
@@ -96,7 +97,7 @@ test('It should filter a stringified response with default opts', async (t) => {
 
   const response = await handler(event, defaultContext)
 
-  t.is(response.body, JSON.stringify({ firstname: 'john' }))
+  equal(response.body, JSON.stringify({ firstname: 'john' }))
 })
 
 test('It should return the initial response if response body is empty', async (t) => {
@@ -109,7 +110,7 @@ test('It should return the initial response if response body is empty', async (t
   }
   const response = await handler(event, defaultContext)
 
-  t.is(response, '')
+  equal(response, '')
 })
 
 test('It should return the initial response if response body is not an object neither a json string', async (t) => {
@@ -122,7 +123,7 @@ test('It should return the initial response if response body is not an object ne
 
   const response = await handler(defaultEvent, defaultContext)
 
-  t.is(response.body, 'success response')
+  equal(response.body, 'success response')
 })
 
 test('It should return the initial response if there is no queryStringParameters filtering key', async (t) => {
@@ -132,7 +133,7 @@ test('It should return the initial response if there is no queryStringParameters
 
   const response = await handler(defaultEvent, defaultContext)
 
-  t.deepEqual(response.body, {
+  deepEqual(response.body, {
     firstname: 'john',
     lastname: 'doe'
   })

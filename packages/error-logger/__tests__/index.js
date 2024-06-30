@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import errorLogger from '../index.js'
 
@@ -33,7 +34,7 @@ test('It should log errors and propagate the error', async (t) => {
     // the call to the logger is async so we need to make sure the invocation is complete
     // before checking
     await loggerHasBeenCalled
-    t.deepEqual(loggerRequestReceived.error, error)
+    deepEqual(loggerRequestReceived.error, error)
   }
 })
 
@@ -49,7 +50,7 @@ test('It should throw error when invalid logger', async (t) => {
     handler.use(errorLogger({ logger }))
     await handler(defaultEvent, defaultContext)
   } catch (e) {
-    t.is(
+    equal(
       e.message,
       'Middleware must be an object containing at least one key among "before", "after", "onError"'
     )

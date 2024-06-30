@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import { createError } from '../../util/index.js'
 
@@ -52,7 +53,7 @@ for (const [key] of [['Content-Type'], ['content-type']]) {
     }
     const response = await handler(event, { ...context })
 
-    t.deepEqual(response, handlerResponse)
+    deepEqual(response, handlerResponse)
   })
 }
 
@@ -86,7 +87,7 @@ for (const [accept, result] of [
 
     const response = await handler(event, { ...context })
 
-    t.is(response.body, result)
+    equal(response.body, result)
   })
 }
 
@@ -99,7 +100,7 @@ test('missing headers skips', async (t) => {
 
   const response = await handler(event, { ...context })
 
-  t.is(response.body, '{"message":"Hello World"}')
+  equal(response.body, '{"message":"Hello World"}')
 })
 
 // TODO deprecate in v6
@@ -122,7 +123,7 @@ test('It should use `event.requiredContentType` instead of accept headers', asyn
 
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': 'text/plain'
@@ -141,7 +142,7 @@ test('It should use the defaultContentType when no accept preferences are given'
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': standardConfiguration.defaultContentType
@@ -173,7 +174,7 @@ test('It should allow the return of the entire response', async (t) => {
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': standardConfiguration.defaultContentType
@@ -199,7 +200,7 @@ test('It should use the defaultContentType when no matching accept preferences a
 
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': standardConfiguration.defaultContentType
@@ -224,7 +225,7 @@ test('It should use `context.preferredMediaTypes` instead of the defaultContentT
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': 'text/plain'
@@ -247,7 +248,7 @@ test('It should pass-through when no preference or defaultContentType is found',
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {},
     body: 'Hello World'
@@ -267,7 +268,7 @@ test('It should not pass-through when request content-type is set', async (t) =>
 
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': standardConfiguration.defaultContentType
@@ -300,7 +301,7 @@ test('It should replace the response object when the serializer returns an objec
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 204,
     headers: {
       'Content-Type': 'text/plain'
@@ -323,7 +324,7 @@ test('It should work with `http-error-handler` middleware', async (t) => {
   }
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity',
     headers: {
@@ -345,7 +346,7 @@ test('It should skip if the response is undefined form 502 error', async (t) => 
   try {
     await handler(event, { ...context })
   } catch (e) {
-    t.deepEqual(e.message, 'test')
+    deepEqual(e.message, 'test')
   }
 })
 
@@ -364,7 +365,7 @@ test('It should return false when response body is falsey', async (t) => {
     .use(httpResponseSerializer(standardConfiguration))
   const response = await handler(event, { ...context })
 
-  t.deepEqual(response, {
+  deepEqual(response, {
     statusCode: 200,
     headers: {
       'Content-Type': 'text/plain'

@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import { ok, equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import httpRouter from '../index.js'
 
@@ -21,7 +22,7 @@ test('It should route to a static route', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a static route with trailing slash', async (t) => {
@@ -37,7 +38,7 @@ test('It should route to a static route with trailing slash', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route with `{variable}`', async (t) => {
@@ -50,13 +51,13 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
       method: 'GET',
       path: '/user/{id}/',
       handler: (event) => {
-        t.deepEqual(event.pathParameters, { id: '1' })
+        deepEqual(event.pathParameters, { id: '1' })
         return true
       }
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route with `{variable}` with trailing slash', async (t) => {
@@ -72,7 +73,7 @@ test('It should route to a dynamic route with `{variable}` with trailing slash',
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route with multiple `{variable}`', async (t) => {
@@ -85,7 +86,7 @@ test('It should route to a dynamic route with multiple `{variable}`', async (t) 
       method: 'GET',
       path: '/user/{id}',
       handler: (event) => {
-        t.deepEqual(event.pathParameters, { id: '1', transactions: '50' })
+        deepEqual(event.pathParameters, { id: '1', transactions: '50' })
         return true
       }
     },
@@ -96,7 +97,7 @@ test('It should route to a dynamic route with multiple `{variable}`', async (t) 
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route (/) with `{proxy+}`', async (t) => {
@@ -109,13 +110,13 @@ test('It should route to a dynamic route (/) with `{proxy+}`', async (t) => {
       method: 'GET',
       path: '/{proxy+}',
       handler: () => {
-        t.deepEqual(event.pathParameters, { proxy: 'any' })
+        deepEqual(event.pathParameters, { proxy: 'any' })
         return true
       }
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route (/path) with `{proxy+}`', async (t) => {
@@ -128,13 +129,13 @@ test('It should route to a dynamic route (/path) with `{proxy+}`', async (t) => 
       method: 'GET',
       path: '/path/{proxy+}',
       handler: () => {
-        t.deepEqual(event.pathParameters, { proxy: '' })
+        deepEqual(event.pathParameters, { proxy: '' })
         return true
       }
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) => {
@@ -147,14 +148,14 @@ test('It should route to a dynamic route (/path/to) with `{proxy+}`', async (t) 
       method: 'GET',
       path: '/path/{proxy+}',
       handler: (event) => {
-        t.deepEqual(event.pathParameters, { proxy: 'to' })
-        t.truthy(event.pathParameters.__proto__) // eslint-disable-line no-proto
+        deepEqual(event.pathParameters, { proxy: 'to' })
+        ok(!!event.pathParameters.__proto__) // eslint-disable-line no-proto
         return true
       }
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should populate pathParameters to a dynamic route even if they already exist in the event', async (t) => {
@@ -170,14 +171,14 @@ test('It should populate pathParameters to a dynamic route even if they already 
       method: 'GET',
       path: '/user/{id}',
       handler: (event) => {
-        t.deepEqual(event.pathParameters, { id: '123', previous: '321' })
-        t.truthy(event.pathParameters.__proto__) // eslint-disable-line no-proto
+        deepEqual(event.pathParameters, { id: '123', previous: '321' })
+        ok(!!event.pathParameters.__proto__) // eslint-disable-line no-proto
         return true
       }
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should thrown 404 when route not found', async (t) => {
@@ -195,8 +196,8 @@ test('It should thrown 404 when route not found', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Route does not exist')
-    t.is(e.statusCode, 404)
+    equal(e.message, 'Route does not exist')
+    equal(e.statusCode, 404)
   }
 })
 
@@ -214,7 +215,7 @@ test('It should route to a static POST method', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a static ANY method', async (t) => {
@@ -230,7 +231,7 @@ test('It should route to a static ANY method', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic POST method', async (t) => {
@@ -246,7 +247,7 @@ test('It should route to a dynamic POST method', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a dynamic ANY method', async (t) => {
@@ -262,7 +263,7 @@ test('It should route to a dynamic ANY method', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 // event versions
@@ -279,7 +280,7 @@ test('It should route to a REST v1 event', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a v2 event', async (t) => {
@@ -300,7 +301,7 @@ test('It should route to a v2 event', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should route to a VPC Lattice event', async (t) => {
@@ -316,7 +317,7 @@ test('It should route to a VPC Lattice event', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 // with middleware
@@ -335,7 +336,7 @@ test('It should run middleware that are part of route handler', async (t) => {
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 test('It should not run middleware that are part of another route handler', async (t) => {
@@ -359,8 +360,8 @@ test('It should not run middleware that are part of another route handler', asyn
     }
   ])
   const response = await handler(event, context)
-  t.true(response)
-  t.true(success)
+  ok(response)
+  ok(success)
 })
 
 test('It should run middleware part of router', async (t) => {
@@ -380,7 +381,7 @@ test('It should run middleware part of router', async (t) => {
     request.response = true
   })
   const response = await handler(event, context)
-  t.true(response)
+  ok(response)
 })
 
 // Errors
@@ -394,7 +395,7 @@ test('It should throw when unknown method is used', async (t) => {
       }
     ])
   } catch (e) {
-    t.is(e.message, 'Method not allowed')
+    equal(e.message, 'Method not allowed')
   }
 })
 
@@ -412,6 +413,6 @@ test('It should throw when not a http event', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(e.message, 'Unknown http event format')
+    equal(e.message, 'Unknown http event format')
   }
 })

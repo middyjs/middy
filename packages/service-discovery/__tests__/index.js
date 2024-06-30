@@ -1,5 +1,5 @@
-import test from 'ava'
-import sinon from 'sinon'
+import { test } from 'node:test'
+import { equal, deepEqual } from 'node:assert/strict'
 import { mockClient } from 'aws-sdk-client-mock'
 import middy from '../../core/index.js'
 import { getInternal, clearCache } from '../../util/index.js'
@@ -9,13 +9,8 @@ import {
 } from '@aws-sdk/client-servicediscovery'
 import serviceDiscovery from '../index.js'
 
-let sandbox
-test.beforeEach((t) => {
-  sandbox = sinon.createSandbox()
-})
-
 test.afterEach((t) => {
-  sandbox.restore()
+  t.mock.reset()
   clearCache()
 })
 
@@ -24,7 +19,7 @@ const context = {
   getRemainingTimeInMillis: () => 1000
 }
 
-test.serial('It should set instances to internal storage', async (t) => {
+test('It should set instances to internal storage', async (t) => {
   mockClient(ServiceDiscoveryClient)
     .on(DiscoverInstancesCommand)
     .resolvesOnce({
@@ -46,7 +41,7 @@ test.serial('It should set instances to internal storage', async (t) => {
 
   const middleware = async (request) => {
     const values = await getInternal(true, request)
-    t.deepEqual(values.ec2, [
+    deepEqual(values.ec2, [
       {
         Attributes: {
           AWS_INSTANCE_IPV4: '172.2.1.3',
@@ -79,65 +74,7 @@ test.serial('It should set instances to internal storage', async (t) => {
   await handler(event, context)
 })
 
-test.serial(
-  'It should set STS secret to internal storage without prefetch',
-  async (t) => {
-    mockClient(ServiceDiscoveryClient)
-      .on(DiscoverInstancesCommand)
-      .resolvesOnce({
-        Instances: [
-          {
-            Attributes: {
-              AWS_INSTANCE_IPV4: '172.2.1.3',
-              AWS_INSTANCE_PORT: '808'
-            },
-            HealthStatus: 'UNKNOWN',
-            InstanceId: 'myservice-53',
-            NamespaceName: 'example.com',
-            ServiceName: 'myservice'
-          }
-        ]
-      })
-
-    const handler = middy(() => {})
-
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.deepEqual(values.ec2, [
-        {
-          Attributes: {
-            AWS_INSTANCE_IPV4: '172.2.1.3',
-            AWS_INSTANCE_PORT: '808'
-          },
-          HealthStatus: 'UNKNOWN',
-          InstanceId: 'myservice-53',
-          NamespaceName: 'example.com',
-          ServiceName: 'myservice'
-        }
-      ])
-    }
-
-    handler
-      .use(
-        serviceDiscovery({
-          AwsClient: ServiceDiscoveryClient,
-          cacheExpiry: 0,
-          fetchData: {
-            ec2: {
-              NamespaceName: 'example.com',
-              ServiceName: 'example'
-            }
-          },
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
-
-    await handler(event, context)
-  }
-)
-
-test.serial('It should set STS secret to context', async (t) => {
+test('It should set STS secret to internal storage without prefetch', async (t) => {
   mockClient(ServiceDiscoveryClient)
     .on(DiscoverInstancesCommand)
     .resolvesOnce({
@@ -158,7 +95,62 @@ test.serial('It should set STS secret to context', async (t) => {
   const handler = middy(() => {})
 
   const middleware = async (request) => {
-    t.deepEqual(request.context.ec2, [
+    const values = await getInternal(true, request)
+    deepEqual(values.ec2, [
+      {
+        Attributes: {
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
+        },
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
+      }
+    ])
+  }
+
+  handler
+    .use(
+      serviceDiscovery({
+        AwsClient: ServiceDiscoveryClient,
+        cacheExpiry: 0,
+        fetchData: {
+          ec2: {
+            NamespaceName: 'example.com',
+            ServiceName: 'example'
+          }
+        },
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+})
+
+test('It should set STS secret to context', async (t) => {
+  mockClient(ServiceDiscoveryClient)
+    .on(DiscoverInstancesCommand)
+    .resolvesOnce({
+      Instances: [
+        {
+          Attributes: {
+            AWS_INSTANCE_IPV4: '172.2.1.3',
+            AWS_INSTANCE_PORT: '808'
+          },
+          HealthStatus: 'UNKNOWN',
+          InstanceId: 'myservice-53',
+          NamespaceName: 'example.com',
+          ServiceName: 'myservice'
+        }
+      ]
+    })
+
+  const handler = middy(() => {})
+
+  const middleware = async (request) => {
+    deepEqual(request.context.ec2, [
       {
         Attributes: {
           AWS_INSTANCE_IPV4: '172.2.1.3',
@@ -192,32 +184,11 @@ test.serial('It should set STS secret to context', async (t) => {
   await handler(event, context)
 })
 
-test.serial(
-  'It should not call aws-sdk again if parameter is cached',
-  async (t) => {
-    const mockService = mockClient(ServiceDiscoveryClient)
-      .on(DiscoverInstancesCommand)
-      .resolvesOnce({
-        Instances: [
-          {
-            Attributes: {
-              AWS_INSTANCE_IPV4: '172.2.1.3',
-              AWS_INSTANCE_PORT: '808'
-            },
-            HealthStatus: 'UNKNOWN',
-            InstanceId: 'myservice-53',
-            NamespaceName: 'example.com',
-            ServiceName: 'myservice'
-          }
-        ]
-      })
-    const sendStub = mockService.send
-
-    const handler = middy(() => {})
-
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.deepEqual(values.ec2, [
+test('It should not call aws-sdk again if parameter is cached', async (t) => {
+  const mockService = mockClient(ServiceDiscoveryClient)
+    .on(DiscoverInstancesCommand)
+    .resolvesOnce({
+      Instances: [
         {
           Attributes: {
             AWS_INSTANCE_IPV4: '172.2.1.3',
@@ -228,57 +199,54 @@ test.serial(
           NamespaceName: 'example.com',
           ServiceName: 'myservice'
         }
-      ])
-    }
+      ]
+    })
+  const sendStub = mockService.send
 
-    handler
-      .use(
-        serviceDiscovery({
-          AwsClient: ServiceDiscoveryClient,
-          cacheExpiry: -1,
-          fetchData: {
-            ec2: {
-              NamespaceName: 'example.com',
-              ServiceName: 'example'
-            }
-          }
-        })
-      )
-      .before(middleware)
+  const handler = middy(() => {})
 
-    await handler(event, context)
-    await handler(event, context)
-
-    t.is(sendStub.callCount, 1)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    deepEqual(values.ec2, [
+      {
+        Attributes: {
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
+        },
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
+      }
+    ])
   }
-)
 
-test.serial(
-  'It should call aws-sdk if cache enabled but cached param has expired',
-  async (t) => {
-    const mockService = mockClient(ServiceDiscoveryClient)
-      .on(DiscoverInstancesCommand)
-      .resolves({
-        Instances: [
-          {
-            Attributes: {
-              AWS_INSTANCE_IPV4: '172.2.1.3',
-              AWS_INSTANCE_PORT: '808'
-            },
-            HealthStatus: 'UNKNOWN',
-            InstanceId: 'myservice-53',
+  handler
+    .use(
+      serviceDiscovery({
+        AwsClient: ServiceDiscoveryClient,
+        cacheExpiry: -1,
+        fetchData: {
+          ec2: {
             NamespaceName: 'example.com',
-            ServiceName: 'myservice'
+            ServiceName: 'example'
           }
-        ]
+        }
       })
-    const sendStub = mockService.send
+    )
+    .before(middleware)
 
-    const handler = middy(() => {})
+  await handler(event, context)
+  await handler(event, context)
 
-    const middleware = async (request) => {
-      const values = await getInternal(true, request)
-      t.deepEqual(values.ec2, [
+  equal(sendStub.callCount, 1)
+})
+
+test('It should call aws-sdk if cache enabled but cached param has expired', async (t) => {
+  const mockService = mockClient(ServiceDiscoveryClient)
+    .on(DiscoverInstancesCommand)
+    .resolves({
+      Instances: [
         {
           Attributes: {
             AWS_INSTANCE_IPV4: '172.2.1.3',
@@ -289,33 +257,51 @@ test.serial(
           NamespaceName: 'example.com',
           ServiceName: 'myservice'
         }
-      ])
-    }
+      ]
+    })
+  const sendStub = mockService.send
 
-    handler
-      .use(
-        serviceDiscovery({
-          AwsClient: ServiceDiscoveryClient,
-          cacheExpiry: 0,
-          fetchData: {
-            ec2: {
-              NamespaceName: 'example.com',
-              ServiceName: 'example'
-            }
-          },
-          disablePrefetch: true
-        })
-      )
-      .before(middleware)
+  const handler = middy(() => {})
 
-    await handler(event, context)
-    await handler(event, context)
-
-    t.is(sendStub.callCount, 2)
+  const middleware = async (request) => {
+    const values = await getInternal(true, request)
+    deepEqual(values.ec2, [
+      {
+        Attributes: {
+          AWS_INSTANCE_IPV4: '172.2.1.3',
+          AWS_INSTANCE_PORT: '808'
+        },
+        HealthStatus: 'UNKNOWN',
+        InstanceId: 'myservice-53',
+        NamespaceName: 'example.com',
+        ServiceName: 'myservice'
+      }
+    ])
   }
-)
 
-test.serial('It should catch if an error is returned from fetch', async (t) => {
+  handler
+    .use(
+      serviceDiscovery({
+        AwsClient: ServiceDiscoveryClient,
+        cacheExpiry: 0,
+        fetchData: {
+          ec2: {
+            NamespaceName: 'example.com',
+            ServiceName: 'example'
+          }
+        },
+        disablePrefetch: true
+      })
+    )
+    .before(middleware)
+
+  await handler(event, context)
+  await handler(event, context)
+
+  equal(sendStub.callCount, 2)
+})
+
+test('It should catch if an error is returned from fetch', async (t) => {
   const mockService = mockClient(ServiceDiscoveryClient)
     .on(DiscoverInstancesCommand)
     .rejects('timeout')
@@ -339,8 +325,8 @@ test.serial('It should catch if an error is returned from fetch', async (t) => {
   try {
     await handler(event, context)
   } catch (e) {
-    t.is(sendStub.callCount, 1)
-    t.is(e.message, 'Failed to resolve internal values')
-    t.deepEqual(e.cause.data, [new Error('timeout')])
+    equal(sendStub.callCount, 1)
+    equal(e.message, 'Failed to resolve internal values')
+    deepEqual(e.cause.data, [new Error('timeout')])
   }
 })
