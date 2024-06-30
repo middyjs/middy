@@ -34,20 +34,6 @@ jobs:
         run: |
           npm install
 
-      #- name: Transpile for Node.js ${{ matrix.node-version }} (esm)
-      #  run: |
-      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.esm.config.json --source-maps false index.js --out-file index.js
-      #    ./node_modules/.bin/swc --config-file ./swc.esm.config.json --source-maps false packages/validator/transpile.js --out-file packages/validator/transpile.js
-
-      #- name: Transpile for Node.js ${{ matrix.node-version }} (cjs)
-      #  run: |
-      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- ../../node_modules/.bin/swc --config-file ../../swc.cjs.config.json --source-maps false index.js --out-file index.cjs
-      #    ./node_modules/.bin/lerna exec --bail --concurrency 2 -- sed -i.bak 's/exports,\ \"default\"/module,\ \"exports\"/g' index.cjs # Fix CommonJS default import
-      #    sed -i.bak 's/awsEmbeddedMetrics.default.createMetricsLogger/awsEmbeddedMetrics.createMetricsLogger/g' packages/cloudwatch-metrics/index.cjs # Fix CommonJS default import
-
-      #    ./node_modules/.bin/swc --config-file ./swc.cjs.config.json --source-maps false packages/validator/transpile.js --out-file packages/validator/transpile.cjs
-      #    sed -i.bak 's/exports,\ \"default\"/module,\ \"exports\"/g' packages/validator/transpile.cjs # Fix CommonJS default import
-
       #- name: Pre-Release
       #  if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
       #  run: |
