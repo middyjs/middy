@@ -96,12 +96,11 @@ export interface MiddyfiedHandler<
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  handler: <TInputHandlerEventProps, TInputHandlerResultProps>(
+  handler: <TInputHandlerEventProps = TEvent, TInputHandlerResultProps = TResult>(
     handler: MiddlewareHandler<
     LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
     TContext
     >
-    | LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>
   ) => MiddyfiedHandler<TInputHandlerEventProps, TInputHandlerResultProps, TErr, TContext, TInternal>
 }
 
