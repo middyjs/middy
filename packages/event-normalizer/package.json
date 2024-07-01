@@ -1,6 +1,6 @@
 {
   "name": "@middy/event-normalizer",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "Parse and normalize AWS events middleware for the middy framework",
   "type": "module",
   "engines": {

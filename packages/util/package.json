@@ -1,6 +1,6 @@
 {
   "name": "@middy/util",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
   "type": "module",
   "engines": {

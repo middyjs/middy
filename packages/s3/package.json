@@ -1,6 +1,6 @@
 {
   "name": "@middy/s3",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "S3 middleware for the middy framework",
   "type": "module",
   "engines": {

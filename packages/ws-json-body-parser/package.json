@@ -1,6 +1,6 @@
 {
   "name": "@middy/ws-json-body-parser",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "WebSocket JSON body parser middleware for the middy framework",
   "type": "module",
   "engines": {

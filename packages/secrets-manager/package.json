@@ -1,6 +1,6 @@
 {
   "name": "@middy/secrets-manager",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "Secrets Manager middleware for the middy framework",
   "type": "module",
   "engines": {

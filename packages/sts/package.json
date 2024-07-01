@@ -1,6 +1,6 @@
 {
   "name": "@middy/sts",
-  "version": "5.4.2",
+  "version": "5.4.3",
   "description": "STS (Security Token Service) credentials middleware for the middy framework",
   "type": "module",
   "engines": {
