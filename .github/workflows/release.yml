@@ -41,6 +41,6 @@ jobs:
       - name: Release
         #  if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
         run: |
-          npm run publish
+          npm run release:publish
         env:
           NPM_CONFIG_PROVENANCE: 'true'
