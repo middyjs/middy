@@ -307,7 +307,7 @@ test('It should call aws-sdk if cache enabled but cached param has expired using
   await setTimeout(100)
   await handler(event, context)
 
-  equal(sendStub.callCount, 4)
+  equal(sendStub.callCount, 2)
 })
 
 test('It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate', async (t) => {
