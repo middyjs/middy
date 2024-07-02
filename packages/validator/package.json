@@ -68,13 +68,13 @@
   },
   "dependencies": {
     "@middy/util": "5.4.2",
-    "ajv": "8.14.0",
+    "ajv": "8.16.0",
     "ajv-errors": "3.0.0",
     "ajv-formats": "3.0.1",
     "ajv-formats-draft2019": "1.6.1",
     "ajv-ftl-i18n": "0.1.1",
     "ajv-keywords": "5.1.0",
-    "fast-uri": "2.3.0"
+    "fast-uri": "3.0.1"
   },
   "devDependencies": {
     "@middy/core": "5.4.2",

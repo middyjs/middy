@@ -1,5 +1,10 @@
 import { createError } from '@middy/util'
+// import querystring from 'node:querystring'
 import parse from 'qs/lib/parse.js'
+
+// const parse = (input) => {
+//   return Object.assign({}, querystring.parse(input))
+// }
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 const defaults = {

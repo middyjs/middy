@@ -6,7 +6,7 @@ This document explains what are the necessary steps to draft a new release and p
 
 ## Concepts
 
-Middy is managed as a monorepo (currently using [Lerna](https://github.com/lerna/lerna)). This means that Middy core package and all the official middlewares are developed using the same repository.
+Middy is managed as a monorepo. This means that Middy core package and all the official middlewares are developed using the same repository.
 
 By design, new releases keeps all the package versions in sync. For instance, if we are to release v1.2.3, this means that EVERY package needs to be bumped to v1.2.3 and that EVERY package will be published.
 
@@ -38,7 +38,7 @@ At a given point in time, if you want to draft a new release, you need to follow
 ### 2. Version bump
 
 - Update the `version` field of the main [`package.json`](/package.json) with the new version.
-- Run the command `npm run lerna:sync` to make sure every package will have the same version.
+- Run the command `npm run sync` to make sure every package will have the same version.
 - Commit all the changes so far.
 
 ### 3. Publish release on GitHub
@@ -58,5 +58,5 @@ This step will happen automatically from GitHub actions after a new release has 
 
 - `package.json`
   - Update `engines` versions
-  - Add ` --dist-tag next` to `lerna:publish` script
+  - Add ` --dist-tag next` to `publish` script
 - Update `build.yml` and `tests.yml` to use current AWS lambda nodejs runtimes
