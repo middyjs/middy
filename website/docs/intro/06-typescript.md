@@ -16,7 +16,7 @@ Here's an example of how you might be using Middy with TypeScript for a Lambda r
 ```typescript
 import middy from '@middy/core'
 import secretsManager from '@middy/secrets-manager'
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
 
 export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
   .use(
@@ -37,7 +37,7 @@ export const handler = middy<APIGatewayProxyEvent, APIGatewayProxyResult>()
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: `Hello from ${event.path}`,
+        message: `Hello from ${req.path}`,
         req
       })
     }
