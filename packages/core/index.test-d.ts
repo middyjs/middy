@@ -5,7 +5,6 @@ import {
   APIGatewayProxyResult,
   Context,
   Handler as AWSLambdaHandler,
-  S3Handler,
   S3Event
 } from 'aws-lambda'
 
@@ -404,7 +403,7 @@ const handler1176 = middy(baseHandler)
 expectType<MiddyfiedHandler<any, any, Error, Context, {}>>(handler1176)
 
 // Issue #1182
-const s3Handler: S3Handler = async (event) => {
+const s3Handler = async (event: S3Event): Promise<void> => {
   await Promise.all(event.Records.map(async () => await Promise.resolve()))
 }
 
