@@ -1,6 +1,6 @@
 {
   "name": "@middy/monorepo",
-  "version": "5.4.3",
+  "version": "5.4.4",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
@@ -29,7 +29,7 @@
     "update": "npm update --workspaces && npm install --workspaces",
     "outdated": "npm outdated --workspaces",
     "audit": "npm audit fix --workspaces",
-    "release:sync": "npm version $npm_package_version --workspaces",
+    "release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s|\\\"@middy/(.*)\\\": ([^,]*)|\\\"@middy/\\1\\\": $(npm pkg get version)|g\" {} \\;",
     "release:tag": "git tag $npm_package_version && git push --tags",
     "release:publish": "npm publish --workspaces",
     "release:publish:next": "npm publish --tag next --workspaces"
