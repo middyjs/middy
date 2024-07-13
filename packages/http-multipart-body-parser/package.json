@@ -60,7 +60,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@fastify/busboy": "2.1.1"
+    "@fastify/busboy": "3.0.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.101",

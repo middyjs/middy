@@ -61,7 +61,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "qs": "6.12.1"
+    "qs": "6.12.3"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.101",

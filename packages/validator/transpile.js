@@ -25,7 +25,6 @@ import ajvFormats from 'ajv-formats'
 import ajvFormatsDraft2019 from 'ajv-formats-draft2019'
 import ajvKeywords from 'ajv-keywords'
 import ajvErrors from 'ajv-errors'
-import uriResolver from 'fast-uri'
 
 import { transpile } from 'ajv-ftl-i18n'
 
@@ -35,12 +34,8 @@ export const transpileFTL = transpile
 // *** Start `ajv-cmd/compile` *** //
 // import compileSchema from 'ajv-cmd/compile'
 
-const defaultOptions = {
-  uriResolver // faster than default
-}
-
 const instance = (options = {}) => {
-  options = { ...defaultOptions, ...options, keywords: [] }
+  options = { ...options, keywords: [] }
 
   const ajv = new Ajv(options)
   ajvFormats(ajv)
@@ -51,7 +46,7 @@ const instance = (options = {}) => {
 }
 
 const compileSchema = (schema, options = {}) => {
-  options = { ...defaultOptions, ...options, keywords: [] }
+  options = { ...options, keywords: [] }
   const ajv = instance(options)
   return ajv.compile(schema)
 }
