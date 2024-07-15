@@ -8,7 +8,7 @@ You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 :::note
 
-Powertools officially supports `@middy/core` v4.x only. In most cases when using Node.js 20 or higher and ESM you can use Powertools with `@middy/core` v5.x, however support is provided on a best-effort basis and we recommend using `@middy/core` v4.x.
+Powertools officially supports `@middy/core` both v4.x and v5.x.
 
 :::
 
@@ -19,6 +19,7 @@ Powertools is a collection of utilities that can be used independently or togeth
 - [**Tracer**](https://s12d.com/middy-tracer) - An opinionated wrapper around AWS X-Ray SDK for Node.js with a middleware to automatically capture traces for function invocations, HTTP requests, and AWS SDK calls, and more.
 - [**Metrics**](https://s12d.com/middy-metrics) - Create Amazon CloudWatch custom metrics asynchronously with a middleware that takes care of capturing cold starts, and flushes metrics to CloudWatch in [EMF-formatted](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html) batches.
 - [**Idempotency**](https://s12d.com/middy-idempotency) - Middleware to make your Lambda functions idempotent and prevent duplicate execution based on payload content.
+- [**Parser**](https://s12d.com/middy-parser) - Data validation and parsing using Zod, a TypeScript-first schema declaration and validation library.
 
 Powertools also provides other utilities that can be used independently of Middy:
 - [**Parameters**](https://s12d.com/middy-batch-processing) - Handle partial failures when processing batches of records from Amazon SQS, Amazon Kinesis Data Streams, and Amazon DynamoDB Streams.
