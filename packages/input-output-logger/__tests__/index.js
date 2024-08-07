@@ -237,8 +237,8 @@ test('It should skip paths that do not exist', async (t) => {
 
   const event = {
     string: 'string',
-    object: {},
-    array: [],
+    object: { key: 'value' },
+    array: ['value'],
     null: null,
     true: true,
     false: false,

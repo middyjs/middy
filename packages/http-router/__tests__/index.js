@@ -59,6 +59,79 @@ test('It should route to a dynamic route with `{variable}`', async (t) => {
   const response = await handler(event, context)
   ok(response)
 })
+test('It should route to a dynamic route with `{variable1}`', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/1'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{id1}/',
+      handler: (event) => {
+        deepEqual(event.pathParameters, { id1: '1' })
+        return true
+      }
+    }
+  ])
+  const response = await handler(event, context)
+  ok(response)
+})
+test('It should route to a dynamic route with `{Variable}`', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/1'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{Id}/',
+      handler: (event) => {
+        deepEqual(event.pathParameters, { Id: '1' })
+        return true
+      }
+    }
+  ])
+  const response = await handler(event, context)
+  ok(response)
+})
+test('It should route to a dynamic route with `{var_iable}`', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/user/1'
+  }
+  const handler = httpRouter([
+    {
+      method: 'GET',
+      path: '/user/{i_d}/',
+      handler: (event) => {
+        deepEqual(event.pathParameters, { i_d: '1' })
+        return true
+      }
+    }
+  ])
+  const response = await handler(event, context)
+  ok(response)
+})
+test('It should route to a dynamic route with `{var-iable}`', async (t) => {
+  try {
+    httpRouter([
+      {
+        method: 'GET',
+        path: '/user/{i-d}/',
+        handler: (event) => {
+          deepEqual(event.pathParameters, { 'i-d': '1' })
+          return true
+        }
+      }
+    ])
+  } catch (e) {
+    equal(
+      e.message,
+      'Invalid regular expression: /^/user/(?<i-d>[^/]+)/?$/: Invalid capture group name'
+    )
+  }
+})
 
 test('It should route to a dynamic route with `{variable}` with trailing slash', async (t) => {
   const event = {
