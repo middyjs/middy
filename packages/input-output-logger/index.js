@@ -35,7 +35,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
       cloneMessage = structuredClone(message) // Full clone to prevent nested mutations
       omit(cloneMessage, { [param]: omitPathTree[param] })
     }
-    logger(cloneMessage)
+    logger(typeof cloneMessage === "object" ? JSON.stringify(cloneMessage, null, 2) : cloneMessage)
   }
 
   // needs `mask`
