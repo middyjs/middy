@@ -1,7 +1,9 @@
 import { Transform } from 'node:stream'
 
 const defaults = {
-  logger: console.log,
+  logger: (message) => {
+    console.log(JSON.stringify(message))
+  },
   awsContext: false,
   omitPaths: [],
   mask: undefined
