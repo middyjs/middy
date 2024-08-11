@@ -25,6 +25,7 @@ NOTES:
 - Errors should be handled as part of the router middleware stack **or** the lambdaHandler middleware stack. Handled errors in the later will trigger the `after` middleware stack of the former.
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 - `pathParameters` will automatically be set if not already set
+- Path parameters in kebab notation (`{my-var}`) are not supported. Workaround example below.
 
 ## Sample usage
 
@@ -55,6 +56,56 @@ const routes = [
   {
     method: 'GET',
     path: '/user/{id}',
+    handler: getHandler
+  },
+  {
+    method: 'POST',
+    path: '/user',
+    handler: postHandler
+  }
+]
+
+export const handler = middy()
+  .use(httpHeaderNormalizer())
+  .handler(httpRouterHandler(routes))
+
+```
+
+## Sample kebab usage
+
+```javascript
+import middy from '@middy/core'
+import httpRouterHandler from '@middy/http-router'
+import validatorMiddleware from '@middy/validator'
+import { kebab } from 'change-case'
+
+const getHandler = middy()
+  .before((request) => {
+    const key = 'myId'
+    request.event.pathParameters[kebab(key)] = request.event.pathParameters[key]
+    delete request.event.pathParameters[key]
+  })
+  .use(validatorMiddleware({eventSchema: {...} }))
+  .handler((event, context) => {
+    return {
+      statusCode: 200,
+      body: '{...}'
+    }
+  })
+
+const postHandler = middy()
+  .use(validatorMiddleware({eventSchema: {...} }))
+  .handler((event, context) => {
+    return {
+      statusCode: 200,
+      body: '{...}'
+    }
+  })
+
+const routes = [
+  {
+    method: 'GET',
+    path: '/user/{myId}', // '/user/{my-id}' update to lowerCamelCase
     handler: getHandler
   },
   {
