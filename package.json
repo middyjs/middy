@@ -1,6 +1,6 @@
 {
   "name": "@middy/monorepo",
-  "version": "5.4.5",
+  "version": "5.4.6",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
@@ -60,7 +60,7 @@
     "@commitlint/config-conventional": "^19.0.0",
     "aws-sdk-client-mock": "^4.0.0",
     "husky": "^9.0.0",
-    "lint-staged": "15.2.7",
+    "lint-staged": "15.2.8",
     "prettier": "^3.0.0",
     "sinon": "^18.0.0",
     "tinybench": "^2.5.1",
