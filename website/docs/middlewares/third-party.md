@@ -20,6 +20,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
+- [middy-store](https://github.com/zirkelc/middy-store): Middleware to automatically store and load payloads from S3 in an AWS Step Functions state machine
 - [@iress/middy-http-path-router](https://www.npmjs.com/package/@iress/middy-http-path-router): Routes AWS API Gateway events to handlers based on static and dynamic paths
 - [@nhs/fhir-middy-error-handler](https://www.npmjs.com/package/@nhs/fhir-middy-error-handler): An error handler for use in an AWS Lambda returning FHIR compliant error messages as OperationOutcome resources. Used as part of the [Prescriptions for Patients FHIR API](https://digital.nhs.uk/developer/api-catalogue/prescriptions-for-patients).
 
