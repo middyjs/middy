@@ -103,35 +103,6 @@ test('missing headers skips', async (t) => {
   equal(response.body, '{"message":"Hello World"}')
 })
 
-// TODO deprecate in v6
-test('It should use `event.requiredContentType` instead of accept headers', async (t) => {
-  const handler = middy((event, context) => {
-    event.requiredContentType = 'text/plain'
-
-    return createHttpResponse()
-  })
-
-  handler
-    .use(httpContentNegotiation())
-    .use(httpResponseSerializer(standardConfiguration))
-
-  const event = {
-    headers: {
-      Accept: 'application/xml, text/x-dvi; q=0.8, text/x-c'
-    }
-  }
-
-  const response = await handler(event, { ...context })
-
-  deepEqual(response, {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'text/plain'
-    },
-    body: 'Hello World'
-  })
-})
-
 test('It should use the defaultContentType when no accept preferences are given', async (t) => {
   const handler = middy((event, context) => createHttpResponse())
 

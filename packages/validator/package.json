@@ -4,7 +4,7 @@
   "description": "Validator middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -16,11 +16,17 @@
       "import": {
         "types": "./index.d.ts",
         "default": "./index.js"
+      },
+      "require": {
+        "default": "./index.js"
       }
     },
     "./transpile": {
       "import": {
         "types": "./transpile.d.ts",
+        "default": "./transpile.js"
+      },
+      "require": {
         "default": "./transpile.js"
       }
     }

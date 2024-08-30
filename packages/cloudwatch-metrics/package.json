@@ -16,6 +16,9 @@
       "import": {
         "types": "./index.d.ts",
         "default": "./index.js"
+      },
+      "require": {
+        "default": "./index.js"
       }
     }
   },

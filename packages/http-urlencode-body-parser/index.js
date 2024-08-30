@@ -1,10 +1,5 @@
 import { createError } from '@middy/util'
-// import querystring from 'node:querystring'
-import parse from 'qs/lib/parse.js'
-
-// const parse = (input) => {
-//   return Object.assign({}, querystring.parse(input))
-// }
+import querystring from 'node:querystring'
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/
 const defaults = {
@@ -35,7 +30,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
       : body
 
     const rawBody = body
-    request.event.body = parse(data)
+    request.event.body = Object.assign({}, querystring.parse(data))
 
     if (request.event.body?.[rawBody] === '') {
       // UnprocessableEntity

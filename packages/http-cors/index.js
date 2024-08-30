@@ -6,7 +6,7 @@ const defaults = {
   credentials: undefined,
   headers: undefined,
   methods: undefined,
-  origin: '*',
+  origin: undefined,
   origins: [],
   exposeHeaders: undefined,
   maxAge: undefined,
