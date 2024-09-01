@@ -1,6 +1,6 @@
 {
   "name": "@middy/core",
-  "version": "5.4.6",
+  "version": "5.4.7",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "type": "module",
   "engines": {
@@ -65,6 +65,6 @@
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
   "dependencies": {
-    "@datastream/core": "0.0.36"
+    "@datastream/core": "0.0.38"
   }
 }

@@ -22,6 +22,10 @@ const defaults = {
   overridePreferredEncoding: []
 }
 
+export const getStream = (preferredEncoding) => {
+  return contentEncodingStreams[preferredEncoding]()
+}
+
 /*
  * `zstd` disabled due to lack of support in nodejs
  * https://github.com/andrew-aladev/brotli-vs-zstd
@@ -65,7 +69,7 @@ const httpContentEncodingMiddleware = (opts) => {
     // Support streamifyResponse
     if (response.body?._readableState) {
       request.response.headers['Content-Encoding'] = contentEncoding
-      request.response.body.pipe(contentEncodingStream)
+      request.response.body = request.response.body.pipe(contentEncodingStream)
       return
     }
 

@@ -3,6 +3,7 @@ import { equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import httpContentEncoding from '../index.js'
 
+import { createReadableStream, streamToBuffer } from '@datastream/core'
 import { brotliCompressSync, gzipSync, deflateSync } from 'node:zlib'
 
 const context = {
@@ -29,6 +30,25 @@ test('It should encode string using br', async (t) => {
   })
 })
 
+test('It should encode stream using br', async (t) => {
+  const body = compressibleBody
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body: createReadableStream(body)
+  })).use(httpContentEncoding())
+
+  const event = {}
+
+  const response = await handler(event, { ...context, preferredEncoding: 'br' })
+  response.body = await streamToBuffer(response.body)
+  response.body = response.body.toString('base64')
+  deepEqual(response, {
+    statusCode: 200,
+    body: brotliCompressSync(body).toString('base64'),
+    headers: { 'Content-Encoding': 'br' }
+  })
+})
+
 test('It should encode string using gzip', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body })).use(
@@ -50,6 +70,28 @@ test('It should encode string using gzip', async (t) => {
   })
 })
 
+test('It should encode stream using gzip', async (t) => {
+  const body = compressibleBody
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body: createReadableStream(body)
+  })).use(httpContentEncoding())
+
+  const event = {}
+
+  const response = await handler(event, {
+    ...context,
+    preferredEncoding: 'gzip'
+  })
+  response.body = await streamToBuffer(response.body)
+  response.body = response.body.toString('base64')
+  deepEqual(response, {
+    statusCode: 200,
+    body: gzipSync(body).toString('base64'),
+    headers: { 'Content-Encoding': 'gzip' }
+  })
+})
+
 test('It should encode string using deflate', async (t) => {
   const body = compressibleBody
   const handler = middy((event, context) => ({ statusCode: 200, body }))
@@ -67,6 +109,28 @@ test('It should encode string using deflate', async (t) => {
     body: deflateSync(body).toString('base64'),
     headers: { 'Content-Encoding': 'deflate' },
     isBase64Encoded: true
+  })
+})
+
+test('It should encode stream using deflate', async (t) => {
+  const body = compressibleBody
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body: createReadableStream(body)
+  })).use(httpContentEncoding())
+
+  const event = {}
+
+  const response = await handler(event, {
+    ...context,
+    preferredEncoding: 'deflate'
+  })
+  response.body = await streamToBuffer(response.body)
+  response.body = response.body.toString('base64')
+  deepEqual(response, {
+    statusCode: 200,
+    body: deflateSync(body).toString('base64'),
+    headers: { 'Content-Encoding': 'deflate' }
   })
 })
 
