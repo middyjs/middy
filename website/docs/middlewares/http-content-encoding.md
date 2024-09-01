@@ -15,6 +15,7 @@ npm install --save @middy/http-content-encoding
 ## Options
 
 - `br` (object) (default `{}`): `zlib.createBrotliCompress` [brotliOptions](https://nodejs.org/api/zlib.html#zlib_class_brotlioptions)
+- `zstd` (integer) (default `3`): ZSTD compression level
 - `gzip` (object) (default `{}`): `zlib.createGzip` [gzipOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
 - `deflate` (object) (default `{}`): `zlib.createDeflate` [deflateOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
 - `overridePreferredEncoding` (array[string]) (optional): Override the preferred encoding order, most browsers prefer `gzip` over `br`, even though `br` has higher compression. Default: `[]`

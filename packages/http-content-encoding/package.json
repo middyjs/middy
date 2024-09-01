@@ -43,7 +43,8 @@
     "Content Encoding",
     "gzip",
     "brotli",
-    "deflate"
+    "deflate",
+    "zstd"
   ],
   "author": {
     "name": "Middy contributors",
@@ -63,7 +64,8 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.4.7"
+    "@middy/util": "5.4.7",
+    "zstd-codec": "0.1.5"
   },
   "devDependencies": {
     "@datastream/core": "0.0.38",
