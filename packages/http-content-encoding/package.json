@@ -43,7 +43,8 @@
     "Content Encoding",
     "gzip",
     "brotli",
-    "deflate"
+    "deflate",
+    "zstd"
   ],
   "author": {
     "name": "Middy contributors",
