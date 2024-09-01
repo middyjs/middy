@@ -59,7 +59,7 @@
     "@commitlint/config-conventional": "^19.0.0",
     "aws-sdk-client-mock": "^4.0.0",
     "husky": "^9.0.0",
-    "lint-staged": "15.2.8",
+    "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
     "sinon": "^18.0.0",
     "tinybench": "^2.5.1",
