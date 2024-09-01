@@ -66,6 +66,7 @@
     "@middy/util": "5.4.6"
   },
   "devDependencies": {
+    "@datastream/core": "0.0.38",
     "@middy/core": "5.4.6"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
