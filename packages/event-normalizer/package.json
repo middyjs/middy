@@ -1,6 +1,6 @@
 {
   "name": "@middy/event-normalizer",
-  "version": "5.4.6",
+  "version": "5.4.7",
   "description": "Parse and normalize AWS events middleware for the middy framework",
   "type": "module",
   "engines": {
@@ -62,10 +62,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.4.6"
+    "@middy/util": "5.4.7"
   },
   "devDependencies": {
-    "@middy/core": "5.4.6",
+    "@middy/core": "5.4.7",
     "@serverless/event-mocks": "^1.1.1"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
