@@ -5,18 +5,28 @@ import {
   createGzip as gzipCompressStream,
   createDeflate as deflateCompressStream
 } from 'node:zlib'
-
+import ZstdStream from 'zstd-codec/lib/zstd-stream.js'
 import { normalizeHttpResponse } from '@middy/util'
 
 const contentEncodingStreams = {
   br: brotliCompressStream,
+  zstd: async (options) => {
+    const init = new Promise((resolve) => {
+      ZstdStream.run((streams) => {
+        resolve(streams.ZstdCompressTransform)
+      })
+    })
+
+    const ZstdCompressStream = await init
+    return new ZstdCompressStream(options)
+  },
   gzip: gzipCompressStream,
   deflate: deflateCompressStream
 }
 
 const defaults = {
   br: undefined,
-  // zstd: undefined,
+  zstd: undefined, // compression_level
   gzip: undefined,
   deflate: undefined,
   overridePreferredEncoding: []
@@ -53,7 +63,7 @@ const httpContentEncodingMiddleware = (opts) => {
       return
     }
 
-    let contentEncodingStream = contentEncodingStreams[preferredEncoding](
+    let contentEncodingStream = await contentEncodingStreams[preferredEncoding](
       options[preferredEncoding]
     )
     let contentEncoding = preferredEncoding
