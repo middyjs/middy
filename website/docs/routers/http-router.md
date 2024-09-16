@@ -18,6 +18,7 @@ npm install --save @middy/http-router
   - `method` (string) (required): One of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` and `ANY` that will match to any method passed in
   - `path` (string) (required): AWS formatted path starting with `/`. Variable: `/{id}/`, Wildcard: `/{proxy+}`
   - `handler` (function) (required): Any `handler(event, context)` function
+- `notFoundHandler` (function): Override default 404 error thrown with your own custom response. Passes in `{method, path}`
 
 NOTES:
 
