@@ -274,6 +274,33 @@ test('It should thrown 404 when route not found', async (t) => {
   }
 })
 
+test('It should thrown 200 when route not found, using notFoundResponse', async (t) => {
+  const event = {
+    httpMethod: 'GET',
+    path: '/notfound'
+  }
+  const handler = httpRouter({
+    routes: [
+      {
+        method: 'GET',
+        path: '/',
+        handler: () => true
+      }
+    ],
+    notFoundResponse: (args) => {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(args)
+      }
+    }
+  })
+
+  const res = await handler(event, context)
+
+  equal(res.statusCode, 200)
+  deepEqual(JSON.parse(res.body), { method: 'GET', path: '/notfound' })
+})
+
 // route methods
 test('It should route to a static POST method', async (t) => {
   const event = {
