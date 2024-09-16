@@ -1,5 +1,5 @@
 import { test } from 'node:test'
-import { ok, equal } from 'node:assert/strict'
+import { ok, equal, deepEqual } from 'node:assert/strict'
 import middy from '../../core/index.js'
 import wsRouter from '../index.js'
 
@@ -43,6 +43,32 @@ test('It should thrown 404 when route not found', async (t) => {
     equal(e.message, 'Route does not exist')
     equal(e.statusCode, 404)
   }
+})
+
+test('It should thrown 200 when route not found, using notFoundResponse', async (t) => {
+  const event = {
+    requestContext: {
+      routeKey: 'missing'
+    }
+  }
+  const handler = wsRouter({
+    routes: [
+      {
+        routeKey: '$connect',
+        handler: () => true
+      }
+    ],
+    notFoundResponse: (args) => {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(args)
+      }
+    }
+  })
+  const res = await handler(event, context)
+
+  equal(res.statusCode, 200)
+  deepEqual(JSON.parse(res.body), { routeKey: 'missing' })
 })
 
 // with middleware

@@ -1,6 +1,19 @@
 import { createError } from '@middy/util'
+const defaults = {
+  routes: [],
+  notFoundResponse: ({ routeKey }) => {
+    const err = createError(404, 'Route does not exist', {
+      cause: { package: '@middy/ws-router', data: { routeKey } }
+    })
+    throw err
+  }
+}
+const wsRouteHandler = (opts = {}) => {
+  if (Array.isArray(opts)) {
+    opts = { routes: opts }
+  }
+  const { routes, notFoundResponse } = { ...defaults, ...opts }
 
-const wsRouteHandler = (routes) => {
   const routesStatic = {}
   for (const route of routes) {
     const { routeKey, handler } = route
@@ -24,9 +37,7 @@ const wsRouteHandler = (routes) => {
     }
 
     // Not Found
-    throw createError(404, 'Route does not exist', {
-      cause: { package: '@middy/ws-router', data: routeKey }
-    })
+    return notFoundResponse({ routeKey })
   }
 }
 

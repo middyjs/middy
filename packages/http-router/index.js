@@ -1,6 +1,20 @@
 import { createError } from '@middy/util'
 
-const httpRouteHandler = (routes) => {
+const defaults = {
+  routes: [],
+  notFoundResponse: ({ method, path }) => {
+    const err = createError(404, 'Route does not exist', {
+      cause: { package: '@middy/http-router', data: { method, path } }
+    })
+    throw err
+  }
+}
+const httpRouteHandler = (opts = {}) => {
+  if (Array.isArray(opts)) {
+    opts = { routes: opts }
+  }
+  const { routes, notFoundResponse } = { ...defaults, ...opts }
+
   const routesStatic = {}
   const routesDynamic = {}
   const enumMethods = methods.concat('ANY')
@@ -56,9 +70,7 @@ const httpRouteHandler = (routes) => {
     }
 
     // Not Found
-    throw createError(404, 'Route does not exist', {
-      cause: { package: '@middy/http-router', data: path }
-    })
+    return notFoundResponse({ method, path })
   }
 }
 
