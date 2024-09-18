@@ -409,3 +409,22 @@ const s3Handler = async (event: S3Event): Promise<void> => {
 
 const handler1182 = middy().handler(s3Handler)
 expectType<MiddyfiedHandler<S3Event, void, Error, Context, {}>>(handler1182)
+
+let handler1228 = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>();
+// @ts-expect-error - should enforce the return type
+handler1228.handler(async (req, context) => {
+  return '123';
+});
+
+handler1228.handler(async (event) => {
+  return { 
+    statusCode: 200,
+    body: `Hello from ${event.path}`
+  };
+});
+
+// @ts-expect-error - should enforce the return type
+handler1228.handler<APIGatewayProxyEvent>(async (req, context) => { return '123'; });
+
+// @ts-expect-error - can't change the return type
+handler1228.handler<APIGatewayProxyEvent, string>(async (event) => { return { statusCode: 200, body: `Hello from ${event.path}` }; });
