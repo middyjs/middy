@@ -21,9 +21,7 @@ test('Should return default headers when { }', async (t) => {
 
   deepEqual(response, {
     statusCode: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*' // TODO v6 remove line
-    }
+    headers: {}
   })
 })
 

@@ -1,11 +1,9 @@
 ---
-title: Early return
+title: Early Response
 position: 4
 ---
 
 Some middlewares might need to stop the whole execution flow and return a response immediately.
-
-If you want to do this you can invoke `return response` in your middleware where `typeof response !== 'undefined'`.
 
 **Note**: this will totally stop the execution of successive middlewares in any phase (`before`, `after`, `onError`) and returns
 an early response (or an error) directly at the Lambda level. If your middlewares do a specific task on every request
@@ -27,6 +25,10 @@ const cacheMiddleware = (options) => {
   const cacheMiddlewareBefore = async (request) => {
     cacheKey = options.calculateCacheId(request.event)
     if (options.storage.hasOwnProperty(cacheKey)) {
+
+      // if the value can be `undefined` use this line
+      request.earlyResponse = options.storage[cacheKey]
+
       // exits early and returns the value from the cache if it's already there
       return options.storage[cacheKey]
     }
@@ -35,6 +37,10 @@ const cacheMiddleware = (options) => {
   const cacheMiddlewareAfter = async (request) => {
     // stores the calculated response in the cache
     options.storage[cacheKey] = request.response
+  }
+
+  const cacheMiddlewareOnError = async (request) => {
+    // Note: onError cannot earlyResonse with undefined
   }
 
   return {

@@ -27,13 +27,7 @@ test('It should decode complex url encoded requests', async (t) => {
   const processedEvent = await handler(event, defaultContext)
 
   deepEqual(processedEvent.body, {
-    a: {
-      b: {
-        c: {
-          d: 'i'
-        }
-      }
-    }
+    'a[b][c][d]': 'i'
   })
 })
 

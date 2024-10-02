@@ -36,6 +36,9 @@ NOTES:
 import zlib from 'zlib'
 import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
+import {captureFetchGlobal} from 'aws-xray-sdk-fetch'
+
+captureFetchGlobal(true) // Enable XRay
 
 const lambdaHandler = (event, context) => {
   const readStream = await context.s3ObjectFetch.then(res => res.body)

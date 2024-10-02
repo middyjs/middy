@@ -520,6 +520,38 @@ test('"before" middleware should be able to short circuit response', async (t) =
   ok(response)
   deepEqual(executed, ['b1'])
 })
+test('"before" middleware should be able to use earlyResponse', async (t) => {
+  const executed = []
+  const middleware1 = () => ({
+    before: (request) => {
+      executed.push('b1')
+      request.earlyResponse = undefined
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
+  })
+  const middleware2 = () => ({
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: () => {
+      executed.push('e2')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
+  const response = await handler(event, context)
+  ok(typeof response === 'undefined')
+  deepEqual(executed, ['b1'])
+})
 
 test('handler should be able to set response', async (t) => {
   const executed = []
@@ -616,6 +648,39 @@ test('"after" middleware should be able to short circuit response', async (t) =>
   deepEqual(executed, ['b1', 'b2', 'handler', 'a2'])
 })
 
+test('"after" middleware should be able to use earlyResponse', async (t) => {
+  const executed = []
+  const middleware1 = () => ({
+    before: () => {
+      executed.push('b1')
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
+  })
+  const middleware2 = () => ({
+    before: () => {
+      executed.push('b2')
+    },
+    after: (request) => {
+      executed.push('a2')
+      request.earlyResponse = undefined
+    },
+    onError: () => {
+      executed.push('e2')
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
+  const response = await handler(event, context)
+  ok(typeof response === 'undefined')
+  deepEqual(executed, ['b1', 'b2', 'handler', 'a2'])
+})
+
 test('"onError" middlewares should be able to change response', async (t) => {
   const handler = middy(() => {
     throw new Error('handler')
@@ -655,6 +720,40 @@ test('"onError" middleware should be able to short circuit response', async (t) 
     onError: () => {
       executed.push('e2')
       return true
+    }
+  })
+  const handler = middy(() => {
+    executed.push('handler')
+  }).use([middleware1(), middleware2()])
+  const response = await handler(event, context)
+  ok(response)
+  deepEqual(executed, ['b1', 'e2'])
+})
+
+test('"onError" middleware should be able to use earlyResponse', async (t) => {
+  const executed = []
+  const middleware1 = () => ({
+    before: () => {
+      executed.push('b1')
+      throw new Error('before')
+    },
+    after: () => {
+      executed.push('a1')
+    },
+    onError: () => {
+      executed.push('e1')
+    }
+  })
+  const middleware2 = () => ({
+    before: () => {
+      executed.push('b2')
+    },
+    after: () => {
+      executed.push('a2')
+    },
+    onError: (request) => {
+      executed.push('e2')
+      request.earlyResponse = true // cannot be undefined, errors must have a response
     }
   })
   const handler = middy(() => {

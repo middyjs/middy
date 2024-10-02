@@ -102,7 +102,11 @@ export const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = {} // key: { value:{fetchKey:Promise}, expiry }
-export const processCache = (options, fetch = () => undefined, request) => {
+export const processCache = (
+  options,
+  middlewareFetch = () => undefined,
+  request
+) => {
   let { cacheKey, cacheKeyExpiry, cacheExpiry } = options
   cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry
   const now = Date.now()
@@ -112,7 +116,7 @@ export const processCache = (options, fetch = () => undefined, request) => {
 
     if (unexpired) {
       if (cached.modified) {
-        const value = fetch(request, cached.value)
+        const value = middlewareFetch(request, cached.value)
         Object.assign(cached.value, value)
         cache[cacheKey] = { value: cached.value, expiry: cached.expiry }
         return cache[cacheKey]
@@ -120,14 +124,17 @@ export const processCache = (options, fetch = () => undefined, request) => {
       return { ...cached, cache: true }
     }
   }
-  const value = fetch(request)
+  const value = middlewareFetch(request)
   // secrets-manager can override to unix timestamp
   const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry
   const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry
   if (cacheExpiry) {
     const refresh =
       duration > 0
-        ? setTimeout(() => processCache(options, fetch, request), duration)
+        ? setTimeout(
+          () => processCache(options, middlewareFetch, request),
+          duration
+        )
         : undefined
     cache[cacheKey] = { value, expiry, refresh }
   }

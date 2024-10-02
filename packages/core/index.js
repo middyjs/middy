@@ -154,7 +154,7 @@ const runRequest = async (
     await runMiddlewares(request, beforeMiddlewares, plugin)
 
     // Check if before stack hasn't exit early
-    if (typeof request.response === 'undefined') {
+    if (!Object.prototype.hasOwnProperty.call(request, 'earlyResponse')) {
       plugin.beforeHandler?.()
 
       // Can't manually abort and timeout with same AbortSignal
@@ -231,7 +231,11 @@ const runMiddlewares = async (request, middlewares, plugin) => {
     plugin.afterMiddleware?.(nextMiddleware.name)
     // short circuit chaining and respond early
     if (typeof res !== 'undefined') {
-      request.response = res
+      request.earlyResponse = res
+    }
+    // earlyResponse pattern added in 6.0.0 to handle undefined values
+    if (Object.prototype.hasOwnProperty.call(request, 'earlyResponse')) {
+      request.response = request.earlyResponse
       return
     }
   }
