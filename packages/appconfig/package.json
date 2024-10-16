@@ -1,6 +1,6 @@
 {
   "name": "@middy/appconfig",
-  "version": "5.5.0",
+  "version": "5.5.1",
   "description": "AppConfig middleware for the middy framework",
   "type": "module",
   "engines": {
