@@ -408,4 +408,19 @@ const s3Handler = async (event: S3Event): Promise<void> => {
 }
 
 const handler1182 = middy().handler(s3Handler)
-expectType<MiddyfiedHandler<S3Event, void, Error, Context, {}>>(handler1182)
+expectType<MiddyfiedHandler<S3Event, any, Error, Context, {}>>(handler1182)
+
+//  Issue #1228 Correct return type
+const numberHandler = middy<APIGatewayProxyEvent, number>()
+  .handler(async (event) => {
+    return 42 // Correct return type, should pass type checking
+  })
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(numberHandler)
+
+//  Issue #1228 Incorrect return type
+const invalidNumberHandler = middy<APIGatewayProxyEvent, number>()
+  // @ts-expect-error
+  .handler(async () => {
+    return 'not a number'
+  })
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(invalidNumberHandler)

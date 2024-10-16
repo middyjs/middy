@@ -99,7 +99,7 @@ export interface MiddyfiedHandler<
   handler: <TInputHandlerEventProps = TEvent, TInputHandlerResultProps = TResult>(
     handler: MiddlewareHandler<
     LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
-    TContext
+    TContext, TResult
     >
   ) => MiddyfiedHandler<TInputHandlerEventProps, TInputHandlerResultProps, TErr, TContext, TInternal>
 }
@@ -150,8 +150,9 @@ infer TMiddlewareInternal
 
 declare type MiddlewareHandler<
   THandler extends LambdaHandler<any, any>,
-  TContext extends LambdaContext = LambdaContext
-> = THandler extends LambdaHandler<infer TEvent, infer TResult> // always true
+  TContext extends LambdaContext = LambdaContext,
+  TResult = any
+> = THandler extends LambdaHandler<infer TEvent, TResult> // always true
   ? MiddyInputHandler<TEvent, TResult, TContext>
   : never
 
@@ -169,7 +170,7 @@ declare function middy<
 > (
   handler?:
   | LambdaHandler<TEvent, TResult>
-  | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext>
+  | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext, TResult>
   | PluginObject,
   plugin?: PluginObject
 ): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
