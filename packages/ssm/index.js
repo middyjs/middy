@@ -33,14 +33,14 @@ const defaults = {
 const ssmMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (request, cachedValues) => {
+  const fetchRequest = (request, cachedValues) => {
     return {
-      ...fetchSingle(request, cachedValues),
-      ...fetchByPath(request, cachedValues)
+      ...fetchSingleRequest(request, cachedValues),
+      ...fetchByPathRequest(request, cachedValues)
     }
   }
 
-  const fetchSingle = (request, cachedValues = {}) => {
+  const fetchSingleRequest = (request, cachedValues = {}) => {
     const values = {}
     let batchReq = null
     let batchInternalKeys = []
@@ -115,13 +115,13 @@ const ssmMiddleware = (opts = {}) => {
     return values
   }
 
-  const fetchByPath = (request, cachedValues = {}) => {
+  const fetchByPathRequest = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey in options.fetchData) {
       if (cachedValues[internalKey]) continue
       const fetchKey = options.fetchData[internalKey]
       if (fetchKey.substr(-1) !== '/') continue // Skip not path passed in
-      values[internalKey] = fetchPath(fetchKey).catch((e) => {
+      values[internalKey] = fetchPathRequest(fetchKey).catch((e) => {
         const value = getCache(options.cacheKey).value ?? {}
         value[internalKey] = undefined
         modifyCache(options.cacheKey, value)
@@ -131,7 +131,7 @@ const ssmMiddleware = (opts = {}) => {
     return values
   }
 
-  const fetchPath = (path, nextToken, values = {}) => {
+  const fetchPathRequest = (path, nextToken, values = {}) => {
     const command = new GetParametersByPathCommand({
       Path: path,
       NextToken: nextToken,
@@ -150,7 +150,7 @@ const ssmMiddleware = (opts = {}) => {
             }
           })
         )
-        if (resp.NextToken) return fetchPath(path, resp.NextToken, values)
+        if (resp.NextToken) { return fetchPathRequest(path, resp.NextToken, values) }
         return values
       })
   }
@@ -165,7 +165,7 @@ const ssmMiddleware = (opts = {}) => {
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
 
   const ssmMiddlewareBefore = async (request) => {
@@ -173,7 +173,7 @@ const ssmMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
 
     Object.assign(request.internal, value)
 
