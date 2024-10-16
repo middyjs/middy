@@ -67,17 +67,17 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 
   const httpHeaderNormalizerMiddlewareBefore = async (request) => {
     if (request.event.headers) {
-      const rawHeaders = {}
+      // const rawHeaders = {}
       const headers = { ...defaultHeaders }
 
       for (const key of Object.keys(request.event.headers)) {
-        rawHeaders[key] = request.event.headers[key]
+        // rawHeaders[key] = request.event.headers[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
           request.event.headers[key]
       }
 
       request.event.headers = headers
-      request.event.rawHeaders = rawHeaders
+      // request.event.rawHeaders = rawHeaders
     }
 
     if (request.event.multiValueHeaders) {
