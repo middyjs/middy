@@ -60,11 +60,9 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
+    "@datastream/core": "0.0.38",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^20.0.0"
   },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
-  "dependencies": {
-    "@datastream/core": "0.0.38"
-  }
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

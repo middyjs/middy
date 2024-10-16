@@ -63,7 +63,6 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
         )
       }
 
-      // Source @datastream/core (MIT)
       let handlerStream
       if (handlerBody._readableState) {
         handlerStream = handlerBody
