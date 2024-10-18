@@ -9,7 +9,7 @@ const multiPlugin = (opts = {}) => {
     return {}
   }
 
-  const flows = {
+  const hooks = {
     beforePrefetch: [],
     requestStart: [],
     beforeMiddleware: [],
@@ -21,7 +21,7 @@ const multiPlugin = (opts = {}) => {
 
   const push = (id, plugin) => {
     if (plugin[id]) {
-      flows[id].push(plugin[id])
+      hooks[id].push(plugin[id])
     }
   }
   for (let i = 0, l = plugins.length; i < l; i++) {
@@ -35,13 +35,13 @@ const multiPlugin = (opts = {}) => {
     push('requestEnd', plugin)
   }
 
-  flows.afterMiddleware.reverse()
-  flows.afterHandler.reverse()
-  flows.requestEnd.reverse()
+  hooks.afterMiddleware.reverse()
+  hooks.afterHandler.reverse()
+  hooks.requestEnd.reverse()
 
   const run = (id) => {
-    for (let i = 0, l = flows[id].length; i < l; i++) {
-      flows[id]()
+    for (let i = 0, l = hooks[id].length; i < l; i++) {
+      hooks[id]()
     }
   }
   return {
