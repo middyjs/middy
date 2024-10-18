@@ -298,98 +298,98 @@ const cacheRequest = {
   internal: {}
 }
 test('processCache should not cache', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: 0
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   const cache = getCache('key')
   deepEqual(cache, {})
   clearCache()
 })
 
 test('processCache should cache forever', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: -1
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(100)
   const cacheValue = getCache('key').value
   equal(await cacheValue, 'value')
-  const { value, cache } = processCache(options, fetch, cacheRequest)
+  const { value, cache } = processCache(options, fetchRequest, cacheRequest)
   equal(await value, 'value')
   ok(cache)
-  equal(fetch.mock.callCount(), 1)
+  equal(fetchRequest.mock.callCount(), 1)
   clearCache()
 })
 
 test('processCache should cache when not expired', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: 100
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(50)
   const cacheValue = getCache('key').value
   equal(await cacheValue, 'value')
-  const { value, cache } = processCache(options, fetch, cacheRequest)
+  const { value, cache } = processCache(options, fetchRequest, cacheRequest)
   equal(await value, 'value')
   equal(cache, true)
-  equal(fetch.mock.callCount(), 1)
+  equal(fetchRequest.mock.callCount(), 1)
   clearCache()
 })
 test('processCache should cache when not expired w/ unix timestamp', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: Date.now() + 100
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(50)
   const cacheValue = getCache('key').value
   equal(await cacheValue, 'value')
-  const { value, cache } = processCache(options, fetch, cacheRequest)
+  const { value, cache } = processCache(options, fetchRequest, cacheRequest)
   equal(await value, 'value')
   equal(cache, true)
-  equal(fetch.mock.callCount(), 1)
+  equal(fetchRequest.mock.callCount(), 1)
   clearCache()
 })
 test('processCache should cache when not expired using cacheKeyExpire', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: 0,
     cacheKeyExpiry: { key: Date.now() + 100 }
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(50)
   const cacheValue = getCache('key').value
   equal(await cacheValue, 'value')
-  const { value, cache } = processCache(options, fetch, cacheRequest)
+  const { value, cache } = processCache(options, fetchRequest, cacheRequest)
   equal(await value, 'value')
   equal(cache, true)
-  equal(fetch.mock.callCount(), 1)
+  equal(fetchRequest.mock.callCount(), 1)
   clearCache()
 })
 test('processCache should cache when not expired using cacheKeyExpire w/ unix timestamp', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key',
     cacheExpiry: Date.now() + 0,
     cacheKeyExpiry: { key: Date.now() + 100 }
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(50)
   const cacheValue = getCache('key').value
   equal(await cacheValue, 'value')
-  const { value, cache } = processCache(options, fetch, cacheRequest)
+  const { value, cache } = processCache(options, fetchRequest, cacheRequest)
   equal(await value, 'value')
   equal(cache, true)
-  equal(fetch.mock.callCount(), 1)
+  equal(fetchRequest.mock.callCount(), 1)
   clearCache()
 })
 
@@ -398,7 +398,7 @@ test('processCache should clear and re-fetch modified cache', async (t) => {
     cacheKey: 'key',
     cacheExpiry: -1
   }
-  const fetch = t.mock.fn(() => ({
+  const fetchRequest = t.mock.fn(() => ({
     a: 'value',
     b: new Promise(() => {
       throw new Error('error')
@@ -420,7 +420,7 @@ test('processCache should clear and re-fetch modified cache', async (t) => {
     }
   }
 
-  const cached = processCache(options, fetch, cacheRequest)
+  const cached = processCache(options, fetchRequest, cacheRequest)
   const request = {
     internal: cached.value
   }
@@ -453,29 +453,29 @@ test('processCache should clear and re-fetch modified cache', async (t) => {
 })
 
 test('processCache should cache and expire', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key-cache-expire',
     cacheExpiry: 150
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(100)
   let cache = getCache('key-cache-expire')
   notEqual(cache, undefined)
   await setTimeout(250) // expire twice
   cache = getCache('key-cache-expire')
   ok(cache.expiry > Date.now())
-  equal(fetch.mock.callCount(), 3)
+  equal(fetchRequest.mock.callCount(), 3)
   clearCache()
 })
 
 test('processCache should cache and expire w/ unix timestamp', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   const options = {
     cacheKey: 'key-cache-unix-expire',
     cacheExpiry: Date.now() + 155
   }
-  processCache(options, fetch, cacheRequest)
+  processCache(options, fetchRequest, cacheRequest)
   await setTimeout(100)
   let cache = getCache('key-cache-unix-expire')
   notEqual(cache, undefined)
@@ -483,18 +483,18 @@ test('processCache should cache and expire w/ unix timestamp', async (t) => {
   cache = getCache('key-cache-unix-expire')
 
   ok(cache.expiry < Date.now())
-  equal(fetch.mock.callCount(), 2)
+  equal(fetchRequest.mock.callCount(), 2)
   clearCache()
 })
 
 test('processCache should clear single key cache', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   processCache(
@@ -502,7 +502,7 @@ test('processCache should clear single key cache', async (t) => {
       cacheKey: 'other',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   clearCache('other')
@@ -512,13 +512,13 @@ test('processCache should clear single key cache', async (t) => {
 })
 
 test('processCache should clear multi key cache', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   processCache(
@@ -526,7 +526,7 @@ test('processCache should clear multi key cache', async (t) => {
       cacheKey: 'other',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   clearCache(['key', 'other'])
@@ -536,13 +536,13 @@ test('processCache should clear multi key cache', async (t) => {
 })
 
 test('processCache should clear all cache', async (t) => {
-  const fetch = t.mock.fn(() => 'value')
+  const fetchRequest = t.mock.fn(() => 'value')
   processCache(
     {
       cacheKey: 'key',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   processCache(
@@ -550,7 +550,7 @@ test('processCache should clear all cache', async (t) => {
       cacheKey: 'other',
       cacheExpiry: -1
     },
-    fetch,
+    fetchRequest,
     cacheRequest
   )
   clearCache()

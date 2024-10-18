@@ -36,7 +36,7 @@ const appConfigMiddleware = (opts = {}) => {
   const configurationTokenCache = {}
   const configurationCache = {}
 
-  function fetchLatestConfiguration (configToken, internalKey) {
+  function fetchLatestConfigurationRequest (configToken, internalKey) {
     const command = new GetLatestConfigurationCommand({
       ConfigurationToken: configToken
     })
@@ -66,7 +66,7 @@ const appConfigMiddleware = (opts = {}) => {
       })
   }
 
-  const fetch = (request, cachedValues = {}) => {
+  const fetchRequest = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
@@ -78,7 +78,7 @@ const appConfigMiddleware = (opts = {}) => {
           .send(command)
           .catch((e) => catchInvalidSignatureException(e, client, command))
           .then((configSessionResp) =>
-            fetchLatestConfiguration(
+            fetchLatestConfigurationRequest(
               configSessionResp.InitialConfigurationToken,
               internalKey
             )
@@ -92,7 +92,7 @@ const appConfigMiddleware = (opts = {}) => {
 
         continue
       }
-      values[internalKey] = fetchLatestConfiguration(
+      values[internalKey] = fetchLatestConfigurationRequest(
         configurationTokenCache[internalKey],
         internalKey
       )
@@ -102,13 +102,13 @@ const appConfigMiddleware = (opts = {}) => {
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
   const appConfigMiddlewareBefore = async (request) => {
     if (!client) {
       client = await createClient(options, request)
     }
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
     Object.assign(request.internal, value)
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)

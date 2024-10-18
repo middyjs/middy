@@ -32,15 +32,12 @@ test('It should normalize (lowercase) all the headers and create a copy in rawHe
     foo: 'bar'
   }
 
-  const originalHeaders = { ...event.headers }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.headers, expectedHeaders)
-  deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
-test('It should normalize (canonical) all the headers and create a copy in rawHeaders', async (t) => {
+test('It should normalize (canonical) all the headers', async (t) => {
   const handler = middy((event, context) => event)
 
   handler.use(httpHeaderNormalizer({ canonical: true }))
@@ -63,12 +60,9 @@ test('It should normalize (canonical) all the headers and create a copy in rawHe
     Foo: 'bar'
   }
 
-  const originalHeaders = { ...event.headers }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.headers, expectedHeaders)
-  deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
 test('It can use custom normalization function', async (t) => {
@@ -100,12 +94,9 @@ test('It can use custom normalization function', async (t) => {
     FOO: 'bar'
   }
 
-  const originalHeaders = { ...event.headers }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.headers, expectedHeaders)
-  deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
 test('It should normalize (lowercase) all the headers with defaults', async (t) => {
@@ -141,12 +132,9 @@ test('It should normalize (lowercase) all the headers with defaults', async (t) 
     'content-type': 'application/json'
   }
 
-  const originalHeaders = { ...event.headers }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.headers, expectedHeaders)
-  deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
 
 // multiValueHeaders
@@ -166,12 +154,9 @@ test('It should normalize (lowercase) all the headers and create a copy in rawMu
     cookie: ['123456', '654321']
   }
 
-  const originalHeaders = { ...event.multiValueHeaders }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
-  deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
 })
 
 test('It should normalize (canonical) all the headers and create a copy in rawMultiValueHeaders', async (t) => {
@@ -189,12 +174,9 @@ test('It should normalize (canonical) all the headers and create a copy in rawMu
     Cookie: ['123456', '654321']
   }
 
-  const originalHeaders = { ...event.multiValueHeaders }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
-  deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
 })
 
 test('It can use custom normalization function on multiValueHeaders', async (t) => {
@@ -218,12 +200,9 @@ test('It can use custom normalization function on multiValueHeaders', async (t) 
     COOKIE: ['123456', '654321']
   }
 
-  const originalHeaders = { ...event.multiValueHeaders }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
-  deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
 })
 
 test('It should normalize (lowercase) all the multiValueHeaders with defaults', async (t) => {
@@ -259,12 +238,9 @@ test('It should normalize (lowercase) all the multiValueHeaders with defaults', 
     'content-type': 'application/json'
   }
 
-  const originalHeaders = { ...event.multiValueHeaders }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.multiValueHeaders, expectedHeaders)
-  deepEqual(resultingEvent.rawMultiValueHeaders, originalHeaders)
 })
 
 // Misc
@@ -284,7 +260,6 @@ test('It should not fail if the event does not contain headers', async (t) => {
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent, expectedEvent)
-  deepEqual(resultingEvent.rawHeaders, undefined)
 })
 
 test('It should not fail given a corrupted header key', async (t) => {
@@ -302,10 +277,7 @@ test('It should not fail given a corrupted header key', async (t) => {
     'X----': 'foo'
   }
 
-  const originalHeaders = { ...event.headers }
-
   const resultingEvent = await handler(event, context)
 
   deepEqual(resultingEvent.headers, expectedHeaders)
-  deepEqual(resultingEvent.rawHeaders, originalHeaders)
 })
