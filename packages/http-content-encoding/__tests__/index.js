@@ -25,7 +25,7 @@ test('It should encode string using br', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' },
+    headers: { 'Content-Encoding': 'br', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -45,7 +45,7 @@ test('It should encode stream using br', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' }
+    headers: { 'Content-Encoding': 'br', Vary: 'Accept-Encoding' }
   })
 })
 
@@ -65,7 +65,7 @@ test('It should encode string using gzip', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: gzipSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'gzip' },
+    headers: { 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -88,7 +88,7 @@ test('It should encode stream using gzip', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: gzipSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'gzip' }
+    headers: { 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }
   })
 })
 
@@ -107,7 +107,7 @@ test('It should encode string using deflate', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: deflateSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'deflate' },
+    headers: { 'Content-Encoding': 'deflate', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -130,13 +130,19 @@ test('It should encode stream using deflate', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: deflateSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'deflate' }
+    headers: { 'Content-Encoding': 'deflate', Vary: 'Accept-Encoding' }
   })
 })
 
 test('It should encode using br when context.preferredEncoding is gzip, but has overridePreferredEncoding set', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ statusCode: 200, body }))
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body,
+    headers: {
+      Vary: 'Something'
+    }
+  }))
   handler.use(
     httpContentEncoding({
       overridePreferredEncoding: ['br', 'gzip', 'deflate']
@@ -154,7 +160,7 @@ test('It should encode using br when context.preferredEncoding is gzip, but has 
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' },
+    headers: { 'Content-Encoding': 'br', Vary: 'Something, Accept-Encoding' },
     isBase64Encoded: true
   })
 })

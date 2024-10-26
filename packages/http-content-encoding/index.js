@@ -70,6 +70,7 @@ const httpContentEncodingMiddleware = (opts) => {
     if (response.body?._readableState) {
       request.response.headers['Content-Encoding'] = contentEncoding
       request.response.body = request.response.body.pipe(contentEncodingStream)
+      addVary(response)
       return
     }
 
@@ -87,6 +88,7 @@ const httpContentEncodingMiddleware = (opts) => {
       response.headers['Content-Encoding'] = contentEncoding
       response.body = body
       response.isBase64Encoded = true
+      addVary(response)
     }
 
     request.response = response
@@ -103,4 +105,14 @@ const httpContentEncodingMiddleware = (opts) => {
   }
 }
 
+const addVary = (response) => {
+  // See #1253
+  if (response.headers.Vary) {
+    response.headers.Vary += ', Accept-Encoding'
+  } else if (response.headers.vary) {
+    response.headers.vary += ', Accept-Encoding'
+  } else {
+    response.headers.Vary = 'Accept-Encoding'
+  }
+}
 export default httpContentEncodingMiddleware
