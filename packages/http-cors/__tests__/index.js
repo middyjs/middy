@@ -773,112 +773,6 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
   })
 })
 
-test('it should set Access-Control-Request-Headers header if present in config', async (t) => {
-  const handler = middy((event, context) => ({ statusCode: 200 }))
-
-  handler.use(
-    cors({
-      disableBeforePreflightResponse: false,
-      requestHeaders: 'X-Middleware',
-      origin: null
-    })
-  )
-
-  const event = {
-    httpMethod: 'OPTIONS',
-    headers: {}
-  }
-
-  const response = await handler(event, context)
-  deepEqual(response, {
-    statusCode: 204,
-    headers: {
-      'Access-Control-Request-Headers': 'X-Middleware'
-    }
-  })
-})
-
-test('it should not overwrite Access-Control-Request-Headers header if already set', async (t) => {
-  const handler = middy((event, context) => ({
-    statusCode: 200,
-    headers: { 'Access-Control-Request-Headers': 'X-Response' }
-  }))
-
-  handler.use(
-    cors({
-      disableBeforePreflightResponse: true,
-      requestHeaders: 'X-Middleware',
-      origin: null
-    })
-  )
-
-  const event = {
-    httpMethod: 'OPTIONS',
-    headers: {}
-  }
-
-  const response = await handler(event, context)
-  deepEqual(response, {
-    statusCode: 200,
-    headers: {
-      'Access-Control-Request-Headers': 'X-Response'
-    }
-  })
-})
-
-test('it should set Access-Control-Request-Methods header if present in config', async (t) => {
-  const handler = middy((event, context) => ({ statusCode: 200 }))
-
-  handler.use(
-    cors({
-      disableBeforePreflightResponse: false,
-      requestMethods: 'GET,PUT',
-      origin: null
-    })
-  )
-
-  const event = {
-    httpMethod: 'OPTIONS',
-    headers: {}
-  }
-
-  const response = await handler(event, context)
-  deepEqual(response, {
-    statusCode: 204,
-    headers: {
-      'Access-Control-Request-Methods': 'GET,PUT'
-    }
-  })
-})
-
-test('it should not overwrite Access-Control-Request-Methods header if already set', async (t) => {
-  const handler = middy((event, context) => ({
-    statusCode: 200,
-    headers: { 'Access-Control-Request-Methods': 'GET,POST' }
-  }))
-
-  handler.use(
-    cors({
-      disableBeforePreflightResponse: true,
-      requestMethods: 'GET,PUT',
-      origin: null
-    })
-  )
-
-  const event = {
-    httpMethod: 'OPTIONS',
-    headers: {}
-  }
-
-  const response = await handler(event, context)
-  deepEqual(response, {
-    statusCode: 200,
-    headers: {
-      'Access-Control-Request-Methods': 'GET,POST'
-    }
-  })
-})
-
 test('it should set Cache-Control header if present in config and http method OPTIONS', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
@@ -957,13 +851,13 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
 test('it should not overwrite Vary header if already set', async (t) => {
   const handler = middy((event, context) => ({
     statusCode: 200,
-    headers: { Vary: 'Access-Control-Request-Headers' }
+    headers: { Vary: 'Access-Control-Allow-Methods' }
   }))
 
   handler.use(
     cors({
       disableBeforePreflightResponse: true,
-      vary: 'Access-Control-Request-Method',
+      vary: 'Access-Control-Allow-Methods',
       origin: null
     })
   )
@@ -977,7 +871,7 @@ test('it should not overwrite Vary header if already set', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     headers: {
-      Vary: 'Access-Control-Request-Headers'
+      Vary: 'Access-Control-Allow-Methods'
     }
   })
 })
@@ -988,7 +882,7 @@ test('it should set Vary header if present in config', async (t) => {
   handler.use(
     cors({
       disableBeforePreflightResponse: false,
-      vary: 'Access-Control-Request-Method',
+      vary: 'Access-Control-Allow-Methods',
       origin: null
     })
   )
@@ -1002,7 +896,7 @@ test('it should set Vary header if present in config', async (t) => {
   deepEqual(response, {
     statusCode: 204,
     headers: {
-      Vary: 'Access-Control-Request-Method'
+      Vary: 'Access-Control-Allow-Methods'
     }
   })
 })

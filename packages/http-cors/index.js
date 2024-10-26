@@ -10,8 +10,6 @@ const defaults = {
   origins: [],
   exposeHeaders: undefined,
   maxAge: undefined,
-  requestHeaders: undefined,
-  requestMethods: undefined,
   cacheControl: undefined,
   vary: undefined
 }
@@ -150,18 +148,6 @@ const modifyHeaders = (headers, options, request) => {
   }
   if (options.maxAge && !existingHeaders.includes('Access-Control-Max-Age')) {
     headers['Access-Control-Max-Age'] = String(options.maxAge)
-  }
-  if (
-    options.requestHeaders &&
-    !existingHeaders.includes('Access-Control-Request-Headers')
-  ) {
-    headers['Access-Control-Request-Headers'] = options.requestHeaders
-  }
-  if (
-    options.requestMethods &&
-    !existingHeaders.includes('Access-Control-Request-Methods')
-  ) {
-    headers['Access-Control-Request-Methods'] = options.requestMethods
   }
   const httpMethod = getVersionHttpMethod[request.event.version ?? '1.0']?.(
     request.event
