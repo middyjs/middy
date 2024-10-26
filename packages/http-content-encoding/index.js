@@ -43,12 +43,21 @@ const httpContentEncodingMiddleware = (opts) => {
       response
     } = request
 
-    // Encoding not supported OR already encoded
+    // Encoding not supported, already encoded, or doesn't need to'
+    const eventCacheControl =
+      request.event.headers['cache-control'] ??
+      request.event.headers['Cache-Control']
+    if (eventCacheControl === 'no-transform') {
+      response.headers['Cache-Control'] ??= 'no-transform'
+    }
+    const responseCacheControl =
+      response.headers['Cache-Control'] ?? response.headers['cache-control']
     if (
       response.isBase64Encoded ||
       !preferredEncoding ||
       !supportedContentEncodings.includes(preferredEncoding) ||
-      !response.body
+      !response.body ||
+      responseCacheControl === 'no-transform'
     ) {
       return
     }

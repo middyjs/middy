@@ -18,7 +18,7 @@ test('It should encode string using br', async (t) => {
     httpContentEncoding()
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -37,7 +37,7 @@ test('It should encode stream using br', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
   response.body = await streamToBuffer(response.body)
@@ -55,7 +55,7 @@ test('It should encode string using gzip', async (t) => {
     httpContentEncoding()
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -77,7 +77,7 @@ test('It should encode stream using gzip', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -97,7 +97,7 @@ test('It should encode string using deflate', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -119,7 +119,7 @@ test('It should encode stream using deflate', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -149,7 +149,7 @@ test('It should encode using br when context.preferredEncoding is gzip, but has 
     })
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -170,7 +170,7 @@ test('It should not encode when missing context.preferredEncoding', async (t) =>
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, context)
 
@@ -182,7 +182,7 @@ test('It should not encode when missing context.preferredEncoding === `identity`
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -202,7 +202,7 @@ test('It should not encode when response.isBase64Encoded is already set to true'
   }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -219,7 +219,7 @@ test('It should not encode when response.body is not a string', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -231,7 +231,7 @@ test('It should not encode when response.body is empty string', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -243,7 +243,7 @@ test('It should not encode when response.body is different type', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -254,11 +254,55 @@ test('It should not encode when response.body is undefined', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
   deepEqual(response, { statusCode: 200, headers: {} })
+})
+
+test('It should not encode when response.headers["Cache-Control"] is `no-transform`', async (t) => {
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    headers: {
+      'Cache-Control': 'no-transform'
+    },
+    body: 'body'
+  }))
+  handler.use(httpContentEncoding())
+
+  const event = { headers: {} }
+
+  const response = await handler(event, { ...context, preferredEncoding: 'br' })
+
+  deepEqual(response, {
+    statusCode: 200,
+    headers: { 'Cache-Control': 'no-transform' },
+    body: 'body'
+  })
+})
+
+test('It should not encode when event.headers["Cache-Control"] is `no-transform`', async (t) => {
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+
+    body: 'body'
+  }))
+  handler.use(httpContentEncoding())
+
+  const event = {
+    headers: {
+      'Cache-Control': 'no-transform'
+    }
+  }
+
+  const response = await handler(event, { ...context, preferredEncoding: 'br' })
+
+  deepEqual(response, {
+    statusCode: 200,
+    headers: { 'Cache-Control': 'no-transform' },
+    body: 'body'
+  })
 })
 
 test('It should not encode when error is not handled', async (t) => {
@@ -267,7 +311,7 @@ test('It should not encode when error is not handled', async (t) => {
   })
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   try {
     await handler(event, context)
