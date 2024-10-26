@@ -268,3 +268,28 @@ test('It should apply security headers if error is handled', async (t) => {
   equal(response.headers['X-Frame-Options'], undefined)
   equal(response.headers['X-XSS-Protection'], undefined)
 })
+
+test('It should support report only mode', async (t) => {
+  const handler = middy(() => createHtmlObjectResponse())
+
+  handler.use(
+    httpSecurityHeaders({
+      contentSecurityPolicy: {
+        reportOnly: true
+      }
+    })
+  )
+
+  const event = {
+    httpMethod: 'GET'
+  }
+
+  const response = await handler(event, defaultContext)
+
+  equal(response.statusCode, 200)
+  equal(response.headers['Content-Security-Policy'], undefined)
+  equal(
+    response.headers['Content-Security-Policy-Report-Only'],
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to csp; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests"
+  )
+})
