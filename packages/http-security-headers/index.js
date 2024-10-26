@@ -114,18 +114,15 @@ const defaults = {
   referrerPolicy: {
     policy: 'no-referrer'
   },
-  reportingEndpoints: {
-    csp: '',
-    permissions: ''
-  },
+  reportingEndpoints: {},
   reportTo: {
     maxAge: 365 * 24 * 60 * 60,
-    default: '',
-    includeSubdomains: true,
-    csp: '',
-    permissions: '',
-    staple: '',
-    xss: ''
+    // default: '',
+    includeSubdomains: true
+    // csp: '',
+    // permissions: '',
+    // staple: '',
+    // xss: ''
   },
   strictTransportSecurity: {
     maxAge: 180 * 24 * 60 * 60,
@@ -196,6 +193,7 @@ helmet.referrerPolicy = (headers, config) => {
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
     .map((group) => {
+      if (group === 'includeSubdomains' || group === 'maxAge') return ''
       const includeSubdomains =
         group === 'default'
           ? `, "include_subdomains": ${config.includeSubdomains}`
@@ -209,12 +207,13 @@ helmetHtmlOnly.reportTo = (headers, config) => {
 }
 
 helmet.reportingEndpoints = (headers, config) => {
-  headers['Reporting-Endpoints'] = Object.keys(config)
-    .map((group) => {
-      return config[group] && group + '-endpoint=' + config[group]
-    })
-    .filter((str) => str)
-    .join(', ')
+  headers['Reporting-Endpoints'] = ''
+  const keys = Object.keys(config)
+  for (let i = 0, l = keys.length; i < l; i++) {
+    if (i) headers['Reporting-Endpoints'] += ', '
+    const key = keys[i]
+    headers['Reporting-Endpoints'] += key + '="' + config[key] + '"'
+  }
 }
 
 // https://github.com/helmetjs/hsts

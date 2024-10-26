@@ -155,6 +155,10 @@ test('It should modify default security headers with config set', async (t) => {
       },
       reportTo: {
         default: 'https://example.report-uri.com/a/d/g'
+      },
+      reportingEndpoints: {
+        csp: 'https://example.report-uri.com/a/d/g',
+        perms: 'https://example.report-uri.com/a/d/g'
       }
     })
   )
@@ -171,7 +175,11 @@ test('It should modify default security headers with config set', async (t) => {
   equal(response.headers['Referrer-Policy'], undefined)
   equal(
     response.headers['Report-To'],
-    '{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "31536000" } ] }, { "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://example.report-uri.com/a/d/g" } ], "include_subdomains": true }'
+    '{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://example.report-uri.com/a/d/g" } ], "include_subdomains": true }'
+  )
+  equal(
+    response.headers['Reporting-Endpoints'],
+    'csp="https://example.report-uri.com/a/d/g", perms="https://example.report-uri.com/a/d/g"'
   )
   equal(
     response.headers['Permissions-Policy'],
