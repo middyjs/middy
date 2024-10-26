@@ -34,7 +34,8 @@ const defaults = {
     // Other directives
     'require-trusted-types-for': "'script'",
     'trusted-types': "'none'",
-    'upgrade-insecure-requests': ''
+    'upgrade-insecure-requests': '',
+    reportOnly: false
   },
   contentTypeOptions: {
     action: 'nosniff'
@@ -138,6 +139,7 @@ const helmetHtmlOnly = {}
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
 helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
   let header = Object.keys(config)
+    .filter((policy) => policy !== 'reportOnly')
     .map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ''))
     .filter((str) => str)
     .join('; ')
@@ -147,7 +149,11 @@ helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
   if (config['upgrade-insecure-requests'] === '') {
     header += '; upgrade-insecure-requests'
   }
-  headers['Content-Security-Policy'] = header
+
+  const cspHeaderName = config.reportOnly
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy'
+  headers[cspHeaderName] = header
 }
 // crossdomain - N/A - for Adobe products
 helmetHtmlOnly.crossOriginEmbedderPolicy = (headers, config) => {

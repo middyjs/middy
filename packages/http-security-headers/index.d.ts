@@ -28,7 +28,7 @@ interface Options {
   xssProtection?: {
     reportUri?: string
   }
-  contentSecurityPolicy?: Record<string, string>
+  contentSecurityPolicy?: Record<string, string | boolean>
   crossOriginEmbedderPolicy?: {
     policy?: string
   }
