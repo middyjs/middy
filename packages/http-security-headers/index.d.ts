@@ -28,7 +28,8 @@ interface Options {
   xssProtection?: {
     reportUri?: string
   }
-  contentSecurityPolicy?: Record<string, string | boolean>
+  contentSecurityPolicy?: Record<string, string>
+  contentSecurityPolicyReportOnly?: boolean
   crossOriginEmbedderPolicy?: {
     policy?: string
   }
@@ -54,7 +55,7 @@ interface Options {
 
 type WithFalseValues<T> = { [K in keyof T]: T[K] | false }
 
-declare function httpSecurityHeaders (
+declare function httpSecurityHeaders(
   options?: WithFalseValues<Options>
 ): middy.MiddlewareObj
 

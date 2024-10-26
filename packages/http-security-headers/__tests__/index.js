@@ -274,9 +274,8 @@ test('It should support report only mode', async (t) => {
 
   handler.use(
     httpSecurityHeaders({
-      contentSecurityPolicy: {
-        reportOnly: true
-      }
+      contentSecurityPolicy: {},
+      contentSecurityPolicyReportOnly: true
     })
   )
 

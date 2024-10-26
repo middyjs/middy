@@ -34,9 +34,9 @@ const defaults = {
     // Other directives
     'require-trusted-types-for': "'script'",
     'trusted-types': "'none'",
-    'upgrade-insecure-requests': '',
-    reportOnly: false
+    'upgrade-insecure-requests': ''
   },
+  contentSecurityPolicyReportOnly: false,
   contentTypeOptions: {
     action: 'nosniff'
   },
@@ -114,11 +114,16 @@ const defaults = {
   referrerPolicy: {
     policy: 'no-referrer'
   },
+  reportingEndpoints: {
+    csp: '',
+    permissions: ''
+  },
   reportTo: {
     maxAge: 365 * 24 * 60 * 60,
     default: '',
     includeSubdomains: true,
     csp: '',
+    permissions: '',
     staple: '',
     xss: ''
   },
@@ -137,9 +142,8 @@ const helmetHtmlOnly = {}
 
 // *** https://github.com/helmetjs/helmet/tree/main/middlewares *** //
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
-helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
+helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
   let header = Object.keys(config)
-    .filter((policy) => policy !== 'reportOnly')
     .map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ''))
     .filter((str) => str)
     .join('; ')
@@ -150,7 +154,7 @@ helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
     header += '; upgrade-insecure-requests'
   }
 
-  const cspHeaderName = config.reportOnly
+  const cspHeaderName = reportOnly
     ? 'Content-Security-Policy-Report-Only'
     : 'Content-Security-Policy'
   headers[cspHeaderName] = header
@@ -188,6 +192,7 @@ helmet.referrerPolicy = (headers, config) => {
   headers['Referrer-Policy'] = config.policy
 }
 
+// DEPRECATED by reportingEndpoints
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
     .map((group) => {
@@ -198,6 +203,15 @@ helmetHtmlOnly.reportTo = (headers, config) => {
       return config[group] && group !== 'includeSubdomains'
         ? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${includeSubdomains} }`
         : ''
+    })
+    .filter((str) => str)
+    .join(', ')
+}
+
+helmet.reportingEndpoints = (headers, config) => {
+  headers['Reporting-Endpoints'] = Object.keys(config)
+    .map((group) => {
+      return config[group] && group + '-endpoint=' + config[group]
     })
     .filter((str) => str)
     .join(', ')
@@ -280,7 +294,14 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         if (!options[key]) return
         const config = { ...defaults[key], ...options[key] }
-        helmetHtmlOnly[key](request.response.headers, config)
+        if (key === 'contentSecurityPolicy') {
+          helmetHtmlOnly[key](options.contentSecurityPolicyReportOnly)(
+            request.response.headers,
+            config
+          )
+        } else {
+          helmetHtmlOnly[key](request.response.headers, config)
+        }
       })
     }
   }
