@@ -55,7 +55,7 @@ Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-i18n`, `a
 
 - `schema` (object) (required): JSON-Schema object
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
-  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`.
+  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: false, useDefaults: 'empty', messages: true }`.
 
 ## transpileLocale
 

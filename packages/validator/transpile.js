@@ -55,7 +55,7 @@ const compileSchema = (schema, options = {}) => {
 const ajvDefaults = {
   strict: true,
   coerceTypes: 'array', // important for query string params
-  allErrors: true,
+  allErrors: false, // As per AJV security guidance
   useDefaults: 'empty',
   messages: true // needs to be true to allow multi-locale errorMessage to work
 }
