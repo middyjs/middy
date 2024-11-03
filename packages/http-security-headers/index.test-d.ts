@@ -37,9 +37,9 @@ middleware = httpSecurityHeaders({
   },
   contentSecurityPolicy: {
     'default-src': "'none'",
-    sandbox: '',
-    reportOnly: true
+    sandbox: ''
   },
+  contentSecurityPolicyReportOnly: true,
   crossOriginEmbedderPolicy: {
     policy: 'require-corp'
   },

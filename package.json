@@ -1,6 +1,6 @@
 {
   "name": "@middy/monorepo",
-  "version": "6.0.0-alpha.0",
+  "version": "6.0.0-beta.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "test:unit": "cd packages/$PACKAGE && npm run test:unit",
     "test:benchmark": "cd packages/$PACKAGE && npm run test:benchmark",
     "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
-    "test:packages:unit": "node --test --experimental-test-coverage --experimental-test-module-mocks ./packages/**/__tests__/*.js",
+    "test:packages:unit": "node --test --experimental-test-coverage ./packages/**/__tests__/*.js",
     "test:packages:benchmark": "npm run test:benchmark --workspaces",
     "test:packages:typings": "ls packages | xargs -I {} tsd packages/{}",
     "test:llrt": "cd llrt && npm test",
@@ -61,7 +61,7 @@
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
-    "tinybench": "^2.5.1",
+    "tinybench": "^3.0.0",
     "ts-standard": "^12.0.0",
     "tsd": "^0.31.0",
     "typescript": "^5.4.3"

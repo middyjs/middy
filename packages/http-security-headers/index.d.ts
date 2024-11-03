@@ -53,10 +53,10 @@ interface Options {
   }
 }
 
-type WithFalseValues<T> = { [K in keyof T]: T[K] | false }
+type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean }
 
 declare function httpSecurityHeaders(
-  options?: WithFalseValues<Options>
+  options?: WithBoolValues<Options>
 ): middy.MiddlewareObj
 
 export default httpSecurityHeaders

@@ -63,7 +63,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
-    "@datastream/core": "0.0.38",
+    "@datastream/core": "0.0.40",
     "@middy/core": "6.0.0-alpha.0",
     "@types/node": "^20.0.0"
   },

@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "@middy/util": "6.0.0-alpha.0",
-    "negotiator": "0.6.3"
+    "negotiator": "1.0.0"
   },
   "devDependencies": {
     "@middy/core": "6.0.0-alpha.0"

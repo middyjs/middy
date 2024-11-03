@@ -69,7 +69,7 @@
     "@middy/util": "6.0.0-alpha.0"
   },
   "devDependencies": {
-    "@datastream/core": "0.0.38",
+    "@datastream/core": "0.0.40",
     "@middy/core": "6.0.0-alpha.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
