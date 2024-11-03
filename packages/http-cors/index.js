@@ -69,7 +69,6 @@ const httpCorsMiddleware = (opts = {}) => {
     // TODO: IDN -> puncycode not handled, add in if requested
     const regExpStr = origin.replaceAll('.', '\\.').replaceAll('*', '[^.]*')
     originDynamic.push(new RegExp(`^${regExpStr}$`))
-    console.log({ originDynamic })
   }
 
   const modifyHeaders = (headers, options, request) => {
@@ -94,10 +93,11 @@ const httpCorsMiddleware = (opts = {}) => {
       headers['Access-Control-Allow-Methods'] = options.methods
     }
 
+    let newOrigin
     if (!existingHeaders.includes('Access-Control-Allow-Origin')) {
       const eventHeaders = request.event.headers ?? {}
       const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin
-      const newOrigin = options.getOrigin(incomingOrigin, options)
+      newOrigin = options.getOrigin(incomingOrigin, options)
       if (newOrigin) {
         headers['Access-Control-Allow-Origin'] = newOrigin
       }
@@ -107,8 +107,11 @@ const httpCorsMiddleware = (opts = {}) => {
       addHeaderPart(headers, 'Vary', options.vary)
     }
 
-    // #1251
-    if (originAny || originMany) {
+    if (
+      originMany ||
+      (originAny && newOrigin !== '*') ||
+      (newOrigin === '*' && options.credentials)
+    ) {
       addHeaderPart(headers, 'Vary', 'Origin')
     }
 

@@ -39,8 +39,7 @@ test('Should return default headers when { origin: "*" }', async (t) => {
   deepEqual(response, {
     statusCode: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      Vary: 'Origin'
+      'Access-Control-Allow-Origin': '*'
     }
   })
 })
@@ -185,8 +184,7 @@ test('Access-Control-Allow-Origin header should be "*" when origin is "*"', asyn
   deepEqual(response, {
     statusCode: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      Vary: 'Origin'
+      'Access-Control-Allow-Origin': '*'
     }
   })
 })
@@ -263,8 +261,7 @@ test('It should return whitelisted origin (any)', async (t) => {
   deepEqual(response, {
     statusCode: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      Vary: 'Origin'
+      'Access-Control-Allow-Origin': '*'
     }
   })
 })
