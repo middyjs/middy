@@ -105,7 +105,7 @@ test('It should normalize (lowercase) all the headers with defaults', async (t) 
       httpHeaderNormalizer({
         defaultHeaders: {
           'Content-Type': 'application/json',
-          Accept: '*/*'
+          Accept: 'application/json,*/*'
         }
       })
     )
@@ -210,8 +210,8 @@ test('It should normalize (lowercase) all the multiValueHeaders with defaults', 
     .use(
       httpHeaderNormalizer({
         defaultHeaders: {
-          'Content-Type': 'application/json',
-          Accept: '*/*'
+          'Content-Type': 'application/json,*/*',
+          Accept: ['application/json', '*/*']
         }
       })
     )
@@ -219,23 +219,23 @@ test('It should normalize (lowercase) all the multiValueHeaders with defaults', 
 
   const event = {
     multiValueHeaders: {
-      'x-aPi-key': '123456',
-      tcn: 'abc',
-      te: 'cde',
-      DNS: 'd',
-      FOO: 'bar',
-      Accept: 'application/json'
+      'x-aPi-key': ['123456'],
+      tcn: ['abc'],
+      te: ['cde'],
+      DNS: ['d'],
+      FOO: ['bar'],
+      Accept: ['application/json']
     }
   }
 
   const expectedHeaders = {
-    'x-api-key': '123456',
-    tcn: 'abc',
-    te: 'cde',
-    dns: 'd',
-    foo: 'bar',
-    accept: 'application/json',
-    'content-type': 'application/json'
+    'x-api-key': ['123456'],
+    tcn: ['abc'],
+    te: ['cde'],
+    dns: ['d'],
+    foo: ['bar'],
+    accept: ['application/json'],
+    'content-type': ['application/json', '*/*']
   }
 
   const resultingEvent = await handler(event, context)

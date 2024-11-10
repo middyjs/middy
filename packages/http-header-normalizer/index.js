@@ -60,38 +60,39 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const defaultHeaders = {}
+  const defaultMultiValueHeaders = {}
   for (const key of Object.keys(options.defaultHeaders)) {
-    defaultHeaders[options.normalizeHeaderKey(key, options.canonical)] =
-      options.defaultHeaders[key]
+    const newKey = options.normalizeHeaderKey(key, options.canonical)
+    const isArray = Array.isArray(options.defaultHeaders[key])
+    defaultHeaders[newKey] = isArray
+      ? options.defaultHeaders[key].join(',')
+      : options.defaultHeaders[key]
+    defaultMultiValueHeaders[newKey] = isArray
+      ? options.defaultHeaders[key]
+      : options.defaultHeaders[key].split(',')
   }
 
   const httpHeaderNormalizerMiddlewareBefore = async (request) => {
     if (request.event.headers) {
-      // const rawHeaders = {}
       const headers = { ...defaultHeaders }
 
       for (const key of Object.keys(request.event.headers)) {
-        // rawHeaders[key] = request.event.headers[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
           request.event.headers[key]
       }
 
       request.event.headers = headers
-      // request.event.rawHeaders = rawHeaders
     }
 
     if (request.event.multiValueHeaders) {
-      // const rawHeaders = {}
-      const headers = { ...defaultHeaders }
+      const headers = { ...defaultMultiValueHeaders }
 
       for (const key of Object.keys(request.event.multiValueHeaders)) {
-        // rawHeaders[key] = request.event.multiValueHeaders[key]
         headers[options.normalizeHeaderKey(key, options.canonical)] =
           request.event.multiValueHeaders[key]
       }
 
       request.event.multiValueHeaders = headers
-      // request.event.rawMultiValueHeaders = rawHeaders
     }
   }
 
