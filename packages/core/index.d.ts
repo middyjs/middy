@@ -100,7 +100,7 @@ export interface MiddyfiedHandler<
     handler: MiddlewareHandler<
     LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
     TContext, TResult
-    >
+    > | LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>
   ) => MiddyfiedHandler<TInputHandlerEventProps, TInputHandlerResultProps, TErr, TContext, TInternal>
 }
 
