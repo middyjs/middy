@@ -13,8 +13,6 @@ Other middlewares like [`jsonBodyParser`](#jsonbodyparser) or [`urlEncodeBodyPar
 will rely on headers to be one of the normalized formats, so if you want to support non-normalized headers in your
 app you have to use this middleware before those ones.
 
-This middleware will copy the original headers in `event.rawHeaders`.
-
 ## Install
 
 To install this middleware you can use NPM:

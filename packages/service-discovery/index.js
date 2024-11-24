@@ -29,7 +29,7 @@ const defaults = {
 const serviceDiscoveryMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (request, cachedValues = {}) => {
+  const fetchRequest = (request, cachedValues = {}) => {
     const values = {}
 
     for (const internalKey of Object.keys(options.fetchData)) {
@@ -56,7 +56,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
 
   const serviceDiscoveryMiddlewareBefore = async (request) => {
@@ -64,7 +64,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
       client = await createClient(options, request)
     }
 
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
 
     Object.assign(request.internal, value)
 

@@ -1,10 +1,10 @@
 {
   "name": "@middy/http-urlencode-body-parser",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "Urlencode body parser middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -15,6 +15,9 @@
     ".": {
       "import": {
         "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
         "default": "./index.js"
       }
     }
@@ -59,9 +62,6 @@
   "funding": {
     "type": "github",
     "url": "https://github.com/sponsors/willfarrell"
-  },
-  "dependencies": {
-    "qs": "6.13.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.101",

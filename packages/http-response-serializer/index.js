@@ -19,17 +19,10 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
     }
 
     // find accept value(s)
-    let types
-
-    // TODO deprecate `requiredContentType` in v6
-    if (request.event.requiredContentType) {
-      types = [request.event.requiredContentType]
-    } else {
-      types = [
-        ...(request.context.preferredMediaTypes ?? []), // from @middy/http-content-negotiation
-        defaultContentType
-      ]
-    }
+    const types = [
+      ...(request.context.preferredMediaTypes ?? []), // from @middy/http-content-negotiation
+      defaultContentType
+    ]
 
     for (const type of types) {
       let breakTypes

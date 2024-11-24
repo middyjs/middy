@@ -1,10 +1,10 @@
 {
   "name": "@middy/s3-object-response",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "S3 object response handling middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -15,6 +15,9 @@
     ".": {
       "import": {
         "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
         "default": "./index.js"
       }
     }

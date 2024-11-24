@@ -1,10 +1,10 @@
 {
   "name": "@middy/core",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -15,6 +15,9 @@
     ".": {
       "import": {
         "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
         "default": "./index.js"
       }
     }
@@ -57,11 +60,9 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "devDependencies": {
+    "@datastream/core": "0.0.40",
     "@types/aws-lambda": "^8.10.76",
     "@types/node": "^20.0.0"
   },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
-  "dependencies": {
-    "@datastream/core": "0.0.38"
-  }
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

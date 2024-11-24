@@ -29,6 +29,7 @@ interface Options {
     reportUri?: string
   }
   contentSecurityPolicy?: Record<string, string>
+  contentSecurityPolicyReportOnly?: boolean
   crossOriginEmbedderPolicy?: {
     policy?: string
   }
@@ -52,10 +53,10 @@ interface Options {
   }
 }
 
-type WithFalseValues<T> = { [K in keyof T]: T[K] | false }
+type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean }
 
-declare function httpSecurityHeaders (
-  options?: WithFalseValues<Options>
+declare function httpSecurityHeaders(
+  options?: WithBoolValues<Options>
 ): middy.MiddlewareObj
 
 export default httpSecurityHeaders

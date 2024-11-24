@@ -1,10 +1,10 @@
 {
   "name": "@middy/http-error-handler",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "Http error handler middleware for the middy framework",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -15,6 +15,9 @@
     ".": {
       "import": {
         "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
         "default": "./index.js"
       }
     }
@@ -61,10 +64,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.5.1"
+    "@middy/util": "6.0.0"
   },
   "devDependencies": {
-    "@middy/core": "5.5.1",
+    "@middy/core": "6.0.0",
     "@types/http-errors": "^2.0.0",
     "@types/node": "^20.0.0"
   },

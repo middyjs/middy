@@ -21,7 +21,7 @@ const defaults = {
 const rdsSignerMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = (request, cachedValues = {}) => {
+  const fetchRequest = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
@@ -53,11 +53,11 @@ const rdsSignerMiddleware = (opts = {}) => {
   }
 
   if (canPrefetch(options)) {
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
 
   const rdsSignerMiddlewareBefore = async (request) => {
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
 
     Object.assign(request.internal, value)
 

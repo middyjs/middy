@@ -43,12 +43,21 @@ const httpContentEncodingMiddleware = (opts) => {
       response
     } = request
 
-    // Encoding not supported OR already encoded
+    // Encoding not supported, already encoded, or doesn't need to'
+    const eventCacheControl =
+      request.event.headers['cache-control'] ??
+      request.event.headers['Cache-Control']
+    if (eventCacheControl?.includes('no-transform')) {
+      addHeaderPart(response, 'Cache-Control', 'no-transform')
+    }
+    const responseCacheControl =
+      response.headers['Cache-Control'] ?? response.headers['cache-control']
     if (
       response.isBase64Encoded ||
       !preferredEncoding ||
       !supportedContentEncodings.includes(preferredEncoding) ||
-      !response.body
+      !response.body ||
+      responseCacheControl?.includes('no-transform')
     ) {
       return
     }
@@ -70,6 +79,7 @@ const httpContentEncodingMiddleware = (opts) => {
     if (response.body?._readableState) {
       request.response.headers['Content-Encoding'] = contentEncoding
       request.response.body = request.response.body.pipe(contentEncodingStream)
+      addHeaderPart(response, 'Vary', 'Accept-Encoding')
       return
     }
 
@@ -79,7 +89,7 @@ const httpContentEncodingMiddleware = (opts) => {
     for await (const chunk of stream) {
       chunks.push(chunk)
     }
-    // TODO update to btoa if faster
+
     const body = Buffer.concat(chunks).toString('base64')
 
     // Only apply encoding if it's smaller
@@ -87,6 +97,7 @@ const httpContentEncodingMiddleware = (opts) => {
       response.headers['Content-Encoding'] = contentEncoding
       response.body = body
       response.isBase64Encoded = true
+      addHeaderPart(response, 'Vary', 'Accept-Encoding')
     }
 
     request.response = response
@@ -101,6 +112,15 @@ const httpContentEncodingMiddleware = (opts) => {
     after: httpContentEncodingMiddlewareAfter,
     onError: httpContentEncodingMiddlewareOnError
   }
+}
+
+// header in offical name, lowercase varient handeled
+const addHeaderPart = (response, header, value) => {
+  const headerLower = header.toLowerCase()
+  header = response.headers[headerLower] ? headerLower : header
+  response.headers[header] ??= ''
+  response.headers[header] &&= response.headers[header] + ', '
+  response.headers[header] += value
 }
 
 export default httpContentEncodingMiddleware

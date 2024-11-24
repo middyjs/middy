@@ -18,14 +18,14 @@ test('It should encode string using br', async (t) => {
     httpContentEncoding()
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' },
+    headers: { 'Content-Encoding': 'br', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -37,7 +37,7 @@ test('It should encode stream using br', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
   response.body = await streamToBuffer(response.body)
@@ -45,7 +45,7 @@ test('It should encode stream using br', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' }
+    headers: { 'Content-Encoding': 'br', Vary: 'Accept-Encoding' }
   })
 })
 
@@ -55,7 +55,7 @@ test('It should encode string using gzip', async (t) => {
     httpContentEncoding()
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -65,7 +65,7 @@ test('It should encode string using gzip', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: gzipSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'gzip' },
+    headers: { 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -77,7 +77,7 @@ test('It should encode stream using gzip', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -88,7 +88,7 @@ test('It should encode stream using gzip', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: gzipSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'gzip' }
+    headers: { 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }
   })
 })
 
@@ -97,7 +97,7 @@ test('It should encode string using deflate', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -107,7 +107,7 @@ test('It should encode string using deflate', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: deflateSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'deflate' },
+    headers: { 'Content-Encoding': 'deflate', Vary: 'Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -119,7 +119,7 @@ test('It should encode stream using deflate', async (t) => {
     body: createReadableStream(body)
   })).use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -130,20 +130,26 @@ test('It should encode stream using deflate', async (t) => {
   deepEqual(response, {
     statusCode: 200,
     body: deflateSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'deflate' }
+    headers: { 'Content-Encoding': 'deflate', Vary: 'Accept-Encoding' }
   })
 })
 
 test('It should encode using br when context.preferredEncoding is gzip, but has overridePreferredEncoding set', async (t) => {
   const body = compressibleBody
-  const handler = middy((event, context) => ({ statusCode: 200, body }))
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    body,
+    headers: {
+      Vary: 'Something'
+    }
+  }))
   handler.use(
     httpContentEncoding({
       overridePreferredEncoding: ['br', 'gzip', 'deflate']
     })
   )
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -154,7 +160,7 @@ test('It should encode using br when context.preferredEncoding is gzip, but has 
   deepEqual(response, {
     statusCode: 200,
     body: brotliCompressSync(body).toString('base64'),
-    headers: { 'Content-Encoding': 'br' },
+    headers: { 'Content-Encoding': 'br', Vary: 'Something, Accept-Encoding' },
     isBase64Encoded: true
   })
 })
@@ -164,7 +170,7 @@ test('It should not encode when missing context.preferredEncoding', async (t) =>
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, context)
 
@@ -176,7 +182,7 @@ test('It should not encode when missing context.preferredEncoding === `identity`
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, {
     ...context,
@@ -196,7 +202,7 @@ test('It should not encode when response.isBase64Encoded is already set to true'
   }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -213,7 +219,7 @@ test('It should not encode when response.body is not a string', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -225,7 +231,7 @@ test('It should not encode when response.body is empty string', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -237,7 +243,7 @@ test('It should not encode when response.body is different type', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200, body }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
@@ -248,11 +254,55 @@ test('It should not encode when response.body is undefined', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   const response = await handler(event, { ...context, preferredEncoding: 'br' })
 
   deepEqual(response, { statusCode: 200, headers: {} })
+})
+
+test('It should not encode when response.headers["Cache-Control"] is `no-transform`', async (t) => {
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+    headers: {
+      'Cache-Control': 'no-transform'
+    },
+    body: 'body'
+  }))
+  handler.use(httpContentEncoding())
+
+  const event = { headers: {} }
+
+  const response = await handler(event, { ...context, preferredEncoding: 'br' })
+
+  deepEqual(response, {
+    statusCode: 200,
+    headers: { 'Cache-Control': 'no-transform' },
+    body: 'body'
+  })
+})
+
+test('It should not encode when event.headers["Cache-Control"] is `no-transform`', async (t) => {
+  const handler = middy((event, context) => ({
+    statusCode: 200,
+
+    body: 'body'
+  }))
+  handler.use(httpContentEncoding())
+
+  const event = {
+    headers: {
+      'Cache-Control': 'no-transform'
+    }
+  }
+
+  const response = await handler(event, { ...context, preferredEncoding: 'br' })
+
+  deepEqual(response, {
+    statusCode: 200,
+    headers: { 'Cache-Control': 'no-transform' },
+    body: 'body'
+  })
 })
 
 test('It should not encode when error is not handled', async (t) => {
@@ -261,7 +311,7 @@ test('It should not encode when error is not handled', async (t) => {
   })
   handler.use(httpContentEncoding())
 
-  const event = {}
+  const event = { headers: {} }
 
   try {
     await handler(event, context)

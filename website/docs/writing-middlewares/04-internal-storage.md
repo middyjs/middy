@@ -25,11 +25,11 @@ const defaults = {
 const customMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
-  const fetch = () => {
+  const fetchRequest = () => {
     const values = {}
     // Start your custom fetch
     for (const internalKey of Object.keys(options.fetchData)) {
-      values[internalKey] = fetch('...', options.fetchData[internalKey]).then(
+      values[internalKey] = fetchRequest('...', options.fetchData[internalKey]).then(
         (res) => res.text()
       )
     }
@@ -38,11 +38,11 @@ const customMiddleware = (opts = {}) => {
   }
 
   if (canPrefetch(options)) {
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
 
   const customMiddlewareBefore = async (request) => {
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
 
     Object.assign(request.internal, value)
     if (options.setToContext) {

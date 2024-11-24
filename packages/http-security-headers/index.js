@@ -36,6 +36,7 @@ const defaults = {
     'trusted-types': "'none'",
     'upgrade-insecure-requests': ''
   },
+  contentSecurityPolicyReportOnly: false,
   contentTypeOptions: {
     action: 'nosniff'
   },
@@ -113,13 +114,15 @@ const defaults = {
   referrerPolicy: {
     policy: 'no-referrer'
   },
+  reportingEndpoints: {},
   reportTo: {
     maxAge: 365 * 24 * 60 * 60,
-    default: '',
-    includeSubdomains: true,
-    csp: '',
-    staple: '',
-    xss: ''
+    // default: '',
+    includeSubdomains: true
+    // csp: '',
+    // permissions: '',
+    // staple: '',
+    // xss: ''
   },
   strictTransportSecurity: {
     maxAge: 180 * 24 * 60 * 60,
@@ -136,7 +139,7 @@ const helmetHtmlOnly = {}
 
 // *** https://github.com/helmetjs/helmet/tree/main/middlewares *** //
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
-helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
+helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
   let header = Object.keys(config)
     .map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ''))
     .filter((str) => str)
@@ -147,7 +150,11 @@ helmetHtmlOnly.contentSecurityPolicy = (headers, config) => {
   if (config['upgrade-insecure-requests'] === '') {
     header += '; upgrade-insecure-requests'
   }
-  headers['Content-Security-Policy'] = header
+
+  const cspHeaderName = reportOnly
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy'
+  headers[cspHeaderName] = header
 }
 // crossdomain - N/A - for Adobe products
 helmetHtmlOnly.crossOriginEmbedderPolicy = (headers, config) => {
@@ -182,9 +189,11 @@ helmet.referrerPolicy = (headers, config) => {
   headers['Referrer-Policy'] = config.policy
 }
 
+// DEPRECATED by reportingEndpoints
 helmetHtmlOnly.reportTo = (headers, config) => {
   headers['Report-To'] = Object.keys(config)
     .map((group) => {
+      if (group === 'includeSubdomains' || group === 'maxAge') return ''
       const includeSubdomains =
         group === 'default'
           ? `, "include_subdomains": ${config.includeSubdomains}`
@@ -195,6 +204,16 @@ helmetHtmlOnly.reportTo = (headers, config) => {
     })
     .filter((str) => str)
     .join(', ')
+}
+
+helmet.reportingEndpoints = (headers, config) => {
+  headers['Reporting-Endpoints'] = ''
+  const keys = Object.keys(config)
+  for (let i = 0, l = keys.length; i < l; i++) {
+    if (i) headers['Reporting-Endpoints'] += ', '
+    const key = keys[i]
+    headers['Reporting-Endpoints'] += key + '="' + config[key] + '"'
+  }
 }
 
 // https://github.com/helmetjs/hsts
@@ -274,7 +293,14 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
       Object.keys(helmetHtmlOnly).forEach((key) => {
         if (!options[key]) return
         const config = { ...defaults[key], ...options[key] }
-        helmetHtmlOnly[key](request.response.headers, config)
+        if (key === 'contentSecurityPolicy') {
+          helmetHtmlOnly[key](options.contentSecurityPolicyReportOnly)(
+            request.response.headers,
+            config
+          )
+        } else {
+          helmetHtmlOnly[key](request.response.headers, config)
+        }
       })
     }
   }

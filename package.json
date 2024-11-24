@@ -1,11 +1,11 @@
 {
   "name": "@middy/monorepo",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "scripts": {
@@ -29,7 +29,7 @@
     "outdated": "npm outdated --workspaces",
     "audit": "npm audit fix --workspaces",
     "release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\;",
-    "release:tag": "git tag $npm_package_version && git push --tags",
+    "release:tag": "git tag $npm_package_version",
     "release:publish": "npm publish --workspaces",
     "release:publish:next": "npm publish --tag next --workspaces"
   },
@@ -61,8 +61,7 @@
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
-    "sinon": "^18.0.0",
-    "tinybench": "^2.5.1",
+    "tinybench": "^3.0.0",
     "ts-standard": "^12.0.0",
     "tsd": "^0.31.0",
     "typescript": "^5.4.3"

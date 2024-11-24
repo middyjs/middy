@@ -1,10 +1,10 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "5.5.1",
+  "version": "6.0.0",
   "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "engineStrict": true,
   "publishConfig": {
@@ -15,6 +15,9 @@
     ".": {
       "import": {
         "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
         "default": "./index.js"
       }
     }
@@ -63,10 +66,10 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@middy/util": "5.5.1"
+    "@middy/util": "6.0.0"
   },
   "devDependencies": {
-    "@middy/core": "5.5.1"
+    "@middy/core": "6.0.0"
   },
   "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

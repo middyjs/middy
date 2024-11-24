@@ -36,7 +36,7 @@ const dynamodbMiddleware = (opts = {}) => {
     )
   }
 
-  const fetch = (request, cachedValues = {}) => {
+  const fetchRequest = (request, cachedValues = {}) => {
     const values = {}
     for (const internalKey in options.fetchData) {
       if (cachedValues[internalKey]) continue
@@ -59,13 +59,13 @@ const dynamodbMiddleware = (opts = {}) => {
   let client
   if (canPrefetch(options)) {
     client = createPrefetchClient(options)
-    processCache(options, fetch)
+    processCache(options, fetchRequest)
   }
   const dynamodbMiddlewareBefore = async (request) => {
     if (!client) {
       client = await createClient(options, request)
     }
-    const { value } = processCache(options, fetch, request)
+    const { value } = processCache(options, fetchRequest, request)
     Object.assign(request.internal, value)
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
