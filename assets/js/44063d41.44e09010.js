@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkmiddy=self.webpackChunkmiddy||[]).push([[5709],{1290:e=>{e.exports=JSON.parse('{"title":"Upgrade","slug":"/category/upgrade","permalink":"/docs/category/upgrade","navigation":{"previous":{"title":"ws-router","permalink":"/docs/routers/ws-router"},"next":{"title":"Upgrade 4.x -> 5.x","permalink":"/docs/upgrade/4-5"}}}')}}]);
