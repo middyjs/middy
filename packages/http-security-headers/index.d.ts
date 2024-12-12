@@ -55,7 +55,7 @@ interface Options {
 
 type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean }
 
-declare function httpSecurityHeaders(
+declare function httpSecurityHeaders (
   options?: WithBoolValues<Options>
 ): middy.MiddlewareObj
 
