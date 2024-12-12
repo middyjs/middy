@@ -10,7 +10,7 @@
   <a href="https://snyk.io/test/github/middyjs/middy"><img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="snyk Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;"></a>
   <a href="https://socket.dev/npm/package/@middy/core"><img src="https://socket.dev/api/badge/npm/package/@middy/core" alt="Socket Supply chain Security" style="max-width:100%;"></a>
   <a href="https://github.com/middyjs/middy/actions/workflows/sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/sast.yml/badge.svg?branch=main&event=push" alt="CodeQL" style="max-width:100%;"></a>
-  <a href="https://bestpractices.coreinfrastructure.org/projects/5280"><img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/middyjs/middy"><img src="https://api.scorecard.dev/projects/github.com/middyjs/middy/badge" alt="Open Source Security Foundation (OpenSSF) Scorecard"  style="max-width:100%;"></a>
   <br/>
   <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
   <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
