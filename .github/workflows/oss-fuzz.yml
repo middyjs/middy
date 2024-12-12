@@ -1,21 +1,34 @@
-name: CIFuzz
-on: [pull_request]
+name: OSS Fuzz
+on:
+  pull_request:
+    paths:
+      - '**.js'
+  workflow_dispatch:
+
 permissions: {}
 jobs:
   Fuzzing:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined, memory]
     steps:
-      - name: Build Fuzzers
+      - name: Build Fuzzers (${{ matrix.sanitizer }})
         id: build
         uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@bdf19d3fc7961e9193e3a0f4e22a782f596d05be # latest
         with:
           oss-fuzz-project-name: 'middy'
-      - name: Run Fuzzers
+          language: javascript
+          sanitizer: ${{ matrix.sanitizer }}
+      - name: Run Fuzzers (${{ matrix.sanitizer }})
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@bdf19d3fc7961e9193e3a0f4e22a782f596d05be # latest
         with:
           oss-fuzz-project-name: 'middy'
+          language: javascript
+          sanitizer: ${{ matrix.sanitizer }}
           fuzz-seconds: 600
           output-sarif: true
       - name: Upload Crash
