@@ -1,13 +1,10 @@
 const defaults = {
   routes: [],
   notFoundResponse: ({ requestType }) => {
-    const err = new Error('Route does not exist', {
-      cause: {
-        package: '@middy/cloudformation-router',
-        data: { requestType }
-      }
-    })
-    throw err
+    return {
+      Status: 'FAILED',
+      Reason: `Route ${requestType} does not exist. @middy/cloudformation-router`
+    }
   }
 }
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
@@ -27,9 +24,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
   return (event, context, abort) => {
     const { RequestType: requestType } = event
     if (!requestType) {
-      throw new Error('Unknown CloudFormation event format', {
-        cause: { package: '@middy/cloudformation-router' }
-      })
+      return notFoundResponse({ requestType })
     }
 
     // Static
