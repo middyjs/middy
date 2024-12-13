@@ -15,7 +15,7 @@ npm install --save @middy/http-urlencode-body-parser
 
 ## Options
 
-- `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `true`, will default to `false` in next major version.
+- `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
 ## Sample usage
 
