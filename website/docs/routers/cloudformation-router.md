@@ -68,7 +68,7 @@ const routes = [
     handler: updateHandler
   },
   {
-    routeKey: 'delete',
+    routeKey: 'Delete',
     handler: deleteHandler
   }
 ]
