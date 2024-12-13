@@ -1,8 +1,7 @@
-import { createError } from '@middy/util'
 const defaults = {
   routes: [],
   notFoundResponse: ({ requestType }) => {
-    const err = createError(404, 'Route does not exist', {
+    const err = new Error('Route does not exist', {
       cause: {
         package: '@middy/cloudformation-router',
         data: { requestType }
