@@ -23,6 +23,13 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
       })
     }
 
+    if (body === undefined) {
+      const contentLength = headers?.['Content-Length'] ?? headers?.['content-length']
+      if (!contentLength || contentLength === '0') {
+        return
+      }
+    }
+
     try {
       const data = request.event.isBase64Encoded
         ? Buffer.from(body, 'base64').toString()

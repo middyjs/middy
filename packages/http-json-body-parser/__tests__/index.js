@@ -123,7 +123,8 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
   // invokes the handler
   const event = {
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Content-Length': '10', // body should be some content
     },
     body: undefined
   }
@@ -138,6 +139,27 @@ test('It should handle undefined as an UnprocessableEntity', async (t) => {
       /(^Unexpected token)|"undefined" is not valid JSON/
     )
   }
+})
+
+test('It should process undefined JSON as long as the content-length header is missing', async (t) => {
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(jsonBodyParser())
+
+  // invokes the handler
+  const event = {
+    headers: {
+      'Content-Type': 'application/json',
+      // 'Content-Length': '10', body could be realistically undefined in this edge-case
+    },
+  }
+
+
+  const body = await handler(event, defaultContext)
+
+  equal(body, undefined)
 })
 
 test("It shouldn't process the body if no header is passed", async (t) => {
