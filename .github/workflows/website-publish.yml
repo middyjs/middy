@@ -9,12 +9,14 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   website:
     name: Publish website
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     strategy:
       matrix:
