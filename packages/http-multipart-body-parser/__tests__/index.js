@@ -94,14 +94,7 @@ test('It should handle invalid form data (undefined) as an UnprocessableEntity',
     await handler(event, defaultContext)
   } catch (e) {
     equal(e.message, 'Invalid or malformed multipart/form-data was provided')
-    ok(
-      [
-        // Node 18
-        'The "chunk" argument must be of type string or an instance of Buffer or Uint8Array. Received undefined',
-        // Node 20
-        'The "chunk" argument must be of type string or an instance of Buffer, TypedArray, or DataView. Received undefined'
-      ].includes(e.cause.data.message)
-    )
+    equal(e.cause.data, undefined)
   }
 })
 
@@ -126,7 +119,7 @@ test('It should handle invalid form data (null) as an UnprocessableEntity', asyn
     await handler(event, defaultContext)
   } catch (e) {
     equal(e.message, 'Invalid or malformed multipart/form-data was provided')
-    equal(e.cause.data.message, 'May not write null values to stream')
+    equal(e.cause.message, 'May not write null values to stream')
   }
 })
 
@@ -151,7 +144,7 @@ test('It should handle more invalid form data as an UnprocessableEntity', async 
     await handler(event, defaultContext)
   } catch (e) {
     equal(e.message, 'Invalid or malformed multipart/form-data was provided')
-    equal(e.cause.data.message, 'Unexpected end of multipart data')
+    equal(e.cause.message, 'Unexpected end of multipart data')
   }
 })
 

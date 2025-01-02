@@ -14,12 +14,14 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     // https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
     // Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
     const batchItemFailures = []
-    for (const [idx, record] of Object.entries(Records)) {
-      const { status, reason } = response[idx]
-      if (status === 'fulfilled') continue
-      batchItemFailures.push({ itemIdentifier: record.messageId })
-      if (typeof logger === 'function') {
-        logger(reason, record)
+    if (Array.isArray(Records)) {
+      for (const [idx, record] of Object.entries(Records)) {
+        const { status, reason } = response[idx]
+        if (status === 'fulfilled') continue
+        batchItemFailures.push({ itemIdentifier: record.messageId })
+        if (typeof logger === 'function') {
+          logger(reason, record)
+        }
       }
     }
 
@@ -30,10 +32,13 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
     if (request.response !== undefined) return
 
     // Force all to be sent to DLQ
-    const recordPromises = request.event.Records.map(async (record, index) => {
-      throw request.error
+    // const recordPromises = request.event.Records.map(async (record, index) => {
+    //   throw request.error
+    // })
+    request.response = new Array(request.event.Records?.length).fill({
+      status: 'rejected',
+      reason: request.error
     })
-    request.response = await Promise.allSettled(recordPromises)
 
     await sqsPartialBatchFailureMiddlewareAfter(request)
   }

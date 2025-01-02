@@ -16,8 +16,10 @@
     "test:lint:ci": "ts-standard",
     "test:unit": "cd packages/$PACKAGE && npm run test:unit",
     "test:benchmark": "cd packages/$PACKAGE && npm run test:benchmark",
-    "test:packages": "npm run test:packages:typings && npm run test:packages:unit",
-    "test:packages:unit": "node --test --experimental-test-coverage ./packages/**/__tests__/*.js",
+    "test:packages": "npm run test:packages:typings && npm run test:packages:all",
+    "test:packages:all": "node --test --experimental-test-coverage ./packages/**/__tests__/*.js",
+    "test:packages:unit": "node --test --experimental-test-coverage ./packages/**/__tests__/index.js",
+    "test:packages:fuzz": "node --test --experimental-test-coverage ./packages/**/__tests__/fuzz.js",
     "test:packages:benchmark": "npm run test:benchmark --workspaces",
     "test:packages:typings": "ls packages | xargs -I {} tsd packages/{}",
     "test:llrt": "cd llrt && npm test",
@@ -58,13 +60,14 @@
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
     "aws-sdk-client-mock": "^4.0.0",
+    "fast-check": "^3.0.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "prettier": "^3.0.0",
     "tinybench": "^3.0.0",
     "ts-standard": "^12.0.0",
     "tsd": "^0.31.0",
-    "typescript": "^5.4.3"
+    "typescript": "^5.0.0"
   },
   "workspaces": [
     "packages/*"

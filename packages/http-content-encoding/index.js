@@ -45,8 +45,8 @@ const httpContentEncodingMiddleware = (opts) => {
 
     // Encoding not supported, already encoded, or doesn't need to'
     const eventCacheControl =
-      request.event.headers['cache-control'] ??
-      request.event.headers['Cache-Control']
+      request.event?.headers?.['cache-control'] ??
+      request.event?.headers?.['Cache-Control']
     if (eventCacheControl?.includes('no-transform')) {
       addHeaderPart(response, 'Cache-Control', 'no-transform')
     }
@@ -57,6 +57,9 @@ const httpContentEncodingMiddleware = (opts) => {
       !preferredEncoding ||
       !supportedContentEncodings.includes(preferredEncoding) ||
       !response.body ||
+      (typeof response.body !== 'string' &&
+        !Buffer.isBuffer(response.body) &&
+        !response.body?._readableState) ||
       responseCacheControl?.includes('no-transform')
     ) {
       return

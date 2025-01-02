@@ -39,8 +39,9 @@
     "transpile.d.ts"
   ],
   "scripts": {
-    "test": "npm run test:unit",
+    "test": "npm run test:unit && npm run test:fuzz",
     "test:unit": "node --test __tests__/index.js",
+    "test:fuzz": "node --test __tests__/fuzz.js",
     "test:benchmark": "node __benchmarks__/index.js"
   },
   "license": "MIT",

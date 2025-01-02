@@ -11,7 +11,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
   const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
 
-    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
+    const contentType = headers?.['content-type'] ?? headers?.['Content-Type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
@@ -37,7 +37,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
       throw createError(
         415,
         'Invalid or malformed URL encoded form was provided',
-        { cause: { package: '@middy/http-urlencode-body-parser' } }
+        { cause: { package: '@middy/http-urlencode-body-parser', data: body } }
       )
     }
   }

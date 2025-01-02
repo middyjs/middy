@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import { equal, deepEqual, doesNotThrow } from 'node:assert/strict'
 import middy from '../../core/index.js'
-import cors from '../index.js'
+import httpCors from '../index.js'
 
 const context = {
   getRemainingTimeInMillis: () => 1000
@@ -10,7 +10,7 @@ const context = {
 test('Should return default headers when { }', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
-  handler.use(cors({}))
+  handler.use(httpCors({}))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -27,7 +27,7 @@ test('Should return default headers when { }', async (t) => {
 test('Should return default headers when { origin: "*" }', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
-  handler.use(cors({ disableBeforePreflightResponse: false, origin: '*' }))
+  handler.use(httpCors({ disableBeforePreflightResponse: false, origin: '*' }))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -51,7 +51,7 @@ test('It should add headers even onError', async (t) => {
 
   handler
     .use(
-      cors({
+      httpCors({
         disableBeforePreflightResponse: true,
         origin: 'https://example.com'
       })
@@ -83,7 +83,7 @@ test('It should run handler when { disableBeforePreflightResponse: true }', asyn
     return { statusCode: 200 }
   })
 
-  handler.use(cors({ disableBeforePreflightResponse: true }))
+  handler.use(httpCors({ disableBeforePreflightResponse: true }))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -106,7 +106,7 @@ test('It should respond during `before` when { disableBeforePreflightResponse: f
     return { statusCode: 200 }
   })
 
-  handler.use(cors({ disableBeforePreflightResponse: false }))
+  handler.use(httpCors({ disableBeforePreflightResponse: false }))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -126,7 +126,7 @@ test('It should respond during `before` when { disableBeforePreflightResponse: f
 test('It should exclude `Access-Control-Allow-Origin`', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 204 }))
 
-  handler.use(cors({}))
+  handler.use(httpCors({}))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -149,7 +149,7 @@ test('It should not override response Access-Control-Allow-Origin header when { 
 
   // other middleware that puts the cors header
   handler.use(
-    cors({
+    httpCors({
       origin: 'https://default.com'
     })
   )
@@ -172,7 +172,7 @@ test('It should not override response Access-Control-Allow-Origin header when { 
 test('Access-Control-Allow-Origin header should be "*" when origin is "*"', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
-  handler.use(cors({ disableBeforePreflightResponse: false, origin: '*' }))
+  handler.use(httpCors({ disableBeforePreflightResponse: false, origin: '*' }))
 
   const event = {
     httpMethod: 'OPTIONS',
@@ -193,7 +193,7 @@ test('It should use origin specified in options', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origin: 'https://example.com'
     })
@@ -218,7 +218,7 @@ test('It should use Origin when matching origin specified in options', async (t)
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origin: 'https://example.com'
     })
@@ -245,7 +245,7 @@ test('It should return whitelisted origin (any)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['*']
     })
@@ -270,7 +270,7 @@ test('It should return whitelisted origin (static)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://another-example.com']
     })
@@ -292,11 +292,36 @@ test('It should return whitelisted origin (static)', async (t) => {
   })
 })
 
+test('It should return whitelisted origin (static & localhost)', async (t) => {
+  const handler = middy((event, context) => ({ statusCode: 200 }))
+
+  handler.use(
+    httpCors({
+      origins: ['http://localhost:3000', 'https://example.com']
+    })
+  )
+
+  const event = {
+    httpMethod: 'OPTIONS',
+    headers: { Origin: 'http://localhost:3000' }
+  }
+
+  const response = await handler(event, context)
+
+  deepEqual(response, {
+    statusCode: 200,
+    headers: {
+      'Access-Control-Allow-Origin': 'http://localhost:3000',
+      Vary: 'Origin'
+    }
+  })
+})
+
 test('It should return whitelisted origin (dynamic sub-domain)', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://*.example.com']
     })
@@ -322,7 +347,7 @@ test('It should return whitelisted origin (dynamic sub-sub-domain)', async (t) =
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://*.*.example.com']
     })
@@ -348,7 +373,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (st
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://another-example.com']
     })
@@ -373,7 +398,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://*.example.com']
     })
@@ -398,7 +423,7 @@ test('It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       origins: ['https://example.com', 'https://*.*.example.com']
     })
@@ -428,7 +453,7 @@ test('It should not override already declared Access-Control-Allow-Headers heade
       request.response.headers['Access-Control-Allow-Headers'] = 'x-example'
     })
     .use(
-      cors({
+      httpCors({
         disableBeforePreflightResponse: true,
         headers: 'x-example-2'
       })
@@ -453,7 +478,7 @@ test('It should use allowed headers specified in options', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       headers: 'x-example'
     })
@@ -483,7 +508,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
       request.response.headers['Access-Control-Allow-Credentials'] = 'false'
     })
     .use(
-      cors({
+      httpCors({
         disableBeforePreflightResponse: true,
         credentials: true
       })
@@ -508,7 +533,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
 test('It should not override already declared Access-Control-Allow-Credentials header as true', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
     .use(
-      cors({
+      httpCors({
         disableBeforePreflightResponse: true,
         credentials: false
       })
@@ -539,7 +564,7 @@ test('It should use change credentials as specified in options (true) w/ origin:
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       credentials: true,
       origin: '*'
@@ -569,7 +594,7 @@ test('It should use change credentials as specified in options (true)', async (t
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       credentials: true,
       origins: ['*']
@@ -599,7 +624,7 @@ test('It should use change credentials as specified in options (true) with lower
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       credentials: true,
       origins: ['*']
@@ -629,7 +654,7 @@ test('it should set Access-Control-Allow-Methods header if present in config', a
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       methods: 'GET,PUT'
     })
@@ -656,7 +681,7 @@ test('it should not overwrite Access-Control-Allow-Methods header if already set
   }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: true,
       methods: 'GET,PUT'
     })
@@ -680,7 +705,7 @@ test('it should set Access-Control-Expose-Headers header if present in config', 
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       exposeHeaders: 'X-Middleware'
     })
@@ -707,7 +732,7 @@ test('it should not overwrite Access-Control-Expose-Headers header if already se
   }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: true,
       exposeHeaders: 'X-Middleware'
     })
@@ -731,7 +756,7 @@ test('it should set Access-Control-Max-Age header if present in config', async (
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       maxAge: '3600'
     })
@@ -758,7 +783,7 @@ test('it should not overwrite Access-Control-Max-Age header if already set', asy
   }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: true,
       maxAge: '3600'
     })
@@ -782,7 +807,7 @@ test('it should set Cache-Control header if present in config and http method OP
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
     })
@@ -807,7 +832,7 @@ for (const httpMethod of ['GET', 'POST', 'PUT', 'PATCH']) {
     const handler = middy((event, context) => ({ statusCode: 200 }))
 
     handler.use(
-      cors({
+      httpCors({
         disableBeforePreflightResponse: false,
         cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
       })
@@ -830,7 +855,7 @@ test('it should not overwrite Cache-Control header if already set', async (t) =>
   }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: true,
       cacheControl: 'max-age=3600, s-maxage=3600, proxy-revalidate'
     })
@@ -857,7 +882,7 @@ test('it should not overwrite Vary header if already set', async (t) => {
   }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: true,
       vary: 'Access-Control-Allow-Methods'
     })
@@ -881,7 +906,7 @@ test('it should set Vary header if present in config', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       vary: 'Access-Control-Allow-Methods'
     })
@@ -906,7 +931,7 @@ test('It should use custom getOrigin', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       getOrigin: () => 'https://default.com',
       origin: '*'
@@ -933,7 +958,7 @@ test('It should use pass incoming origin to custom getOrigin', async (t) => {
   const handler = middy((event, context) => ({ statusCode: 200 }))
 
   handler.use(
-    cors({
+    httpCors({
       disableBeforePreflightResponse: false,
       getOrigin: (incomingOrigin, options) => incomingOrigin,
       origin: '*'
@@ -962,7 +987,7 @@ test('It should not swallow errors', async (t) => {
     throw new Error('handler')
   })
 
-  handler.use(cors({ disableBeforePreflightResponse: true }))
+  handler.use(httpCors({ disableBeforePreflightResponse: true }))
 
   try {
     await handler()
@@ -974,7 +999,7 @@ test('It should not swallow errors', async (t) => {
 test('it should not throw when not a http event', async (t) => {
   const handler = middy((event, context) => {})
 
-  handler.use(cors())
+  handler.use(httpCors())
 
   const event = {}
   doesNotThrow(async () => await handler(event, context))
