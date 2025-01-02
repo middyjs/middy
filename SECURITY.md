@@ -2,17 +2,26 @@
 
 This document outlines security procedures and general policies for the Middy Open Source projects as found on https://github.com/middyjs.
 
-  * [Supported Versions](#supported-versions)
-  * [Reporting a Vulnerability](#reporting-a-vulnerability)
-  * [Disclosure Policy](#disclosure-policy)
+* [Security Goalss](#security-goals)
+* [Supported Versions](#supported-versions)
+* [Reporting a Vulnerability](#reporting-a-vulnerability)
+* [Disclosure Policy](#disclosure-policy)
+
+## Security Goals
+Our goal is to ensure Middy meets security best practices as outlined by the following standards.
+
+- [AWS Foundational Security Best Practices v1.0.0 (FSBP)](https://docs.aws.amazon.com/securityhub/latest/userguide/fsbp-standard.html)
+- [CIS AWS Foundations Benchmark v3.0.0](https://docs.aws.amazon.com/securityhub/latest/userguide/cis-aws-foundations-benchmark.html)
+- [NIST SP 800-53 Rev. 5](https://docs.aws.amazon.com/securityhub/latest/userguide/nist-standard.html)
+- [OWASP ASVS v5.0 Level 3](https://github.com/OWASP/ASVS/tree/master/5.0/en)
 
 ## Supported Versions
 Only the latest version is supported for security updates.
 
-## Reporting a Vulnerability 
+## Reporting a Vulnerability
 
 The Middy OSS team and community take all security vulnerabilities
-seriously. Thank you for improving the security of our open source 
+seriously. Thank you for improving the security of our open source
 software. We appreciate your efforts and responsible disclosure and will
 make every effort to acknowledge your contributions.
 
@@ -21,12 +30,12 @@ Report security vulnerabilities by emailing the lead maintainer at:
 willfarrell@proton.me
 ```
 The lead maintainer will acknowledge your email within 24 hours, and will
-send a more detailed response within 48 hours indicating the next steps in 
+send a more detailed response within 48 hours indicating the next steps in
 handling your report. After the initial reply to your report, the security
 team will endeavor to keep you informed of the progress towards a fix and
 full announcement, and may ask for additional information or guidance.
 
-Report security vulnerabilities in third-party modules to the person or 
+Report security vulnerabilities in third-party modules to the person or
 team maintaining the module.
 
 ## Disclosure Policy

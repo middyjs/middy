@@ -16,9 +16,9 @@ assignees: ''
 **Any relevant logs, error output, etc?**
 
 **Environment:**
- - Node.js: [e.g. 16]
- - Middy: [e.g. 3.0.0]
- - AWS SDK [e.g. 2.1000.0]
+ - Node.js: [e.g. 22]
+ - Middy: [e.g. 6.0.0]
+ - AWS SDK [e.g. 3.999.0]
 
 **Any other comments?**
 
@@ -26,6 +26,7 @@ assignees: ''
 - [ ] Feature/Fix fully implemented
 - [ ] Added tests
   - [ ] Unit tests
+  - [ ] Fuzz tests
   - [ ] Benchmark tests (if applicable)
 - [ ] Updated relevant documentation
 - [ ] Updated relevant examples
