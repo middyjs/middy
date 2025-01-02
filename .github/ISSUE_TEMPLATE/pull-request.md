@@ -24,9 +24,11 @@ assignees: ''
 
 **Todo List:**
 - [ ] Feature/Fix fully implemented
-- [ ] Added tests
+- [ ] Updated relevant types
+- [ ] Added tests (if applicable)
   - [ ] Unit tests
   - [ ] Fuzz tests
-  - [ ] Benchmark tests (if applicable)
+  - [ ] Type tests
+  - [ ] Benchmark tests
 - [ ] Updated relevant documentation
 - [ ] Updated relevant examples
