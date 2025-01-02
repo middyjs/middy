@@ -24,7 +24,7 @@ const cacheMiddleware = (options) => {
 
   const cacheMiddlewareBefore = async (request) => {
     cacheKey = options.calculateCacheId(request.event)
-    if (options.storage.hasOwnProperty(cacheKey)) {
+    if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
 
       // if the value can be `undefined` use this line
       request.earlyResponse = options.storage[cacheKey]
