@@ -332,7 +332,7 @@ const cacheMiddleware = (options) => {
 
   const cacheMiddlewareBefore = async (request) => {
     cacheKey = options.calculateCacheId(request.event)
-    if (options.storage.hasOwnProperty(cacheKey)) {
+    if (Object.hasOwnProperty.call(options.storage, cacheKey)) {
       // clean up the Powertools utilities before returning
       cleanupMiddlewares()
 

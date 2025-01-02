@@ -1,7 +1,7 @@
 import BusBoy from '@fastify/busboy'
 import { createError } from '@middy/util'
 
-const mimePattern = /^multipart\/form-data(;.*)?$/
+const mimePattern = /^multipart\/form-data; boundary=[-]*[a-zA-Z0-9]*$/
 const fieldnamePattern = /(.+)\[(.*)]$/
 
 const defaults = {
@@ -15,16 +15,26 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
 
   const httpMultipartBodyParserMiddlewareBefore = async (request) => {
-    const { headers } = request.event
+    const { headers, body } = request.event
+    if (typeof body === 'undefined') {
+      throw createError(
+        415,
+        'Invalid or malformed multipart/form-data was provided',
+        { cause: { package: '@middy/http-multipart-body-parser', data: body } }
+      )
+    }
 
-    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
+    const contentType = headers?.['content-type'] ?? headers?.['Content-Type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
         return
       }
       throw createError(415, 'Unsupported Media Type', {
-        cause: { package: '@middy/multipart-body-parser', data: contentType }
+        cause: {
+          package: '@middy/http-multipart-body-parser',
+          data: contentType
+        }
       })
     }
 
@@ -38,7 +48,13 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
         throw createError(
           415,
           'Invalid or malformed multipart/form-data was provided',
-          { cause: { package: '@middy/multipart-body-parser', data: err } }
+          {
+            cause: {
+              package: '@middy/http-multipart-body-parser',
+              data: body,
+              message: err.message
+            }
+          }
         )
       })
   }
@@ -56,7 +72,7 @@ const parseMultipartData = (event, options) => {
     ...options.busboy,
     headers: {
       'content-type':
-        event.headers?.['Content-Type'] ?? event.headers?.['content-type']
+        event.headers?.['content-type'] ?? event.headers?.['Content-Type']
     }
   })
 

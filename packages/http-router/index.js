@@ -24,7 +24,7 @@ const httpRouteHandler = (opts = {}) => {
     // Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
     if (!enumMethods.includes(method)) {
       throw new Error('Method not allowed', {
-        cause: { package: '@middy/http-router' }
+        cause: { package: '@middy/http-router', data: method }
       })
     }
 
@@ -45,27 +45,38 @@ const httpRouteHandler = (opts = {}) => {
 
   return (event, context, abort) => {
     const { method, path } = getVersionRoute[pickVersion(event)]?.(event)
+
     if (!method) {
       throw new Error('Unknown http event format', {
-        cause: { package: '@middy/http-router', data: event }
+        cause: { package: '@middy/http-router', data: method }
+      })
+    }
+    if (!path) {
+      throw new Error('Unknown http event format', {
+        cause: { package: '@middy/http-router', data: path }
       })
     }
 
     // Static
-    const handler = routesStatic[method]?.[path]
-    if (typeof handler !== 'undefined') {
+    if (
+      Object.hasOwnProperty.call(routesStatic, method) &&
+      Object.hasOwnProperty.call(routesStatic[method], path)
+    ) {
+      const handler = routesStatic[method][path]
       return handler(event, context, abort)
     }
 
     // Dynamic
-    for (const route of routesDynamic[method] ?? []) {
-      const match = path.match(route.path)
-      if (match) {
-        event.pathParameters = {
-          ...match.groups,
-          ...event.pathParameters
+    if (Object.hasOwnProperty.call(routesDynamic, method)) {
+      for (const route of routesDynamic[method] ?? []) {
+        const match = path.match(route.path)
+        if (match) {
+          event.pathParameters = {
+            ...match.groups,
+            ...event.pathParameters
+          }
+          return route.handler(event, context, abort)
         }
-        return route.handler(event, context, abort)
       }
     }
 

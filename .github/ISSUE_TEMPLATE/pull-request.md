@@ -16,16 +16,20 @@ assignees: ''
 **Any relevant logs, error output, etc?**
 
 **Environment:**
- - Node.js: [e.g. 16]
- - Middy: [e.g. 3.0.0]
- - AWS SDK [e.g. 2.1000.0]
+ - Node.js: [e.g. 22]
+ - Middy: [e.g. 6.0.0]
+ - AWS SDK [e.g. 3.999.0]
 
 **Any other comments?**
 
 **Todo List:**
 - [ ] Feature/Fix fully implemented
-- [ ] Added tests
+- [ ] All commits are cryptographically signed
+- [ ] Updated relevant types
+- [ ] Added tests (if applicable)
   - [ ] Unit tests
-  - [ ] Benchmark tests (if applicable)
+  - [ ] Fuzz tests
+  - [ ] Type tests
+  - [ ] Benchmark tests
 - [ ] Updated relevant documentation
 - [ ] Updated relevant examples

@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   tests:
-    name: Tests
+    name: Tests (unit & fuzz)
     runs-on: ubuntu-latest
 
     strategy:
@@ -34,4 +34,4 @@ jobs:
 
       - name: Unit tests
         run: |
-          npm run test:packages:unit
+          npm run test:packages:all

@@ -28,8 +28,9 @@
     "index.d.ts"
   ],
   "scripts": {
-    "test": "npm run test:unit",
+    "test": "npm run test:unit && npm run test:fuzz",
     "test:unit": "node --test __tests__/index.js",
+    "test:fuzz": "node --test __tests__/fuzz.js",
     "test:benchmark": "node __benchmarks__/index.js"
   },
   "license": "MIT",
@@ -63,7 +64,7 @@
     "url": "https://github.com/sponsors/willfarrell"
   },
   "dependencies": {
-    "@fastify/busboy": "3.1.0"
+    "@fastify/busboy": "3.1.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.101",
