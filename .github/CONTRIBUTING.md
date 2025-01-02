@@ -4,6 +4,10 @@ In the spirit of Open Source Software, everyone is very welcome to contribute to
 
 Before contributing to the project, make sure to have a look at our [Code of Conduct](/.github/CODE_OF_CONDUCT.md).
 
+To ensure we're following FLOSS Best Practices:
+- We require all commits to have be `Signed-off-by`, by including `name` & `email`
+- We require all commits to have signature verification [GitHub Docs: About commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification)
+
 If you are a maintainer and want to release a new version of Middy, consult the dedicated [RELEASE manual](/docs/RELEASE.md).
 
 ## License

@@ -5,6 +5,7 @@
   <a href="https://www.npmjs.com/package/@middy/core?activeTab=versions"><img src="https://badge.fury.io/js/%40middy%2Fcore.svg" alt="npm version" style="max-width:100%;"></a>
   <a href="https://packagephobia.com/result?p=@middy/core"><img src="https://packagephobia.com/badge?p=@middy/core" alt="npm install size" style="max-width:100%;"></a>
   <a href="https://github.com/middyjs/middy/actions/workflows/tests.yml"><img src="https://github.com/middyjs/middy/actions/workflows/tests.yml/badge.svg?branch=main&event=push" alt="GitHub Actions CI status badge" style="max-width:100%;"></a>
+  <a href="https://github.com/middyjs/middy/blob/main/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" style="max-width: 100%;"></a>
   <br/>
   <a href="https://standardjs.com/"><img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="Standard Code Style"  style="max-width:100%;"></a>
   <a href="https://snyk.io/test/github/middyjs/middy"><img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="snyk Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;"></a>
