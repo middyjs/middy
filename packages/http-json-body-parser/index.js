@@ -11,8 +11,13 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
+    if (typeof body === 'undefined') {
+      throw createError(415, 'Invalid or malformed JSON was provided', {
+        cause: { package: '@middy/http-json-body-parser', data: body }
+      })
+    }
 
-    const contentType = headers?.['Content-Type'] ?? headers?.['content-type']
+    const contentType = headers?.['content-type'] ?? headers?.['Content-Type']
 
     if (!mimePattern.test(contentType)) {
       if (options.disableContentTypeError) {
@@ -32,7 +37,11 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
     } catch (err) {
       // UnprocessableEntity
       throw createError(415, 'Invalid or malformed JSON was provided', {
-        cause: { package: '@middy/http-json-body-parser', data: err }
+        cause: {
+          package: '@middy/http-json-body-parser',
+          data: body,
+          message: err.message
+        }
       })
     }
   }

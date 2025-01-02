@@ -24,9 +24,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
   }
 
   const s3ObjectResponseMiddlewareBefore = async (request) => {
-    const { inputS3Url } = request.event.getObjectContext
+    const { inputS3Url } = request.event.getObjectContext ?? {}
 
-    request.context.s3ObjectFetch = fetch(inputS3Url)
+    request.context.s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined
   }
 
   const s3ObjectResponseMiddlewareAfter = async (request) => {
@@ -35,8 +35,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
     }
 
     const command = new WriteGetObjectResponseCommand({
-      RequestRoute: request.event.getObjectContext.outputRoute,
-      RequestToken: request.event.getObjectContext.outputToken,
+      RequestRoute: request.event.getObjectContext?.outputRoute,
+      RequestToken: request.event.getObjectContext?.outputToken,
       Body: request.response.Body ?? request.response.body
     })
     await client.send(command) // Doesn't return a promise?

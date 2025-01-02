@@ -59,7 +59,7 @@ test('It should handle invalid JSON as an UnprocessableEntity', async (t) => {
     await handler(event, defaultContext)
   } catch (e) {
     equal(e.message, 'Invalid or malformed JSON was provided')
-    match(e.cause.data.message, /^Unexpected token/)
+    match(e.cause.message, /^Unexpected token/)
   }
 })
 
@@ -102,6 +102,6 @@ test('It should handle invalid base64 JSON as an UnprocessableEntity', async (t)
     await handler(event, defaultContext)
   } catch (e) {
     equal(e.message, 'Invalid or malformed JSON was provided')
-    match(e.cause.data.message, /^Unexpected token/)
+    match(e.cause.message, /^Unexpected token/)
   }
 })
