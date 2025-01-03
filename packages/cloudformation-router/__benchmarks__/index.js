@@ -9,11 +9,7 @@ const context = {
 }
 const setupHandler = (options = {}) => {
   const baseHandler = () => {}
-  return middy(baseHandler).use(
-    middleware({
-      ...options
-    })
-  )
+  return middy(baseHandler).use(middleware(options))
 }
 
 const coldHandler = setupHandler({ cacheExpiry: 0 })
