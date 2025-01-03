@@ -1,6 +1,6 @@
 import middy from '@middy/core'
 import { getInternal } from '@middy/util'
-import { expectType, expectAssignable } from 'tsd'
+import { expectType } from 'tsd'
 import parametersSecretsLambdaExtension, {
   Context,
   parametersSecretsLambdaExtensionParam
