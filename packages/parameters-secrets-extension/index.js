@@ -23,7 +23,7 @@ const types = {
     response: (res) => jsonSafeParse(res.Parameter?.Value)
   },
   secretsmanager: {
-    path: '/secretsmanager/get?secretId=',
+    path: '/secretsmanager/get?withDecryption=true&secretId=',
     response: (res) => jsonSafeParse(res.SecretString)
   }
 }
@@ -41,9 +41,12 @@ const parametersSecretsLambdaExtensionMiddleware = (opts = {}) => {
     for (const internalKey of Object.keys(options.fetchData)) {
       if (cachedValues[internalKey]) continue
 
-      values[internalKey] = fetch(url + options.fetchData[internalKey], {
-        headers
-      })
+      values[internalKey] = fetch(
+        url + encodeURI(options.fetchData[internalKey]),
+        {
+          headers
+        }
+      )
         .then((res) => res.json())
         .then((res) => types[options.type].response(res))
         .catch((e) => {
