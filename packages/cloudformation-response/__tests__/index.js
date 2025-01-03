@@ -18,7 +18,7 @@ const context = {
 test('It should return SUCCESS when empty response', async (t) => {
   const handler = middy((event, context) => {})
 
-  handler.use(cloudformationResponse({}))
+  handler.use(cloudformationResponse())
 
   const event = defaultEvent
   const response = await handler(event, context)
@@ -35,7 +35,7 @@ test('It should return SUCCESS when empty object', async (t) => {
     return {}
   })
 
-  handler.use(cloudformationResponse({}))
+  handler.use(cloudformationResponse())
 
   const event = defaultEvent
   const response = await handler(event, context)
@@ -52,7 +52,7 @@ test('It should return FAILURE when error thrown', async (t) => {
     throw new Error('Internal Error')
   })
 
-  handler.use(cloudformationResponse({}))
+  handler.use(cloudformationResponse())
 
   const event = defaultEvent
   const response = await handler(event, context)
@@ -75,7 +75,7 @@ test('It should not override response values', async (t) => {
     }
   })
 
-  handler.use(cloudformationResponse({}))
+  handler.use(cloudformationResponse())
 
   const event = defaultEvent
   const response = await handler(event, context)
