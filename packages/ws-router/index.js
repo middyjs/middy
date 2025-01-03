@@ -26,12 +26,12 @@ const wsRouteHandler = (opts = {}) => {
     const { routeKey } = event.requestContext ?? {}
     if (!routeKey) {
       throw createError(400, 'Unknown WebSocket event format', {
-        cause: { package: '@middy/ws-router', data: routeKey }
+        cause: { package: '@middy/ws-router', data: { routeKey } }
       })
     }
 
+    // Static
     if (Object.hasOwnProperty.call(routesStatic, routeKey)) {
-      // Static
       const handler = routesStatic[routeKey]
       return handler(event, context, abort)
     }
