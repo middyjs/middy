@@ -7,9 +7,9 @@ const bench = new Bench({ time: 1_000 })
 const context = {
   getRemainingTimeInMillis: () => 30000
 }
-const setupHandler = (options = {}) => {
+const setupHandler = () => {
   const baseHandler = () => {}
-  return middy(baseHandler).use(middleware(options))
+  return middy(baseHandler).use(middleware())
 }
 
 const coldHandler = setupHandler({ cacheExpiry: 0 })
