@@ -12,19 +12,13 @@ const setupHandler = () => {
   return middy(baseHandler).use(middleware())
 }
 
-const coldHandler = setupHandler({ cacheExpiry: 0 })
-const warmHandler = setupHandler()
+const coldHandler = setupHandler()
 
 const event = {}
 await bench
   .add('without cache', async () => {
     try {
       await coldHandler(event, context)
-    } catch (e) {}
-  })
-  .add('with cache', async () => {
-    try {
-      await warmHandler(event, context)
     } catch (e) {}
   })
 
