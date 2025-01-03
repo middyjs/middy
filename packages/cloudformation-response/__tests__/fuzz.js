@@ -3,7 +3,7 @@ import fc from 'fast-check'
 import middy from '../../core/index.js'
 import middleware from '../index.js'
 
-const handler = middy((event) => event).use(middleware({}))
+const handler = middy((event) => event).use(middleware())
 const context = {
   getRemainingTimeInMillis: () => 1000
 }
