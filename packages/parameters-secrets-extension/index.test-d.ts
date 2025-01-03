@@ -22,13 +22,13 @@ expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
 )
 
 expectType<
-  middy.MiddlewareObj<
-    unknown,
-    any,
-    Error,
-    LambdaContext,
-    Record<'lorem' | 'ipsum', unknown>
-  >
+middy.MiddlewareObj<
+unknown,
+any,
+Error,
+LambdaContext,
+Record<'lorem' | 'ipsum', unknown>
+>
 >(
   parametersSecretsLambdaExtension({
     type: 'systemsmanager',
@@ -79,6 +79,6 @@ handler
     )
 
     expectType<string>(data.accessToken)
-    expectType<{ user: string; pass: string }>(data.dbParams)
+    expectType<{ user: string, pass: string }>(data.dbParams)
     expectType<string>(data.defaults)
   })
