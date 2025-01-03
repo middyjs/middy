@@ -1,0 +1,69 @@
+{
+  "name": "@middy/cloudformation-response",
+  "version": "6.0.0",
+  "description": "CloudFormation Custom Response event response handling for the middy framework",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "engineStrict": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "module": "./index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      },
+      "require": {
+        "default": "./index.js"
+      }
+    }
+  },
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "node --test __tests__/index.js",
+    "test:benchmark": "node __benchmarks__/index.js"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Lambda",
+    "Middleware",
+    "Serverless",
+    "Framework",
+    "AWS",
+    "AWS Lambda",
+    "Middy",
+    "CloudFormation",
+    "Custom Response"
+  ],
+  "author": {
+    "name": "Middy contributors",
+    "url": "https://github.com/middyjs/middy/graphs/contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github:middyjs/middy",
+    "directory": "packages/cloudformation-response"
+  },
+  "bugs": {
+    "url": "https://github.com/middyjs/middy/issues"
+  },
+  "homepage": "https://middy.js.org",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/willfarrell"
+  },
+  "devDependencies": {
+    "@middy/core": "6.0.0",
+    "@types/aws-lambda": "^8.10.100"
+  },
+  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
