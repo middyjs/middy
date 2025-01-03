@@ -3,5 +3,5 @@ import middy from '@middy/core'
 import cloudformationResponse from '.'
 
 // use with default options
-let middleware = cloudformationResponse()
+const middleware = cloudformationResponse()
 expectType<middy.MiddlewareObj>(middleware)

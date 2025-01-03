@@ -6,7 +6,7 @@ interface Route<T = never> {
   handler: CloudFormationCustomResourceHandler<T>
 }
 
-declare function cloudformationRouterHandler(
+declare function cloudformationRouterHandler (
   routes: Route[]
 ): middy.MiddyfiedHandler
 

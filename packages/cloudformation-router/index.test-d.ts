@@ -1,5 +1,5 @@
 import middy from '@middy/core'
-//import { CloudFormationCustomResourceHandler } from 'aws-lambda'
+// import { CloudFormationCustomResourceHandler } from 'aws-lambda'
 import { expectType } from 'tsd'
 import cloudformationRouterHandler from '.'
 
