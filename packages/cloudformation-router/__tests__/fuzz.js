@@ -32,15 +32,16 @@ test('fuzz `event` w/ `record`', async () => {
   fc.assert(
     fc.asyncProperty(
       fc.record({
-        requestContext: fc.record({
-          routeKey: fc.string()
-        })
+        RequestType: fc.string(),
+        RequestId: fc.string(),
+        LogicalResourceId: fc.string(),
+        StackId: fc.string()
       }),
       async (event) => {
         try {
           await handler(event, context)
         } catch (e) {
-          if (e.cause?.package !== '@middy/ws-router') {
+          if (e.cause?.package !== '@middy/cloudformation-router') {
             throw e
           }
         }
