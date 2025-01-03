@@ -17,7 +17,7 @@ npm install --save @middy/cloudformation-router
 - `routes` (array[\{routeKey, handler\}]) (required): Array of route objects.
   - `routeKey` (string) (required): AWS formatted request type. ie `Create`, `Update`, `Delete`
   - `handler` (function) (required): Any `handler(event, context, {signal})` function
-- `notFoundHandler` (function): Override default error thrown with your own custom response. Passes in `{requestType}`
+- `notFoundHandler` (function): Override default FAILED response with your own custom response. Passes in `{requestType}`
 
 NOTES:
 
@@ -30,6 +30,7 @@ NOTES:
 ```javascript
 import middy from '@middy/core'
 import cloudformationRouterHandler from '@middy/cloudformation-router'
+import cloudformationResponseMiddleware from '@middy/cloudformation-response'
 import validatorMiddleware from '@middy/validator'
 
 const createHandler = middy()
@@ -74,6 +75,6 @@ const routes = [
 ]
 
 export const handler = middy()
-  .use(wsResponseMiddleware())
+  .use(cloudformationResponseMiddleware())
   .handler(cloudformationRouterHandler(routes))
 ```

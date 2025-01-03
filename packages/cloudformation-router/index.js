@@ -1,10 +1,13 @@
 const defaults = {
   routes: [],
   notFoundResponse: ({ requestType }) => {
-    return {
-      Status: 'FAILED',
-      Reason: `Route ${requestType} does not exist. @middy/cloudformation-router`
-    }
+    const err = new Error('Route does not exist', {
+      casue: {
+        package: '@middy/cloudformation-router',
+        data: { requestType }
+      }
+    })
+    throw err
   }
 }
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
@@ -21,21 +24,29 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
     routesStatic[requestType] = handler
   }
 
+  const requestTypes = {
+    Create: true,
+    Update: true,
+    Delete: true
+  }
   return (event, context, abort) => {
     const { RequestType: requestType } = event
-    if (!requestType) {
-      return notFoundResponse({ requestType })
+    if (
+      !requestType ||
+      !Object.hasOwnProperty.call(requestTypes, requestType)
+    ) {
+      throw new Error('Unknown CloudFormation Custom Response event format', {
+        cause: {
+          package: '@middy/cloudformation-router',
+          data: { requestType }
+        }
+      })
     }
 
     // Static
-    const handler = routesStatic[requestType]
-    if (typeof handler !== 'undefined') {
-      const response = handler(event, context, abort)
-      response.Status ??= 'SUCCESS'
-      response.RequestId ??= event.RequestId
-      response.LogicalResourceId ??= event.LogicalResourceId
-      response.StackId ??= event.StackId
-      return response
+    if (Object.hasOwnProperty.call(routesStatic, requestType)) {
+      const handler = routesStatic[requestType]
+      return handler(event, context, abort)
     }
 
     // Not Found
