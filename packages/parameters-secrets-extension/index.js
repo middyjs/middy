@@ -19,11 +19,11 @@ const defaults = {
 
 const types = {
   systemsmanager: {
-    path: '/systemsmanager/parameters/get/?name=',
+    path: '/systemsmanager/parameters/get/?withDecryption=true&name=',
     response: (res) => jsonSafeParse(res.Parameter?.Value)
   },
   secretsmanager: {
-    path: '/secretsmanager/get?withDecryption=true&secretId=',
+    path: '/secretsmanager/get?secretId=',
     response: (res) => jsonSafeParse(res.SecretString)
   }
 }
