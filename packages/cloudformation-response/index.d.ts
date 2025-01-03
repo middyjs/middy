@@ -1,7 +1,5 @@
 import middy from '@middy/core'
 
-interface Options {}
-
-declare function cloudformationResponse (options?: Options): middy.MiddlewareObj
+declare function cloudformationResponse (): middy.MiddlewareObj
 
 export default cloudformationResponse
