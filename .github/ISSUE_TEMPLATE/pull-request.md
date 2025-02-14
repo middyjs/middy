@@ -24,6 +24,7 @@ assignees: ''
 
 **Todo List:**
 - [ ] Feature/Fix fully implemented
+- [ ] All commits are cryptographically signed
 - [ ] Updated relevant types
 - [ ] Added tests (if applicable)
   - [ ] Unit tests
