@@ -2,7 +2,7 @@
 
 This document outlines security procedures and general policies for the Middy Open Source projects as found on https://github.com/middyjs.
 
-* [Security Goalss](#security-goals)
+* [Security Goals](#security-goals)
 * [Supported Versions](#supported-versions)
 * [Reporting a Vulnerability](#reporting-a-vulnerability)
 * [Disclosure Policy](#disclosure-policy)
