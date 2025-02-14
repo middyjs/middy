@@ -15,6 +15,8 @@ Our goal is to ensure Middy meets security best practices as outlined by the fol
 - [NIST SP 800-53 Rev. 5](https://docs.aws.amazon.com/securityhub/latest/userguide/nist-standard.html)
 - [OWASP ASVS v5.0 Level 3](https://github.com/OWASP/ASVS/tree/master/5.0/en)
 
+Core maintainers use Middy extensively within their own organizations that meet the above standards tested using SecurityHub and pentetration testing.
+
 ## Supported Versions
 Only the latest version is supported for security updates.
 
