@@ -1004,3 +1004,53 @@ test('it should not throw when not a http event', async (t) => {
   const event = {}
   doesNotThrow(async () => await handler(event, context))
 })
+
+test('Should return correct origin on subsequent calls', async (t) => {
+  const CONTENT_TYPE_JSON_HEADER = {
+    'Content-Type': 'application/json'
+  }
+  const lambdaHandler = middy((event, context) => ({
+    statusCode: 200,
+    headers: CONTENT_TYPE_JSON_HEADER
+  }))
+
+  const handler = middy()
+    .use(
+      httpCors({ origins: ['http://localhost:3000', 'https://example.org'] })
+    )
+    .handler(lambdaHandler)
+
+  const eventLocalhost = {
+    headers: {
+      Origin: 'http://localhost:3000'
+    }
+  }
+
+  const response1 = await handler(eventLocalhost, context)
+
+  deepEqual(response1, {
+    statusCode: 200,
+    headers: {
+      'Access-Control-Allow-Origin': 'http://localhost:3000',
+      'Content-Type': 'application/json',
+      Vary: 'Origin'
+    }
+  })
+
+  const eventExampleOrg = {
+    headers: {
+      Origin: 'https://example.org'
+    }
+  }
+
+  const response2 = await handler(eventExampleOrg, context)
+
+  deepEqual(response2, {
+    statusCode: 200,
+    headers: {
+      'Access-Control-Allow-Origin': 'https://example.org',
+      'Content-Type': 'application/json',
+      Vary: 'Origin'
+    }
+  })
+})
