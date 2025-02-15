@@ -541,9 +541,7 @@ test('It should not override already declared Access-Control-Allow-Credentials h
     // other middleware that puts the cors header
     .after((request) => {
       request.response.headers ??= {}
-      request.response.headers = {
-        'Access-Control-Allow-Credentials': 'true'
-      }
+      request.response.headers['Access-Control-Allow-Credentials'] = 'true'
     })
 
   const event = {
