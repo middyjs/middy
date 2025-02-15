@@ -154,7 +154,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
   const httpCorsMiddlewareAfter = async (request) => {
     normalizeHttpResponse(request)
-    const { headers } = request.response
+    const headers = structuredClone(request.response.headers)
     modifyHeaders(headers, options, request)
     request.response.headers = headers
   }
