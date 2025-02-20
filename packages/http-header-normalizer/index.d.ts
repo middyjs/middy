@@ -6,11 +6,9 @@ interface Options {
   normalizeHeaderKey?: (key: string) => string
 }
 
-export interface Event {
-  rawHeaders: Record<string, string>
-}
+export interface Event {}
 
-declare function httpHeaderNormalizer (
+declare function httpHeaderNormalizer(
   options?: Options
 ): middy.MiddlewareObj<Event>
 
