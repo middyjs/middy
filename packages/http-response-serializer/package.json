@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-response-serializer",
-  "version": "6.1.0",
+  "version": "6.1.1",
   "description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
   "type": "module",
   "engines": {

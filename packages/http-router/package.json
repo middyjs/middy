@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-router",
-  "version": "6.1.0",
+  "version": "6.1.1",
   "description": "HTTP event router for the middy framework",
   "type": "module",
   "engines": {

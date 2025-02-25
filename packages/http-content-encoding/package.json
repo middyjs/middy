@@ -1,6 +1,6 @@
 {
   "name": "@middy/http-content-encoding",
-  "version": "6.1.0",
+  "version": "6.1.1",
   "description": "Http content encoding middleware for the middy framework",
   "type": "module",
   "engines": {
