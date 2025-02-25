@@ -50,7 +50,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "github:middyjs/middy",
+    "url": "git+https://github.com/middyjs/middy.git",
     "directory": "packages/dynamodb"
   },
   "bugs": {
