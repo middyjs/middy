@@ -19,21 +19,36 @@ type EnhanceHandlerType<T, NewReturn> = T extends (
 
 type AWSLambdaHandlerWithoutCallback<TEvent = any, TResult = any> = (
   event: TEvent,
-  context: Context,
-// eslint-disable-next-line
+  context: Context
+  // eslint-disable-next-line
 ) => void | Promise<TResult>
 
-type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<AWSLambdaHandlerWithoutCallback<TEvent, TResult>, TResult>
+type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<
+AWSLambdaHandlerWithoutCallback<TEvent, TResult>,
+TResult
+>
 
-const lambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (event) => {
+const lambdaHandler: LambdaHandler<
+APIGatewayProxyEvent,
+APIGatewayProxyResult
+> = async (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
   }
 }
 
-type Handler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error>
-type Request = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>
+type Handler = middy.MiddyfiedHandler<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error
+>
+type Request = middy.Request<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+Context
+>
 
 // initialize
 let handler = middy(lambdaHandler)
@@ -45,27 +60,47 @@ expectType<Handler>(handler)
 
 // initialize with plugin with few hooks
 handler = middy(lambdaHandler, {
-  beforePrefetch () { console.log('beforePrefetch') }
+  beforePrefetch () {
+    console.log('beforePrefetch')
+  }
 })
 expectType<Handler>(handler)
 
 // initialize with plugin with all hooks
 handler = middy(lambdaHandler, {
-  beforePrefetch () { console.log('beforePrefetch') },
-  requestStart () { console.log('requestStart') },
-  beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },
-  afterMiddleware (name: string) { console.log('afterMiddleware', name) },
-  beforeHandler () { console.log('beforeHandler') },
-  afterHandler () { console.log('afterHandler') },
-  async requestEnd () { console.log('requestEnd') }
+  beforePrefetch () {
+    console.log('beforePrefetch')
+  },
+  requestStart () {
+    console.log('requestStart')
+  },
+  beforeMiddleware (name: string) {
+    console.log('beforeMiddleware', name)
+  },
+  afterMiddleware (name: string) {
+    console.log('afterMiddleware', name)
+  },
+  beforeHandler () {
+    console.log('beforeHandler')
+  },
+  afterHandler () {
+    console.log('afterHandler')
+  },
+  async requestEnd () {
+    console.log('requestEnd')
+  }
 })
 expectType<Handler>(handler)
 
 // middy wrapped handler should be assignable to aws-lambda handler type.
-expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(handler)
+expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
+  handler
+)
 
 // Middy handlers third argument is an object containing a abort signal
-middy((_event: any, _context: any, { signal }: { signal: AbortSignal }) => expectType<AbortSignal>(signal))
+middy((_event: any, _context: any, { signal }: { signal: AbortSignal }) =>
+  expectType<AbortSignal>(signal)
+)
 
 // invokes the handler to test that it is callable
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
@@ -105,19 +140,19 @@ async function invokeHandler (): Promise<void | APIGatewayProxyResult> {
       resourceId: ''
     },
     headers: {
-      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
       'accept-encoding': 'gzip, deflate, br',
       Host: '70ixmpl4fl.execute-api.us-east-2.amazonaws.com',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
       'X-Amzn-Trace-Id': 'Root=1-5e66d96f-7491f09xmpl79d18acf3d050'
     },
     multiValueHeaders: {
       accept: [
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9'
       ],
-      'accept-encoding': [
-        'gzip, deflate, br'
-      ]
+      'accept-encoding': ['gzip, deflate, br']
     },
     queryStringParameters: null,
     multiValueQueryStringParameters: null,
@@ -136,9 +171,9 @@ async function invokeHandler (): Promise<void | APIGatewayProxyResult> {
     logGroupName: '',
     logStreamName: '',
     getRemainingTimeInMillis: (): number => 1,
-    done: () => { },
-    fail: (_) => { },
-    succeed: () => { }
+    done: () => {},
+    fail: (_) => {},
+    succeed: () => {}
   }
   return await handler(sampleEvent, sampleContext)
 }
@@ -165,36 +200,68 @@ handler = handler.use([middlewareObj])
 expectType<Handler>(handler)
 
 // before
-handler = handler.before((request: Request) => { console.log('Before', request) })
+handler = handler.before((request: Request) => {
+  console.log('Before', request)
+})
 expectType<Handler>(handler)
 
 // after
-handler = handler.after((request: Request) => { console.log('After', request) })
+handler = handler.after((request: Request) => {
+  console.log('After', request)
+})
 expectType<Handler>(handler)
 
 // error
-handler = handler.onError((request: Request) => { console.log('OnError', request) })
+handler = handler.onError((request: Request) => {
+  console.log('OnError', request)
+})
 expectType<Handler>(handler)
 
 interface MutableContext extends Context {
   name: string
 }
 
-type MutableContextHandler = middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
-type MutableContextRequest = middy.Request<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>
+type MutableContextHandler = middy.MiddyfiedHandler<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+MutableContext
+>
+type MutableContextRequest = middy.Request<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+MutableContext
+>
 
-async function mutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): Promise<APIGatewayProxyResult> {
+async function mutableContextDependantHandler (
+  event: APIGatewayProxyEvent,
+  context: MutableContext
+): Promise<APIGatewayProxyResult> {
   return {
     statusCode: 200,
     body: `Hello from ${context.name}`
   }
 }
 
-let customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(mutableContextDependantHandler)
+let customCtxHandler = middy<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+MutableContext
+>(mutableContextDependantHandler)
 expectType<MutableContextHandler>(customCtxHandler)
 
 // @ts-expect-error
-customCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(mutableContextDependantHandler)
+customCtxHandler = middy<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+Context
+>(
+  // @ts-expect-error
+  mutableContextDependantHandler
+)
 
 const mutableContextMiddleware = {
   before: (request: MutableContextRequest) => {
@@ -222,7 +289,10 @@ streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
 
 // synced handler
-const syncedLambdaHandler: LambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult> = (event) => {
+const syncedLambdaHandler: LambdaHandler<
+APIGatewayProxyEvent,
+APIGatewayProxyResult
+> = (event) => {
   return {
     statusCode: 200,
     body: `Hello from ${event.path}`
@@ -239,19 +309,35 @@ expectType<Handler>(syncedHandler)
 
 // initialize with plugin with few hooks
 syncedHandler = middy(syncedLambdaHandler, {
-  beforePrefetch () { console.log('beforePrefetch') }
+  beforePrefetch () {
+    console.log('beforePrefetch')
+  }
 })
 expectType<Handler>(syncedHandler)
 
 // initialize with plugin with all hooks
 syncedHandler = middy(syncedLambdaHandler, {
-  beforePrefetch () { console.log('beforePrefetch') },
-  requestStart () { console.log('requestStart') },
-  beforeMiddleware (name: string) { console.log('beforeMiddleware', name) },
-  afterMiddleware (name: string) { console.log('afterMiddleware', name) },
-  beforeHandler () { console.log('beforeHandler') },
-  afterHandler () { console.log('afterHandler') },
-  async requestEnd () { console.log('requestEnd') }
+  beforePrefetch () {
+    console.log('beforePrefetch')
+  },
+  requestStart () {
+    console.log('requestStart')
+  },
+  beforeMiddleware (name: string) {
+    console.log('beforeMiddleware', name)
+  },
+  afterMiddleware (name: string) {
+    console.log('afterMiddleware', name)
+  },
+  beforeHandler () {
+    console.log('beforeHandler')
+  },
+  afterHandler () {
+    console.log('afterHandler')
+  },
+  async requestEnd () {
+    console.log('requestEnd')
+  }
 })
 expectType<Handler>(syncedHandler)
 
@@ -293,19 +379,19 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
       resourceId: ''
     },
     headers: {
-      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+      accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
       'accept-encoding': 'gzip, deflate, br',
       Host: '70ixmpl4fl.execute-api.us-east-2.amazonaws.com',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
       'X-Amzn-Trace-Id': 'Root=1-5e66d96f-7491f09xmpl79d18acf3d050'
     },
     multiValueHeaders: {
       accept: [
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9'
       ],
-      'accept-encoding': [
-        'gzip, deflate, br'
-      ]
+      'accept-encoding': ['gzip, deflate, br']
     },
     queryStringParameters: null,
     multiValueQueryStringParameters: null,
@@ -324,9 +410,9 @@ async function invokSyncedHandler (): Promise<void | APIGatewayProxyResult> {
     logGroupName: '',
     logStreamName: '',
     getRemainingTimeInMillis: (): number => 1,
-    done: () => { },
-    fail: (_) => { },
-    succeed: () => { }
+    done: () => {},
+    fail: (_) => {},
+    succeed: () => {}
   }
   return await syncedHandler(sampleEvent, sampleContext)
 }
@@ -341,33 +427,55 @@ syncedHandler = syncedHandler.use([middlewareObj])
 expectType<Handler>(syncedHandler)
 
 // before
-syncedHandler = syncedHandler.before((request: Request) => { console.log('Before', request) })
+syncedHandler = syncedHandler.before((request: Request) => {
+  console.log('Before', request)
+})
 expectType<Handler>(syncedHandler)
 
 // after
-syncedHandler = syncedHandler.after((request: Request) => { console.log('After', request) })
+syncedHandler = syncedHandler.after((request: Request) => {
+  console.log('After', request)
+})
 expectType<Handler>(syncedHandler)
 
 // error
-syncedHandler = syncedHandler.onError((request: Request) => { console.log('OnError', request) })
+syncedHandler = syncedHandler.onError((request: Request) => {
+  console.log('OnError', request)
+})
 expectType<Handler>(syncedHandler)
 
 interface MutableContext extends Context {
   name: string
 }
 
-function syncedMutableContextDependantHandler (event: APIGatewayProxyEvent, context: MutableContext): APIGatewayProxyResult {
+function syncedMutableContextDependantHandler (
+  event: APIGatewayProxyEvent,
+  context: MutableContext
+): APIGatewayProxyResult {
   return {
     statusCode: 200,
     body: `Hello from ${context.name}`
   }
 }
 
-let customSyncedCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, MutableContext>(syncedMutableContextDependantHandler)
+let customSyncedCtxHandler = middy<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+MutableContext
+>(syncedMutableContextDependantHandler)
 expectType<MutableContextHandler>(customSyncedCtxHandler)
 
 // @ts-expect-error
-customSyncedCtxHandler = middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>(syncedMutableContextDependantHandler)
+customSyncedCtxHandler = middy<
+APIGatewayProxyEvent,
+APIGatewayProxyResult,
+Error,
+Context
+>(
+  // @ts-expect-error
+  syncedMutableContextDependantHandler
+)
 
 const mutableSyncedContextMiddleware = {
   before: (request: MutableContextRequest) => {
@@ -375,7 +483,9 @@ const mutableSyncedContextMiddleware = {
   }
 }
 
-customSyncedCtxHandler = customSyncedCtxHandler.use(mutableSyncedContextMiddleware)
+customSyncedCtxHandler = customSyncedCtxHandler.use(
+  mutableSyncedContextMiddleware
+)
 expectType<MutableContextHandler>(customSyncedCtxHandler)
 
 const syncedTypeErrorMiddleware = {
@@ -411,10 +521,11 @@ const handler1182 = middy().handler(s3Handler)
 expectType<MiddyfiedHandler<S3Event, any, Error, Context, {}>>(handler1182)
 
 //  Issue #1228 Correct return type
-const numberHandler = middy<APIGatewayProxyEvent, number>()
-  .handler(async (event) => {
+const numberHandler = middy<APIGatewayProxyEvent, number>().handler(
+  async (event) => {
     return 42 // Correct return type, should pass type checking
-  })
+  }
+)
 expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(numberHandler)
 
 //  Issue #1228 Incorrect return type
@@ -423,4 +534,17 @@ const invalidNumberHandler = middy<APIGatewayProxyEvent, number>()
   .handler(async () => {
     return 'not a number'
   })
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(invalidNumberHandler)
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(
+  invalidNumberHandler
+)
+
+// Issue #1275 Early Response type
+middy()
+  .before(async (request) => {
+    request.earlyResponse = 'Hello, world!'
+  })
+  .use({
+    after: (request) => {
+      request.earlyResponse = 'Hello, world!'
+    }
+  })
