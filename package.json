@@ -9,6 +9,7 @@
   },
   "engineStrict": true,
   "scripts": {
+    "prepare": "husky",
     "commit-msg": "commitlint --config commitlint.config.cjs --edit",
     "pre-commit": "npm run test:lint",
     "test": "npm run test:lint && npm run test:packages && npm run test:packages:benchmark",
