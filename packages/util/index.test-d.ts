@@ -1,7 +1,11 @@
 import middy from '@middy/core'
 import { expectType } from 'tsd'
 import { SSMClient } from '@aws-sdk/client-ssm'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context as LambdaContext } from 'aws-lambda'
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  Context as LambdaContext
+} from 'aws-lambda'
 import * as util from '.'
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
@@ -85,6 +89,7 @@ TInternal
     succeed: () => {}
   },
   response: null,
+  earlyResponse: null,
   error: null,
   internal: {
     boolean: true,
@@ -133,7 +138,8 @@ interface DeepAwaitedTInternal {
     key: 'value'
   }
   promise: string // this was Promise<string> in TInternal;
-  promiseObject: { // this was Promise<{key: "value"}> in TInternal
+  promiseObject: {
+    // this was Promise<{key: "value"}> in TInternal
     key: 'value'
   }
 }
@@ -153,23 +159,44 @@ async function testGetInternalField (): Promise<{ number: 1 }> {
 expectType<Promise<{ number: 1 }>>(testGetInternalField())
 
 // getInternal should get from internal store when array[string]
-async function testGetInternalFields (): Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }> {
-  const result = await util.getInternal(['boolean', 'string', 'promiseObject.key'], sampleRequest)
-  expectType<{ boolean: true, string: 'string', promiseObject_key: 'value' }>(result)
+async function testGetInternalFields (): Promise<{
+  boolean: true
+  string: 'string'
+  promiseObject_key: 'value'
+}> {
+  const result = await util.getInternal(
+    ['boolean', 'string', 'promiseObject.key'],
+    sampleRequest
+  )
+  expectType<{ boolean: true, string: 'string', promiseObject_key: 'value' }>(
+    result
+  )
   return result
 }
-expectType<Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }>>(testGetInternalFields())
+expectType<
+Promise<{ boolean: true, string: 'string', promiseObject_key: 'value' }>
+>(testGetInternalFields())
 
 // getInternal should get from internal store when object
-async function testGetAndRemapInternal (): Promise<{ newKey: string, newKey2: 'value' }> {
-  const result = await util.getInternal({ newKey: 'promise', newKey2: 'promiseObject.key' }, sampleRequest)
+async function testGetAndRemapInternal (): Promise<{
+  newKey: string
+  newKey2: 'value'
+}> {
+  const result = await util.getInternal(
+    { newKey: 'promise', newKey2: 'promiseObject.key' },
+    sampleRequest
+  )
   expectType<{ newKey: string, newKey2: 'value' }>(result)
   return result
 }
-expectType<Promise<{ newKey: string, newKey2: 'value' }>>(testGetAndRemapInternal())
+expectType<Promise<{ newKey: string, newKey2: 'value' }>>(
+  testGetAndRemapInternal()
+)
 
 // getInternal should get from internal store a nested value
-async function testGetInternalNested (): Promise<{ promiseObject_key: 'value' }> {
+async function testGetInternalNested (): Promise<{
+  promiseObject_key: 'value'
+}> {
   const result = await util.getInternal('promiseObject.key', sampleRequest)
   expectType<{ promiseObject_key: 'value' }>(result)
   return result
