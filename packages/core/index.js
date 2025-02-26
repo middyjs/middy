@@ -1,5 +1,6 @@
 /* global awslambda */
 import { Readable } from 'node:stream'
+import { ReadableStream } from 'node:stream/web'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout } from 'node:timers'
 
@@ -64,7 +65,7 @@ const middy = (lambdaHandler = defaultLambdaHandler, plugin = {}) => {
       }
 
       let handlerStream
-      if (handlerBody._readableState) {
+      if (handlerBody._readableState || handlerBody instanceof ReadableStream) {
         handlerStream = handlerBody
       } else if (typeof handlerBody === 'string') {
         // #1189
