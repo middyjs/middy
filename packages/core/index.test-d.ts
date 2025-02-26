@@ -537,3 +537,14 @@ const invalidNumberHandler = middy<APIGatewayProxyEvent, number>()
 expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(
   invalidNumberHandler
 )
+
+// Issue #1275 Early Response type
+middy()
+  .before(async (request) => {
+    request.earlyResponse = 'Hello, world!'
+  })
+  .use({
+    after: (request) => {
+      request.earlyResponse = 'Hello, world!'
+    }
+  })

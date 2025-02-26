@@ -30,6 +30,7 @@ export interface Request<
   event: TEvent
   context: TContext
   response: TResult | null
+  earlyResponse: TResult | null
   error: TErr | null
   internal: TInternal
 }
