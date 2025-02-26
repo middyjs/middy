@@ -1,7 +1,4 @@
-import {
-  Context as LambdaContext,
-  Handler as LambdaHandler
-} from 'aws-lambda'
+import { Context as LambdaContext, Handler as LambdaHandler } from 'aws-lambda'
 
 declare type PluginHook = () => void
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void
@@ -75,7 +72,7 @@ type MiddyInputHandler<
 > = (
   event: TEvent,
   context: TContext,
-  opts: MiddyHandlerObject,
+  opts: MiddyHandlerObject
 ) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 void | Promise<TResult> | TResult
 type MiddyInputPromiseHandler<
@@ -96,12 +93,22 @@ export interface MiddyfiedHandler<
   before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
   onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  handler: <TInputHandlerEventProps = TEvent, TInputHandlerResultProps = TResult>(
+  handler: <
+    TInputHandlerEventProps = TEvent,
+    TInputHandlerResultProps = TResult
+  >(
     handler: MiddlewareHandler<
     LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
-    TContext, TResult
+    TContext,
+    TResult
     >
-  ) => MiddyfiedHandler<TInputHandlerEventProps, TInputHandlerResultProps, TErr, TContext, TInternal>
+  ) => MiddyfiedHandler<
+  TInputHandlerEventProps,
+  TInputHandlerResultProps,
+  TErr,
+  TContext,
+  TInternal
+  >
 }
 
 declare type AttachMiddlewareFn<
@@ -152,9 +159,10 @@ declare type MiddlewareHandler<
   THandler extends LambdaHandler<any, any>,
   TContext extends LambdaContext = LambdaContext,
   TResult = any
-> = THandler extends LambdaHandler<infer TEvent, TResult> // always true
-  ? MiddyInputHandler<TEvent, TResult, TContext>
-  : never
+> =
+  THandler extends LambdaHandler<infer TEvent, TResult> // always true
+    ? MiddyInputHandler<TEvent, TResult, TContext>
+    : never
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
