@@ -932,11 +932,35 @@ test('Should return with streamifyResponse:true using empty body string and prel
   equal(content(), input)
 })
 
-test('Should return with streamifyResponse:true using ReadableStream', async (t) => {
+// https://nodejs.org/api/stream.html#readable-streams
+test('Should return with streamifyResponse:true using Node Readable stream', async (t) => {
   const input = 'x'.repeat(1024 * 1024)
   const handler = middy(
     async (event, context, { signal }) => {
-      return createReadableStream(input)
+      return createReadableStream(input) // returns Readable stream
+    },
+    {
+      streamifyResponse: true
+    }
+  )
+
+  const { responseStream, chunkResponse } = createResponseStreamMockAndCapture()
+  const response = await handler(event, responseStream, context)
+  equal(response, undefined)
+  equal(chunkResponse(), input)
+})
+
+// https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
+test('Should return with streamifyResponse:true using Web API ReadableStream', async (t) => {
+  const input = 'x'.repeat(1024 * 1024)
+  const handler = middy(
+    async (event, context, { signal }) => {
+      return new ReadableStream({
+        async start (controller) {
+          controller.enqueue(input)
+          controller.close()
+        }
+      })
     },
     {
       streamifyResponse: true
