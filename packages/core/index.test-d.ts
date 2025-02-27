@@ -539,12 +539,15 @@ expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(
 )
 
 // Issue #1275 Early Response type
-middy()
+middy<unknown, string>()
   .before(async (request) => {
     request.earlyResponse = 'Hello, world!'
   })
   .use({
     after: (request) => {
-      request.earlyResponse = 'Hello, world!'
+      request.earlyResponse = null
     }
+  })
+  .onError(async (request) => {
+    request.earlyResponse = undefined
   })
