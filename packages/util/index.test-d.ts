@@ -89,7 +89,6 @@ TInternal
     succeed: () => {}
   },
   response: null,
-  earlyResponse: null,
   error: null,
   internal: {
     boolean: true,
