@@ -21,7 +21,7 @@ npm install --save @middy/http-cors
 - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
 - `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
 - `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
-- `origin` (string) (optional): default origin to put in the header (default: `'*'`). Setting to `null` will default to excluding the header. Note: will default to `null` in next major release
+- `origin` (string) (optional): default origin to put in the header (default: `null`, will exclude this header).
 - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. If the incoming origin is not found, the header will not be returned. Wildcards can be used within the origin to match multiple origins.
 - `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
 - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
