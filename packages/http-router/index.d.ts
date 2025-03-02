@@ -9,13 +9,28 @@ import {
   Handler as LambdaHandler
 } from 'aws-lambda'
 
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'ANY'
+export type Method =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'OPTIONS'
+  | 'HEAD'
+  | 'ANY'
 
 export interface Route<TEvent, TResult> {
   method: Method
   path: string
-  handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult, any, any>
+  handler:
+  | LambdaHandler<TEvent, TResult>
+  | MiddyfiedHandler<TEvent, TResult, any, any>
 }
+
+export type RouteNotFoundResponseFn = (input: {
+  method: string
+  path: string
+}) => never
 
 declare function httpRouterHandler<
   TEvent extends
@@ -26,6 +41,13 @@ declare function httpRouterHandler<
   | ALBResult
   | APIGatewayProxyResult
   | APIGatewayProxyResultV2 = APIGatewayProxyResult
-> (routes: Array<Route<TEvent, TResult>>): middy.MiddyfiedHandler<TEvent, TResult>
+> (
+  routes:
+  | Array<Route<TEvent, TResult>>
+  | {
+    routes: Array<Route<TEvent, TResult>>
+    notFoundResponse: RouteNotFoundResponseFn
+  }
+): middy.MiddyfiedHandler<TEvent, TResult>
 
 export default httpRouterHandler
