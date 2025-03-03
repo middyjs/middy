@@ -11,12 +11,6 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
   const options = { ...defaults, ...opts }
   const httpJsonBodyParserMiddlewareBefore = async (request) => {
     const { headers, body } = request.event
-    if (typeof body === 'undefined') {
-      throw createError(415, 'Invalid or malformed JSON was provided', {
-        cause: { package: '@middy/http-json-body-parser', data: body }
-      })
-    }
-
     const contentType = headers?.['content-type'] ?? headers?.['Content-Type']
 
     if (!mimePattern.test(contentType)) {
@@ -25,6 +19,12 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
       }
       throw createError(415, 'Unsupported Media Type', {
         cause: { package: '@middy/http-json-body-parser', data: contentType }
+      })
+    }
+
+    if (typeof body === 'undefined') {
+      throw createError(415, 'Invalid or malformed JSON was provided', {
+        cause: { package: '@middy/http-json-body-parser', data: body }
       })
     }
 

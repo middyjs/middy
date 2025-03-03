@@ -177,6 +177,27 @@ test("It shouldn't process the body and throw error if no header is passed", asy
   }
 })
 
+test('It should handle undefined body if no header', async (t) => {
+  /**
+   * test checks that if the body is undefined, no content-type header is passed and disableContentTypeError is true,
+   * the handler should process the request and do not throw an error
+   */
+  const handler = middy((event) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(jsonBodyParser({ disableContentTypeError: true }))
+
+  // invokes the handler
+  const event = {
+    headers: {},
+    body: undefined
+  }
+
+  const body = await handler(event, defaultContext)
+  equal(body, undefined)
+})
+
 test('It should handle a base64 body', async (t) => {
   const handler = middy((event) => {
     return event.body // propagates the body as a response
