@@ -6,9 +6,10 @@ interface Options {
   normalizeHeaderKey?: (key: string) => string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface Event {}
 
-declare function httpHeaderNormalizer(
+declare function httpHeaderNormalizer (
   options?: Options
 ): middy.MiddlewareObj<Event>
 
