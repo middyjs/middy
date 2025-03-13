@@ -18,12 +18,14 @@ This page is a work in progress. If you want to help us to make this page better
 ```javascript
 import middy from '@middy/core'
 import s3ObjectResponseMiddleware from '@middy/s3-object-response'
-import {captureAWSv3Client, captureHTTPsGlobal} from 'aws-xray-sdk-core'
+import {captureAWSv3Client} from 'aws-xray-sdk-core'
+import {captureFetchGlobal} from 'aws-xray-sdk-fetch'
+
+captureFetchGlobal()
 
 export const handler = middy()
   .use(s3ObjectResponseMiddleware({
     awsClientCapture: captureAWSv3Client,
-    httpsCapture: captureHTTPsGlobal,
     bodyType: 'promise'
   }))
   .handler((event, context, {signal}) => {
