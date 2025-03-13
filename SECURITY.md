@@ -15,7 +15,7 @@ Our goal is to ensure Middy meets security best practices as outlined by the fol
 - [NIST SP 800-53 Rev. 5](https://docs.aws.amazon.com/securityhub/latest/userguide/nist-standard.html)
 - [OWASP ASVS v5.0 Level 3](https://github.com/OWASP/ASVS/tree/master/5.0/en)
 
-Core maintainers use Middy extensively within their own organizations that meet the above standards tested using SecurityHub and pentetration testing.
+Core maintainers use Middy extensively within their own organizations that meet the above standards tested using SecurityHub and penetration testing.
 
 ## Supported Versions
 Only the latest version is supported for security updates.
@@ -34,7 +34,7 @@ willfarrell@proton.me
 The lead maintainer will acknowledge your email within 24 hours, and will
 send a more detailed response within 48 hours indicating the next steps in
 handling your report. After the initial reply to your report, the security
-team will endeavor to keep you informed of the progress towards a fix and
+team will endeavour to keep you informed of the progress towards a fix and
 full announcement, and may ask for additional information or guidance.
 
 Report security vulnerabilities in third-party modules to the person or
