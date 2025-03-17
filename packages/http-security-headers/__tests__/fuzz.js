@@ -9,7 +9,7 @@ const context = {
 }
 
 test('fuzz `event` w/ `object`', async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(fc.object(), async (event) => {
       await handler(event, context)
     }),
@@ -23,7 +23,7 @@ test('fuzz `event` w/ `object`', async () => {
 })
 
 test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(
       fc.record({
         httpMethod: fc.constantFrom(
@@ -58,7 +58,7 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 })
 
 test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(
       fc.record({
         version: fc.constant('2.0'),
@@ -98,7 +98,7 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 })
 
 test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(
       fc.record({
         method: fc.constantFrom(

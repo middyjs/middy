@@ -15,7 +15,7 @@ const context = {
 }
 
 test('fuzz `event` w/ `object`', async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(fc.object(), async (event) => {
       try {
         await handler(event, context)

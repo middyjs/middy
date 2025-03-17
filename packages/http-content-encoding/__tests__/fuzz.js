@@ -10,7 +10,7 @@ const context = {
 }
 
 test('fuzz `event` w/ `object`', async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(fc.object(), async (event) => {
       await handler(event, context)
     }),
@@ -24,7 +24,7 @@ test('fuzz `event` w/ `object`', async () => {
 })
 
 test('fuzz `event` w/ `record`', async () => {
-  fc.assert(
+  await fc.assert(
     fc.asyncProperty(
       fc.record({
         body: fc.anything()
