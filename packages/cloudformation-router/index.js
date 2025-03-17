@@ -2,7 +2,7 @@ const defaults = {
   routes: [],
   notFoundResponse: ({ requestType }) => {
     const err = new Error('Route does not exist', {
-      casue: {
+      cause: {
         package: '@middy/cloudformation-router',
         data: { requestType }
       }
