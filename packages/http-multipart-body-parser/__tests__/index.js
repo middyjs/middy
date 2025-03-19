@@ -345,3 +345,25 @@ test('It should parse a field with multiple files successfully', async (t) => {
   ok(Object.keys(response).includes('files'))
   equal(response.files.length, 3)
 })
+
+test('It should parse form data when the charset is in the header', async (t) => {
+  const handler = middy((event, context) => {
+    return event.body // propagates the body as a response
+  })
+
+  handler.use(httpMultipartBodyParser())
+
+  // invokes the handler
+  // Base64 encoded form data with field 'foo' of value 'bar'
+  const event = {
+    headers: {
+      'content-type':
+        'multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M; charset=UTF-8'
+    },
+    body: 'LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t',
+    isBase64Encoded: true
+  }
+  const response = await handler(event, defaultContext)
+
+  deepEqual(response, { foo: 'bar' })
+})
