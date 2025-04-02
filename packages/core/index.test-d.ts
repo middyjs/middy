@@ -658,6 +658,6 @@ EventTypeA & EventTypeC & EventTypeB,
 any,
 Error,
 Context,
-InternalA & InternalB
+    typeof internalA & typeof internalB
 >
 >(handlerTypeTest5)
