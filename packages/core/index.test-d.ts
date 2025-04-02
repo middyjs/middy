@@ -618,3 +618,46 @@ const handlerTypeTest4 = middy()
 expectType<middy.MiddyfiedHandler<EventTypeA, any, Error, Context, {}>>(
   handlerTypeTest4
 )
+
+interface EventTypeC {
+  propC: boolean
+}
+
+interface InternalA {
+  internalProp: string
+}
+
+interface InternalB {
+  internalProp: number
+}
+
+const handlerTypeTest5 = middy()
+  .use(middlewareWithEventA)
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, InternalA>>({
+  before: (event) => {}
+})
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, InternalB>>({
+  before: (event) => {}
+})
+  .use({
+    before: (event) => {
+      // TODO: make this work
+      // event.propB
+    }
+  })
+  .use([middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<
+EventTypeA & EventTypeC & EventTypeB,
+any,
+Error,
+Context,
+InternalA & InternalB
+>
+>(handlerTypeTest5)
