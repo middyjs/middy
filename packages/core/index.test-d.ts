@@ -551,3 +551,70 @@ middy<unknown, string>()
   .onError(async (request) => {
     request.earlyResponse = undefined
   })
+
+// Test for correct type intersection with middleware arrays (issue #1289)
+interface EventTypeA {
+  propA: string
+}
+
+interface EventTypeB {
+  propB: number
+}
+
+// Mock middleware objects with specific event types
+const middlewareWithEventA: middy.MiddlewareObj<EventTypeA> = {
+  before: (request) => {}
+}
+
+const middlewareWithEventB: middy.MiddlewareObj<EventTypeB> = {
+  before: (request) => {}
+}
+
+const handlerTypeTest1 = middy()
+  .use(middlewareWithEventA)
+  .use(middlewareWithEventB)
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest1)
+
+const handlerTypeTest2 = middy()
+  .use([middlewareWithEventA, middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest2)
+
+const handlerTypeTest3 = middy()
+  .use(middlewareWithEventA)
+  .use([middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest3)
+
+const handlerTypeTest4 = middy()
+  .use(middlewareWithEventA)
+  .handler((event) => {
+    expectType<string>(event.propA)
+    return {}
+  })
+
+expectType<middy.MiddyfiedHandler<EventTypeA, any, Error, Context, {}>>(
+  handlerTypeTest4
+)

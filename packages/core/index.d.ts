@@ -1,3 +1,4 @@
+import { UnionToIntersection } from '@middy/util/type-utils'
 import { Context as LambdaContext, Handler as LambdaHandler } from 'aws-lambda'
 
 declare type PluginHook = () => void
@@ -122,15 +123,20 @@ declare type AttachMiddlewareFn<
   middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
 ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
 
-declare type AttachMiddlewareObj<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
-> = (
-  middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>
-) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
+type ExtractEvent<T> =
+  T extends MiddlewareObj<infer TMiddlewareEvent, any, any, any, any>
+    ? TMiddlewareEvent
+    : never
+
+type ExtractContext<T> =
+  T extends MiddlewareObj<any, any, any, infer TMiddlewareContext, any>
+    ? TMiddlewareContext
+    : never
+
+type ExtractInternal<T> =
+  T extends MiddlewareObj<any, any, any, any, infer TMiddlewareInternal>
+    ? TMiddlewareInternal
+    : never
 
 declare type UseFn<
   TEvent = any,
@@ -138,23 +144,34 @@ declare type UseFn<
   TErr = Error,
   TContext extends LambdaContext = LambdaContext,
   TInternal extends Record<string, unknown> = {}
-> = <TMiddleware extends MiddlewareObj<any, any, Error, any, any>>(
-  middlewares: TMiddleware | TMiddleware[]
-) => TMiddleware extends MiddlewareObj<
-infer TMiddlewareEvent,
-any,
-Error,
-infer TMiddlewareContext,
-infer TMiddlewareInternal
+> = <
+  TMiddleware extends
+  | MiddlewareObj<any, any, Error, any, any>
+  | ReadonlyArray<MiddlewareObj<any, any, Error, any, any>>
+>(
+  middlewares: TMiddleware
+) => MiddyfiedHandler<
+TEvent &
+UnionToIntersection<
+ExtractEvent<
+TMiddleware extends any[] ? TMiddleware[number] : TMiddleware
 >
-  ? MiddyfiedHandler<
-  TMiddlewareEvent & TEvent,
-  TResult,
-  TErr,
-  TMiddlewareContext & TContext,
-  TMiddlewareInternal & TInternal
-  > // always true
-  : never
+>,
+TResult,
+TErr,
+TContext &
+UnionToIntersection<
+ExtractContext<
+TMiddleware extends any[] ? TMiddleware[number] : TMiddleware
+>
+>,
+TInternal &
+UnionToIntersection<
+ExtractInternal<
+TMiddleware extends any[] ? TMiddleware[number] : TMiddleware
+>
+>
+>
 
 declare type MiddlewareHandler<
   THandler extends LambdaHandler<any, any>,

@@ -9,7 +9,8 @@ import type {
   Choose,
   IsUnknown,
   ArrayValues,
-  SanitizeKeys
+  SanitizeKeys,
+  UnionToIntersection
 } from './type-utils.d.ts'
 
 // SanitizeKeyPrefixLeadingNumber
@@ -122,3 +123,11 @@ expectType<IsUnknown<Promise<string>>>(false)
 expectType<ArrayValues<['a', 'b', 'c']>>('a')
 expectType<ArrayValues<['a', 'b', 'c']>>('b')
 expectType<ArrayValues<['a', 'b', 'c']>>('c')
+
+// UnionToIntersection
+type UnionType = { a: string } | { b: number }
+const obj: { a: string } & { b: number } = {
+  a: 'test',
+  b: 1
+}
+expectType<UnionToIntersection<UnionType>>(obj)
