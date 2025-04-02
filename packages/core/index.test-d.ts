@@ -623,20 +623,20 @@ interface EventTypeC {
   propC: boolean
 }
 
-interface InternalA {
-  internalProp: string
+const internalA = {
+  internalProp: 'string'
 }
 
-interface InternalB {
-  internalProp: number
+const internalB = {
+  internalProp: 1
 }
 
 const handlerTypeTest5 = middy()
   .use(middlewareWithEventA)
-  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, InternalA>>({
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, typeof internalA>>({
   before: (event) => {}
 })
-  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, InternalB>>({
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, typeof internalB>>({
   before: (event) => {}
 })
   .use({
