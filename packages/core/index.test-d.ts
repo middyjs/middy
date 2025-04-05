@@ -551,3 +551,113 @@ middy<unknown, string>()
   .onError(async (request) => {
     request.earlyResponse = undefined
   })
+
+// Test for correct type intersection with middleware arrays (issue #1289)
+interface EventTypeA {
+  propA: string
+}
+
+interface EventTypeB {
+  propB: number
+}
+
+// Mock middleware objects with specific event types
+const middlewareWithEventA: middy.MiddlewareObj<EventTypeA> = {
+  before: (request) => {}
+}
+
+const middlewareWithEventB: middy.MiddlewareObj<EventTypeB> = {
+  before: (request) => {}
+}
+
+const handlerTypeTest1 = middy()
+  .use(middlewareWithEventA)
+  .use(middlewareWithEventB)
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest1)
+
+const handlerTypeTest2 = middy()
+  .use([middlewareWithEventA, middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest2)
+
+const handlerTypeTest3 = middy()
+  .use(middlewareWithEventA)
+  .use([middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<EventTypeA & EventTypeB, any, Error, Context, {}>
+>(handlerTypeTest3)
+
+const handlerTypeTest4 = middy()
+  .use(middlewareWithEventA)
+  .handler((event) => {
+    expectType<string>(event.propA)
+    return {}
+  })
+
+expectType<middy.MiddyfiedHandler<EventTypeA, any, Error, Context, {}>>(
+  handlerTypeTest4
+)
+
+interface EventTypeC {
+  propC: boolean
+}
+
+const internalA = {
+  internalProp: 'string'
+}
+
+const internalB = {
+  internalProp: 1
+}
+
+const handlerTypeTest5 = middy()
+  .use(middlewareWithEventA)
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, typeof internalA>>({
+  before: (event) => {}
+})
+  .use<middy.MiddlewareObj<EventTypeC, any, Error, Context, typeof internalB>>({
+  before: (event) => {}
+})
+  .use({
+    before: (event) => {
+      // TODO: make this work
+      // event.propB
+    }
+  })
+  .use([middlewareWithEventB])
+  .handler((event) => {
+    expectType<string>(event.propA)
+    expectType<number>(event.propB)
+    return {}
+  })
+
+expectType<
+middy.MiddyfiedHandler<
+EventTypeA & EventTypeC & EventTypeB,
+any,
+Error,
+Context,
+    typeof internalA & typeof internalB
+>
+>(handlerTypeTest5)
