@@ -282,8 +282,12 @@ const typeErrorMiddleware = {
 customCtxHandler = customCtxHandler.use(typeErrorMiddleware)
 expectType<MutableContextHandler>(customCtxHandler)
 
-const streamifiedResponseHandler = middy({ streamifyResponse: true })
-expectType<middy.MiddyfiedHandler<unknown>>(streamifiedResponseHandler)
+const streamifiedResponseHandler = middy<APIGatewayProxyEvent>({
+  streamifyResponse: true
+})
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent>>(
+  streamifiedResponseHandler
+)
 
 streamifiedResponseHandler.handler(lambdaHandler)
 streamifiedResponseHandler.use(middlewareObj)
@@ -498,8 +502,12 @@ const syncedTypeErrorMiddleware = {
 customSyncedCtxHandler = customSyncedCtxHandler.use(syncedTypeErrorMiddleware)
 expectType<MutableContextHandler>(customSyncedCtxHandler)
 
-const syncedStreamifiedResponseHandler = middy({ streamifyResponse: true })
-expectType<middy.MiddyfiedHandler<unknown>>(syncedStreamifiedResponseHandler)
+const syncedStreamifiedResponseHandler = middy<APIGatewayProxyEvent>({
+  streamifyResponse: true
+})
+expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent>>(
+  syncedStreamifiedResponseHandler
+)
 
 syncedStreamifiedResponseHandler.handler(syncedLambdaHandler)
 syncedStreamifiedResponseHandler.use(middlewareObj)
@@ -517,7 +525,7 @@ const s3Handler = async (event: S3Event): Promise<void> => {
   await Promise.all(event.Records.map(async () => await Promise.resolve()))
 }
 
-const handler1182 = middy().handler(s3Handler)
+const handler1182 = middy<S3Event>().handler(s3Handler)
 expectType<MiddyfiedHandler<S3Event, any, Error, Context, {}>>(handler1182)
 
 //  Issue #1228 Correct return type
@@ -551,3 +559,8 @@ middy<unknown, string>()
   .onError(async (request) => {
     request.earlyResponse = undefined
   })
+
+//  Issue #1293 Handler event type is not correctly inferred
+// @ts-expect-error
+const s3MiddyHandler = middy().handler(s3Handler)
+expectType<middy.MiddyfiedHandler<unknown, any>>(s3MiddyHandler)
