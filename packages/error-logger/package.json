@@ -1,71 +1,68 @@
 {
-  "name": "@middy/error-logger",
-  "version": "6.1.6",
-  "description": "Input and output logger middleware for the middy framework",
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "engineStrict": true,
-  "publishConfig": {
-    "access": "public"
-  },
-  "module": "./index.js",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./index.d.ts",
-        "default": "./index.js"
-      },
-      "require": {
-        "default": "./index.js"
-      }
-    }
-  },
-  "types": "index.d.ts",
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ],
-  "scripts": {
-    "test": "npm run test:unit && npm run test:fuzz",
-    "test:unit": "node --test __tests__/index.js",
-    "test:fuzz": "node --test __tests__/fuzz.js",
-    "test:benchmark": "node __benchmarks__/index.js"
-  },
-  "license": "MIT",
-  "keywords": [
-    "Lambda",
-    "Middleware",
-    "Serverless",
-    "Framework",
-    "AWS",
-    "AWS Lambda",
-    "Middy",
-    "Input",
-    "Output",
-    "Logger"
-  ],
-  "author": {
-    "name": "Middy contributors",
-    "url": "https://github.com/middyjs/middy/graphs/contributors"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git",
-    "directory": "packages/error-logger"
-  },
-  "bugs": {
-    "url": "https://github.com/middyjs/middy/issues"
-  },
-  "homepage": "https://middy.js.org",
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/willfarrell"
-  },
-  "devDependencies": {
-    "@middy/core": "6.1.6",
-    "@types/node": "^20.0.0"
-  },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	"name": "@middy/error-logger",
+	"version": "6.1.6",
+	"description": "Input and output logger middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			},
+			"require": {
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": ["index.js", "index.d.ts"],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"Input",
+		"Output",
+		"Logger"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/error-logger"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"devDependencies": {
+		"@middy/core": "6.1.6",
+		"@types/node": "^20.0.0"
+	},
+	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

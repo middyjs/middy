@@ -1,9 +1,9 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface Options {
-  logger?: (request: any) => void
+	logger?: (request: any) => undefined;
 }
 
-declare function errorLogger (options?: Options): middy.MiddlewareObj
+declare function errorLogger(options?: Options): middy.MiddlewareObj;
 
-export default errorLogger
+export default errorLogger;

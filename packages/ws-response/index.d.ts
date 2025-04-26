@@ -1,21 +1,24 @@
-import { ApiGatewayManagementApiClient, ApiGatewayManagementApiClientConfig } from '@aws-sdk/client-apigatewaymanagementapi'
-import middy from '@middy/core'
-import { Options as MiddyOptions } from '@middy/util'
+import type {
+	ApiGatewayManagementApiClient,
+	ApiGatewayManagementApiClientConfig,
+} from "@aws-sdk/client-apigatewaymanagementapi";
+import type middy from "@middy/core";
+import type { Options as MiddyOptions } from "@middy/util";
 
 interface Options<
-  AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient
+	AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient,
 > extends Pick<
-  MiddyOptions<
-  AwsApiGatewayManagementApiClient,
-  ApiGatewayManagementApiClientConfig
-  >,
-  | 'AwsClient'
-  | 'awsClientOptions'
-  | 'awsClientAssumeRole'
-  | 'awsClientCapture'
-  | 'disablePrefetch'
-  > {}
+		MiddyOptions<
+			AwsApiGatewayManagementApiClient,
+			ApiGatewayManagementApiClientConfig
+		>,
+		| "AwsClient"
+		| "awsClientOptions"
+		| "awsClientAssumeRole"
+		| "awsClientCapture"
+		| "disablePrefetch"
+	> {}
 
-declare function wsResponse (options?: Options): middy.MiddlewareObj
+declare function wsResponse(options?: Options): middy.MiddlewareObj;
 
-export default wsResponse
+export default wsResponse;

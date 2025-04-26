@@ -195,7 +195,7 @@ const metrics = new Metrics({
   serviceName: 'orders'
 });
 
-const lambdaHandler = async (_event: unknown, _context: unknown): Promise<void> => {
+const lambdaHandler = async (_event: unknown, _context: unknown): Promise<undefined> => {
   metrics.addMetric('successfulBooking', MetricUnits.Count, 1);
 };
 

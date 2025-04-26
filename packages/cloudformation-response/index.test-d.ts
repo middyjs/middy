@@ -1,8 +1,8 @@
-import { expectType } from 'tsd'
-import middy from '@middy/core'
+import type middy from "@middy/core";
+import { expectType } from "tsd";
 
-import cloudformationResponse from '.'
+import cloudformationResponse from ".";
 
 // use with default options
-const middleware = cloudformationResponse()
-expectType<middy.MiddlewareObj>(middleware)
+const middleware = cloudformationResponse();
+expectType<middy.MiddlewareObj>(middleware);

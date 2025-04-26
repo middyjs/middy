@@ -1,15 +1,15 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface SerializerHandler {
-  regex: RegExp
-  serializer: (response: any) => string | { body: any, [key: string]: any }
+	regex: RegExp;
+	serializer: (response: any) => string | { body: any; [key: string]: any };
 }
 
 interface Options {
-  serializers: SerializerHandler[]
-  defaultContentType?: string
+	serializers: SerializerHandler[];
+	defaultContentType?: string;
 }
 
-declare function httpResponseSerializer (options?: Options): middy.MiddlewareObj
+declare function httpResponseSerializer(options?: Options): middy.MiddlewareObj;
 
-export default httpResponseSerializer
+export default httpResponseSerializer;

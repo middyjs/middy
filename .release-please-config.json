@@ -1,5 +1,0 @@
-{
-  "release-type": "node",
-  "skip-github-release": true,
-  "always-update": true
-}

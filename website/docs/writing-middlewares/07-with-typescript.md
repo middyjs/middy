@@ -18,7 +18,7 @@ const middleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, APIGatewayProxy
 
   const after: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (
     request
-  ): Promise<void> => {
+  ): Promise<undefined> => {
     // Your middleware logic
   }
 

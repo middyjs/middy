@@ -1,92 +1,87 @@
 {
-  "name": "@middy/validator",
-  "version": "6.1.6",
-  "description": "Validator middleware for the middy framework",
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "engineStrict": true,
-  "publishConfig": {
-    "access": "public"
-  },
-  "module": "./index.js",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./index.d.ts",
-        "default": "./index.js"
-      },
-      "require": {
-        "default": "./index.js"
-      }
-    },
-    "./transpile": {
-      "import": {
-        "types": "./transpile.d.ts",
-        "default": "./transpile.js"
-      },
-      "require": {
-        "default": "./transpile.js"
-      }
-    }
-  },
-  "types": "index.d.ts",
-  "files": [
-    "index.js",
-    "index.d.ts",
-    "transpile.js",
-    "transpile.d.ts"
-  ],
-  "scripts": {
-    "test": "npm run test:unit && npm run test:fuzz",
-    "test:unit": "node --test __tests__/index.js",
-    "test:fuzz": "node --test __tests__/fuzz.js",
-    "test:benchmark": "node __benchmarks__/index.js"
-  },
-  "license": "MIT",
-  "keywords": [
-    "Lambda",
-    "Middleware",
-    "Serverless",
-    "Framework",
-    "AWS",
-    "AWS Lambda",
-    "Middy",
-    "Validator",
-    "JSON Schema"
-  ],
-  "author": {
-    "name": "Middy contributors",
-    "url": "https://github.com/middyjs/middy/graphs/contributors"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git",
-    "directory": "packages/validator"
-  },
-  "bugs": {
-    "url": "https://github.com/middyjs/middy/issues"
-  },
-  "homepage": "https://middy.js.org",
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/willfarrell"
-  },
-  "dependencies": {
-    "@middy/util": "6.1.6",
-    "ajv": "8.17.1",
-    "ajv-errors": "3.0.0",
-    "ajv-formats": "3.0.1",
-    "ajv-formats-draft2019": "1.6.1",
-    "ajv-ftl-i18n": "0.1.1",
-    "ajv-keywords": "5.1.0"
-  },
-  "devDependencies": {
-    "@middy/core": "6.1.6",
-    "@types/http-errors": "^2.0.0",
-    "ajv-bsontype": "^1.0.7",
-    "ajv-cmd": "^0.7.0"
-  },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	"name": "@middy/validator",
+	"version": "6.1.6",
+	"description": "Validator middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			},
+			"require": {
+				"default": "./index.js"
+			}
+		},
+		"./transpile": {
+			"import": {
+				"types": "./transpile.d.ts",
+				"default": "./transpile.js"
+			},
+			"require": {
+				"default": "./transpile.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": ["index.js", "index.d.ts", "transpile.js", "transpile.d.ts"],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"Validator",
+		"JSON Schema"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/validator"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"dependencies": {
+		"@middy/util": "6.1.6",
+		"ajv": "8.17.1",
+		"ajv-errors": "3.0.0",
+		"ajv-formats": "3.0.1",
+		"ajv-formats-draft2019": "1.6.1",
+		"ajv-ftl-i18n": "0.1.1",
+		"ajv-keywords": "5.1.0"
+	},
+	"devDependencies": {
+		"@middy/core": "6.1.6",
+		"@types/http-errors": "^2.0.0",
+		"ajv-bsontype": "^1.0.7",
+		"ajv-cmd": "^0.7.0"
+	},
+	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

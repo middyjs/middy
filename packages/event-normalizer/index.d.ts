@@ -1,5 +1,5 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
-declare function eventNormalizer (): middy.MiddlewareObj
+declare function eventNormalizer(): middy.MiddlewareObj;
 
-export default eventNormalizer
+export default eventNormalizer;

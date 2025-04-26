@@ -1,11 +1,11 @@
-import middy from '@middy/core'
-import { expectType } from 'tsd'
-import httpEventNormalizer, { Event } from '.'
+import type middy from "@middy/core";
+import { expectType } from "tsd";
+import httpEventNormalizer, { type Event } from ".";
 
 // use with default options
-let middleware = httpEventNormalizer()
-expectType<middy.MiddlewareObj<Event>>(middleware)
+let middleware = httpEventNormalizer();
+expectType<middy.MiddlewareObj<Event>>(middleware);
 
 // use with all options
-middleware = httpEventNormalizer()
-expectType<middy.MiddlewareObj<Event>>(middleware)
+middleware = httpEventNormalizer();
+expectType<middy.MiddlewareObj<Event>>(middleware);

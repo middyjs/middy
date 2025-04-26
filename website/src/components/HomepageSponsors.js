@@ -1,71 +1,65 @@
-import styles from './HomepageSponsors.module.css'
-import React from 'react'
-import clsx from 'clsx'
-import FourTheoremLogo from './sponsors/fourtheorem'
-import AwsLogo from './sponsors/aws'
+import clsx from "clsx";
+import React from "react";
+import styles from "./HomepageSponsors.module.css";
 
 const emptySponsor = {
-  title: 'Sponsor',
-  url: 'https://github.com/sponsors/willfarrell',
-  img: '/img/logo/reserved.svg'
-}
+	title: "Sponsor",
+	url: "https://github.com/sponsors/willfarrell",
+	img: "/img/logo/reserved.svg",
+};
 
 const SponsorListLevel2 = [
-  {
-    url: 'https://fourtheorem.com',
-    Component: (
-      <FourTheoremLogo className={styles.featureSvg} title='fourThereom' />
-    )
-    // 2023-07 - 2024-06
-  },
-  {
-    url: 'https://github.com/aws',
-    Component: (
-      <AwsLogo
-        className={styles.featureSvg}
-        title='Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)'
-      />
-    )
-    // 2023-11-08
-  },
-  emptySponsor
-]
+	{
+		id: "fourtheorem",
+		url: "https://fourtheorem.com",
+		img: "/img/logo/fourtheorem.svg",
+		// 2023-07 - 2025-06
+	},
+	{
+		id: "aws",
+		url: "https://github.com/aws",
+		img: "/img/logo/amazon-web-services.svg",
+		// 2023-11-08
+	},
+	emptySponsor,
+];
 
 // const SponsorListLevel3 = []
 const SponsorListLevel4 = [
-  /* {
+	/* {
+    id: '',
     title: 'Distinction Dev',
     url: 'https://distinction.dev',
     img: '/img/logo-square/distinction-dev.png'
   }, */
-]
+];
 
-function Feature ({ title, url, Component, size }) {
-  return (
-    <div className={clsx('col')}>
-      <a href={url} className='padding-horiz--md'>
-        {Component}
-      </a>
-    </div>
-  )
+function Feature({ title, url, Component, img }) {
+	return (
+		<div className={clsx("col")}>
+			<a href={url} className="padding-horiz--md">
+				<img className={styles.featureSvg} alt={title} src={img} />
+			</a>
+		</div>
+	);
 }
 
-export default function HomepageSponsors () {
-  return (
-    <section className={styles.features}>
-      <div className='container'>
-        <h2>Sponsors</h2>
-        <div className='row'>
-          {SponsorListLevel2.map((props, idx) => (
-            <Feature key={idx} {...props} size='33' />
-          ))}
-        </div>
-        <div className='row'>
-          {SponsorListLevel4.map((props, idx) => (
-            <Feature key={idx} {...props} size='10' />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
+export default function HomepageSponsors() {
+	return (
+		<section className={styles.features}>
+			<div className="container">
+				<h2>Sponsors</h2>
+				<div className="row">
+					{SponsorListLevel2.map((props) => (
+						<Feature key={props.id} {...props} size="33" />
+					))}
+				</div>
+				<div className="row">
+					{SponsorListLevel4.map((props) => (
+						<Feature key={props.id} {...props} size="10" />
+					))}
+				</div>
+			</div>
+		</section>
+	);
 }

@@ -1,3 +1,2 @@
 #!/bin/sh
-
-npm run pre-commit
+npm run git:pre-commit

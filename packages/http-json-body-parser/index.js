@@ -1,53 +1,53 @@
-import { createError } from '@middy/util'
+import { createError } from "@middy/util";
 
-const mimePattern = /^application\/(.+\+)?json($|;.+)/
+const mimePattern = /^application\/(.+\+)?json($|;.+)/;
 
 const defaults = {
-  reviver: undefined,
-  disableContentTypeError: false
-}
+	reviver: undefined,
+	disableContentTypeError: false,
+};
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-  const httpJsonBodyParserMiddlewareBefore = async (request) => {
-    const { headers, body } = request.event
-    const contentType = headers?.['content-type'] ?? headers?.['Content-Type']
+	const options = { ...defaults, ...opts };
+	const httpJsonBodyParserMiddlewareBefore = async (request) => {
+		const { headers, body } = request.event;
+		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-    if (!mimePattern.test(contentType)) {
-      if (options.disableContentTypeError) {
-        return
-      }
-      throw createError(415, 'Unsupported Media Type', {
-        cause: { package: '@middy/http-json-body-parser', data: contentType }
-      })
-    }
+		if (!mimePattern.test(contentType)) {
+			if (options.disableContentTypeError) {
+				return;
+			}
+			throw createError(415, "Unsupported Media Type", {
+				cause: { package: "@middy/http-json-body-parser", data: contentType },
+			});
+		}
 
-    if (typeof body === 'undefined') {
-      throw createError(415, 'Invalid or malformed JSON was provided', {
-        cause: { package: '@middy/http-json-body-parser', data: body }
-      })
-    }
+		if (typeof body === "undefined") {
+			throw createError(415, "Invalid or malformed JSON was provided", {
+				cause: { package: "@middy/http-json-body-parser", data: body },
+			});
+		}
 
-    try {
-      const data = request.event.isBase64Encoded
-        ? Buffer.from(body, 'base64').toString()
-        : body
+		try {
+			const data = request.event.isBase64Encoded
+				? Buffer.from(body, "base64").toString()
+				: body;
 
-      request.event.body = JSON.parse(data, options.reviver)
-    } catch (err) {
-      // UnprocessableEntity
-      throw createError(415, 'Invalid or malformed JSON was provided', {
-        cause: {
-          package: '@middy/http-json-body-parser',
-          data: body,
-          message: err.message
-        }
-      })
-    }
-  }
+			request.event.body = JSON.parse(data, options.reviver);
+		} catch (err) {
+			// UnprocessableEntity
+			throw createError(415, "Invalid or malformed JSON was provided", {
+				cause: {
+					package: "@middy/http-json-body-parser",
+					data: body,
+					message: err.message,
+				},
+			});
+		}
+	};
 
-  return {
-    before: httpJsonBodyParserMiddlewareBefore
-  }
-}
-export default httpJsonBodyParserMiddleware
+	return {
+		before: httpJsonBodyParserMiddlewareBefore,
+	};
+};
+export default httpJsonBodyParserMiddleware;
