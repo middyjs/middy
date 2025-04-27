@@ -9,7 +9,6 @@ import HomepageFeatures from "../components/HomepageFeatures";
 // import HomepageWhatUsersSay from '../components/HomepageWhatUsersSay'
 // import HomepageWhoUses from '../components/HomepageWhoUses'
 import HomepageSponsors from "../components/HomepageSponsors";
-import Logo from "../components/logo.js";
 import styles from "./index.module.css";
 
 function HomepageHeader() {
