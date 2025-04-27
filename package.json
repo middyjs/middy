@@ -71,7 +71,6 @@
 		"lint-staged": "^15.0.0",
 		"prettier": "^3.0.0",
 		"tinybench": "^4.0.0",
-		"ts-standard": "^12.0.0",
 		"tsd": "^0.32.0",
 		"typescript": "^5.0.0"
 	},
