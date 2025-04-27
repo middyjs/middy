@@ -1,39 +1,39 @@
-import { createError } from '@middy/util'
+import { createError } from "@middy/util";
 
 const defaults = {
-  reviver: undefined
-}
+	reviver: undefined,
+};
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-  const wsJsonBodyParserMiddlewareBefore = async (request) => {
-    const { body } = request.event
-    if (typeof body === 'undefined') {
-      throw createError(422, 'Invalid or malformed JSON was provided', {
-        cause: { package: '@middy/ws-json-body-parser', data: body }
-      })
-    }
+	const options = { ...defaults, ...opts };
+	const wsJsonBodyParserMiddlewareBefore = async (request) => {
+		const { body } = request.event;
+		if (typeof body === "undefined") {
+			throw createError(422, "Invalid or malformed JSON was provided", {
+				cause: { package: "@middy/ws-json-body-parser", data: body },
+			});
+		}
 
-    try {
-      const data = request.event.isBase64Encoded
-        ? Buffer.from(body, 'base64').toString()
-        : body
+		try {
+			const data = request.event.isBase64Encoded
+				? Buffer.from(body, "base64").toString()
+				: body;
 
-      request.event.body = JSON.parse(data, options.reviver)
-    } catch (err) {
-      // UnprocessableEntity
-      throw createError(422, 'Invalid or malformed JSON was provided', {
-        cause: {
-          package: '@middy/ws-json-body-parser',
-          data: body,
-          message: err.message
-        }
-      })
-    }
-  }
+			request.event.body = JSON.parse(data, options.reviver);
+		} catch (err) {
+			// UnprocessableEntity
+			throw createError(422, "Invalid or malformed JSON was provided", {
+				cause: {
+					package: "@middy/ws-json-body-parser",
+					data: body,
+					message: err.message,
+				},
+			});
+		}
+	};
 
-  return {
-    before: wsJsonBodyParserMiddlewareBefore
-  }
-}
-export default wsJsonBodyParserMiddleware
+	return {
+		before: wsJsonBodyParserMiddlewareBefore,
+	};
+};
+export default wsJsonBodyParserMiddleware;

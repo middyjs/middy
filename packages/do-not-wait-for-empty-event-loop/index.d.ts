@@ -1,11 +1,13 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface Options {
-  runOnBefore?: boolean
-  runOnAfter?: boolean
-  runOnError?: boolean
+	runOnBefore?: boolean;
+	runOnAfter?: boolean;
+	runOnError?: boolean;
 }
 
-declare function doNotWaitForEmptyEventLoop (options?: Options): middy.MiddlewareObj
+declare function doNotWaitForEmptyEventLoop(
+	options?: Options,
+): middy.MiddlewareObj;
 
-export default doNotWaitForEmptyEventLoop
+export default doNotWaitForEmptyEventLoop;

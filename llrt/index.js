@@ -1,4 +1,4 @@
-import middy from '@middy/core'
+import middy from "@middy/core";
 // import appconfigMiddleware from '@middy/appconfig'
 // import cloudwatchMetricsMiddleware from '@middy/cloudwatch-metrics'
 // import doNotWaitForEmptyEventLoopMiddleware from '@middy/do-not-wait-for-empty-event-loop'
@@ -13,13 +13,13 @@ import middy from '@middy/core'
 // TODO add in all
 
 const baseHandler = async (event, context, { signal }) => {
-  return {}
-}
+	return {};
+};
 export const handler = middy()
-  // .use(appconfigMiddleware())
-  // .use(cloudwatchMetricsMiddleware())
-  // .use(doNotWaitForEmptyEventLoopMiddleware())
-  // .use(dynamodbMiddleware())
-  // .use(errorLoggerMiddleware())
-  // .use(validatorMiddleware())
-  .handler(baseHandler)
+	// .use(appconfigMiddleware())
+	// .use(cloudwatchMetricsMiddleware())
+	// .use(doNotWaitForEmptyEventLoopMiddleware())
+	// .use(dynamodbMiddleware())
+	// .use(errorLoggerMiddleware())
+	// .use(validatorMiddleware())
+	.handler(baseHandler);

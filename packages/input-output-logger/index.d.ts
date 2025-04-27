@@ -1,12 +1,12 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface Options {
-  logger?: (message: any) => void
-  awsContext?: boolean
-  omitPaths?: string[]
-  mask?: string
+	logger?: (message: any) => undefined;
+	awsContext?: boolean;
+	omitPaths?: string[];
+	mask?: string;
 }
 
-declare function inputOutputLogger (options?: Options): middy.MiddlewareObj
+declare function inputOutputLogger(options?: Options): middy.MiddlewareObj;
 
-export default inputOutputLogger
+export default inputOutputLogger;
