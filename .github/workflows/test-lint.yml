@@ -34,4 +34,4 @@ jobs:
           npm ci
       - name: Linting
         run: |
-          biome ci --no-errors-on-unmatched
+          ./node_modules/.bin/biome ci --no-errors-on-unmatched
