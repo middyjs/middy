@@ -1,9 +1,9 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface Options {
-  filteringKeyName?: string
+	filteringKeyName?: string;
 }
 
-declare function httpPartialResponse (options?: Options): middy.MiddlewareObj
+declare function httpPartialResponse(options?: Options): middy.MiddlewareObj;
 
-export default httpPartialResponse
+export default httpPartialResponse;

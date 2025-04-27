@@ -1,19 +1,19 @@
 const defaults = {
-  isWarmingUp: (event) => event.source === 'serverless-plugin-warmup'
-}
+	isWarmingUp: (event) => event.source === "serverless-plugin-warmup",
+};
 
 const warmupMiddleware = (opt) => {
-  const options = { ...defaults, ...opt }
+	const options = { ...defaults, ...opt };
 
-  const warmupMiddlewareBefore = (request) => {
-    if (options.isWarmingUp(request.event)) {
-      return 'warmup'
-    }
-  }
+	const warmupMiddlewareBefore = (request) => {
+		if (options.isWarmingUp(request.event)) {
+			return "warmup";
+		}
+	};
 
-  return {
-    before: warmupMiddlewareBefore
-  }
-}
+	return {
+		before: warmupMiddlewareBefore,
+	};
+};
 
-export default warmupMiddleware
+export default warmupMiddleware;

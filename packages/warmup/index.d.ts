@@ -1,10 +1,10 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
 interface Options {
-  isWarmingUp?: (event: any) => boolean
-  onWarmup?: (event: any) => void
+	isWarmingUp?: (event: any) => boolean;
+	onWarmup?: (event: any) => undefined;
 }
 
-declare function warmup (options?: Options): middy.MiddlewareObj
+declare function warmup(options?: Options): middy.MiddlewareObj;
 
-export default warmup
+export default warmup;

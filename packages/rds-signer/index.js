@@ -1,74 +1,74 @@
+import { Signer } from "@aws-sdk/rds-signer";
 import {
-  canPrefetch,
-  getInternal,
-  processCache,
-  getCache,
-  modifyCache
-} from '@middy/util'
-import { Signer } from '@aws-sdk/rds-signer'
+	canPrefetch,
+	getCache,
+	getInternal,
+	modifyCache,
+	processCache,
+} from "@middy/util";
 
 const defaults = {
-  AwsClient: Signer,
-  awsClientOptions: {},
-  fetchData: {},
-  disablePrefetch: false,
-  cacheKey: 'rds-signer',
-  cacheKeyExpiry: {},
-  cacheExpiry: -1,
-  setToContext: false
-}
+	AwsClient: Signer,
+	awsClientOptions: {},
+	fetchData: {},
+	disablePrefetch: false,
+	cacheKey: "rds-signer",
+	cacheKeyExpiry: {},
+	cacheExpiry: -1,
+	setToContext: false,
+};
 
 const rdsSignerMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
+	const options = { ...defaults, ...opts };
 
-  const fetchRequest = (request, cachedValues = {}) => {
-    const values = {}
-    for (const internalKey of Object.keys(options.fetchData)) {
-      if (cachedValues[internalKey]) continue
+	const fetchRequest = (request, cachedValues = {}) => {
+		const values = {};
+		for (const internalKey of Object.keys(options.fetchData)) {
+			if (cachedValues[internalKey]) continue;
 
-      const client = new options.AwsClient({
-        ...options.awsClientOptions,
-        ...options.fetchData[internalKey]
-      })
-      values[internalKey] = client
-        .getAuthToken()
-        .then((token) => {
-          // Catch Missing token, this usually means their is something wrong with the credentials
-          if (!token.includes('X-Amz-Security-Token=')) {
-            throw new Error('X-Amz-Security-Token Missing', {
-              cause: { package: '@middy/rds-signer' }
-            })
-          }
-          return token
-        })
-        .catch((e) => {
-          const value = getCache(options.cacheKey).value ?? {}
-          value[internalKey] = undefined
-          modifyCache(options.cacheKey, value)
-          throw e
-        })
-    }
+			const client = new options.AwsClient({
+				...options.awsClientOptions,
+				...options.fetchData[internalKey],
+			});
+			values[internalKey] = client
+				.getAuthToken()
+				.then((token) => {
+					// Catch Missing token, this usually means their is something wrong with the credentials
+					if (!token.includes("X-Amz-Security-Token=")) {
+						throw new Error("X-Amz-Security-Token Missing", {
+							cause: { package: "@middy/rds-signer" },
+						});
+					}
+					return token;
+				})
+				.catch((e) => {
+					const value = getCache(options.cacheKey).value ?? {};
+					value[internalKey] = undefined;
+					modifyCache(options.cacheKey, value);
+					throw e;
+				});
+		}
 
-    return values
-  }
+		return values;
+	};
 
-  if (canPrefetch(options)) {
-    processCache(options, fetchRequest)
-  }
+	if (canPrefetch(options)) {
+		processCache(options, fetchRequest);
+	}
 
-  const rdsSignerMiddlewareBefore = async (request) => {
-    const { value } = processCache(options, fetchRequest, request)
+	const rdsSignerMiddlewareBefore = async (request) => {
+		const { value } = processCache(options, fetchRequest, request);
 
-    Object.assign(request.internal, value)
+		Object.assign(request.internal, value);
 
-    if (options.setToContext) {
-      const data = await getInternal(Object.keys(options.fetchData), request)
-      Object.assign(request.context, data)
-    }
-  }
+		if (options.setToContext) {
+			const data = await getInternal(Object.keys(options.fetchData), request);
+			Object.assign(request.context, data);
+		}
+	};
 
-  return {
-    before: rdsSignerMiddlewareBefore
-  }
-}
-export default rdsSignerMiddleware
+	return {
+		before: rdsSignerMiddlewareBefore,
+	};
+};
+export default rdsSignerMiddleware;

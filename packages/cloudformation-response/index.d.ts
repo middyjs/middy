@@ -1,5 +1,5 @@
-import middy from '@middy/core'
+import type middy from "@middy/core";
 
-declare function cloudformationResponse (): middy.MiddlewareObj
+declare function cloudformationResponse(): middy.MiddlewareObj;
 
-export default cloudformationResponse
+export default cloudformationResponse;
