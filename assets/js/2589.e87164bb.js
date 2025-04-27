@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmiddy=self.webpackChunkmiddy||[]).push([[2589],{2589:(e,s,d)=>{d.r(s)}}]);

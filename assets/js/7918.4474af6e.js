@@ -1,0 +1,1 @@
+(self.webpackChunkmiddy=self.webpackChunkmiddy||[]).push([[7918],{5741:()=>{},8974:(s,d,e)=>{"use strict";e.d(d,{A:()=>k});var c=e(672);const k=c}}]);
