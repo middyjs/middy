@@ -1,87 +1,83 @@
 {
-  "name": "@middy/monorepo",
-  "version": "6.1.6",
-  "description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
-  "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "engineStrict": true,
-  "scripts": {
-    "prepare": "husky",
-    "preinstall": "npm link --workspaces",
-    "git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
-    "git:commit-msg": "commitlint --config commitlint.config.cjs --edit",
-    "git:lint-staged": "biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true",
-    "git:test-staged": "node --test",
-    "test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
-    "test:lint": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
-    "test:lint:ci": "ts-standard",
-    "test:unit": "node --test",
-    "test:sast": "npm run test:sast:sandworm && npm run test:sast:semgrep && npm run test:sast:trufflehog",
-    "test:sast:sandworm": "sandworm-audit --skip-all --show-tips false",
-    "test:sast:semgrep": "semgrep scan --config auto",
-    "test:sast:trufflehog": "trufflehog filesystem --only-verified --log-level=-1 ./",
-    "test:types": "ls packages | xargs -I {} tsd packages/{}",
-    "test:perf": "node --test ./**/*.perf.js",
-    "test:dast": "npm run test:dast:fuzz",
-    "test:dast:fuzz": "node --test ./**/*.fuzz.js",
-    "test:packages:all": "node --test --experimental-test-coverage ./packages/**/*.test.js",
-    "test:packages:unit": "node --test --experimental-test-coverage ./packages/**/index.test.js",
-    "test:packages:fuzz": "node --test --experimental-test-coverage ./packages/**/index.fuzz.js",
-    "test:llrt": "cd llrt && npm test",
-    "rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
-    "rm:coverage": "find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
-    "rm:lock": "find . -name 'pacakge-lock.json' -type d -prune -exec rm -rf '{}' +",
-    "rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
-    "update": "npm update --workspaces && npm install --workspaces",
-    "outdated": "npm outdated --workspaces",
-    "audit": "npm audit fix --workspaces",
-    "release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install",
-    "release:tag": "git tag $npm_package_version"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/middyjs/middy.git"
-  },
-  "keywords": [
-    "Lambda",
-    "Middleware",
-    "Serverless",
-    "Framework",
-    "AWS",
-    "AWS Lambda"
-  ],
-  "author": {
-    "name": "Middy contributors",
-    "url": "https://github.com/middyjs/middy/graphs/contributors"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/middyjs/middy/issues"
-  },
-  "homepage": "https://middy.js.org",
-  "devDependencies": {
-    "@biomejs/biome": "^1.0.0",
-    "@commitlint/cli": "^19.0.0",
-    "@commitlint/config-conventional": "^19.0.0",
-    "aws-sdk-client-mock": "^4.0.0",
-    "fast-check": "^4.0.0",
-    "husky": "^9.0.0",
-    "lint-staged": "^15.0.0",
-    "prettier": "^3.0.0",
-    "tinybench": "^4.0.0",
-    "ts-standard": "^12.0.0",
-    "tsd": "^0.32.0",
-    "typescript": "^5.0.0"
-  },
-  "workspaces": [
-    "packages/*"
-  ],
-  "ts-standard": {
-    "ignore": [
-      "website/build/**/*.js"
-    ]
-  }
+	"name": "@middy/monorepo",
+	"version": "6.1.6",
+	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"engineStrict": true,
+	"scripts": {
+		"prepare": "husky",
+		"preinstall": "npm link --workspaces",
+		"git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
+		"git:commit-msg": "commitlint --config commitlint.config.cjs --edit",
+		"git:lint-staged": "biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true",
+		"git:test-staged": "node --test",
+		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
+		"test:lint": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
+		"test:lint:ci": "ts-standard",
+		"test:unit": "node --test",
+		"test:sast": "npm run test:sast:sandworm && npm run test:sast:semgrep && npm run test:sast:trufflehog",
+		"test:sast:sandworm": "sandworm-audit --skip-all --show-tips false",
+		"test:sast:semgrep": "semgrep scan --config auto",
+		"test:sast:trufflehog": "trufflehog filesystem --only-verified --log-level=-1 ./",
+		"test:types": "ls packages | xargs -I {} tsd packages/{}",
+		"test:perf": "node --test ./**/*.perf.js",
+		"test:dast": "npm run test:dast:fuzz",
+		"test:dast:fuzz": "node --test ./**/*.fuzz.js",
+		"test:packages:all": "node --test --experimental-test-coverage ./packages/**/*.test.js",
+		"test:packages:unit": "node --test --experimental-test-coverage ./packages/**/index.test.js",
+		"test:packages:fuzz": "node --test --experimental-test-coverage ./packages/**/index.fuzz.js",
+		"test:llrt": "cd llrt && npm test",
+		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
+		"rm:coverage": "find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
+		"rm:lock": "find . -name 'pacakge-lock.json' -type d -prune -exec rm -rf '{}' +",
+		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
+		"update": "npm update --workspaces && npm install --workspaces",
+		"outdated": "npm outdated --workspaces",
+		"audit": "npm audit fix --workspaces",
+		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install",
+		"release:tag": "git tag $npm_package_version"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git"
+	},
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"devDependencies": {
+		"@biomejs/biome": "^1.0.0",
+		"@commitlint/cli": "^19.0.0",
+		"@commitlint/config-conventional": "^19.0.0",
+		"aws-sdk-client-mock": "^4.0.0",
+		"fast-check": "^4.0.0",
+		"husky": "^9.0.0",
+		"lint-staged": "^15.0.0",
+		"prettier": "^3.0.0",
+		"tinybench": "^4.0.0",
+		"ts-standard": "^12.0.0",
+		"tsd": "^0.32.0",
+		"typescript": "^5.0.0"
+	},
+	"workspaces": ["packages/*"],
+	"ts-standard": {
+		"ignore": ["website/build/**/*.js"]
+	}
 }
