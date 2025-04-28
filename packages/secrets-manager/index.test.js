@@ -1,5 +1,5 @@
 import { deepEqual, equal } from "node:assert/strict";
-import { mock, test } from "node:test";
+import { test } from "node:test";
 import {
 	DescribeSecretCommand,
 	GetSecretValueCommand,
@@ -10,9 +10,9 @@ import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
 import secretsManager from "./index.js";
 
-mock.timers.enable({ apis: ["setTimeout"] });
-const now = Date.now() / 1000;
-
+test.beforeEach(async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+});
 test.afterEach((t) => {
 	t.mock.reset();
 	clearCache();
@@ -233,13 +233,14 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate", async (t) => {
+	const now = Date.now() / 1000;
 	const mockService = mockClient(SecretsManagerClient)
-		.on(DescribeSecretCommand, { SecretId: "api_key" })
+		.on(DescribeSecretCommand, { SecretId: "api_key_LastRotationDate" })
 		.resolves({
 			LastRotationDate: now - 50,
 			LastChangedDate: now - 50,
 		})
-		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.on(GetSecretValueCommand, { SecretId: "api_key_LastRotationDate" })
 		.resolves({ SecretString: "token" });
 	const sendStub = mockService.send;
 	const handler = middy(() => {});
@@ -255,7 +256,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 				AwsClient: SecretsManagerClient,
 				cacheExpiry: 15 * 60 * 1000,
 				fetchData: {
-					token: "api_key",
+					token: "api_key_LastRotationDate",
 				},
 				fetchRotationDate: true,
 				disablePrefetch: true,
@@ -265,21 +266,26 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 
 	await handler(event, context);
 	await handler(event, context);
-	mock.timers.tick(15 * 60 * 1000);
+	t.mock.timers.tick(15 * 60 * 1000);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 2);
+	equal(sendStub.callCount, 2 * 2);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate", async (t) => {
+	const now = Date.now() / 1000;
 	const mockService = mockClient(SecretsManagerClient)
-		.on(DescribeSecretCommand, { SecretId: "api_key" })
+		.on(DescribeSecretCommand, {
+			SecretId: "api_key_LastRotationDate_NextRotationDate",
+		})
 		.resolves({
 			LastRotationDate: now - 25,
 			LastChangedDate: now - 25,
 			NextRotationDate: now + 5 * 60,
 		})
-		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.on(GetSecretValueCommand, {
+			SecretId: "api_key_LastRotationDate_NextRotationDate",
+		})
 		.resolves({ SecretString: "token" });
 	const sendStub = mockService.send;
 	const handler = middy(() => {});
@@ -295,7 +301,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 				AwsClient: SecretsManagerClient,
 				cacheExpiry: 15 * 60 * 1000,
 				fetchData: {
-					token: "api_key",
+					token: "api_key_LastRotationDate_NextRotationDate",
 				},
 				fetchRotationDate: true,
 				disablePrefetch: true,
@@ -305,17 +311,18 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 
 	await handler(event, context);
 	await handler(event, context);
-	mock.timers.tick(15 * 60 * 1000);
+	t.mock.timers.tick(15 * 60 * 1000);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 2);
+	equal(sendStub.callCount, 2 * 2);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate", async (t) => {
+	const now = Date.now() / 1000;
 	const mockService = mockClient(SecretsManagerClient)
-		.on(DescribeSecretCommand, { SecretId: "api_key" })
-		.resolves({ NextRotationDate: Date.now() / 1000 + 50 })
-		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.on(DescribeSecretCommand, { SecretId: "api_key_NextRotationDate" })
+		.resolves({ NextRotationDate: now + 50 })
+		.on(GetSecretValueCommand, { SecretId: "api_key_NextRotationDate" })
 		.resolves({ SecretString: "token" });
 	const sendStub = mockService.send;
 	const handler = middy(() => {});
@@ -331,7 +338,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 				AwsClient: SecretsManagerClient,
 				cacheExpiry: -1,
 				fetchData: {
-					token: "api_key",
+					token: "api_key_NextRotationDate",
 				},
 				fetchRotationDate: true,
 				disablePrefetch: true,
@@ -341,7 +348,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 
 	await handler(event, context);
 	await handler(event, context);
-	mock.timers.tick(15 * 60 * 1000);
+	t.mock.timers.tick(15 * 60 * 1000);
 	await handler(event, context);
 
 	equal(sendStub.callCount, 2);

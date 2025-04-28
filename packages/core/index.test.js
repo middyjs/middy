@@ -1,6 +1,5 @@
 import { deepEqual, equal, ok, throws } from "node:assert/strict";
 import { test } from "node:test";
-import { setTimeout } from "node:timers/promises";
 import {
 	createPassThroughStream,
 	createReadableStream,
@@ -14,6 +13,9 @@ const context = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
+test.beforeEach(async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+});
 test.afterEach(async (t) => {
 	t.mock.reset();
 });
@@ -1103,7 +1105,7 @@ test("Should throw error when timeout expires", async (t) => {
 		getRemainingTimeInMillis: () => 100,
 	};
 	const handler = middy(async (event, context, { signal }) => {
-		await setTimeout(100);
+		t.mock.timers.tick(100);
 		return true;
 	}, plugin);
 
@@ -1134,7 +1136,7 @@ test("Should not invoke timeoutEarlyResponse on success", async (t) => {
 	const response = await handler(event, context);
 	ok(response);
 
-	await setTimeout(200);
+	t.mock.timers.tick(200);
 
 	ok(!timeoutCalled);
 });
@@ -1158,7 +1160,7 @@ test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	const response = await handler(event, context).catch((err) => err);
 	equal(response, error);
 
-	await setTimeout(100);
+	t.mock.timers.tick(100);
 
 	ok(!timeoutCalled);
 });

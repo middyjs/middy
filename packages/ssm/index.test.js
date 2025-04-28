@@ -1,6 +1,5 @@
 import { deepEqual, equal, ok } from "node:assert/strict";
 import { test } from "node:test";
-import { setTimeout } from "node:timers/promises";
 import {
 	GetParametersByPathCommand,
 	GetParametersCommand,
@@ -12,6 +11,7 @@ import { clearCache, getInternal } from "../util/index.js";
 import ssm from "./index.js";
 
 test.beforeEach((t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 	event = {};
 	context = {
 		getRemainingTimeInMillis: () => 1000,
@@ -478,7 +478,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 		)
 		.before(middleware);
 	await handler(event, context);
-	await setTimeout(5);
+	t.mock.timers.tick(5);
 	await handler(event, context);
 	equal(sendStub.callCount, 2);
 });
@@ -521,9 +521,9 @@ test("It should it should recover from an error if cache enabled but cached para
 		.before(middleware);
 
 	await handler(event, context);
-	await setTimeout(5);
+	t.mock.timers.tick(5);
 	await handler(event, context);
-	await setTimeout(5);
+	t.mock.timers.tick(5);
 	await handler(event, context);
 
 	equal(sendStub.callCount, 4);
