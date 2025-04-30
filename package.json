@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "6.2.0",
+	"version": "6.2.1",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -36,7 +36,7 @@
 		"update": "npm update --workspaces && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
 		"audit": "npm audit fix --workspaces",
-		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install",
+		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run test:lint",
 		"release:tag": "git tag $npm_package_version"
 	},
 	"repository": {
@@ -73,8 +73,5 @@
 		"tsd": "^0.32.0",
 		"typescript": "^5.0.0"
 	},
-	"workspaces": ["packages/*"],
-	"ts-standard": {
-		"ignore": ["website/build/**/*.js"]
-	}
+	"workspaces": ["packages/*"]
 }
