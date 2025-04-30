@@ -69,7 +69,7 @@ jobs:
             **/*.tgz
     outputs:
       tag: ${{ env.tag }}
-      prerelease: ${{ env.prerelease == 'true' }}
+      prerelease: ${{ env.prerelease }}
 
   release:
     name: Release
@@ -101,7 +101,7 @@ jobs:
           #  **/*.tgz
     outputs:
       tag: ${{ needs.build.outputs.tag }}
-      prerelease: ${{ needs.build.outputs.prerelease}}
+      prerelease: ${{ needs.build.outputs.prerelease }}
 
   publish:
     name: Publish
@@ -122,13 +122,13 @@ jobs:
         with:
           name: ${{ needs.release.outputs.tag }}
       - name: npm publish (next)
-        if: ${{ needs.release.outputs.prerelease }}
+        if: ${{ needs.release.outputs.prerelease == 'true' }}
         run: |
           find . -name '*.tgz' -exec npm publish --tag next --provenance --access public {} \;
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: npm publish (latest)
-        if: ${{ !needs.release.outputs.prerelease }}
+        if: ${{ needs.release.outputs.prerelease == 'false' }}
         run: |
           find . -name '*.tgz' -exec npm publish --tag latest --provenance --access public {} \;
         env:
