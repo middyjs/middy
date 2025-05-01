@@ -1075,6 +1075,34 @@ test("Should trigger all plugin hooks", async (t) => {
 	equal(plugin.requestEnd.mock.callCount(), 1);
 });
 
+test("Should trigger requestEnd hook after stream ends", async (t) => {
+	const input = "x".repeat(1024 * 1024);
+	let streamEnd = false;
+	const handler = middy(
+		async (event, context, { signal }) => {
+			return pipejoin([
+				createReadableStream(input),
+				createPassThroughStream(
+					() => {},
+					() => {
+						streamEnd = true;
+					},
+				),
+			]);
+		},
+		{
+			streamifyResponse: true,
+			requestEnd: () => {
+				equal(streamEnd, true);
+			},
+		},
+	);
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+	await handler(event, responseStream, context);
+});
+
 test("Should abort handler when timeout expires", async (t) => {
 	const plugin = {
 		timeoutEarlyInMillis: 1,
