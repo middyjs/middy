@@ -6,7 +6,7 @@ Middleware for handling partially failed SQS batches.
 
 ## Install
 
-To install this middleware you can use NPM:
+To install this middleware, you can use NPM:
 
 ```bash npm2yarn
 npm install --save @middy/sqs-partial-batch-failure
@@ -26,12 +26,33 @@ Standrad Queue (All records handled in parallel):
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
-const lambdaHandler = (event, context) => {
-  const recordPromises = event.Records.map(async (record, index) => {
-    /* Custom message processing logic */
-    return record
-  })
-  return Promise.allSettled(recordPromises)
+const lambdaHandler = async (event, context) => {
+    const batchItemFailures = [];
+    for (const record of event.Records) {
+        try {
+            await processMessageAsync(record, context);
+        } catch (error) {
+            batchItemFailures.push({ itemIdentifier: record.messageId });
+        }
+    }
+    return { batchItemFailures };
+}
+
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
+```
+
+For typescript:
+```typescript
+const lambdaHandler = async (event: SQSEvent, context: Context): Promise<SQSBatchResponse> => {
+    const batchItemFailures: SQSBatchItemFailure[] = [];
+    for (const record of event.Records) {
+        try {
+            await processMessageAsync(record);
+        } catch (error) {
+            batchItemFailures.push({ itemIdentifier: record.messageId });
+        }
+    }
+    return {batchItemFailures: batchItemFailures};
 }
 
 export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
@@ -61,4 +82,4 @@ export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
 
 ## Important
 
-The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping`. See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html#services-sqs-batchfailurereporting) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
+The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping`. See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/example_serverless_SQS_Lambda_batch_item_failures_section.html) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
