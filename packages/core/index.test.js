@@ -1098,8 +1098,7 @@ test("Should trigger requestEnd hook after stream ends", async (t) => {
 		},
 	);
 
-	const { responseStream, chunkResponse } =
-		createResponseStreamMockAndCapture();
+	const { responseStream } = createResponseStreamMockAndCapture();
 	await handler(event, responseStream, context);
 });
 
