@@ -35,29 +35,28 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 	const afterMiddlewares = [];
 	const onErrorMiddlewares = [];
 
-	const middyHandler = (event = {}, context = {}) => {
-		plugin.requestStart?.();
-		const request = {
+	const middyRequest = (event = {}, context = {}) => {
+		return {
 			event,
 			context,
 			response: undefined,
 			error: undefined,
 			internal: plugin.internal ?? {},
 		};
-
-		return runRequest(
-			request,
-			beforeMiddlewares,
-			lambdaHandler,
-			afterMiddlewares,
-			onErrorMiddlewares,
-			plugin,
-		);
 	};
 	const middy = plugin.streamifyResponse
 		? awslambda.streamifyResponse(
 				async (event, lambdaResponseStream, context) => {
-					const handlerResponse = await middyHandler(event, context);
+					plugin.requestStart?.();
+					const request = middyRequest(event, context);
+					const handlerResponse = await runRequest(
+						request,
+						beforeMiddlewares,
+						lambdaHandler,
+						afterMiddlewares,
+						onErrorMiddlewares,
+						plugin,
+					);
 					let responseStream = lambdaResponseStream;
 					let handlerBody = handlerResponse;
 					if (handlerResponse.statusCode) {
@@ -89,9 +88,24 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 					}
 
 					await pipeline(handlerStream, responseStream);
+					await plugin.requestEnd?.(request);
 				},
 			)
-		: middyHandler;
+		: async (event, context) => {
+				plugin.requestStart?.();
+				const request = middyRequest(event, context);
+
+				const response = await runRequest(
+					request,
+					beforeMiddlewares,
+					lambdaHandler,
+					afterMiddlewares,
+					onErrorMiddlewares,
+					plugin,
+				);
+				await plugin.requestEnd?.(request);
+				return response;
+			};
 
 	middy.use = (inputMiddleware) => {
 		const middlewares = Array.isArray(inputMiddleware)
@@ -226,8 +240,6 @@ const runRequest = async (
 		}
 		// Catch if onError stack hasn't handled the error
 		if (typeof request.response === "undefined") throw request.error;
-	} finally {
-		await plugin.requestEnd?.(request);
 	}
 
 	return request.response;
