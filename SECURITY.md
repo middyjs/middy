@@ -17,8 +17,24 @@ Our goal is to ensure Middy meets security best practices as outlined by the fol
 
 Core maintainers use Middy extensively within their own organizations that meet the above standards tested using SecurityHub and penetration testing.
 
+## Secure design principles
+
+- secure by default
+- use white lists
+- no backdoors
+- follow least privilege
+- keep it simple
+
 ## Supported Versions
 Only the latest version is supported for security updates.
+
+## Threat model
+
+All options and configuration are assume to be trusted as we are configured by the implementing developer. It's up the implement IAM properly.
+
+## Trust Boundaries
+
+Middy is implemented within AWS Lambda. The Lambda execution and configuration of middy is trusted. It's up to the implementing developer to apply input validation to ensure the event is properly structured and safe to use for the handler. User inputs to all packages are fuzzed.
 
 ## Reporting a Vulnerability
 
