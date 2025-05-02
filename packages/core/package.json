@@ -60,7 +60,7 @@
 	"devDependencies": {
 		"@datastream/core": "0.0.40",
 		"@types/aws-lambda": "^8.10.76",
-		"@types/node": "^20.0.0"
+		"@types/node": "^22.15.3"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }
