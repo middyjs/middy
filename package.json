@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "6.2.1",
+	"version": "6.2.2",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -13,10 +13,11 @@
 		"preinstall": "npm link --workspaces",
 		"git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
 		"git:commit-msg": "commitlint --config commitlint.config.cjs --edit",
-		"git:lint-staged": "biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true",
+		"git:lint-staged": "npm run test:lint",
 		"git:test-staged": "node --test",
+		"lint": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
 		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
-		"test:lint": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
+		"test:lint": "biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true",
 		"test:unit": "node --test",
 		"test:sast": "npm run test:sast:sandworm && npm run test:sast:semgrep && npm run test:sast:trufflehog",
 		"test:sast:sandworm": "sandworm-audit --skip-all --show-tips false",
@@ -36,7 +37,7 @@
 		"update": "npm update --workspaces && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
 		"audit": "npm audit fix --workspaces",
-		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run test:lint",
+		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run lint",
 		"release:tag": "git tag $npm_package_version"
 	},
 	"repository": {
@@ -67,8 +68,6 @@
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
-		"lint-staged": "^15.0.0",
-		"prettier": "^3.0.0",
 		"tinybench": "^4.0.0",
 		"tsd": "^0.32.0",
 		"typescript": "^5.0.0"

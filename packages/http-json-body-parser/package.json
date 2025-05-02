@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-json-body-parser",
-	"version": "6.2.1",
+	"version": "6.2.2",
 	"description": "Http JSON body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -63,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "6.2.1"
+		"@middy/util": "6.2.2"
 	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.10.101",
