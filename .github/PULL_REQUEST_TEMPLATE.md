@@ -23,8 +23,8 @@ assignees: ''
 **Any other comments?**
 
 **Todo List:**
-- [ ] Feature/Fix fully implemented
 - [ ] All commits are cryptographically signed
+- [ ] Feature/Fix fully implemented
 - [ ] Updated relevant types
 - [ ] Added tests (if applicable)
   - [ ] Unit tests

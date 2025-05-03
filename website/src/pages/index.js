@@ -9,6 +9,7 @@ import HomepageFeatures from "../components/HomepageFeatures";
 // import HomepageWhatUsersSay from '../components/HomepageWhatUsersSay'
 // import HomepageWhoUses from '../components/HomepageWhoUses'
 import HomepageSponsors from "../components/HomepageSponsors";
+
 import styles from "./index.module.css";
 
 function HomepageHeader() {
@@ -18,7 +19,7 @@ function HomepageHeader() {
 				<img
 					className={styles.logo}
 					alt="Middy.js"
-					src="/img/logo/middy-logo.svg"
+					src="/img/middy-logo.svg"
 					width="350"
 				/>
 				<p className="hero__subtitle">
