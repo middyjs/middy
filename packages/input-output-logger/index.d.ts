@@ -1,7 +1,7 @@
 import type middy from "@middy/core";
 
 interface Options {
-	logger?: (message: any) => undefined;
+	logger?: (message: any) => void;
 	awsContext?: boolean;
 	omitPaths?: string[];
 	mask?: string;

@@ -47,10 +47,10 @@ const config = {
 		/** @type {import('@docusaurus/preset-classic').ThemeConfig} */
 		({
 			navbar: {
-				title: "Middy",
+				//title: "Middy",
 				logo: {
 					alt: "Middy Logo",
-					src: "img/middy-logo-small.svg",
+					src: "img/middy-logo-name.svg",
 				},
 				items: [
 					{

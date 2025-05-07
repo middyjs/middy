@@ -3,10 +3,8 @@ import type {
 	Handler as LambdaHandler,
 } from "aws-lambda";
 
-declare type PluginHook = () => undefined;
-declare type PluginHookWithMiddlewareName = (
-	middlewareName: string,
-) => undefined;
+declare type PluginHook = () => void;
+declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
 declare type PluginHookPromise = (
 	request: Request,
 ) => Promise<unknown> | unknown;
