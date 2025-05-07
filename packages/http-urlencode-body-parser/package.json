@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-urlencode-body-parser",
-	"version": "6.2.2",
+	"version": "6.2.3",
 	"description": "Urlencode body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
