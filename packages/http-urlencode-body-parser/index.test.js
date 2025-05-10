@@ -31,6 +31,26 @@ test("It should decode complex url encoded requests", async (t) => {
 	});
 });
 
+test("It should default when body is empty", async (t) => {
+	const handler = middy((event) => {
+		return event; // propagates the processed event as a response
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	// invokes the handler
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+		},
+		body: "",
+	};
+
+	const processedEvent = await handler(event, defaultContext);
+
+	deepEqual(processedEvent.body, {});
+});
+
 test("It should default when body is undefined", async (t) => {
 	const handler = middy((event) => {
 		return event; // propagates the processed event as a response
@@ -43,6 +63,7 @@ test("It should default when body is undefined", async (t) => {
 		headers: {
 			"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
 		},
+		body: undefined,
 	};
 
 	const processedEvent = await handler(event, defaultContext);

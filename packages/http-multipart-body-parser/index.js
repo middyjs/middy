@@ -17,13 +17,6 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 	const httpMultipartBodyParserMiddlewareBefore = async (request) => {
 		const { headers, body } = request.event;
-		if (typeof body === "undefined") {
-			throw createError(
-				415,
-				"Invalid or malformed multipart/form-data was provided",
-				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
-			);
-		}
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
@@ -37,6 +30,14 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 					data: contentType,
 				},
 			});
+		}
+
+		if (typeof body === "undefined") {
+			throw createError(
+				415,
+				"Invalid or malformed multipart/form-data was provided",
+				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
+			);
 		}
 
 		return parseMultipartData(request.event, options)
