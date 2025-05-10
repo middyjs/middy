@@ -25,15 +25,19 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			});
 		}
 
+		// if (typeof body === "undefined") {
+		// 		throw createError(415, "Invalid or malformed URL encoded form was provided",
+		// 			{ cause: { package: "@middy/http-urlencode-body-parser", data: body } },
+		// 		);
+		// }
+
 		const data = request.event.isBase64Encoded
 			? Buffer.from(body, "base64").toString()
 			: body;
 
-		const rawBody = body;
 		request.event.body = Object.assign({}, querystring.parse(data));
-
-		if (request.event.body?.[rawBody] === "") {
-			// UnprocessableEntity
+		// Check if it didn't parse
+		if (request.event.body?.[body] === "") {
 			throw createError(
 				415,
 				"Invalid or malformed URL encoded form was provided",
