@@ -1,4 +1,5 @@
 import { Transform } from "node:stream";
+import { TransformStream } from "node:stream/web";
 
 const defaults = {
 	logger: (message) => {
@@ -65,11 +66,19 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		omitAndLog("event", request);
 	};
 	const inputOutputLoggerMiddlewareAfter = async (request) => {
+		// Check for Node.js stream
 		if (
 			request.response?._readableState ??
 			request.response?.body?._readableState
 		) {
 			passThrough(request, omitAndLog);
+		}
+		// Check for Web stream
+		else if (
+			request.response instanceof ReadableStream ||
+			request.response?.body instanceof ReadableStream
+		) {
+			passThroughWebStream(request, omitAndLog);
 		} else {
 			omitAndLog("response", request);
 		}
@@ -159,6 +168,41 @@ const passThrough = (request, omitAndLog) => {
 		request.response.body = request.response.body.pipe(listen);
 	} else {
 		request.response = request.response.pipe(listen);
+	}
+};
+
+// Handler for Web Streams API
+const passThroughWebStream = (request, omitAndLog) => {
+	const hasBody = request.response?.body;
+	let body = "";
+
+	const transformer = new TransformStream({
+		transform(chunk, controller) {
+			// For web streams, chunks could be various types
+			const textChunk =
+				typeof chunk === "string"
+					? chunk
+					: chunk instanceof Uint8Array
+						? new TextDecoder().decode(chunk)
+						: String(chunk);
+			body += textChunk;
+			controller.enqueue(chunk);
+		},
+		flush(controller) {
+			if (hasBody) {
+				omitAndLog("response", { response: { ...request.response, body } });
+			} else {
+				omitAndLog("response", { response: body });
+			}
+		},
+	});
+
+	if (hasBody) {
+		// Handle response with body property that's a ReadableStream
+		request.response.body = request.response.body.pipeThrough(transformer);
+	} else {
+		// Handle response that's directly a ReadableStream
+		request.response = request.response.pipeThrough(transformer);
 	}
 };
 

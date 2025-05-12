@@ -116,6 +116,96 @@ test("It should log with streamifyResponse:true using body ReadableStream", asyn
 	]);
 });
 
+test("It should log with Web Streams API using ReadableStream", async (t) => {
+	const input = "x".repeat(1024 * 1024);
+	const logger = t.mock.fn();
+	const handler = middy(
+		async (event, context, { signal }) => {
+			// Create a Web ReadableStream
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(input);
+					controller.close();
+				},
+			});
+			return stream;
+		},
+		{
+			streamifyResponse: true,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	const response = await handler(event, responseStream, context);
+	equal(response, undefined);
+	equal(chunkResponse, input);
+	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepEqual(logger.mock.calls[1].arguments, [
+		{
+			response: input,
+		},
+	]);
+});
+
+test("It should log with Web Streams API using body ReadableStream", async (t) => {
+	const input = "x".repeat(1024 * 1024);
+	const logger = t.mock.fn();
+	const handler = middy(
+		async (event, context, { signal }) => {
+			// Create a Web ReadableStream in the body
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(input);
+					controller.close();
+				},
+			});
+			return {
+				statusCode: 200,
+				headers: {
+					"Content-Type": "plain/text",
+				},
+				body: stream,
+			};
+		},
+		{
+			streamifyResponse: true,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	const response = await handler(event, responseStream, context);
+	equal(response, undefined);
+	equal(chunkResponse, input);
+	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepEqual(logger.mock.calls[1].arguments, [
+		{
+			response: {
+				statusCode: 200,
+				headers: {
+					"Content-Type": "plain/text",
+				},
+				body: input,
+			},
+		},
+	]);
+});
+
 test("It should throw error when invalid logger", async (t) => {
 	const logger = false;
 
