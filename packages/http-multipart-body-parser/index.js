@@ -2,7 +2,7 @@ import BusBoy from "@fastify/busboy";
 import { createError } from "@middy/util";
 
 const mimePattern =
-	/^multipart\/form-data; boundary=[-]*[a-zA-Z0-9]*(; ?[cC]harset=[\w-]+)?$/;
+	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?[cC]harset=[\w-]+)?$/;
 const fieldnamePattern = /(.+)\[(.*)]$/;
 
 const defaults = {

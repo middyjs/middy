@@ -1,9 +1,9 @@
-name: 'Test (sast)'
+name: "Test (sast)"
 
 on:
   pull_request:
   schedule:
-    - cron: '43 3 * * 5'
+    - cron: "43 3 * * 5"
   workflow_dispatch:
 
 env:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   sandworm:
-    name: 'sandworm: SCA & Licensing'
+    name: "sandworm: SCA & Licensing"
     runs-on: ubuntu-latest
     if: (github.actor != 'dependabot[bot]')
 
@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
       - name: Cache npm
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
@@ -40,7 +40,7 @@ jobs:
 
   # https://github.com/github/codeql-action
   codeql:
-    name: 'CodeQL: SAST'
+    name: "CodeQL: SAST"
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -57,22 +57,22 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v2.27.7
+        uses: github/codeql-action/init@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
         with:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v2.27.7
+        uses: github/codeql-action/autobuild@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v2.27.7
+        uses: github/codeql-action/analyze@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
         with:
-          category: '/language:${{ matrix.language }}'
+          category: "/language:${{ matrix.language }}"
 
   # https://semgrep.dev/docs/semgrep-ci/sample-ci-configs/#github-actions
   semgrep:
-    name: 'semgrep: SAST'
+    name: "semgrep: SAST"
     runs-on: ubuntu-latest
 
     container:
