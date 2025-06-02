@@ -59,7 +59,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-appconfigdata": "^3.0.0",
+		"@aws-sdk/client-appconfigdata": "^3.821.0",
 		"@types/aws-lambda": "^8.10.101",
 		"aws-xray-sdk": "^3.3.3"
 	},
