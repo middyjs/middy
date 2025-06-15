@@ -20,45 +20,42 @@ npm install --save-dev @aws-sdk/client-sqs
 
 ## Sample usage
 
-Standrad Queue (All records handled in parallel):
+Parallel processing example (works for Standard queues and FIFO queues _when ordering of side‑effects is not required_):
 
 ```javascript
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
 
-const lambdaHandler = async (event, context) => {
-    const batchItemFailures = [];
-    for (const record of event.Records) {
-        try {
-            await processMessageAsync(record, context);
-        } catch (error) {
-            batchItemFailures.push({ itemIdentifier: record.messageId });
-        }
-    }
-    return { batchItemFailures };
-}
-
-export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
-```
-
-For typescript:
-```typescript
-const lambdaHandler = async (event: SQSEvent, context: Context): Promise<SQSBatchResponse> => {
-    const batchItemFailures: SQSBatchItemFailure[] = [];
-    for (const record of event.Records) {
-        try {
+const lambdaHandler = async (event) => {
+    return Promise.allSettled(
+        event.Records.map(async (record) => {
             await processMessageAsync(record);
-        } catch (error) {
-            batchItemFailures.push({ itemIdentifier: record.messageId });
-        }
-    }
-    return {batchItemFailures: batchItemFailures};
-}
+        })
+    );
+};
 
-export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler);
+
 ```
 
-FIFO Queue (Records handled sequentially):
+With TypeScript:
+```typescript
+import middy from '@middy/core'
+import sqsBatch from '@middy/sqs-partial-batch-failure'
+
+const lambdaHandler = async (event: SQSEvent): Promise<PromiseSettledResult<unknown>[]> => {
+    return Promise.allSettled(
+        event.Records.map(async (record) => {
+            await processMessageAsync(record);
+        })
+    );
+};
+
+export const handler = middy().use(sqsBatch()).handler(lambdaHandler);
+
+```
+
+FIFO queue example (preserves processing order):
 
 ```javascript
 import middy from '@middy/core'
@@ -68,13 +65,13 @@ const lambdaHandler = (event, context) => {
   const statusPromises = [];
   for (const [idx, record] of Object.entries(Records)) {
     try {
-      /* Custom message processing logic */
+      await processMessageAsync(record)
       statusPromises.push(Promise.resolve());
     } catch (error) {
       statusPromises.push(Promise.reject(error));
     }
   }
-  return Promise.allSettled(statusPromises)
+  return Promise.allSettled(statusPromises);
 }
 
 export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
@@ -82,4 +79,8 @@ export const handler = middy().use(sqsBatch()).handler(lambdaHandler)
 
 ## Important
 
-The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping`. See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/example_serverless_SQS_Lambda_batch_item_failures_section.html) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
+This middleware only works if the handler returns an array of `PromiseSettledResult`s (typically from `Promise.allSettled()` or a sequential loop that builds the same structure). 
+If you manually return `{ batchItemFailures }`, do not use this middleware.
+
+The value `ReportBatchItemFailures` must be added to your Lambda's `FunctionResponseTypes` in the `EventSourceMapping` configuration. 
+See [Reporting batch item failures](https://docs.aws.amazon.com/lambda/latest/dg/example_serverless_SQS_Lambda_batch_item_failures_section.html) and [Lambda EventSourceMapping](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-eventsourcemapping.html)
