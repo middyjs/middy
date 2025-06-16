@@ -47,8 +47,8 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 	const middy = plugin.streamifyResponse
 		? awslambda.streamifyResponse(
 				async (event, lambdaResponseStream, context) => {
-					plugin.requestStart?.();
 					const request = middyRequest(event, context);
+					plugin.requestStart?.(request);
 					const handlerResponse = await runRequest(
 						request,
 						beforeMiddlewares,
