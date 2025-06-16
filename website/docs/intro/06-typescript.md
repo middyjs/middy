@@ -71,7 +71,7 @@ This is an example tsconfig.json file that can be used for typescript projects
     "allowJs": true,
     "rootDir": ".",
     "outDir": "lib"
-  }
+  },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules"]
 }
