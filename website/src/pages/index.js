@@ -2,7 +2,6 @@ import Head from "@docusaurus/Head";
 import Link from "@docusaurus/Link";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
-import React from "react";
 import Example from "../components/Example";
 import GetStartedHero from "../components/GetStartedHero";
 import HomepageFeatures from "../components/HomepageFeatures";

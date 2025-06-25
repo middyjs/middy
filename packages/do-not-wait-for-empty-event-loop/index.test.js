@@ -38,11 +38,12 @@ test("callbackWaitsForEmptyEventLoop should stay false if handler has error", as
 	handler.use(doNotWaitForEmptyEventLoop());
 
 	const context = { ...defaultContext };
+
 	try {
 		await handler(event, context);
-	} catch (e) {}
-
-	ok(!context.callbackWaitsForEmptyEventLoop);
+	} catch (_e) {
+		ok(!context.callbackWaitsForEmptyEventLoop);
+	}
 });
 
 test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options", async (t) => {
@@ -77,9 +78,9 @@ test("callbackWaitsForEmptyEventLoop should remain true when error occurs even i
 	const context = { ...defaultContext };
 	try {
 		await handler(event, context);
-	} catch (e) {}
-
-	ok(context.callbackWaitsForEmptyEventLoop);
+	} catch (_e) {
+		ok(context.callbackWaitsForEmptyEventLoop);
+	}
 });
 
 test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true", async (t) => {
@@ -98,9 +99,9 @@ test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
 	const context = { ...defaultContext };
 	try {
 		await handler(event, context);
-	} catch (e) {}
-
-	ok(!context.callbackWaitsForEmptyEventLoop);
+	} catch (_e) {
+		ok(!context.callbackWaitsForEmptyEventLoop);
+	}
 });
 
 test("thrown error should be propagated when it occurs & runOnError is true", async (t) => {

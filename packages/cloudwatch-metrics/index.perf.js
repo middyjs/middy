@@ -9,7 +9,9 @@ const context = {
 };
 const setupHandler = (options = {}) => {
 	const baseHandler = () => {};
-	return middy(baseHandler).use(middleware({ namespace: "namespace" }));
+	return middy(baseHandler).use(
+		middleware({ ...options, namespace: "namespace" }),
+	);
 };
 
 const coldHandler = setupHandler({ cacheExpiry: 0 });
@@ -18,14 +20,10 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("without cache", async () => {
-		try {
-			await coldHandler(event, context);
-		} catch (e) {}
+		await coldHandler(event, context);
 	})
 	.add("with cache", async () => {
-		try {
-			await warmHandler(event, context);
-		} catch (e) {}
+		await warmHandler(event, context);
 	})
 
 	.run();

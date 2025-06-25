@@ -22,9 +22,7 @@ await bench
 				source: "serverless-plugin-warmup",
 			},
 		) => {
-			try {
-				await warmHandler(event, context);
-			} catch (e) {}
+			await warmHandler(event, context);
 		},
 	)
 

@@ -19,9 +19,7 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("Catch Error", async () => {
-		try {
-			await warmHandler(event, context);
-		} catch (e) {}
+		await warmHandler(event, context);
 	})
 
 	.run();

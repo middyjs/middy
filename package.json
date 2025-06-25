@@ -62,7 +62,7 @@
 	},
 	"homepage": "https://middy.js.org",
 	"devDependencies": {
-		"@biomejs/biome": "^1.0.0",
+		"@biomejs/biome": "^2.0.0",
 		"@commitlint/cli": "^19.0.0",
 		"@commitlint/config-conventional": "^19.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
@@ -72,5 +72,7 @@
 		"tsd": "^0.32.0",
 		"typescript": "^5.0.0"
 	},
-	"workspaces": ["packages/*"]
+	"workspaces": [
+		"packages/*"
+	]
 }

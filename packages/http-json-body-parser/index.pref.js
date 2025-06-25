@@ -24,9 +24,7 @@ await bench
 				body: '{ "foo": "bar" }',
 			},
 		) => {
-			try {
-				await warmHandler(event, context);
-			} catch (e) {}
+			await warmHandler(event, context);
 		},
 	)
 

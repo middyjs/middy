@@ -24,9 +24,7 @@ await bench
 	.add(
 		"short static",
 		async (event = { requestContext: { routeKey: "$connect" } }) => {
-			try {
-				await warmHandler(event, context);
-			} catch (e) {}
+			await warmHandler(event, context);
 		},
 	)
 

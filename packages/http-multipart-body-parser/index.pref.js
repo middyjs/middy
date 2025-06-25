@@ -27,9 +27,7 @@ await bench
 				isBase64Encoded: true,
 			},
 		) => {
-			try {
-				await warmHandler(event, context);
-			} catch (e) {}
+			await warmHandler(event, context);
 		},
 	)
 

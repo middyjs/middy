@@ -1,9 +1,8 @@
 import { deepEqual, ok } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpErrorHandler from "./index.js";
-
 import { createError } from "../util/index.js";
+import httpErrorHandler from "./index.js";
 
 // Silence logging
 // console.error = () => {}

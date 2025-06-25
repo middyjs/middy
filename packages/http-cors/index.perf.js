@@ -16,9 +16,7 @@ const warmHandler = setupHandler();
 
 await bench
 	.add("Add Headers", async (event = { httpMethod: "OPTIONS" }) => {
-		try {
-			await warmHandler(event, context);
-		} catch (e) {}
+		await warmHandler(event, context);
 	})
 
 	.run();

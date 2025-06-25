@@ -98,7 +98,7 @@ expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
 );
 
 // Middy handlers third argument is an object containing a abort signal
-middy((_event: any, _context: any, { signal }: { signal: AbortSignal }) =>
+middy((event: any, context: any, { signal }: { signal: AbortSignal }) =>
 	expectType<AbortSignal>(signal),
 );
 

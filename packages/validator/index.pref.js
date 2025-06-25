@@ -23,9 +23,7 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("type check input & output", async () => {
-		try {
-			await warmHandler(event, context);
-		} catch (e) {}
+		await warmHandler(event, context);
 	})
 
 	.run();

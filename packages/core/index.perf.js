@@ -1,5 +1,6 @@
 import { Bench } from "tinybench";
 import middy from "./index.js";
+
 // import middyNext from '../index.next.js'
 
 const bench = new Bench({ time: 1_000 });

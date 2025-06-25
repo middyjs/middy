@@ -1,13 +1,12 @@
-import { Bench } from "tinybench";
-import middy from "../core/index.js";
-import middleware from "./index.js";
-
 import {
 	AppConfigDataClient,
 	GetLatestConfigurationCommand,
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
 import { mockClient } from "aws-sdk-client-mock";
+import { Bench } from "tinybench";
+import middy from "../core/index.js";
+import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
@@ -51,14 +50,10 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("without cache", async () => {
-		try {
-			await coldHandler(event, context);
-		} catch (e) {}
+		await coldHandler(event, context);
 	})
 	.add("with cache", async () => {
-		try {
-			await warmHandler(event, context);
-		} catch (e) {}
+		await warmHandler(event, context);
 	})
 
 	.run();

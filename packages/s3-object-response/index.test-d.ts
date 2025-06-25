@@ -6,9 +6,9 @@ import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
 import s3ObjectResponse, {
-	type S3ObjectResponseOptions,
 	type Context,
 	type Internal,
+	type S3ObjectResponseOptions,
 } from ".";
 
 // use with default options

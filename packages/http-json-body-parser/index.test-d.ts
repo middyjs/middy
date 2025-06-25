@@ -15,7 +15,7 @@ expectType<
 
 // use with all options
 middleware = jsonBodyParser({
-	reviver: (key: string, value: any) => Boolean(value),
+	reviver: (_key: string, value: any) => Boolean(value),
 });
 expectType<
 	middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>

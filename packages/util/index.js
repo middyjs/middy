@@ -85,11 +85,11 @@ export const getInternal = async (variables, request) => {
 			cause: { package: "@middy/util", data: errors },
 		});
 	}
-	return keys.reduce(
-		(obj, key, index) =>
-			Object.assign(obj, { [sanitizeKey(key)]: values[index].value }),
-		{},
-	);
+	const obj = {};
+	for (let i = keys.length; i--; ) {
+		obj[sanitizeKey(keys[i])] = values[i].value;
+	}
+	return obj;
 };
 
 const isPromise = (promise) => typeof promise?.then === "function";
@@ -180,7 +180,7 @@ export const jsonSafeParse = (text, reviver) => {
 	if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') return text;
 	try {
 		return JSON.parse(text, reviver);
-	} catch (e) {}
+	} catch (_e) {}
 
 	return text;
 };
@@ -188,7 +188,7 @@ export const jsonSafeParse = (text, reviver) => {
 export const jsonSafeStringify = (value, replacer, space) => {
 	try {
 		return JSON.stringify(value, replacer, space);
-	} catch (e) {}
+	} catch (_e) {}
 
 	return value;
 };

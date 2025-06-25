@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
-import appConfig, { type Context, appConfigReq } from ".";
+import appConfig, { appConfigReq, type Context } from ".";
 
 const options = {
 	AwsClient: AppConfigDataClient,

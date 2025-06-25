@@ -1,4 +1,5 @@
 import middy from "@middy/core";
+
 // import appconfigMiddleware from '@middy/appconfig'
 // import cloudwatchMetricsMiddleware from '@middy/cloudwatch-metrics'
 // import doNotWaitForEmptyEventLoopMiddleware from '@middy/do-not-wait-for-empty-event-loop'

@@ -180,7 +180,7 @@ helmetHtmlOnly.permissionsPolicy = (headers, config) => {
 		.join(", ");
 };
 
-helmet.originAgentCluster = (headers, config) => {
+helmet.originAgentCluster = (headers, _config) => {
 	headers["Origin-Agent-Cluster"] = "?1";
 };
 

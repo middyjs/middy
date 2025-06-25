@@ -25,9 +25,7 @@ await bench
 				body: "a[b][c][d]=i",
 			},
 		) => {
-			try {
-				await warmHandler(event, context);
-			} catch (e) {}
+			await warmHandler(event, context);
 		},
 	)
 
