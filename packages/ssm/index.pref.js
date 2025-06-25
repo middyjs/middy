@@ -34,10 +34,14 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("without cache", async () => {
-		await coldHandler(event, context);
+		try {
+			await coldHandler(event, context);
+		} catch (_e) {}
 	})
 	.add("with cache", async () => {
-		await warmHandler(event, context);
+		try {
+			await warmHandler(event, context);
+		} catch (_e) {}
 	})
 
 	.run();

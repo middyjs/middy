@@ -39,7 +39,9 @@ await bench
 		async (
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(

@@ -40,7 +40,9 @@ const warmHandler = setupHandler();
 const event = {};
 await bench
 	.add("Serialize Response", async () => {
-		await warmHandler(event, context);
+		try {
+			await warmHandler(event, context);
+		} catch (_e) {}
 	})
 
 	.run();

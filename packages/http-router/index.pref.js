@@ -38,7 +38,9 @@ await bench
 				requestContext: { http: { method: "GET", path: "/user" } },
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -49,7 +51,9 @@ await bench
 				requestContext: { http: { method: "GET", path: "/user/comments" } },
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -62,7 +66,9 @@ await bench
 				},
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -75,7 +81,9 @@ await bench
 				},
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -91,7 +99,9 @@ await bench
 				},
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -102,7 +112,9 @@ await bench
 				requestContext: { http: { method: "GET", path: "/static/index.html" } },
 			},
 		) => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 	)
 
