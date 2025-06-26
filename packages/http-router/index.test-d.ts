@@ -9,7 +9,7 @@ import type {
 	Handler as LambdaHandler,
 } from "aws-lambda";
 import { expectType } from "tsd";
-import httpRouterHandler from ".";
+import httpRouterHandler from "./index.js";
 
 const lambdaHandler: LambdaHandler<
 	APIGatewayProxyEvent,
