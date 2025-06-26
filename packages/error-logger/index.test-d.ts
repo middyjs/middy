@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import errorLogger from ".";
+import errorLogger from "./index.js";
 
 // use with default options
 let middleware = errorLogger();

@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
-import sts, { type AssumedRoleCredentials, type Context } from ".";
+import sts, { type AssumedRoleCredentials, type Context } from "./index.js";
 
 // use with default options
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(sts());

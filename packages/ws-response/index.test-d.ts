@@ -2,7 +2,7 @@ import { ApiGatewayManagementApiClient } from "@aws-sdk/client-apigatewaymanagem
 import type middy from "@middy/core";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
-import wsResponse from ".";
+import wsResponse from "./index.js";
 
 // use with default options
 let middleware = wsResponse();

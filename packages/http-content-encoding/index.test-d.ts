@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import httpContentEncodingMiddleware from ".";
+import httpContentEncodingMiddleware from "./index.js";
 
 // use with default options
 let middleware = httpContentEncodingMiddleware();

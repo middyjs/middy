@@ -6,7 +6,7 @@ import type {
 	Context as LambdaContext,
 } from "aws-lambda";
 import { expectType } from "tsd";
-import * as util from ".";
+import * as util from "./index.js";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type TInternal = {

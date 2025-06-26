@@ -6,7 +6,7 @@ import type {
 	S3Event,
 } from "aws-lambda";
 import { expectAssignable, expectType } from "tsd";
-import middy, { type MiddyfiedHandler } from ".";
+import middy, { type MiddyfiedHandler } from "./index.js";
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (

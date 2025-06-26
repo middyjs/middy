@@ -65,6 +65,7 @@
 		"@biomejs/biome": "^1.0.0",
 		"@commitlint/cli": "^19.0.0",
 		"@commitlint/config-conventional": "^19.0.0",
+		"@tsconfig/node20": "^20.1.6",
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",

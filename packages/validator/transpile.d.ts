@@ -1,5 +1,4 @@
-import type Ajv from "ajv";
-import type { Options as AjvOptions } from "ajv";
+import type { Ajv, Options as AjvOptions } from "ajv";
 
 export function transpileSchema(
 	schema: object,

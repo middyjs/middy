@@ -5,7 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expectType } from "tsd";
-import jsonBodyParser from ".";
+import jsonBodyParser from "./index.js";
 
 // use with default options
 let middleware = jsonBodyParser();

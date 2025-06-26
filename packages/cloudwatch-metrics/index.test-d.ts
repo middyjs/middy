@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import cloudwatchMetrics, { type Context } from ".";
+import cloudwatchMetrics, { type Context } from "./index.js";
 
 // use with default options
 let middleware = cloudwatchMetrics();

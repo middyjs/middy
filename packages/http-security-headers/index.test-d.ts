@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import httpSecurityHeaders from ".";
+import httpSecurityHeaders from "./index.js";
 
 // use with default options
 let middleware = httpSecurityHeaders();

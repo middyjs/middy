@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import jsonBodyParser, { type Event } from ".";
+import jsonBodyParser, { type Event } from "./index.js";
 
 // use with default options
 expectType<middy.MiddlewareObj<Event>>(jsonBodyParser());
