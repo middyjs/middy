@@ -8,7 +8,7 @@ This middleware allows you to specify a schedule to keep Lambdas that always nee
 
 If you use [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup) the scheduling part is done by the plugin and you just have to attach the middleware to your "middyfied" handler. If you don't want to use the plugin you have to create the schedule yourself and define the `isWarmingUp` function to define whether the current event is a warmup event or an actual business logic execution.
 
-**Important:** AWS recently announced Lambda [Provisioned Concurrency](https://aws.amazon.com/about-aws/whats-new/2019/12/aws-lambda-announces-provisioned-concurrency/). If you have this enabled, you do not need this middleware.
+**Important:** AWS recently announced Lambda [Provisioned Concurrency](https://aws.amazon.com/blogs/aws/new-provisioned-concurrency-for-lambda-functions/). If you have this enabled, you do not need this middleware.
 
 To update your code to use Provisioned Concurrency see:
 
