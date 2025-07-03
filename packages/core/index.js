@@ -92,8 +92,8 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 				},
 			)
 		: async (event, context) => {
-				plugin.requestStart?.();
 				const request = middyRequest(event, context);
+				plugin.requestStart?.(request);
 
 				const response = await runRequest(
 					request,
