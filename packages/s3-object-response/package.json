@@ -1,6 +1,6 @@
 {
 	"name": "@middy/s3-object-response",
-	"version": "6.4.0",
+	"version": "6.4.1",
 	"description": "S3 object response handling middleware for the middy framework",
 	"type": "module",
 	"engines": {
