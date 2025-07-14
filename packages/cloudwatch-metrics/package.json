@@ -1,6 +1,6 @@
 {
 	"name": "@middy/cloudwatch-metrics",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "Embedded CloudWatch metrics middleware for the middy framework",
 	"type": "module",
 	"engines": {
