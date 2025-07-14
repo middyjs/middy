@@ -30,7 +30,7 @@ test("It should log errors and propagate the error", async (t) => {
 
 	try {
 		await handler(defaultEvent, defaultContext);
-	} catch (e) {
+	} catch (_e) {
 		// the call to the logger is async so we need to make sure the invocation is complete
 		// before checking
 		await loggerHasBeenCalled;

@@ -18,7 +18,7 @@ await bench
 	.add("Add Headers", async (event = { httpMethod: "OPTIONS" }) => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

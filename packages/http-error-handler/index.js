@@ -1,7 +1,7 @@
 import { jsonSafeParse, normalizeHttpResponse } from "@middy/util";
 
 const defaults = {
-	logger: console.error,
+	logger: console.error, // TODO v7 change to pass in request
 	fallbackMessage: undefined,
 };
 

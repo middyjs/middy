@@ -5,7 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expectType } from "tsd";
-import jsonBodyParser from ".";
+import jsonBodyParser from "./index.js";
 
 // use with default options
 let middleware = jsonBodyParser();
@@ -15,7 +15,7 @@ expectType<
 
 // use with all options
 middleware = jsonBodyParser({
-	reviver: (key: string, value: any) => Boolean(value),
+	reviver: (_key: string, value: any) => Boolean(value),
 });
 expectType<
 	middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>

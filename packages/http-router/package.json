@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-router",
-	"version": "6.3.2",
+	"version": "6.4.1",
 	"description": "HTTP event router for the middy framework",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
@@ -61,10 +64,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "6.3.2"
+		"@middy/util": "6.4.1"
 	},
 	"devDependencies": {
-		"@middy/core": "6.3.2",
+		"@middy/core": "6.4.1",
 		"@types/aws-lambda": "^8.10.97"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

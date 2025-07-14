@@ -40,7 +40,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -53,7 +53,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -68,7 +68,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -83,7 +83,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -101,7 +101,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -114,7 +114,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 

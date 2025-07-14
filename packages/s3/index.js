@@ -10,6 +10,7 @@ import {
 	modifyCache,
 	processCache,
 } from "@middy/util";
+
 const defaults = {
 	AwsClient: S3Client,
 	awsClientOptions: {},

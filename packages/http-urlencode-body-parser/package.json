@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-urlencode-body-parser",
-	"version": "6.3.2",
+	"version": "6.4.1",
 	"description": "Urlencode body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",

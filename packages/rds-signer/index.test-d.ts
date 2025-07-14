@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { expectType } from "tsd";
-import rdsSigner from ".";
+import rdsSigner from "./index.js";
 
 // use with default options
 const middleware = rdsSigner();

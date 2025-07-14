@@ -1,10 +1,10 @@
 import { SSMClient } from "@aws-sdk/client-ssm";
 import middy from "@middy/core";
 import { getInternal } from "@middy/util";
-import type { Context as LambdaContext } from "aws-lambda/handler";
+import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectAssignable, expectType } from "tsd";
-import ssm, { type Context, ssmParam } from ".";
+import ssm, { type Context, ssmParam } from "./index.js";
 
 // use with default options
 expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm());

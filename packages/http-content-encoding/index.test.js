@@ -1,10 +1,9 @@
 import { deepEqual, equal } from "node:assert/strict";
 import { test } from "node:test";
-import middy from "../core/index.js";
-import httpContentEncoding from "./index.js";
-
 import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
 import { createReadableStream, streamToBuffer } from "@datastream/core";
+import middy from "../core/index.js";
+import httpContentEncoding from "./index.js";
 
 const context = {
 	getRemainingTimeInMillis: () => 1000,

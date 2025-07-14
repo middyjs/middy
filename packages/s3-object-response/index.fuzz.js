@@ -1,10 +1,9 @@
 import { test } from "node:test";
+import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
+import { mockClient } from "aws-sdk-client-mock";
 import fc from "fast-check";
 import middy from "../core/index.js";
 import middleware from "./index.js";
-
-import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
-import { mockClient } from "aws-sdk-client-mock";
 
 mockClient(S3Client)
 	.on(WriteGetObjectResponseCommand)

@@ -6,7 +6,7 @@ import type {
 	S3Event,
 } from "aws-lambda";
 import { expectAssignable, expectType } from "tsd";
-import middy, { type MiddyfiedHandler } from ".";
+import middy, { type MiddyfiedHandler } from "./index.js";
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (
@@ -98,7 +98,7 @@ expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
 );
 
 // Middy handlers third argument is an object containing a abort signal
-middy((_event: any, _context: any, { signal }: { signal: AbortSignal }) =>
+middy((event: any, context: any, { signal }: { signal: AbortSignal }) =>
 	expectType<AbortSignal>(signal),
 );
 

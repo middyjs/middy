@@ -25,7 +25,7 @@ await bench
 	.add("type check input & output", async () => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

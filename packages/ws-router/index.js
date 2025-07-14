@@ -1,4 +1,5 @@
 import { createError } from "@middy/util";
+
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ routeKey }) => {
@@ -33,7 +34,7 @@ const wsRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		if (Object.hasOwnProperty.call(routesStatic, routeKey)) {
+		if (Object.hasOwn(routesStatic, routeKey)) {
 			const handler = routesStatic[routeKey];
 			return handler(event, context, abort);
 		}

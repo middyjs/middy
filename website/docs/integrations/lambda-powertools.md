@@ -62,7 +62,7 @@ import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 
 const logger = new Logger({ serviceName: 'serverlessAirline' });
 
-const lambdaHandler = async (_event, _context) => {
+const lambdaHandler = async (event, context) => {
   logger.info('This is an INFO log with some context', {
     foo: {
       bar: 'baz'
@@ -143,7 +143,7 @@ const client = tracer.captureAWSv3Client(
   new SecretsManagerClient({})
 );
 
-const lambdaHandler = async (_event, _context) => {
+const lambdaHandler = async (event, context) => {
   tracer.putAnnotation('successfulBooking', true);
 };
 
@@ -195,7 +195,7 @@ const metrics = new Metrics({
   serviceName: 'orders'
 });
 
-const lambdaHandler = async (_event: unknown, _context: unknown): Promise<undefined> => {
+const lambdaHandler = async (event: unknown, context: unknown): Promise<undefined> => {
   metrics.addMetric('successfulBooking', MetricUnits.Count, 1);
 };
 
@@ -275,7 +275,7 @@ const createSubscriptionPayment = async (
 };
 
 export const handler = middy(
-  async (event, _context) => {
+  async (event, context) => {
     try {
       const payment = await createSubscriptionPayment(event);
 

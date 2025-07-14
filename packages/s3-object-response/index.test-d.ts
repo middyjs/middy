@@ -6,10 +6,10 @@ import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
 import s3ObjectResponse, {
-	type S3ObjectResponseOptions,
 	type Context,
 	type Internal,
-} from ".";
+	type S3ObjectResponseOptions,
+} from "./index.js";
 
 // use with default options
 let middleware = s3ObjectResponse();

@@ -1,13 +1,13 @@
 import { test } from "node:test";
-import fc from "fast-check";
-import middy from "../core/index.js";
-import middleware from "./index.js";
-
 import {
 	ApiGatewayManagementApiClient,
 	PostToConnectionCommand,
 } from "@aws-sdk/client-apigatewaymanagementapi";
 import { mockClient } from "aws-sdk-client-mock";
+import fc from "fast-check";
+import middy from "../core/index.js";
+import middleware from "./index.js";
+
 mockClient(ApiGatewayManagementApiClient)
 	.on(PostToConnectionCommand)
 	.resolves({ statusCode: 200 });

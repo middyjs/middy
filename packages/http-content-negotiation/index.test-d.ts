@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import httpContentNegotiationMiddleware, { type Event } from ".";
+import httpContentNegotiationMiddleware, { type Event } from "./index.js";
 
 // use with default options
 let middleware = httpContentNegotiationMiddleware();
