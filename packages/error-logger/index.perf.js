@@ -21,7 +21,7 @@ await bench
 	.add("Catch Error", async () => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

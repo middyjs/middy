@@ -34,10 +34,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	};
 	return (event, context, abort) => {
 		const { RequestType: requestType } = event;
-		if (
-			!requestType ||
-			!Object.hasOwnProperty.call(requestTypes, requestType)
-		) {
+		if (!requestType || !Object.hasOwn(requestTypes, requestType)) {
 			throw new Error("Unknown CloudFormation Custom Response event format", {
 				cause: {
 					package: "@middy/cloudformation-router",
@@ -47,7 +44,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		if (Object.hasOwnProperty.call(routesStatic, requestType)) {
+		if (Object.hasOwn(routesStatic, requestType)) {
 			const handler = routesStatic[requestType];
 			return handler(event, context, abort);
 		}

@@ -958,7 +958,7 @@ test("It should use pass incoming origin to custom getOrigin", async (t) => {
 	handler.use(
 		httpCors({
 			disableBeforePreflightResponse: false,
-			getOrigin: (incomingOrigin, options) => incomingOrigin,
+			getOrigin: (incomingOrigin, _options) => incomingOrigin,
 			origin: "*",
 		}),
 	);

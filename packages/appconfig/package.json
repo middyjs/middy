@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",

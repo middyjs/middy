@@ -1,11 +1,10 @@
+import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import {
 	canPrefetch,
 	createClient,
 	createPrefetchClient,
 	// catchInvalidSignatureException
 } from "@middy/util";
-
-import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 
 const defaults = {
 	AwsClient: S3Client,

@@ -19,7 +19,7 @@ await bench
 	.add("Normalize Event", async () => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

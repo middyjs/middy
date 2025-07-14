@@ -147,7 +147,7 @@ test('"use" should add single onError middleware', async (t) => {
 	}).use(middleware1());
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["handler", "e1"]);
 });
 
@@ -163,7 +163,7 @@ test('"onError" should add a before middleware', async (t) => {
 	handler.onError(onError);
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["handler", "e1"]);
 });
 
@@ -186,7 +186,7 @@ test('"use" should add multiple onError middleware', async (t) => {
 	handler.use([middleware1(), middleware2()]);
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["handler", "e2", "e1"]);
 });
 
@@ -209,7 +209,7 @@ test('"use" should add single object with all types of middlewares', async (t) =
 	}).use(middleware());
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["b1", "handler", "a1", "e1"]);
 });
 
@@ -243,7 +243,7 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
 	}).use([middleware1(), middleware2()]);
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["b1", "b2", "handler", "a2", "a1", "e2", "e1"]);
 });
 
@@ -277,7 +277,7 @@ test('"use" can add multiple object with all types of middlewares (async)', asyn
 	}).use([middleware1(), middleware2()]);
 	try {
 		await handler(event, context);
-	} catch (e) {}
+	} catch (_e) {}
 	deepEqual(executed, ["b1", "b2", "handler", "a2", "a1", "e2", "e1"]);
 });
 
@@ -1121,7 +1121,7 @@ test("Should abort handler when timeout expires", async (t) => {
 	try {
 		const response = await handler(event, context);
 		ok(response);
-	} catch (e) {}
+	} catch (_e) {}
 });
 
 test("Should throw error when timeout expires", async (t) => {

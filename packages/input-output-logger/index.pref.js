@@ -41,7 +41,7 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 	.add(
@@ -49,9 +49,7 @@ await bench
 		async (
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
-			try {
-				await shallowHandler(event, context);
-			} catch (e) {}
+			await shallowHandler(event, context);
 		},
 	)
 	.add(
@@ -59,9 +57,7 @@ await bench
 		async (
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
-			try {
-				await deepHandler(event, context);
-			} catch (e) {}
+			await deepHandler(event, context);
 		},
 	)
 	.run();

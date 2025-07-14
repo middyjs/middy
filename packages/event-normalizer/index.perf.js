@@ -42,7 +42,9 @@ await bench
 	.add(
 		"S3 Event",
 		async () => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
@@ -53,7 +55,9 @@ await bench
 	.add(
 		"Shallow JSON (SQS) Event",
 		async () => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
@@ -64,7 +68,9 @@ await bench
 	.add(
 		"Deep JSON (S3>SNS>SQS) Event",
 		async () => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
@@ -75,7 +81,9 @@ await bench
 	.add(
 		"DynamoDB Event",
 		async () => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
@@ -86,7 +94,9 @@ await bench
 	.add(
 		"Kinesis Event",
 		async () => {
-			await warmHandler(event, context);
+			try {
+				await warmHandler(event, context);
+			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {

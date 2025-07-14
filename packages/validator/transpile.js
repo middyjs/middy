@@ -20,13 +20,12 @@ export const transpileSchema = (schema, ajvOptions) => {
 export const transpileLocale = transpileFTL
 */
 
+import Ajv from "ajv/dist/2020.js";
 import ajvErrors from "ajv-errors";
 import ajvFormats from "ajv-formats";
 import ajvFormatsDraft2019 from "ajv-formats-draft2019";
-import ajvKeywords from "ajv-keywords";
-import Ajv from "ajv/dist/2020.js";
-
 import { transpile } from "ajv-ftl-i18n";
+import ajvKeywords from "ajv-keywords";
 
 // import transpileFTL from 'ajv-cmd/ftl'
 export const transpileFTL = transpile;

@@ -152,9 +152,15 @@ const convertValue = {
 		) {
 			try {
 				return BigInt(value);
-			} catch (error) {
+			} catch (e) {
 				throw new Error(
 					`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
+					{
+						cause: {
+							package: "@middy/event-normalizer",
+							e,
+						},
+					},
 				);
 			}
 		}

@@ -26,7 +26,7 @@ await bench
 	.add("without cache", async () => {
 		try {
 			await coldHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

@@ -1,9 +1,8 @@
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
-
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { mockClient } from "aws-sdk-client-mock";
 
 const bench = new Bench({ time: 1_000 });
 
@@ -39,12 +38,12 @@ await bench
 	.add("without cache", async () => {
 		try {
 			await coldHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 	.add("with cache", async () => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

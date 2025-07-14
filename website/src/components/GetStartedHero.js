@@ -1,6 +1,5 @@
 import Link from "@docusaurus/Link";
 import clsx from "clsx";
-import React from "react";
 import styles from "./GetStartedHero.module.css";
 
 export default function GetStartedHero() {

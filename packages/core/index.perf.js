@@ -1,5 +1,6 @@
 import { Bench } from "tinybench";
 import middy from "./index.js";
+
 // import middyNext from '../index.next.js'
 
 const bench = new Bench({ time: 1_000 });
@@ -65,16 +66,22 @@ const event = {};
 await bench
 	.add("Cold Invocation", async () => {
 		const coldHandler = middy().handler(baseHandler);
-		await coldHandler(event, context);
+		try {
+			await coldHandler(event, context);
+		} catch (_e) {}
 	})
 	.add("Cold Invocation with middleware", async () => {
 		const middlewares = new Array(25);
 		middlewares.fill(middleware());
 		const coldHandler = middy().use(middlewares).handler(baseHandler);
-		await coldHandler(event, context);
+		try {
+			await coldHandler(event, context);
+		} catch (_e) {}
 	})
 	.add("Warm Invocation", async () => {
-		await warmHandler(event, context);
+		try {
+			await warmHandler(event, context);
+		} catch (_e) {}
 	})
 	// .add('Warm Invocation * next', async () => {
 	//   await warmNextHandler(event, context)

@@ -42,10 +42,6 @@ declare function canPrefetch<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
 ): boolean;
 
-type InternalOutput<TVariables> = TVariables extends string[]
-	? { [key in TVariables[number]]: unknown }
-	: never;
-
 // get an empty object if false is passed
 declare function getInternal<
 	TContext extends LambdaContext,
