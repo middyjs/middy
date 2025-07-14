@@ -1,10 +1,9 @@
 import { deepEqual, equal } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import { createError } from "../util/index.js";
-
 import httpContentNegotiation from "../http-content-negotiation/index.js";
 import httpErrorHandler from "../http-error-handler/index.js";
+import { createError } from "../util/index.js";
 import httpResponseSerializer from "./index.js";
 
 // const event = {}

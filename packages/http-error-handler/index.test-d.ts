@@ -1,7 +1,7 @@
 import type middy from "@middy/core";
 import type { HttpError } from "http-errors";
 import { expectType } from "tsd";
-import httpErrorHandler from ".";
+import httpErrorHandler from "./index.js";
 
 // use with default options
 let middleware = httpErrorHandler();

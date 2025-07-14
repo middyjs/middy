@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import httpPartialResponse from ".";
+import httpPartialResponse from "./index.js";
 
 // use with default options
 let middleware = httpPartialResponse();

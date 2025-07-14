@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-json-body-parser",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "Http JSON body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
@@ -63,7 +66,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "6.3.2"
+		"@middy/util": "6.4.0"
 	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.10.101",

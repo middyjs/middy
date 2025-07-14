@@ -1,6 +1,6 @@
 {
 	"name": "@middy/s3-object-response",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "S3 object response handling middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",

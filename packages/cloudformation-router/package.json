@@ -1,6 +1,6 @@
 {
 	"name": "@middy/cloudformation-router",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "CloudFormation Custom Response event router for the middy framework",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,10 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit",
 		"test:unit": "node --test",
@@ -60,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@middy/core": "6.3.2",
+		"@middy/core": "6.4.0",
 		"@types/aws-lambda": "^8.10.100"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

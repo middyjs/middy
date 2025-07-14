@@ -61,15 +61,15 @@ const httpRouteHandler = (opts = {}) => {
 
 		// Static
 		if (
-			Object.hasOwnProperty.call(routesStatic, method) &&
-			Object.hasOwnProperty.call(routesStatic[method], path)
+			Object.hasOwn(routesStatic, method) &&
+			Object.hasOwn(routesStatic[method], path)
 		) {
 			const handler = routesStatic[method][path];
 			return handler(event, context, abort);
 		}
 
 		// Dynamic
-		if (Object.hasOwnProperty.call(routesDynamic, method)) {
+		if (Object.hasOwn(routesDynamic, method)) {
 			for (const route of routesDynamic[method] ?? []) {
 				const match = path.match(route.path);
 				if (match) {

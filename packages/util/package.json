@@ -1,6 +1,6 @@
 {
 	"name": "@middy/util",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
 	"type": "module",
 	"engines": {
@@ -23,7 +23,11 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts", "type-utils.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"type-utils.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
@@ -55,7 +59,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-ssm": "^3.0.0",
-		"@middy/core": "6.3.2",
+		"@middy/core": "6.4.0",
 		"@types/aws-lambda": "^8.10.76",
 		"@types/node": "^20.0.0",
 		"aws-xray-sdk": "^3.3.3"

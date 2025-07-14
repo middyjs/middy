@@ -42,7 +42,7 @@ await bench
 	.add("Serialize Response", async () => {
 		try {
 			await warmHandler(event, context);
-		} catch (e) {}
+		} catch (_e) {}
 	})
 
 	.run();

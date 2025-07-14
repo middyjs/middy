@@ -1,6 +1,6 @@
 {
 	"name": "@middy/validator",
-	"version": "6.3.2",
+	"version": "6.4.0",
 	"description": "Validator middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -32,7 +32,12 @@
 		}
 	},
 	"types": "index.d.ts",
-	"files": ["index.js", "index.d.ts", "transpile.js", "transpile.d.ts"],
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"transpile.js",
+		"transpile.d.ts"
+	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
@@ -69,7 +74,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "6.3.2",
+		"@middy/util": "6.4.0",
 		"ajv": "8.17.1",
 		"ajv-errors": "3.0.0",
 		"ajv-formats": "3.0.1",
@@ -78,7 +83,7 @@
 		"ajv-keywords": "5.1.0"
 	},
 	"devDependencies": {
-		"@middy/core": "6.3.2",
+		"@middy/core": "6.4.0",
 		"@types/http-errors": "^2.0.0",
 		"ajv-bsontype": "^1.0.7",
 		"ajv-cmd": "^0.7.0"

@@ -26,7 +26,7 @@ await bench
 		async (event = { requestContext: { routeKey: "$connect" } }) => {
 			try {
 				await warmHandler(event, context);
-			} catch (e) {}
+			} catch (_e) {}
 		},
 	)
 

@@ -1,4 +1,5 @@
 import { createHook } from "node:async_hooks";
+
 const defaults = {
 	logger: console.log,
 	enabled: true,

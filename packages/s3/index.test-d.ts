@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expectType } from "tsd";
-import s3, { type Context, s3Req } from ".";
+import s3, { type Context, s3Req } from "./index.js";
 
 const options = {
 	AwsClient: S3Client,

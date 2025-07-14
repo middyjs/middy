@@ -1,7 +1,6 @@
 import { deepEqual, equal, notEqual, ok } from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
-	HttpError,
 	canPrefetch,
 	catchInvalidSignatureException,
 	clearCache,
@@ -9,6 +8,7 @@ import {
 	createError,
 	getCache,
 	getInternal,
+	HttpError,
 	jsonSafeParse,
 	jsonSafeStringify,
 	modifyCache,

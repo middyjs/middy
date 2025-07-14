@@ -1,7 +1,6 @@
 import Link from "@docusaurus/Link";
 import CodeBlock from "@theme/CodeBlock";
 import clsx from "clsx";
-import React from "react";
 import styles from "./Example.module.css";
 
 const codeWithoutMiddy = `export const handler = (event, context) => {
@@ -9,10 +8,10 @@ const codeWithoutMiddy = `export const handler = (event, context) => {
   // E.g. decrypt environment variables with KMS
   // deserialize the content of the event
   // validate input, authentication, authorization
-  
+
   // REAL BUSINESS LOGIC
   let response = doSomethingUsefulWith(event)
-  
+
   // MORE BOILERPLATE
   // E.g.
   // validate output
