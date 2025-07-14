@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expectType } from "tsd";
-import httpHeaderNormalizer, { type Event } from ".";
+import httpHeaderNormalizer, { type Event } from "./index.js";
 
 // use with default options
 let middleware = httpHeaderNormalizer();

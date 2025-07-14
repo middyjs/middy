@@ -1,5 +1,3 @@
 {
-	"compilerOptions": {
-		"strict": true
-	}
+	"extends": "@tsconfig/node20"
 }

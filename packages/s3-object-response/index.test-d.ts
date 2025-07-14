@@ -9,7 +9,7 @@ import s3ObjectResponse, {
 	type Context,
 	type Internal,
 	type S3ObjectResponseOptions,
-} from ".";
+} from "./index.js";
 
 // use with default options
 let middleware = s3ObjectResponse();
