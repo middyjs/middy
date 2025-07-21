@@ -4,6 +4,7 @@ const mimePattern = /^application\/(.+\+)?json($|;.+)/;
 
 const defaults = {
 	reviver: undefined,
+	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
 
@@ -13,7 +14,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		const { headers, body } = request.event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!mimePattern.test(contentType)) {
+		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
 			if (options.disableContentTypeError) {
 				return;
 			}
