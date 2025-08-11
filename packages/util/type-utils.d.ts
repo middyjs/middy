@@ -30,7 +30,6 @@ type LetterUpper = Uppercase<LetterLower>;
 type AlphaNumeric = Digit | LetterLower | LetterUpper;
 
 type SanitizeKeyPrefixLeadingNumber<T> =
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	T extends `${infer _ extends Digit}${any}` ? `_${T}` : T;
 
 type SanitizeKeyRemoveDisallowedChar<T> =
