@@ -68,7 +68,6 @@ export interface MiddyHandlerObject {
 }
 
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type MiddyInputHandler<
 	TEvent,
 	TResult,
@@ -77,7 +76,7 @@ type MiddyInputHandler<
 	event: TEvent,
 	context: TContext,
 	opts: MiddyHandlerObject,
-) => undefined | Promise<TResult> | TResult; // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+) => undefined | Promise<TResult> | TResult;
 type MiddyInputPromiseHandler<
 	TEvent,
 	TResult,
