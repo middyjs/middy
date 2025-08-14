@@ -222,7 +222,7 @@ test("It should route to a dynamic route (/path/to) with `{proxy+}`", async (t) 
 			path: "/path/{proxy+}",
 			handler: (event) => {
 				deepEqual(event.pathParameters, { proxy: "to" });
-				ok(!!event.pathParameters.__proto__); // eslint-disable-line no-proto
+				ok(!!event.pathParameters.__proto__);
 				return true;
 			},
 		},
@@ -245,7 +245,7 @@ test("It should populate pathParameters to a dynamic route even if they already 
 			path: "/user/{id}",
 			handler: (event) => {
 				deepEqual(event.pathParameters, { id: "123", previous: "321" });
-				ok(!!event.pathParameters.__proto__); // eslint-disable-line no-proto
+				ok(!!event.pathParameters.__proto__);
 				return true;
 			},
 		},

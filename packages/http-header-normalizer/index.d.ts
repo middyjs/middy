@@ -6,7 +6,6 @@ interface Options {
 	normalizeHeaderKey?: (key: string) => string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export type Event = {};
 
 declare function httpHeaderNormalizer(
