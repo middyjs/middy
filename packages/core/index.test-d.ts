@@ -20,7 +20,6 @@ type EnhanceHandlerType<T, NewReturn> = T extends (
 type AWSLambdaHandlerWithoutCallback<TEvent = any, TResult = any> = (
 	event: TEvent,
 	context: Context,
-	// eslint-disable-next-line
 ) => undefined | Promise<TResult>;
 
 type LambdaHandler<TEvent = any, TResult = any> = EnhanceHandlerType<
@@ -103,7 +102,6 @@ middy((event: any, context: any, { signal }: { signal: AbortSignal }) =>
 );
 
 // invokes the handler to test that it is callable
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 async function invokeHandler(): Promise<undefined | APIGatewayProxyResult> {
 	const sampleEvent: APIGatewayProxyEvent = {
 		resource: "/",
@@ -346,7 +344,6 @@ syncedHandler = middy(syncedLambdaHandler, {
 expectType<Handler>(syncedHandler);
 
 // invokes the handler to test that it is callable
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 async function invokeSyncedHandler(): Promise<
 	undefined | APIGatewayProxyResult
 > {

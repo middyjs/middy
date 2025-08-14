@@ -12,7 +12,6 @@ interface Options {
 	failOnMismatch?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export type Event = {};
 
 export interface Context {
