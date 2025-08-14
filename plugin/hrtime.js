@@ -19,7 +19,7 @@ const timePlugin = (opts = {}) => {
 		if (!enabled) return;
 		logger(
 			id,
-			Number.parseInt((process.hrtime.bigint() - store[id]).toString()) /
+			Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) /
 				1_000_000,
 			"ms",
 		);

@@ -44,5 +44,5 @@ html[data-theme="dark"] img[alt="Middy middleware engine diagram"] {
 }
 
 .token-line.theme-code-block-highlighted-line {
-	background-color: rgba(245, 203, 67, 0.154) !important;
+	background-color: rgba(245, 203, 67, 0.154);
 }

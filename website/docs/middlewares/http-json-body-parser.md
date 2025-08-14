@@ -20,6 +20,7 @@ npm install --save @middy/http-json-body-parser
 ## Options
 
 - `reviver` (`function`) (optional): A [reviver](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#Parameters) parameter may be passed which will be used `JSON.parse`ing the body.
+- `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for JSON. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
 ## Sample usage

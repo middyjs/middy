@@ -23,7 +23,7 @@ const timePlugin = (opts = {}) => {
   }
   const stop = (id) => {
     if (!enabled) return
-    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString()) / 1000000, 'ms')
+    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) / 1000000, 'ms')
   }
 
   // Only run during cold start
@@ -65,7 +65,7 @@ export const handler = middy(timePlugin())
   .use(httpSecurityHeaders())
   .use(validator({eventSchema}))
   .handler(()=>{})
-  
+
 await handler()
 ```
 
@@ -91,7 +91,7 @@ lambda 66.141835 ms
 From this everything looks good. Sub 1ms for every middleware and the handler. But wait, that `total` doesn't look right.
 You're correct, `total` includes the initial setup time (or cold start time) for all middlewares. In this case `validator` is the culprit.
 The Ajv constructor and compiler do a lot of magic when they first run to get ready for later schema validations.
-This is why in the `validator` middleware we now support passing in complied schema and expose the default compiler in 
+This is why in the `validator` middleware we now support passing in complied schema and expose the default compiler in
 case you want to use it in a build step. We hope this feature will help to you in identify slow middlewares and improve your development experience.
 
 There is also a `beforeRequest` hook, but was left out of the example for dramatic effect.
@@ -100,7 +100,7 @@ Additionally, you'll notice that each middleware shows a descriptive name. This 
 If you've looked at the code for some the supported middlewares, you'll see these long descriptive variable names being set, then returned.
 This is why.
 
-## Memory 
+## Memory
 ```javascript
 import memwatch from '@airbnb/node-memwatch'
 
@@ -153,6 +153,6 @@ export const handler = middy(memoryPlugin())
   .use(httpSecurityHeaders())
   .use(validator({eventSchema}))
   .handler(()=>{})
-  
+
 await handler()
 ```
