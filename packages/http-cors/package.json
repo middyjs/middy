@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-cors",
-	"version": "6.4.2",
+	"version": "6.4.3",
 	"description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,9 +64,9 @@
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
 	"dependencies": {
-		"@middy/util": "6.4.2"
+		"@middy/util": "6.4.3"
 	},
 	"devDependencies": {
-		"@middy/core": "6.4.2"
+		"@middy/core": "6.4.3"
 	}
 }

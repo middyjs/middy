@@ -18,10 +18,10 @@ We put together a `.yarnclean` file you can check out and use as part of your CI
 **/ajv/.runkit_examples.js
 **/ajv-errors/src
 **/ajv-formats/src
-**/ajv-formats-draft2019/.github
-**/ajv-formats-draft2019/.prettierrc.js
-**/ajv-formats-draft2019/index.test.js
-**/ajv-i18n/localize/.eslintrc.yml
+**/@silverbucket/ajv-formats-draft2019/.github
+**/@silverbucket/ajv-formats-draft2019/.prettierrc.js
+**/@silverbucket/ajv-formats-draft2019/index.test.js
+**/@silverbucket/ajv-i18n/localize/.eslintrc.yml
 **/json-mask/bin
 **/json-mask/build
 **/qs/.github
