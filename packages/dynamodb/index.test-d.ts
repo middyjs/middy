@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import dynamodb, { type Context, dynamoDbReq } from "./index.js";
 
 const options = {
@@ -24,25 +24,17 @@ const options = {
 } as const;
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
-	dynamodb(),
-);
+expect(dynamodb()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+>();
 
 // use with all options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
-	dynamodb(options),
-);
+expect(dynamodb(options)).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+>();
 
 // use with setToContext: true
-expectType<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext & { configurationObjFromDynamo: Record<string, any> },
-		{ configurationObjFromDynamo: Record<string, any> }
-	>
->(
+expect(
 	dynamodb({
 		...options,
 		fetchData: {
@@ -57,18 +49,18 @@ expectType<
 		},
 		setToContext: true,
 	}),
-);
-
-// use with setToContext: false
-expectType<
+).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
 		Error,
-		LambdaContext,
+		LambdaContext & { configurationObjFromDynamo: Record<string, any> },
 		{ configurationObjFromDynamo: Record<string, any> }
 	>
->(
+>();
+
+// use with setToContext: false
+expect(
 	dynamodb({
 		...options,
 		fetchData: {
@@ -83,26 +75,30 @@ expectType<
 		},
 		setToContext: false,
 	}),
-);
+).type.toBe<
+	middy.MiddlewareObj<
+		unknown,
+		any,
+		Error,
+		LambdaContext,
+		{ configurationObjFromDynamo: Record<string, any> }
+	>
+>();
 
-// @ts-expect-error - fetchData must be an object
-dynamodb({ ...options, fetchData: "not an object" });
+expect(dynamodb).type.not.toBeCallableWith({
+	...options,
+	fetchData: "not an object", // fetchData must be an object
+});
 
-dynamodb({
+expect(dynamodb).type.not.toBeCallableWith({
 	...options,
 	fetchData: {
-		// @ts-expect-error - fetchData must be an object of objects
-		key: "null",
-		// @ts-expect-error - fetchData must be an object of objects
-		key2: null,
-		// @ts-expect-error - fetchData must be an object of objects
-		key3: undefined,
-		// @ts-expect-error - fetchData must be an object of objects
-		key4: 1,
-		// @ts-expect-error - fetchData must be an object of objects
-		key5: true,
-		// @ts-expect-error - fetchData must be an object of objects
-		key6: Symbol("key6"),
+		key: "null", // fetchData must be an object of objects
+		key2: null, // fetchData must be an object of objects
+		key3: undefined, // fetchData must be an object of objects
+		key4: 1, // fetchData must be an object of objects
+		key5: true, // fetchData must be an object of objects
+		key6: Symbol("key6"), // fetchData must be an object of objects
 	},
 });
 
@@ -128,10 +124,12 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<Record<string, any>>(request.context.configurationObjFromDynamo);
+		expect(request.context.configurationObjFromDynamo).type.toBe<
+			Record<string, any>
+		>();
 
 		const data = await getInternal("configurationObjFromDynamo", request);
-		expectType<Record<string, any>>(data.configurationObjFromDynamo);
+		expect(data.configurationObjFromDynamo).type.toBe<Record<string, any>>();
 	});
 
 handler
@@ -153,7 +151,7 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("configurationObjFromDynamo", request);
-		expectType<Record<string, any>>(data.configurationObjFromDynamo);
+		expect(data.configurationObjFromDynamo).type.toBe<Record<string, any>>();
 	});
 
 handler
@@ -178,14 +176,18 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<{ param1: string; param2: string; param3: number }>(
-			request.context.configurationObjFromDynamo,
-		);
+		expect(request.context.configurationObjFromDynamo).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 
 		const data = await getInternal("configurationObjFromDynamo", request);
-		expectType<{ param1: string; param2: string; param3: number }>(
-			data.configurationObjFromDynamo,
-		);
+		expect(data.configurationObjFromDynamo).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 	});
 
 handler
@@ -211,7 +213,9 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("configurationObjFromDynamo", request);
-		expectType<{ param1: string; param2: string; param3: number }>(
-			data.configurationObjFromDynamo,
-		);
+		expect(data.configurationObjFromDynamo).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 	});

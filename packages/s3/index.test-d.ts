@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import s3, { type Context, s3Req } from "./index.js";
 
 const options = {
@@ -30,12 +30,12 @@ const options = {
 };
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
-	s3(),
-);
+expect(s3()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+>();
 
 // use with all options
-expectType<
+expect(s3(options)).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -43,10 +43,15 @@ expectType<
 		Context<typeof options>,
 		{ someS3Object: unknown }
 	>
->(s3(options));
+>();
 
 // use with setToContext: true
-expectType<
+expect(
+	s3({
+		...options,
+		setToContext: true,
+	}),
+).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -54,37 +59,30 @@ expectType<
 		Context<typeof options> & { someS3Object: unknown },
 		{ someS3Object: unknown }
 	>
->(
-	s3({
-		...options,
-		setToContext: true,
-	}),
-);
+>();
 
-// @ts-expect-error - fetchData must be an object
-s3({ ...options, fetchData: "not an object" });
+expect(s3).type.not.toBeCallableWith({
+	...options,
+	fetchData: "not an object", // fetchData must be an object
+});
 
-s3({
+expect(s3).type.not.toBeCallableWith({
 	...options,
 	fetchData: {
 		someS3Object: {
-			// @ts-expect-error - Valid bucket name is required
-			Bucket: null,
-			// @ts-expect-error - Valid key is required
-			Key: null,
+			Bucket: null, // Valid bucket name is required
+			Key: null, // Valid key is required
 		},
 	},
 });
 
-s3({
+expect(s3).type.not.toBeCallableWith({
 	...options,
 	fetchData: {
 		someS3Object: {
 			Bucket: "bucket",
 			Key: "path/to/key.ext",
-
-			// @ts-expect-error - ChecksumMode is not a valid parameter
-			ChecksumMode: "none",
+			ChecksumMode: "none", // ChecksumMode is not a valid parameter
 		},
 	},
 });
@@ -101,10 +99,10 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<unknown>(request.context.someS3Object);
+		expect(request.context.someS3Object).type.toBe<unknown>();
 
 		const data = await getInternal("someS3Object", request);
-		expectType<unknown>(data.someS3Object);
+		expect(data.someS3Object).type.toBe<unknown>();
 	});
 
 handler
@@ -116,7 +114,7 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("someS3Object", request);
-		expectType<unknown>(data.someS3Object);
+		expect(data.someS3Object).type.toBe<unknown>();
 	});
 
 handler
@@ -135,14 +133,18 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<{ param1: string; param2: string; param3: number }>(
-			request.context.someS3Object,
-		);
+		expect(request.context.someS3Object).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 
 		const data = await getInternal("someS3Object", request);
-		expectType<{ param1: string; param2: string; param3: number }>(
-			data.someS3Object,
-		);
+		expect(data.someS3Object).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 	});
 
 handler
@@ -162,7 +164,9 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("someS3Object", request);
-		expectType<{ param1: string; param2: string; param3: number }>(
-			data.someS3Object,
-		);
+		expect(data.someS3Object).type.toBe<{
+			param1: string;
+			param2: string;
+			param3: number;
+		}>();
 	});

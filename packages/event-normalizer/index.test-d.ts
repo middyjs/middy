@@ -1,11 +1,11 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import eventNormalizer from "./index.js";
 
 // use with default options
 let middleware = eventNormalizer();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = eventNormalizer();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();

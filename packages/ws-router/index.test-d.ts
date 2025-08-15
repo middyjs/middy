@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import type { APIGatewayProxyWebsocketHandlerV2 } from "aws-lambda";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import wsRouterHandler from "./index.js";
 
 const connectLambdaHandler: APIGatewayProxyWebsocketHandlerV2 = async () => {
@@ -27,4 +27,4 @@ const middleware = wsRouterHandler([
 		handler: disconnectLambdaHandler,
 	},
 ]);
-expectType<middy.MiddyfiedHandler>(middleware);
+expect(middleware).type.toBe<middy.MiddyfiedHandler>();

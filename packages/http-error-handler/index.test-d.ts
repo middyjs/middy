@@ -1,11 +1,11 @@
 import type middy from "@middy/core";
 import type { HttpError } from "http-errors";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import httpErrorHandler from "./index.js";
 
 // use with default options
 let middleware = httpErrorHandler();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = httpErrorHandler({
@@ -14,4 +14,4 @@ middleware = httpErrorHandler({
 	},
 	fallbackMessage: "whoopsiedoosie!",
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
