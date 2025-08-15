@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import doNotWaitForEmptyEventLoop from "./index.js";
 
 // use with default options
 let middleware = doNotWaitForEmptyEventLoop();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = doNotWaitForEmptyEventLoop({
@@ -12,4 +12,4 @@ middleware = doNotWaitForEmptyEventLoop({
 	runOnAfter: true,
 	runOnError: true,
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();

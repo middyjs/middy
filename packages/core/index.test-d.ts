@@ -5,7 +5,7 @@ import type {
 	Context,
 	S3Event,
 } from "aws-lambda";
-import { expectAssignable, expectType } from "tsd";
+import { expect } from "tstyche";
 import middy, { type MiddyfiedHandler } from "./index.js";
 
 // extends Handler type from aws-lambda
@@ -51,11 +51,11 @@ type Request = middy.Request<
 
 // initialize
 let handler = middy(lambdaHandler);
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // initialize with empty plugin
 handler = middy(lambdaHandler, {});
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // initialize with plugin with few hooks
 handler = middy(lambdaHandler, {
@@ -63,7 +63,7 @@ handler = middy(lambdaHandler, {
 		console.log("beforePrefetch");
 	},
 });
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // initialize with plugin with all hooks
 handler = middy(lambdaHandler, {
@@ -89,16 +89,16 @@ handler = middy(lambdaHandler, {
 		console.log("requestEnd");
 	},
 });
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // middy wrapped handler should be assignable to aws-lambda handler type.
-expectAssignable<AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
-	handler,
-);
+expect(handler).type.toBeAssignableTo<
+	AWSLambdaHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+>();
 
 // Middy handlers third argument is an object containing a abort signal
 middy((event: any, context: any, { signal }: { signal: AbortSignal }) =>
-	expectType<AbortSignal>(signal),
+	expect(signal).type.toBe<AbortSignal>(),
 );
 
 // invokes the handler to test that it is callable
@@ -191,29 +191,29 @@ const middlewareObj = {
 
 // use with 1 middleware
 handler = handler.use(middlewareObj);
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // use with array of middlewares
 handler = handler.use([middlewareObj]);
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // before
 handler = handler.before((request: Request) => {
 	console.log("Before", request);
 });
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // after
 handler = handler.after((request: Request) => {
 	console.log("After", request);
 });
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 // error
 handler = handler.onError((request: Request) => {
 	console.log("OnError", request);
 });
-expectType<Handler>(handler);
+expect(handler).type.toBe<Handler>();
 
 interface MutableContext extends Context {
 	name: string;
@@ -248,18 +248,11 @@ let customCtxHandler = middy<
 	Error,
 	MutableContext
 >(mutableContextDependantHandler);
-expectType<MutableContextHandler>(customCtxHandler);
+expect(customCtxHandler).type.toBe<MutableContextHandler>();
 
-// @ts-expect-error
-customCtxHandler = middy<
-	APIGatewayProxyEvent,
-	APIGatewayProxyResult,
-	Error,
-	Context
->(
-	// @ts-expect-error
-	mutableContextDependantHandler,
-);
+expect(
+	middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>,
+).type.not.toBeCallableWith(mutableContextDependantHandler);
 
 const mutableContextMiddleware = {
 	before: (request: MutableContextRequest) => {
@@ -268,24 +261,24 @@ const mutableContextMiddleware = {
 };
 
 customCtxHandler = customCtxHandler.use(mutableContextMiddleware);
-expectType<MutableContextHandler>(customCtxHandler);
+expect(customCtxHandler).type.toBe<MutableContextHandler>();
 
 const typeErrorMiddleware = {
 	before: (request: MutableContextRequest) => {
-		// @ts-expect-error
+		// @ts-expect-error!
 		request.context.test = "Bar";
 	},
 };
 
 customCtxHandler = customCtxHandler.use(typeErrorMiddleware);
-expectType<MutableContextHandler>(customCtxHandler);
+expect(customCtxHandler).type.toBe<MutableContextHandler>();
 
 const streamifiedResponseHandler = middy<APIGatewayProxyEvent>({
 	streamifyResponse: true,
 });
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent>>(
-	streamifiedResponseHandler,
-);
+expect(streamifiedResponseHandler).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent>
+>();
 
 streamifiedResponseHandler.handler(lambdaHandler);
 streamifiedResponseHandler.use(middlewareObj);
@@ -303,11 +296,11 @@ const syncedLambdaHandler: LambdaHandler<
 
 // initialize
 let syncedHandler = middy(syncedLambdaHandler);
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // initialize with empty plugin
 syncedHandler = middy(syncedLambdaHandler, {});
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // initialize with plugin with few hooks
 syncedHandler = middy(syncedLambdaHandler, {
@@ -315,7 +308,7 @@ syncedHandler = middy(syncedLambdaHandler, {
 		console.log("beforePrefetch");
 	},
 });
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // initialize with plugin with all hooks
 syncedHandler = middy(syncedLambdaHandler, {
@@ -341,7 +334,7 @@ syncedHandler = middy(syncedLambdaHandler, {
 		console.log("requestEnd");
 	},
 });
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // invokes the handler to test that it is callable
 async function invokeSyncedHandler(): Promise<
@@ -423,29 +416,29 @@ invokeSyncedHandler().catch(console.error);
 
 // use with 1 middleware
 syncedHandler = syncedHandler.use(middlewareObj);
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // use with array of middlewares
 syncedHandler = syncedHandler.use([middlewareObj]);
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // before
 syncedHandler = syncedHandler.before((request: Request) => {
 	console.log("Before", request);
 });
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // after
 syncedHandler = syncedHandler.after((request: Request) => {
 	console.log("After", request);
 });
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 // error
 syncedHandler = syncedHandler.onError((request: Request) => {
 	console.log("OnError", request);
 });
-expectType<Handler>(syncedHandler);
+expect(syncedHandler).type.toBe<Handler>();
 
 interface MutableContext extends Context {
 	name: string;
@@ -467,18 +460,11 @@ let customSyncedCtxHandler = middy<
 	Error,
 	MutableContext
 >(syncedMutableContextDependantHandler);
-expectType<MutableContextHandler>(customSyncedCtxHandler);
+expect(customSyncedCtxHandler).type.toBe<MutableContextHandler>();
 
-// @ts-expect-error
-customSyncedCtxHandler = middy<
-	APIGatewayProxyEvent,
-	APIGatewayProxyResult,
-	Error,
-	Context
->(
-	// @ts-expect-error
-	syncedMutableContextDependantHandler,
-);
+expect(
+	middy<APIGatewayProxyEvent, APIGatewayProxyResult, Error, Context>,
+).type.not.toBeCallableWith(syncedMutableContextDependantHandler);
 
 const mutableSyncedContextMiddleware = {
 	before: (request: MutableContextRequest) => {
@@ -489,24 +475,24 @@ const mutableSyncedContextMiddleware = {
 customSyncedCtxHandler = customSyncedCtxHandler.use(
 	mutableSyncedContextMiddleware,
 );
-expectType<MutableContextHandler>(customSyncedCtxHandler);
+expect(customSyncedCtxHandler).type.toBe<MutableContextHandler>();
 
 const syncedTypeErrorMiddleware = {
 	before: (request: MutableContextRequest) => {
-		// @ts-expect-error
+		// @ts-expect-error!
 		request.context.test = "Bar";
 	},
 };
 
 customSyncedCtxHandler = customSyncedCtxHandler.use(syncedTypeErrorMiddleware);
-expectType<MutableContextHandler>(customSyncedCtxHandler);
+expect(customSyncedCtxHandler).type.toBe<MutableContextHandler>();
 
 const syncedStreamifiedResponseHandler = middy<APIGatewayProxyEvent>({
 	streamifyResponse: true,
 });
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent>>(
-	syncedStreamifiedResponseHandler,
-);
+expect(syncedStreamifiedResponseHandler).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent>
+>();
 
 syncedStreamifiedResponseHandler.handler(syncedLambdaHandler);
 syncedStreamifiedResponseHandler.use(middlewareObj);
@@ -517,7 +503,7 @@ const baseHandler: AWSLambdaHandler = async (event) => {
 };
 
 const handler1176 = middy(baseHandler);
-expectType<MiddyfiedHandler<any, any, Error, Context, {}>>(handler1176);
+expect(handler1176).type.toBe<MiddyfiedHandler<any, any, Error, Context, {}>>();
 
 // Issue #1182
 const s3Handler = async (event: S3Event): Promise<undefined> => {
@@ -525,7 +511,9 @@ const s3Handler = async (event: S3Event): Promise<undefined> => {
 };
 
 const handler1182 = middy<S3Event>().handler(s3Handler);
-expectType<MiddyfiedHandler<S3Event, any, Error, Context, {}>>(handler1182);
+expect(handler1182).type.toBe<
+	MiddyfiedHandler<S3Event, any, Error, Context, {}>
+>();
 
 //  Issue #1228 Correct return type
 const numberHandler = middy<APIGatewayProxyEvent, number>().handler(
@@ -533,17 +521,19 @@ const numberHandler = middy<APIGatewayProxyEvent, number>().handler(
 		return 42; // Correct return type, should pass type checking
 	},
 );
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(numberHandler);
+expect(numberHandler).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, number>
+>();
 
 //  Issue #1228 Incorrect return type
 const invalidNumberHandler = middy<APIGatewayProxyEvent, number>()
-	// @ts-expect-error
+	// @ts-expect-error!
 	.handler(async () => {
 		return "not a number";
 	});
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, number>>(
-	invalidNumberHandler,
-);
+expect(invalidNumberHandler).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, number>
+>();
 
 // Issue #1275 Early Response type
 middy<unknown, string>()
@@ -560,6 +550,6 @@ middy<unknown, string>()
 	});
 
 //  Issue #1293 Handler event type is not correctly inferred
-// @ts-expect-error
+// @ts-expect-error!
 const s3MiddyHandler = middy().handler(s3Handler);
-expectType<middy.MiddyfiedHandler<unknown, any>>(s3MiddyHandler);
+expect(s3MiddyHandler).type.toBe<middy.MiddyfiedHandler<unknown, any>>();

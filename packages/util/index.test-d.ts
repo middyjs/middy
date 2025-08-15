@@ -5,10 +5,9 @@ import type {
 	APIGatewayProxyResult,
 	Context as LambdaContext,
 } from "aws-lambda";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import * as util from "./index.js";
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type TInternal = {
 	boolean: true;
 	number: 1;
@@ -108,24 +107,24 @@ const sampleRequest: middy.Request<
 const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
 	AwsClient: SSMClient,
 });
-expectType<SSMClient>(prefetchClient);
+expect(prefetchClient).type.toBe<SSMClient>();
 
 const client = util.createClient<SSMClient, {}>(
 	{ AwsClient: SSMClient },
 	sampleRequest,
 );
-expectType<Promise<SSMClient>>(client);
+expect(client).type.toBe<Promise<SSMClient>>();
 
 const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient });
-expectType<boolean>(canPrefetch);
+expect(canPrefetch).type.toBe<boolean>();
 
 // getInternal should get none from internal store
 async function testGetInternalNone(): Promise<{}> {
 	const result = await util.getInternal(false, sampleRequest);
-	expectType<{}>(result);
+	expect(result).type.toBe<{}>();
 	return result;
 }
-expectType<Promise<{}>>(testGetInternalNone());
+expect(testGetInternalNone()).type.toBe<Promise<{}>>();
 
 // getInternal should get all from internal store
 interface DeepAwaitedTInternal {
@@ -144,18 +143,18 @@ interface DeepAwaitedTInternal {
 }
 async function testGetAllInternal(): Promise<DeepAwaitedTInternal> {
 	const result = await util.getInternal(true, sampleRequest);
-	expectType<DeepAwaitedTInternal>(result);
+	expect(result).type.toBe<DeepAwaitedTInternal>();
 	return result;
 }
-expectType<Promise<DeepAwaitedTInternal>>(testGetAllInternal());
+expect(testGetAllInternal()).type.toBe<Promise<DeepAwaitedTInternal>>();
 
 // getInternal should get from internal store when string
 async function testGetInternalField(): Promise<{ number: 1 }> {
 	const result = await util.getInternal("number", sampleRequest);
-	expectType<{ number: 1 }>(result);
+	expect(result).type.toBe<{ number: 1 }>();
 	return result;
 }
-expectType<Promise<{ number: 1 }>>(testGetInternalField());
+expect(testGetInternalField()).type.toBe<Promise<{ number: 1 }>>();
 
 // getInternal should get from internal store when array[string]
 async function testGetInternalFields(): Promise<{
@@ -167,14 +166,16 @@ async function testGetInternalFields(): Promise<{
 		["boolean", "string", "promiseObject.key"],
 		sampleRequest,
 	);
-	expectType<{ boolean: true; string: "string"; promiseObject_key: "value" }>(
-		result,
-	);
+	expect(result).type.toBe<{
+		boolean: true;
+		string: "string";
+		promiseObject_key: "value";
+	}>();
 	return result;
 }
-expectType<
+expect(testGetInternalFields()).type.toBe<
 	Promise<{ boolean: true; string: "string"; promiseObject_key: "value" }>
->(testGetInternalFields());
+>();
 
 // getInternal should get from internal store when object
 async function testGetAndRemapInternal(): Promise<{
@@ -185,37 +186,41 @@ async function testGetAndRemapInternal(): Promise<{
 		{ newKey: "promise", newKey2: "promiseObject.key" },
 		sampleRequest,
 	);
-	expectType<{ newKey: string; newKey2: "value" }>(result);
+	expect(result).type.toBe<{ newKey: string; newKey2: "value" }>();
 	return result;
 }
-expectType<Promise<{ newKey: string; newKey2: "value" }>>(
-	testGetAndRemapInternal(),
-);
+expect(testGetAndRemapInternal()).type.toBe<
+	Promise<{ newKey: string; newKey2: "value" }>
+>();
 
 // getInternal should get from internal store a nested value
 async function testGetInternalNested(): Promise<{
 	promiseObject_key: "value";
 }> {
 	const result = await util.getInternal("promiseObject.key", sampleRequest);
-	expectType<{ promiseObject_key: "value" }>(result);
+	expect(result).type.toBe<{ promiseObject_key: "value" }>();
 	return result;
 }
-expectType<Promise<{ promiseObject_key: "value" }>>(testGetInternalNested());
+expect(testGetInternalNested()).type.toBe<
+	Promise<{ promiseObject_key: "value" }>
+>();
 
 // sanitizeKey
-expectType<"_0key">(util.sanitizeKey("0key"));
-expectType<"api_secret_key0_pem">(util.sanitizeKey("api//secret-key0.pem"));
+expect(util.sanitizeKey("0key")).type.toBe<"_0key">();
+expect(
+	util.sanitizeKey("api//secret-key0.pem"),
+).type.toBe<"api_secret_key0_pem">();
 
 const { value, expiry } = util.processCache<SSMClient, {}>(
 	{},
 	(request) => request,
 	sampleRequest,
 );
-expectType<any>(value);
-expectType<number>(expiry);
+expect(value).type.toBe<any>();
+expect(expiry).type.toBe<number>();
 
 const cachedValue = util.getCache("someKey");
-expectType<any>(cachedValue);
+expect(cachedValue).type.toBe<any>();
 
 util.clearCache(["someKey", "someOtherKey"]);
 util.clearCache("someKey");
@@ -223,12 +228,12 @@ util.clearCache(null);
 util.clearCache();
 
 const parsed = util.jsonSafeParse('{"foo":"bar"}', (k, v) => v);
-expectType<any>(parsed);
+expect(parsed).type.toBe<any>();
 
 const normalizedResponse = util.normalizeHttpResponse({}, {});
-expectType<any>(normalizedResponse);
+expect(normalizedResponse).type.toBe<any>();
 
 // should be able to use HttpError as a proper class
 const err = util.createError(500, "An unexpected error occurred");
-expectType<util.HttpError>(err);
+expect(err).type.toBe<util.HttpError>();
 // err instanceof util.HttpError // would throw a type error if not a class

@@ -1,8 +1,9 @@
-import { expectType } from "tsd";
+import type { Ajv } from "ajv";
+import { expect } from "tstyche";
 import { transpileLocale, transpileSchema } from "./transpile.js";
 
 const schema = transpileSchema({ type: "object" }, {});
-expectType<any>(schema);
+expect(schema).type.toBe<Ajv>();
 
 const locale = transpileLocale("", {});
-expectType<any>(locale);
+expect(locale).type.toBe<Function>();

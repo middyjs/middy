@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import appConfig, { appConfigReq, type Context } from "./index.js";
 
 const options = {
@@ -21,28 +21,20 @@ const options = {
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,
 	setToContext: false,
-} as const;
+};
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, LambdaContext>>(
-	appConfig(),
-);
+expect(appConfig()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, LambdaContext>
+>();
 
 // use with all options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
-	appConfig(options),
-);
+expect(appConfig(options)).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+>();
 
 // use with setToContext: false
-expectType<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext,
-		Record<"config", unknown>
-	>
->(
+expect(
 	appConfig({
 		...options,
 		fetchData: {
@@ -54,18 +46,18 @@ expectType<
 		},
 		setToContext: false,
 	}),
-);
-
-// use with setToContext: true
-expectType<
+).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
 		Error,
-		LambdaContext & Record<"config", unknown>,
+		LambdaContext,
 		Record<"config", unknown>
 	>
->(
+>();
+
+// use with setToContext: true
+expect(
 	appConfig({
 		...options,
 		fetchData: {
@@ -77,30 +69,36 @@ expectType<
 		},
 		setToContext: true,
 	}),
-);
+).type.toBe<
+	middy.MiddlewareObj<
+		unknown,
+		any,
+		Error,
+		LambdaContext & Record<"config", unknown>,
+		Record<"config", unknown>
+	>
+>();
 
-// @ts-expect-error - fetchData must be an object
-appConfig({ ...options, fetchData: "not-an-object" });
+expect(appConfig).type.not.toBeCallableWith({
+	...options,
+	fetchData: "not-an-object", // fetchData must be an object
+});
 
-appConfig({
+expect(appConfig).type.not.toBeCallableWith({
 	...options,
 	fetchData: {
 		config: {
-			// @ts-expect-error - Application must be a string
-			ApplicationIdentifier: 123,
-			// @ts-expect-error - Configuration must be a string
-			ConfigurationProfileIdentifier: 123,
-			// @ts-expect-error - Environment must be a string
-			EnvironmentIdentifier: 123,
+			ApplicationIdentifier: 123, // Application must be a string
+			ConfigurationProfileIdentifier: 123, // Configuration must be a string
+			EnvironmentIdentifier: 123, // Environment must be a string
 		},
 	},
 });
 
-appConfig({
+expect(appConfig).type.not.toBeCallableWith({
 	...options,
 	fetchData: {
-		// @ts-expect-error - config must contain Application, ClientId, Configuration and Environment
-		config: {},
+		config: {}, // config must contain Application, ClientId, Configuration and Environment
 	},
 });
 
@@ -126,12 +124,14 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<{ config1: string; config2: string; config3: number }>(
-			request.context.config,
-		);
+		expect(request.context.config).type.toBe<{
+			config1: string;
+			config2: string;
+			config3: number;
+		}>();
 
 		const data = await getInternal("config", request);
-		expectType<string>(data.config.config1);
+		expect(data.config.config1).type.toBe<string>();
 	});
 
 handler
@@ -153,7 +153,9 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("config", request);
-		expectType<{ config1: string; config2: string; config3: number }>(
-			data.config,
-		);
+		expect(data.config).type.toBe<{
+			config1: string;
+			config2: string;
+			config3: number;
+		}>();
 	});

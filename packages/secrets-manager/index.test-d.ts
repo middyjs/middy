@@ -3,13 +3,13 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import secretsManager, { type Context, secret } from "./index.js";
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(
-	secretsManager(),
-);
+expect(secretsManager()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+>();
 
 const options = {
 	AwsClient: SecretsManagerClient,
@@ -30,12 +30,12 @@ const options = {
 };
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>, {}>>(
-	secretsManager(),
-);
+expect(secretsManager()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<undefined>, {}>
+>();
 
 // use with all options
-expectType<
+expect(secretsManager(options)).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -43,7 +43,7 @@ expectType<
 		Context<typeof options>,
 		{ foo: unknown }
 	>
->(secretsManager(options));
+>();
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
@@ -58,10 +58,10 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<unknown>(request.context.foo);
+		expect(request.context.foo).type.toBe<unknown>();
 
 		const data = await getInternal("foo", request);
-		expectType<unknown>(data.foo);
+		expect(data.foo).type.toBe<unknown>();
 	});
 
 // setToContext: false
@@ -74,7 +74,7 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("foo", request);
-		expectType<unknown>(data.foo);
+		expect(data.foo).type.toBe<unknown>();
 	});
 
 // setToContext: true, use return type hint function
@@ -91,10 +91,13 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<{ User: string; Password: string }>(request.context.someSecret);
+		expect(request.context.someSecret).type.toBe<{
+			User: string;
+			Password: string;
+		}>();
 
 		const data = await getInternal("someSecret", request);
-		expectType<{ User: string; Password: string }>(data.someSecret);
+		expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
 	});
 
 // setToContext: false, use return type hint function
@@ -112,5 +115,5 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("someSecret", request);
-		expectType<{ User: string; Password: string }>(data.someSecret);
+		expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
 	});

@@ -1,4 +1,4 @@
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import type {
 	ArrayValues,
 	Choose,
@@ -10,75 +10,79 @@ import type {
 	SanitizeKeyPrefixLeadingNumber,
 	SanitizeKeyRemoveDisallowedChar,
 	SanitizeKeys,
-} from "./type-utils.d.ts";
+} from "./type-utils.js";
 
 // SanitizeKeyPrefixLeadingNumber
 // adds a leading _ if it starts with a number
-expectType<SanitizeKeyPrefixLeadingNumber<"1234">>("_1234");
-expectType<SanitizeKeyPrefixLeadingNumber<"01234">>("_01234");
+expect<SanitizeKeyPrefixLeadingNumber<"1234">>().type.toBe<"_1234">();
+expect<SanitizeKeyPrefixLeadingNumber<"01234">>().type.toBe<"_01234">();
 // it does not add a leading _ if it starts with something else
-expectType<SanitizeKeyPrefixLeadingNumber<"abcd">>("abcd");
-expectType<SanitizeKeyPrefixLeadingNumber<"ABCD">>("ABCD");
-expectType<SanitizeKeyPrefixLeadingNumber<"?abcd">>("?abcd");
-expectType<SanitizeKeyPrefixLeadingNumber<"!abcd">>("!abcd");
-expectType<SanitizeKeyPrefixLeadingNumber<"@abcd">>("@abcd");
-expectType<SanitizeKeyPrefixLeadingNumber<"_abcd">>("_abcd");
-expectType<SanitizeKeyPrefixLeadingNumber<"-abcd">>("-abcd");
+expect<SanitizeKeyPrefixLeadingNumber<"abcd">>().type.toBe<"abcd">();
+expect<SanitizeKeyPrefixLeadingNumber<"ABCD">>().type.toBe<"ABCD">();
+expect<SanitizeKeyPrefixLeadingNumber<"?abcd">>().type.toBe<"?abcd">();
+expect<SanitizeKeyPrefixLeadingNumber<"!abcd">>().type.toBe<"!abcd">();
+expect<SanitizeKeyPrefixLeadingNumber<"@abcd">>().type.toBe<"@abcd">();
+expect<SanitizeKeyPrefixLeadingNumber<"_abcd">>().type.toBe<"_abcd">();
+expect<SanitizeKeyPrefixLeadingNumber<"-abcd">>().type.toBe<"-abcd">();
 
 // SanitizeKeyRemoveDisallowedChar
 // removes all disallowed chars and replaces them with _
-expectType<
+expect<
 	SanitizeKeyRemoveDisallowedChar<'1234!@#AA$%^&*()BBB_+{}|:"<>?~CC`-=[D]E\\;,./F'>
->("1234___AA_______BBB___________CC____D_E_____F");
+>().type.toBe<"1234___AA_______BBB___________CC____D_E_____F">();
 
 // RemoveAllLeadingUnderscore
 // removes all leading _
-expectType<RemoveAllLeadingUnderscore<"_1234">>("1234");
-expectType<RemoveAllLeadingUnderscore<"__1234">>("1234");
-expectType<RemoveAllLeadingUnderscore<"___1234">>("1234");
+expect<RemoveAllLeadingUnderscore<"_1234">>().type.toBe<"1234">();
+expect<RemoveAllLeadingUnderscore<"__1234">>().type.toBe<"1234">();
+expect<RemoveAllLeadingUnderscore<"___1234">>().type.toBe<"1234">();
 // it does not remove _ in the middle or at the end
-expectType<RemoveAllLeadingUnderscore<"1234">>("1234");
-expectType<RemoveAllLeadingUnderscore<"12_34">>("12_34");
-expectType<RemoveAllLeadingUnderscore<"1234_">>("1234_");
+expect<RemoveAllLeadingUnderscore<"1234">>().type.toBe<"1234">();
+expect<RemoveAllLeadingUnderscore<"12_34">>().type.toBe<"12_34">();
+expect<RemoveAllLeadingUnderscore<"1234_">>().type.toBe<"1234_">();
 
 // RemoveRepeatedUnderscore
 // removes all repeated _
-expectType<RemoveRepeatedUnderscore<"__1234">>("_1234");
-expectType<RemoveRepeatedUnderscore<"12__34">>("12_34");
-expectType<RemoveRepeatedUnderscore<"1234__">>("1234_");
-expectType<RemoveRepeatedUnderscore<"12_________________34">>("12_34");
-// does not remove single underscorse or other characters
-expectType<RemoveRepeatedUnderscore<"_1234">>("_1234");
-expectType<RemoveRepeatedUnderscore<"1234">>("1234");
+expect<RemoveRepeatedUnderscore<"__1234">>().type.toBe<"_1234">();
+expect<RemoveRepeatedUnderscore<"12__34">>().type.toBe<"12_34">();
+expect<RemoveRepeatedUnderscore<"1234__">>().type.toBe<"1234_">();
+expect<
+	RemoveRepeatedUnderscore<"12_________________34">
+>().type.toBe<"12_34">();
+// does not remove single underscores or other characters
+expect<RemoveRepeatedUnderscore<"_1234">>().type.toBe<"_1234">();
+expect<RemoveRepeatedUnderscore<"1234">>().type.toBe<"1234">();
 
 // SanitizeKey
 // combines all the above
-expectType<SanitizeKey<"api//secret-key0.pem">>("api_secret_key0_pem");
-expectType<SanitizeKey<"0key.0key">>("_0key_0key");
+expect<
+	SanitizeKey<"api//secret-key0.pem">
+>().type.toBe<"api_secret_key0_pem">();
+expect<SanitizeKey<"0key.0key">>().type.toBe<"_0key_0key">();
 
 // SanitizeKeys
 // sanitizes all keys in an object
-expectType<SanitizeKeys<{ "0key": 0 }>>({ _0key: 0 });
-expectType<SanitizeKeys<{ "api//secret-key0.pem": 0 }>>({
-	api_secret_key0_pem: 0,
-});
-expectType<SanitizeKeys<{ "0key": 0; "api//secret-key0.pem": 0 }>>({
-	_0key: 0,
-	api_secret_key0_pem: 0,
-});
+expect<SanitizeKeys<{ "0key": 0 }>>().type.toBe<{ _0key: 0 }>();
+expect<SanitizeKeys<{ "api//secret-key0.pem": 0 }>>().type.toBe<{
+	api_secret_key0_pem: 0;
+}>();
+expect<SanitizeKeys<{ "0key": 0; "api//secret-key0.pem": 0 }>>().type.toBe<{
+	_0key: 0;
+	api_secret_key0_pem: 0;
+}>();
 
 // DeepAwaited
-expectType<
+expect<
 	DeepAwaited<{
 		level1: { level2: Promise<Promise<{ innerPromise: Promise<22> }>> };
 	}>
->({
+>().type.toBe<{
 	level1: {
 		level2: {
-			innerPromise: Promise.resolve(22), // Note: getInternal does not recurse into resolved promises
-		},
-	},
-});
+			innerPromise: Promise<22>; // Note: getInternal does not recurse into resolved promises
+		};
+	};
+}>();
 
 // Choose
 interface TestChoose {
@@ -94,31 +98,31 @@ interface TestChoose {
 		key: "value";
 	}>;
 }
-expectType<Choose<TestChoose, "boolean">>(true);
-expectType<Choose<TestChoose, "number">>(1);
-expectType<Choose<TestChoose, "object.key">>("value");
-expectType<Choose<TestChoose, "promise">>(Promise.resolve("string"));
-expectType<Choose<DeepAwaited<TestChoose>, "promise">>("string");
-expectType<Choose<TestChoose, "promiseObject">>(
-	Promise.resolve({ key: "value" }),
-);
-expectType<Choose<DeepAwaited<TestChoose>, "promiseObject">>({ key: "value" });
+expect<Choose<TestChoose, "boolean">>().type.toBe<true>();
+expect<Choose<TestChoose, "number">>().type.toBe<1>();
+expect<Choose<TestChoose, "object.key">>().type.toBe<"value">();
+expect<Choose<TestChoose, "promise">>().type.toBe<Promise<string>>();
+expect<Choose<DeepAwaited<TestChoose>, "promise">>().type.toBe<string>();
+expect<Choose<TestChoose, "promiseObject">>().type.toBe<
+	Promise<{ key: "value" }>
+>();
+expect<Choose<DeepAwaited<TestChoose>, "promiseObject">>().type.toBe<{
+	key: "value";
+}>();
 
 // IsUnknown
-expectType<IsUnknown<unknown>>(true);
-expectType<IsUnknown<any>>(true);
-expectType<IsUnknown<never>>(false);
-expectType<IsUnknown<undefined>>(false);
-expectType<IsUnknown<null>>(false);
-expectType<IsUnknown<string>>(false);
-expectType<IsUnknown<number>>(false);
-expectType<IsUnknown<boolean>>(false);
-expectType<IsUnknown<{}>>(false);
-expectType<IsUnknown<[]>>(false);
-expectType<IsUnknown<{ key: "value" }>>(false);
-expectType<IsUnknown<Promise<string>>>(false);
+expect<IsUnknown<unknown>>().type.toBe<true>();
+expect<IsUnknown<any>>().type.toBe<true>();
+expect<IsUnknown<never>>().type.toBe<false>();
+expect<IsUnknown<undefined>>().type.toBe<false>();
+expect<IsUnknown<null>>().type.toBe<false>();
+expect<IsUnknown<string>>().type.toBe<false>();
+expect<IsUnknown<number>>().type.toBe<false>();
+expect<IsUnknown<boolean>>().type.toBe<false>();
+expect<IsUnknown<{}>>().type.toBe<false>();
+expect<IsUnknown<[]>>().type.toBe<false>();
+expect<IsUnknown<{ key: "value" }>>().type.toBe<false>();
+expect<IsUnknown<Promise<string>>>().type.toBe<false>();
 
 // ArrayValues
-expectType<ArrayValues<["a", "b", "c"]>>("a");
-expectType<ArrayValues<["a", "b", "c"]>>("b");
-expectType<ArrayValues<["a", "b", "c"]>>("c");
+expect<ArrayValues<["a", "b", "c"]>>().type.toBe<"a" | "b" | "c">();

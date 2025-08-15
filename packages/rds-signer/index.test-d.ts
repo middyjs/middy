@@ -2,12 +2,12 @@ import { Signer } from "@aws-sdk/rds-signer";
 import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import rdsSigner from "./index.js";
 
 // use with default options
 const middleware = rdsSigner();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 const options = {
 	AwsClient: Signer,
@@ -33,12 +33,12 @@ const options = {
 };
 
 // use with no options
-expectType<middy.MiddlewareObj>(rdsSigner());
+expect(rdsSigner()).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
-expectType<
+expect(rdsSigner(options)).type.toBe<
 	middy.MiddlewareObj<unknown, any, Error, LambdaContext, { foo: string }>
->(rdsSigner(options));
+>();
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
@@ -53,10 +53,10 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<string>(request.context.foo);
+		expect(request.context.foo).type.toBe<string>();
 
 		const data = await getInternal("foo", request);
-		expectType<string>(data.foo);
+		expect(data.foo).type.toBe<string>();
 	});
 
 // use with setToContext: false
@@ -69,5 +69,5 @@ handler
 	)
 	.before(async (request) => {
 		const data = await getInternal("foo", request);
-		expectType<string>(data.foo);
+		expect(data.foo).type.toBe<string>();
 	});

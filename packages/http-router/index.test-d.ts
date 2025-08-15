@@ -8,7 +8,7 @@ import type {
 	APIGatewayProxyResultV2,
 	Handler as LambdaHandler,
 } from "aws-lambda";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import httpRouterHandler from "./index.js";
 
 const lambdaHandler: LambdaHandler<
@@ -28,9 +28,9 @@ const middleware = httpRouterHandler([
 		handler: lambdaHandler,
 	},
 ]);
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
-	middleware,
-);
+expect(middleware).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+>();
 
 const lambdaHandlerV2: LambdaHandler<
 	APIGatewayProxyEventV2,
@@ -49,9 +49,9 @@ const middlewareV2 = httpRouterHandler([
 		handler: lambdaHandlerV2,
 	},
 ]);
-expectType<
+expect(middlewareV2).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEventV2, APIGatewayProxyResultV2>
->(middlewareV2);
+>();
 
 const lambdaHandlerALB: LambdaHandler<ALBEvent, ALBResult> = async (event) => {
 	return {
@@ -68,7 +68,7 @@ const middlewareALB = httpRouterHandler([
 	},
 ]);
 
-expectType<middy.MiddyfiedHandler<ALBEvent, ALBResult>>(middlewareALB);
+expect(middlewareALB).type.toBe<middy.MiddyfiedHandler<ALBEvent, ALBResult>>();
 
 const middlewareRouteNotFound = httpRouterHandler({
 	routes: [
@@ -83,6 +83,6 @@ const middlewareRouteNotFound = httpRouterHandler({
 	},
 });
 
-expectType<middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>>(
-	middlewareRouteNotFound,
-);
+expect(middlewareRouteNotFound).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+>();

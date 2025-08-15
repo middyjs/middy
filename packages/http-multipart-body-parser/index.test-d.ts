@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import multipartBodyParser, { type Event } from "./index.js";
 
 // use with default options
 let middleware = multipartBodyParser();
-expectType<middy.MiddlewareObj<Event>>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
 
 // use with all options
 middleware = multipartBodyParser({
@@ -26,4 +26,4 @@ middleware = multipartBodyParser({
 	},
 	charset: "utf8",
 });
-expectType<middy.MiddlewareObj<Event>>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();

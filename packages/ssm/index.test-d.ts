@@ -3,11 +3,13 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectAssignable, expectType } from "tsd";
+import { expect } from "tstyche";
 import ssm, { type Context, ssmParam } from "./index.js";
 
 // use with default options
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<undefined>>>(ssm());
+expect(ssm()).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+>();
 
 // use with all options
 const options = {
@@ -23,11 +25,18 @@ const options = {
 	awsClientCapture: captureAWSv3Client,
 	disablePrefetch: true,
 };
-expectType<middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>>(
-	ssm(options),
-);
+expect(ssm(options)).type.toBe<
+	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+>();
 
-expectType<
+expect(
+	ssm({
+		fetchData: {
+			lorem: "/lorem",
+			ipsum: "/lorem",
+		},
+	}),
+).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -35,14 +44,7 @@ expectType<
 		LambdaContext,
 		Record<"lorem" | "ipsum", unknown>
 	>
->(
-	ssm({
-		fetchData: {
-			lorem: "/lorem",
-			ipsum: "/lorem",
-		},
-	}),
-);
+>();
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
@@ -78,13 +80,13 @@ handler
 			request,
 		);
 
-		expectType<string>(data.accessToken);
-		expectType<{ user: string; pass: string }>(data.dbParams);
-		expectType<string>(data.defaults);
+		expect(data.accessToken).type.toBe<string>();
+		expect(data.dbParams).type.toBe<{ user: string; pass: string }>();
+		expect(data.defaults).type.toBe<string>();
 
 		// make sure data is set to context as well (only for the second instantiation of the middleware)
-		expectAssignable<{
+		expect(request.context).type.toBeAssignableTo<{
 			accessToken: string;
 			dbParams: { user: string; pass: string };
-		}>(request.context);
+		}>();
 	});

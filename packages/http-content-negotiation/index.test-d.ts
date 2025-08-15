@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import httpContentNegotiationMiddleware, { type Event } from "./index.js";
 
 // use with default options
 let middleware = httpContentNegotiationMiddleware();
-expectType<middy.MiddlewareObj<Event>>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
 
 // use with all options
 middleware = httpContentNegotiationMiddleware({
@@ -18,4 +18,4 @@ middleware = httpContentNegotiationMiddleware({
 	availableMediaTypes: ["application/xml", "application/json"],
 	failOnMismatch: true,
 });
-expectType<middy.MiddlewareObj<Event>>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();

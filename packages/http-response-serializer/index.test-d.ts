@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import httpResponseSerializer from "./index.js";
 
 // use with default options
 let middleware = httpResponseSerializer();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = httpResponseSerializer({
@@ -16,4 +16,4 @@ middleware = httpResponseSerializer({
 		},
 	],
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
