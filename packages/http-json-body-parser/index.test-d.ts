@@ -4,22 +4,22 @@ import type {
 	APIGatewayEvent,
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import jsonBodyParser from "./index.js";
 
 // use with default options
 let middleware = jsonBodyParser();
-expectType<
+expect(middleware).type.toBe<
 	middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>
->(middleware);
+>();
 
 // use with all options
 middleware = jsonBodyParser({
 	reviver: (_key: string, value: any) => Boolean(value),
 });
-expectType<
+expect(middleware).type.toBe<
 	middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>
->(middleware);
+>();
 
 const baseEvent: Omit<APIGatewayEvent, "body"> = {
 	headers: {},
@@ -68,7 +68,7 @@ const baseEvent: Omit<APIGatewayEvent, "body"> = {
 middleware = jsonBodyParser();
 const middifiedHandler = middy(() => {}).use(middleware);
 
-middifiedHandler(
+expect(middifiedHandler).type.toBeCallableWith(
 	{
 		...baseEvent,
 		body: "string",
@@ -76,7 +76,7 @@ middifiedHandler(
 	{} as any,
 );
 
-middifiedHandler(
+expect(middifiedHandler).type.toBeCallableWith(
 	{
 		...baseEvent,
 		body: null,
@@ -84,21 +84,22 @@ middifiedHandler(
 	{} as any,
 );
 
-middifiedHandler(
+expect(middifiedHandler).type.not.toBeCallableWith(
 	{
 		...baseEvent,
-		// @ts-expect-error
 		body: {},
 	},
 	{} as any,
-)
-	.then(() => {})
-	.catch(() => {});
+);
 
 // allow specifying the event type
 const apiGatewayV1Middleware = jsonBodyParser<APIGatewayEvent>();
-expectType<middy.MiddlewareObj<APIGatewayEvent>>(apiGatewayV1Middleware);
+expect(apiGatewayV1Middleware).type.toBe<
+	middy.MiddlewareObj<APIGatewayEvent>
+>();
 const apiGatewayV2Middleware = jsonBodyParser<APIGatewayProxyEventV2>();
-expectType<middy.MiddlewareObj<APIGatewayProxyEventV2>>(apiGatewayV2Middleware);
+expect(apiGatewayV2Middleware).type.toBe<
+	middy.MiddlewareObj<APIGatewayProxyEventV2>
+>();
 const albMiddleware = jsonBodyParser<ALBEvent>();
-expectType<middy.MiddlewareObj<ALBEvent>>(albMiddleware);
+expect(albMiddleware).type.toBe<middy.MiddlewareObj<ALBEvent>>();

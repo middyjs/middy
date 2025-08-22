@@ -23,7 +23,7 @@
 		"test:sast:sandworm": "sandworm-audit --skip-all --show-tips false",
 		"test:sast:semgrep": "semgrep scan --config auto",
 		"test:sast:trufflehog": "trufflehog filesystem --only-verified --log-level=-1 ./",
-		"test:types": "ls packages | xargs -I {} tsd packages/{}",
+		"test:types": "tstyche",
 		"test:perf": "node --test ./**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
 		"test:dast:fuzz": "node --test ./**/*.fuzz.js",
@@ -70,7 +70,7 @@
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
 		"tinybench": "^5.0.0",
-		"tsd": "^0.33.0",
+		"tstyche": "^4.3.0",
 		"typescript": "^5.0.0"
 	},
 	"workspaces": [

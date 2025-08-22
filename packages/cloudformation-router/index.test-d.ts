@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
-// import { CloudFormationCustomResourceHandler } from 'aws-lambda'
-import { expectType } from "tsd";
+// import { CloudFormationCustomResourceHandler } from "aws-lambda";
+import { expect } from "tstyche";
 import cloudformationRouterHandler from "./index.js";
 
 const createLambdaHandler: any = async () => {
@@ -25,4 +25,4 @@ const middleware = cloudformationRouterHandler([
 		handler: deleteLambdaHandler,
 	},
 ]);
-expectType<middy.MiddyfiedHandler>(middleware);
+expect(middleware).type.toBe<middy.MiddyfiedHandler>();

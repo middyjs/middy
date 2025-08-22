@@ -4,7 +4,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import s3ObjectResponse, {
 	type Context,
 	type Internal,
@@ -13,7 +13,7 @@ import s3ObjectResponse, {
 
 // use with default options
 let middleware = s3ObjectResponse();
-expectType<
+expect(middleware).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -21,7 +21,7 @@ expectType<
 		Context<S3ObjectResponseOptions<S3Client> | undefined>,
 		Internal
 	>
->(middleware);
+>();
 
 // use with all options
 middleware = s3ObjectResponse({
@@ -29,7 +29,7 @@ middleware = s3ObjectResponse({
 	awsClientCapture: captureAWSv3Client,
 	disablePrefetch: true,
 });
-expectType<
+expect(middleware).type.toBe<
 	middy.MiddlewareObj<
 		unknown,
 		any,
@@ -37,7 +37,7 @@ expectType<
 		Context<S3ObjectResponseOptions<S3Client> | undefined>,
 		Internal
 	>
->(middleware);
+>();
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
@@ -54,14 +54,14 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<ClientRequest>(request.context.s3Object);
-		expectType<Promise<Response>>(request.context.s3ObjectFetch);
+		expect(request.context.s3Object).type.toBe<ClientRequest>();
+		expect(request.context.s3ObjectFetch).type.toBe<Promise<Response>>();
 
 		const data = await getInternal("s3ObjectResponse", request);
-		expectType<{
+		expect(data.s3ObjectResponse).type.toBe<{
 			RequestRoute: string;
 			RequestToken: string;
-		}>(data.s3ObjectResponse);
+		}>();
 	});
 
 // use with bodyType: 'promise'
@@ -75,12 +75,12 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expectType<Promise<any>>(request.context.s3Object);
-		expectType<Promise<Response>>(request.context.s3ObjectFetch);
+		expect(request.context.s3Object).type.toBe<Promise<any>>();
+		expect(request.context.s3ObjectFetch).type.toBe<Promise<Response>>();
 
 		const data = await getInternal("s3ObjectResponse", request);
-		expectType<{
+		expect(data.s3ObjectResponse).type.toBe<{
 			RequestRoute: string;
 			RequestToken: string;
-		}>(data.s3ObjectResponse);
+		}>();
 	});
