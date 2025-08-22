@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import httpSecurityHeaders from "./index.js";
 
 // use with default options
 let middleware = httpSecurityHeaders();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = httpSecurityHeaders({
@@ -64,7 +64,7 @@ middleware = httpSecurityHeaders({
 		xss: "",
 	},
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // allow false options
 middleware = httpSecurityHeaders({
@@ -79,4 +79,4 @@ middleware = httpSecurityHeaders({
 	xssProtection: false,
 });
 
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();

@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import errorLogger from "./index.js";
 
 // use with default options
 let middleware = errorLogger();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = errorLogger({
@@ -12,4 +12,4 @@ middleware = errorLogger({
 		console.log(error);
 	},
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();

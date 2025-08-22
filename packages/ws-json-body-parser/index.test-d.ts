@@ -1,12 +1,12 @@
 import type middy from "@middy/core";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import jsonBodyParser, { type Event } from "./index.js";
 
 // use with default options
-expectType<middy.MiddlewareObj<Event>>(jsonBodyParser());
+expect(jsonBodyParser()).type.toBe<middy.MiddlewareObj<Event>>();
 
 // use with all options
 const options = {
 	reviver: (key: string, value: any) => Boolean(value),
 };
-expectType<middy.MiddlewareObj<Event>>(jsonBodyParser(options));
+expect(jsonBodyParser(options)).type.toBe<middy.MiddlewareObj<Event>>();

@@ -1,12 +1,12 @@
 import { ApiGatewayManagementApiClient } from "@aws-sdk/client-apigatewaymanagementapi";
 import type middy from "@middy/core";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expectType } from "tsd";
+import { expect } from "tstyche";
 import wsResponse from "./index.js";
 
 // use with default options
 let middleware = wsResponse();
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
 
 // use with all options
 middleware = wsResponse({
@@ -14,4 +14,4 @@ middleware = wsResponse({
 	awsClientCapture: captureAWSv3Client,
 	disablePrefetch: true,
 });
-expectType<middy.MiddlewareObj>(middleware);
+expect(middleware).type.toBe<middy.MiddlewareObj>();
