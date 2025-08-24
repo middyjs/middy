@@ -1,18 +1,22 @@
+import cloudformationRouterHandler from "@middy/cloudformation-router";
 import type middy from "@middy/core";
-// import { CloudFormationCustomResourceHandler } from "aws-lambda";
+import type { CloudFormationCustomResourceHandler } from "aws-lambda";
 import { expect } from "tstyche";
-import cloudformationRouterHandler from "./index.js";
 
-const createLambdaHandler: any = async () => {
-	return {
-		Status: "SUCCESS",
-	};
+const createLambdaHandler: CloudFormationCustomResourceHandler = async (
+	_event,
+	_context,
+	_callback,
+) => {
+	// ...
 };
 
-const deleteLambdaHandler: any = async () => {
-	return {
-		Status: "SUCCESS",
-	};
+const deleteLambdaHandler: CloudFormationCustomResourceHandler = async (
+	_event,
+	_context,
+	_callback,
+) => {
+	// ...
 };
 
 const middleware = cloudformationRouterHandler([
