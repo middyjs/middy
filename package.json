@@ -31,7 +31,6 @@
 		"test:packages:fuzz": "node --test ./packages/**/*.fuzz.js",
 		"test:llrt": "cd llrt && npm test",
 		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
-		"rm:coverage": "find . -name 'coverage' -type d -prune -exec rm -rf '{}' +",
 		"rm:lock": "find . -name 'pacakge-lock.json' -type d -prune -exec rm -rf '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "npm update --workspaces && npm install --workspaces",
