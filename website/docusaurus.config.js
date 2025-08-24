@@ -16,7 +16,10 @@ const config = {
 	organizationName: "middyjs",
 	projectName: "middy",
 
-	plugins: [require.resolve("docusaurus-lunr-search")],
+	plugins: [
+		require.resolve("docusaurus-lunr-search"),
+		["docusaurus-plugin-generate-llms-txt", {}],
+	],
 
 	presets: [
 		[
