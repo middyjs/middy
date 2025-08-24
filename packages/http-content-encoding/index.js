@@ -4,32 +4,29 @@ import {
 	createBrotliCompress as brotliCompressStream,
 	createDeflate as deflateCompressStream,
 	createGzip as gzipCompressStream,
+	createZstdCompress as zstdCompressStream,
 } from "node:zlib";
 
 import { normalizeHttpResponse } from "@middy/util";
 
 const contentEncodingStreams = {
 	br: brotliCompressStream,
-	gzip: gzipCompressStream,
 	deflate: deflateCompressStream,
+	gzip: gzipCompressStream,
+	zstd: zstdCompressStream,
 };
 
 const defaults = {
 	br: undefined,
-	// zstd: undefined,
-	gzip: undefined,
 	deflate: undefined,
+	gzip: undefined,
+	zstd: undefined,
 	overridePreferredEncoding: [],
 };
 
 export const getStream = (preferredEncoding) => {
 	return contentEncodingStreams[preferredEncoding]();
 };
-
-/*
- * `zstd` disabled due to lack of support in nodejs
- * https://github.com/andrew-aladev/brotli-vs-zstd
- */
 
 const httpContentEncodingMiddleware = (opts) => {
 	const options = { ...defaults, ...opts };

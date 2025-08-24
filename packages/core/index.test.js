@@ -839,7 +839,6 @@ test("Should throw with streamifyResponse:true using object", async (t) => {
 	try {
 		await handler(event, responseStream, context);
 	} catch (e) {
-		console.log(e);
 		equal(e.message, "handler response not a ReadableStream");
 	}
 });

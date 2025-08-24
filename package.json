@@ -1,11 +1,11 @@
 {
 	"name": "@middy/monorepo",
-	"version": "6.4.4",
+	"version": "7.0.0-alpha.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"scripts": {
@@ -14,7 +14,7 @@
 		"git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
 		"git:commit-msg": "commitlint --config commitlint.config.cjs --edit",
 		"git:lint-staged": "npm run test:lint",
-		"git:test-staged": "node --test",
+		"git:test-staged": "which node && node -v && node --test",
 		"lint": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true",
 		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
 		"test:lint": "biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true",
@@ -65,7 +65,7 @@
 		"@biomejs/biome": "^2.0.0",
 		"@commitlint/cli": "^19.0.0",
 		"@commitlint/config-conventional": "^19.0.0",
-		"@tsconfig/node20": "^20.0.0",
+		"@tsconfig/node22": "^22.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",

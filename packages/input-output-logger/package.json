@@ -4,7 +4,7 @@
 	"description": "Input and output logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {

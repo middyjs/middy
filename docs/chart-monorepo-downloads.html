@@ -1,260 +1,263 @@
 <!DOCTYPE >
 <html lang="en">
-  <head>
-    <title>Monorepo Downloads</title>
-  </head>
-  <body>
-    <div id="table"></div>
-    <canvas id="2024" width="16" height="9"></canvas>
-    <canvas id="2023" width="16" height="9"></canvas>
-    <canvas id="2022" width="16" height="9"></canvas>
-    <canvas id="2021" width="16" height="9"></canvas>
-    <canvas id="2020" width="16" height="9"></canvas>
-    <canvas id="2019" width="16" height="9"></canvas>
-    <canvas id="2018" width="16" height="9"></canvas>
-    <canvas id="2017" width="16" height="9"></canvas>
+    <head>
+        <title>Monorepo Downloads</title>
+    </head>
+    <body>
+        <div id="table"></div>
+        <canvas id="2025" width="16" height="9"></canvas>
+        <canvas id="2024" width="16" height="9"></canvas>
+        <canvas id="2023" width="16" height="9"></canvas>
+        <canvas id="2022" width="16" height="9"></canvas>
+        <canvas id="2021" width="16" height="9"></canvas>
+        <canvas id="2020" width="16" height="9"></canvas>
+        <canvas id="2019" width="16" height="9"></canvas>
+        <canvas id="2018" width="16" height="9"></canvas>
+        <canvas id="2017" width="16" height="9"></canvas>
 
-    <script
-      src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"
-      integrity="sha256-Y26AMvaIfrZ1EQU49pf6H4QzVTrOI8m9wQYKkftBt4s="
-      crossorigin="anonymous"
-    ></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"
-      integrity="sha256-xlxh4PaMDyZ72hWQ7f/37oYI0E2PrBbtzi1yhvnG+/E="
-      crossorigin="anonymous"
-    ></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"
+            integrity="sha256-Y26AMvaIfrZ1EQU49pf6H4QzVTrOI8m9wQYKkftBt4s="
+            crossorigin="anonymous"
+        ></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"
+            integrity="sha256-xlxh4PaMDyZ72hWQ7f/37oYI0E2PrBbtzi1yhvnG+/E="
+            crossorigin="anonymous"
+        ></script>
 
-    <script type="module">
-      //import Chart from 'https://cdnjs.com/libraries/Chart.js'
+        <script type="module">
+            //import Chart from 'https://cdnjs.com/libraries/Chart.js'
 
-      const years = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
-      const pkgs = [
-        '@middy/core', // v1-
-        '@middy/util', // v2-
+            const years = [
+                2017, 2018, 2019, 2020, 2021, 2022, 2023, 20243, 2025,
+            ];
+            const pkgs = [
+                "@middy/core", // v1-
+                "@middy/util", // v2-
 
-        '@middy/appconfig', // v4-
-        '@middy/cloudwatch-metrics', // v2-
-        '@middy/do-not-wait-for-empty-event-loop', // v1-
-        '@middy/dynamodb', // v4-
-        '@middy/error-logger', // v1-
-        '@middy/event-normalizer', // v2-
-        '@middy/http-content-encoding', // v3-
-        '@middy/http-content-negotiation', // v1-
-        '@middy/http-cors', // v1-
-        '@middy/http-error-handler', // v1-
-        '@middy/http-event-normalizer', // v1-
-        '@middy/http-header-normalizer', // v1-
-        '@middy/http-json-body-parser', // v1-
-        '@middy/http-multipart-body-parser', // v1-
-        '@middy/http-partial-response', // v1-
-        '@middy/http-response-serializer', // v1-
-        '@middy/http-router', // v3-
-        '@middy/http-security-headers', // v1-
-        '@middy/http-urlencode-body-parser', // v1-
-        '@middy/http-urlencode-path-parser', // v1-
-        '@middy/input-output-logger', // v1-
-        '@middy/rds-signer', // v2-
-        '@middy/s3', // v4-
-        '@middy/s3-object-response', // v2-
-        '@middy/secrets-manager', // v1-
-        '@middy/service-discovery', // v3-
-        '@middy/sqs-partial-batch-failure', // v1-
-        '@middy/ssm', // v1-
-        '@middy/sts', // v2-
-        '@middy/validator', // v1-
-        '@middy/warmup', // v1-
-        '@middy/ws-json-body-parser', // v3-
-        '@middy/ws-response', // v3-
-        '@middy/ws-router', // v3-
+                "@middy/appconfig", // v4-
+                "@middy/cloudwatch-metrics", // v2-
+                "@middy/do-not-wait-for-empty-event-loop", // v1-
+                "@middy/dynamodb", // v4-
+                "@middy/error-logger", // v1-
+                "@middy/event-normalizer", // v2-
+                "@middy/http-content-encoding", // v3-
+                "@middy/http-content-negotiation", // v1-
+                "@middy/http-cors", // v1-
+                "@middy/http-error-handler", // v1-
+                "@middy/http-event-normalizer", // v1-
+                "@middy/http-header-normalizer", // v1-
+                "@middy/http-json-body-parser", // v1-
+                "@middy/http-multipart-body-parser", // v1-
+                "@middy/http-partial-response", // v1-
+                "@middy/http-response-serializer", // v1-
+                "@middy/http-router", // v3-
+                "@middy/http-security-headers", // v1-
+                "@middy/http-urlencode-body-parser", // v1-
+                "@middy/http-urlencode-path-parser", // v1-
+                "@middy/input-output-logger", // v1-
+                "@middy/rds-signer", // v2-
+                "@middy/s3", // v4-
+                "@middy/s3-object-response", // v2-
+                "@middy/secrets-manager", // v1-
+                "@middy/service-discovery", // v3-
+                "@middy/sqs-partial-batch-failure", // v1-
+                "@middy/ssm", // v1-
+                "@middy/sts", // v2-
+                "@middy/validator", // v1-
+                "@middy/warmup", // v1-
+                "@middy/ws-json-body-parser", // v3-
+                "@middy/ws-response", // v3-
+                "@middy/ws-router", // v3-
 
-        // Deprecated
-        '@middy/cache', // v1
-        '@middy/db-manager', // v1
-        '@middy/function-shield', // v1
+                // Deprecated
+                "@middy/cache", // v1
+                "@middy/db-manager", // v1
+                "@middy/function-shield", // v1
 
-        '@middy/s3-key-normalizer', // v1-2
-        '@middy/sqs-json-body-parser', // v1-2
+                "@middy/s3-key-normalizer", // v1-2
+                "@middy/sqs-json-body-parser", // v1-2
 
-        'middy' // v0
-      ]
-      const colors = {
-        middy: '#003f5c',
-        '@middy/core': '#ffa600'
-      }
-      const pickColor = function (str) {
-        if (colors[str]) return colors[str]
-        let hash = 0
-        for (let i = 0; i < str.length; i++) {
-          hash = str.charCodeAt(i) + ((hash << 5) - hash)
-        }
-        return `hsl(${hash % 360}, 80%, 65%)`
-      }
-
-      const formatNumber = (num) => {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-      }
-
-      const run = async (year) => {
-        const period = `${year}-01-01:${year}-12-31`
-        const dailyStats = {}
-        const weeklyStats = {}
-        const yearlyStats = {}
-        for (const pkg of pkgs) {
-          const pkgColor = pickColor(pkg)
-          // https://github.com/npm/registry/blob/master/docs/download-counts.md
-          yearlyStats[pkg] = await fetch(
-            `https://api.npmjs.org/downloads/point/${period}/${pkg}`
-          )
-            .then((res) => res.json())
-            .then((res) => res.downloads)
-
-          const dailyData = await fetch(
-            `https://api.npmjs.org/downloads/range/${period}/${pkg}`
-          )
-            .then((res) => res.json())
-            .then((res) =>
-              res.downloads.map((point) => ({
-                x: point.day,
-                //x: new Date(point.day),
-                y: point.downloads
-              }))
-            )
-
-          dailyStats[pkg] = {
-            label: pkg,
-            fill: false,
-            borderColor: pkgColor,
-            backgroundColor: pkgColor,
-            data: dailyData
-          }
-          weeklyStats[pkg] = {
-            label: pkg,
-            fill: false,
-            borderColor: pkgColor,
-            backgroundColor: pkgColor,
-            data: []
-          }
-          let sum = 0
-          for (const [idx, dailyStat] of dailyData.entries()) {
-            if ((idx + 1) % 7 === 0) {
-              weeklyStats[pkg].data.push({
-                x: dailyStat.x,
-                y: sum
-              })
-              sum = 0
-            }
-            sum += dailyStat.y
-          }
-        }
-
-        const ctx = document.getElementById(year)
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            datasets: Object.values(weeklyStats)
-          },
-          elements: {},
-          options: {
-            scales: {
-              x: {
-                type: 'time',
-                scaleLabel: {
-                  display: true,
-                  labelString: period.substr(0, 4)
-                },
-                time: {
-                  minUnit: 'day'
+                "middy", // v0
+            ];
+            const colors = {
+                middy: "#003f5c",
+                "@middy/core": "#ffa600",
+            };
+            const pickColor = function (str) {
+                if (colors[str]) return colors[str];
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    hash = str.charCodeAt(i) + ((hash << 5) - hash);
                 }
-              },
-              y: {
-                scaleLabel: {
-                  display: true,
-                  labelString: 'Downloads'
+                return `hsl(${hash % 360}, 80%, 65%)`;
+            };
+
+            const formatNumber = (num) => {
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            };
+
+            const run = async (year) => {
+                const period = `${year}-01-01:${year}-12-31`;
+                const dailyStats = {};
+                const weeklyStats = {};
+                const yearlyStats = {};
+                for (const pkg of pkgs) {
+                    const pkgColor = pickColor(pkg);
+                    // https://github.com/npm/registry/blob/master/docs/download-counts.md
+                    yearlyStats[pkg] = await fetch(
+                        `https://api.npmjs.org/downloads/point/${period}/${pkg}`,
+                    )
+                        .then((res) => res.json())
+                        .then((res) => res.downloads);
+
+                    const dailyData = await fetch(
+                        `https://api.npmjs.org/downloads/range/${period}/${pkg}`,
+                    )
+                        .then((res) => res.json())
+                        .then((res) =>
+                            res.downloads.map((point) => ({
+                                x: point.day,
+                                //x: new Date(point.day),
+                                y: point.downloads,
+                            })),
+                        );
+
+                    dailyStats[pkg] = {
+                        label: pkg,
+                        fill: false,
+                        borderColor: pkgColor,
+                        backgroundColor: pkgColor,
+                        data: dailyData,
+                    };
+                    weeklyStats[pkg] = {
+                        label: pkg,
+                        fill: false,
+                        borderColor: pkgColor,
+                        backgroundColor: pkgColor,
+                        data: [],
+                    };
+                    let sum = 0;
+                    for (const [idx, dailyStat] of dailyData.entries()) {
+                        if ((idx + 1) % 7 === 0) {
+                            weeklyStats[pkg].data.push({
+                                x: dailyStat.x,
+                                y: sum,
+                            });
+                            sum = 0;
+                        }
+                        sum += dailyStat.y;
+                    }
                 }
-              }
-            },
-            layout: {
-              padding: {
-                left: 10,
-                right: 25,
-                top: 10,
-                bottom: 10
-              }
-            },
-            cubicInterpolationMode: 'monotone',
-            spanGaps: true,
-            plugins: {
-              tooltip: {
-                mode: 'index'
-              }
+
+                const ctx = document.getElementById(year);
+                new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        datasets: Object.values(weeklyStats),
+                    },
+                    elements: {},
+                    options: {
+                        scales: {
+                            x: {
+                                type: "time",
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: period.substr(0, 4),
+                                },
+                                time: {
+                                    minUnit: "day",
+                                },
+                            },
+                            y: {
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: "Downloads",
+                                },
+                            },
+                        },
+                        layout: {
+                            padding: {
+                                left: 10,
+                                right: 25,
+                                top: 10,
+                                bottom: 10,
+                            },
+                        },
+                        cubicInterpolationMode: "monotone",
+                        spanGaps: true,
+                        plugins: {
+                            tooltip: {
+                                mode: "index",
+                            },
+                        },
+                    },
+                });
+
+                return yearlyStats;
+            };
+
+            const table = document.createElement("table");
+            let thead = document.createElement("thead");
+
+            const thead_tr = document.createElement("tr");
+            const th = document.createElement("th");
+            th.innerHTML = "Package";
+            thead_tr.appendChild(th);
+
+            const tbody_tr = {};
+            for (const pkg of pkgs) {
+                tbody_tr[pkg] = document.createElement("tr");
+                const td = document.createElement("th");
+                td.innerHTML = pkg; // TODO link?
+                tbody_tr[pkg].appendChild(td);
             }
-          }
-        })
+            thead.appendChild(thead_tr);
+            table.appendChild(thead);
 
-        return yearlyStats
-      }
+            const totals = {};
+            let tbody = document.createElement("tbody");
+            for (const year of years) {
+                const stats = await run(year);
 
-      const table = document.createElement('table')
-      let thead = document.createElement('thead')
+                const th = document.createElement("th");
+                th.innerHTML = year;
+                thead_tr.appendChild(th);
+                for (const pkg of pkgs) {
+                    const td = document.createElement("td");
+                    td.innerHTML = formatNumber(stats[pkg]);
+                    tbody_tr[pkg].appendChild(td);
+                }
 
-      const thead_tr = document.createElement('tr')
-      const th = document.createElement('th')
-      th.innerHTML = 'Package'
-      thead_tr.appendChild(th)
+                totals[year] = stats["middy"] + stats["@middy/core"];
+                console.log("Total", year, formatNumber(totals[year]));
+            }
+            for (const pkg of pkgs) {
+                tbody.appendChild(tbody_tr[pkg]);
+            }
 
-      const tbody_tr = {}
-      for (const pkg of pkgs) {
-        tbody_tr[pkg] = document.createElement('tr')
-        const td = document.createElement('th')
-        td.innerHTML = pkg // TODO link?
-        tbody_tr[pkg].appendChild(td)
-      }
-      thead.appendChild(thead_tr)
-      table.appendChild(thead)
+            table.appendChild(tbody);
+            document.getElementById("table").appendChild(table);
 
-      const totals = {}
-      let tbody = document.createElement('tbody')
-      for (const year of years) {
-        const stats = await run(year)
-
-        const th = document.createElement('th')
-        th.innerHTML = year
-        thead_tr.appendChild(th)
-        for (const pkg of pkgs) {
-          const td = document.createElement('td')
-          td.innerHTML = formatNumber(stats[pkg])
-          tbody_tr[pkg].appendChild(td)
-        }
-
-        totals[year] = stats['middy'] + stats['@middy/core']
-        console.log('Total', year, formatNumber(totals[year]))
-      }
-      for (const pkg of pkgs) {
-        tbody.appendChild(tbody_tr[pkg])
-      }
-
-      table.appendChild(tbody)
-      document.getElementById('table').appendChild(table)
-
-      console.log({ totals })
-      const totalToDate = Object.values(totals).reduce(
-        (sum, value) => sum + value,
-        0
-      )
-      console.log('Total to date', formatNumber(totalToDate))
-    </script>
-    <style>
-      td {
-        text-align: right;
-      }
-      th {
-        text-align: left;
-      }
-      canvas {
-        width: 90%;
-        height: 90%;
-      }
-    </style>
-  </body>
+            console.log({ totals });
+            const totalToDate = Object.values(totals).reduce(
+                (sum, value) => sum + value,
+                0,
+            );
+            console.log("Total to date", formatNumber(totalToDate));
+        </script>
+        <style>
+            td {
+                text-align: right;
+            }
+            th {
+                text-align: left;
+            }
+            canvas {
+                width: 90%;
+                height: 90%;
+            }
+        </style>
+    </body>
 </html>

@@ -4,7 +4,7 @@
 	"description": "Parse and normalize AWS events middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {
