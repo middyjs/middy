@@ -163,9 +163,7 @@ declare type MiddlewareHandler<
 	TContext extends LambdaContext = LambdaContext,
 	TResult = any,
 	TEvent = any,
-> = THandler extends LambdaHandler<TEvent, TResult> // always true
-	? MiddyInputHandler<TEvent, TResult, TContext>
-	: never;
+> = MiddyInputHandler<TEvent, TResult, TContext>;
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
