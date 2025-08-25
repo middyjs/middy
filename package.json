@@ -62,7 +62,7 @@
 	},
 	"homepage": "https://middy.js.org",
 	"devDependencies": {
-		"@biomejs/biome": "^2.0.0",
+		"@biomejs/biome": "^2.2.2",
 		"@commitlint/cli": "^19.0.0",
 		"@commitlint/config-conventional": "^19.0.0",
 		"@tsconfig/node20": "^20.0.0",
