@@ -19,6 +19,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
+- [middy-standard-schema](https://github.com/flubber2077/middy-standard-schema): Standard Schema based validator, e.g., Zod, Arktype, Valibot, Joi, Yup
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-store](https://github.com/zirkelc/middy-store): Middleware to automatically store and load payloads from S3 in an AWS Step Functions state machine
 - [middy-mcp](https://github.com/fredericbarthelet/middy-mcp): Middleware for Model Context Protocol (MCP) server integration with AWS Lambda functions
