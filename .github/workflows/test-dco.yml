@@ -12,4 +12,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check for Developer Certificate of Origin (DCO) compiance
-        uses: KineticCafe/actions-dco@fb284c903a7673a3d4b0bdd104479a6f0d46dae7 # v1.3.6
+        uses: KineticCafe/actions-dco@1c23966ecce077f76671a61caabeb13eefc72a51 # v1.3.8

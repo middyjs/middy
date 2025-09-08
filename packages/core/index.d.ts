@@ -140,9 +140,13 @@ declare type UseFn<
 	TErr = Error,
 	TContext extends LambdaContext = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
-> = <TMiddleware extends MiddlewareObj<any, any, Error, any, any>>(
-	middlewares: TMiddleware | TMiddleware[],
-) => TMiddleware extends MiddlewareObj<
+> = <
+	TMiddlewares extends
+		| MiddlewareObj<any, any, Error, any, any>
+		| MiddlewareObj<any, any, Error, any, any>[],
+>(
+	middlewares: TMiddlewares,
+) => TMiddlewares extends MiddlewareObj<
 	infer TMiddlewareEvent,
 	any,
 	Error,
@@ -155,8 +159,22 @@ declare type UseFn<
 			TErr,
 			TMiddlewareContext & TContext,
 			TMiddlewareInternal & TInternal
-		> // always true
-	: never;
+		>
+	: TMiddlewares extends MiddlewareObj<
+				infer TMiddlewareEvent,
+				any,
+				Error,
+				infer TMiddlewareContext,
+				infer TMiddlewareInternal
+			>[]
+		? MiddyfiedHandler<
+				TEvent & TMiddlewareEvent,
+				TResult,
+				TErr,
+				TContext & TMiddlewareContext,
+				TInternal & TMiddlewareInternal
+			>
+		: never;
 
 declare type MiddlewareHandler<
 	THandler extends LambdaHandler<any, any>,
