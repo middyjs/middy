@@ -553,3 +553,17 @@ middy<unknown, string>()
 // @ts-expect-error!
 const s3MiddyHandler = middy().handler(s3Handler);
 expect(s3MiddyHandler).type.toBe<middy.MiddyfiedHandler<unknown, any>>();
+
+// Issue #1289 .use() does not intersect Typescript types appropriately for an array of middleware
+const middleware1 = { before: (req: middy.Request<{ foo: string }>) => {} };
+const middleware2 = { before: (req: middy.Request<{ bar: string }>) => {} };
+const handlerWithCombinedEvent = middy(lambdaHandler).use([
+	middleware1,
+	middleware2,
+]);
+expect(handlerWithCombinedEvent).type.toBe<
+	middy.MiddyfiedHandler<
+		APIGatewayProxyEvent & { foo: string } & { bar: string },
+		APIGatewayProxyResult
+	>
+>();
