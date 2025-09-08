@@ -5,9 +5,10 @@
 	"main": "index.js",
 	"scripts": {
 		"build": "esbuild index.js --platform=node --target=es2020 --format=esm --bundle --minify --external:@aws-sdk --external:@smithy --external:uuid --outfile=index.mjs",
-		"test": "npm run build && ./llrt index.mjs",
-		"download:ci": "curl -L https://github.com/awslabs/llrt/releases/download/v0.1.14-beta/llrt-linux-x64.zip | bsdtar -xvf - -C ./ && chmod +x llrt",
-		"download:macos": "curl -L https://github.com/awslabs/llrt/releases/download/v0.1.14-beta/llrt-darwin-arm64.zip | bsdtar -xvf - -C ./ && chmod +x llrt"
+		"test": "npm run build && npm run test:llrt",
+		"test:llrt": "./llrt index.mjs",
+		"download:ci": "curl -L https://github.com/awslabs/llrt/releases/download/v0.6.12-beta/llrt-linux-x64.zip | bsdtar -xvf - -C ./ && chmod +x llrt",
+		"download:macos": "curl -L https://github.com/awslabs/llrt/releases/download/v0.6.2-beta/llrt-darwin-arm64.zip | bsdtar -xvf - -C ./ && chmod +x llrt"
 	},
 	"author": "",
 	"license": "MIT",
