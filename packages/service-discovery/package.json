@@ -67,7 +67,7 @@
 		"@middy/util": "6.4.4"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-servicediscovery": "^3.0.0",
+		"@aws-sdk/client-servicediscovery": "^3.883.0",
 		"@middy/core": "6.4.4",
 		"@types/aws-lambda": "^8.10.101",
 		"aws-xray-sdk": "^3.3.3"
