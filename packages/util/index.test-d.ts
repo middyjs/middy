@@ -5,7 +5,7 @@ import type {
 	APIGatewayProxyResult,
 	Context as LambdaContext,
 } from "aws-lambda";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import * as util from "./index.js";
 
 type TInternal = {
@@ -104,136 +104,158 @@ const sampleRequest: middy.Request<
 	},
 };
 
-const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
-	AwsClient: SSMClient,
+test("createPrefetchClient", () => {
+	const prefetchClient = util.createPrefetchClient<SSMClient, {}>({
+		AwsClient: SSMClient,
+	});
+	expect(prefetchClient).type.toBe<SSMClient>();
 });
-expect(prefetchClient).type.toBe<SSMClient>();
 
-const client = util.createClient<SSMClient, {}>(
-	{ AwsClient: SSMClient },
-	sampleRequest,
-);
-expect(client).type.toBe<Promise<SSMClient>>();
-
-const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient });
-expect(canPrefetch).type.toBe<boolean>();
-
-// getInternal should get none from internal store
-async function testGetInternalNone(): Promise<{}> {
-	const result = await util.getInternal(false, sampleRequest);
-	expect(result).type.toBe<{}>();
-	return result;
-}
-expect(testGetInternalNone()).type.toBe<Promise<{}>>();
-
-// getInternal should get all from internal store
-interface DeepAwaitedTInternal {
-	boolean: true;
-	number: 1;
-	string: "string";
-	array: [];
-	object: {
-		key: "value";
-	};
-	promise: string; // this was Promise<string> in TInternal;
-	promiseObject: {
-		// this was Promise<{key: "value"}> in TInternal
-		key: "value";
-	};
-}
-async function testGetAllInternal(): Promise<DeepAwaitedTInternal> {
-	const result = await util.getInternal(true, sampleRequest);
-	expect(result).type.toBe<DeepAwaitedTInternal>();
-	return result;
-}
-expect(testGetAllInternal()).type.toBe<Promise<DeepAwaitedTInternal>>();
-
-// getInternal should get from internal store when string
-async function testGetInternalField(): Promise<{ number: 1 }> {
-	const result = await util.getInternal("number", sampleRequest);
-	expect(result).type.toBe<{ number: 1 }>();
-	return result;
-}
-expect(testGetInternalField()).type.toBe<Promise<{ number: 1 }>>();
-
-// getInternal should get from internal store when array[string]
-async function testGetInternalFields(): Promise<{
-	boolean: true;
-	string: "string";
-	promiseObject_key: "value";
-}> {
-	const result = await util.getInternal(
-		["boolean", "string", "promiseObject.key"],
+test("createClient", () => {
+	const client = util.createClient<SSMClient, {}>(
+		{ AwsClient: SSMClient },
 		sampleRequest,
 	);
-	expect(result).type.toBe<{
+	expect(client).type.toBe<Promise<SSMClient>>();
+});
+
+test("canPrefetch", () => {
+	const canPrefetch = util.canPrefetch<SSMClient, {}>({ AwsClient: SSMClient });
+	expect(canPrefetch).type.toBe<boolean>();
+});
+
+test("getInternal should get none from internal store", () => {
+	async function testGetInternalNone(): Promise<{}> {
+		const result = await util.getInternal(false, sampleRequest);
+		expect(result).type.toBe<{}>();
+		return result;
+	}
+	expect(testGetInternalNone()).type.toBe<Promise<{}>>();
+});
+
+test("getInternal should get all from internal store", () => {
+	interface DeepAwaitedTInternal {
+		boolean: true;
+		number: 1;
+		string: "string";
+		array: [];
+		object: {
+			key: "value";
+		};
+		promise: string; // this was Promise<string> in TInternal;
+		promiseObject: {
+			// this was Promise<{key: "value"}> in TInternal
+			key: "value";
+		};
+	}
+	async function testGetAllInternal(): Promise<DeepAwaitedTInternal> {
+		const result = await util.getInternal(true, sampleRequest);
+		expect(result).type.toBe<DeepAwaitedTInternal>();
+		return result;
+	}
+	expect(testGetAllInternal()).type.toBe<Promise<DeepAwaitedTInternal>>();
+});
+
+test("getInternal should get from internal store when string", () => {
+	async function testGetInternalField(): Promise<{ number: 1 }> {
+		const result = await util.getInternal("number", sampleRequest);
+		expect(result).type.toBe<{ number: 1 }>();
+		return result;
+	}
+	expect(testGetInternalField()).type.toBe<Promise<{ number: 1 }>>();
+});
+
+test("getInternal should get from internal store when array[string]", () => {
+	async function testGetInternalFields(): Promise<{
 		boolean: true;
 		string: "string";
 		promiseObject_key: "value";
-	}>();
-	return result;
-}
-expect(testGetInternalFields()).type.toBe<
-	Promise<{ boolean: true; string: "string"; promiseObject_key: "value" }>
->();
+	}> {
+		const result = await util.getInternal(
+			["boolean", "string", "promiseObject.key"],
+			sampleRequest,
+		);
+		expect(result).type.toBe<{
+			boolean: true;
+			string: "string";
+			promiseObject_key: "value";
+		}>();
+		return result;
+	}
+	expect(testGetInternalFields()).type.toBe<
+		Promise<{ boolean: true; string: "string"; promiseObject_key: "value" }>
+	>();
+});
 
-// getInternal should get from internal store when object
-async function testGetAndRemapInternal(): Promise<{
-	newKey: string;
-	newKey2: "value";
-}> {
-	const result = await util.getInternal(
-		{ newKey: "promise", newKey2: "promiseObject.key" },
+test("getInternal should get from internal store when object", () => {
+	async function testGetAndRemapInternal(): Promise<{
+		newKey: string;
+		newKey2: "value";
+	}> {
+		const result = await util.getInternal(
+			{ newKey: "promise", newKey2: "promiseObject.key" },
+			sampleRequest,
+		);
+		expect(result).type.toBe<{ newKey: string; newKey2: "value" }>();
+		return result;
+	}
+	expect(testGetAndRemapInternal()).type.toBe<
+		Promise<{ newKey: string; newKey2: "value" }>
+	>();
+});
+
+test("getInternal should get from internal store a nested value", () => {
+	async function testGetInternalNested(): Promise<{
+		promiseObject_key: "value";
+	}> {
+		const result = await util.getInternal("promiseObject.key", sampleRequest);
+		expect(result).type.toBe<{ promiseObject_key: "value" }>();
+		return result;
+	}
+	expect(testGetInternalNested()).type.toBe<
+		Promise<{ promiseObject_key: "value" }>
+	>();
+});
+
+test("sanitizeKey", () => {
+	expect(util.sanitizeKey("0key")).type.toBe<"_0key">();
+	expect(
+		util.sanitizeKey("api//secret-key0.pem"),
+	).type.toBe<"api_secret_key0_pem">();
+});
+
+test("processCache", () => {
+	const { value, expiry } = util.processCache<SSMClient, {}>(
+		{},
+		(request) => request,
 		sampleRequest,
 	);
-	expect(result).type.toBe<{ newKey: string; newKey2: "value" }>();
-	return result;
-}
-expect(testGetAndRemapInternal()).type.toBe<
-	Promise<{ newKey: string; newKey2: "value" }>
->();
+	expect(value).type.toBe<any>();
+	expect(expiry).type.toBe<number>();
+});
 
-// getInternal should get from internal store a nested value
-async function testGetInternalNested(): Promise<{
-	promiseObject_key: "value";
-}> {
-	const result = await util.getInternal("promiseObject.key", sampleRequest);
-	expect(result).type.toBe<{ promiseObject_key: "value" }>();
-	return result;
-}
-expect(testGetInternalNested()).type.toBe<
-	Promise<{ promiseObject_key: "value" }>
->();
+test("getCache", () => {
+	const cachedValue = util.getCache("someKey");
+	expect(cachedValue).type.toBe<any>();
 
-// sanitizeKey
-expect(util.sanitizeKey("0key")).type.toBe<"_0key">();
-expect(
-	util.sanitizeKey("api//secret-key0.pem"),
-).type.toBe<"api_secret_key0_pem">();
+	util.clearCache(["someKey", "someOtherKey"]);
+	util.clearCache("someKey");
+	util.clearCache(null);
+	util.clearCache();
+});
 
-const { value, expiry } = util.processCache<SSMClient, {}>(
-	{},
-	(request) => request,
-	sampleRequest,
-);
-expect(value).type.toBe<any>();
-expect(expiry).type.toBe<number>();
+test("jsonSafeParse", () => {
+	const parsed = util.jsonSafeParse('{"foo":"bar"}', (k, v) => v);
+	expect(parsed).type.toBe<any>();
+});
 
-const cachedValue = util.getCache("someKey");
-expect(cachedValue).type.toBe<any>();
+test("normalizeHttpResponse", () => {
+	const normalizedResponse = util.normalizeHttpResponse({}, {});
+	expect(normalizedResponse).type.toBe<any>();
+});
 
-util.clearCache(["someKey", "someOtherKey"]);
-util.clearCache("someKey");
-util.clearCache(null);
-util.clearCache();
-
-const parsed = util.jsonSafeParse('{"foo":"bar"}', (k, v) => v);
-expect(parsed).type.toBe<any>();
-
-const normalizedResponse = util.normalizeHttpResponse({}, {});
-expect(normalizedResponse).type.toBe<any>();
-
-// should be able to use HttpError as a proper class
-const err = util.createError(500, "An unexpected error occurred");
-expect(err).type.toBe<util.HttpError>();
-// err instanceof util.HttpError // would throw a type error if not a class
+test("createError", () => {
+	const err = util.createError(500, "An unexpected error occurred");
+	expect(err).type.toBe<util.HttpError>();
+	// err instanceof util.HttpError // would throw a type error if not a class
+});

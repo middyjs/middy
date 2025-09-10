@@ -1,15 +1,17 @@
 import type middy from "@middy/core";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import errorLogger from "./index.js";
 
-// use with default options
-let middleware = errorLogger();
-expect(middleware).type.toBe<middy.MiddlewareObj>();
-
-// use with all options
-middleware = errorLogger({
-	logger: ({ error }) => {
-		console.log(error);
-	},
+test("use with default options", () => {
+	const middleware = errorLogger();
+	expect(middleware).type.toBe<middy.MiddlewareObj>();
 });
-expect(middleware).type.toBe<middy.MiddlewareObj>();
+
+test("use with all options", () => {
+	const middleware = errorLogger({
+		logger: ({ error }) => {
+			console.log(error);
+		},
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj>();
+});

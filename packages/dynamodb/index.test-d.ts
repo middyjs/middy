@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import dynamodb, { type Context, dynamoDbReq } from "./index.js";
 
 const options = {
@@ -23,67 +23,71 @@ const options = {
 	setToContext: false,
 } as const;
 
-// use with default options
-expect(dynamodb()).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
->();
+test("use with default options", () => {
+	expect(dynamodb()).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+	>();
+});
 
-// use with all options
-expect(dynamodb(options)).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
->();
+test("use with all options", () => {
+	expect(dynamodb(options)).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+	>();
+});
 
-// use with setToContext: true
-expect(
-	dynamodb({
-		...options,
-		fetchData: {
-			configurationObjFromDynamo: {
-				TableName: "someConfigTableName",
-				Key: {
-					pk: {
-						S: "someConfigItemPrimaryKey",
+test("use with setToContext: true", () => {
+	expect(
+		dynamodb({
+			...options,
+			fetchData: {
+				configurationObjFromDynamo: {
+					TableName: "someConfigTableName",
+					Key: {
+						pk: {
+							S: "someConfigItemPrimaryKey",
+						},
 					},
 				},
 			},
-		},
-		setToContext: true,
-	}),
-).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext & { configurationObjFromDynamo: Record<string, any> },
-		{ configurationObjFromDynamo: Record<string, any> }
-	>
->();
+			setToContext: true,
+		}),
+	).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			LambdaContext & { configurationObjFromDynamo: Record<string, any> },
+			{ configurationObjFromDynamo: Record<string, any> }
+		>
+	>();
+});
 
-// use with setToContext: false
-expect(
-	dynamodb({
-		...options,
-		fetchData: {
-			configurationObjFromDynamo: {
-				TableName: "someConfigTableName",
-				Key: {
-					pk: {
-						S: "someConfigItemPrimaryKey",
+test("use with setToContext: false", () => {
+	expect(
+		dynamodb({
+			...options,
+			fetchData: {
+				configurationObjFromDynamo: {
+					TableName: "someConfigTableName",
+					Key: {
+						pk: {
+							S: "someConfigItemPrimaryKey",
+						},
 					},
 				},
 			},
-		},
-		setToContext: false,
-	}),
-).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext,
-		{ configurationObjFromDynamo: Record<string, any> }
-	>
->();
+			setToContext: false,
+		}),
+	).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			LambdaContext,
+			{ configurationObjFromDynamo: Record<string, any> }
+		>
+	>();
+});
 
 expect(dynamodb).type.not.toBeCallableWith({
 	...options,

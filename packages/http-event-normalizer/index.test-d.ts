@@ -1,11 +1,13 @@
 import type middy from "@middy/core";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import httpEventNormalizer, { type Event } from "./index.js";
 
-// use with default options
-let middleware = httpEventNormalizer();
-expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+test("use with default options", () => {
+	const middleware = httpEventNormalizer();
+	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+});
 
-// use with all options
-middleware = httpEventNormalizer();
-expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+test("use with all options", () => {
+	const middleware = httpEventNormalizer();
+	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+});
