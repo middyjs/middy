@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import s3, { type Context, s3Req } from "./index.js";
 
 const options = {
@@ -29,37 +29,40 @@ const options = {
 	setToContext: false,
 };
 
-// use with default options
-expect(s3()).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
->();
+test("use with default options", () => {
+	expect(s3()).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+	>();
+});
 
-// use with all options
-expect(s3(options)).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		Context<typeof options>,
-		{ someS3Object: unknown }
-	>
->();
+test("use with all options", () => {
+	expect(s3(options)).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			Context<typeof options>,
+			{ someS3Object: unknown }
+		>
+	>();
+});
 
-// use with setToContext: true
-expect(
-	s3({
-		...options,
-		setToContext: true,
-	}),
-).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		Context<typeof options> & { someS3Object: unknown },
-		{ someS3Object: unknown }
-	>
->();
+test("use with setToContext: true", () => {
+	expect(
+		s3({
+			...options,
+			setToContext: true,
+		}),
+	).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			Context<typeof options> & { someS3Object: unknown },
+			{ someS3Object: unknown }
+		>
+	>();
+});
 
 expect(s3).type.not.toBeCallableWith({
 	...options,

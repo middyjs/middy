@@ -3,7 +3,7 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import appConfig, { appConfigReq, type Context } from "./index.js";
 
 const options = {
@@ -23,61 +23,65 @@ const options = {
 	setToContext: false,
 };
 
-// use with default options
-expect(appConfig()).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, LambdaContext>
->();
+test("use with default options", () => {
+	expect(appConfig()).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, LambdaContext>
+	>();
+});
 
-// use with all options
-expect(appConfig(options)).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
->();
+test("use with all options", () => {
+	expect(appConfig(options)).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+	>();
+});
 
-// use with setToContext: false
-expect(
-	appConfig({
-		...options,
-		fetchData: {
-			config: {
-				ApplicationIdentifier: "app",
-				ConfigurationProfileIdentifier: "configId",
-				EnvironmentIdentifier: "development",
+test("use with setToContext: false", () => {
+	expect(
+		appConfig({
+			...options,
+			fetchData: {
+				config: {
+					ApplicationIdentifier: "app",
+					ConfigurationProfileIdentifier: "configId",
+					EnvironmentIdentifier: "development",
+				},
 			},
-		},
-		setToContext: false,
-	}),
-).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext,
-		Record<"config", unknown>
-	>
->();
+			setToContext: false,
+		}),
+	).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			LambdaContext,
+			Record<"config", unknown>
+		>
+	>();
+});
 
-// use with setToContext: true
-expect(
-	appConfig({
-		...options,
-		fetchData: {
-			config: {
-				ApplicationIdentifier: "app",
-				ConfigurationProfileIdentifier: "configId",
-				EnvironmentIdentifier: "development",
+test("use with setToContext: true", () => {
+	expect(
+		appConfig({
+			...options,
+			fetchData: {
+				config: {
+					ApplicationIdentifier: "app",
+					ConfigurationProfileIdentifier: "configId",
+					EnvironmentIdentifier: "development",
+				},
 			},
-		},
-		setToContext: true,
-	}),
-).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		LambdaContext & Record<"config", unknown>,
-		Record<"config", unknown>
-	>
->();
+			setToContext: true,
+		}),
+	).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			LambdaContext & Record<"config", unknown>,
+			Record<"config", unknown>
+		>
+	>();
+});
 
 expect(appConfig).type.not.toBeCallableWith({
 	...options,

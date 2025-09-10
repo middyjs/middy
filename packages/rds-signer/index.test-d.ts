@@ -2,12 +2,13 @@ import { Signer } from "@aws-sdk/rds-signer";
 import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import rdsSigner from "./index.js";
 
-// use with default options
-const middleware = rdsSigner();
-expect(middleware).type.toBe<middy.MiddlewareObj>();
+test("use with default options", () => {
+	const middleware = rdsSigner();
+	expect(middleware).type.toBe<middy.MiddlewareObj>();
+});
 
 const options = {
 	AwsClient: Signer,
@@ -32,42 +33,46 @@ const options = {
 	setToContext: true,
 };
 
-// use with no options
-expect(rdsSigner()).type.toBe<middy.MiddlewareObj>();
+test("use with no options", () => {
+	expect(rdsSigner()).type.toBe<middy.MiddlewareObj>();
+});
 
-// use with all options
-expect(rdsSigner(options)).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, LambdaContext, { foo: string }>
->();
+test("use with all options", () => {
+	expect(rdsSigner(options)).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, LambdaContext, { foo: string }>
+	>();
+});
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
 });
 
-// use with setToContext: true
-handler
-	.use(
-		rdsSigner({
-			...options,
-			setToContext: true,
-		}),
-	)
-	.before(async (request) => {
-		expect(request.context.foo).type.toBe<string>();
+test("use with setToContext: true", () => {
+	handler
+		.use(
+			rdsSigner({
+				...options,
+				setToContext: true,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.foo).type.toBe<string>();
 
-		const data = await getInternal("foo", request);
-		expect(data.foo).type.toBe<string>();
-	});
+			const data = await getInternal("foo", request);
+			expect(data.foo).type.toBe<string>();
+		});
+});
 
-// use with setToContext: false
-handler
-	.use(
-		rdsSigner({
-			...options,
-			setToContext: false,
-		}),
-	)
-	.before(async (request) => {
-		const data = await getInternal("foo", request);
-		expect(data.foo).type.toBe<string>();
-	});
+test("use with setToContext: false", () => {
+	handler
+		.use(
+			rdsSigner({
+				...options,
+				setToContext: false,
+			}),
+		)
+		.before(async (request) => {
+			const data = await getInternal("foo", request);
+			expect(data.foo).type.toBe<string>();
+		});
+});

@@ -3,13 +3,14 @@ import middy from "@middy/core";
 import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import secretsManager, { type Context, secret } from "./index.js";
 
-// use with default options
-expect(secretsManager()).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
->();
+test("use with default options", () => {
+	expect(secretsManager()).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+	>();
+});
 
 const options = {
 	AwsClient: SecretsManagerClient,
@@ -29,91 +30,91 @@ const options = {
 	setToContext: true,
 };
 
-// use with default options
-expect(secretsManager()).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context<undefined>, {}>
->();
-
-// use with all options
-expect(secretsManager(options)).type.toBe<
-	middy.MiddlewareObj<
-		unknown,
-		any,
-		Error,
-		Context<typeof options>,
-		{ foo: unknown }
-	>
->();
+test("use with all options", () => {
+	expect(secretsManager(options)).type.toBe<
+		middy.MiddlewareObj<
+			unknown,
+			any,
+			Error,
+			Context<typeof options>,
+			{ foo: unknown }
+		>
+	>();
+});
 
 const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
 });
 
-// setToContext: true
-handler
-	.use(
-		secretsManager({
-			...options,
-			setToContext: true,
-		}),
-	)
-	.before(async (request) => {
-		expect(request.context.foo).type.toBe<unknown>();
+test("setToContext: true", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				setToContext: true,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.foo).type.toBe<unknown>();
 
-		const data = await getInternal("foo", request);
-		expect(data.foo).type.toBe<unknown>();
-	});
+			const data = await getInternal("foo", request);
+			expect(data.foo).type.toBe<unknown>();
+		});
+});
 
-// setToContext: false
-handler
-	.use(
-		secretsManager({
-			...options,
-			setToContext: false,
-		}),
-	)
-	.before(async (request) => {
-		const data = await getInternal("foo", request);
-		expect(data.foo).type.toBe<unknown>();
-	});
+test("setToContext: false", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				setToContext: false,
+			}),
+		)
+		.before(async (request) => {
+			const data = await getInternal("foo", request);
+			expect(data.foo).type.toBe<unknown>();
+		});
+});
 
-// setToContext: true, use return type hint function
-handler
-	.use(
-		secretsManager({
-			...options,
-			fetchData: {
-				someSecret: secret<{ User: string; Password: string }>(
-					"someHiddenSecret",
-				),
-			},
-			setToContext: true,
-		}),
-	)
-	.before(async (request) => {
-		expect(request.context.someSecret).type.toBe<{
-			User: string;
-			Password: string;
-		}>();
+test("setToContext: true, use return type hint function", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				fetchData: {
+					someSecret: secret<{ User: string; Password: string }>(
+						"someHiddenSecret",
+					),
+				},
+				setToContext: true,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.someSecret).type.toBe<{
+				User: string;
+				Password: string;
+			}>();
 
-		const data = await getInternal("someSecret", request);
-		expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
-	});
+			const data = await getInternal("someSecret", request);
+			expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
+		});
+});
 
-// setToContext: false, use return type hint function
-handler
-	.use(
-		secretsManager({
-			...options,
-			fetchData: {
-				someSecret: secret<{ User: string; Password: string }>(
-					"someHiddenSecret",
-				),
-			},
-			setToContext: false,
-		}),
-	)
-	.before(async (request) => {
-		const data = await getInternal("someSecret", request);
-		expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
-	});
+test("setToContext: false, use return type hint function", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				fetchData: {
+					someSecret: secret<{ User: string; Password: string }>(
+						"someHiddenSecret",
+					),
+				},
+				setToContext: false,
+			}),
+		)
+		.before(async (request) => {
+			const data = await getInternal("someSecret", request);
+			expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
+		});
+});
