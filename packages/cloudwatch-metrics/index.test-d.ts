@@ -1,18 +1,20 @@
 import type middy from "@middy/core";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import cloudwatchMetrics, { type Context } from "./index.js";
 
-// use with default options
-let middleware = cloudwatchMetrics();
-expect(middleware).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context>
->();
-
-// use with all options
-middleware = cloudwatchMetrics({
-	namespace: "myApp",
-	dimensions: [{ Action: "Buy" }],
+test("use with default options", () => {
+	const middleware = cloudwatchMetrics();
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context>
+	>();
 });
-expect(middleware).type.toBe<
-	middy.MiddlewareObj<unknown, any, Error, Context>
->();
+
+test("use with all options", () => {
+	const middleware = cloudwatchMetrics({
+		namespace: "myApp",
+		dimensions: [{ Action: "Buy" }],
+	});
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<unknown, any, Error, Context>
+	>();
+});

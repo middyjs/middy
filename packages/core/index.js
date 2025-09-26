@@ -84,7 +84,12 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 					}
 
 					if (!handlerStream) {
-						throw new Error("handler response not a ReadableStream");
+						throw new Error(
+							"handler response not a Readable or ReadableStream",
+							{
+								cause: { package: "@middy/core" },
+							},
+						);
 					}
 
 					await pipeline(handlerStream, responseStream);
@@ -121,6 +126,9 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 			} else {
 				throw new Error(
 					'Middleware must be an object containing at least one key among "before", "after", "onError"',
+					{
+						cause: { package: "@middy/core" },
+					},
 				);
 			}
 		}
