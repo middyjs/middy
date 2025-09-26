@@ -27,6 +27,7 @@ NOTES:
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 - `pathParameters` will automatically be set if not already set
 - Path parameters in kebab notation (`{my-var}`) are not supported. Workaround example below.
+- Static routes (those without `{var}`) are evaluated first, follow by Dynamic routes (those with `{var}`) evaluated in the order they appear.
 
 ## Sample usage
 
