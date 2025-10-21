@@ -54,6 +54,13 @@ At a given point in time, if you want to draft a new release, you need to follow
 
 This step will happen automatically from GitHub actions after a new release has been drafted. Make sure to double check the action and see if it completed successfully.
 
+All packages are published using OpenID Connect. Each new package must be configured first.
+
+**Organization or user\*** middyjs
+**Repository\*** middy
+**Workflow filename\*** release.yml
+**Publishing access** Require two-factor authentication and disallow tokens (recommended)
+
 ## Setting up new major release
 
 - `package.json`

@@ -26,10 +26,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
+      - name: Remove deprecated npm config
+        run: npm config delete always-auth
       - name: Install sandworm
-        run: |
-          npm i -g @sandworm/audit@1.56.1
-          npm config delete always-auth
+        run: npm i -g @sandworm/audit@1.56.1
       - name: sandworm
         run: sandworm-audit --skip-tree
 
