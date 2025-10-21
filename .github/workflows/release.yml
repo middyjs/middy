@@ -118,11 +118,7 @@ jobs:
         if: ${{ needs.release.outputs.prerelease == 'true' }}
         run: |
           find . -name '*.tgz' -exec npm publish --tag next --provenance --access public {} \;
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: npm publish (latest)
         if: ${{ needs.release.outputs.prerelease == 'false' }}
         run: |
           find . -name '*.tgz' -exec npm publish --tag latest --provenance --access public {} \;
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
