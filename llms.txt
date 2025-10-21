@@ -606,8 +606,9 @@ All Node.js Long-Term Support (LTS) releases that have AWS Lambda runtimes are s
 
 | Version | Status     | Alpha Release | Stable Release | End-of-Life |
 | ------- | ---------- | ------------- | -------------- | ----------- |
-| v7      | Scoping    | 2025-??-??    | 2025-10-28     | 2027-04-30  |
-| v6      | Stable     | 2024-10-16    | 2024-11-23     | 2026-04-30  |
+| v8      | Scoping    | 2026-??-??    | 2026-??-??     | 2028-04-30  |
+| v7      | Stable     | 2025-??-??    | 2025-??-??     | 2027-04-30  |
+| v6      | Deprecated | 2024-10-16    | 2024-11-23     | 2026-04-30  |
 | v5      | Deprecated | 2023-06-01    | 2023-11-15     | 2025-04-30  |
 | v4      | Deprecated | 2022-10-17    | 2022-11-24     | 2023-11-15  |
 | v3      | Deprecated | 2022-01-04    | 2022-05-12     | 2022-12-31  |
@@ -710,6 +711,7 @@ If your middleware is missing, feel free to [open a Pull Request](https://github
 - [middy-profiler](https://github.com/serkan-ozal/middy-profiler): Middleware for profiling CPU on AWS Lambda during invocation and shows what methods/modules consume what percent of CPU time
 - [middy-rds](https://www.npmjs.com/package/middy-rds): Creates RDS connection using `knex` or `pg`
 - [middy-recaptcha](https://www.npmjs.com/package/middy-recaptcha): reCAPTCHA validation middleware
+- [middy-standard-schema](https://github.com/flubber2077/middy-standard-schema): Standard Schema based validator, e.g., Zod, Arktype, Valibot, Joi, Yup
 - [middy-sparks-joi](https://www.npmjs.com/package/middy-sparks-joi): Joi validator
 - [middy-store](https://github.com/zirkelc/middy-store): Middleware to automatically store and load payloads from S3 in an AWS Step Functions state machine
 - [middy-mcp](https://github.com/fredericbarthelet/middy-mcp): Middleware for Model Context Protocol (MCP) server integration with AWS Lambda functions
@@ -3691,6 +3693,7 @@ NOTES:
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 - `pathParameters` will automatically be set if not already set
 - Path parameters in kebab notation (`{my-var}`) are not supported. Workaround example below.
+- Static routes (those without `{var}`) are evaluated first, follow by Dynamic routes (those with `{var}`) evaluated in the order they appear.
 
 ## Sample usage
 
@@ -3847,6 +3850,161 @@ export const handler = middy()
   .use(wsResponseMiddleware())
   .handler(wsRouterHandler(routes))
 ```
+
+---
+
+// File: upgrade/6-7
+
+aka "The tiny update"
+
+Version 7.x of Middy no longer supports Node.js versions 20.x. You are highly encouraged to move to Node.js 24.x.
+
+## Notable changes
+
+
+
+## Core
+
+No change
+
+## Util
+
+No change
+
+## Middleware
+
+## [appconfig](/docs/middlewares/appconfig)
+
+No change
+
+### [cloudwatch-metrics](/docs/middlewares/cloudwatch-metrics)
+
+No change
+
+### [do-not-wait-for-empty-event-loop](/docs/middlewares/do-not-wait-for-empty-event-loop)
+
+No change
+
+### [error-logger](/docs/middlewares/error-logger)
+
+No change
+
+### [event-normalizer](/docs/middlewares/event-normalizer)
+
+No change
+
+### [http-content-encoding](/docs/middlewares/http-content-encoding)
+
+- Add in `zstd` support
+
+### [http-content-negotiation](/docs/middlewares/http-content-negotiation)
+
+No change
+
+### [http-cors](/docs/middlewares/http-cors)
+
+No change
+
+### [http-error-handler](/docs/middlewares/http-error-handler)
+
+No change
+
+### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
+
+No change
+
+### [http-header-normalizer](/docs/middlewares/http-header-normalizer)
+
+No change
+
+### [http-json-body-parser](/docs/middlewares/http-json-body-parser)
+
+No change
+
+### [http-multipart-body-parser](/docs/middlewares/http-multipart-body-parser)
+
+No change
+
+### [http-partial-response](/docs/middlewares/http-partial-response)
+
+No change
+
+### [http-response-serializer](/docs/middlewares/http-response-serializer)
+
+No change
+
+### [http-router](/docs/routers/http-router)
+
+Updated to handle mixed dynamic/static route priority #1484 **Breaking Change**
+
+### [http-security-headers](/docs/middlewares/http-security-headers)
+
+- Update `poweredBy` to always remove, can be disabled **Breaking Change**
+- Update `xssProtection` to reflect new best practice (exclude, or `0`) **Breaking Change**
+
+### [http-urlencode-body-parser](/docs/middlewares/http-urlencode-body-parser)
+
+No change
+
+### [http-urlencode-path-parser](/docs/middlewares/http-urlencode-path-parser)
+
+No change
+
+### [input-output-logger](/docs/middlewares/input-output-logger)
+
+No change
+
+### [rds-signer](/docs/middlewares/rds-signer)
+
+No change
+
+### [s3-object-response](/docs/middlewares/s3-object-response)
+
+No change
+
+### [secrets-manager](/docs/middlewares/secrets-manager)
+
+No change
+
+### [service-discovery](/docs/middlewares/service-discovery)
+
+No change
+
+### [sqs-partial-batch-failure](/docs/middlewares/sqs-partial-batch-failure)
+
+No change
+
+### [ssm](/docs/middlewares/ssm)
+
+No change
+
+### [sts](/docs/middlewares/sts)
+
+No change
+
+### [validator](/docs/middlewares/validator)
+
+No change
+
+### [warmup](/docs/middlewares/warmup)
+
+No change
+
+### [ws-json-body-parser](/docs/middlewares/ws-json-body-parser)
+
+No change
+
+### [ws-response](/docs/middlewares/ws-response)
+
+No change
+
+### [ws-router](/docs/routers/ws-router)
+
+No change
+
+## Notes
+
+None
 
 ---
 
