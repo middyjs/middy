@@ -86,7 +86,7 @@ test("It should return default security headers when HTML", async (t) => {
 
 	equal(
 		response.headers["Content-Security-Policy"],
-		"default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to csp; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
+		"default-src 'none' 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to default; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
 	);
 	equal(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
 	equal(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
@@ -94,7 +94,7 @@ test("It should return default security headers when HTML", async (t) => {
 	equal(response.headers["Origin-Agent-Cluster"], "?1");
 	equal(
 		response.headers["Permissions-Policy"],
-		"accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
+		"accelerometer=(), all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
 	);
 	equal(response.headers["Referrer-Policy"], "no-referrer");
 	equal(response.headers.Server, undefined);
@@ -108,7 +108,7 @@ test("It should return default security headers when HTML", async (t) => {
 	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
 	equal(response.headers["X-Powered-By"], undefined);
 	equal(response.headers["X-Frame-Options"], "DENY");
-	equal(response.headers["X-XSS-Protection"], "1; mode=block; report=xss");
+	equal(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should modify default security headers", async (t) => {
@@ -141,18 +141,14 @@ test("It should modify default security headers with config set", async (t) => {
 				includeSubDomains: false,
 				preload: false,
 			},
-			poweredBy: {
-				server: "Other",
-			},
+			poweredBy: true,
 			permissionsPolicy: {
 				accelerometer: "*",
 			},
 			permittedCrossDomainPolicies: {
 				policy: "all",
 			},
-			xssProtection: {
-				reportTo: "https://example.com/report",
-			},
+			xssProtection: true,
 			reportTo: {
 				default: "https://example.report-uri.com/a/d/g",
 			},
@@ -183,16 +179,14 @@ test("It should modify default security headers with config set", async (t) => {
 	);
 	equal(
 		response.headers["Permissions-Policy"],
-		"accelerometer=*, ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
+		"accelerometer=*, all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
 	);
+	equal(response.headers.Server, undefined);
 	equal(response.headers["Strict-Transport-Security"], "max-age=15552000");
 	equal(response.headers["X-DNS-Prefetch-Control"], "on");
 	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "all");
-	equal(response.headers["X-Powered-By"], "Other");
-	equal(
-		response.headers["X-XSS-Protection"],
-		"1; mode=block; report=https://example.com/report",
-	);
+	equal(response.headers["X-Powered-By"], undefined);
+	equal(response.headers["X-XSS-Protection"], "0");
 });
 
 test("It should support array responses", async (t) => {
@@ -297,6 +291,6 @@ test("It should support report only mode", async (t) => {
 	equal(response.headers["Content-Security-Policy"], undefined);
 	equal(
 		response.headers["Content-Security-Policy-Report-Only"],
-		"default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to csp; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
+		"default-src 'none' 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to default; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
 	);
 });

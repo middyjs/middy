@@ -113,7 +113,7 @@ test("It should route to a dynamic route with `{var_iable}`", async (t) => {
 	const response = await handler(event, context);
 	ok(response);
 });
-test("It should route to a dynamic route with `{var-iable}`", async (t) => {
+test("It should not route to a dynamic route with `{var-iable}`", async (t) => {
 	try {
 		httpRouter([
 			{

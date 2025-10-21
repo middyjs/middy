@@ -4,7 +4,7 @@
 	"description": "Http JSON body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -70,7 +70,7 @@
 	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.10.101",
-		"type-fest": "^4.0.0"
+		"type-fest": "^5.0.0"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

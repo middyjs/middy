@@ -7,7 +7,7 @@ const defaults = {
 		// Fetch directives
 		// 'child-src': '', // fallback default-src
 		// 'connect-src': '', // fallback default-src
-		"default-src": "'none'",
+		"default-src": "'none' 'report-sample' 'report-sha256'",
 		// 'font-src':'', // fallback default-src
 		// 'frame-src':'', // fallback child-src > default-src
 		// 'img-src':'', // fallback default-src
@@ -30,7 +30,7 @@ const defaults = {
 		"frame-ancestors": "'none'",
 		"navigate-to": "'none'",
 		// Reporting directives
-		"report-to": "csp",
+		"report-to": "default",
 		// Other directives
 		"require-trusted-types-for": "'script'",
 		"trusted-types": "'none'",
@@ -62,6 +62,7 @@ const defaults = {
 	permissionsPolicy: {
 		// Standard
 		accelerometer: "",
+		"all-screens-capture": "",
 		"ambient-light-sensor": "",
 		autoplay: "",
 		battery: "",
@@ -108,30 +109,21 @@ const defaults = {
 	permittedCrossDomainPolicies: {
 		policy: "none", // none, master-only, by-content-type, by-ftp-filename, all
 	},
-	poweredBy: {
-		server: "",
-	},
+	poweredBy: true,
 	referrerPolicy: {
 		policy: "no-referrer",
 	},
 	reportingEndpoints: {},
 	reportTo: {
 		maxAge: 365 * 24 * 60 * 60,
-		// default: '',
 		includeSubdomains: true,
-		// csp: '',
-		// permissions: '',
-		// staple: '',
-		// xss: ''
 	},
 	strictTransportSecurity: {
 		maxAge: 180 * 24 * 60 * 60,
 		includeSubDomains: true,
 		preload: true,
 	},
-	xssProtection: {
-		reportTo: "xss",
-	},
+	xssProtection: false,
 };
 
 const helmet = {};
@@ -260,20 +252,13 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 
 // https://github.com/helmetjs/hide-powered-by
 helmet.poweredBy = (headers, config) => {
-	if (config.server) {
-		headers["X-Powered-By"] = config.server;
-	} else {
-		headers.Server = undefined;
-		headers["X-Powered-By"] = undefined;
-	}
+	delete headers.Server;
+	delete headers["X-Powered-By"];
 };
 
 // https://github.com/helmetjs/x-xss-protection
 helmetHtmlOnly.xssProtection = (headers, config) => {
-	let header = "1; mode=block";
-	if (config.reportTo) {
-		header += `; report=${config.reportTo}`;
-	}
+	const header = "0";
 	headers["X-XSS-Protection"] = header;
 };
 
@@ -305,6 +290,14 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 				}
 			}
 		}
+		// Clean up headers removals
+		const headers = {};
+		for (const key of Object.keys(request.response.headers)) {
+			if (typeof request.response.headers[key] !== "undefined") {
+				headers[key] = request.response.headers[key];
+			}
+		}
+		request.response.headers = headers;
 	};
 	const httpSecurityHeadersMiddlewareOnError = async (request) => {
 		if (request.response === undefined) return;

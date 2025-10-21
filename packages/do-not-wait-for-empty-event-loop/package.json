@@ -4,7 +4,7 @@
 	"description": "Middleware for the middy framework that allows to easily disable the wait for empty event loop in a Lambda function",
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {

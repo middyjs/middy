@@ -4,7 +4,7 @@
 	"description": "The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.",
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {

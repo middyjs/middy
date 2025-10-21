@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: 23.x
+  NODE_VERSION: 24.x
 
 permissions:
   contents: read
@@ -26,15 +26,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
-      - name: Cache npm
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
       - name: Install sandworm
-        run: npm i -g @sandworm/audit@1.56.1
+        run: |
+          npm i -g @sandworm/audit@1.56.1
+          npm config delete always-auth
       - name: sandworm
         run: sandworm-audit --skip-tree
 
