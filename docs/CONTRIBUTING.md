@@ -14,10 +14,11 @@ Ensure git history is pulled from the `develop` branch.
 ## 2. Setup
 
 ```bash
+npm i -g nmq
+npm i -g lockfile-lint
 npm i -g @sandworm/audit
 brew install semgrep
 brew install trufflehog
-brew install --cask zap
 ```
 
 ## 3. Implementation

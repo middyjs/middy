@@ -33,6 +33,24 @@ jobs:
       - name: sandworm
         run: sandworm-audit --skip-tree
 
+  lockfile:
+    name: "lockfile-lint: SAST package-lock.json"
+    runs-on: ubuntu-latest
+    if: (github.actor != 'dependabot[bot]')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Install lockfile-lint
+        run: npm i -g lockfile-lint@4.14.1
+      - name: lockfile-lint
+        run: lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
+
   # https://github.com/github/codeql-action
   codeql:
     name: "CodeQL: SAST"

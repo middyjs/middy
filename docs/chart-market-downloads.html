@@ -68,7 +68,7 @@
       const colors = {
         '@middy/core': '#ffa600'
       }
-      const pickColor = function (str) {
+      const pickColor = (str) => {
         if (colors[str]) return colors[str]
         let hash = 0
         for (let i = 0; i < str.length; i++) {
@@ -131,7 +131,7 @@
       }
 
       // join @middy/core & middy
-      let data = []
+      const data = []
       for (let i = 0, l = weeklyStats['@middy/core'].data.length; i < l; i++) {
         data.push({
           x: weeklyStats['@middy/core'].data[i].x,
