@@ -253,11 +253,11 @@ const runRequest = async (
 	return request.response;
 };
 
-const runMiddlewares = async (request, middlewares, plugin) => {
+const runMiddlewares = async (request, middlewares, pluginConfig) => {
 	for (const nextMiddleware of middlewares) {
-		plugin.beforeMiddleware?.(nextMiddleware.name);
+		pluginConfig.beforeMiddleware?.(nextMiddleware.name);
 		const res = await nextMiddleware(request);
-		plugin.afterMiddleware?.(nextMiddleware.name);
+		pluginConfig.afterMiddleware?.(nextMiddleware.name);
 		// short circuit chaining and respond early
 		if (typeof res !== "undefined") {
 			request.earlyResponse = res;

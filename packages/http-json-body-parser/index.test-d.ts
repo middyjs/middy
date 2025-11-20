@@ -62,6 +62,8 @@ test("allow body to only be string or null", () => {
 				user: null,
 				userAgent: null,
 				userArn: null,
+				vpceId: null,
+				vpcId: null,
 			},
 		},
 		resource: "",

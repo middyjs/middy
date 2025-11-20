@@ -14,7 +14,7 @@ import {
 	modifyCache,
 	processCache,
 	sanitizeKey,
-} from "../util/index.js";
+} from "@middy/util";
 
 const awsRequestLimit = 10;
 const defaults = {
