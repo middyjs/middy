@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.0.0-alpha.1",
+	"version": "7.0.0-alpha.2",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
