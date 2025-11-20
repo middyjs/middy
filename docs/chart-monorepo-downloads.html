@@ -85,7 +85,7 @@
                 middy: "#003f5c",
                 "@middy/core": "#ffa600",
             };
-            const pickColor = function (str) {
+            const pickColor = (str) => {
                 if (colors[str]) return colors[str];
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
@@ -199,7 +199,7 @@
             };
 
             const table = document.createElement("table");
-            let thead = document.createElement("thead");
+            const thead = document.createElement("thead");
 
             const thead_tr = document.createElement("tr");
             const th = document.createElement("th");
@@ -217,7 +217,7 @@
             table.appendChild(thead);
 
             const totals = {};
-            let tbody = document.createElement("tbody");
+            const tbody = document.createElement("tbody");
             for (const year of years) {
                 const stats = await run(year);
 
@@ -230,7 +230,7 @@
                     tbody_tr[pkg].appendChild(td);
                 }
 
-                totals[year] = stats["middy"] + stats["@middy/core"];
+                totals[year] = stats.middy + stats["@middy/core"];
                 console.log("Total", year, formatNumber(totals[year]));
             }
             for (const pkg of pkgs) {
