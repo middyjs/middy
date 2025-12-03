@@ -43,8 +43,7 @@ const ssmMiddleware = (opts = {}) => {
 	const fetchSingleRequest = (request, cachedValues = {}) => {
 		const values = {};
 		let batchReq = null;
-		let batchInternalKeys = [];
-		let batchFetchKeys = [];
+		const batchKeys = new Map();
 		const namedKeys = [];
 
 		const internalKeys = Object.keys(options.fetchData);
@@ -57,8 +56,7 @@ const ssmMiddleware = (opts = {}) => {
 
 		for (const [idx, internalKey] of namedKeys.entries()) {
 			const fetchKey = options.fetchData[internalKey];
-			batchInternalKeys.push(internalKey);
-			batchFetchKeys.push(fetchKey);
+			batchKeys.set(internalKey, fetchKey);
 			// from the first to the batch size skip, unless it's the last entry
 			if (
 				(!idx || (idx + 1) % awsRequestLimit !== 0) &&
@@ -68,7 +66,7 @@ const ssmMiddleware = (opts = {}) => {
 			}
 
 			const command = new GetParametersCommand({
-				Names: batchFetchKeys,
+				Names: Array.from(batchKeys.values()),
 				WithDecryption: true,
 			});
 			batchReq = client
@@ -102,14 +100,13 @@ const ssmMiddleware = (opts = {}) => {
 					throw e;
 				});
 
-			for (const internalKey of batchInternalKeys) {
+			for (const internalKey of batchKeys.keys()) {
 				values[internalKey] = batchReq.then((params) => {
 					return params[options.fetchData[internalKey]];
 				});
 			}
 
-			batchInternalKeys = [];
-			batchFetchKeys = [];
+			batchKeys.clear();
 			batchReq = null;
 		}
 		return values;
