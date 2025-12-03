@@ -1,4 +1,4 @@
-import { deepEqual, equal, ok } from "node:assert/strict";
+import { deepEqual, equal, notEqual, ok } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	GetParametersByPathCommand,
@@ -344,6 +344,48 @@ test("It should set SSM param value to internal storage when request > 10 params
 					key12: "/dev/service_name/key_name12",
 					key13: "/dev/service_name/key_name13",
 					key14: "/dev/service_name/key_name14",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
+test("It should set cross-account shared SSM param value to internal storage", async (t) => {
+	mockClient(SSMClient)
+		.on(GetParametersCommand, {
+			Names: [
+				"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+			],
+			WithDecryption: true,
+		})
+		.resolvesOnce({
+			Parameters: [
+				{
+					ARN: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+					Name: "/dev/service_name/key_name0",
+					Value: "key-value0",
+				},
+			],
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+
+		/** @todo this assertion shows failure scenario */
+		notEqual(values.key0, "key-value0");
+		equal(values.key0, undefined);
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key0: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
 				},
 				disablePrefetch: true,
 			}),
