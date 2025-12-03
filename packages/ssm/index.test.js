@@ -1,4 +1,4 @@
-import { deepEqual, equal, notEqual, ok } from "node:assert/strict";
+import { deepEqual, equal, ok } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	GetParametersByPathCommand,
@@ -373,10 +373,7 @@ test("It should set cross-account shared SSM param value to internal storage", a
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-
-		/** @todo this assertion shows failure scenario */
-		notEqual(values.key0, "key-value0");
-		equal(values.key0, undefined);
+		equal(values.key0, "key-value0");
 	};
 
 	const handler = middy(() => {})

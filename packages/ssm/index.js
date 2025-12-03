@@ -100,8 +100,15 @@ const ssmMiddleware = (opts = {}) => {
 					throw e;
 				});
 
-			for (const internalKey of batchKeys.keys()) {
+			for (const [internalKey, fetchKey] of batchKeys.entries()) {
 				values[internalKey] = batchReq.then((params) => {
+					if (fetchKey.startsWith("arn:aws:ssm:")) {
+						const matchingParamName = Object.keys(params).find((key) =>
+							fetchKey.endsWith(`:parameter${key}`),
+						);
+						return params[matchingParamName];
+					}
+
 					return params[options.fetchData[internalKey]];
 				});
 			}
