@@ -7,7 +7,7 @@ const defaults = {
 		// Fetch directives
 		// 'child-src': '', // fallback default-src
 		// 'connect-src': '', // fallback default-src
-		"default-src": "'none' 'report-sample' 'report-sha256'",
+		"default-src": "'report-sample' 'report-sha256'",
 		// 'font-src':'', // fallback default-src
 		// 'frame-src':'', // fallback child-src > default-src
 		// 'img-src':'', // fallback default-src
@@ -28,12 +28,10 @@ const defaults = {
 		// Navigation directives
 		"form-action": "'none'",
 		"frame-ancestors": "'none'",
-		"navigate-to": "'none'",
 		// Reporting directives
 		"report-to": "default",
 		// Other directives
 		"require-trusted-types-for": "'script'",
-		"trusted-types": "'none'",
 		"upgrade-insecure-requests": "",
 	},
 	contentSecurityPolicyReportOnly: false,
@@ -80,6 +78,7 @@ const defaults = {
 		magnetometer: "",
 		microphone: "",
 		midi: "",
+		monetization: "",
 		"navigation-override": "",
 		payment: "",
 		"picture-in-picture": "",
