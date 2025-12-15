@@ -8,6 +8,7 @@ declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
 declare type PluginHookPromise = (
 	request: Request,
 ) => Promise<unknown> | unknown;
+export type PluginExecutionMode = () => void;
 
 interface PluginObject {
 	internal?: any;
@@ -20,7 +21,7 @@ interface PluginObject {
 	timeoutEarlyResponse?: PluginHook;
 	afterHandler?: PluginHook;
 	requestEnd?: PluginHookPromise;
-	executionMode?: function;
+	executionMode?: PluginExecutionMode;
 }
 
 export interface Request<

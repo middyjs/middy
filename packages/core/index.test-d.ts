@@ -6,8 +6,13 @@ import type {
 	S3Event,
 } from "aws-lambda";
 import { expect } from "tstyche";
-import { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
-import middy, { type MiddyfiedHandler } from "./index.js";
+import middy, {
+	type MiddyfiedHandler,
+	type PluginExecutionMode,
+} from "./index.js";
+
+const executionModeStreamifyResponse: PluginExecutionMode =
+	{} as PluginExecutionMode;
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (
