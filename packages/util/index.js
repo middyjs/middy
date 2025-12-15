@@ -174,6 +174,49 @@ export const clearCache = (inputKeys = null) => {
 	}
 };
 
+// context
+// https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
+export const lambdaContextKeys = [
+	"functionName",
+	"functionVersion",
+	"invokedFunctionArn",
+	"memoryLimitInMB",
+	"awsRequestId",
+	"logGroupName",
+	"logStreamName",
+	"identity",
+	"clientContext",
+	"callbackWaitsForEmptyEventLoop",
+];
+
+export const executionContextKeys = [
+	//'requestId',
+	"tenantId",
+];
+
+export const isExecutionModeDurable = (context) => {
+	// using `context instanceof DurableContextImpl` would be better
+	// but would require an extra dependency
+	if (context.constructor.name === "DurableContextImpl") {
+		return true;
+	}
+	return false;
+};
+
+export const executionContext = (key, context) => {
+	if (isExecutionModeDurable(context)) {
+		return request.context.executionContext[key];
+	}
+	return request.context[key];
+};
+
+export const lambdaContext = (key, context) => {
+	if (isExecutionModeDurable(context)) {
+		return request.context.lambdaContext[key];
+	}
+	return request.context[key];
+};
+
 export const jsonSafeParse = (text, reviver) => {
 	if (typeof text !== "string") return text;
 	const firstChar = text[0];

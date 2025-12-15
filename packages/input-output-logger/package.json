@@ -63,6 +63,9 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"dependencies": {
+		"@middy/util": "7.0.0-alpha.2"
+	},
 	"devDependencies": {
 		"@datastream/core": "0.0.41",
 		"@middy/core": "7.0.0-alpha.2",

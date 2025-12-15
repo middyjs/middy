@@ -6,6 +6,7 @@ import type {
 	S3Event,
 } from "aws-lambda";
 import { expect } from "tstyche";
+import { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 import middy, { type MiddyfiedHandler } from "./index.js";
 
 // extends Handler type from aws-lambda
@@ -276,7 +277,7 @@ customCtxHandler = customCtxHandler.use(typeErrorMiddleware);
 expect(customCtxHandler).type.toBe<MutableContextHandler>();
 
 const streamifiedResponseHandler = middy<APIGatewayProxyEvent>({
-	streamifyResponse: true,
+	executionMode: executionModeStreamifyResponse,
 });
 expect(streamifiedResponseHandler).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent>
@@ -492,7 +493,7 @@ customSyncedCtxHandler = customSyncedCtxHandler.use(syncedTypeErrorMiddleware);
 expect(customSyncedCtxHandler).type.toBe<MutableContextHandler>();
 
 const syncedStreamifiedResponseHandler = middy<APIGatewayProxyEvent>({
-	streamifyResponse: true,
+	executionMode: executionModeStreamifyResponse,
 });
 expect(syncedStreamifiedResponseHandler).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent>

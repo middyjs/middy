@@ -20,7 +20,7 @@ interface PluginObject {
 	timeoutEarlyResponse?: PluginHook;
 	afterHandler?: PluginHook;
 	requestEnd?: PluginHookPromise;
-	streamifyResponse?: boolean;
+	executionMode?: function;
 }
 
 export interface Request<

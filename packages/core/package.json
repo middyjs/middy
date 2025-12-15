@@ -25,11 +25,14 @@
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
+		"executionModeDefault.js",
+		"executionModeDurableContext.js",
+		"executionModeStreamifyResponse.js",
 		"index.d.ts"
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test",
+		"test:unit": "node --test --test-force-exit",
 		"test:fuzz": "node --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js",
 		"test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
@@ -41,7 +44,9 @@
 		"Serverless",
 		"Framework",
 		"AWS",
-		"AWS Lambda"
+		"AWS Lambda",
+		"Function URL",
+		"Durable function"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -61,6 +66,9 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
+		"@aws/durable-execution-sdk-js": "^1.0.0",
+		"@aws/durable-execution-sdk-js-testing": "1.0.0",
+		"@aws/durable-execution-sdk-js-testing-local": "file://../../../../github/aws-durable-execution-sdk-js/packages/aws-durable-execution-sdk-js-testing",
 		"@datastream/core": "0.0.41",
 		"@types/aws-lambda": "^8.10.76",
 		"@types/node": "^22.0.0"
