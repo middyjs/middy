@@ -69,7 +69,6 @@
 	"devDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0",
 		"@aws/durable-execution-sdk-js-testing": "1.0.0",
-		"@aws/durable-execution-sdk-js-testing-local": "file://../../../../github/aws-durable-execution-sdk-js/packages/aws-durable-execution-sdk-js-testing",
 		"@datastream/core": "0.0.41",
 		"@types/aws-lambda": "^8.10.76",
 		"@types/node": "^22.0.0"
