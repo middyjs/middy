@@ -1,9 +1,9 @@
 import { setTimeout } from "node:timers";
 import { executionModeDefault } from "./executionModeDefault.js";
 
-export * from "./executionModeDefault.js";
-export * from "./executionModeDurableContext.js";
-export * from "./executionModeStreamifyResponse.js";
+export { executionModeDefault } from "./executionModeDefault.js";
+export { executionModeDurableContext } from "./executionModeDurableContext.js";
+export { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 
 const defaultLambdaHandler = () => {};
 const defaultPluginConfig = {
@@ -18,7 +18,7 @@ const defaultPluginConfig = {
 	executionMode: executionModeDefault,
 };
 
-const middy = (setupLambdaHandler, pluginConfig) => {
+export const middy = (setupLambdaHandler, pluginConfig) => {
 	let lambdaHandler;
 	let plugin;
 	// Allow base handler to be set using .handler()
