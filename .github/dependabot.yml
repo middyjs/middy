@@ -7,5 +7,7 @@ updates:
       interval: "weekly"
   - package-ecosystem: npm
     directory: "/"
+    ignore:
+      - dependency-name: "@types/node" # Needs to be oldest LTS version
     schedule:
       interval: "weekly"
