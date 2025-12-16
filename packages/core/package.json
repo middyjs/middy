@@ -26,7 +26,7 @@
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
-		"executionModeDefault.js",
+		"executionModeStandard.js",
 		"executionModeDurableContext.js",
 		"executionModeStreamifyResponse.js",
 		"index.d.ts"
@@ -68,8 +68,8 @@
 	},
 	"devDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0",
-		"@aws/durable-execution-sdk-js-testing": "1.0.0",
-		"@datastream/core": "0.0.41",
+		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
+		"@datastream/core": "0.0.42",
 		"@types/aws-lambda": "^8.10.76",
 		"@types/node": "^22.0.0"
 	},

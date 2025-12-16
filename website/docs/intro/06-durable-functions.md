@@ -10,6 +10,11 @@ Middy also supports durable functions.
 
 ## Lambda Durable Function Example
 
+```bash npm2yarn
+npm install --save @middy/core
+npm install --save-dev @aws/durable-execution-sdk-js
+```
+
 ```javascript
 import middy, { executionModeDurableContext } from '@middy/core'
 import { createReadableStream } from '@datastream/core'

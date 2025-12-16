@@ -1,8 +1,8 @@
 import { setTimeout } from "node:timers";
-import { executionModeDefault } from "./executionModeDefault.js";
+import { executionModeStandard } from "./executionModeStandard.js";
 
-export { executionModeDefault } from "./executionModeDefault.js";
 export { executionModeDurableContext } from "./executionModeDurableContext.js";
+export { executionModeStandard } from "./executionModeStandard.js";
 export { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 
 const defaultLambdaHandler = () => {};
@@ -15,7 +15,7 @@ const defaultPluginConfig = {
 		err.name = "TimeoutError";
 		throw err;
 	},
-	executionMode: executionModeDefault,
+	executionMode: executionModeStandard,
 };
 
 export const middy = (setupLambdaHandler, pluginConfig) => {

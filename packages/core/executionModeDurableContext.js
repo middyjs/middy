@@ -13,7 +13,7 @@ export const executionModeDurableContext = (
 		const request = middyRequest(event, context);
 		plugin.requestStart?.(request);
 
-		// normalize context with executionModeDefault
+		// normalize context with executionModeStandard
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
 		copyKeys(
 			request.context,
@@ -21,9 +21,6 @@ export const executionModeDurableContext = (
 			executionContextKeys,
 		);
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
-
-		// TODO remove when DurableContext supports `getRemainingTimeInMillis` https://github.com/aws/aws-durable-execution-sdk-js/issues/290
-		request.context.lambdaContext.getRemainingTimeInMillis = () => 900000; // 15 * 60 * 1000 = 15min
 
 		const response = await runRequest(
 			request,

@@ -10,7 +10,7 @@ declare type PluginHookPromise = (
 	request: Request,
 ) => Promise<unknown> | unknown;
 export type PluginExecutionMode = () => void;
-export declare const executionModeDefault: PluginExecutionMode;
+export declare const executionModeStandard: PluginExecutionMode;
 export declare const executionModeDurableContext: PluginExecutionMode;
 export declare const executionModeStreamifyResponse: PluginExecutionMode;
 

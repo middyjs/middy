@@ -10,7 +10,7 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
-test("It should set callbackWaitsForEmptyEventLoop to false by default (executionModeDefault)", async (t) => {
+test("It should set callbackWaitsForEmptyEventLoop to false by default (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(doNotWaitForEmptyEventLoop())
 		.handler((event, context) => {});
@@ -21,7 +21,7 @@ test("It should set callbackWaitsForEmptyEventLoop to false by default (executio
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
 
-test("callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should remain true if was overridden by user in handler (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(doNotWaitForEmptyEventLoop())
 		.handler((event, context) => {
@@ -34,7 +34,7 @@ test("callbackWaitsForEmptyEventLoop should remain true if was overridden by use
 	ok(context.callbackWaitsForEmptyEventLoop);
 });
 
-test("callbackWaitsForEmptyEventLoop should stay false if handler has error (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should stay false if handler has error (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(doNotWaitForEmptyEventLoop())
 		.handler((event, context) => {
@@ -50,7 +50,7 @@ test("callbackWaitsForEmptyEventLoop should stay false if handler has error (exe
 	}
 });
 
-test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in options (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(
 			doNotWaitForEmptyEventLoop({
@@ -67,7 +67,7 @@ test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
 
-test("callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should remain true when error occurs even if runOnAfter is true (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(
 			doNotWaitForEmptyEventLoop({
@@ -87,7 +87,7 @@ test("callbackWaitsForEmptyEventLoop should remain true when error occurs even i
 	}
 });
 
-test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOnError is true (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(
 			doNotWaitForEmptyEventLoop({
@@ -108,7 +108,7 @@ test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
 	}
 });
 
-test("thrown error should be propagated when it occurs & runOnError is true (executionModeDefault)", async (t) => {
+test("thrown error should be propagated when it occurs & runOnError is true (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(
 			doNotWaitForEmptyEventLoop({
@@ -129,7 +129,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 	}
 });
 
-test("callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options (executionModeDefault)", async (t) => {
+test("callbackWaitsForEmptyEventLoop should be false in handler but true after if set by options (executionModeStandard)", async (t) => {
 	const handler = middy()
 		.use(
 			doNotWaitForEmptyEventLoop({

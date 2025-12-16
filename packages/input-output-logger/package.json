@@ -67,7 +67,7 @@
 		"@middy/util": "7.0.0-alpha.2"
 	},
 	"devDependencies": {
-		"@datastream/core": "0.0.41",
+		"@datastream/core": "0.0.42",
 		"@middy/core": "7.0.0-alpha.2",
 		"@types/node": "^22.0.0"
 	},

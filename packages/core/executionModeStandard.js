@@ -1,4 +1,4 @@
-export const executionModeDefault = (
+export const executionModeStandard = (
 	{ middyRequest, runRequest },
 	beforeMiddlewares,
 	lambdaHandler,
