@@ -1,5 +1,5 @@
 ---
-title: Durable function
+title: Durable functions
 position: 5
 ---
 
@@ -11,7 +11,7 @@ Middy also supports durable functions.
 ## Lambda Durable Function Example
 
 ```javascript
-import middy, { executionModeStreamifyDurableContext } from '@middy/core'
+import middy, { executionModeDurableContext } from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context, {signal}) => {
@@ -22,5 +22,5 @@ const lambdaHandler = (event, context, {signal}) => {
   return response
 }
 
-export const handler = middy({ executionMode: executionModeStreamifyDurableContext }).handler(lambdaHandler)
+export const handler = middy({ executionMode: executionModeDurableContext }).handler(lambdaHandler)
 ```
