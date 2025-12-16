@@ -2,6 +2,7 @@ import type {
 	Context as LambdaContext,
 	Handler as LambdaHandler,
 } from "aws-lambda";
+import type { DurableContext as LambdaContextDurable } from "@aws/durable-execution-sdk-js";
 
 declare type PluginHook = () => void;
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
@@ -31,7 +32,7 @@ export interface Request<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > {
 	event: TEvent;
@@ -46,7 +47,7 @@ declare type MiddlewareFn<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (request: Request<TEvent, TResult, TErr, TContext, TInternal>) => any;
 
@@ -54,7 +55,7 @@ export interface MiddlewareObj<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > {
 	before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
@@ -75,7 +76,7 @@ export interface MiddyHandlerObject {
 type MiddyInputHandler<
 	TEvent,
 	TResult,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 > = (
 	event: TEvent,
 	context: TContext,
@@ -84,14 +85,14 @@ type MiddyInputHandler<
 type MiddyInputPromiseHandler<
 	TEvent,
 	TResult,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 > = (event: TEvent, context: TContext) => Promise<TResult>;
 
 export interface MiddyfiedHandler<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
 		MiddyInputPromiseHandler<TEvent, TResult, TContext> {
@@ -122,7 +123,7 @@ declare type AttachMiddlewareFn<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (
 	middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>,
@@ -132,7 +133,7 @@ declare type AttachMiddlewareObj<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = (
 	middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>,
@@ -142,7 +143,7 @@ declare type UseFn<
 	TEvent = any,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 > = <
 	TMiddlewares extends
@@ -182,7 +183,7 @@ declare type UseFn<
 
 declare type MiddlewareHandler<
 	THandler extends LambdaHandler<any, any>,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TResult = any,
 	TEvent = any,
 > = THandler extends LambdaHandler<TEvent, TResult> // always true
@@ -198,7 +199,7 @@ declare function middy<
 	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
-	TContext extends LambdaContext = LambdaContext,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TInternal extends Record<string, unknown> = {},
 >(
 	handler?:
