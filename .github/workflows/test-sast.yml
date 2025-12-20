@@ -28,7 +28,9 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - name: Remove deprecated npm config
         run: npm config delete always-auth
-      - name: Install sandworm
+      - name: Hash sandworm
+        run: npm show @sandworm/audit@1.56.1 dist.shasum
+      - name: Install sandworm/audit@1.56.1 [e2369dc42d342f085947fe40e960a93a9123f525]
         run: npm i -g @sandworm/audit@1.56.1
       - name: sandworm
         run: sandworm-audit --skip-tree
@@ -46,7 +48,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
-      - name: Install lockfile-lint
+      - name: Hash lockfile-lint
+        run: npm show lockfile-lint@4.14.1 dist.shasum
+      - name: Install lockfile-lint@4.14.1 [3391ea68cf50c1a478ce113913c4c778768a4b9e]
         run: npm i -g lockfile-lint@4.14.1
       - name: lockfile-lint
         run: lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
