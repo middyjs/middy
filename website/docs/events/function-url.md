@@ -12,7 +12,7 @@ Same as API Gateway (HTTP), but with support for response streams.
 ## Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
@@ -40,7 +40,7 @@ export const handler = middy({
       statusCode: 408
     }
   },
-  streamifyResponse: true
+  executionMode:executionModeStreamifyResponse
 })
   .use(warmupMiddleware())
   .use(httpEventNormalizerMiddleware())

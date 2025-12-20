@@ -111,7 +111,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 		}
 		return;
 	}
-	routesType[method] ??= {};
+	routesType[method] ??= [];
 	const pathPartialRegExp = path
 		.replace(regExpDynamicWildcards, "/?(?<$1>.*)")
 		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");

@@ -1,3 +1,5 @@
+import { isExecutionModeDurable } from "@middy/util";
+
 const defaults = {
 	runOnBefore: true,
 	runOnAfter: false,
@@ -8,7 +10,11 @@ const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const doNotWaitForEmptyEventLoop = async (request) => {
-		request.context.callbackWaitsForEmptyEventLoop = false;
+		if (isExecutionModeDurable(request.context)) {
+			request.context.lambdaContext.callbackWaitsForEmptyEventLoop = false;
+		} else {
+			request.context.callbackWaitsForEmptyEventLoop = false;
+		}
 	};
 
 	return {
