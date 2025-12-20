@@ -15,6 +15,7 @@ export const executionModeDurableContext = (
 
 		// normalize context with executionModeStandard
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
+		// Idea: Use Proxy instead of copying. Faster for common use case?
 		copyKeys(
 			request.context,
 			request.context.executionContext,

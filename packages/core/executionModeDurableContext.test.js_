@@ -31,7 +31,7 @@ test("Should return with executionMode:executionModeDurableContext using string"
 	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
 	const execution = await runner.run({ payload: input });
-
+	//console.log(execution.getError())
 	equal(execution.getOperations().length, 0);
 	equal(execution.getStatus(), "SUCCEEDED");
 	equal(execution.getResult(), input);

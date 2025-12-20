@@ -11,8 +11,7 @@ Middy also supports durable functions.
 ## Lambda Durable Function Example
 
 ```bash npm2yarn
-npm install --save @middy/core
-npm install --save-dev @aws/durable-execution-sdk-js
+npm install --save @middy/core @aws/durable-execution-sdk-js
 ```
 
 ```javascript
