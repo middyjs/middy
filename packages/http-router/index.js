@@ -87,8 +87,8 @@ const httpRouteHandler = (opts = {}) => {
 	};
 };
 
-const regexpDynamicWildcards = /\/\{(proxy)\+\}$/;
-const regexpDynamicParameters = /\/\{([^/]+)\}/g;
+const regExpDynamicWildcards = /\/\{(proxy)\+\}$/;
+const regExpDynamicParameters = /\/\{([^/]+)\}/g;
 
 const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
 
@@ -99,9 +99,7 @@ const attachStaticRoute = (method, path, handler, routesType) => {
 		}
 		return;
 	}
-	if (!routesType[method]) {
-		routesType[method] = {};
-	}
+	routesType[method] ??= {};
 	routesType[method][path] = handler;
 	routesType[method][`${path}/`] = handler; // Optional `/`
 };
@@ -113,12 +111,10 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 		}
 		return;
 	}
-	if (!routesType[method]) {
-		routesType[method] = [];
-	}
+	routesType[method] ??= [];
 	const pathPartialRegExp = path
-		.replace(regexpDynamicWildcards, "/?(?<$1>.*)")
-		.replace(regexpDynamicParameters, "/(?<$1>[^/]+)");
+		.replace(regExpDynamicWildcards, "/?(?<$1>.*)")
+		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`

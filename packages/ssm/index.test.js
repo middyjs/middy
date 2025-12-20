@@ -353,6 +353,45 @@ test("It should set SSM param value to internal storage when request > 10 params
 	await handler(event, context);
 });
 
+test("It should set cross-account shared SSM param value to internal storage", async (t) => {
+	mockClient(SSMClient)
+		.on(GetParametersCommand, {
+			Names: [
+				"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+			],
+			WithDecryption: true,
+		})
+		.resolvesOnce({
+			Parameters: [
+				{
+					ARN: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+					Name: "/dev/service_name/key_name0",
+					Value: "key-value0",
+				},
+			],
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		equal(values.key0, "key-value0");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key0: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
 test("It should not call aws-sdk again if parameter is cached forever", async (t) => {
 	const mockService = mockClient(SSMClient)
 		.on(GetParametersCommand)

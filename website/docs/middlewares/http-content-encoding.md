@@ -53,7 +53,7 @@ export const handler = middy()
 ### Using streams
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpContentEncoding from '@middy/http-content-encoding'
 import { constants } from 'node:zlib'
@@ -66,7 +66,7 @@ const lambdaHandler = (event, context) => {
   }
 }
 
-export const handler = middy({ streamifyResponse: true })
+export const handler = middy({ executionMode:executionModeStreamifyResponse })
   .use(httpContentNegotiation())
   .use(httpContentEncoding({
     br: {
