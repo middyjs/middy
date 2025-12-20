@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunkmiddy=globalThis.webpackChunkmiddy||[]).push([[3638],{5488:t=>{t.exports=JSON.parse('{"categoryGeneratedIndex":{"title":"Middy Intro","slug":"/category/intro-to-middy","permalink":"/docs/category/intro-to-middy","sidebar":"tutorialSidebar","navigation":{"next":{"title":"Introduction","permalink":"/docs/"}}}}')}}]);

@@ -312,13 +312,43 @@ return request.response
 
 ---
 
+// File: intro/06-durable-functions
+
+Middy also supports durable functions.
+
+1. Set `executionMode: executionModeDurableContext` into middy options
+2. Configure durable function in AWS console
+
+## Lambda Durable Function Example
+
+```bash npm2yarn
+npm install --save @middy/core @aws/durable-execution-sdk-js
+```
+
+```javascript
+import middy, { executionModeDurableContext } from '@middy/core'
+import { createReadableStream } from '@datastream/core'
+
+const lambdaHandler = (event, context, {signal}) => {
+  const response = await context.step(async()=>{
+    return fetch(..., {..., signal}).then(...)
+  })
+  
+  return response
+}
+
+export const handler = middy({ executionMode: executionModeDurableContext }).handler(lambdaHandler)
+```
+
+---
+
 // File: intro/06-streamify-response
 
 Middy also supports streamed responses.
 
 > You can progressively stream response payloads through Lambda function URLs, including as an Amazon CloudFront origin, along with using the AWS SDK or using Lambda’s invoke API. You can not use Amazon API Gateway and Application Load Balancer to progressively stream response payloads, but you can use the functionality to return larger payloads. (https://aws.amazon.com/blogs/compute/introducing-aws-lambda-response-streaming/)
 
-1. Set `streamifyResponse: true` into middy options
+1. Set `executionMode: executionModeStreamifyResponse` into middy options
 2. a. For HTTP Events return using an HTTP event response with the body as a string or ReadableStream.
    b. For InvokeWithResponseStream Events return a response with a string or ReadableStream.
 
@@ -328,7 +358,7 @@ Middy also supports streamed responses.
 ## Lambda Function URL Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
@@ -341,19 +371,19 @@ const lambdaHandler = (event, context) => {
   }
 }
 
-export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
+export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
 ```
 
 ## Lambda InvokeWithResponseStream Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
   return createReadableStream('...') // or string
 }
-export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
+export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
 ```
 
 ### Requesting Lambda
@@ -1278,7 +1308,7 @@ export const handler = middy()
 ### Using streams
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpContentEncoding from '@middy/http-content-encoding'
 import { constants } from 'node:zlib'
@@ -1291,7 +1321,7 @@ const lambdaHandler = (event, context) => {
   }
 }
 
-export const handler = middy({ streamifyResponse: true })
+export const handler = middy({ executionMode:executionModeStreamifyResponse })
   .use(httpContentNegotiation())
   .use(httpContentEncoding({
     br: {
@@ -2053,11 +2083,12 @@ npm install --save @middy/input-output-logger
 ## Options
 
 - `logger` function (default `console.log`): logging function that accepts an object
-- `awsContext` boolean (default `false`): Include [AWS Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html) to the logger
+- `executionContext` boolean (default `false`): Include `tenantId` to the logger
+- `lambdaContext` boolean (default `false`): Include [AWS Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html) to the logger
 - `omitPaths` string[] (default `[]`): property accepts an array of paths that will be used to remove particular fields import the logged objects. This could serve as a simple way to redact sensitive data from logs (default []). Examples: `name`, `user.name`, `users.[].name`
 - `mask` string: String to replace omitted values with. Example: `***omitted***`
 
-Note: If using with `{ streamifyResponse: true }`, your ReadableStream must be of type `string`.
+Note: If using with `{ executionMode:executionModeStreamifyResponse }`, your ReadableStream must be of type `string`.
 
 ## Sample usage
 
@@ -2096,7 +2127,8 @@ export const handler = middy()
         const child = logger.child(request.context)
         child.info(request.event ?? request.response)
       },
-      awsContext: true
+      executionContext: true,
+	  lambdaContext: true,
     })
   )
   .handler(lambdaHandler)
@@ -3855,21 +3887,47 @@ export const handler = middy()
 
 // File: upgrade/6-7
 
-aka "The tiny update"
+aka "Lambda goes durable"
 
 Version 7.x of Middy no longer supports Node.js versions 20.x. You are highly encouraged to move to Node.js 24.x.
 
 ## Notable changes
 
-
+- Add support for Durable Functions, caused breaking changes to `streamifyResponse`.
+- LLRT can now be used when using `executionModeStandard` (default) & `executionModeDurableContext`
+- Works with new multi-tenant executions
+- Works with new Managed Instance executions
 
 ## Core
 
-No change
+- Add support for Durable Functions. Will lack support for timeout abort signal at time of release.
+- Deprecate `streamifyResponse` option for `executionMode` **Breaking Change**
+
+```javascript
+import middy from '@middy/core'
+
+const lambdaHandler = (_event, _context) => {
+  // ...
+}
+export const handler = middy({ streamifyResponse: true })
+  .handler(lambdaHandler)
+```
+
+changes to 
+
+```javascript
+import middy, { executionModeStreamifyResponse } from '@middy/core'
+
+const lambdaHandler = (_event, _context) => {
+  // ...
+}
+export const handler = middy({ executionMode: executionModeStreamifyResponse })
+  .handler(lambdaHandler)
+```
 
 ## Util
 
-No change
+- Added in extra utils to support durable context
 
 ## Middleware
 
@@ -3883,7 +3941,7 @@ No change
 
 ### [do-not-wait-for-empty-event-loop](/docs/middlewares/do-not-wait-for-empty-event-loop)
 
-No change
+- Add in support for DurableContext
 
 ### [error-logger](/docs/middlewares/error-logger)
 
@@ -3952,7 +4010,9 @@ No change
 
 ### [input-output-logger](/docs/middlewares/input-output-logger)
 
-No change
+- Add in support for DurableContext
+- Add in option `executionContext` to allow logging of `tenantId`
+- Renamed option `awsContext` to `lambdaContext` **Breaking Change**
 
 ### [rds-signer](/docs/middlewares/rds-signer)
 
@@ -5866,7 +5926,7 @@ Same as API Gateway (HTTP), but with support for response streams.
 ## Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
@@ -5894,7 +5954,7 @@ export const handler = middy({
       statusCode: 408
     }
   },
-  streamifyResponse: true
+  executionMode:executionModeStreamifyResponse
 })
   .use(warmupMiddleware())
   .use(httpEventNormalizerMiddleware())
