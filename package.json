@@ -71,7 +71,8 @@
 		"husky": "^9.0.0",
 		"tinybench": "^6.0.0",
 		"tstyche": "^5.0.0",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"undici": "^7.0.0"
 	},
 	"devEngines": {
 		"runtime": {
