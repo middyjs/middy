@@ -1,6 +1,6 @@
 {
 	"name": "@middy/cloudformation-response",
-	"version": "7.0.0-alpha.3",
+	"version": "7.0.0",
 	"description": "CloudFormation Custom Response event response handling for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,7 +62,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@middy/core": "7.0.0-alpha.3",
+		"@middy/core": "7.0.0",
 		"@types/aws-lambda": "^8.10.100"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
