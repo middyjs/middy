@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.0.0-alpha.1",
+	"version": "7.0.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -25,11 +26,14 @@
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
+		"executionModeStandard.js",
+		"executionModeDurableContext.js",
+		"executionModeStreamifyResponse.js",
 		"index.d.ts"
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test",
+		"test:unit": "node --test --test-force-exit",
 		"test:fuzz": "node --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js",
 		"test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
@@ -41,7 +45,9 @@
 		"Serverless",
 		"Framework",
 		"AWS",
-		"AWS Lambda"
+		"AWS Lambda",
+		"Function URL",
+		"Durable function"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -61,7 +67,9 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@datastream/core": "0.0.41",
+		"@aws/durable-execution-sdk-js": "^1.0.0",
+		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
+		"@datastream/core": "0.0.42",
 		"@types/aws-lambda": "^8.10.76",
 		"@types/node": "^22.0.0"
 	},

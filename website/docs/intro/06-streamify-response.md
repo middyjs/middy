@@ -7,7 +7,7 @@ Middy also supports streamed responses.
 
 > You can progressively stream response payloads through Lambda function URLs, including as an Amazon CloudFront origin, along with using the AWS SDK or using Lambda’s invoke API. You can not use Amazon API Gateway and Application Load Balancer to progressively stream response payloads, but you can use the functionality to return larger payloads. (https://aws.amazon.com/blogs/compute/introducing-aws-lambda-response-streaming/)
 
-1. Set `streamifyResponse: true` into middy options
+1. Set `executionMode: executionModeStreamifyResponse` into middy options
 2. a. For HTTP Events return using an HTTP event response with the body as a string or ReadableStream.
    b. For InvokeWithResponseStream Events return a response with a string or ReadableStream.
 
@@ -17,7 +17,7 @@ Middy also supports streamed responses.
 ## Lambda Function URL Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
@@ -30,19 +30,19 @@ const lambdaHandler = (event, context) => {
   }
 }
 
-export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
+export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
 ```
 
 ## Lambda InvokeWithResponseStream Example
 
 ```javascript
-import middy from '@middy/core'
+import middy, { executionModeStreamifyResponse } from '@middy/core'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
   return createReadableStream('...') // or string
 }
-export const handler = middy({ streamifyResponse: true }).handler(lambdaHandler)
+export const handler = middy({ executionMode: executionModeStreamifyResponse }).handler(lambdaHandler)
 ```
 
 ### Requesting Lambda

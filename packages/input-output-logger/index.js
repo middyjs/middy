@@ -1,17 +1,23 @@
 import { Transform } from "node:stream";
 import { TransformStream } from "node:stream/web";
+import {
+	executionContextKeys,
+	isExecutionModeDurable,
+	lambdaContextKeys,
+} from "@middy/util";
 
 const defaults = {
 	logger: (message) => {
 		console.log(JSON.stringify(message));
 	},
-	awsContext: false,
+	executionContext: false,
+	lambdaContext: false,
 	omitPaths: [],
 	mask: undefined,
 };
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
-	const { logger, awsContext, omitPaths, mask } = {
+	const { logger, executionContext, lambdaContext, omitPaths, mask } = {
 		...defaults,
 		...opts,
 	};
@@ -29,8 +35,27 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 	const omitAndLog = (param, request) => {
 		const message = { [param]: request[param] };
 
-		if (awsContext) {
-			message.context = pick(request.context, awsContextKeys);
+		if (executionContext) {
+			if (isExecutionModeDurable(request.context)) {
+				message.context ??= {};
+				message.context.executionContext = pick(
+					request.context.executionContext,
+					executionContextKeys,
+				);
+			} else {
+				message.context = pick(request.context, executionContextKeys);
+			}
+		}
+		if (lambdaContext) {
+			if (isExecutionModeDurable(request.context)) {
+				message.context ??= {};
+				message.context.lambdaContext = pick(
+					request.context.lambdaContext,
+					lambdaContextKeys,
+				);
+			} else {
+				message.context = pick(request.context, lambdaContextKeys);
+			}
 		}
 
 		let cloneMessage = message;
@@ -94,20 +119,6 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		onError: inputOutputLoggerMiddlewareOnError,
 	};
 };
-
-// https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
-const awsContextKeys = [
-	"functionName",
-	"functionVersion",
-	"invokedFunctionArn",
-	"memoryLimitInMB",
-	"awsRequestId",
-	"logGroupName",
-	"logStreamName",
-	"identity",
-	"clientContext",
-	"callbackWaitsForEmptyEventLoop",
-];
 
 // move to util, if ever used elsewhere
 const pick = (originalObject = {}, keysToPick = []) => {

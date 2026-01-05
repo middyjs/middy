@@ -1,7 +1,10 @@
 import { deepEqual, equal } from "node:assert/strict";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
-import middy from "../core/index.js";
+import middy, {
+	//executionModeDurableContext,
+	executionModeStreamifyResponse,
+} from "../core/index.js";
 import inputOutputLogger from "./index.js";
 
 // Silence logging
@@ -40,7 +43,7 @@ globalThis.awslambda = {
 	},
 };
 
-test("It should log with streamifyResponse:true using ReadableStream", async (t) => {
+test("It should log with executionMode:executionModeStreamifyResponse using ReadableStream", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	const logger = t.mock.fn();
 	const handler = middy(
@@ -48,7 +51,7 @@ test("It should log with streamifyResponse:true using ReadableStream", async (t)
 			return createReadableStream(input);
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -72,7 +75,7 @@ test("It should log with streamifyResponse:true using ReadableStream", async (t)
 	]);
 });
 
-test("It should log with streamifyResponse:true using body ReadableStream", async (t) => {
+test("It should log with executionMode:executionModeStreamifyResponse using body ReadableStream", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	const logger = t.mock.fn();
 	const handler = middy(
@@ -86,7 +89,7 @@ test("It should log with streamifyResponse:true using body ReadableStream", asyn
 			};
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -131,7 +134,7 @@ test("It should log with Web Streams API using ReadableStream", async (t) => {
 			return stream;
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -176,7 +179,7 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 			};
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -349,7 +352,8 @@ test("It should include the AWS lambda context", async (t) => {
 	const handler = middy((event) => event).use(
 		inputOutputLogger({
 			logger,
-			awsContext: true,
+			executionContext: true,
+			lambdaContext: true,
 		}),
 	);
 
@@ -374,6 +378,68 @@ test("It should include the AWS lambda context", async (t) => {
 		{
 			response: event,
 			context: { functionName: "test", awsRequestId: "xxxxx" },
+		},
+	]);
+});
+
+test("It should include the AWS lambda durable context", async (t) => {
+	const logger = t.mock.fn();
+
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+			lambdaContext: true,
+		}),
+	);
+
+	const event = { foo: "bar", fuu: "baz" };
+	const context = {
+		executionContext: {
+			requestId: "uuid",
+			tenantId: "alpha",
+		},
+		lambdaContext: {
+			...defaultContext,
+			functionName: "test",
+			awsRequestId: "xxxxx",
+		},
+		// mock Class
+		constructor: {
+			name: "DurableContextImpl",
+		},
+	};
+	const response = await handler(event, context);
+
+	deepEqual(response, event);
+
+	deepEqual(logger.mock.calls[0].arguments, [
+		{
+			event,
+			context: {
+				executionContext: {
+					tenantId: "alpha",
+				},
+				lambdaContext: {
+					functionName: "test",
+					awsRequestId: "xxxxx",
+				},
+			},
+		},
+	]);
+
+	deepEqual(logger.mock.calls[1].arguments, [
+		{
+			response: event,
+			context: {
+				executionContext: {
+					tenantId: "alpha",
+				},
+				lambdaContext: {
+					functionName: "test",
+					awsRequestId: "xxxxx",
+				},
+			},
 		},
 	]);
 });

@@ -1,8 +1,9 @@
-/* global awslambda */
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { ReadableStream } from "node:stream/web";
 import { setTimeout } from "node:timers";
+import { executionModeStandard } from "./executionModeStandard.js";
+
+export { executionModeDurableContext } from "./executionModeDurableContext.js";
+export { executionModeStandard } from "./executionModeStandard.js";
+export { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 
 const defaultLambdaHandler = () => {};
 const defaultPluginConfig = {
@@ -14,10 +15,10 @@ const defaultPluginConfig = {
 		err.name = "TimeoutError";
 		throw err;
 	},
-	streamifyResponse: false, // Deprecate need for this when AWS provides a flag for when it's looking for it
+	executionMode: executionModeStandard,
 };
 
-const middy = (setupLambdaHandler, pluginConfig) => {
+export const middy = (setupLambdaHandler, pluginConfig) => {
 	let lambdaHandler;
 	let plugin;
 	// Allow base handler to be set using .handler()
@@ -44,73 +45,15 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 			internal: plugin.internal ?? {},
 		};
 	};
-	const middy = plugin.streamifyResponse
-		? awslambda.streamifyResponse(
-				async (event, lambdaResponseStream, context) => {
-					const request = middyRequest(event, context);
-					plugin.requestStart?.(request);
-					const handlerResponse = await runRequest(
-						request,
-						beforeMiddlewares,
-						lambdaHandler,
-						afterMiddlewares,
-						onErrorMiddlewares,
-						plugin,
-					);
-					let responseStream = lambdaResponseStream;
-					let handlerBody = handlerResponse;
-					if (handlerResponse.statusCode) {
-						const { body, ...restResponse } = handlerResponse;
-						handlerBody = body ?? ""; // #1137
-						responseStream = awslambda.HttpResponseStream.from(
-							responseStream,
-							restResponse,
-						);
-					}
 
-					let handlerStream;
-					if (
-						handlerBody._readableState ||
-						handlerBody instanceof ReadableStream
-					) {
-						handlerStream = handlerBody;
-					} else if (typeof handlerBody === "string") {
-						// #1189
-						handlerStream = Readable.from(
-							handlerBody.length < stringIteratorSize
-								? handlerBody
-								: stringIterator(handlerBody),
-						);
-					}
-
-					if (!handlerStream) {
-						throw new Error(
-							"handler response not a Readable or ReadableStream",
-							{
-								cause: { package: "@middy/core" },
-							},
-						);
-					}
-
-					await pipeline(handlerStream, responseStream);
-					await plugin.requestEnd?.(request);
-				},
-			)
-		: async (event, context) => {
-				const request = middyRequest(event, context);
-				plugin.requestStart?.(request);
-
-				const response = await runRequest(
-					request,
-					beforeMiddlewares,
-					lambdaHandler,
-					afterMiddlewares,
-					onErrorMiddlewares,
-					plugin,
-				);
-				await plugin.requestEnd?.(request);
-				return response;
-			};
+	const middy = plugin.executionMode(
+		{ middyRequest, runRequest },
+		beforeMiddlewares,
+		lambdaHandler,
+		afterMiddlewares,
+		onErrorMiddlewares,
+		plugin,
+	);
 
 	middy.use = (inputMiddleware) => {
 		const middlewares = Array.isArray(inputMiddleware)
@@ -148,23 +91,9 @@ const middy = (setupLambdaHandler, pluginConfig) => {
 		onErrorMiddlewares.unshift(onErrorMiddleware);
 		return middy;
 	};
-	middy.handler = (replaceLambdaHandler) => {
-		lambdaHandler = replaceLambdaHandler;
-		return middy;
-	};
 
 	return middy;
 };
-
-const stringIteratorSize = 16384; // 16 * 1024 // Node.js default
-function* stringIterator(input) {
-	let position = 0;
-	const length = input.length;
-	while (position < length) {
-		yield input.substring(position, position + stringIteratorSize);
-		position += stringIteratorSize;
-	}
-}
 
 // shared AbortController, because it's slow
 let handlerAbort = new AbortController();
@@ -178,8 +107,10 @@ const runRequest = async (
 ) => {
 	let timeoutID;
 	// context.getRemainingTimeInMillis checked for when AWS context missing (tests, containers)
-	const timeoutEarly =
-		plugin.timeoutEarly && request.context.getRemainingTimeInMillis;
+	const getRemainingTimeInMillis =
+		request.context.getRemainingTimeInMillis ||
+		request.context.lambdaContext?.getRemainingTimeInMillis;
+	const timeoutEarly = plugin.timeoutEarly && getRemainingTimeInMillis;
 
 	try {
 		await runMiddlewares(request, beforeMiddlewares, plugin);
@@ -201,6 +132,7 @@ const runRequest = async (
 
 			// clearTimeout pattern is 10x faster than using AbortController
 			// Note: signal.abort is slow ~6000ns
+			// Required --test-force-exit to ignore unresolved timeoutPromise
 			if (timeoutEarly) {
 				let timeoutResolve;
 				const timeoutPromise = new Promise((resolve, reject) => {
@@ -215,15 +147,30 @@ const runRequest = async (
 				});
 				timeoutID = setTimeout(
 					timeoutResolve,
-					request.context.getRemainingTimeInMillis() -
-						plugin.timeoutEarlyInMillis,
+					getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
 				);
 				promises.push(timeoutPromise);
 			}
 			request.response = await Promise.race(promises);
+
 			if (timeoutID) {
 				clearTimeout(timeoutID);
-			}
+			} // alt varient for when abort() is faster
+			// if (timeoutEarly) {
+			// 	const timeoutPromise = setTimeoutPromise(
+			// 		() => {
+			// 		  handlerAbort.abort();
+			// 		  plugin.timeoutEarlyResponse()
+			// 		},
+			// 		getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
+			// 		{
+			// 			signal: handlerAbort.signal,
+			// 		}
+			// 	);
+			// 	promises.push(timeoutPromise);
+			// }
+			// request.response = await Promise.race(promises);
+			// handlerAbort.abort(); // abort timeout
 
 			plugin.afterHandler?.();
 			await runMiddlewares(request, afterMiddlewares, plugin);
@@ -253,11 +200,11 @@ const runRequest = async (
 	return request.response;
 };
 
-const runMiddlewares = async (request, middlewares, plugin) => {
+const runMiddlewares = async (request, middlewares, pluginConfig) => {
 	for (const nextMiddleware of middlewares) {
-		plugin.beforeMiddleware?.(nextMiddleware.name);
+		pluginConfig.beforeMiddleware?.(nextMiddleware.name);
 		const res = await nextMiddleware(request);
-		plugin.afterMiddleware?.(nextMiddleware.name);
+		pluginConfig.afterMiddleware?.(nextMiddleware.name);
 		// short circuit chaining and respond early
 		if (typeof res !== "undefined") {
 			request.earlyResponse = res;

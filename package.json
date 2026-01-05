@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.0.0-alpha.1",
+	"version": "7.0.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -18,7 +18,7 @@
 		"lint": "biome check --write --no-errors-on-unmatched",
 		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
 		"test:lint": "biome check --staged --no-errors-on-unmatched",
-		"test:unit": "node --test",
+		"test:unit": "node --test --test-force-exit",
 		"test:sast": "npm run test:sast:lockfile && npm run test:sast:sandworm && npm run test:sast:semgrep && npm run test:sast:trufflehog",
 		"test:sast:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https",
 		"test:sast:sandworm": "sandworm-audit --skip-all --show-tips false",
@@ -69,9 +69,10 @@
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
-		"tinybench": "^5.0.0",
+		"tinybench": "^6.0.0",
 		"tstyche": "^5.0.0",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"undici": "^7.0.0"
 	},
 	"devEngines": {
 		"runtime": {

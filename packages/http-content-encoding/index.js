@@ -24,7 +24,7 @@ const defaults = {
 	overridePreferredEncoding: [],
 };
 
-export const getStream = (preferredEncoding) => {
+export const getContentEncodingStream = (preferredEncoding) => {
 	return contentEncodingStreams[preferredEncoding]();
 };
 

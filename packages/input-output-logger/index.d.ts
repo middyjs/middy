@@ -2,7 +2,8 @@ import type middy from "@middy/core";
 
 interface Options {
 	logger?: (message: any) => void;
-	awsContext?: boolean;
+	executionContext?: boolean;
+	lambdaContext?: boolean;
 	omitPaths?: string[];
 	mask?: string;
 }
