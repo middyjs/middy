@@ -1,6 +1,6 @@
 {
 	"name": "@middy/secrets-manager",
-	"version": "7.0.0-alpha.3",
+	"version": "7.0.0",
 	"description": "Secrets Manager middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,11 +62,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.0.0-alpha.3"
+		"@middy/util": "7.0.0"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-secrets-manager": "^3.0.0",
-		"@middy/core": "7.0.0-alpha.3",
+		"@middy/core": "7.0.0",
 		"@types/aws-lambda": "^8.10.101",
 		"aws-xray-sdk": "^3.3.3"
 	},
