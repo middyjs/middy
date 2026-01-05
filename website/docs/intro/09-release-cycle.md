@@ -10,7 +10,7 @@ All Node.js Long-Term Support (LTS) releases that have AWS Lambda runtimes are s
 | Version | Status     | Alpha Release | Stable Release | End-of-Life |
 | ------- | ---------- | ------------- | -------------- | ----------- |
 | v8      | Scoping    | 2026-??-??    | 2026-??-??     | 2028-04-30  |
-| v7      | Stable     | 2025-??-??    | 2025-??-??     | 2027-04-30  |
+| v7      | Stable     | 2025-??-??    | 2026-01-04     | 2027-04-30  |
 | v6      | Deprecated | 2024-10-16    | 2024-11-23     | 2026-04-30  |
 | v5      | Deprecated | 2023-06-01    | 2023-11-15     | 2025-04-30  |
 | v4      | Deprecated | 2022-10-17    | 2022-11-24     | 2023-11-15  |
