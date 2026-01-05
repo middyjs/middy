@@ -63,6 +63,14 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"peerDependencies": {
+		"@aws-sdk/rds-signer": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/crds-signer": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@aws-sdk/rds-signer": "^3.0.0",
 		"@types/aws-lambda": "^8.10.101",
