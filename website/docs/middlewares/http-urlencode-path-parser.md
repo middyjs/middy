@@ -40,7 +40,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  deepEqual(body, {
+  deepStrictEqual(body, {
     name: 'Mîddy'
   })
 })

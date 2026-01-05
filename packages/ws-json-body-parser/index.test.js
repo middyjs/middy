@@ -1,4 +1,4 @@
-import { deepEqual, equal, match } from "node:assert/strict";
+import { deepStrictEqual, match, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import jsonBodyParser from "./index.js";
@@ -21,7 +21,7 @@ test("It should parse a JSON request", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, { foo: "bar" });
+	deepStrictEqual(processedEvent.body, { foo: "bar" });
 });
 
 test("It should use a reviver when parsing a JSON request", async (t) => {
@@ -40,7 +40,7 @@ test("It should use a reviver when parsing a JSON request", async (t) => {
 
 	await handler(event, defaultContext);
 
-	deepEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
+	deepStrictEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
 });
 
 test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
@@ -58,7 +58,7 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });
@@ -80,7 +80,7 @@ test("It should handle a base64 body", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	deepEqual(body, { foo: "bar" });
+	deepStrictEqual(body, { foo: "bar" });
 });
 
 test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t) => {
@@ -101,7 +101,7 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });

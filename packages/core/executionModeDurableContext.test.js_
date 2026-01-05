@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import middy, { executionModeDurableContext } from "./index.js";
@@ -32,9 +32,9 @@ test("Should return with executionMode:executionModeDurableContext using string"
 
 	const execution = await runner.run({ payload: input });
 	//console.log(execution.getError())
-	equal(execution.getOperations().length, 0);
-	equal(execution.getStatus(), "SUCCEEDED");
-	equal(execution.getResult(), input);
+	strictEqual(execution.getOperations().length, 0);
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	strictEqual(execution.getResult(), input);
 });
 
 test("Should return with executionMode:executionModeDurableContext using object", async (t) => {
@@ -48,9 +48,9 @@ test("Should return with executionMode:executionModeDurableContext using object"
 
 	const execution = await runner.run({ payload: input });
 
-	equal(execution.getOperations().length, 0);
-	equal(execution.getStatus(), "SUCCEEDED");
-	deepEqual(execution.getResult(), input);
+	strictEqual(execution.getOperations().length, 0);
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	deepStrictEqual(execution.getResult(), input);
 });
 
 test("Should return with executionMode:executionModeDurableContext using body:undefined", async (t) => {
@@ -69,9 +69,9 @@ test("Should return with executionMode:executionModeDurableContext using body:un
 
 	const execution = await runner.run({ payload: input });
 
-	equal(execution.getOperations().length, 0);
-	equal(execution.getStatus(), "SUCCEEDED");
-	deepEqual(execution.getResult(), input);
+	strictEqual(execution.getOperations().length, 0);
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	deepStrictEqual(execution.getResult(), input);
 });
 
 test("Should return with executionMode:executionModeDurableContext using body:string", async (t) => {
@@ -91,9 +91,9 @@ test("Should return with executionMode:executionModeDurableContext using body:st
 
 	const execution = await runner.run({ payload: input });
 
-	equal(execution.getOperations().length, 0);
-	equal(execution.getStatus(), "SUCCEEDED");
-	deepEqual(execution.getResult(), input);
+	strictEqual(execution.getOperations().length, 0);
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	deepStrictEqual(execution.getResult(), input);
 });
 
 test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {
@@ -114,7 +114,7 @@ test("Should return with executionMode:executionModeDurableContext using body:''
 
 	const execution = await runner.run({ payload: input });
 
-	equal(execution.getOperations().length, 0);
-	equal(execution.getStatus(), "SUCCEEDED");
-	deepEqual(execution.getResult(), input);
+	strictEqual(execution.getOperations().length, 0);
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	deepStrictEqual(execution.getResult(), input);
 });

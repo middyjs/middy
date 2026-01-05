@@ -1,4 +1,4 @@
-import { deepEqual, equal, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	AppConfigDataClient,
@@ -62,8 +62,8 @@ test("It should set AppConfigData param value to internal storage for multiple p
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key1?.option1, "value1");
-		equal(values.key2?.option2, "value2");
+		strictEqual(values.key1?.option1, "value1");
+		strictEqual(values.key2?.option2, "value2");
 	};
 
 	const handler = middy(() => {})
@@ -114,7 +114,7 @@ test("It should set AppConfigData param value to internal storage", async (t) =>
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.option, "value");
+		strictEqual(values.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -183,8 +183,8 @@ test("It should use previous configuration token on subsequent app config fetch"
 	const configOne = await handler(event, context);
 	const configTwo = await handler(event, context);
 
-	equal(configOne, "value");
-	equal(configTwo, "newValue");
+	strictEqual(configOne, "value");
+	strictEqual(configTwo, "newValue");
 });
 
 test("It should keep previous configuration value if getLatestConfiguration returns empty configuration array", async (t) => {
@@ -236,8 +236,8 @@ test("It should keep previous configuration value if getLatestConfiguration retu
 	const configOne = await handler(event, context);
 	const configTwo = await handler(event, context);
 
-	equal(configOne, "value");
-	equal(configTwo, "value");
+	strictEqual(configOne, "value");
+	strictEqual(configTwo, "value");
 });
 
 test("It should set AppConfig param value to internal storage without prefetch", async (t) => {
@@ -258,7 +258,7 @@ test("It should set AppConfig param value to internal storage without prefetch",
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.option, "value");
+		strictEqual(values.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -298,7 +298,7 @@ test("It should set AppConfig param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		equal(request.context.key?.option, "value");
+		strictEqual(request.context.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -341,7 +341,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.option, "value");
+		strictEqual(values.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -363,7 +363,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(mockService.send.callCount, 2);
+	strictEqual(mockService.send.callCount, 2);
 });
 
 test("It should not call aws-sdk again if parameter is cached", async (t) => {
@@ -385,7 +385,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.option, "value");
+		strictEqual(values.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -407,7 +407,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(mockService.send.callCount, 2);
+	strictEqual(mockService.send.callCount, 2);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
@@ -460,10 +460,10 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	const configOne = await handler(event, context);
 	const configTwo = await handler(event, context);
 
-	equal(configOne, "value");
-	equal(configTwo, "newValue");
+	strictEqual(configOne, "value");
+	strictEqual(configTwo, "newValue");
 
-	equal(mockService.send.callCount, 3);
+	strictEqual(mockService.send.callCount, 3);
 	ok(
 		mockService.send.firstCall.firstArg instanceof
 			StartConfigurationSessionCommand,
@@ -510,9 +510,9 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(mockService.send.callCount, 2);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(mockService.send.callCount, 2);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
 
@@ -539,9 +539,9 @@ test("It should catch if an error is returned from start configuration session c
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(mockService.send.callCount, 1);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(mockService.send.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
 
@@ -570,7 +570,7 @@ test("Should not parse configuration is mime type is not application/json", asyn
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(
+		strictEqual(
 			values.key,
 			'<?xml version="1.0" encoding="UTF-8" ?><option>value</option>',
 		);

@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
 import { createReadableStream, streamToBuffer } from "@datastream/core";
@@ -24,7 +24,7 @@ test("It should encode string using br", async (t) => {
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: brotliCompressSync(body).toString("base64"),
 		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
@@ -47,7 +47,7 @@ test("It should encode stream using br", async (t) => {
 	});
 	response.body = await streamToBuffer(response.body);
 	response.body = response.body.toString("base64");
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: brotliCompressSync(body).toString("base64"),
 		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
@@ -67,7 +67,7 @@ test("It should encode string using gzip", async (t) => {
 		preferredEncoding: "gzip",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: gzipSync(body).toString("base64"),
 		headers: { "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
@@ -90,7 +90,7 @@ test("It should encode stream using gzip", async (t) => {
 	});
 	response.body = await streamToBuffer(response.body);
 	response.body = response.body.toString("base64");
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: gzipSync(body).toString("base64"),
 		headers: { "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
@@ -109,7 +109,7 @@ test("It should encode string using deflate", async (t) => {
 		preferredEncoding: "deflate",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: deflateSync(body).toString("base64"),
 		headers: { "Content-Encoding": "deflate", Vary: "Accept-Encoding" },
@@ -132,7 +132,7 @@ test("It should encode stream using deflate", async (t) => {
 	});
 	response.body = await streamToBuffer(response.body);
 	response.body = response.body.toString("base64");
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: deflateSync(body).toString("base64"),
 		headers: { "Content-Encoding": "deflate", Vary: "Accept-Encoding" },
@@ -162,7 +162,7 @@ test("It should encode using br when context.preferredEncoding is gzip, but has 
 		preferredEncodings: ["gzip", "deflate", "br"],
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body: brotliCompressSync(body).toString("base64"),
 		headers: { "Content-Encoding": "br", Vary: "Something, Accept-Encoding" },
@@ -179,7 +179,7 @@ test("It should not encode when missing context.preferredEncoding", async (t) =>
 
 	const response = await handler(event, context);
 
-	deepEqual(response, { statusCode: 200, body, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
 
 test("It should not encode when missing context.preferredEncoding === `identity`", async (t) => {
@@ -195,7 +195,7 @@ test("It should not encode when missing context.preferredEncoding === `identity`
 		preferredEncodings: ["identity"],
 	});
 
-	deepEqual(response, { statusCode: 200, body, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
 
 test("It should not encode when response.isBase64Encoded is already set to true", async (t) => {
@@ -214,7 +214,7 @@ test("It should not encode when response.isBase64Encoded is already set to true"
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		body,
 		headers: {},
@@ -234,7 +234,7 @@ test("It should not encode when response.body is not a string", async (t) => {
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, { statusCode: 200, body, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
 
 test("It should not encode when response.body is empty string", async (t) => {
@@ -249,7 +249,7 @@ test("It should not encode when response.body is empty string", async (t) => {
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, { statusCode: 200, body, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
 
 test("It should not encode when response.body is different type", async (t) => {
@@ -264,7 +264,7 @@ test("It should not encode when response.body is different type", async (t) => {
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, { statusCode: 200, body, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
 
 test("It should not encode when response.body is undefined", async (t) => {
@@ -278,7 +278,7 @@ test("It should not encode when response.body is undefined", async (t) => {
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, { statusCode: 200, headers: {} });
+	deepStrictEqual(response, { statusCode: 200, headers: {} });
 });
 
 test('It should not encode when response.headers["Cache-Control"] is `no-transform`', async (t) => {
@@ -298,7 +298,7 @@ test('It should not encode when response.headers["Cache-Control"] is `no-transfo
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: { "Cache-Control": "no-transform" },
 		body: "body",
@@ -324,7 +324,7 @@ test('It should not encode when event.headers["Cache-Control"] is `no-transform`
 		preferredEncoding: "br",
 	});
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: { "Cache-Control": "no-transform" },
 		body: "body",
@@ -342,6 +342,6 @@ test("It should not encode when error is not handled", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "error");
+		strictEqual(e.message, "error");
 	}
 });

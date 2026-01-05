@@ -106,6 +106,6 @@ const event = {
 }
 
 handler(event, {}, (_, response) => {
-  equal(response.body, '<message>Hello World</message>')
+  strictEqual(response.body, '<message>Hello World</message>')
 })
 ```

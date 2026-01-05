@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import urlEncodePathParser from "./index.js";
@@ -23,7 +23,7 @@ test("It should decode simple url encoded requests", async (t) => {
 	};
 
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		char: "Mîddy",
 	});
 });
@@ -39,7 +39,7 @@ test("It should skip if no path parameters", async (t) => {
 	const event = {};
 
 	const response = await handler(event, context);
-	equal(response, undefined);
+	strictEqual(response, undefined);
 });
 
 test("It should throw error", async (t) => {
@@ -58,6 +58,6 @@ test("It should throw error", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "URI malformed");
+		strictEqual(e.message, "URI malformed");
 	}
 });

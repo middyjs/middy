@@ -1,4 +1,4 @@
-import { equal } from "node:assert/strict";
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	createPassThroughStream,
@@ -88,8 +88,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using stri
 		createResponseStreamMockAndCapture();
 
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse(), input);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), input);
 });
 
 test("Should throw with executionMode:executionModeStreamifyResponse using object", async (t) => {
@@ -107,7 +107,7 @@ test("Should throw with executionMode:executionModeStreamifyResponse using objec
 	try {
 		await handler(event, responseStream, context);
 	} catch (e) {
-		equal(e.message, "handler response not a Readable or ReadableStream");
+		strictEqual(e.message, "handler response not a Readable or ReadableStream");
 	}
 });
 
@@ -132,9 +132,9 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 		createResponseStreamMockAndCapture();
 
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(prelude(), JSON.stringify(metadata));
-	equal(content(), input);
+	strictEqual(response, undefined);
+	strictEqual(prelude(), JSON.stringify(metadata));
+	strictEqual(content(), input);
 });
 
 test("Should return with executionMode:executionModeStreamifyResponse using body string", async (t) => {
@@ -153,8 +153,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 
 	const { responseStream, content } = createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(content(), input);
+	strictEqual(response, undefined);
+	strictEqual(content(), input);
 });
 
 test("Should return with executionMode:executionModeStreamifyResponse using empty body string and prelude", async (t) => {
@@ -181,9 +181,9 @@ test("Should return with executionMode:executionModeStreamifyResponse using empt
 
 	const response = await handler(event, responseStream, context);
 
-	equal(response, undefined);
-	equal(prelude(), JSON.stringify(metadata));
-	equal(content(), input);
+	strictEqual(response, undefined);
+	strictEqual(prelude(), JSON.stringify(metadata));
+	strictEqual(content(), input);
 });
 
 // https://nodejs.org/api/stream.html#readable-streams
@@ -201,8 +201,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using Node
 	const { responseStream, chunkResponse } =
 		createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse(), input);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), input);
 });
 
 // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
@@ -225,8 +225,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using Web 
 	const { responseStream, chunkResponse } =
 		createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse(), input);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), input);
 });
 
 test("Should return with executionMode:executionModeStreamifyResponse using body ReadableStream", async (t) => {
@@ -248,8 +248,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 
 	const { responseStream, content } = createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(content(), input);
+	strictEqual(response, undefined);
+	strictEqual(content(), input);
 });
 
 test("Should return with executionMode:executionModeStreamifyResponse using ReadableStream.pipe(...)", async (t) => {
@@ -266,8 +266,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using Read
 	const { responseStream, chunkResponse } =
 		createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse(), input);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), input);
 });
 
 test("Should return with executionMode:executionModeStreamifyResponse using body ReadableStream.pipe(...)", async (t) => {
@@ -292,8 +292,8 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 
 	const { responseStream, content } = createResponseStreamMockAndCapture();
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(content(), input);
+	strictEqual(response, undefined);
+	strictEqual(content(), input);
 });
 
 // plugin
@@ -316,7 +316,7 @@ test("Should trigger requestEnd hook after stream ends", async (t) => {
 		{
 			executionMode: executionModeStreamifyResponse,
 			requestEnd: () => {
-				equal(streamEnd, true);
+				strictEqual(streamEnd, true);
 			},
 		},
 	);

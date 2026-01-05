@@ -1,4 +1,4 @@
-import { deepEqual, doesNotThrow, equal } from "node:assert/strict";
+import { deepStrictEqual, doesNotThrow, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpEventNormalizer from "./index.js";
@@ -34,7 +34,7 @@ test("It should default queryStringParameters with REST API", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, {});
+	deepStrictEqual(normalizedEvent.queryStringParameters, {});
 });
 
 test("It should default queryStringParameters with HTTP API", async (t) => {
@@ -50,7 +50,7 @@ test("It should default queryStringParameters with HTTP API", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, {});
+	deepStrictEqual(normalizedEvent.queryStringParameters, {});
 });
 
 test("It should default queryStringParameters with VPC Lattice", async (t) => {
@@ -61,7 +61,7 @@ test("It should default queryStringParameters with VPC Lattice", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, {});
+	deepStrictEqual(normalizedEvent.queryStringParameters, {});
 });
 
 test("It should set queryStringParameters with VPC Lattice", async (t) => {
@@ -75,7 +75,7 @@ test("It should set queryStringParameters with VPC Lattice", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, { foo: "bar" });
+	deepStrictEqual(normalizedEvent.queryStringParameters, { foo: "bar" });
 });
 
 test("It should set isBase64Encoded with VPC Lattice", async (t) => {
@@ -87,7 +87,7 @@ test("It should set isBase64Encoded with VPC Lattice", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	equal(normalizedEvent.isBase64Encoded, false);
+	strictEqual(normalizedEvent.isBase64Encoded, false);
 });
 
 test("It should default multiValueQueryStringParameters", async (t) => {
@@ -98,7 +98,7 @@ test("It should default multiValueQueryStringParameters", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.multiValueQueryStringParameters, {});
+	deepStrictEqual(normalizedEvent.multiValueQueryStringParameters, {});
 });
 
 test("It should default pathParameters with REST API", async (t) => {
@@ -109,7 +109,7 @@ test("It should default pathParameters with REST API", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.pathParameters, {});
+	deepStrictEqual(normalizedEvent.pathParameters, {});
 });
 
 test("It should default pathParameters with HTTP API", async (t) => {
@@ -125,7 +125,7 @@ test("It should default pathParameters with HTTP API", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.pathParameters, {});
+	deepStrictEqual(normalizedEvent.pathParameters, {});
 });
 
 test("It should not overwrite queryStringParameters", async (t) => {
@@ -137,7 +137,7 @@ test("It should not overwrite queryStringParameters", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, { param: "hello" });
+	deepStrictEqual(normalizedEvent.queryStringParameters, { param: "hello" });
 });
 
 test("It should not overwrite queryStringParameters with HTTP API", async (t) => {
@@ -154,7 +154,7 @@ test("It should not overwrite queryStringParameters with HTTP API", async (t) =>
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.queryStringParameters, { param: "hello" });
+	deepStrictEqual(normalizedEvent.queryStringParameters, { param: "hello" });
 });
 
 test("It should not overwrite multiValueQueryStringParameters", async (t) => {
@@ -166,7 +166,7 @@ test("It should not overwrite multiValueQueryStringParameters", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.multiValueQueryStringParameters, {
+	deepStrictEqual(normalizedEvent.multiValueQueryStringParameters, {
 		param: ["hello"],
 	});
 });
@@ -180,7 +180,7 @@ test("It should not overwrite pathParameters", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.pathParameters, { param: "hello" });
+	deepStrictEqual(normalizedEvent.pathParameters, { param: "hello" });
 });
 
 test("It should not overwrite pathParameters with HTTP API", async (t) => {
@@ -197,5 +197,5 @@ test("It should not overwrite pathParameters with HTTP API", async (t) => {
 	const handler = middy((event) => event).use(httpEventNormalizer());
 	const normalizedEvent = await handler(event, context);
 
-	deepEqual(normalizedEvent.pathParameters, { param: "hello" });
+	deepStrictEqual(normalizedEvent.pathParameters, { param: "hello" });
 });

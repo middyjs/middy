@@ -1,4 +1,4 @@
-import { deepEqual, equal, match } from "node:assert/strict";
+import { deepStrictEqual, match, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import jsonBodyParser from "./index.js";
@@ -24,7 +24,7 @@ test("It should parse a JSON request", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, { foo: "bar" });
+	deepStrictEqual(processedEvent.body, { foo: "bar" });
 });
 
 test("It should parse a JSON with a suffix MediaType request", async (t) => {
@@ -44,7 +44,7 @@ test("It should parse a JSON with a suffix MediaType request", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, { foo: "bar" });
+	deepStrictEqual(processedEvent.body, { foo: "bar" });
 });
 
 test("It should use a reviver when parsing a JSON request", async (t) => {
@@ -66,7 +66,7 @@ test("It should use a reviver when parsing a JSON request", async (t) => {
 
 	await handler(event, defaultContext);
 
-	deepEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
+	deepStrictEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
 });
 
 test("It should parse a JSON request with lowercase header", async (t) => {
@@ -86,7 +86,7 @@ test("It should parse a JSON request with lowercase header", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	deepEqual(body, { foo: "bar" });
+	deepStrictEqual(body, { foo: "bar" });
 });
 
 test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
@@ -107,8 +107,8 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });
@@ -131,9 +131,9 @@ test("It should handle undefined as an UnprocessableEntity", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Invalid or malformed JSON was provided");
-		equal(e.cause.data, undefined);
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -152,7 +152,7 @@ test("It shouldn't process the body if no header is passed", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	equal(body, '{"foo":"bar"}');
+	strictEqual(body, '{"foo":"bar"}');
 });
 
 test("It shouldn't process the body and throw error if no header is passed", async (t) => {
@@ -171,9 +171,9 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Unsupported Media Type");
-		equal(e.cause.data, undefined);
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -195,7 +195,7 @@ test("It should handle undefined body if no header", async (t) => {
 	};
 
 	const body = await handler(event, defaultContext);
-	equal(body, undefined);
+	strictEqual(body, undefined);
 });
 
 test("It should handle a base64 body", async (t) => {
@@ -218,7 +218,7 @@ test("It should handle a base64 body", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	deepEqual(body, { foo: "bar" });
+	deepStrictEqual(body, { foo: "bar" });
 });
 
 test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t) => {
@@ -242,7 +242,7 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });

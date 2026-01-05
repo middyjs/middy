@@ -1,4 +1,4 @@
-import { deepEqual, ok } from "node:assert/strict";
+import { deepStrictEqual, ok } from "node:assert/strict";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
@@ -67,7 +67,7 @@ test("It should fetch and forward Body", async (t) => {
 	);
 
 	const response = await handler(defaultEvent, defaultContext);
-	deepEqual(200, response.statusCode);
+	deepStrictEqual(200, response.statusCode);
 });
 
 test("It should fetch and forward body", async (t) => {
@@ -106,7 +106,7 @@ test("It should fetch and forward body", async (t) => {
 	);
 
 	const response = await handler(defaultEvent, defaultContext);
-	deepEqual(200, response.statusCode);
+	deepStrictEqual(200, response.statusCode);
 });
 
 test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => {
@@ -146,5 +146,5 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 	);
 
 	const response = await handler(defaultEvent, defaultContext);
-	deepEqual(200, response.statusCode);
+	deepStrictEqual(200, response.statusCode);
 });

@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
@@ -29,7 +29,7 @@ test("It should set DynamoDB param value to internal storage", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.value, "value");
+		strictEqual(values.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -68,7 +68,7 @@ test("It should set DynamoDB param value to internal storage without prefetch", 
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.value, "value");
+		strictEqual(values.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -106,7 +106,7 @@ test("It should set DynamoDB param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		equal(request.context.key?.value, "value");
+		strictEqual(request.context.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -146,7 +146,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 	const sendStub = mockService.send;
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.value, "value");
+		strictEqual(values.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -171,7 +171,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 1);
+	strictEqual(sendStub.callCount, 1);
 });
 
 test("It should not call aws-sdk again if parameter is cached", async (t) => {
@@ -188,7 +188,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.value, "value");
+		strictEqual(values.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -213,7 +213,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 1);
+	strictEqual(sendStub.callCount, 1);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
@@ -230,7 +230,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key?.value, "value");
+		strictEqual(values.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -256,7 +256,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 2);
+	strictEqual(sendStub.callCount, 2);
 });
 
 test("It should catch if an error is returned from fetch", async (t) => {
@@ -287,8 +287,8 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(sendStub.callCount, 1);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(sendStub.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });

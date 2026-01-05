@@ -1,4 +1,4 @@
-import { equal, ok } from "node:assert/strict";
+import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import cloudformationRouter from "./index.js";
@@ -36,7 +36,7 @@ test("It should thrown FAILURE when route not found", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Route does not exist");
+		strictEqual(e.message, "Route does not exist");
 	}
 });
 
@@ -59,7 +59,7 @@ test("It should thrown FAILURE when route not found, using notFoundResponse", as
 	});
 	const res = await handler(event, context);
 
-	equal(res.Status, "SUCCESS");
+	strictEqual(res.Status, "SUCCESS");
 });
 
 // with middleware
@@ -112,6 +112,9 @@ test("It should throw when not a cloudformation event", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Unknown CloudFormation Custom Response event format");
+		strictEqual(
+			e.message,
+			"Unknown CloudFormation Custom Response event format",
+		);
 	}
 });
