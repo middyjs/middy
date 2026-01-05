@@ -63,6 +63,14 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"peerDependencies": {
+		"@aws-sdk/client-servicediscovery": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-servicediscovery": {
+			"optional": true
+		}
+	},
 	"dependencies": {
 		"@middy/util": "7.0.0"
 	},

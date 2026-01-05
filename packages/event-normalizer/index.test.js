@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 import middy from "../core/index.js";
@@ -15,7 +15,7 @@ test("It should skip when empty event", async (t) => {
 	const event = {};
 	const response = await handler(event, context);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should skip when unknown event", async (t) => {
@@ -24,7 +24,7 @@ test("It should skip when unknown event", async (t) => {
 	const event = { Records: [{ eventSource: "aws:new" }] };
 	const response = await handler(event, context);
 
-	deepEqual(response, { Records: [{ eventSource: "aws:new" }] });
+	deepStrictEqual(response, { Records: [{ eventSource: "aws:new" }] });
 });
 
 // Events //
@@ -83,7 +83,7 @@ test("It should parse CloudWatch logs event", async (t) => {
 
 	const response = await handler(event, context);
 
-	deepEqual(
+	deepStrictEqual(
 		response["CodePipeline.job"].data.actionConfiguration.configuration
 			.UserParameters,
 		userParameters,
@@ -117,7 +117,7 @@ test("It should parse CodePipeline event", async (t) => {
 
 	const response = await handler(event, context);
 
-	deepEqual(response.awslogs.data, eventJSON);
+	deepStrictEqual(response.awslogs.data, eventJSON);
 });
 
 // Config
@@ -162,8 +162,8 @@ test("It should parse Config event", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.invokingEvent, invokingEvent);
-	deepEqual(response.ruleParameters, ruleParameters);
+	deepStrictEqual(response.invokingEvent, invokingEvent);
+	deepStrictEqual(response.ruleParameters, ruleParameters);
 });
 
 // DynamoDB
@@ -187,7 +187,7 @@ test("It should parse DynamoDB event keys/images", async (t) => {
 
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].dynamodb, {
+	deepStrictEqual(response.Records[0].dynamodb, {
 		Keys: {
 			B: "1",
 			BOOL: true,
@@ -226,7 +226,7 @@ test("It should parse DynamoDB event with wrapNumbers set", async (t) => {
 
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].dynamodb, {
+	deepStrictEqual(response.Records[0].dynamodb, {
 		Keys: {
 			BN: { value: "-9007199254740998.25" },
 		},
@@ -253,7 +253,7 @@ test("It should catch DynamoDB event with invalid BigInt", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(
+		strictEqual(
 			e.message,
 			`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
 		);
@@ -271,7 +271,7 @@ test("It should catch DynamoDB event with unknown type", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Unsupported type passed: J");
+		strictEqual(e.message, "Unsupported type passed: J");
 	}
 });
 
@@ -303,7 +303,7 @@ test("It should parse Apache Kafka event", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
+	deepStrictEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
 });
 
 test("It should parse Apache Kafka event without a record value", async (t) => {
@@ -332,7 +332,7 @@ test("It should parse Apache Kafka event without a record value", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.records.mytopic0[0].topic, "mytopic");
+	deepStrictEqual(response.records.mytopic0[0].topic, "mytopic");
 });
 
 // Kinesis Firehose
@@ -375,7 +375,7 @@ test("It should parse Kinesis Firehose event data", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.records[0].data, data);
+	deepStrictEqual(response.records[0].data, data);
 });
 
 // Kinesis Stream
@@ -390,7 +390,7 @@ test("It should parse Kinesis Stream event data", async (t) => {
 	).toString("base64");
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].kinesis.data, data);
+	deepStrictEqual(response.Records[0].kinesis.data, data);
 });
 
 // MQ
@@ -420,7 +420,7 @@ test("It should parse MQ event", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.messages[0].data, "ABC:AAAA");
+	deepStrictEqual(response.messages[0].data, "ABC:AAAA");
 });
 
 // MSK
@@ -451,7 +451,7 @@ test("It should parse MSK event", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
+	deepStrictEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
 });
 
 // SNS
@@ -463,7 +463,7 @@ test("It should parse SNS event message", async (t) => {
 	event.Records[0].Sns.Message = JSON.stringify(message);
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].Sns.Message, message);
+	deepStrictEqual(response.Records[0].Sns.Message, message);
 });
 
 // SQS
@@ -475,7 +475,7 @@ test("It should parse SQS event body", async (t) => {
 	event.Records[0].body = JSON.stringify(body);
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].body, body);
+	deepStrictEqual(response.Records[0].body, body);
 });
 
 // S3
@@ -486,7 +486,7 @@ test("It should normalize S3 event key", async (t) => {
 	event.Records[0].s3.object.key = "This+is+a+picture.jpg";
 	const response = await handler(event, context);
 
-	equal(response.Records[0].s3.object.key, "This is a picture.jpg");
+	strictEqual(response.Records[0].s3.object.key, "This is a picture.jpg");
 });
 
 // S3 Batch
@@ -510,7 +510,7 @@ test("It should normalize S3 Batch event key", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	equal(response.tasks[0].s3Key, "customer Image 1.jpg");
+	strictEqual(response.tasks[0].s3Key, "customer Image 1.jpg");
 });
 
 // S3 -> SNS -> SQS
@@ -539,5 +539,8 @@ test("It should parse S3 -> SNS -> SQS event", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response.Records[0].body.Message.Records[0].eventSource, "aws:s3");
+	deepStrictEqual(
+		response.Records[0].body.Message.Records[0].eventSource,
+		"aws:s3",
+	);
 });

@@ -63,6 +63,14 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"peerDependencies": {
+		"@aws-sdk/client-s3": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-ssm": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "^3.0.0",
 		"@types/aws-lambda": "^8.10.101",

@@ -66,6 +66,14 @@
 	"dependencies": {
 		"@middy/util": "7.0.0"
 	},
+	"peerDependencies": {
+		"@aws-sdk/client-sts": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-sts": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@aws-sdk/client-sts": "^3.0.0",
 		"@middy/core": "7.0.0",
