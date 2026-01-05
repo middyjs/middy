@@ -1,6 +1,6 @@
 {
 	"name": "@middy/appconfig",
-	"version": "7.0.0",
+	"version": "7.0.1",
 	"description": "AppConfig middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -60,6 +60,14 @@
 	"funding": {
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"peerDependencies": {
+		"@aws-sdk/client-appconfigdata": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-ssm": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@aws-sdk/client-appconfigdata": "^3.0.0",

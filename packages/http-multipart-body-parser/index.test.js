@@ -1,4 +1,9 @@
-import { deepEqual, equal, notEqual, ok } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	notStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpMultipartBodyParser from "./index.js";
@@ -27,7 +32,7 @@ test("It should parse a non-file field from a multipart/form-data request", asyn
 	};
 	const response = await handler(event, defaultContext);
 
-	deepEqual(response, { foo: "bar" });
+	deepStrictEqual(response, { foo: "bar" });
 });
 
 test("parseMultipartData should resolve with valid data", async (t) => {
@@ -47,7 +52,7 @@ test("parseMultipartData should resolve with valid data", async (t) => {
 	};
 
 	const response = await handler(event, defaultContext);
-	deepEqual(response, { foo: "bar" });
+	deepStrictEqual(response, { foo: "bar" });
 });
 
 test("It should parse a file field from a multipart/form-data request", async (t) => {
@@ -69,8 +74,8 @@ test("It should parse a file field from a multipart/form-data request", async (t
 
 	const response = await handler(event, defaultContext);
 
-	notEqual(response.attachment, undefined);
-	notEqual(response.attachment.content, undefined);
+	notStrictEqual(response.attachment, undefined);
+	notStrictEqual(response.attachment.content, undefined);
 });
 
 test("It should handle invalid form data (undefined) as an UnprocessableEntity", async (t) => {
@@ -93,8 +98,11 @@ test("It should handle invalid form data (undefined) as an UnprocessableEntity",
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed multipart/form-data was provided");
-		equal(e.cause.data, undefined);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -118,8 +126,11 @@ test("It should handle invalid form data (null) as an UnprocessableEntity", asyn
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed multipart/form-data was provided");
-		equal(e.cause.message, "May not write null values to stream");
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.message, "May not write null values to stream");
 	}
 });
 
@@ -143,8 +154,11 @@ test("It should handle more invalid form data as an UnprocessableEntity", async 
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.message, "Invalid or malformed multipart/form-data was provided");
-		equal(e.cause.message, "Unexpected end of multipart data");
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.message, "Unexpected end of multipart data");
 	}
 });
 
@@ -164,9 +178,9 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Unsupported Media Type");
-		equal(e.cause.data, undefined);
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -188,9 +202,9 @@ test("It shouldn't process the body if the content type is not multipart/form-da
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Unsupported Media Type");
-		equal(e.cause.data, "application/json");
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, "application/json");
 	}
 });
 
@@ -210,7 +224,7 @@ test("It shouldn't process the body if headers are passed without content type",
 	};
 
 	const response = await handler(event, defaultContext);
-	equal(
+	strictEqual(
 		response,
 		"LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
 	);
@@ -234,9 +248,9 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Unsupported Media Type");
-		equal(e.cause.data, undefined);
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -257,8 +271,8 @@ test("It should parse an array from a multipart/form-data request (base64)", asy
 	};
 	const response = await handler(event, defaultContext);
 
-	notEqual(response.foo, undefined);
-	equal(response.foo.length, 2);
+	notStrictEqual(response.foo, undefined);
+	strictEqual(response.foo.length, 2);
 });
 
 test("It should parse an array from a multipart/form-data request with ASCII dash (utf8)", async (t) => {
@@ -277,7 +291,7 @@ test("It should parse an array from a multipart/form-data request with ASCII das
 	};
 	const response = await handler(event, defaultContext);
 
-	deepEqual(response, { PartName: '{"foo":"bar-"}' });
+	deepStrictEqual(response, { PartName: '{"foo":"bar-"}' });
 });
 
 test("It should parse an array from a multipart/form-data request (binary)", async (t) => {
@@ -296,7 +310,7 @@ test("It should parse an array from a multipart/form-data request (binary)", asy
 	};
 	const response = await handler(event);
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		file: {
 			content: Buffer.from(""),
 			encoding: "binary",
@@ -323,7 +337,7 @@ test("It should parse an array from a multipart/form-data request en dash (utf8)
 	};
 	const response = await handler(event, defaultContext);
 
-	deepEqual(response, { PartName: '{"foo":"bar–"}' });
+	deepStrictEqual(response, { PartName: '{"foo":"bar–"}' });
 });
 
 test("It should parse a field with multiple files successfully", async (t) => {
@@ -343,7 +357,7 @@ test("It should parse a field with multiple files successfully", async (t) => {
 	};
 	const response = await handler(event, defaultContext);
 	ok(Object.keys(response).includes("files"));
-	equal(response.files.length, 3);
+	strictEqual(response.files.length, 3);
 });
 
 test("It should parse form data when the charset is in the header", async (t) => {
@@ -365,5 +379,5 @@ test("It should parse form data when the charset is in the header", async (t) =>
 	};
 	const response = await handler(event, defaultContext);
 
-	deepEqual(response, { foo: "bar" });
+	deepStrictEqual(response, { foo: "bar" });
 });

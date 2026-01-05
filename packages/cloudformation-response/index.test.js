@@ -1,4 +1,4 @@
-import { deepEqual } from "node:assert/strict";
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import middy from "../core/index.js";
@@ -22,7 +22,7 @@ test("It should return SUCCESS when empty response", async (t) => {
 
 	const event = defaultEvent;
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		Status: "SUCCESS",
 		RequestId: "RequestId",
 		LogicalResourceId: "LogicalResourceId",
@@ -39,7 +39,7 @@ test("It should return SUCCESS when empty object", async (t) => {
 
 	const event = defaultEvent;
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		Status: "SUCCESS",
 		RequestId: "RequestId",
 		LogicalResourceId: "LogicalResourceId",
@@ -56,7 +56,7 @@ test("It should return FAILURE when error thrown", async (t) => {
 
 	const event = defaultEvent;
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		Status: "FAILED",
 		Reason: "Internal Error",
 		RequestId: "RequestId",
@@ -79,7 +79,7 @@ test("It should not override response values", async (t) => {
 
 	const event = defaultEvent;
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		Status: "FAILED",
 		RequestId: "RequestId*",
 		LogicalResourceId: "LogicalResourceId*",

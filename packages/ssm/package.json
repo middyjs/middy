@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ssm",
-	"version": "7.0.0",
+	"version": "7.0.1",
 	"description": "SSM (EC2 Systems Manager) parameters middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,11 +64,19 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.0.0"
+		"@middy/util": "7.0.1"
+	},
+	"peerDependencies": {
+		"@aws-sdk/client-ssm": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-ssm": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@aws-sdk/client-ssm": "^3.0.0",
-		"@middy/core": "7.0.0",
+		"@middy/core": "7.0.1",
 		"@types/aws-lambda": "^8.10.101",
 		"aws-xray-sdk": "^3.3.3"
 	},

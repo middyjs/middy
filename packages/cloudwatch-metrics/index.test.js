@@ -43,8 +43,8 @@ test.afterEach((t) => {
 
 test('It should add a MetricLogger instance on context.metrics', async (t) => {
   const handler = middy((event, context) => {
-    equal(createMetricsLoggerStub.mock.callCount(), 1)
-    deepEqual(context, {
+    strictEqual(createMetricsLoggerStub.mock.callCount(), 1)
+    deepStrictEqual(context, {
       ...defaultContext,
       metrics: metricsLoggerMock
     })
@@ -60,7 +60,7 @@ test('It should call metrics.flush after handler invocation', async (t) => {
   const handler = middy(() => {})
 
   const middleware = () => {
-    equal(metricsLoggerMock.flush.mock.callCount(), 1)
+    strictEqual(metricsLoggerMock.flush.mock.callCount(), 1)
   }
 
   handler.use(metrics()).after(middleware)
@@ -73,8 +73,8 @@ test('It should call metrics.setNamespace when option passed', async (t) => {
   const handler = middy(() => {})
 
   const middleware = () => {
-    equal(metricsLoggerMock.setNamespace.mock.callCount(), 1)
-    equal(metricsLoggerMock.setNamespace.mock.calls, ['myNamespace'])
+    strictEqual(metricsLoggerMock.setNamespace.mock.callCount(), 1)
+    strictEqual(metricsLoggerMock.setNamespace.mock.calls, ['myNamespace'])
   }
 
   handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
@@ -87,8 +87,8 @@ test('It should call metrics.setDimensions when option passed using plain object
   const handler = middy(() => {})
 
   const middleware = () => {
-    equal(metricsLoggerMock.setDimensions.mock.callCount(), 1)
-    equal(metricsLoggerMock.setDimensions.mock.calls, [
+    strictEqual(metricsLoggerMock.setDimensions.mock.callCount(), 1)
+    strictEqual(metricsLoggerMock.setDimensions.mock.calls, [
       {
         Runtime: 'NodeJS',
         Platform: 'ECS',
@@ -119,8 +119,8 @@ test('It should call metrics.setDimensions when option passed using an array of 
   const handler = middy(() => {})
 
   const middleware = () => {
-    equal(metricsLoggerMock.setDimensions.mock.callCount(), 1)
-    equal(metricsLoggerMock.setDimensions.mock.calls, [
+    strictEqual(metricsLoggerMock.setDimensions.mock.callCount(), 1)
+    strictEqual(metricsLoggerMock.setDimensions.mock.calls, [
       {
         Runtime: 'NodeJS',
         Platform: 'ECS',

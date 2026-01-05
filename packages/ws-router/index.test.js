@@ -1,4 +1,4 @@
-import { deepEqual, equal, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import wsRouter from "./index.js";
@@ -40,8 +40,8 @@ test("It should thrown 404 when route not found", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Route does not exist");
-		equal(e.statusCode, 404);
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
 	}
 });
 
@@ -67,8 +67,8 @@ test("It should thrown 200 when route not found, using notFoundResponse", async 
 	});
 	const res = await handler(event, context);
 
-	equal(res.statusCode, 200);
-	deepEqual(JSON.parse(res.body), { routeKey: "missing" });
+	strictEqual(res.statusCode, 200);
+	deepStrictEqual(JSON.parse(res.body), { routeKey: "missing" });
 });
 
 // with middleware
@@ -125,6 +125,6 @@ test("It should throw when not a ws event", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Unknown WebSocket event format");
+		strictEqual(e.message, "Unknown WebSocket event format");
 	}
 });

@@ -1,4 +1,4 @@
-import { equal, ok } from "node:assert/strict";
+import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 // import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import middy from "../core/index.js";
@@ -125,7 +125,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 	try {
 		await handler(event, context);
 	} catch (error) {
-		equal(error.message, "!");
+		strictEqual(error.message, "!");
 	}
 });
 
@@ -272,7 +272,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 	try {
 		await handler(event, context);
 	} catch (error) {
-		equal(error.message, "!");
+		strictEqual(error.message, "!");
 	}
 });
 

@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 
@@ -39,12 +39,12 @@ test("Should return when there are only failed messages", async (t) => {
 
 	const response = await handler(event, context);
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
 			itemIdentifier: r.messageId,
 		})),
 	});
-	equal(logger.mock.callCount(), 1);
+	strictEqual(logger.mock.callCount(), 1);
 });
 
 test("Should resolve when there are no failed messages", async (t) => {
@@ -65,8 +65,8 @@ test("Should resolve when there are no failed messages", async (t) => {
 	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
 	const response = await handler(event, context);
-	deepEqual(response, { batchItemFailures: [] });
-	equal(logger.mock.callCount(), 0);
+	deepStrictEqual(response, { batchItemFailures: [] });
+	strictEqual(logger.mock.callCount(), 0);
 });
 
 test("Should return only the rejected messageIds", async (t) => {
@@ -95,12 +95,12 @@ test("Should return only the rejected messageIds", async (t) => {
 	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		batchItemFailures: event.Records.filter(
 			(r) => r.messageAttributes.resolveOrReject.stringValue === "reject",
 		).map((r) => ({ itemIdentifier: r.messageId })),
 	});
-	equal(logger.mock.callCount(), 1);
+	strictEqual(logger.mock.callCount(), 1);
 });
 
 test("Should reject all messageIds when error is thrown", async (t) => {
@@ -129,10 +129,10 @@ test("Should reject all messageIds when error is thrown", async (t) => {
 		.use(sqsPartialBatchFailure({ logger }));
 
 	const response = await handler(event, context);
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
 			itemIdentifier: r.messageId,
 		})),
 	});
-	equal(logger.mock.callCount(), 1);
+	strictEqual(logger.mock.callCount(), 1);
 });

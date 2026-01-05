@@ -1,4 +1,4 @@
-import { deepEqual } from "node:assert/strict";
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import {
@@ -37,7 +37,7 @@ test("It should post when api gateway event", async (t) => {
 		},
 	};
 	const response = await handler(event, context);
-	deepEqual(response, { statusCode: 200 });
+	deepStrictEqual(response, { statusCode: 200 });
 });
 
 test("It should post when endpoint option set", async (t) => {
@@ -63,7 +63,7 @@ test("It should post when endpoint option set", async (t) => {
 
 	const event = {};
 	const response = await handler(event, context);
-	deepEqual(response, { statusCode: 200 });
+	deepStrictEqual(response, { statusCode: 200 });
 });
 
 test("It should not post when connection id is not set", async (t) => {
@@ -83,7 +83,7 @@ test("It should not post when connection id is not set", async (t) => {
 
 	const event = {};
 	const response = await handler(event, context);
-	deepEqual(response, true);
+	deepStrictEqual(response, true);
 });
 
 test("It should not post when response not set", async (t) => {
@@ -102,5 +102,5 @@ test("It should not post when response not set", async (t) => {
 	const event = {};
 	const response = await handler(event, context);
 
-	deepEqual(response, undefined);
+	deepStrictEqual(response, undefined);
 });
