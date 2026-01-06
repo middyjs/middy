@@ -12,7 +12,8 @@ Same as API Gateway (HTTP), but with support for response streams.
 ## Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'

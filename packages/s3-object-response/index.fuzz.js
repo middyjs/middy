@@ -8,9 +8,7 @@ import middleware from "./index.js";
 
 mockClient(S3Client)
 	.on(WriteGetObjectResponseCommand)
-	.resolves({ statusCode: 200 });
-
-// Causes memory leak
+	.resolves({ statusCode: 200 }); // Causes memory leak
 // const agent = new MockAgent();
 // setGlobalDispatcher(agent);
 // agent
@@ -23,7 +21,8 @@ mockClient(S3Client)
 // 		headers: {
 // 			"Content-Type": "application/json; charset=UTF-8",
 // 		},
-// 	});
+// 	})
+//  .persist()
 global.fetch = (url, request) => {
 	return Promise.resolve(
 		new Response("", {

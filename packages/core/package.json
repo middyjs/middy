@@ -21,6 +21,30 @@
 			"require": {
 				"default": "./index.js"
 			}
+		},
+		"./Standard": {
+			"import": {
+				"default": "./executionModeStandard.js"
+			},
+			"require": {
+				"default": "./executionModeStandard.js"
+			}
+		},
+		"./DurableContext": {
+			"import": {
+				"default": "./executionModeDurableContext.js"
+			},
+			"require": {
+				"default": "./executionModeDurableContext.js"
+			}
+		},
+		"./StreamifyResponse": {
+			"import": {
+				"default": "./executionModeStreamifyResponse.js"
+			},
+			"require": {
+				"default": "./executionModeStreamifyResponse.js"
+			}
 		}
 	},
 	"types": "index.d.ts",

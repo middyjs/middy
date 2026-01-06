@@ -15,7 +15,8 @@ npm install --save @middy/core @aws/durable-execution-sdk-js
 ```
 
 ```javascript
-import middy, { executionModeDurableContext } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeDurableContext } from '@middy/core/DurableContext'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context, {signal}) => {
