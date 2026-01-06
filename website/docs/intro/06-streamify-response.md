@@ -17,7 +17,8 @@ Middy also supports streamed responses.
 ## Lambda Function URL Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
@@ -36,7 +37,8 @@ export const handler = middy({ executionMode: executionModeStreamifyResponse }).
 ## Lambda InvokeWithResponseStream Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {

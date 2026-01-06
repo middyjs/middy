@@ -1,10 +1,11 @@
 import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
-import middy, {
-	//executionModeDurableContext,
-	executionModeStreamifyResponse,
-} from "../core/index.js";
+// import {
+// 	executionModeDurableContext,
+// } from "../core/executionModeDurableContext.js";
+import { executionModeStreamifyResponse } from "../core/executionModeStreamifyResponse.js";
+import middy from "../core/index.js";
 import inputOutputLogger from "./index.js";
 
 // Silence logging
