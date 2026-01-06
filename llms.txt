@@ -326,7 +326,8 @@ npm install --save @middy/core @aws/durable-execution-sdk-js
 ```
 
 ```javascript
-import middy, { executionModeDurableContext } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeDurableContext } from '@middy/core/DurableContext'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context, {signal}) => {
@@ -358,7 +359,8 @@ Middy also supports streamed responses.
 ## Lambda Function URL Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
@@ -377,7 +379,8 @@ export const handler = middy({ executionMode: executionModeStreamifyResponse }).
 ## Lambda InvokeWithResponseStream Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import { createReadableStream } from '@datastream/core'
 
 const lambdaHandler = (event, context) => {
@@ -637,7 +640,7 @@ All Node.js Long-Term Support (LTS) releases that have AWS Lambda runtimes are s
 | Version | Status     | Alpha Release | Stable Release | End-of-Life |
 | ------- | ---------- | ------------- | -------------- | ----------- |
 | v8      | Scoping    | 2026-??-??    | 2026-??-??     | 2028-04-30  |
-| v7      | Stable     | 2025-??-??    | 2025-??-??     | 2027-04-30  |
+| v7      | Stable     | 2025-??-??    | 2026-01-04     | 2027-04-30  |
 | v6      | Deprecated | 2024-10-16    | 2024-11-23     | 2026-04-30  |
 | v5      | Deprecated | 2023-06-01    | 2023-11-15     | 2025-04-30  |
 | v4      | Deprecated | 2022-10-17    | 2022-11-24     | 2023-11-15  |
@@ -1308,7 +1311,8 @@ export const handler = middy()
 ### Using streams
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import httpContentNegotiation from '@middy/http-content-negotiation'
 import httpContentEncoding from '@middy/http-content-encoding'
 import { constants } from 'node:zlib'
@@ -1483,8 +1487,8 @@ export const handler = middy()
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  equal(response.headers['Access-Control-Allow-Origin'], '*')
-  deepEqual(response, {
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+  deepStrictEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity'
   })
@@ -1504,7 +1508,7 @@ export const handler = middy().use(cors()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  equal(response.headers['Access-Control-Allow-Origin'], '*')
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
 })
 ```
 
@@ -1546,7 +1550,7 @@ export const handler = middy().use(httpErrorHandler()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  deepEqual(response, {
+  deepStrictEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity'
   })
@@ -1688,7 +1692,7 @@ const event = {
   body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  equal(body, { foo: 'bar' })
+  strictEqual(body, { foo: 'bar' })
 })
 ```
 
@@ -1747,7 +1751,7 @@ const event = {
   isBase64Encoded: true
 }
 handler(event, {}, (_, body) => {
-  equal(body, { foo: 'bar' })
+  strictEqual(body, { foo: 'bar' })
 })
 ```
 
@@ -1919,7 +1923,7 @@ const event = {
 }
 
 handler(event, {}, (_, response) => {
-  equal(response.body, '<message>Hello World</message>')
+  strictEqual(response.body, '<message>Hello World</message>')
 })
 ```
 
@@ -2008,7 +2012,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  deepEqual(body, {
+  deepStrictEqual(body, {
     frappucino: 'muffin',
     'goat[]': 'scone',
     pond: 'moose'
@@ -2058,7 +2062,7 @@ const event = {
 }
 
 handler(event, {}, (_, body) => {
-  deepEqual(body, {
+  deepStrictEqual(body, {
     name: 'Mîddy'
   })
 })
@@ -2455,8 +2459,8 @@ export const handler = middy()
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/api_token has two keys, 'Username' and 'Password'
-  equal(context.apiToken.Username, 'username')
-  equal(context.apiToken.Password, 'password')
+  strictEqual(context.apiToken.Username, 'username')
+  strictEqual(context.apiToken.Password, 'password')
 })
 ```
 
@@ -2990,7 +2994,7 @@ const event = {
   body: JSON.stringify({ something: 'somethingelse' })
 }
 handler(event, {}, (err, res) => {
-  equal(err.message, 'Event object failed validation')
+  strictEqual(err.message, 'Event object failed validation')
 })
 ```
 
@@ -3024,8 +3028,8 @@ export const handler = middy()
 
 //
 handler({}, {}, (err, response) => {
-  notEqual(err, null)
-  equal(err.message, 'Response object failed validation')
+  notStrictEqual(err, null)
+  strictEqual(err.message, 'Response object failed validation')
   expect(response).not.toBe(null)
   // it doesn't destroy the response so it can be used by other middlewares
 })
@@ -3896,7 +3900,7 @@ Version 7.x of Middy no longer supports Node.js versions 20.x. You are highly en
 - Add support for Durable Functions, caused breaking changes to `streamifyResponse`.
 - LLRT can now be used when using `executionModeStandard` (default) & `executionModeDurableContext`
 - Works with new Tenant isolation mode
-- Works with new multiconcurrency on Lambda Managed Instances
+- Works with new multi-concurrency on Lambda Managed Instances
 
 ## Core
 
@@ -3916,7 +3920,8 @@ export const handler = middy({ streamifyResponse: true })
 changes to 
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 
 const lambdaHandler = (_event, _context) => {
   // ...
@@ -5926,7 +5931,8 @@ Same as API Gateway (HTTP), but with support for response streams.
 ## Example
 
 ```javascript
-import middy, { executionModeStreamifyResponse } from '@middy/core'
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
 import errorLoggerMiddleware from '@middy/error-logger'
 import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
