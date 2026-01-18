@@ -48,6 +48,6 @@ const event = {
   body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  equal(body, { foo: 'bar' })
+  strictEqual(body, { foo: 'bar' })
 })
 ```

@@ -4,6 +4,7 @@ interface Options {
 	br?: any;
 	gzip?: any;
 	deflate?: any;
+	zstd?: any;
 	overridePreferredEncoding?: string[];
 }
 

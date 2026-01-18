@@ -12,7 +12,8 @@ test("use with all options", () => {
 		logger: (...args) => {
 			console.log(...args);
 		},
-		awsContext: true,
+		executionContext: true,
+		lambdaContext: true,
 		omitPaths: ["a", "b", "c"],
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj>();

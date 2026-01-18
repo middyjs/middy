@@ -230,7 +230,7 @@
                     tbody_tr[pkg].appendChild(td);
                 }
 
-                totals[year] = stats["middy"] + stats["@middy/core"];
+                totals[year] = stats.middy + stats["@middy/core"];
                 console.log("Total", year, formatNumber(totals[year]));
             }
             for (const pkg of pkgs) {

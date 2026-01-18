@@ -19,17 +19,20 @@ const setupHandler = (options) => {
 };
 
 const warmHandler = setupHandler({
-	awsContext: false,
+	executionContext: false,
+	lambdaContext: false,
 	omitPaths: [],
 });
 
 const shallowHandler = setupHandler({
-	awsContext: false,
+	executionContext: false,
+	lambdaContext: false,
 	omitPaths: ["event.zooloo", "event.hoo", "response.hoo"],
 });
 
 const deepHandler = setupHandler({
-	awsContext: false,
+	executionContext: false,
+	lambdaContext: false,
 	omitPaths: ["event.hoo", "response.foo.[].foo"],
 });
 

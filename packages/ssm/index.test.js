@@ -1,4 +1,4 @@
-import { deepEqual, equal, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	GetParametersByPathCommand,
@@ -35,7 +35,7 @@ test("It should set SSM param value to internal storage", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -66,7 +66,7 @@ test("It should set SSM param path to internal storage", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.key, {
+		deepStrictEqual(values.key, {
 			key_name: "key-value",
 			key_pass: "key-pass",
 		});
@@ -118,7 +118,7 @@ test("It should set SSM param path to internal storage when nextToken is returne
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.key, {
+		deepStrictEqual(values.key, {
 			key_name: "key-value",
 			key_pass: ["key", "pass"],
 		});
@@ -149,7 +149,7 @@ test("It should set SSM param value to internal storage without prefetch", async
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -176,7 +176,7 @@ test("It should set SSM param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		equal(request.context.key, "key-value");
+		strictEqual(request.context.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -221,7 +221,7 @@ const ssmOrderTest = async (t, fetchData) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values, {
+		deepStrictEqual(values, {
 			key0: "key-value-0",
 			key1: "key-value-1",
 			key2: { path0: "path-value-0", path1: "path-value-1" },
@@ -320,7 +320,7 @@ test("It should set SSM param value to internal storage when request > 10 params
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key11, "key-value11");
+		strictEqual(values.key11, "key-value11");
 	};
 
 	const handler = middy(() => {})
@@ -353,6 +353,45 @@ test("It should set SSM param value to internal storage when request > 10 params
 	await handler(event, context);
 });
 
+test("It should set cross-account shared SSM param value to internal storage", async (t) => {
+	mockClient(SSMClient)
+		.on(GetParametersCommand, {
+			Names: [
+				"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+			],
+			WithDecryption: true,
+		})
+		.resolvesOnce({
+			Parameters: [
+				{
+					ARN: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+					Name: "/dev/service_name/key_name0",
+					Value: "key-value0",
+				},
+			],
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key0, "key-value0");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key0: "arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
 test("It should not call aws-sdk again if parameter is cached forever", async (t) => {
 	const mockService = mockClient(SSMClient)
 		.on(GetParametersCommand)
@@ -362,7 +401,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 	const sendStub = mockService.send;
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -380,7 +419,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 1);
+	strictEqual(sendStub.callCount, 1);
 });
 
 test("It should not call aws-sdk again if parameter is cached", async (t) => {
@@ -393,7 +432,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -411,7 +450,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 1);
+	strictEqual(sendStub.callCount, 1);
 });
 
 test("It should call aws-sdk everytime if cache disabled", async (t) => {
@@ -427,7 +466,7 @@ test("It should call aws-sdk everytime if cache disabled", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -446,7 +485,7 @@ test("It should call aws-sdk everytime if cache disabled", async (t) => {
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 2);
+	strictEqual(sendStub.callCount, 2);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
@@ -462,7 +501,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -480,7 +519,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	await handler(event, context);
 	t.mock.timers.tick(5);
 	await handler(event, context);
-	equal(sendStub.callCount, 2);
+	strictEqual(sendStub.callCount, 2);
 });
 
 test("It should it should recover from an error if cache enabled but cached param has expired", async (t) => {
@@ -504,7 +543,7 @@ test("It should it should recover from an error if cache enabled but cached para
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		equal(values.key, "key-value");
+		strictEqual(values.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -526,7 +565,7 @@ test("It should it should recover from an error if cache enabled but cached para
 	t.mock.timers.tick(5);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 4);
+	strictEqual(sendStub.callCount, 4);
 });
 
 test("It should throw error if InvalidParameters returned", async (t) => {
@@ -557,8 +596,8 @@ test("It should throw error if InvalidParameters returned", async (t) => {
 		await handler(event, context);
 		ok(false);
 	} catch (e) {
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [
 			new Error("InvalidParameter invalid-ssm-param-name", {
 				cause: { package: "@middy/ssm" },
 			}),
@@ -590,9 +629,9 @@ test("It should catch if an error is returned from fetchSingle", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(sendStub.callCount, 1);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(sendStub.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
 
@@ -617,8 +656,8 @@ test("It should catch if an error is returned from fetchPath", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(sendStub.callCount, 1);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(sendStub.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });

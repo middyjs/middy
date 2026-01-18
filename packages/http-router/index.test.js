@@ -1,4 +1,4 @@
-import { deepEqual, equal, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpRouter from "./index.js";
@@ -51,7 +51,7 @@ test("It should route to a dynamic route with `{variable}`", async (t) => {
 			method: "GET",
 			path: "/user/{id}/",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { id: "1" });
+				deepStrictEqual(event.pathParameters, { id: "1" });
 				return true;
 			},
 		},
@@ -69,7 +69,7 @@ test("It should route to a dynamic route with `{variable1}`", async (t) => {
 			method: "GET",
 			path: "/user/{id1}/",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { id1: "1" });
+				deepStrictEqual(event.pathParameters, { id1: "1" });
 				return true;
 			},
 		},
@@ -87,7 +87,7 @@ test("It should route to a dynamic route with `{Variable}`", async (t) => {
 			method: "GET",
 			path: "/user/{Id}/",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { Id: "1" });
+				deepStrictEqual(event.pathParameters, { Id: "1" });
 				return true;
 			},
 		},
@@ -105,7 +105,7 @@ test("It should route to a dynamic route with `{var_iable}`", async (t) => {
 			method: "GET",
 			path: "/user/{i_d}/",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { i_d: "1" });
+				deepStrictEqual(event.pathParameters, { i_d: "1" });
 				return true;
 			},
 		},
@@ -120,13 +120,13 @@ test("It should not route to a dynamic route with `{var-iable}`", async (t) => {
 				method: "GET",
 				path: "/user/{i-d}/",
 				handler: (event) => {
-					deepEqual(event.pathParameters, { "i-d": "1" });
+					deepStrictEqual(event.pathParameters, { "i-d": "1" });
 					return true;
 				},
 			},
 		]);
 	} catch (e) {
-		equal(
+		strictEqual(
 			e.message,
 			"Invalid regular expression: /^/user/(?<i-d>[^/]+)/?$/: Invalid capture group name",
 		);
@@ -159,7 +159,7 @@ test("It should route to a dynamic route with multiple `{variable}`", async (t) 
 			method: "GET",
 			path: "/user/{id}",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { id: "1", transactions: "50" });
+				deepStrictEqual(event.pathParameters, { id: "1", transactions: "50" });
 				return true;
 			},
 		},
@@ -183,7 +183,7 @@ test("It should route to a dynamic route (/) with `{proxy+}`", async (t) => {
 			method: "GET",
 			path: "/{proxy+}",
 			handler: () => {
-				deepEqual(event.pathParameters, { proxy: "any" });
+				deepStrictEqual(event.pathParameters, { proxy: "any" });
 				return true;
 			},
 		},
@@ -202,7 +202,7 @@ test("It should route to a dynamic route (/path) with `{proxy+}`", async (t) => 
 			method: "GET",
 			path: "/path/{proxy+}",
 			handler: () => {
-				deepEqual(event.pathParameters, { proxy: "" });
+				deepStrictEqual(event.pathParameters, { proxy: "" });
 				return true;
 			},
 		},
@@ -221,7 +221,7 @@ test("It should route to a dynamic route (/path/to) with `{proxy+}`", async (t) 
 			method: "GET",
 			path: "/path/{proxy+}",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { proxy: "to" });
+				deepStrictEqual(event.pathParameters, { proxy: "to" });
 				ok(!!event.pathParameters.__proto__);
 				return true;
 			},
@@ -244,7 +244,7 @@ test("It should populate pathParameters to a dynamic route even if they already 
 			method: "GET",
 			path: "/user/{id}",
 			handler: (event) => {
-				deepEqual(event.pathParameters, { id: "123", previous: "321" });
+				deepStrictEqual(event.pathParameters, { id: "123", previous: "321" });
 				ok(!!event.pathParameters.__proto__);
 				return true;
 			},
@@ -269,8 +269,8 @@ test("It should thrown 404 when route not found", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Route does not exist");
-		equal(e.statusCode, 404);
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
 	}
 });
 
@@ -297,8 +297,8 @@ test("It should thrown 200 when route not found, using notFoundResponse", async 
 
 	const res = await handler(event, context);
 
-	equal(res.statusCode, 200);
-	deepEqual(JSON.parse(res.body), { method: "GET", path: "/notfound" });
+	strictEqual(res.statusCode, 200);
+	deepStrictEqual(JSON.parse(res.body), { method: "GET", path: "/notfound" });
 });
 
 // route methods
@@ -495,7 +495,7 @@ test("It should throw when unknown method is used", async (t) => {
 			},
 		]);
 	} catch (e) {
-		equal(e.message, "Method not allowed");
+		strictEqual(e.message, "Method not allowed");
 	}
 });
 
@@ -513,6 +513,6 @@ test("It should throw when not a http event", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Unknown http event format");
+		strictEqual(e.message, "Unknown http event format");
 	}
 });

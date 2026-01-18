@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import urlEncodeBodyParser from "./index.js";
@@ -26,7 +26,7 @@ test("It should decode complex url encoded requests", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, {
+	deepStrictEqual(processedEvent.body, {
 		"a[b][c][d]": "i",
 	});
 });
@@ -48,7 +48,7 @@ test("It should default when body is empty", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, {});
+	deepStrictEqual(processedEvent.body, {});
 });
 
 test("It should default when body is undefined", async (t) => {
@@ -68,7 +68,7 @@ test("It should default when body is undefined", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepEqual(processedEvent.body, {});
+	deepStrictEqual(processedEvent.body, {});
 });
 
 test("It should not process the body if no headers are passed", async (t) => {
@@ -86,7 +86,7 @@ test("It should not process the body if no headers are passed", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	equal(body, "a[b][c][d]=i");
+	strictEqual(body, "a[b][c][d]=i");
 });
 
 test("It shouldn't process the body and throw error if no header is passed", async (t) => {
@@ -105,9 +105,9 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
-		equal(e.message, "Unsupported Media Type");
-		equal(e.cause.data, undefined);
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
 	}
 });
 
@@ -129,7 +129,7 @@ test("It should not process the body if malformed body is passed", async (t) => 
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		equal(e.statusCode, 415);
+		strictEqual(e.statusCode, 415);
 	}
 });
 
@@ -150,5 +150,5 @@ test("It should handle base64 body", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	deepEqual(body, { a: "a", b: "b" });
+	deepStrictEqual(body, { a: "a", b: "b" });
 });

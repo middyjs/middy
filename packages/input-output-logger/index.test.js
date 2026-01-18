@@ -1,6 +1,10 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
+// import {
+// 	executionModeDurableContext,
+// } from "../core/executionModeDurableContext.js";
+import { executionModeStreamifyResponse } from "../core/executionModeStreamifyResponse.js";
 import middy from "../core/index.js";
 import inputOutputLogger from "./index.js";
 
@@ -25,9 +29,9 @@ test("It should log event and response", async (t) => {
 	const event = { foo: "bar", fuu: "baz" };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event }]);
-	deepEqual(logger.mock.calls[1].arguments, [{ response: event }]);
-	deepEqual(response, event);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
+	deepStrictEqual(response, event);
 });
 
 // streamifyResponse
@@ -40,7 +44,7 @@ globalThis.awslambda = {
 	},
 };
 
-test("It should log with streamifyResponse:true using ReadableStream", async (t) => {
+test("It should log with executionMode:executionModeStreamifyResponse using ReadableStream", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	const logger = t.mock.fn();
 	const handler = middy(
@@ -48,7 +52,7 @@ test("It should log with streamifyResponse:true using ReadableStream", async (t)
 			return createReadableStream(input);
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -62,17 +66,17 @@ test("It should log with streamifyResponse:true using ReadableStream", async (t)
 		chunkResponse += chunk;
 	});
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse, input);
-	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse, input);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{
 			response: input,
 		},
 	]);
 });
 
-test("It should log with streamifyResponse:true using body ReadableStream", async (t) => {
+test("It should log with executionMode:executionModeStreamifyResponse using body ReadableStream", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	const logger = t.mock.fn();
 	const handler = middy(
@@ -86,7 +90,7 @@ test("It should log with streamifyResponse:true using body ReadableStream", asyn
 			};
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -100,10 +104,10 @@ test("It should log with streamifyResponse:true using body ReadableStream", asyn
 		chunkResponse += chunk;
 	});
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse, input);
-	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse, input);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{
 			response: {
 				statusCode: 200,
@@ -131,7 +135,7 @@ test("It should log with Web Streams API using ReadableStream", async (t) => {
 			return stream;
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -145,10 +149,10 @@ test("It should log with Web Streams API using ReadableStream", async (t) => {
 		chunkResponse += chunk;
 	});
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse, input);
-	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse, input);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{
 			response: input,
 		},
@@ -176,7 +180,7 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 			};
 		},
 		{
-			streamifyResponse: true,
+			executionMode: executionModeStreamifyResponse,
 		},
 	).use(
 		inputOutputLogger({
@@ -190,10 +194,10 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 		chunkResponse += chunk;
 	});
 	const response = await handler(event, responseStream, context);
-	equal(response, undefined);
-	equal(chunkResponse, input);
-	deepEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse, input);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{
 			response: {
 				statusCode: 200,
@@ -216,7 +220,7 @@ test("It should throw error when invalid logger", async (t) => {
 			}),
 		);
 	} catch (e) {
-		equal(e.message, "logger must be a function");
+		strictEqual(e.message, "logger must be a function");
 	}
 });
 
@@ -233,10 +237,12 @@ test("It should omit paths", async (t) => {
 	const event = { foo: "foo", bar: "bar" };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event: { bar: "bar" } }]);
-	deepEqual(logger.mock.calls[1].arguments, [{ response: { foo: "foo" } }]);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { bar: "bar" } }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
+		{ response: { foo: "foo" } },
+	]);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should mask paths", async (t) => {
@@ -253,14 +259,14 @@ test("It should mask paths", async (t) => {
 	const event = { foo: "foo", bar: "bar" };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [
+	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{ event: { foo: "*****", bar: "bar" } },
 	]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{ response: { foo: "foo", bar: "*****" } },
 	]);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should omit nested paths", async (t) => {
@@ -276,12 +282,14 @@ test("It should omit nested paths", async (t) => {
 	const event = { foo: { foo: "foo" }, bar: [{ bar: "bar" }] };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event: { ...event, foo: {} } }]);
-	deepEqual(logger.mock.calls[1].arguments, [
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event: { ...event, foo: {} } },
+	]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{ response: { ...event, bar: [{}] } },
 	]);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should omit nested paths with conflicting paths", async (t) => {
@@ -297,10 +305,10 @@ test("It should omit nested paths with conflicting paths", async (t) => {
 	const event = { foo: { foo: "foo" }, bar: [{ bar: "bar" }] };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event: { foo: {} } }]);
-	deepEqual(logger.mock.calls[1].arguments, [{ response: event }]);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { foo: {} } }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should skip paths that do not exist", async (t) => {
@@ -337,10 +345,10 @@ test("It should skip paths that do not exist", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event }]);
-	deepEqual(logger.mock.calls[1].arguments, [{ response: event }]);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 });
 
 test("It should include the AWS lambda context", async (t) => {
@@ -349,7 +357,8 @@ test("It should include the AWS lambda context", async (t) => {
 	const handler = middy((event) => event).use(
 		inputOutputLogger({
 			logger,
-			awsContext: true,
+			executionContext: true,
+			lambdaContext: true,
 		}),
 	);
 
@@ -361,19 +370,81 @@ test("It should include the AWS lambda context", async (t) => {
 	};
 	const response = await handler(event, context);
 
-	deepEqual(response, event);
+	deepStrictEqual(response, event);
 
-	deepEqual(logger.mock.calls[0].arguments, [
+	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{
 			event,
 			context: { functionName: "test", awsRequestId: "xxxxx" },
 		},
 	]);
 
-	deepEqual(logger.mock.calls[1].arguments, [
+	deepStrictEqual(logger.mock.calls[1].arguments, [
 		{
 			response: event,
 			context: { functionName: "test", awsRequestId: "xxxxx" },
+		},
+	]);
+});
+
+test("It should include the AWS lambda durable context", async (t) => {
+	const logger = t.mock.fn();
+
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+			lambdaContext: true,
+		}),
+	);
+
+	const event = { foo: "bar", fuu: "baz" };
+	const context = {
+		executionContext: {
+			requestId: "uuid",
+			tenantId: "alpha",
+		},
+		lambdaContext: {
+			...defaultContext,
+			functionName: "test",
+			awsRequestId: "xxxxx",
+		},
+		// mock Class
+		constructor: {
+			name: "DurableContextImpl",
+		},
+	};
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, event);
+
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event,
+			context: {
+				executionContext: {
+					tenantId: "alpha",
+				},
+				lambdaContext: {
+					functionName: "test",
+					awsRequestId: "xxxxx",
+				},
+			},
+		},
+	]);
+
+	deepStrictEqual(logger.mock.calls[1].arguments, [
+		{
+			response: event,
+			context: {
+				executionContext: {
+					tenantId: "alpha",
+				},
+				lambdaContext: {
+					functionName: "test",
+					awsRequestId: "xxxxx",
+				},
+			},
 		},
 	]);
 });
@@ -396,10 +467,10 @@ test("It should skip logging if error is handled", async (t) => {
 	const event = { foo: "bar", fuu: "baz" };
 	const response = await handler(event, context);
 
-	deepEqual(logger.mock.calls[0].arguments, [{ event }]);
-	deepEqual(logger.mock.calls[1].arguments, [{ response: event }]);
-	equal(logger.mock.callCount(), 2);
-	deepEqual(response, event);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
+	strictEqual(logger.mock.callCount(), 2);
+	deepStrictEqual(response, event);
 });
 
 test("It should skip logging if error is not handled", async (t) => {
@@ -417,8 +488,8 @@ test("It should skip logging if error is not handled", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		deepEqual(logger.mock.calls[0].arguments, [{ event }]);
-		equal(logger.mock.callCount(), 1);
-		equal(e.message, "error");
+		deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+		strictEqual(logger.mock.callCount(), 1);
+		strictEqual(e.message, "error");
 	}
 });

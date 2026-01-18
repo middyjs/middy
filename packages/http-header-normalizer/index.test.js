@@ -1,4 +1,4 @@
-import { deepEqual } from "node:assert/strict";
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpHeaderNormalizer from "./index.js";
@@ -34,7 +34,7 @@ test("It should normalize (lowercase) all the headers and create a copy in rawHe
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.headers, expectedHeaders);
+	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
 
 test("It should normalize (canonical) all the headers", async (t) => {
@@ -62,7 +62,7 @@ test("It should normalize (canonical) all the headers", async (t) => {
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.headers, expectedHeaders);
+	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
 
 test("It can use custom normalization function", async (t) => {
@@ -96,7 +96,7 @@ test("It can use custom normalization function", async (t) => {
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.headers, expectedHeaders);
+	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
 
 test("It should normalize (lowercase) all the headers with defaults", async (t) => {
@@ -134,7 +134,7 @@ test("It should normalize (lowercase) all the headers with defaults", async (t) 
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.headers, expectedHeaders);
+	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
 
 // multiValueHeaders
@@ -156,7 +156,7 @@ test("It should normalize (lowercase) all the headers and create a copy in rawMu
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.multiValueHeaders, expectedHeaders);
+	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
 
 test("It should normalize (canonical) all the headers and create a copy in rawMultiValueHeaders", async (t) => {
@@ -176,7 +176,7 @@ test("It should normalize (canonical) all the headers and create a copy in rawMu
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.multiValueHeaders, expectedHeaders);
+	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
 
 test("It can use custom normalization function on multiValueHeaders", async (t) => {
@@ -202,7 +202,7 @@ test("It can use custom normalization function on multiValueHeaders", async (t) 
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.multiValueHeaders, expectedHeaders);
+	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
 
 test("It should normalize (lowercase) all the multiValueHeaders with defaults", async (t) => {
@@ -240,7 +240,7 @@ test("It should normalize (lowercase) all the multiValueHeaders with defaults", 
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.multiValueHeaders, expectedHeaders);
+	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
 
 // Misc
@@ -259,7 +259,7 @@ test("It should not fail if the event does not contain headers", async (t) => {
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent, expectedEvent);
+	deepStrictEqual(resultingEvent, expectedEvent);
 });
 
 test("It should not fail given a corrupted header key", async (t) => {
@@ -279,5 +279,5 @@ test("It should not fail given a corrupted header key", async (t) => {
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent.headers, expectedHeaders);
+	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });

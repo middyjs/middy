@@ -1,4 +1,9 @@
-import { deepEqual, equal, notEqual, ok } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	notStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
 	canPrefetch,
@@ -43,8 +48,8 @@ describe("createClient", () => {
 		await createClient({
 			AwsClient,
 		});
-		equal(constructorMock.mock.callCount(), 1);
-		deepEqual(constructorMock.mock.calls[0].arguments, [{}]);
+		strictEqual(constructorMock.mock.callCount(), 1);
+		deepStrictEqual(constructorMock.mock.calls[0].arguments, [{}]);
 	});
 
 	test("createClient should create AWS Client with options", async (t) => {
@@ -62,8 +67,8 @@ describe("createClient", () => {
 			AwsClient,
 			awsClientOptions: { apiVersion: "2014-11-06" },
 		});
-		equal(constructorMock.mock.callCount(), 1);
-		deepEqual(constructorMock.mock.calls[0].arguments, [
+		strictEqual(constructorMock.mock.callCount(), 1);
+		deepStrictEqual(constructorMock.mock.calls[0].arguments, [
 			{ apiVersion: "2014-11-06" },
 		]);
 	});
@@ -77,7 +82,7 @@ describe("createClient", () => {
 				awsClientAssumeRole: "adminRole",
 			});
 		} catch (e) {
-			equal(e.message, "Request required when assuming role");
+			strictEqual(e.message, "Request required when assuming role");
 		}
 	});
 
@@ -104,9 +109,9 @@ describe("createClient", () => {
 			},
 			request,
 		);
-		equal(constructorMock.mock.callCount(), 1);
-		equal(sendMock.mock.callCount(), 0);
-		deepEqual(constructorMock.mock.calls[0].arguments, [
+		strictEqual(constructorMock.mock.callCount(), 1);
+		strictEqual(sendMock.mock.callCount(), 0);
+		deepStrictEqual(constructorMock.mock.calls[0].arguments, [
 			{ credentials: "creds object" },
 		]);
 	});
@@ -134,9 +139,9 @@ describe("createClient", () => {
 			},
 			request,
 		);
-		equal(constructorMock.mock.callCount(), 1);
-		equal(sendMock.mock.callCount(), 0);
-		deepEqual(constructorMock.mock.calls[0].arguments, [
+		strictEqual(constructorMock.mock.callCount(), 1);
+		strictEqual(sendMock.mock.callCount(), 0);
+		deepStrictEqual(constructorMock.mock.calls[0].arguments, [
 			{ credentials: "creds object" },
 		]);
 	});
@@ -158,9 +163,9 @@ describe("createClient", () => {
 			awsClientCapture,
 			disablePrefetch: true,
 		});
-		equal(constructorMock.mock.callCount(), 1);
-		equal(sendMock.mock.callCount(), 0);
-		equal(awsClientCapture.mock.callCount(), 1);
+		strictEqual(constructorMock.mock.callCount(), 1);
+		strictEqual(sendMock.mock.callCount(), 0);
+		strictEqual(awsClientCapture.mock.callCount(), 1);
 	});
 
 	test("createClient should create AWS Client without capture", async (t) => {
@@ -179,30 +184,30 @@ describe("createClient", () => {
 			AwsClient,
 			awsClientCapture,
 		});
-		equal(constructorMock.mock.callCount(), 1);
-		equal(sendMock.mock.callCount(), 0);
-		equal(awsClientCapture.mock.callCount(), 0);
+		strictEqual(constructorMock.mock.callCount(), 1);
+		strictEqual(sendMock.mock.callCount(), 0);
+		strictEqual(awsClientCapture.mock.callCount(), 0);
 	});
 });
 
 describe("canPrefetch", () => {
 	test("canPrefetch should prefetch", async (t) => {
 		const prefetch = canPrefetch();
-		equal(prefetch, true);
+		strictEqual(prefetch, true);
 	});
 
 	test("canPrefetch should not prefetch with assume role set", async (t) => {
 		const prefetch = canPrefetch({
 			awsClientAssumeRole: "admin",
 		});
-		equal(prefetch, false);
+		strictEqual(prefetch, false);
 	});
 
 	test("canPrefetch should not prefetch when disabled", async (t) => {
 		const prefetch = canPrefetch({
 			disablePrefetch: true,
 		});
-		equal(prefetch, false);
+		strictEqual(prefetch, false);
 	});
 });
 
@@ -237,8 +242,8 @@ describe("getInternal", () => {
 		try {
 			await getInternal(true, getInternalRejected);
 		} catch (e) {
-			equal(e.message, "Failed to resolve internal values");
-			deepEqual(e.cause, {
+			strictEqual(e.message, "Failed to resolve internal values");
+			deepStrictEqual(e.cause, {
 				package: "@middy/util",
 				data: [promiseRejectError, promiseThrowError],
 			});
@@ -247,12 +252,12 @@ describe("getInternal", () => {
 
 	test("getInternal should get none from internal store", async (t) => {
 		const values = await getInternal(false, getInternalRequest);
-		deepEqual(values, {});
+		deepStrictEqual(values, {});
 	});
 
 	test("getInternal should get all from internal store", async (t) => {
 		const values = await getInternal(true, getInternalRequest);
-		deepEqual(values, {
+		deepStrictEqual(values, {
 			array: [],
 			boolean: true,
 			number: 1,
@@ -269,39 +274,39 @@ describe("getInternal", () => {
 
 	test("getInternal should get from internal store when string", async (t) => {
 		const values = await getInternal("number", getInternalRequest);
-		deepEqual(values, { number: 1 });
+		deepStrictEqual(values, { number: 1 });
 	});
 
 	test("getInternal should get from internal store when array[string]", async (t) => {
 		const values = await getInternal(["boolean", "string"], getInternalRequest);
-		deepEqual(values, { boolean: true, string: "string" });
+		deepStrictEqual(values, { boolean: true, string: "string" });
 	});
 
 	test("getInternal should get from internal store when object", async (t) => {
 		const values = await getInternal({ newKey: "promise" }, getInternalRequest);
-		deepEqual(values, { newKey: "promise" });
+		deepStrictEqual(values, { newKey: "promise" });
 	});
 
 	test("getInternal should get from internal store a nested value", async (t) => {
 		const values = await getInternal("promiseObject.key", getInternalRequest);
-		deepEqual(values, { promiseObject_key: "value" });
+		deepStrictEqual(values, { promiseObject_key: "value" });
 	});
 });
 
 describe("sanitizeKey", () => {
 	test("sanitizeKey should sanitize key", async (t) => {
 		const key = sanitizeKey("api//secret-key0.pem");
-		equal(key, "api_secret_key0_pem");
+		strictEqual(key, "api_secret_key0_pem");
 	});
 
 	test("sanitizeKey should sanitize key with leading number", async (t) => {
 		const key = sanitizeKey("0key");
-		equal(key, "_0key");
+		strictEqual(key, "_0key");
 	});
 
 	test("sanitizeKey should not sanitize key", async (t) => {
 		const key = sanitizeKey("api_secret_key0_pem");
-		equal(key, "api_secret_key0_pem");
+		strictEqual(key, "api_secret_key0_pem");
 	});
 });
 
@@ -317,7 +322,7 @@ describe("processCache / clearCache", () => {
 		};
 		processCache(options, fetchRequest, cacheRequest);
 		const cache = getCache("key");
-		deepEqual(cache, {});
+		deepStrictEqual(cache, {});
 		clearCache();
 	});
 
@@ -330,11 +335,11 @@ describe("processCache / clearCache", () => {
 		processCache(options, fetchRequest, cacheRequest);
 		t.mock.timers.tick(100);
 		const cacheValue = getCache("key").value;
-		equal(await cacheValue, "value");
+		strictEqual(await cacheValue, "value");
 		const { value, cache } = processCache(options, fetchRequest, cacheRequest);
-		equal(await value, "value");
+		strictEqual(await value, "value");
 		ok(cache);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 		clearCache();
 	});
 
@@ -347,11 +352,11 @@ describe("processCache / clearCache", () => {
 		processCache(options, fetchRequest, cacheRequest);
 		t.mock.timers.tick(50);
 		const cacheValue = getCache("key").value;
-		equal(await cacheValue, "value");
+		strictEqual(await cacheValue, "value");
 		const { value, cache } = processCache(options, fetchRequest, cacheRequest);
-		equal(await value, "value");
-		equal(cache, true);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(await value, "value");
+		strictEqual(cache, true);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 		clearCache();
 	});
 	test("processCache should cache when not expired w/ unix timestamp", async (t) => {
@@ -363,11 +368,11 @@ describe("processCache / clearCache", () => {
 		processCache(options, fetchRequest, cacheRequest);
 		t.mock.timers.tick(50);
 		const cacheValue = getCache("key").value;
-		equal(await cacheValue, "value");
+		strictEqual(await cacheValue, "value");
 		const { value, cache } = processCache(options, fetchRequest, cacheRequest);
-		equal(await value, "value");
-		equal(cache, true);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(await value, "value");
+		strictEqual(cache, true);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 		clearCache();
 	});
 	test("processCache should cache when not expired using cacheKeyExpire", async (t) => {
@@ -380,11 +385,11 @@ describe("processCache / clearCache", () => {
 		processCache(options, fetchRequest, cacheRequest);
 		t.mock.timers.tick(50);
 		const cacheValue = getCache("key").value;
-		equal(await cacheValue, "value");
+		strictEqual(await cacheValue, "value");
 		const { value, cache } = processCache(options, fetchRequest, cacheRequest);
-		equal(await value, "value");
-		equal(cache, true);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(await value, "value");
+		strictEqual(cache, true);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 		clearCache();
 	});
 	test("processCache should cache when not expired using cacheKeyExpire w/ unix timestamp", async (t) => {
@@ -397,11 +402,11 @@ describe("processCache / clearCache", () => {
 		processCache(options, fetchRequest, cacheRequest);
 		t.mock.timers.tick(50);
 		const cacheValue = getCache("key").value;
-		equal(await cacheValue, "value");
+		strictEqual(await cacheValue, "value");
 		const { value, cache } = processCache(options, fetchRequest, cacheRequest);
-		equal(await value, "value");
-		equal(cache, true);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(await value, "value");
+		strictEqual(cache, true);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 		clearCache();
 	});
 
@@ -423,7 +428,7 @@ describe("processCache / clearCache", () => {
 			}),
 		}));
 		const fetchCached = (request, cached) => {
-			deepEqual(cached, {
+			deepStrictEqual(cached, {
 				a: "value",
 				b: undefined,
 			});
@@ -442,12 +447,12 @@ describe("processCache / clearCache", () => {
 			let cache = getCache(options.cacheKey);
 
 			ok(cache.modified);
-			deepEqual(cache.value, {
+			deepStrictEqual(cache.value, {
 				a: "value",
 				b: undefined,
 			});
-			equal(e.message, "Failed to resolve internal values");
-			deepEqual(e.cause, {
+			strictEqual(e.message, "Failed to resolve internal values");
+			deepStrictEqual(e.cause, {
 				package: "@middy/util",
 				data: [new Error("error")],
 			});
@@ -455,8 +460,8 @@ describe("processCache / clearCache", () => {
 			processCache(options, fetchCached, cacheRequest);
 			cache = getCache(options.cacheKey);
 
-			equal(cache.modified, undefined);
-			deepEqual(cache.value, {
+			strictEqual(cache.modified, undefined);
+			deepStrictEqual(cache.value, {
 				a: "value",
 				b: "value",
 			});
@@ -471,18 +476,18 @@ describe("processCache / clearCache", () => {
 			cacheExpiry: 150,
 		};
 		processCache(options, fetchRequest, cacheRequest);
-		equal(fetchRequest.mock.callCount(), 1);
+		strictEqual(fetchRequest.mock.callCount(), 1);
 
 		t.mock.timers.tick(100);
 		let cache = getCache("key-cache-expire");
-		notEqual(cache, undefined);
+		notStrictEqual(cache, undefined);
 
 		// expires twice during interval
 		t.mock.timers.tick(50);
 		t.mock.timers.tick(200);
 		cache = getCache("key-cache-expire");
 		ok(cache.expiry > Date.now());
-		equal(fetchRequest.mock.callCount(), 3);
+		strictEqual(fetchRequest.mock.callCount(), 3);
 		clearCache();
 	});
 
@@ -497,7 +502,7 @@ describe("processCache / clearCache", () => {
 
 		t.mock.timers.tick(100);
 		let cache = getCache("key-cache-unix-expire");
-		notEqual(cache, undefined);
+		notStrictEqual(cache, undefined);
 
 		// expire once, then doesn't cache
 		t.mock.timers.tick(250);
@@ -505,7 +510,7 @@ describe("processCache / clearCache", () => {
 		cache = getCache("key-cache-unix-expire");
 
 		ok(cache.expiry < Date.now() + 350);
-		equal(fetchRequest.mock.callCount(), 2);
+		strictEqual(fetchRequest.mock.callCount(), 2);
 		clearCache();
 	});
 
@@ -528,8 +533,8 @@ describe("processCache / clearCache", () => {
 			cacheRequest,
 		);
 		clearCache("other");
-		notEqual(getCache("key").value, undefined);
-		deepEqual(getCache("other"), {});
+		notStrictEqual(getCache("key").value, undefined);
+		deepStrictEqual(getCache("other"), {});
 		clearCache();
 	});
 
@@ -552,8 +557,8 @@ describe("processCache / clearCache", () => {
 			cacheRequest,
 		);
 		clearCache(["key", "other"]);
-		deepEqual(getCache("key"), {});
-		deepEqual(getCache("other"), {});
+		deepStrictEqual(getCache("key"), {});
+		deepStrictEqual(getCache("other"), {});
 		clearCache();
 	});
 
@@ -576,8 +581,8 @@ describe("processCache / clearCache", () => {
 			cacheRequest,
 		);
 		clearCache();
-		deepEqual(getCache("key"), {});
-		deepEqual(getCache("other"), {});
+		deepStrictEqual(getCache("key"), {});
+		deepStrictEqual(getCache("other"), {});
 		clearCache();
 	});
 });
@@ -588,7 +593,7 @@ describe("catchInvalidSignatureException", () => {
 		e.__type = "InvalidSignatureException";
 		const client = { send: t.mock.fn() };
 		catchInvalidSignatureException(e, client, "command");
-		equal(client.send.mock.callCount(), 1);
+		strictEqual(client.send.mock.callCount(), 1);
 	});
 
 	test("catchInvalidSignatureException should throw when not InvalidSignatureException", async (t) => {
@@ -596,7 +601,7 @@ describe("catchInvalidSignatureException", () => {
 		try {
 			catchInvalidSignatureException(e);
 		} catch (e) {
-			equal(e.message, "error");
+			strictEqual(e.message, "error");
 		}
 	});
 });
@@ -604,55 +609,55 @@ describe("catchInvalidSignatureException", () => {
 // modifyCache
 test("modifyCache should not override value when it does not exist", async (t) => {
 	modifyCache("key");
-	deepEqual(getCache("key"), {});
+	deepStrictEqual(getCache("key"), {});
 });
 
 describe("jsonSafeParse", () => {
 	test("jsonSafeParse should parse valid json", async (t) => {
 		const value = jsonSafeParse("{}");
-		deepEqual(value, {});
+		deepStrictEqual(value, {});
 	});
 	test("jsonSafeParse should not parse object", async (t) => {
 		const value = jsonSafeParse({});
-		deepEqual(value, {});
+		deepStrictEqual(value, {});
 	});
 	test("jsonSafeParse should not parse string", async (t) => {
 		const value = jsonSafeParse("value");
-		equal(value, "value");
+		strictEqual(value, "value");
 	});
 	test("jsonSafeParse should not parse empty string", async (t) => {
 		const value = jsonSafeParse("");
-		equal(value, "");
+		strictEqual(value, "");
 	});
 	test("jsonSafeParse should not parse null", async (t) => {
 		const value = jsonSafeParse(null);
-		equal(value, null);
+		strictEqual(value, null);
 	});
 	test("jsonSafeParse should not parse number", async (t) => {
 		const value = jsonSafeParse(1);
-		equal(value, 1);
+		strictEqual(value, 1);
 	});
 	test("jsonSafeParse should not parse nested function", async (t) => {
 		const value = jsonSafeParse("{fct:() => {}}");
-		equal(value, "{fct:() => {}}");
+		strictEqual(value, "{fct:() => {}}");
 	});
 });
 
 // jsonSafeStringify
 test("jsonSafeStringify should stringify valid json", async (t) => {
 	const value = jsonSafeStringify({ hello: ["world"] });
-	equal(value, '{"hello":["world"]}');
+	strictEqual(value, '{"hello":["world"]}');
 });
 test("jsonSafeStringify should stringify with replacer", async (t) => {
 	const value = jsonSafeStringify(
 		JSON.stringify({ msg: JSON.stringify({ hello: ["world"] }) }),
 		(key, value) => jsonSafeParse(value),
 	);
-	equal(value, '{"msg":{"hello":["world"]}}');
+	strictEqual(value, '{"msg":{"hello":["world"]}}');
 });
 test("jsonSafeStringify should not stringify if throws error", async (t) => {
 	const value = jsonSafeStringify({ bigint: BigInt(9007199254740991) });
-	deepEqual(value, { bigint: BigInt(9007199254740991) });
+	deepStrictEqual(value, { bigint: BigInt(9007199254740991) });
 });
 
 // normalizeHttpResponse
@@ -661,23 +666,23 @@ test("normalizeHttpResponse should not change response", async (t) => {
 		response: { headers: {} },
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 500, headers: {} });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 500, headers: {} });
+	deepStrictEqual(request, { response });
 });
 test("normalizeHttpResponse should update headers in response", async (t) => {
 	const request = {
 		response: {},
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 200, headers: {}, body: {} });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 200, headers: {}, body: {} });
+	deepStrictEqual(request, { response });
 });
 
 test("normalizeHttpResponse should update undefined response", async (t) => {
 	const request = {};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 500, headers: {} });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 500, headers: {} });
+	deepStrictEqual(request, { response });
 });
 
 test("normalizeHttpResponse should update incomplete response", async (t) => {
@@ -687,8 +692,8 @@ test("normalizeHttpResponse should update incomplete response", async (t) => {
 		},
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 500, headers: {}, body: "" });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 500, headers: {}, body: "" });
+	deepStrictEqual(request, { response });
 });
 
 test("normalizeHttpResponse should update nullish response", async (t) => {
@@ -696,8 +701,8 @@ test("normalizeHttpResponse should update nullish response", async (t) => {
 		response: null,
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 200, headers: {}, body: null });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 200, headers: {}, body: null });
+	deepStrictEqual(request, { response });
 });
 
 test("normalizeHttpResponse should update string response", async (t) => {
@@ -705,54 +710,54 @@ test("normalizeHttpResponse should update string response", async (t) => {
 		response: "",
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 200, headers: {}, body: "" });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 200, headers: {}, body: "" });
+	deepStrictEqual(request, { response });
 });
 test("normalizeHttpResponse should update array response", async (t) => {
 	const request = {
 		response: [],
 	};
 	const response = normalizeHttpResponse(request);
-	deepEqual(response, { statusCode: 200, headers: {}, body: [] });
-	deepEqual(request, { response });
+	deepStrictEqual(response, { statusCode: 200, headers: {}, body: [] });
+	deepStrictEqual(request, { response });
 });
 
 // HttpError
 test("HttpError should create error", async (t) => {
 	const e = new HttpError(400, "message", { cause: "cause" });
-	equal(e.status, 400);
-	equal(e.statusCode, 400);
-	equal(e.name, "BadRequestError");
-	equal(e.message, "message");
-	equal(e.expose, true);
-	equal(e.cause, "cause");
+	strictEqual(e.status, 400);
+	strictEqual(e.statusCode, 400);
+	strictEqual(e.name, "BadRequestError");
+	strictEqual(e.message, "message");
+	strictEqual(e.expose, true);
+	strictEqual(e.cause, "cause");
 });
 test("HttpError should create error with expose false", async (t) => {
 	const e = new HttpError(500, { cause: "cause" });
-	equal(e.status, 500);
-	equal(e.statusCode, 500);
-	equal(e.name, "InternalServerError");
-	equal(e.message, "Internal Server Error");
-	equal(e.expose, false);
-	equal(e.cause, "cause");
+	strictEqual(e.status, 500);
+	strictEqual(e.statusCode, 500);
+	strictEqual(e.name, "InternalServerError");
+	strictEqual(e.message, "Internal Server Error");
+	strictEqual(e.expose, false);
+	strictEqual(e.cause, "cause");
 });
 
 // createError
 test("createError should create error", async (t) => {
 	const e = createError(400, "message", { cause: "cause" });
-	equal(e.status, 400);
-	equal(e.statusCode, 400);
-	equal(e.name, "BadRequestError");
-	equal(e.message, "message");
-	equal(e.expose, true);
-	equal(e.cause, "cause");
+	strictEqual(e.status, 400);
+	strictEqual(e.statusCode, 400);
+	strictEqual(e.name, "BadRequestError");
+	strictEqual(e.message, "message");
+	strictEqual(e.expose, true);
+	strictEqual(e.cause, "cause");
 });
 
 test("createError should create error with expose false", async (t) => {
 	const e = createError(500);
-	equal(e.status, 500);
-	equal(e.statusCode, 500);
-	equal(e.name, "InternalServerError");
-	equal(e.message, "Internal Server Error");
-	equal(e.expose, false);
+	strictEqual(e.status, 500);
+	strictEqual(e.statusCode, 500);
+	strictEqual(e.name, "InternalServerError");
+	strictEqual(e.message, "Internal Server Error");
+	strictEqual(e.expose, false);
 });

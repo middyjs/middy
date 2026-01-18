@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpContentNegotiation from "./index.js";
@@ -29,7 +29,7 @@ test("It should parse charset, encoding, language and media type", async (t) => 
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: ["utf-8"],
 		preferredCharset: "utf-8",
@@ -64,7 +64,7 @@ test("It should parse charset, encoding, language and media type with lowercase 
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: ["utf-16"],
 		preferredCharset: "utf-16",
@@ -103,7 +103,7 @@ test("It should default charset, encoding, language and media type when there is
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: [],
 		preferredCharset: "utf-16",
@@ -133,7 +133,7 @@ test("It should skip the middleware if no headers are sent", async (t) => {
 
 	const resultingEvent = await handler(event, context);
 
-	deepEqual(resultingEvent, { foo: "bar" });
+	deepStrictEqual(resultingEvent, { foo: "bar" });
 });
 
 test("It should not parse charset if disabled", async (t) => {
@@ -158,7 +158,7 @@ test("It should not parse charset if disabled", async (t) => {
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredEncodings: ["*/*", "identity"],
 		preferredEncoding: "*/*",
@@ -191,7 +191,7 @@ test("It should not parse encoding if disabled", async (t) => {
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: ["utf-8"],
 		preferredCharset: "utf-8",
@@ -224,7 +224,7 @@ test("It should not parse language if disabled", async (t) => {
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: ["utf-8"],
 		preferredCharset: "utf-8",
@@ -257,7 +257,7 @@ test("It should not parse media types if disabled", async (t) => {
 
 	const resultingContext = await handler(event, context);
 
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredCharsets: ["utf-8"],
 		preferredCharset: "utf-8",
@@ -285,7 +285,7 @@ test("It should fail when mismatching", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(
+		strictEqual(
 			e.message,
 			"Unsupported MediaType. Acceptable values: text/plain, text/x-dvi",
 		);
@@ -311,7 +311,7 @@ test("It should error when unfound preferred locale", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(e.message, "Unsupported Language. Acceptable values: en-CA");
+		strictEqual(e.message, "Unsupported Language. Acceptable values: en-CA");
 	}
 });
 
@@ -332,7 +332,7 @@ test("It should find language when locale passed in when fallback set", async (t
 		},
 	};
 	const resultingContext = await handler(event, context);
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredLanguages: ["en"],
 		preferredLanguage: "en",
@@ -356,7 +356,7 @@ test("It should find locale when locale passed in when fallback set", async (t) 
 		},
 	};
 	const resultingContext = await handler(event, context);
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredLanguages: ["en-ca", "en"],
 		preferredLanguage: "en-ca",
@@ -381,7 +381,7 @@ test("It should find language when locale passed in", async (t) => {
 	};
 
 	const resultingContext = await handler(event, context);
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredLanguages: ["en"],
 		preferredLanguage: "en",
@@ -406,7 +406,7 @@ test("It should find locale when language passed in", async (t) => {
 	};
 
 	const resultingContext = await handler(event, context);
-	deepEqual(resultingContext, {
+	deepStrictEqual(resultingContext, {
 		...context,
 		preferredLanguages: ["en-ca"],
 		preferredLanguage: "en-ca",

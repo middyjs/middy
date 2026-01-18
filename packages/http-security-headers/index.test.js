@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpSecurityHeaders from "./index.js";
@@ -55,22 +55,22 @@ test("It should return default security headers", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(response.statusCode, 200);
+	strictEqual(response.statusCode, 200);
 
-	equal(response.headers["Origin-Agent-Cluster"], "?1");
-	equal(response.headers["Referrer-Policy"], "no-referrer");
-	equal(response.headers.Server, undefined);
-	equal(
+	strictEqual(response.headers["Origin-Agent-Cluster"], "?1");
+	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
+	strictEqual(response.headers.Server, undefined);
+	strictEqual(
 		response.headers["Strict-Transport-Security"],
 		"max-age=15552000; includeSubDomains; preload",
 	);
-	equal(response.headers["X-Content-Type-Options"], "nosniff");
-	equal(response.headers["X-DNS-Prefetch-Control"], "off");
-	equal(response.headers["X-Download-Options"], "noopen");
-	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
-	equal(response.headers["X-Powered-By"], undefined);
-	equal(response.headers["X-Frame-Options"], undefined);
-	equal(response.headers["X-XSS-Protection"], undefined);
+	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
+	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
+	strictEqual(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.headers["X-Frame-Options"], undefined);
+	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should return default security headers when HTML", async (t) => {
@@ -84,31 +84,31 @@ test("It should return default security headers when HTML", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(
+	strictEqual(
 		response.headers["Content-Security-Policy"],
-		"default-src 'none' 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to default; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
+		"default-src 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; report-to default; require-trusted-types-for 'script'; sandbox; upgrade-insecure-requests",
 	);
-	equal(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
-	equal(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
-	equal(response.headers["Cross-Origin-Resource-Policy"], "same-origin");
-	equal(response.headers["Origin-Agent-Cluster"], "?1");
-	equal(
+	strictEqual(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
+	strictEqual(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
+	strictEqual(response.headers["Cross-Origin-Resource-Policy"], "same-origin");
+	strictEqual(response.headers["Origin-Agent-Cluster"], "?1");
+	strictEqual(
 		response.headers["Permissions-Policy"],
-		"accelerometer=(), all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
+		"accelerometer=(), all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), monetization=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
 	);
-	equal(response.headers["Referrer-Policy"], "no-referrer");
-	equal(response.headers.Server, undefined);
-	equal(
+	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
+	strictEqual(response.headers.Server, undefined);
+	strictEqual(
 		response.headers["Strict-Transport-Security"],
 		"max-age=15552000; includeSubDomains; preload",
 	);
-	equal(response.headers["X-Content-Type-Options"], "nosniff");
-	equal(response.headers["X-DNS-Prefetch-Control"], "off");
-	equal(response.headers["X-Download-Options"], "noopen");
-	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
-	equal(response.headers["X-Powered-By"], undefined);
-	equal(response.headers["X-Frame-Options"], "DENY");
-	equal(response.headers["X-XSS-Protection"], undefined);
+	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
+	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
+	strictEqual(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.headers["X-Frame-Options"], "DENY");
+	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should modify default security headers", async (t) => {
@@ -122,9 +122,9 @@ test("It should modify default security headers", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(response.statusCode, 200);
-	equal(response.headers.Server, undefined);
-	equal(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers.Server, undefined);
+	strictEqual(response.headers["X-Powered-By"], undefined);
 });
 
 test("It should modify default security headers with config set", async (t) => {
@@ -165,28 +165,31 @@ test("It should modify default security headers with config set", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(response.statusCode, 200);
-	equal(response.headers["Content-Security-Policy"], undefined);
-	equal(response.headers["Referrer-Policy"], undefined);
+	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers["Content-Security-Policy"], undefined);
+	strictEqual(response.headers["Referrer-Policy"], undefined);
 
-	equal(
+	strictEqual(
 		response.headers["Reporting-Endpoints"],
 		'csp="https://example.report-uri.com/a/d/g", perms="https://example.report-uri.com/a/d/g"',
 	);
-	equal(
+	strictEqual(
 		response.headers["Report-To"],
 		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://example.report-uri.com/a/d/g" } ], "include_subdomains": true }',
 	);
-	equal(
+	strictEqual(
 		response.headers["Permissions-Policy"],
-		"accelerometer=*, all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
+		"accelerometer=*, all-screens-capture=(), ambient-light-sensor=(), autoplay=(), battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(), execution-while-not-rendered=(), execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), gyroscope=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), monetization=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=(), clipboard-read=(), clipboard-write=(), gamepad=(), speaker-selection=(), conversion-measurement=(), focus-without-user-activation=(), hid=(), idle-detection=(), interest-cohort=(), serial=(), sync-script=(), trust-token-redemption=(), window-placement=(), vertical-scroll=()",
 	);
-	equal(response.headers.Server, undefined);
-	equal(response.headers["Strict-Transport-Security"], "max-age=15552000");
-	equal(response.headers["X-DNS-Prefetch-Control"], "on");
-	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "all");
-	equal(response.headers["X-Powered-By"], undefined);
-	equal(response.headers["X-XSS-Protection"], "0");
+	strictEqual(response.headers.Server, undefined);
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=15552000",
+	);
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "on");
+	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "all");
+	strictEqual(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.headers["X-XSS-Protection"], "0");
 });
 
 test("It should support array responses", async (t) => {
@@ -200,21 +203,21 @@ test("It should support array responses", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	deepEqual(response.body, [{ firstname: "john", lastname: "doe" }]);
-	equal(response.statusCode, 200);
-	equal(response.headers["Referrer-Policy"], "no-referrer");
-	equal(
+	deepStrictEqual(response.body, [{ firstname: "john", lastname: "doe" }]);
+	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
+	strictEqual(
 		response.headers["Strict-Transport-Security"],
 		"max-age=15552000; includeSubDomains; preload",
 	);
-	equal(response.headers["X-DNS-Prefetch-Control"], "off");
-	equal(response.headers["X-Powered-By"], undefined);
-	equal(response.headers["X-Download-Options"], "noopen");
-	equal(response.headers["X-Content-Type-Options"], "nosniff");
-	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
+	strictEqual(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
 
-	equal(response.headers["X-Frame-Options"], undefined);
-	equal(response.headers["X-XSS-Protection"], undefined);
+	strictEqual(response.headers["X-Frame-Options"], undefined);
+	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should skip onError if error has not been handled", async (t) => {
@@ -224,7 +227,7 @@ test("It should skip onError if error has not been handled", async (t) => {
 
 	handler
 		.onError((request) => {
-			equal(request.response, undefined);
+			strictEqual(request.response, undefined);
 			request.response = true;
 		})
 		.use(httpSecurityHeaders());
@@ -253,22 +256,22 @@ test("It should apply security headers if error is handled", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(response.statusCode, 500);
+	strictEqual(response.statusCode, 500);
 
-	equal(response.headers["Origin-Agent-Cluster"], "?1");
-	equal(response.headers["Referrer-Policy"], "no-referrer");
-	equal(response.headers.Server, undefined);
-	equal(
+	strictEqual(response.headers["Origin-Agent-Cluster"], "?1");
+	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
+	strictEqual(response.headers.Server, undefined);
+	strictEqual(
 		response.headers["Strict-Transport-Security"],
 		"max-age=15552000; includeSubDomains; preload",
 	);
-	equal(response.headers["X-Content-Type-Options"], "nosniff");
-	equal(response.headers["X-DNS-Prefetch-Control"], "off");
-	equal(response.headers["X-Download-Options"], "noopen");
-	equal(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
-	equal(response.headers["X-Powered-By"], undefined);
-	equal(response.headers["X-Frame-Options"], undefined);
-	equal(response.headers["X-XSS-Protection"], undefined);
+	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
+	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
+	strictEqual(response.headers["X-Powered-By"], undefined);
+	strictEqual(response.headers["X-Frame-Options"], undefined);
+	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should support report only mode", async (t) => {
@@ -287,10 +290,10 @@ test("It should support report only mode", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	equal(response.statusCode, 200);
-	equal(response.headers["Content-Security-Policy"], undefined);
-	equal(
+	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers["Content-Security-Policy"], undefined);
+	strictEqual(
 		response.headers["Content-Security-Policy-Report-Only"],
-		"default-src 'none' 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; navigate-to 'none'; report-to default; require-trusted-types-for 'script'; trusted-types 'none'; sandbox; upgrade-insecure-requests",
+		"default-src 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; report-to default; require-trusted-types-for 'script'; sandbox; upgrade-insecure-requests",
 	);
 });

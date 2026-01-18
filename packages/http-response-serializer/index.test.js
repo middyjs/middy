@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpContentNegotiation from "../http-content-negotiation/index.js";
@@ -52,7 +52,7 @@ for (const [key] of [["Content-Type"], ["content-type"]]) {
 		};
 		const response = await handler(event, { ...context });
 
-		deepEqual(response, handlerResponse);
+		deepStrictEqual(response, handlerResponse);
 	});
 }
 
@@ -86,7 +86,7 @@ for (const [accept, result] of [
 
 		const response = await handler(event, { ...context });
 
-		equal(response.body, result);
+		strictEqual(response.body, result);
 	});
 }
 
@@ -99,7 +99,7 @@ test("missing headers skips", async (t) => {
 
 	const response = await handler(event, { ...context });
 
-	equal(response.body, '{"message":"Hello World"}');
+	strictEqual(response.body, '{"message":"Hello World"}');
 });
 
 test("It should use the defaultContentType when no accept preferences are given", async (t) => {
@@ -112,7 +112,7 @@ test("It should use the defaultContentType when no accept preferences are given"
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": standardConfiguration.defaultContentType,
@@ -144,7 +144,7 @@ test("It should allow the return of the entire response", async (t) => {
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": standardConfiguration.defaultContentType,
@@ -170,7 +170,7 @@ test("It should use the defaultContentType when no matching accept preferences a
 
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": standardConfiguration.defaultContentType,
@@ -195,7 +195,7 @@ test("It should use `context.preferredMediaTypes` instead of the defaultContentT
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": "text/plain",
@@ -218,7 +218,7 @@ test("It should pass-through when no preference or defaultContentType is found",
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {},
 		body: "Hello World",
@@ -238,7 +238,7 @@ test("It should not pass-through when request content-type is set", async (t) =>
 
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": standardConfiguration.defaultContentType,
@@ -271,7 +271,7 @@ test('It should replace the response object when the serializer returns an objec
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
 			"Content-Type": "text/plain",
@@ -294,7 +294,7 @@ test("It should work with `http-error-handler` middleware", async (t) => {
 	};
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 422,
 		body: "Unprocessable Entity",
 		headers: {
@@ -316,7 +316,7 @@ test("It should skip if the response is undefined form 502 error", async (t) => 
 	try {
 		await handler(event, { ...context });
 	} catch (e) {
-		deepEqual(e.message, "test");
+		deepStrictEqual(e.message, "test");
 	}
 });
 
@@ -335,7 +335,7 @@ test("It should return false when response body is falsey", async (t) => {
 		.use(httpResponseSerializer(standardConfiguration));
 	const response = await handler(event, { ...context });
 
-	deepEqual(response, {
+	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
 			"Content-Type": "text/plain",

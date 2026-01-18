@@ -1,4 +1,4 @@
-import { deepEqual, equal } from "node:assert/strict";
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { mockClient } from "aws-sdk-client-mock";
@@ -31,7 +31,7 @@ test("It should set credential to internal storage", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.role, {
+		deepStrictEqual(values.role, {
 			accessKeyId: "accessKeyId",
 			secretAccessKey: "secretAccessKey",
 			sessionToken: "sessionToken",
@@ -71,7 +71,7 @@ test("It should set STS secret to internal storage without prefetch", async (t) 
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.role, {
+		deepStrictEqual(values.role, {
 			accessKeyId: "accessKeyId",
 			secretAccessKey: "secretAccessKey",
 			sessionToken: "sessionToken",
@@ -110,7 +110,7 @@ test("It should set STS secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		deepEqual(request.context.role, {
+		deepStrictEqual(request.context.role, {
 			accessKeyId: "accessKeyId",
 			secretAccessKey: "secretAccessKey",
 			sessionToken: "sessionToken",
@@ -152,7 +152,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.role, {
+		deepStrictEqual(values.role, {
 			accessKeyId: "accessKeyId",
 			secretAccessKey: "secretAccessKey",
 			sessionToken: "sessionToken",
@@ -176,7 +176,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 1);
+	strictEqual(sendStub.callCount, 1);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired", async (t) => {
@@ -195,7 +195,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepEqual(values.role, {
+		deepStrictEqual(values.role, {
 			accessKeyId: "accessKeyId",
 			secretAccessKey: "secretAccessKey",
 			sessionToken: "sessionToken",
@@ -220,7 +220,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	await handler(event, context);
 	await handler(event, context);
 
-	equal(sendStub.callCount, 2);
+	strictEqual(sendStub.callCount, 2);
 });
 
 test("It should catch if an error is returned from fetch", async (t) => {
@@ -246,8 +246,8 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		equal(sendStub.callCount, 1);
-		equal(e.message, "Failed to resolve internal values");
-		deepEqual(e.cause.data, [new Error("timeout")]);
+		strictEqual(sendStub.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });

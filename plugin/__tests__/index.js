@@ -1,4 +1,4 @@
-import { deepEqual } from "node:assert/strict";
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../packages/core/index.js";
 
@@ -52,7 +52,7 @@ test("Should run with promise plugin", async (t) => {
 	const handler = middy(plugin).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(output, {
+	deepStrictEqual(output, {
 		prefetch: 0,
 		handler: 12,
 		request: 27,
@@ -70,7 +70,7 @@ test("Should run with promise plugin and middleware", async (t) => {
 	const handler = middy(plugin).use(middleware()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(output, {
+	deepStrictEqual(output, {
 		prefetch: 0,
 		middlewareBefore: 13,
 		handler: 12,
@@ -90,7 +90,7 @@ test("Should run with promise plugin and async middleware", async (t) => {
 	const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(output, {
+	deepStrictEqual(output, {
 		prefetch: 0,
 		middlewareBefore: 13,
 		handler: 12,
@@ -112,7 +112,7 @@ test("Should run with time plugin", async (t) => {
 	const handler = middy(plugin).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,
@@ -133,7 +133,7 @@ test("Should run with time plugin and middleware", async (t) => {
 	const handler = middy(plugin).use(middleware()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,
@@ -156,7 +156,7 @@ test("Should run with time plugin and async middleware", async (t) => {
 	const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,
@@ -181,7 +181,7 @@ test("Should run with hrtime plugin", async (t) => {
 	const handler = middy(plugin).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,
@@ -202,7 +202,7 @@ test("Should run with hrtime plugin and middleware", async (t) => {
 	const handler = middy(plugin).use(middleware()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,
@@ -225,7 +225,7 @@ test("Should run with hrtime plugin and async middleware", async (t) => {
 	const handler = middy(plugin).use(middlewareAsync()).handler(lambdaHandler);
 
 	await handler(event, context);
-	deepEqual(
+	deepStrictEqual(
 		Object.keys(output),
 		Object.keys({
 			prefetch: 0.1,

@@ -44,8 +44,8 @@ export const handler = middy()
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  equal(response.headers['Access-Control-Allow-Origin'], '*')
-  deepEqual(response, {
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+  deepStrictEqual(response, {
     statusCode: 422,
     body: 'Unprocessable Entity'
   })
@@ -65,6 +65,6 @@ export const handler = middy().use(cors()).handler(lambdaHandler)
 
 // when Lambda runs the handler...
 handler({}, {}, (_, response) => {
-  equal(response.headers['Access-Control-Allow-Origin'], '*')
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
 })
 ```

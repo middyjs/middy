@@ -53,6 +53,6 @@ const event = {
   isBase64Encoded: true
 }
 handler(event, {}, (_, body) => {
-  equal(body, { foo: 'bar' })
+  strictEqual(body, { foo: 'bar' })
 })
 ```

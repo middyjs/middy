@@ -62,6 +62,8 @@ const sampleRequest: middy.Request<
 				user: "",
 				userAgent: "",
 				userArn: "",
+				vpceId: "",
+				vpcId: "",
 			},
 			requestId: "",
 			requestTimeEpoch: 1234,

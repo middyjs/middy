@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ws-json-body-parser",
-	"version": "7.0.0-alpha.1",
+	"version": "7.0.2",
 	"description": "WebSocket JSON body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -66,10 +66,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.0.0-alpha.1"
+		"@middy/util": "7.0.2"
 	},
 	"devDependencies": {
-		"@middy/core": "7.0.0-alpha.1",
+		"@middy/core": "7.0.2",
 		"@types/aws-lambda": "^8.10.101",
 		"type-fest": "^5.0.0"
 	},

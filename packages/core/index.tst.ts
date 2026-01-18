@@ -6,7 +6,13 @@ import type {
 	S3Event,
 } from "aws-lambda";
 import { expect } from "tstyche";
-import middy, { type MiddyfiedHandler } from "./index.js";
+import middy, {
+	type MiddyfiedHandler,
+	type PluginExecutionMode,
+} from "./index.js";
+
+const executionModeStreamifyResponse: PluginExecutionMode =
+	{} as PluginExecutionMode;
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (
@@ -131,6 +137,8 @@ async function invokeHandler(): Promise<undefined | APIGatewayProxyResult> {
 				user: "",
 				userAgent: "",
 				userArn: "",
+				vpceId: "",
+				vpcId: "",
 			},
 			stage: "",
 			requestId: "",
@@ -274,7 +282,7 @@ customCtxHandler = customCtxHandler.use(typeErrorMiddleware);
 expect(customCtxHandler).type.toBe<MutableContextHandler>();
 
 const streamifiedResponseHandler = middy<APIGatewayProxyEvent>({
-	streamifyResponse: true,
+	executionMode: executionModeStreamifyResponse,
 });
 expect(streamifiedResponseHandler).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent>
@@ -368,6 +376,8 @@ async function invokeSyncedHandler(): Promise<
 				user: "",
 				userAgent: "",
 				userArn: "",
+				vpceId: "",
+				vpcId: "",
 			},
 			stage: "",
 			requestId: "",
@@ -488,7 +498,7 @@ customSyncedCtxHandler = customSyncedCtxHandler.use(syncedTypeErrorMiddleware);
 expect(customSyncedCtxHandler).type.toBe<MutableContextHandler>();
 
 const syncedStreamifiedResponseHandler = middy<APIGatewayProxyEvent>({
-	streamifyResponse: true,
+	executionMode: executionModeStreamifyResponse,
 });
 expect(syncedStreamifiedResponseHandler).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent>
