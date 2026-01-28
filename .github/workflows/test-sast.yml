@@ -59,12 +59,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
-      - name: Install lockfile-lint
+      - name: Install dependencies
         run: |
-          cd .github/workflows
-          npm ci
+          npm ci --workspace .github
       - name: lockfile-lint
-        run: lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
+        run: npx lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
 
   # https://github.com/github/codeql-action
   codeql:
