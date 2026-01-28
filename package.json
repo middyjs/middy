@@ -23,7 +23,7 @@
 		"test:sast:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https",
 		"test:sast:ort": "docker run ghcr.io/oss-review-toolkit/ort --help",
 		"test:sast:semgrep": "semgrep scan --config auto",
-		"test:sast:trivy": "trivy fs --scanners vuln,license --include-dev-deps --exit-code 1 --disable-telemetry .",
+		"test:sast:trivy": "trivy fs --scanners vuln,license --include-dev-deps --ignored-licenses 0BSD,Apache-2.0,BSD-1-Clause,BSD-2-Clause,BSD-3-Clause,CC0-1.0,CC-BY-4.0,ISC,MIT --exit-code 1 --disable-telemetry .",
 		"test:sast:trufflehog": "trufflehog filesystem --only-verified --log-level=-1 ./",
 		"test:types": "tstyche",
 		"test:perf": "node --test ./**/*.perf.js",

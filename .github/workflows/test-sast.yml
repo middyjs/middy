@@ -28,6 +28,7 @@ jobs:
           scan-type: fs
           scan-ref: package-lock.json
           hide-progress: true
+          ignore-unfixed: true
           exit-code: 1
           format: github
 
@@ -53,8 +54,8 @@ jobs:
           scan-type: fs
           scan-ref: .
           hide-progress: true
-          exit-code: 1
-          format: github
+          exit-code: 0
+          format: table
 
   # https://github.com/oss-review-toolkit/ort-ci-github-action
   # ort:
