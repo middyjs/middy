@@ -13,6 +13,7 @@ const exceptionsList = [
 	"HTTP2-Settings",
 	"Last-Event-ID",
 	"MIME-Version",
+	"NEL",
 	"Optional-WWW-Authenticate",
 	"Sec-WebSocket-Accept",
 	"Sec-WebSocket-Extensions",
