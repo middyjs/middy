@@ -1,8 +1,8 @@
 import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
-import middy from "./index.js";
 import { executionModeDurableContext } from "./executionModeDurableContext.js";
+import middy from "./index.js";
 
 const _event = {};
 const _context = {

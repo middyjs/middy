@@ -16,9 +16,11 @@ Ensure git history is pulled from the `develop` branch.
 ```bash
 npm i -g nmq
 npm i -g lockfile-lint
-npm i -g @sandworm/audit
 brew install semgrep
+brew install trivy
 brew install trufflehog
+echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
+docker pull ghcr.io/oss-review-toolkit/ort
 ```
 
 ## 3. Implementation

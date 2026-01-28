@@ -36,7 +36,7 @@ jobs:
           echo "prerelease=$([ ${tag##*-*} ] && echo false || echo true)" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: Build
         run: |
           npm run build --if-present
