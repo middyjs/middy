@@ -1,0 +1,1 @@
+(globalThis.webpackChunk_middy_website=globalThis.webpackChunk_middy_website||[]).push([[8577],{549(s,e,i){"use strict";i.d(e,{A:()=>a});var b=i(8291);const a=b},5741(){}}]);
