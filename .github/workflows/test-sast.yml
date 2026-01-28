@@ -13,27 +13,38 @@ permissions:
   contents: read
 
 jobs:
-  sandworm:
-    name: "sandworm: SCA & Licensing"
+  # https://github.com/aquasecurity/trivy-action
+  trivy:
+    name: "Trivy: SCA"
+    runs-on: ubuntu-latest
+    if: (github.actor != 'dependabot[bot]')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Trivy
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          scanners: vuln
+          scan-type: fs
+          scan-ref: .
+          hide-progress: true
+          format: github
+
+  # https://github.com/oss-review-toolkit/ort-ci-github-action
+  ort:
+    name: "OSS Review Toolkit: Licensing"
     runs-on: ubuntu-latest
     if: (github.actor != 'dependabot[bot]')
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+      - name: OSS Review Toolkit (ORT)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # 1.1.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: "https://registry.npmjs.org"
-      - name: Remove deprecated npm config
-        run: npm config delete always-auth
-      - name: Hash sandworm
-        run: npm show @sandworm/audit@1.56.1 dist.shasum
-      - name: Install sandworm/audit@1.56.1 [e2369dc42d342f085947fe40e960a93a9123f525]
-        run: npm i -g @sandworm/audit@1.56.1
-      - name: sandworm
-        run: sandworm-audit --skip-tree
+          allow-dynamic-versions: "true"
+          ort-cli-args: "-P ort.analyzer.enabledPackageManagers=NPM"
+          fail-on: "violations"
 
   lockfile:
     name: "lockfile-lint: SAST package-lock.json"
@@ -48,10 +59,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: https://registry.npmjs.org
-      - name: Hash lockfile-lint
-        run: npm show lockfile-lint@4.14.1 dist.shasum
-      - name: Install lockfile-lint@4.14.1 [3391ea68cf50c1a478ce113913c4c778768a4b9e]
-        run: npm i -g lockfile-lint@4.14.1
+      - name: Install lockfile-lint
+        run: |
+          cd .github/workflows
+          npm ci
       - name: lockfile-lint
         run: lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
 
@@ -100,7 +111,5 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # https://semgrep.dev/docs/semgrep-ci/sample-ci-configs/#github-actions
       - name: semgrep
         run: semgrep ci

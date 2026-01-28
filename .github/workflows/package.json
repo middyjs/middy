@@ -1,0 +1,6 @@
+{
+	"name": "@middy/github-workflows",
+	"devDependencies": {
+		"lockfile-lint": "5.0.0"
+	}
+}

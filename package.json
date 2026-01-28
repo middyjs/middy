@@ -35,7 +35,7 @@
 		"rm:lock": "find . -name 'pacakge-lock.json' -type d -prune -exec rm -rf '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "npm update --workspaces && npm install --workspaces",
-		"outdated": "npm outdated --workspaces",
+		"outdated": "npm outdated --workspaces && cd .github/workflows && npm outdated",
 		"audit": "npm audit fix --workspaces",
 		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run lint",
 		"release:tag": "git tag $npm_package_version"
