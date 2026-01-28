@@ -27,10 +27,9 @@ jobs:
           scanners: vuln
           scan-type: fs
           scan-ref: package-lock.json
-          include-dev-deps: true
           hide-progress: true
+          exit-code: 1
           format: github
-          disable-telemetry: true
 
   trivy-license:
     name: "Trivy: Licensing"
@@ -53,10 +52,9 @@ jobs:
           scanners: license
           scan-type: fs
           scan-ref: .
-          include-dev-deps: false
           hide-progress: true
+          exit-code: 1
           format: github
-          disable-telemetry: true
 
   # https://github.com/oss-review-toolkit/ort-ci-github-action
   # ort:

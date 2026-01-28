@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: Build website
         working-directory: website
         run: |
