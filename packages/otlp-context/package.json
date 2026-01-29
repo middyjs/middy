@@ -1,0 +1,74 @@
+{
+	"name": "@middy/otlp-context",
+	"version": "7.0.0-alpha.1",
+	"description": "OpenTelemetry Protocol Context",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			},
+			"require": {
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"Input",
+		"Output",
+		"Logger"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/input-output-logger"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"dependencies": {
+		"@opentelemetry/api": "1.9.0"
+	},
+	"devDependencies": {
+		"@middy/core": "7.0.0-alpha.1",
+		"@types/node": "^22.0.0"
+	},
+	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+}
