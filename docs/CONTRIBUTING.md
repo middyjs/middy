@@ -56,7 +56,7 @@ We use `CodeQL` & `semgrep` to ensure code is written in a secure way.
 
 #### SCA
 
-We use `DependaBot` & `sandworm` to ensure dependancies as free of known vulnerabilities.
+We use `DependaBot` & `Trivy` to ensure dependancies as free of known vulnerabilities.
 
 ### DAST
 

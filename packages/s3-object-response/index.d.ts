@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import type { ClientRequest } from "node:http";
 import type { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import type middy from "@middy/core";
