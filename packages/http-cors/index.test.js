@@ -924,6 +924,135 @@ test("it should set Vary header if present in config", async (t) => {
 	});
 });
 
+// *** Security: Regex metacharacter escaping in origins *** //
+test("It should not match origins with unescaped dots (e.g. example.com should not match exampleXcom)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://exampleXcom" },
+	};
+
+	const response = await handler(event, context);
+
+	// Should NOT match - the dot in example.com is literal, not a regex wildcard
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should properly escape regex metacharacters in origin patterns", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://*.example.com"],
+		}),
+	);
+
+	// An attacker origin that would match if dots weren't escaped
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://subdomainXexampleYcom" },
+	};
+
+	const response = await handler(event, context);
+
+	// Should NOT match
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should handle origins containing parentheses and pipes", async (t) => {
+	// Origins like https://app(1).example.com should not break the regex
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://app(1).example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://app(1).example.com" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://app(1).example.com",
+		},
+	});
+});
+
+test("It should handle origins containing square brackets", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://app[1].example.com"],
+		}),
+	);
+
+	const eventMatch = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://app[1].example.com" },
+	};
+
+	const response = await handler(eventMatch, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://app[1].example.com",
+		},
+	});
+});
+
+test("It should not allow wildcard to match dots in subdomain patterns", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://*.example.com"],
+		}),
+	);
+
+	// Wildcard * should match [^.]* (no dots), so nested.sub should NOT match single *
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://nested.sub.example.com" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			Vary: "Origin",
+		},
+	});
+});
+
 // *** getOrigin *** //
 test("It should use custom getOrigin", async (t) => {
 	const handler = middy((event, context) => ({ statusCode: 200 }));

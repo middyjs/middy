@@ -69,7 +69,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 };
 
 const parseMultipartData = (event, options) => {
-	const multipartData = {};
+	const multipartData = Object.create(null);
 	const charset = event.isBase64Encoded ? "base64" : options.charset;
 	// header must be lowercase (content-type)
 	const busboy = BusBoy({

@@ -53,7 +53,7 @@ const appConfigMiddleware = (opts = {}) => {
 					return configurationCache[internalKey];
 				}
 
-				let value = String.fromCharCode.apply(null, configResp.Configuration);
+				let value = new TextDecoder().decode(configResp.Configuration);
 				if (contentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}

@@ -43,7 +43,7 @@ const normalizeHeaderKey = (key, canonical) => {
 		return lowerCaseKey;
 	}
 
-	if (exceptions[lowerCaseKey]) {
+	if (Object.hasOwn(exceptions, lowerCaseKey)) {
 		return exceptions[lowerCaseKey];
 	}
 

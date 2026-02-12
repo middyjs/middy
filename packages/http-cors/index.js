@@ -68,7 +68,9 @@ const httpCorsMiddleware = (opts = {}) => {
 		originMany = true;
 		// Dynamic
 		// TODO: IDN -> puncycode not handled, add in if requested
-		const regExpStr = origin.replaceAll(".", "\\.").replaceAll("*", "[^.]*");
+		const regExpStr = origin
+			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+			.replaceAll("*", "[^.]*");
 		// SAST Skipped: Not accessible by users
 		// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 		originDynamic.push(new RegExp(`^${regExpStr}$`));

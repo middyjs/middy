@@ -262,6 +262,47 @@ test("It should not fail if the event does not contain headers", async (t) => {
 	deepStrictEqual(resultingEvent, expectedEvent);
 });
 
+// Security: Prototype property collision in canonical exceptions lookup
+test("It should not match inherited properties like 'constructor' in canonical exceptions", async (t) => {
+	const handler = middy((event, context) => event);
+
+	handler.use(httpHeaderNormalizer({ canonical: true }));
+
+	const event = {
+		headers: {
+			constructor: "some-value",
+		},
+	};
+
+	const resultingEvent = await handler(event, context);
+
+	// "constructor" should be canonicalized normally (to "Constructor"),
+	// NOT matched against Object.prototype.constructor
+	deepStrictEqual(resultingEvent.headers, {
+		Constructor: "some-value",
+	});
+});
+
+test("It should not match inherited properties like 'toString' in canonical exceptions", async (t) => {
+	const handler = middy((event, context) => event);
+
+	handler.use(httpHeaderNormalizer({ canonical: true }));
+
+	const event = {
+		headers: {
+			tostring: "some-value",
+		},
+	};
+
+	const resultingEvent = await handler(event, context);
+
+	// "tostring" should be canonicalized normally (to "Tostring"),
+	// NOT matched against Object.prototype.toString
+	deepStrictEqual(resultingEvent.headers, {
+		Tostring: "some-value",
+	});
+});
+
 test("It should not fail given a corrupted header key", async (t) => {
 	const handler = middy((event, context) => event);
 

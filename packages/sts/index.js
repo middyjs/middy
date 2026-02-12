@@ -26,7 +26,11 @@ const defaults = {
 };
 
 const stsMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
+	};
 
 	const fetch = (request, cachedValues = {}) => {
 		const values = {};

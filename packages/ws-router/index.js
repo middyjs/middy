@@ -19,7 +19,7 @@ const wsRouteHandler = (opts = {}) => {
 	options ??= opts;
 	const { routes, notFoundResponse } = { ...defaults, ...options };
 
-	const routesStatic = {};
+	const routesStatic = Object.create(null);
 	for (const route of routes) {
 		const { routeKey, handler } = route;
 

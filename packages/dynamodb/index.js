@@ -29,6 +29,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
 	// force marshall of Key during cold start
