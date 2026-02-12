@@ -1,5 +1,5 @@
 <svg width="576" height="416" viewBox="0 0 576 416" version="1.1" xmlns="http://www.w3.org/2000/svg"
-xmlns:xlink="http://www.w3.org/1999/xlink">
+xmlns:xlink="https://www.w3.org/1999/xlink">
 <defs><style>g{fill:currentColor}</style></defs>
     <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
         <g transform="translate(-366.000000, -201.000000)">
@@ -63,7 +63,7 @@ xmlns:xlink="http://www.w3.org/1999/xlink">
                             </g>
                         </g>
                     </g>
-                
+
             </g>
         </g>
     </g>

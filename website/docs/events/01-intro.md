@@ -15,8 +15,8 @@ import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 const handler = middy()
   .use(warmupMiddleware())
