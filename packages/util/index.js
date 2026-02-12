@@ -105,7 +105,7 @@ export const sanitizeKey = (key) => {
 };
 
 // fetch Cache
-const cache = {}; // key: { value:{fetchKey:Promise}, expiry }
+const cache = Object.create(null); // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (
 	options,
 	middlewareFetch = () => undefined,
@@ -269,7 +269,7 @@ export class HttpError extends Error {
 		super(message, options);
 
 		const name = httpErrorCodes[code].replace(createErrorRegexp, "");
-		this.name = name.substr(-5) !== "Error" ? `${name}Error` : name;
+		this.name = !name.endsWith("Error") ? `${name}Error` : name;
 
 		this.status = this.statusCode = code; // setting `status` for backwards compatibility w/ `http-errors`
 		this.expose = options.expose ?? code < 500;

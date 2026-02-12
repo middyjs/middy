@@ -32,7 +32,11 @@ const defaults = {
 };
 
 const secretsManagerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};

@@ -188,26 +188,26 @@ test("It should parse DynamoDB event keys/images", async (t) => {
 	const response = await handler(event, context);
 
 	deepStrictEqual(response.Records[0].dynamodb, {
-		Keys: {
+		Keys: Object.assign(Object.create(null), {
 			B: "1",
 			BOOL: true,
 			BN: 19007199254740991n,
 			BS: new Set(["1"]),
 			L: [1],
-			M: {
+			M: Object.assign(Object.create(null), {
 				Id: 1,
-			},
+			}),
 			N: 1,
 			NS: new Set([1]),
 			NULL: null,
 			S: "1",
 			SS: new Set(["1"]),
-		},
-		NewImage: {
+		}),
+		NewImage: Object.assign(Object.create(null), {
 			Message: "New item!",
 			Id: 101,
-		},
-		OldImage: {},
+		}),
+		OldImage: Object.create(null),
 		SequenceNumber: "111",
 		SizeBytes: 26,
 		StreamViewType: "NEW_AND_OLD_IMAGES",
@@ -227,14 +227,14 @@ test("It should parse DynamoDB event with wrapNumbers set", async (t) => {
 	const response = await handler(event, context);
 
 	deepStrictEqual(response.Records[0].dynamodb, {
-		Keys: {
+		Keys: Object.assign(Object.create(null), {
 			BN: { value: "-9007199254740998.25" },
-		},
-		NewImage: {
+		}),
+		NewImage: Object.assign(Object.create(null), {
 			Message: "New item!",
 			Id: { value: "101" },
-		},
-		OldImage: {},
+		}),
+		OldImage: Object.create(null),
 		SequenceNumber: "111",
 		SizeBytes: 26,
 		StreamViewType: "NEW_AND_OLD_IMAGES",

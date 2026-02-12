@@ -35,8 +35,8 @@ const appConfigMiddleware = (opts = {}) => {
 		...defaults,
 		...opts,
 	};
-	const configurationTokenCache = {};
-	const configurationCache = {};
+	const configurationTokenCache = Object.create(null);
+	const configurationCache = Object.create(null);
 
 	function fetchLatestConfigurationRequest(configToken, internalKey) {
 		const command = new GetLatestConfigurationCommand({

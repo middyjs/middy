@@ -34,7 +34,7 @@ const httpRouteHandler = (opts = {}) => {
 
 		// remove trailing slash, but not if it's the first one
 		if (path.endsWith("/") && path !== "/") {
-			path = path.substr(0, path.length - 1);
+			path = path.substring(0, path.length - 1);
 		}
 
 		// Static

@@ -6,19 +6,17 @@ const defaults = {
 	wrapNumbers: undefined,
 };
 
-let _wrapNumbers;
 const eventNormalizerMiddleware = (opts = {}) => {
-	const { wrapNumbers } = { ...defaults, ...opts };
-	_wrapNumbers = wrapNumbers;
+	const options = { ...defaults, ...opts };
 	const eventNormalizerMiddlewareBefore = async (request) => {
-		parseEvent(request.event);
+		parseEvent(request.event, options);
 	};
 	return {
 		before: eventNormalizerMiddlewareBefore,
 	};
 };
 
-const parseEvent = (event) => {
+const parseEvent = (event, options) => {
 	// event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
 	// event.deliveryStreamArn => aws:lambda:events
 	let eventSource = event.eventSource ?? event.deliveryStreamArn;
@@ -44,7 +42,7 @@ const parseEvent = (event) => {
 			(event.awslogs && "aws:cloudwatch") ??
 			(event["CodePipeline.job"] && "aws:codepipeline");
 		if (eventSource) {
-			events[eventSource]?.(event);
+			events[eventSource]?.(event, options);
 		}
 		return;
 	}
@@ -57,7 +55,7 @@ const parseEvent = (event) => {
 		records[0].EventSource ??
 		(records[0].s3Key && "aws:s3:batch");
 	for (const record of records) {
-		events[eventSource]?.(record);
+		events[eventSource]?.(record, options);
 	}
 };
 
@@ -82,13 +80,13 @@ const events = {
 		event.ruleParameters = jsonSafeParse(event.ruleParameters);
 	},
 	// 'aws:docdb': (record) => {},
-	"aws:dynamodb": (record) => {
-		record.dynamodb.Keys = unmarshall(record.dynamodb.Keys);
-		record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage);
-		record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage);
+	"aws:dynamodb": (record, options) => {
+		record.dynamodb.Keys = unmarshall(record.dynamodb.Keys, options);
+		record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage, options);
+		record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage, options);
 	},
 	"aws:kafka": (event) => {
-		for (const record in event.records) {
+		for (const record of Object.keys(event.records)) {
 			for (const topic of event.records[record]) {
 				topic.value &&= base64Parse(topic.value);
 			}
@@ -111,21 +109,21 @@ const events = {
 	SelfManagedKafka: (event) => {
 		events["aws:kafka"](event);
 	},
-	"aws:sns": (record) => {
+	"aws:sns": (record, options) => {
 		record.Sns.Message = jsonSafeParse(record.Sns.Message);
-		parseEvent(record.Sns.Message);
+		parseEvent(record.Sns.Message, options);
 	},
-	"aws:sns:sqs": (record) => {
+	"aws:sns:sqs": (record, options) => {
 		record.Message = jsonSafeParse(record.Message);
-		parseEvent(record.Message);
+		parseEvent(record.Message, options);
 	},
-	"aws:sqs": (record) => {
+	"aws:sqs": (record, options) => {
 		record.body = jsonSafeParse(record.body);
 		// SNS -> SQS Special Case
 		if (record.body.Type === "Notification") {
-			events["aws:sns:sqs"](record.body);
+			events["aws:sns:sqs"](record.body, options);
 		} else {
-			parseEvent(record.body);
+			parseEvent(record.body, options);
 		}
 	},
 };
@@ -136,13 +134,13 @@ const normalizeS3Key = (key) =>
 
 // Start: AWS SDK unmarshall
 // Reference: https://github.com/aws/aws-sdk-js-v3/blob/v3.113.0/packages/util-dynamodb/src/convertToNative.ts
-const unmarshall = (data) => convertValue.M(data ?? {});
+const unmarshall = (data, options) => convertValue.M(data ?? {}, options);
 
 const convertValue = {
 	NULL: () => null,
 	BOOL: Boolean,
-	N: (value) => {
-		if (_wrapNumbers) {
+	N: (value, options) => {
+		if (options.wrapNumbers) {
 			return { value };
 		}
 
@@ -170,18 +168,18 @@ const convertValue = {
 	},
 	B: (value) => value,
 	S: (value) => value,
-	L: (value) => value.map((item) => convertToNative(item)),
-	M: (value) =>
+	L: (value, options) => value.map((item) => convertToNative(item, options)),
+	M: (value, options) =>
 		Object.entries(value).reduce((acc, [key, value]) => {
-			acc[key] = convertToNative(value);
+			acc[key] = convertToNative(value, options);
 			return acc;
-		}, {}),
-	NS: (value) => new Set(value.map(convertValue.N)),
+		}, Object.create(null)),
+	NS: (value, options) => new Set(value.map((v) => convertValue.N(v, options))),
 	BS: (value) => new Set(value.map(convertValue.B)),
 	SS: (value) => new Set(value.map(convertValue.S)),
 };
 
-const convertToNative = (data) => {
+const convertToNative = (data, options) => {
 	for (const [key, value] of Object.entries(data)) {
 		if (!convertValue[key]) {
 			throw new Error(`Unsupported type passed: ${key}`, {
@@ -189,7 +187,7 @@ const convertToNative = (data) => {
 			});
 		}
 		if (typeof value === "undefined") continue;
-		return convertValue[key](value);
+		return convertValue[key](value, options);
 	}
 };
 // End: AWS SDK unmarshall
