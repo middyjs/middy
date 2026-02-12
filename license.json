@@ -24,6 +24,7 @@
 		"**/*.md",
 		"**/*.yml",
 		"test/**/*",
-		"website/**/*"
+		"website/**/*",
+		"websites/**/*"
 	]
 }

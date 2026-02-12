@@ -49,7 +49,7 @@ const normalizeHeaderKey = (key, canonical) => {
 
 	return lowerCaseKey
 		.split("-")
-		.map((text) => (text[0] || "").toUpperCase() + text.substr(1))
+		.map((text) => (text[0] || "").toUpperCase() + text.substring(1))
 		.join("-");
 };
 
