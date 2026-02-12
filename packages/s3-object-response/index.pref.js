@@ -31,7 +31,7 @@ const warmHandler = setupHandler();
 
 const event = {
 	getObjectContext: {
-		inputS3Url: "http://localhost",
+		inputS3Url: "https://localhost",
 	},
 };
 await bench

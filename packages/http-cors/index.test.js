@@ -297,13 +297,13 @@ test("It should return whitelisted origin (static & localhost)", async (t) => {
 
 	handler.use(
 		httpCors({
-			origins: ["http://localhost:3000", "https://example.com"],
+			origins: ["https://localhost:3000", "https://example.com"],
 		}),
 	);
 
 	const event = {
 		httpMethod: "OPTIONS",
-		headers: { Origin: "http://localhost:3000" },
+		headers: { Origin: "https://localhost:3000" },
 	};
 
 	const response = await handler(event, context);
@@ -311,7 +311,7 @@ test("It should return whitelisted origin (static & localhost)", async (t) => {
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
-			"Access-Control-Allow-Origin": "http://localhost:3000",
+			"Access-Control-Allow-Origin": "https://localhost:3000",
 			Vary: "Origin",
 		},
 	});
@@ -1014,13 +1014,13 @@ test("Should return correct origin on subsequent calls", async (t) => {
 
 	const handler = middy()
 		.use(
-			httpCors({ origins: ["http://localhost:3000", "https://example.org"] }),
+			httpCors({ origins: ["https://localhost:3000", "https://example.org"] }),
 		)
 		.handler(lambdaHandler);
 
 	const eventLocalhost = {
 		headers: {
-			Origin: "http://localhost:3000",
+			Origin: "https://localhost:3000",
 		},
 	};
 
@@ -1029,7 +1029,7 @@ test("Should return correct origin on subsequent calls", async (t) => {
 	deepStrictEqual(response1, {
 		statusCode: 200,
 		headers: {
-			"Access-Control-Allow-Origin": "http://localhost:3000",
+			"Access-Control-Allow-Origin": "https://localhost:3000",
 			"Content-Type": "application/json",
 			Vary: "Origin",
 		},
