@@ -2,7 +2,7 @@
 
 In the spirit of Open Source Software, everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
-Before contributing to the project, make sure to have a look at our [Code of Conduct](/.github/CODE_OF_CONDUCT.md).
+Before contributing to the project, make sure to have a look at our [Code of Conduct](/docs/CODE_OF_CONDUCT.md).
 
 Want to help, but finding new features and bugs a little daunting to tackle. Improving documentation (grammar, spelling, examples, internationalization), improving unit test coverage, and refactoring to use newer native APIs are great places to add value.
 
