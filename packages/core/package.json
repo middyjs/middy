@@ -51,8 +51,11 @@
 	"files": [
 		"index.js",
 		"executionModeStandard.js",
+		"executionModeStandard.d.ts",
 		"executionModeDurableContext.js",
+		"executionModeDurableContext.d.ts",
 		"executionModeStreamifyResponse.js",
+		"executionModeStreamifyResponse.d.ts",
 		"index.d.ts"
 	],
 	"scripts": {
