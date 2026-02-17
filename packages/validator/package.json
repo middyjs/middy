@@ -75,7 +75,7 @@
 	},
 	"dependencies": {
 		"@middy/util": "7.0.2",
-		"ajv": "8.17.1",
+		"ajv": "8.18.0",
 		"ajv-errors": "3.0.0",
 		"ajv-formats": "3.0.1",
 		"@silverbucket/ajv-formats-draft2019": "1.6.5",
