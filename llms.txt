@@ -17,7 +17,7 @@ Let's assume you are building a JSON API to process a payment:
 ```javascript title="handler.js"
 // import core
 import middy from '@middy/core' // esm Node v14+
-//const middy = require('@middy/core') // commonjs Node v12+
+//const middy = require('@middy/core') // cjs Node v12+
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
@@ -84,7 +84,7 @@ error handling, etc.
 Very often, all this necessary code ends up polluting the pure business logic code in
 your handlers, making the code harder to read and to maintain.
 
-In other contexts, like generic web frameworks ([fastify](http://fastify.io), [hapi](https://hapijs.com/), [express](http://expressjs.com/), etc.), this
+In other contexts, like generic web frameworks ([fastify](https://fastify.io), [hapi](https://hapijs.com/), [express](https://expressjs.com/), etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into
@@ -640,7 +640,7 @@ All Node.js Long-Term Support (LTS) releases that have AWS Lambda runtimes are s
 | Version | Status     | Alpha Release | Stable Release | End-of-Life |
 | ------- | ---------- | ------------- | -------------- | ----------- |
 | v8      | Scoping    | 2026-??-??    | 2026-??-??     | 2028-04-30  |
-| v7      | Stable     | 2025-??-??    | 2026-01-04     | 2027-04-30  |
+| v7      | Stable     | 2025-10-21    | 2026-01-04     | 2027-04-30  |
 | v6      | Deprecated | 2024-10-16    | 2024-11-23     | 2026-04-30  |
 | v5      | Deprecated | 2023-06-01    | 2023-11-15     | 2025-04-30  |
 | v4      | Deprecated | 2022-10-17    | 2022-11-24     | 2023-11-15  |
@@ -851,17 +851,17 @@ To exclude `@aws-sdk` add `@aws-sdk/client-appconfig` to the exclude list.
 
 Data in AppConfig can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched parameters will have type `unknown`.
 
-You can provide some type hints by leveraging the `appConfigReq` utility function. This function allows you to specify what's the expected type that will be fetched for every AppConfig request.
+You can provide some type hints by leveraging the `appConfigParam` utility function. This function allows you to specify what's the expected type that will be fetched for every AppConfig request.
 
-The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter path as a string, you can wrap it in a `appConfigReq<ParamType>(config)` call. Internally, `appConfigReq` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected type for that parameter.
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter path as a string, you can wrap it in a `appConfigParam<ParamType>(config)` call. Internally, `appConfigParam` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected type for that parameter.
 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
-The following example illustrates how to use `appConfigReq`:
+The following example illustrates how to use `appConfigParam`:
 
 ```typescript
 import middy from '@middy/core'
-import appConfig, { appConfigReq } from '@middy/appconfig'
+import appConfig, { appConfigParam } from '@middy/appconfig'
 
 const lambdaHandler = (event, context) => {
   return {
@@ -1084,17 +1084,17 @@ To exclude `@aws-sdk` add `@aws-sdk/client-dynamodb` to the exclude list.
 
 Data in DynamoDB can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched parameters will have type `Record<string, NativeAttributeValue>`.
 
-You can provide some type hints by leveraging the `dynamoDbReq` utility function. This function allows you to specify what's the expected type that will be fetched for every DynamoDB request.
+You can provide some type hints by leveraging the `dynamoDbParam` utility function. This function allows you to specify what's the expected type that will be fetched for every DynamoDB request.
 
-The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `dynamoDbReq<ParamType>(config)` call. Internally, `dynamoDbReq` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `dynamoDbParam<ParamType>(config)` call. Internally, `dynamoDbParam` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
-The following example illustrates how to use `dynamoDbReq`:
+The following example illustrates how to use `dynamoDbParam`:
 
 ```typescript
 import middy from '@middy/core'
-import dynamodb, { dynamoDbReq } from '@middy/dynamodb'
+import dynamodb, { dynamoDbParam } from '@middy/dynamodb'
 
 const handler = middy((event, context) => {
   const response = {
@@ -1109,7 +1109,7 @@ const handler = middy((event, context) => {
 handler.use(
   dynamodb({
     fetchData: {
-      config: dynamoDbReq<{field1: string, field2: string, field3: number}>({
+      config: dynamoDbParam<{field1: string, field2: string, field3: number}>({
         TableName: '...'
         Key: {
           pk: '0000'
@@ -2350,17 +2350,17 @@ To exclude `@aws-sdk` add `@aws-sdk/client-s3` to the exclude list.
 
 Data in an S3 object can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched parameters will have type `unknown`.
 
-You can provide some type hints by leveraging the `s3Req` utility function. This function allows you to specify what's the expected type that will be fetched for every S3 request.
+You can provide some type hints by leveraging the `s3Param` utility function. This function allows you to specify what's the expected type that will be fetched for every S3 request.
 
-The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `s3Req<ParamType>(config)` call. Internally, `s3Req` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `s3Param<ParamType>(config)` call. Internally, `s3Param` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
-The following example illustrates how to use `s3Req`:
+The following example illustrates how to use `s3Param`:
 
 ```typescript
 import middy from '@middy/core'
-import s3, { s3Req } from '@middy/s3'
+import s3, { s3Param } from '@middy/s3'
 
 const handler = middy((event, context) => {
   console.log(context.config)
@@ -2376,7 +2376,7 @@ const handler = middy((event, context) => {
 handler.use(
   s3({
     fetchData: {
-      config: s3Req<{field1: string, field2: string, field3: number}>({
+      config: s3Param<{field1: string, field2: string, field3: number}>({
         Bucket: '...',
         Key: '...'
       }
@@ -2893,7 +2893,7 @@ To exclude `@aws-sdk` add `@aws-sdk/client-sts` to the exclude list.
 // File: middlewares/validator
 
 This middleware automatically validates incoming events and outgoing responses against custom
-schemas defined with the [JSON schema syntax](http://json-schema.org/).
+schemas defined with the [JSON schema syntax](https://json-schema.org/).
 
 Want to use another validator? Try one of the community validators:
 
@@ -2908,7 +2908,7 @@ This middleware can be used in combination with
 [`httpErrorHandler`](#httperrorhandler) to automatically return the right
 response to the user.
 
-It can also be used in combination with [`http-content-negotiation`](#httpContentNegotiation) to load localized translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-ftl-i18n`](http://npm.im/ajv-ftl-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
+It can also be used in combination with [`http-content-negotiation`](#httpContentNegotiation) to load localized translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-ftl-i18n`](https://npm.im/ajv-ftl-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
 
 Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance.
 
@@ -3946,7 +3946,7 @@ export const handler = middy({ executionMode: executionModeStreamifyResponse })
 
 ## Middleware
 
-## [appconfig](/docs/middlewares/appconfig)
+### [appconfig](/docs/middlewares/appconfig)
 
 No change
 
@@ -4103,7 +4103,7 @@ No change
 
 ## Middleware
 
-## [appconfig](/docs/middlewares/appconfig)
+### [appconfig](/docs/middlewares/appconfig)
 
 No change
 
@@ -4272,7 +4272,7 @@ No change
 
 ## Middleware
 
-## [appconfig](/docs/middlewares/appconfig)
+### [appconfig](/docs/middlewares/appconfig)
 
 - Update SDK to use newer `appconfigdata` client **Breaking Change**
 
@@ -5041,8 +5041,8 @@ import inputOutputLoggerMiddleware from '@middy/input-output-logger'
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 const handler = middy()
   .use(warmupMiddleware())
@@ -5252,8 +5252,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -5336,8 +5336,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -5961,8 +5961,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -6450,8 +6450,8 @@ import httpUrlencodePathParametersParserMiddleware from '@middy/http-urlencode-p
 import validatorMiddleware from 'validator'
 import warmupMiddleware from 'warmup'
 
-import eventSchema from './eventSchema.json' assert { type: 'json' }
-import responseSchema from './responseSchema.json' assert { type: 'json' }
+import eventSchema from './eventSchema.json' with { type: 'json' }
+import responseSchema from './responseSchema.json' with { type: 'json' }
 
 export const handler = middy({
   timeoutEarlyResponse: () => {
@@ -6609,7 +6609,7 @@ You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 :::note
 
-Powertools officially supports `@middy/core` both v4.x and v5.x.
+Powertools officially supports `@middy/core` both v4.x - v7.x.
 
 :::
 
