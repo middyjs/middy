@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -65,7 +66,7 @@
 		"@aws-sdk/client-appconfigdata": "^3.0.0"
 	},
 	"peerDependenciesMeta": {
-		"@aws-sdk/client-ssm": {
+		"@aws-sdk/client-appconfigdata": {
 			"optional": true
 		}
 	},

@@ -1,5 +1,3 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
