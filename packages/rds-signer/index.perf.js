@@ -1,5 +1,5 @@
-import { Signer } from "@aws-sdk/rds-signer";
-import { mockClient } from "aws-sdk-client-mock";
+// import { Signer } from "@aws-sdk/rds-signer";
+// import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
@@ -10,6 +10,7 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 
+// TODO update to match others (ie s3)
 // Mock the Signer to avoid actual AWS calls
 class MockSigner {
 	constructor() {}
