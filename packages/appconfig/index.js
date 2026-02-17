@@ -124,8 +124,6 @@ const appConfigMiddleware = (opts = {}) => {
 export default appConfigMiddleware;
 
 // used for TS type inference (see index.d.ts)
-export function appConfigReq(req) {
-	return req;
+export function appConfigParam(name) {
+	return name;
 }
-
-// # sourceMappingURL=index.js.map

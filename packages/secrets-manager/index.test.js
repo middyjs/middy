@@ -380,3 +380,147 @@ test("It should catch if an error is returned from fetch", async (t) => {
 		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
+
+test("It should catch and modify cache if error is returned with caching enabled", async (t) => {
+	const mockService = mockClient(SecretsManagerClient)
+		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.rejects("timeout");
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheKey: "secrets-test-cache",
+			cacheExpiry: -1,
+			fetchData: {
+				token: "api_key",
+			},
+			setToContext: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(sendStub.callCount, 1);
+		strictEqual(e.message, "Failed to resolve internal values");
+		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+	}
+});
+
+test("It should handle InvalidSignatureException and retry", async (t) => {
+	const invalidSignatureError = new Error("InvalidSignatureException");
+	invalidSignatureError.__type = "InvalidSignatureException";
+
+	const client = mockClient(SecretsManagerClient);
+	client
+		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.rejectsOnce(invalidSignatureError)
+		.resolves({ SecretString: "secret" });
+
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheExpiry: 0,
+			fetchData: {
+				token: "api_key",
+			},
+			setToContext: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(event, context);
+	strictEqual(client.send.callCount, 2);
+});
+
+test("It should handle InvalidSignatureException on DescribeSecretCommand and retry", async (t) => {
+	const invalidSignatureError = new Error("InvalidSignatureException");
+	invalidSignatureError.__type = "InvalidSignatureException";
+
+	const client = mockClient(SecretsManagerClient);
+	client
+		.on(DescribeSecretCommand, { SecretId: "api_key" })
+		.rejectsOnce(invalidSignatureError)
+		.resolves({ NextRotationDate: Date.now() / 1000 + 60 * 60 * 24 })
+		.on(GetSecretValueCommand, { SecretId: "api_key" })
+		.resolves({ SecretString: "secret" });
+
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheExpiry: -1,
+			fetchData: {
+				token: "api_key",
+			},
+			fetchRotationDate: true,
+			setToContext: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(event, context);
+	strictEqual(client.send.callCount, 3); // 2 for DescribeSecret (fail + retry) + 1 for GetSecretValue
+});
+
+test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
+	let callCount = 0;
+	const mockService = mockClient(SecretsManagerClient)
+		.on(GetSecretValueCommand)
+		.callsFake(async (input) => {
+			callCount++;
+			// First call for secret1 succeeds
+			if (callCount === 1 && input.SecretId === "secret1") {
+				return { SecretString: "value1" };
+			}
+			// Second call for secret2 fails
+			if (callCount === 2 && input.SecretId === "secret2") {
+				throw new Error("timeout");
+			}
+			// Third call only fetches secret2 (secret1 is cached)
+			if (callCount === 3 && input.SecretId === "secret2") {
+				return { SecretString: "value2" };
+			}
+		});
+	const sendStub = mockService.send;
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key1, "value1");
+		strictEqual(values.key2, "value2");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					key1: "secret1",
+					key2: "secret2",
+				},
+			}),
+		)
+		.before(middleware);
+
+	// First call - key1 succeeds, key2 fails
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Expected to fail
+	}
+
+	// Second call - only key2 is fetched (key1 is already cached)
+	await handler(event, context);
+
+	// Should have called send 3 times total
+	strictEqual(sendStub.callCount, 3);
+});
+
+test("It should export secretsManagerParam helper for TypeScript type inference", async (t) => {
+	const { secretsManagerParam } = await import("./index.js");
+	const secretName = "test-secret";
+	const result = secretsManagerParam(secretName);
+	strictEqual(result, secretName);
+});

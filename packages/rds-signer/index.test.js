@@ -328,3 +328,82 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 		]);
 	}
 });
+
+test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
+	let callCount = 0;
+	const getAuthToken = t.mock.fn(async () => {
+		callCount++;
+		// First call for token1 succeeds
+		if (callCount === 1) {
+			return "https://rds.amazonaws.com?X-Amz-Security-Token=token1";
+		}
+		// First call for token2 fails
+		if (callCount === 2) {
+			throw new Error("timeout");
+		}
+		// Second call only fetches token2 (token1 is cached)
+		if (callCount === 3) {
+			return "https://rds.amazonaws.com?X-Amz-Security-Token=token2";
+		}
+	});
+	class AwsClient {
+		getAuthToken = getAuthToken;
+	}
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(
+			values.token1,
+			"https://rds.amazonaws.com?X-Amz-Security-Token=token1",
+		);
+		strictEqual(
+			values.token2,
+			"https://rds.amazonaws.com?X-Amz-Security-Token=token2",
+		);
+	};
+
+	const handler = middy(() => {});
+
+	handler
+		.use(
+			rdsSigner({
+				AwsClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					token1: {
+						region: "us-east-1",
+						hostname: "hostname-reader",
+						username: "username",
+						port: 5432,
+					},
+					token2: {
+						region: "us-east-1",
+						hostname: "hostname-writer",
+						username: "username",
+						port: 5432,
+					},
+				},
+			}),
+		)
+		.before(middleware);
+
+	// First call - token1 succeeds, token2 fails
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (e) {
+		// Expected to fail
+	}
+
+	// Second call - only token2 is fetched (token1 is already cached)
+	await handler(defaultEvent, defaultContext);
+
+	// Should have called getAuthToken 3 times total (token1 once, token2 twice)
+	strictEqual(getAuthToken.mock.callCount(), 3);
+});
+
+test("It should export rdsSignerParam helper for TypeScript type inference", async (t) => {
+	const { rdsSignerParam } = await import("./index.js");
+	const paramName = "test-param";
+	const result = rdsSignerParam(paramName);
+	strictEqual(result, paramName);
+});

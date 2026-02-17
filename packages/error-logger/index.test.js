@@ -56,3 +56,28 @@ test("It should throw error when invalid logger", async (t) => {
 		);
 	}
 });
+
+test("It should use default logger (console.error) when no logger is provided", async (t) => {
+	const error = new Error("something bad happened");
+
+	// Mock console.error to capture default logger output
+	const originalError = console.error;
+	let errorLogged = null;
+	console.error = (err) => {
+		errorLogged = err;
+	};
+
+	const handler = middy(() => {
+		throw error;
+	});
+
+	handler.use(errorLogger());
+
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (_e) {
+		// Restore console.error
+		console.error = originalError;
+		strictEqual(errorLogged, error);
+	}
+});

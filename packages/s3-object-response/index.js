@@ -53,3 +53,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 };
 
 export default s3ObjectResponseMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function s3ObjectResponseParam(name) {
+	return name;
+}

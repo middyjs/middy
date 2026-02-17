@@ -330,3 +330,96 @@ test("It should catch if an error is returned from fetch", async (t) => {
 		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
+
+test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
+	let callCount = 0;
+	const mockService = mockClient(ServiceDiscoveryClient)
+		.on(DiscoverInstancesCommand)
+		.callsFake(async () => {
+			callCount++;
+			// First call for service1 succeeds
+			if (callCount === 1) {
+				return {
+					Instances: [
+						{
+							Attributes: {
+								AWS_INSTANCE_IPV4: "172.2.1.3",
+								AWS_INSTANCE_PORT: "801",
+							},
+							HealthStatus: "UNKNOWN",
+							InstanceId: "myservice-1",
+							NamespaceName: "example.com",
+							ServiceName: "myservice",
+						},
+					],
+				};
+			}
+			// First call for service2 fails
+			if (callCount === 2) {
+				throw new Error("timeout");
+			}
+			// Second call only fetches service2 (service1 is cached)
+			if (callCount === 3) {
+				return {
+					Instances: [
+						{
+							Attributes: {
+								AWS_INSTANCE_IPV4: "172.2.1.4",
+								AWS_INSTANCE_PORT: "802",
+							},
+							HealthStatus: "UNKNOWN",
+							InstanceId: "myservice-2",
+							NamespaceName: "example.com",
+							ServiceName: "myservice",
+						},
+					],
+				};
+			}
+		});
+	const sendStub = mockService.send;
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.service1[0].Attributes.AWS_INSTANCE_PORT, "801");
+		strictEqual(values.service2[0].Attributes.AWS_INSTANCE_PORT, "802");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			serviceDiscovery({
+				AwsClient: ServiceDiscoveryClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					service1: {
+						NamespaceName: "example.com",
+						ServiceName: "service1",
+					},
+					service2: {
+						NamespaceName: "example.com",
+						ServiceName: "service2",
+					},
+				},
+			}),
+		)
+		.before(middleware);
+
+	// First call - service1 succeeds, service2 fails
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Expected to fail
+	}
+
+	// Second call - only service2 is fetched (service1 is already cached)
+	await handler(event, context);
+
+	// Should have called send 3 times total (service1 once, service2 twice)
+	strictEqual(sendStub.callCount, 3);
+});
+
+test("It should export serviceDiscoveryParam helper for TypeScript type inference", async (t) => {
+	const { serviceDiscoveryParam } = await import("./index.js");
+	const paramName = "test-param";
+	const result = serviceDiscoveryParam(paramName);
+	strictEqual(result, paramName);
+});

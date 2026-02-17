@@ -86,3 +86,8 @@ const stsMiddleware = (opts = {}) => {
 	};
 };
 export default stsMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function stsParam(name) {
+	return name;
+}

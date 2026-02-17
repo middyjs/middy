@@ -846,6 +846,37 @@ for (const httpMethod of ["GET", "POST", "PUT", "PATCH"]) {
 	});
 }
 
+test("It should handle v2.0 event format for OPTIONS request", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com", "https://other.com"],
+		}),
+	);
+
+	const event = {
+		version: "2.0",
+		requestContext: {
+			http: {
+				method: "OPTIONS",
+			},
+		},
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
 test("it should not overwrite Cache-Control header if already set", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
@@ -1180,4 +1211,152 @@ test("Should return correct origin on subsequent calls", async (t) => {
 			Vary: "Origin",
 		},
 	});
+});
+
+test("It should append to Vary header when custom vary is set and multiple origins", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: {
+			"Content-Type": "application/json",
+		},
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+			vary: "Accept-Encoding",
+		}),
+	);
+
+	const event = {
+		headers: {
+			Origin: "https://example.com",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			"Content-Type": "application/json",
+			Vary: "Accept-Encoding, Origin",
+		},
+	});
+});
+
+test("It should append Origin to existing Vary header from response", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: {
+			"Content-Type": "application/json",
+			Vary: "Accept-Encoding",
+		},
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+		}),
+	);
+
+	const event = {
+		headers: {
+			Origin: "https://example.com",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			"Content-Type": "application/json",
+			Vary: "Accept-Encoding, Origin",
+		},
+	});
+});
+
+test("It should add Vary: Origin when newOrigin is * and credentials set via response headers", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+		},
+	}));
+
+	handler.use(
+		httpCors({
+			origin: "*",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Origin": "*",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should set Vary: Origin when origin is * with credentials but no incoming Origin header", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origin: "*",
+			credentials: true,
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: {}, // No Origin header
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Origin": "*",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should handle vary option with empty string header", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: {
+			Vary: "", // Empty string
+		},
+	}));
+
+	handler.use(
+		httpCors({
+			vary: "Accept",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, context);
+
+	strictEqual(response.headers.Vary, "Accept");
 });

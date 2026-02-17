@@ -105,3 +105,23 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 		match(e.cause.message, /^Unexpected token/);
 	}
 });
+
+test("It should handle missing body as an UnprocessableEntity", async (t) => {
+	const handler = middy((event) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(jsonBodyParser());
+
+	// invokes the handler with no body
+	const event = {};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+		strictEqual(e.cause.data, undefined);
+	}
+});

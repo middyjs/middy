@@ -18,8 +18,8 @@ export type GetObjectCommandInputNoChecksumMode = Omit<
 export type ParamType<T> = GetObjectCommandInputNoChecksumMode & {
 	__returnType?: T;
 };
-export declare function s3Req<T>(
-	req: GetObjectCommandInputNoChecksumMode,
+export declare function s3Param<T>(
+	name: GetObjectCommandInputNoChecksumMode,
 ): ParamType<T>;
 
 export type S3Options<AwsS3Client = S3Client> = Omit<

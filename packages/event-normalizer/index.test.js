@@ -544,3 +544,23 @@ test("It should parse S3 -> SNS -> SQS event", async (t) => {
 		"aws:s3",
 	);
 });
+
+test("It should handle DynamoDB event with undefined type value", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		UndefinedKey: { S: undefined },
+		ValidKey: { S: "valid" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(
+		response.Records[0].dynamodb.Keys,
+		Object.assign(Object.create(null), {
+			UndefinedKey: undefined,
+			ValidKey: "valid",
+		}),
+	);
+});

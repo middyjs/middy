@@ -81,3 +81,8 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 	};
 };
 export default serviceDiscoveryMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function serviceDiscoveryParam(name) {
+	return name;
+}

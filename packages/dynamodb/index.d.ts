@@ -12,7 +12,7 @@ import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T extends Record<string, NativeAttributeValue>> =
 	GetItemCommandInput & { __returnType?: T };
-export declare function dynamoDbReq<
+export declare function dynamoDbParam<
 	T extends Record<string, NativeAttributeValue>,
 >(req: GetItemCommandInput): ParamType<T>;
 
