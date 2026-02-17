@@ -83,10 +83,10 @@
             const d = new Date();
             const period = `${d
                 .toISOString()
-                .substr(0, 10)
+                .substring(0, 10)
                 .replace(d.getFullYear(), d.getFullYear() - 1)}:${d
                 .toISOString()
-                .substr(0, 10)}`;
+                .substring(0, 10)}`;
             const dailyStats = {};
             const weeklyStats = {};
             //const yearlyStats = {}
@@ -198,7 +198,7 @@
                             type: "time",
                             scaleLabel: {
                                 display: true,
-                                labelString: period.substr(0, 4),
+                                labelString: period.substring(0, 4),
                             },
                             time: {
                                 minUnit: "day",

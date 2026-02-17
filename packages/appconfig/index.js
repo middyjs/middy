@@ -35,8 +35,8 @@ const appConfigMiddleware = (opts = {}) => {
 		...defaults,
 		...opts,
 	};
-	const configurationTokenCache = {};
-	const configurationCache = {};
+	const configurationTokenCache = Object.create(null);
+	const configurationCache = Object.create(null);
 
 	function fetchLatestConfigurationRequest(configToken, internalKey) {
 		const command = new GetLatestConfigurationCommand({
@@ -53,7 +53,7 @@ const appConfigMiddleware = (opts = {}) => {
 					return configurationCache[internalKey];
 				}
 
-				let value = String.fromCharCode.apply(null, configResp.Configuration);
+				let value = new TextDecoder().decode(configResp.Configuration);
 				if (contentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}
@@ -124,8 +124,6 @@ const appConfigMiddleware = (opts = {}) => {
 export default appConfigMiddleware;
 
 // used for TS type inference (see index.d.ts)
-export function appConfigReq(req) {
-	return req;
+export function appConfigParam(name) {
+	return name;
 }
-
-// # sourceMappingURL=index.js.map

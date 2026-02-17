@@ -661,3 +661,78 @@ test("It should catch if an error is returned from fetchPath", async (t) => {
 		deepStrictEqual(e.cause.data, [new Error("timeout")]);
 	}
 });
+
+test("It should skip fetching already cached path values", async (t) => {
+	let callCount = 0;
+	const mockService = mockClient(SSMClient)
+		.on(GetParametersByPathCommand)
+		.callsFake(async (input) => {
+			callCount++;
+			// First call for path1 succeeds
+			if (callCount === 1 && input.Path === "/dev/path1/") {
+				return {
+					Parameters: [
+						{
+							Name: "/dev/path1/key",
+							Value: "value1",
+						},
+					],
+				};
+			}
+			// Second call for path2 fails
+			if (callCount === 2 && input.Path === "/dev/path2/") {
+				throw new Error("timeout");
+			}
+			// Third call only fetches path2 (path1 is cached)
+			if (callCount === 3 && input.Path === "/dev/path2/") {
+				return {
+					Parameters: [
+						{
+							Name: "/dev/path2/key",
+							Value: "value2",
+						},
+					],
+				};
+			}
+		});
+	const sendStub = mockService.send;
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.path1.key, "value1");
+		strictEqual(values.path2.key, "value2");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					path1: "/dev/path1/",
+					path2: "/dev/path2/",
+				},
+			}),
+		)
+		.before(middleware);
+
+	// First call - path1 succeeds, path2 fails
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Expected to fail
+	}
+
+	// Second call - only path2 is fetched (path1 is already cached)
+	await handler(event, context);
+
+	// Should have called send 3 times total
+	strictEqual(sendStub.callCount, 3);
+});
+
+test("It should export ssmParam helper for TypeScript type inference", async (t) => {
+	const { ssmParam } = await import("./index.js");
+	const paramName = "/test/param";
+	const result = ssmParam(paramName);
+	strictEqual(result, paramName);
+});

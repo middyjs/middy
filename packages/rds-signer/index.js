@@ -74,3 +74,8 @@ const rdsSignerMiddleware = (opts = {}) => {
 	};
 };
 export default rdsSignerMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function rdsSignerParam(name) {
+	return name;
+}

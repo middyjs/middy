@@ -12,8 +12,8 @@ import type { Context as LambdaContext } from "aws-lambda";
 export type ParamType<T> = StartConfigurationSessionRequest & {
 	__returnType?: T;
 };
-export declare function appConfigReq<T>(
-	req: StartConfigurationSessionRequest,
+export declare function appConfigParam<T>(
+	name: StartConfigurationSessionRequest,
 ): ParamType<T>;
 
 export interface AppConfigOptions<AwsAppConfigClient = AppConfigDataClient>

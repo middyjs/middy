@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import dynamodb, { type Context, dynamoDbReq } from "./index.js";
+import dynamodb, { type Context, dynamoDbParam } from "./index.js";
 
 const options = {
 	AwsClient: DynamoDBClient,
@@ -163,7 +163,7 @@ handler
 		dynamodb({
 			...options,
 			fetchData: {
-				configurationObjFromDynamo: dynamoDbReq<{
+				configurationObjFromDynamo: dynamoDbParam<{
 					param1: string;
 					param2: string;
 					param3: number;
@@ -199,7 +199,7 @@ handler
 		dynamodb({
 			...options,
 			fetchData: {
-				configurationObjFromDynamo: dynamoDbReq<{
+				configurationObjFromDynamo: dynamoDbParam<{
 					param1: string;
 					param2: string;
 					param3: number;

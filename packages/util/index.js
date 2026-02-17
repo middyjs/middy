@@ -105,11 +105,11 @@ export const sanitizeKey = (key) => {
 };
 
 // fetch Cache
-const cache = {}; // key: { value:{fetchKey:Promise}, expiry }
+const cache = Object.create(null); // key: { value:{fetchKey:Promise}, expiry }
 export const processCache = (
 	options,
 	middlewareFetch = () => undefined,
-	request = {},
+	middlewareFetchRequest = {},
 ) => {
 	let { cacheKey, cacheKeyExpiry, cacheExpiry } = options;
 	cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry;
@@ -120,7 +120,7 @@ export const processCache = (
 
 		if (unexpired) {
 			if (cached.modified) {
-				const value = middlewareFetch(request, cached.value);
+				const value = middlewareFetch(middlewareFetchRequest, cached.value);
 				Object.assign(cached.value, value);
 				cache[cacheKey] = { value: cached.value, expiry: cached.expiry };
 				return cache[cacheKey];
@@ -128,7 +128,7 @@ export const processCache = (
 			return { ...cached, cache: true };
 		}
 	}
-	const value = middlewareFetch(request);
+	const value = middlewareFetch(middlewareFetchRequest);
 	// secrets-manager can override to unix timestamp
 	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
@@ -136,7 +136,8 @@ export const processCache = (
 		const refresh =
 			duration > 0
 				? setTimeout(
-						() => processCache(options, middlewareFetch, request),
+						() =>
+							processCache(options, middlewareFetch, middlewareFetchRequest),
 						duration,
 					)
 				: undefined;
@@ -205,14 +206,14 @@ export const isExecutionModeDurable = (context) => {
 	return false;
 };
 
-export const executionContext = (key, context) => {
+export const executionContext = (request, key, context) => {
 	if (isExecutionModeDurable(context)) {
 		return request.context.executionContext[key];
 	}
 	return request.context[key];
 };
 
-export const lambdaContext = (key, context) => {
+export const lambdaContext = (request, key, context) => {
 	if (isExecutionModeDurable(context)) {
 		return request.context.lambdaContext[key];
 	}
@@ -268,7 +269,7 @@ export class HttpError extends Error {
 		super(message, options);
 
 		const name = httpErrorCodes[code].replace(createErrorRegexp, "");
-		this.name = name.substr(-5) !== "Error" ? `${name}Error` : name;
+		this.name = !name.endsWith("Error") ? `${name}Error` : name;
 
 		this.status = this.statusCode = code; // setting `status` for backwards compatibility w/ `http-errors`
 		this.expose = options.expose ?? code < 500;

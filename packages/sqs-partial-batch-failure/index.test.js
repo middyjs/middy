@@ -136,3 +136,70 @@ test("Should reject all messageIds when error is thrown", async (t) => {
 	});
 	strictEqual(logger.mock.callCount(), 1);
 });
+
+test("Should handle event without Records array", async (t) => {
+	const event = {};
+	const logger = t.mock.fn();
+
+	const handler = middy(async (e) => {
+		return [{ status: "fulfilled", value: "success" }];
+	}).use(sqsPartialBatchFailure({ logger }));
+
+	const response = await handler(event, context);
+	deepStrictEqual(response, { batchItemFailures: [] });
+	strictEqual(logger.mock.callCount(), 0);
+});
+
+test("Should handle non-function logger", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "reject",
+					},
+				},
+				body: "",
+			},
+		],
+	});
+
+	const handler = middy(lambdaHandler).use(
+		sqsPartialBatchFailure({ logger: "not-a-function" }),
+	);
+
+	const response = await handler(event, context);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+});
+
+test("Should not override response in onError if response already exists", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "resolve",
+					},
+				},
+				body: "",
+			},
+		],
+	});
+
+	const handler = middy(async (e) => {
+		throw new Error("test error");
+	})
+		.use(sqsPartialBatchFailure())
+		.onError((request) => {
+			// Set response before sqs-partial-batch-failure onError runs
+			request.response = { custom: "response" };
+		});
+
+	const response = await handler(event, context);
+	// The custom response should be preserved, not overridden
+	deepStrictEqual(response, { custom: "response" });
+});

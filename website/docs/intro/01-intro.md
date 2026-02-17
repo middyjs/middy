@@ -21,7 +21,7 @@ Let's assume you are building a JSON API to process a payment:
 ```javascript title="handler.js"
 // import core
 import middy from '@middy/core' // esm Node v14+
-//const middy = require('@middy/core') // commonjs Node v12+
+//const middy = require('@middy/core') // cjs Node v12+
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'
@@ -88,7 +88,7 @@ error handling, etc.
 Very often, all this necessary code ends up polluting the pure business logic code in
 your handlers, making the code harder to read and to maintain.
 
-In other contexts, like generic web frameworks ([fastify](http://fastify.io), [hapi](https://hapijs.com/), [express](http://expressjs.com/), etc.), this
+In other contexts, like generic web frameworks ([fastify](https://fastify.io), [hapi](https://hapijs.com/), [express](https://expressjs.com/), etc.), this
 problem has been solved using the [middleware pattern](https://www.packtpub.com/mapt/book/web_development/9781783287314/4/ch04lvl1sec33/middleware).
 
 This pattern allows developers to isolate these common technical concerns into

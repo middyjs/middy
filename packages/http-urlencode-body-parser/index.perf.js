@@ -1,5 +1,3 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
@@ -18,10 +16,13 @@ const warmHandler = setupHandler();
 
 await bench
 	.add(
-		"Change Context",
+		"Parse body",
 		async (
 			event = {
-				source: "serverless-plugin-warmup",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+				},
+				body: "a[b][c][d]=i",
 			},
 		) => {
 			try {

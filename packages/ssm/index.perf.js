@@ -1,9 +1,8 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
 import {
-	DiscoverInstancesCommand,
-	ServiceDiscoveryClient,
-} from "@aws-sdk/client-servicediscovery";
+	GetParametersByPathCommand,
+	GetParametersCommand,
+	SSMClient,
+} from "@aws-sdk/client-ssm";
 import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
@@ -15,27 +14,16 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = (options = {}) => {
-	mockClient(ServiceDiscoveryClient)
-		.on(DiscoverInstancesCommand)
-		.resolves({
-			Instances: [
-				{
-					Attributes: {
-						AWS_INSTANCE_IPV4: "172.2.1.3",
-						AWS_INSTANCE_PORT: "808",
-					},
-					HealthStatus: "UNKNOWN",
-					InstanceId: "myservice-53",
-					NamespaceName: "example.com",
-					ServiceName: "myservice",
-				},
-			],
-		});
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({ Parameters: [{ Name: "/key", Value: "value" }] })
+		.on(GetParametersByPathCommand)
+		.resolves({ Parameters: [{ Name: "/key", Value: "value" }] });
 	const baseHandler = () => {};
 	return middy(baseHandler).use(
 		middleware({
 			...options,
-			AwsClient: ServiceDiscoveryClient,
+			AwsClient: SSMClient,
 		}),
 	);
 };

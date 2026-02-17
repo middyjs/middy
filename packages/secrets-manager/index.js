@@ -32,7 +32,11 @@ const defaults = {
 };
 
 const secretsManagerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
@@ -114,6 +118,6 @@ const secretsManagerMiddleware = (opts = {}) => {
 export default secretsManagerMiddleware;
 
 // used for TS type inference (see index.d.ts)
-export function secret(name) {
+export function secretsManagerParam(name) {
 	return name;
 }

@@ -1,10 +1,4 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
-import {
-	GetParametersByPathCommand,
-	GetParametersCommand,
-	SSMClient,
-} from "@aws-sdk/client-ssm";
+import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
@@ -15,25 +9,29 @@ const bench = new Bench({ time: 1_000 });
 const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
+
+globalThis.fetch = () => Promise.resolve();
 const setupHandler = (options = {}) => {
-	mockClient(SSMClient)
-		.on(GetParametersCommand)
-		.resolves({ Parameters: [{ Name: "/key", Value: "value" }] })
-		.on(GetParametersByPathCommand)
-		.resolves({ Parameters: [{ Name: "/key", Value: "value" }] });
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolves({ statusCode: 200 });
 	const baseHandler = () => {};
 	return middy(baseHandler).use(
 		middleware({
 			...options,
-			AwsClient: SSMClient,
+			AwsClient: S3Client,
 		}),
 	);
 };
 
-const coldHandler = setupHandler({ cacheExpiry: 0 });
+const coldHandler = setupHandler({ disablePrefetch: true });
 const warmHandler = setupHandler();
 
-const event = {};
+const event = {
+	getObjectContext: {
+		inputS3Url: "https://localhost",
+	},
+};
 await bench
 	.add("without cache", async () => {
 		try {

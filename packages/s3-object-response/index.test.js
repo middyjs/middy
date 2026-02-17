@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
@@ -147,4 +147,64 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 
 	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(200, response.statusCode);
+});
+
+test("It should export s3ObjectResponseParam helper for TypeScript type inference", async (t) => {
+	const { s3ObjectResponseParam } = await import("./index.js");
+	const paramName = "test-param";
+	const result = s3ObjectResponseParam(paramName);
+	strictEqual(result, paramName);
+});
+
+test("It should handle event without getObjectContext", async (t) => {
+	const responseBody = "test response";
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolvesOnce({ statusCode: 200 });
+
+	const handler = middy(async (event, context) => {
+		strictEqual(context.s3ObjectFetch, undefined);
+		return {
+			Body: responseBody,
+		};
+	});
+
+	handler.use(
+		s3ObejctResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	const event = {};
+	const response = await handler(event, defaultContext);
+	strictEqual(response.statusCode, 200);
+});
+
+test("It should handle event with getObjectContext but no inputS3Url", async (t) => {
+	const responseBody = "test response";
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolvesOnce({ statusCode: 200 });
+
+	const handler = middy(async (event, context) => {
+		strictEqual(context.s3ObjectFetch, undefined);
+		return {
+			Body: responseBody,
+		};
+	});
+
+	handler.use(
+		s3ObejctResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	const event = {
+		getObjectContext: {
+			outputRoute: `${awsOrigin}/key`,
+			outputToken: "token",
+		},
+	};
+	const response = await handler(event, defaultContext);
+	strictEqual(response.statusCode, 200);
 });

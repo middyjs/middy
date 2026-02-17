@@ -1,6 +1,6 @@
 {
 	"name": "@middy/cloudformation-router",
-	"version": "7.0.2",
+	"version": "7.0.3",
 	"description": "CloudFormation Custom Response event router for the middy framework",
 	"type": "module",
 	"engines": {
@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -63,7 +64,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@middy/core": "7.0.2",
+		"@middy/core": "7.0.3",
 		"@types/aws-lambda": "^8.10.100"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

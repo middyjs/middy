@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-multipart-body-parser",
-	"version": "7.0.2",
+	"version": "7.0.3",
 	"description": "Http event normalizer middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {

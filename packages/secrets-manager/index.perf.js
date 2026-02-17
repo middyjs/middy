@@ -1,9 +1,7 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
 import {
-	ApiGatewayManagementApiClient,
-	PostToConnectionCommand,
-} from "@aws-sdk/client-apigatewaymanagementapi";
+	GetSecretValueCommand,
+	SecretsManagerClient,
+} from "@aws-sdk/client-secrets-manager";
 import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
@@ -15,14 +13,14 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = (options = {}) => {
-	mockClient(ApiGatewayManagementApiClient)
-		.on(PostToConnectionCommand)
-		.resolves({ statusCode: 200 });
+	mockClient(SecretsManagerClient)
+		.on(GetSecretValueCommand)
+		.resolves({ SecretString: "token" });
 	const baseHandler = () => {};
 	return middy(baseHandler).use(
 		middleware({
 			...options,
-			AwsClient: ApiGatewayManagementApiClient,
+			AwsClient: SecretsManagerClient,
 		}),
 	);
 };

@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import s3, { type Context, s3Req } from "./index.js";
+import s3, { type Context, s3Param } from "./index.js";
 
 const options = {
 	AwsClient: S3Client,
@@ -125,12 +125,14 @@ handler
 		s3({
 			...options,
 			fetchData: {
-				someS3Object: s3Req<{ param1: string; param2: string; param3: number }>(
-					{
-						Bucket: "bucket",
-						Key: "path/to/key.json", // {key: 'value'}
-					},
-				),
+				someS3Object: s3Param<{
+					param1: string;
+					param2: string;
+					param3: number;
+				}>({
+					Bucket: "bucket",
+					Key: "path/to/key.json", // {key: 'value'}
+				}),
 			},
 			setToContext: true,
 		}),
@@ -155,12 +157,14 @@ handler
 		s3({
 			...options,
 			fetchData: {
-				someS3Object: s3Req<{ param1: string; param2: string; param3: number }>(
-					{
-						Bucket: "bucket",
-						Key: "path/to/key.json", // {key: 'value'}
-					},
-				),
+				someS3Object: s3Param<{
+					param1: string;
+					param2: string;
+					param3: number;
+				}>({
+					Bucket: "bucket",
+					Key: "path/to/key.json", // {key: 'value'}
+				}),
 			},
 			setToContext: false,
 		}),

@@ -297,3 +297,28 @@ test("It should support report only mode", async (t) => {
 		"default-src 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; report-to default; require-trusted-types-for 'script'; sandbox; upgrade-insecure-requests",
 	);
 });
+
+test("It should handle reportTo with non-default group", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Content-Type": "text/html" },
+	}));
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				custom: "https://custom.example.com",
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.statusCode, 200);
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }, { "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://custom.example.com" } ] }',
+	);
+});

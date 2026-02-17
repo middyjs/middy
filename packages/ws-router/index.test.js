@@ -110,6 +110,69 @@ test("It should middleware part of router", async (t) => {
 	ok(response);
 });
 
+// Security: Prototype pollution via routeKey
+test("It should not match inherited properties like __proto__ as routes", async (t) => {
+	const event = {
+		requestContext: {
+			routeKey: "__proto__",
+		},
+	};
+	const handler = wsRouter([
+		{
+			routeKey: "$connect",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Should hit "not found" rather than matching an inherited property
+		strictEqual(e.statusCode, 404);
+		strictEqual(e.message, "Route does not exist");
+	}
+});
+
+test("It should not match inherited properties like constructor as routes", async (t) => {
+	const event = {
+		requestContext: {
+			routeKey: "constructor",
+		},
+	};
+	const handler = wsRouter([
+		{
+			routeKey: "$connect",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Should hit "not found", not invoke Object.prototype.constructor
+		strictEqual(e.statusCode, 404);
+		strictEqual(e.message, "Route does not exist");
+	}
+});
+
+test("It should not match inherited properties like toString as routes", async (t) => {
+	const event = {
+		requestContext: {
+			routeKey: "toString",
+		},
+	};
+	const handler = wsRouter([
+		{
+			routeKey: "$connect",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+		strictEqual(e.message, "Route does not exist");
+	}
+});
+
 // Errors
 
 test("It should throw when not a ws event", async (t) => {

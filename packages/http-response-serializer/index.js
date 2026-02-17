@@ -29,6 +29,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 		for (const type of types) {
 			let breakTypes;
 			for (const s of serializers) {
+				s.regex.lastIndex = 0;
 				if (!s.regex.test(type)) {
 					continue;
 				}

@@ -104,3 +104,34 @@ test("It should not post when response not set", async (t) => {
 
 	deepStrictEqual(response, undefined);
 });
+
+test("It should handle InvalidSignatureException and retry", async (t) => {
+	const client = mockClient(ApiGatewayManagementApiClient);
+	const invalidSignatureError = new Error("InvalidSignatureException");
+	invalidSignatureError.__type = "InvalidSignatureException";
+
+	client
+		.on(PostToConnectionCommand)
+		.rejectsOnce(invalidSignatureError)
+		.resolves({ statusCode: 200 });
+
+	const handler = middy((event, context) => {
+		return "string";
+	});
+
+	handler.use(
+		wsResponse({
+			AwsClient: ApiGatewayManagementApiClient,
+		}),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "xxxxxx.execute-api.region.amazonaws.com",
+			stage: "production",
+			connectionId: "id",
+		},
+	};
+	const response = await handler(event, context);
+	deepStrictEqual(response, { statusCode: 200 });
+});

@@ -8,7 +8,7 @@ You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 :::note
 
-Powertools officially supports `@middy/core` both v4.x and v5.x.
+Powertools officially supports `@middy/core` both v4.x - v7.x.
 
 :::
 

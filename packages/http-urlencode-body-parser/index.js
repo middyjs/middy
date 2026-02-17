@@ -37,7 +37,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			? Buffer.from(body, "base64").toString()
 			: body;
 
-		request.event.body = Object.assign({}, querystring.parse(data));
+		request.event.body = querystring.parse(data);
 		// Check if it didn't parse
 		if (request.event.body?.[body] === "") {
 			throw createError(

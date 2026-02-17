@@ -26,7 +26,11 @@ const defaults = {
 };
 
 const stsMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
+	};
 
 	const fetch = (request, cachedValues = {}) => {
 		const values = {};
@@ -82,3 +86,8 @@ const stsMiddleware = (opts = {}) => {
 	};
 };
 export default stsMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function stsParam(name) {
+	return name;
+}

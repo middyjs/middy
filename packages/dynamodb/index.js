@@ -29,6 +29,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
 	// force marshall of Key during cold start
@@ -80,7 +81,7 @@ const dynamodbMiddleware = (opts = {}) => {
 };
 
 // used for TS type inference (see index.d.ts)
-export function dynamoDbReq(req) {
+export function dynamoDbParam(req) {
 	return req;
 }
 

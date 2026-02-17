@@ -1,6 +1,7 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
-import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
+import {
+	ApiGatewayManagementApiClient,
+	PostToConnectionCommand,
+} from "@aws-sdk/client-apigatewaymanagementapi";
 import { mockClient } from "aws-sdk-client-mock";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
@@ -12,20 +13,14 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = (options = {}) => {
-	mockClient(STSClient)
-		.on(AssumeRoleCommand)
-		.resolves({
-			Credentials: {
-				AccessKeyId: "accessKeyId",
-				SecretAccessKey: "secretAccessKey",
-				SessionToken: "sessionToken",
-			},
-		});
+	mockClient(ApiGatewayManagementApiClient)
+		.on(PostToConnectionCommand)
+		.resolves({ statusCode: 200 });
 	const baseHandler = () => {};
 	return middy(baseHandler).use(
 		middleware({
 			...options,
-			AwsClient: STSClient,
+			AwsClient: ApiGatewayManagementApiClient,
 		}),
 	);
 };

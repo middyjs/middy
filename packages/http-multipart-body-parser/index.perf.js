@@ -1,5 +1,3 @@
-// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-// SPDX-License-Identifier: MIT
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
@@ -10,12 +8,7 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {
-	const baseHandler = () => ({
-		body: JSON.stringify({
-			foo: "bar",
-			bar: "foo",
-		}),
-	});
+	const baseHandler = () => {};
 	return middy(baseHandler).use(middleware());
 };
 
@@ -23,12 +16,15 @@ const warmHandler = setupHandler();
 
 await bench
 	.add(
-		"Normalize Headers",
+		"Parse body",
 		async (
 			event = {
-				queryStringParameters: {
-					fields: "foo",
+				headers: {
+					"Content-Type":
+						"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
 				},
+				body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+				isBase64Encoded: true,
 			},
 		) => {
 			try {
