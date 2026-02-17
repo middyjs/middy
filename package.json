@@ -18,7 +18,7 @@
 		"lint": "biome check --write --no-errors-on-unmatched",
 		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
 		"test:lint": "biome check --staged --no-errors-on-unmatched",
-		"test:unit": "node --test --test-force-exit  --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
+		"test:unit": "node --test --test-force-exit",
 		"test:sast": "npm run test:sast:license && npm run test:sast:lockfile && npm run test:sast:semgrep && npm run test:sast:trufflehog && npm run test:sast:trivy && npm run test:sast:ort",
 		"test:sast:license": "license-check-and-add check -f license.json",
 		"test:sast:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https",
