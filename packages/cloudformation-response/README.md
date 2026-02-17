@@ -5,7 +5,7 @@
 <p>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-dast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-dast.yml/badge.svg" alt="GitHub Actions dast test status"></a>
-    <a href="https://github.com/middyjs/middy/actions/workflows/test-perf.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-pref.yml/badge.svg" alt="GitHub Actions perf test status"></a>
+    <a href="https://github.com/middyjs/middy/actions/workflows/test-perf.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-perf.yml/badge.svg" alt="GitHub Actions perf test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-sast.yml/badge.svg" alt="GitHub Actions SAST test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-lint.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-lint.yml/badge.svg" alt="GitHub Actions lint test status"></a>
     <br/>
