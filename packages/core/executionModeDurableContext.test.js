@@ -5,11 +5,7 @@ import { executionModeDurableContext } from "./executionModeDurableContext.js";
 import middy from "./index.js";
 
 const _event = {};
-const _context = {
-	lambdaContext: {
-		getRemainingTimeInMillis: () => 1000, // TODO update when supported in DurableContext
-	},
-};
+const _context = {};
 
 test.beforeEach(async (t) => {
 	await LocalDurableTestRunner.setupTestEnvironment({
