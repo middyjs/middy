@@ -31,7 +31,7 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
-			// TODO deprecate `else` in v6
+			// TODO v8 deprecate `else`
 		} else {
 			if (incomingOrigin && options.credentials && options.origin === "*") {
 				return incomingOrigin;
