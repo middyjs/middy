@@ -44,5 +44,9 @@
 	"devDependencies": {
 		"@docusaurus/module-type-aliases": "^3.0.0",
 		"@docusaurus/types": "^3.0.0"
+	},
+	"overrides": {
+		"ajv": "~8.18.0",
+		"qs": "~6.15.0"
 	}
 }
