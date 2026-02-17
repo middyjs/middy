@@ -102,7 +102,7 @@ test("It should be possible to pass in headers with error", async (t) => {
 	const handler = middy(() => {
 		const error = createError(422, "Unprocessable Entity");
 		error.headers = {
-			Location: "https://exmaple.org/500",
+			Location: "https://example.org/500",
 		};
 		throw error;
 	});
@@ -116,7 +116,7 @@ test("It should be possible to pass in headers with error", async (t) => {
 		body: "Unprocessable Entity",
 		headers: {
 			"Content-Type": "text/plain",
-			Location: "https://exmaple.org/500",
+			Location: "https://example.org/500",
 		},
 	});
 });
