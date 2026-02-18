@@ -17,8 +17,8 @@ test("use with all options", () => {
 		origins: ["foo.bar.com", "foo.baz.com"],
 		exposeHeaders: "Content-Length, X-Kuma-Revision", // Access-Control-Expose-Headers
 		maxAge: 600, // Access-Control-Max-Age
-		requestHeaders: "X-PINGOTHER, Content-Type", // Access-Control-Request-Headers
-		requestMethods: "POST", // Access-Control-Request-Methods
+		requestHeaders: ["X-PINGOTHER", "Content-Type"], // Access-Control-Request-Headers
+		requestMethods: ["GET", "POST"], // Filter preflight by Access-Control-Request-Method
 		cacheControl: "proxy-revalidate", // Cache-Control,
 		getOrigin: (incomingOrigin: string, options: Options) => {
 			return "foo.bar.com";

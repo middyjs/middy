@@ -12,6 +12,8 @@ const defaults = {
 	origins: [],
 	exposeHeaders: undefined,
 	maxAge: undefined,
+	requestHeaders: undefined,
+	requestMethods: undefined,
 	cacheControl: undefined,
 	vary: undefined,
 };
@@ -45,6 +47,9 @@ const httpCorsMiddleware = (opts = {}) => {
 		getOrigin,
 		...opts,
 	};
+
+	options.requestHeaders = options.requestHeaders?.map((v) => v.toLowerCase());
+	options.requestMethods = options.requestMethods?.map((v) => v.toUpperCase());
 
 	let originAny = false;
 	let originMany = options.origins.length > 1;
@@ -149,6 +154,19 @@ const httpCorsMiddleware = (opts = {}) => {
 		);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
+			const eventHeaders = request.event.headers ?? {};
+			const requestMethod =
+				eventHeaders["Access-Control-Request-Method"] ??
+				eventHeaders["access-control-request-method"];
+
+			if (options.requestMethods?.length && requestMethod) {
+				if (!options.requestMethods.includes(requestMethod)) {
+					request.response.statusCode = 204;
+					request.response.headers = {};
+					return request.response;
+				}
+			}
+
 			const headers = {};
 			modifyHeaders(headers, options, request);
 			request.response.headers = headers;

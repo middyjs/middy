@@ -12,8 +12,8 @@ export interface Options {
 	origins?: string[];
 	exposeHeaders?: string;
 	maxAge?: number | string;
-	requestHeaders?: string;
-	requestMethods?: string;
+	requestHeaders?: string[];
+	requestMethods?: string[];
 	cacheControl?: string;
 }
 
