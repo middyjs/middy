@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import {
 	GetParametersByPathCommand,
 	GetParametersCommand,
@@ -50,7 +52,7 @@ const ssmMiddleware = (opts = {}) => {
 		const fetchKeys = Object.values(options.fetchData);
 		for (const internalKey of internalKeys) {
 			if (cachedValues[internalKey]) continue;
-			if (options.fetchData[internalKey].substr(-1) === "/") continue; // Skip path passed in
+			if (options.fetchData[internalKey].endsWith("/")) continue; // Skip path passed in
 			namedKeys.push(internalKey);
 		}
 
@@ -69,12 +71,14 @@ const ssmMiddleware = (opts = {}) => {
 				Names: Array.from(batchKeys.values()),
 				WithDecryption: true,
 			});
+			const currentBatchInternalKeys = Array.from(batchKeys.keys());
 			batchReq = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					return Object.assign(
+						{},
 						...(resp.InvalidParameters ?? []).map((fetchKey) => {
 							return {
 								[fetchKey]: new Promise(() => {
@@ -95,7 +99,9 @@ const ssmMiddleware = (opts = {}) => {
 				})
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
+					for (const key of currentBatchInternalKeys) {
+						value[key] = undefined;
+					}
 					modifyCache(options.cacheKey, value);
 					throw e;
 				});
@@ -121,10 +127,10 @@ const ssmMiddleware = (opts = {}) => {
 
 	const fetchByPathRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey in options.fetchData) {
+		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
 			const fetchKey = options.fetchData[internalKey];
-			if (fetchKey.substr(-1) !== "/") continue; // Skip not path passed in
+			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
 			values[internalKey] = fetchPathRequest(fetchKey).catch((e) => {
 				const value = getCache(options.cacheKey).value ?? {};
 				value[internalKey] = undefined;

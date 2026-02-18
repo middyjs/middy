@@ -1,4 +1,7 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { Readable } from "node:stream";
+import { ReadableStream } from "node:stream/web";
 
 import {
 	createBrotliCompress as brotliCompressStream,
@@ -49,6 +52,8 @@ const httpContentEncodingMiddleware = (opts) => {
 		}
 		const responseCacheControl =
 			response.headers["Cache-Control"] ?? response.headers["cache-control"];
+		const isNodeStream = response.body?._readableState;
+		const isWebStream = response.body instanceof ReadableStream;
 		if (
 			response.isBase64Encoded ||
 			!preferredEncoding ||
@@ -56,7 +61,8 @@ const httpContentEncodingMiddleware = (opts) => {
 			!response.body ||
 			(typeof response.body !== "string" &&
 				!Buffer.isBuffer(response.body) &&
-				!response.body?._readableState) ||
+				!isNodeStream &&
+				!isWebStream) ||
 			responseCacheControl?.includes("no-transform")
 		) {
 			return;
@@ -76,13 +82,21 @@ const httpContentEncodingMiddleware = (opts) => {
 		}
 
 		// Support streamifyResponse
-		if (response.body?._readableState) {
+		if (isNodeStream || isWebStream) {
 			request.response.headers["Content-Encoding"] = contentEncoding;
-			request.response.body = request.response.body.pipe(contentEncodingStream);
+			if (isNodeStream) {
+				request.response.body = request.response.body.pipe(
+					contentEncodingStream,
+				);
+			} else if (isWebStream) {
+				request.response.body = Readable.toWeb(
+					Readable.fromWeb(response.body).pipe(contentEncodingStream),
+				);
+			}
 			addHeaderPart(response, "Vary", "Accept-Encoding");
 			return;
 		}
-
+		// isString
 		const stream = Readable.from(response.body).pipe(contentEncodingStream);
 
 		const chunks = [];

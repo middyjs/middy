@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
 export interface Options {
@@ -10,8 +12,8 @@ export interface Options {
 	origins?: string[];
 	exposeHeaders?: string;
 	maxAge?: number | string;
-	requestHeaders?: string;
-	requestMethods?: string;
+	requestHeaders?: string[];
+	requestMethods?: string[];
 	cacheControl?: string;
 }
 

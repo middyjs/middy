@@ -69,17 +69,17 @@ To exclude `@aws-sdk` add `@aws-sdk/client-dynamodb` to the exclude list.
 
 Data in DynamoDB can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched parameters will have type `Record<string, NativeAttributeValue>`.
 
-You can provide some type hints by leveraging the `dynamoDbReq` utility function. This function allows you to specify what's the expected type that will be fetched for every DynamoDB request.
+You can provide some type hints by leveraging the `dynamoDbParam` utility function. This function allows you to specify what's the expected type that will be fetched for every DynamoDB request.
 
-The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `dynamoDbReq<ParamType>(config)` call. Internally, `dynamoDbReq` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `dynamoDbParam<ParamType>(config)` call. Internally, `dynamoDbParam` is a function that will return `config` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
-The following example illustrates how to use `dynamoDbReq`:
+The following example illustrates how to use `dynamoDbParam`:
 
 ```typescript
 import middy from '@middy/core'
-import dynamodb, { dynamoDbReq } from '@middy/dynamodb'
+import dynamodb, { dynamoDbParam } from '@middy/dynamodb'
 
 const handler = middy((event, context) => {
   const response = {
@@ -94,7 +94,7 @@ const handler = middy((event, context) => {
 handler.use(
   dynamodb({
     fetchData: {
-      config: dynamoDbReq<{field1: string, field2: string, field3: number}>({
+      config: dynamoDbParam<{field1: string, field2: string, field3: number}>({
         TableName: '...'
         Key: {
           pk: '0000'

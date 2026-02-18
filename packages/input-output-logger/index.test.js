@@ -493,3 +493,105 @@ test("It should skip logging if error is not handled", async (t) => {
 		strictEqual(e.message, "error");
 	}
 });
+
+test("It should use default logger when no logger is provided", async (t) => {
+	// Mock console.log to capture default logger output
+	const originalLog = console.log;
+	const logCalls = [];
+	console.log = (message) => {
+		logCalls.push(message);
+	};
+
+	const handler = middy((event) => event).use(inputOutputLogger());
+
+	const event = { foo: "bar" };
+	const response = await handler(event, context);
+
+	// Restore console.log
+	console.log = originalLog;
+
+	strictEqual(logCalls.length, 2);
+	deepStrictEqual(JSON.parse(logCalls[0]), { event });
+	deepStrictEqual(JSON.parse(logCalls[1]), { response: event });
+	deepStrictEqual(response, event);
+});
+
+test("It should handle Uint8Array chunks in Web Streams", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	const input = "test data";
+	const handler = middy(
+		async (event, context, { signal }) => {
+			// Create a Web ReadableStream that emits Uint8Array chunks
+			const stream = new ReadableStream({
+				start(controller) {
+					const encoder = new TextEncoder();
+					controller.enqueue(encoder.encode(input));
+					controller.close();
+				},
+			});
+			return stream;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	// The response written to the stream should be the Uint8Array
+	// Since createWritableStream converts it to string, we need to check differently
+	strictEqual(logged.length, 2);
+	deepStrictEqual(logged[0], { event: {} });
+	// The logged response should have decoded the Uint8Array to text
+	strictEqual(logged[1].response, input);
+});
+
+test("It should handle non-string non-Uint8Array chunks in Web Streams", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	const handler = middy(
+		async (event, context, { signal }) => {
+			// Create a Web ReadableStream that emits a number chunk
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(12345);
+					controller.close();
+				},
+			});
+			return stream;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(logged.length, 2);
+	deepStrictEqual(logged[0], { event: {} });
+	// The logged response should have converted the number to string
+	strictEqual(logged[1].response, "12345");
+});

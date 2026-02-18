@@ -2,7 +2,7 @@
 
 In the spirit of Open Source Software, everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
-Before contributing to the project, make sure to have a look at our [Code of Conduct](/.github/CODE_OF_CONDUCT.md).
+Before contributing to the project, make sure to have a look at our [Code of Conduct](/docs/CODE_OF_CONDUCT.md).
 
 Want to help, but finding new features and bugs a little daunting to tackle. Improving documentation (grammar, spelling, examples, internationalization), improving unit test coverage, and refactoring to use newer native APIs are great places to add value.
 
@@ -16,9 +16,11 @@ Ensure git history is pulled from the `develop` branch.
 ```bash
 npm i -g nmq
 npm i -g lockfile-lint
-npm i -g @sandworm/audit
 brew install semgrep
+brew install trivy
 brew install trufflehog
+echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
+docker pull ghcr.io/oss-review-toolkit/ort
 ```
 
 ## 3. Implementation
@@ -54,7 +56,7 @@ We use `CodeQL` & `semgrep` to ensure code is written in a secure way.
 
 #### SCA
 
-We use `DependaBot` & `sandworm` to ensure dependancies as free of known vulnerabilities.
+We use `DependaBot` & `Trivy` to ensure dependancies as free of known vulnerabilities.
 
 ### DAST
 
@@ -85,4 +87,4 @@ If you are a maintainer and want to release a new version, consult the [RELEASE 
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2025 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).

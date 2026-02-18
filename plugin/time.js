@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { PerformanceObserver, performance } from "node:perf_hooks";
 
 const perfObserver = new PerformanceObserver((items) => {});

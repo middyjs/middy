@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
@@ -27,6 +29,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
 	// force marshall of Key during cold start
@@ -78,7 +81,7 @@ const dynamodbMiddleware = (opts = {}) => {
 };
 
 // used for TS type inference (see index.d.ts)
-export function dynamoDbReq(req) {
+export function dynamoDbParam(req) {
 	return req;
 }
 

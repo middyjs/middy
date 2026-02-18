@@ -420,6 +420,22 @@ test("It should route to a VPC Lattice event", async (t) => {
 	ok(response);
 });
 
+test("It should route to a VPC Lattice event with query parameters", async (t) => {
+	const event = {
+		method: "GET",
+		raw_path: "/path?key=value",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/path",
+			handler: () => true,
+		},
+	]);
+	const response = await handler(event, context);
+	ok(response);
+});
+
 // with middleware
 test("It should run middleware that are part of route handler", async (t) => {
 	const event = {
@@ -499,7 +515,7 @@ test("It should throw when unknown method is used", async (t) => {
 	}
 });
 
-test("It should throw when not a http event", async (t) => {
+test("It should throw when not a http event (missing method)", async (t) => {
 	const event = {
 		path: "/",
 	};
@@ -514,5 +530,89 @@ test("It should throw when not a http event", async (t) => {
 		await handler(event, context);
 	} catch (e) {
 		strictEqual(e.message, "Unknown http event format");
+	}
+});
+
+test("It should throw when not a http event (missing path)", async (t) => {
+	const event = {
+		httpMethod: "GET",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(e.message, "Unknown http event format");
+	}
+});
+
+test("It should throw 404 when method has no routes defined", async (t) => {
+	const event = {
+		httpMethod: "POST",
+		path: "/any-path",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should throw 404 when method has only static routes and no matching dynamic route", async (t) => {
+	const event = {
+		httpMethod: "GET",
+		path: "/user/123",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+		{
+			method: "GET",
+			path: "/about",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should return 404 when dynamic route exists but path does not match", async (t) => {
+	const event = {
+		httpMethod: "GET",
+		path: "/different/123",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/user/{id}",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, context);
+		fail("Should have thrown 404");
+	} catch (e) {
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
 	}
 });

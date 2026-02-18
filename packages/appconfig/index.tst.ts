@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import appConfig, { appConfigReq, type Context } from "./index.js";
+import appConfig, { appConfigParam, type Context } from "./index.js";
 
 const options = {
 	AwsClient: AppConfigDataClient,
@@ -114,7 +114,7 @@ handler
 	.use(
 		appConfig({
 			fetchData: {
-				config: appConfigReq<{
+				config: appConfigParam<{
 					config1: string;
 					config2: string;
 					config3: number;
@@ -142,7 +142,7 @@ handler
 	.use(
 		appConfig({
 			fetchData: {
-				config: appConfigReq<{
+				config: appConfigParam<{
 					config1: string;
 					config2: string;
 					config3: number;

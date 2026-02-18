@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import type {
 	DynamoDBClient,
 	DynamoDBClientConfig,
@@ -10,7 +12,7 @@ import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T extends Record<string, NativeAttributeValue>> =
 	GetItemCommandInput & { __returnType?: T };
-export declare function dynamoDbReq<
+export declare function dynamoDbParam<
 	T extends Record<string, NativeAttributeValue>,
 >(req: GetItemCommandInput): ParamType<T>;
 

@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { createError } from "@middy/util";
 import charset from "negotiator/lib/charset.js";
 import encoding from "negotiator/lib/encoding.js";

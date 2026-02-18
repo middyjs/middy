@@ -1,4 +1,16 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { normalizeHttpResponse } from "@middy/util";
+
+// CORS-safelisted request headers
+// https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header
+const corsSafelistedRequestHeaders = [
+	"accept",
+	"accept-language",
+	"content-language",
+	"content-type",
+	"range",
+];
 
 const defaults = {
 	disableBeforePreflightResponse: true,
@@ -10,6 +22,8 @@ const defaults = {
 	origins: [],
 	exposeHeaders: undefined,
 	maxAge: undefined,
+	requestHeaders: undefined,
+	requestMethods: undefined,
 	cacheControl: undefined,
 	vary: undefined,
 };
@@ -29,7 +43,7 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
-			// TODO deprecate `else` in v6
+			// TODO v8 deprecate `else`
 		} else {
 			if (incomingOrigin && options.credentials && options.origin === "*") {
 				return incomingOrigin;
@@ -43,6 +57,9 @@ const httpCorsMiddleware = (opts = {}) => {
 		getOrigin,
 		...opts,
 	};
+
+	options.requestHeaders = options.requestHeaders?.map((v) => v.toLowerCase());
+	options.requestMethods = options.requestMethods?.map((v) => v.toUpperCase());
 
 	let originAny = false;
 	let originMany = options.origins.length > 1;
@@ -66,7 +83,9 @@ const httpCorsMiddleware = (opts = {}) => {
 		originMany = true;
 		// Dynamic
 		// TODO: IDN -> puncycode not handled, add in if requested
-		const regExpStr = origin.replaceAll(".", "\\.").replaceAll("*", "[^.]*");
+		const regExpStr = origin
+			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+			.replaceAll("*", "[^.]*");
 		// SAST Skipped: Not accessible by users
 		// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
@@ -145,6 +164,40 @@ const httpCorsMiddleware = (opts = {}) => {
 		);
 		if (method === "OPTIONS") {
 			normalizeHttpResponse(request);
+			const eventHeaders = request.event.headers ?? {};
+			const requestMethod =
+				eventHeaders["Access-Control-Request-Method"] ??
+				eventHeaders["access-control-request-method"];
+
+			if (options.requestMethods?.length && requestMethod) {
+				if (!options.requestMethods.includes(requestMethod)) {
+					request.response.statusCode = 204;
+					request.response.headers = {};
+					return request.response;
+				}
+			}
+
+			const requestHeadersValue =
+				eventHeaders["Access-Control-Request-Headers"] ??
+				eventHeaders["access-control-request-headers"];
+
+			if (options.requestHeaders?.length && requestHeadersValue) {
+				const requestedHeaders = requestHeadersValue
+					.split(",")
+					.map((h) => h.trim().toLowerCase());
+				const nonSafelistedHeaders = requestedHeaders.filter(
+					(h) => !corsSafelistedRequestHeaders.includes(h),
+				);
+				const hasDisallowedHeader = nonSafelistedHeaders.some(
+					(h) => !options.requestHeaders.includes(h),
+				);
+				if (hasDisallowedHeader) {
+					request.response.statusCode = 204;
+					request.response.headers = {};
+					return request.response;
+				}
+			}
+
 			const headers = {};
 			modifyHeaders(headers, options, request);
 			request.response.headers = headers;

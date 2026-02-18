@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { normalizeHttpResponse } from "@middy/util";
 
 const defaults = {
@@ -27,6 +29,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 		for (const type of types) {
 			let breakTypes;
 			for (const s of serializers) {
+				s.regex.lastIndex = 0;
 				if (!s.regex.test(type)) {
 					continue;
 				}

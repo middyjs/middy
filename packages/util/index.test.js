@@ -11,11 +11,13 @@ import {
 	clearCache,
 	createClient,
 	createError,
+	executionContext,
 	getCache,
 	getInternal,
 	HttpError,
 	jsonSafeParse,
 	jsonSafeStringify,
+	lambdaContext,
 	modifyCache,
 	normalizeHttpResponse,
 	processCache,
@@ -514,6 +516,19 @@ describe("processCache / clearCache", () => {
 		clearCache();
 	});
 
+	test("processCache should cache with past unix timestamp (no refresh)", async (t) => {
+		const fetchRequest = t.mock.fn(() => "value");
+		const options = {
+			cacheKey: "key-past-timestamp",
+			cacheExpiry: Date.now() - 100, // Past timestamp
+		};
+		processCache(options, fetchRequest, cacheRequest);
+		const cache = getCache("key-past-timestamp");
+		notStrictEqual(cache.value, undefined);
+		strictEqual(cache.refresh, undefined); // No refresh scheduled for past timestamp
+		clearCache();
+	});
+
 	test("processCache should clear single key cache", async (t) => {
 		const fetchRequest = t.mock.fn(() => "value");
 		processCache(
@@ -760,4 +775,66 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.name, "InternalServerError");
 	strictEqual(e.message, "Internal Server Error");
 	strictEqual(e.expose, false);
+});
+
+// executionContext
+describe("executionContext", () => {
+	test("executionContext should get value from standard context", async (t) => {
+		const request = {
+			context: {
+				functionName: "test-function",
+			},
+		};
+		const context = {};
+		const value = executionContext(request, "functionName", context);
+		strictEqual(value, "test-function");
+	});
+
+	test("executionContext should get value from durable context", async (t) => {
+		const request = {
+			context: {
+				executionContext: {
+					tenantId: "tenant-123",
+				},
+			},
+		};
+		const context = {
+			constructor: {
+				name: "DurableContextImpl",
+			},
+		};
+		const value = executionContext(request, "tenantId", context);
+		strictEqual(value, "tenant-123");
+	});
+});
+
+// lambdaContext
+describe("lambdaContext", () => {
+	test("lambdaContext should get value from standard context", async (t) => {
+		const request = {
+			context: {
+				awsRequestId: "request-123",
+			},
+		};
+		const context = {};
+		const value = lambdaContext(request, "awsRequestId", context);
+		strictEqual(value, "request-123");
+	});
+
+	test("lambdaContext should get value from durable context", async (t) => {
+		const request = {
+			context: {
+				lambdaContext: {
+					functionName: "test-function",
+				},
+			},
+		};
+		const context = {
+			constructor: {
+				name: "DurableContextImpl",
+			},
+		};
+		const value = lambdaContext(request, "functionName", context);
+		strictEqual(value, "test-function");
+	});
 });

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/s3-object-response",
-	"version": "7.0.2",
+	"version": "7.1.0",
 	"description": "S3 object response handling middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -44,7 +45,7 @@
 		"Middy",
 		"S3",
 		"GetObjectResponse",
-		"WriteObjectREsponse"
+		"WriteObjectResponse"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -53,7 +54,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/sts"
+		"directory": "packages/s3-object-response"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
@@ -67,7 +68,7 @@
 		"@aws-sdk/client-s3": "^3.0.0"
 	},
 	"peerDependenciesMeta": {
-		"@aws-sdk/client-ssm": {
+		"@aws-sdk/client-s3": {
 			"optional": true
 		}
 	},

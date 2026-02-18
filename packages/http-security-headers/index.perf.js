@@ -14,9 +14,8 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler();
 
-const event = {};
 await bench
-	.add("Add Headers", async () => {
+	.add("Add Security Headers", async (event = {}) => {
 		try {
 			await warmHandler(event, context);
 		} catch (_e) {}

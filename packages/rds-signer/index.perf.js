@@ -1,5 +1,5 @@
-import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
-import { mockClient } from "aws-sdk-client-mock";
+// import { Signer } from "@aws-sdk/rds-signer";
+// import { mockClient } from "aws-sdk-client-mock"; // Only applied to Commands
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
@@ -10,28 +10,37 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 
-globalThis.fetch = () => Promise.resolve();
+// Mock the Signer to avoid actual AWS calls
+class MockSigner {
+	getAuthToken() {
+		return Promise.resolve(
+			"db.example.com:5432/?Action=connect&DBUser=testuser&X-Amz-Security-Token=mock-token",
+		);
+	}
+}
+
 const setupHandler = (options = {}) => {
-	mockClient(S3Client)
-		.on(WriteGetObjectResponseCommand)
-		.resolves({ statusCode: 200 });
 	const baseHandler = () => {};
 	return middy(baseHandler).use(
 		middleware({
 			...options,
-			AwsClient: S3Client,
+			AwsClient: MockSigner,
+			fetchData: {
+				token: {
+					hostname: "db.example.com",
+					port: 5432,
+					username: "testuser",
+					region: "us-east-1",
+				},
+			},
 		}),
 	);
 };
 
-const coldHandler = setupHandler({ disablePrefetch: true });
+const coldHandler = setupHandler({ cacheExpiry: 0 });
 const warmHandler = setupHandler();
 
-const event = {
-	getObjectContext: {
-		inputS3Url: "http://localhost",
-	},
-};
+const event = {};
 await bench
 	.add("without cache", async () => {
 		try {

@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
 const defaults = {};
@@ -20,10 +22,10 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 	};
 
 	const cloudwatchMetricsAfter = async (request) => {
-		await request.context.metrics.flush();
+		await request.context.metrics?.flush();
 	};
 	const cloudwatchMetricsOnError = async (request) => {
-		await cloudwatchMetricsAfter(request);
+		await request.context.metrics?.flush();
 	};
 
 	return {

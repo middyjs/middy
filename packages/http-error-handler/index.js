@@ -1,7 +1,9 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { jsonSafeParse, normalizeHttpResponse } from "@middy/util";
 
 const defaults = {
-	logger: console.error, // TODO v7 change to pass in request
+	logger: console.error, // TODO v8 change to pass in request
 	fallbackMessage: undefined,
 };
 

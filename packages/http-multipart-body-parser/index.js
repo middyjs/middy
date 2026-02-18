@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import BusBoy from "@fastify/busboy";
 import { createError } from "@middy/util";
 
@@ -67,7 +69,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 };
 
 const parseMultipartData = (event, options) => {
-	const multipartData = {};
+	const multipartData = Object.create(null);
 	const charset = event.isBase64Encoded ? "base64" : options.charset;
 	// header must be lowercase (content-type)
 	const busboy = BusBoy({

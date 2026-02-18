@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import type {
 	GetObjectCommandInput,
 	S3Client,
@@ -16,8 +18,8 @@ export type GetObjectCommandInputNoChecksumMode = Omit<
 export type ParamType<T> = GetObjectCommandInputNoChecksumMode & {
 	__returnType?: T;
 };
-export declare function s3Req<T>(
-	req: GetObjectCommandInputNoChecksumMode,
+export declare function s3Param<T>(
+	name: GetObjectCommandInputNoChecksumMode,
 ): ParamType<T>;
 
 export type S3Options<AwsS3Client = S3Client> = Omit<

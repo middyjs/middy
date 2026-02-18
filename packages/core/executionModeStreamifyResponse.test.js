@@ -297,6 +297,61 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 	strictEqual(content(), input);
 });
 
+test("Should handle large string using stringIterator", async (t) => {
+	// Create a string larger than stringIteratorSize (16384)
+	const input = "x".repeat(20000);
+	const handler = middy({
+		executionMode: executionModeStreamifyResponse,
+	}).handler((event, context, { signal }) => {
+		return input;
+	});
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), input);
+});
+
+test("Should throw error when handler returns invalid response type", async (t) => {
+	const handler = middy({
+		executionMode: executionModeStreamifyResponse,
+	}).handler((event, context, { signal }) => {
+		// Return an object without statusCode (not a stream or string)
+		return { data: "test" };
+	});
+
+	const responseStream = createWritableStream((chunk) => {});
+	try {
+		await handler(event, responseStream, context);
+	} catch (e) {
+		strictEqual(e.message, "handler response not a Readable or ReadableStream");
+		strictEqual(e.cause.package, "@middy/core");
+	}
+});
+
+test("Should allow replacing lambda handler using .handler() method", async (t) => {
+	const input = "original handler";
+	const handler = middy({
+		executionMode: executionModeStreamifyResponse,
+	})
+		.handler((event, context, { signal }) => {
+			return input;
+		})
+		.handler((event, context, { signal }) => {
+			// Replace with new handler
+			return "replaced handler";
+		});
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), "replaced handler");
+});
+
 // plugin
 
 test("Should trigger requestEnd hook after stream ends", async (t) => {

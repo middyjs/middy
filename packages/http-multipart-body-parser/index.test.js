@@ -32,7 +32,7 @@ test("It should parse a non-file field from a multipart/form-data request", asyn
 	};
 	const response = await handler(event, defaultContext);
 
-	deepStrictEqual(response, { foo: "bar" });
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
 });
 
 test("parseMultipartData should resolve with valid data", async (t) => {
@@ -52,7 +52,7 @@ test("parseMultipartData should resolve with valid data", async (t) => {
 	};
 
 	const response = await handler(event, defaultContext);
-	deepStrictEqual(response, { foo: "bar" });
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
 });
 
 test("It should parse a file field from a multipart/form-data request", async (t) => {
@@ -291,7 +291,10 @@ test("It should parse an array from a multipart/form-data request with ASCII das
 	};
 	const response = await handler(event, defaultContext);
 
-	deepStrictEqual(response, { PartName: '{"foo":"bar-"}' });
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { PartName: '{"foo":"bar-"}' }),
+	);
 });
 
 test("It should parse an array from a multipart/form-data request (binary)", async (t) => {
@@ -310,15 +313,18 @@ test("It should parse an array from a multipart/form-data request (binary)", asy
 	};
 	const response = await handler(event);
 
-	deepStrictEqual(response, {
-		file: {
-			content: Buffer.from(""),
-			encoding: "binary",
-			filename: "file.bat",
-			mimetype: "application/octet-stream",
-			truncated: false,
-		},
-	});
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), {
+			file: {
+				content: Buffer.from(""),
+				encoding: "binary",
+				filename: "file.bat",
+				mimetype: "application/octet-stream",
+				truncated: false,
+			},
+		}),
+	);
 });
 
 test("It should parse an array from a multipart/form-data request en dash (utf8)", async (t) => {
@@ -337,7 +343,10 @@ test("It should parse an array from a multipart/form-data request en dash (utf8)
 	};
 	const response = await handler(event, defaultContext);
 
-	deepStrictEqual(response, { PartName: '{"foo":"bar–"}' });
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { PartName: '{"foo":"bar–"}' }),
+	);
 });
 
 test("It should parse a field with multiple files successfully", async (t) => {
@@ -360,6 +369,50 @@ test("It should parse a field with multiple files successfully", async (t) => {
 	strictEqual(response.files.length, 3);
 });
 
+// Security: Prototype pollution via __proto__ fieldname
+test("It should not pollute prototype with __proto__ fieldname", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="__proto__"\r\n\r\npolluted\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	// Should store the value on the null-prototype object without polluting Object.prototype
+	strictEqual(response.__proto__, "polluted");
+	strictEqual({}.polluted, undefined);
+	strictEqual(Object.getPrototypeOf(response), null);
+});
+
+test("It should not pollute prototype with constructor fieldname", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="constructor"\r\n\r\npolluted\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	// Should store the value without shadowing Object.prototype.constructor on other objects
+	strictEqual(response.constructor, "polluted");
+	strictEqual({}.constructor, Object);
+});
+
 test("It should parse form data when the charset is in the header", async (t) => {
 	const handler = middy((event, context) => {
 		return event.body; // propagates the body as a response
@@ -379,5 +432,5 @@ test("It should parse form data when the charset is in the header", async (t) =>
 	};
 	const response = await handler(event, defaultContext);
 
-	deepStrictEqual(response, { foo: "bar" });
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
 });

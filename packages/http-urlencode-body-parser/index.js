@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import querystring from "node:querystring";
 import { createError } from "@middy/util";
 
@@ -35,7 +37,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			? Buffer.from(body, "base64").toString()
 			: body;
 
-		request.event.body = Object.assign({}, querystring.parse(data));
+		request.event.body = querystring.parse(data);
 		// Check if it didn't parse
 		if (request.event.body?.[body] === "") {
 			throw createError(

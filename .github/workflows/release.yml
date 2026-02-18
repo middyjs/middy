@@ -23,7 +23,7 @@ jobs:
       attestations: write # actions/attest-build-provenance
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
@@ -36,7 +36,7 @@ jobs:
           echo "prerelease=$([ ${tag##*-*} ] && echo false || echo true)" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --ignore-scripts
       - name: Build
         run: |
           npm run build --if-present
@@ -49,7 +49,7 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Build Attestations
-        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
           subject-path: |
             **/*.tgz

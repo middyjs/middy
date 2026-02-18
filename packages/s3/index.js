@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
 	canPrefetch,
@@ -76,6 +78,6 @@ const s3Middleware = (opts = {}) => {
 export default s3Middleware;
 
 // used for TS type inference (see index.d.ts)
-export function s3Req(req) {
-	return req;
+export function s3Param(name) {
+	return name;
 }

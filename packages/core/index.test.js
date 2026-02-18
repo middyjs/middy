@@ -371,9 +371,33 @@ test("Thrown error from handler should handled", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		deepStrictEqual(e, handlerError);
+		strictEqual(e.message, "handler");
+		deepStrictEqual(executed, ["b1", "b2", "handler", "e2", "e1"]);
 	}
-	deepStrictEqual(executed, ["b1", "b2", "handler", "e2", "e1"]);
+});
+
+test("Should handle error thrown by timeoutEarlyResponse", async (t) => {
+	const timeoutError = new Error("Custom timeout error");
+	const plugin = {
+		timeoutEarlyInMillis: 1,
+		timeoutEarlyResponse: () => {
+			throw timeoutError;
+		},
+	};
+	const context = {
+		getRemainingTimeInMillis: () => 100,
+	};
+	const handler = middy(async (event, context, { signal }) => {
+		t.mock.timers.tick(100);
+		return true;
+	}, plugin);
+
+	try {
+		await handler(event, context);
+	} catch (e) {
+		strictEqual(e, timeoutError);
+		strictEqual(e.message, "Custom timeout error");
+	}
 });
 
 test('Thrown error from "after" middlewares should handled', async (t) => {

@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { Signer } from "@aws-sdk/rds-signer";
 import {
 	canPrefetch,
@@ -72,3 +74,8 @@ const rdsSignerMiddleware = (opts = {}) => {
 	};
 };
 export default rdsSignerMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function rdsSignerParam(name) {
+	return name;
+}

@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import {
 	canPrefetch,
@@ -51,3 +53,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 };
 
 export default s3ObjectResponseMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function s3ObjectResponseParam(name) {
+	return name;
+}

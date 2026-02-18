@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import type {
 	Context as LambdaContext,
 	Handler as LambdaHandler,
@@ -186,9 +188,10 @@ declare type MiddlewareHandler<
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TResult = any,
 	TEvent = any,
-> = THandler extends LambdaHandler<TEvent, TResult> // always true
-	? MiddyInputHandler<TEvent, TResult, TContext>
-	: never;
+> =
+	THandler extends LambdaHandler<TEvent, TResult> // always true
+		? MiddyInputHandler<TEvent, TResult, TContext>
+		: never;
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.

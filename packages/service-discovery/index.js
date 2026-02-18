@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import {
 	DiscoverInstancesCommand,
 	ServiceDiscoveryClient,
@@ -70,7 +72,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 
 		if (options.setToContext) {
 			const data = await getInternal(Object.keys(options.fetchData), request);
-			if (options.setToContext) Object.assign(request.context, data);
+			Object.assign(request.context, data);
 		}
 	};
 
@@ -79,3 +81,8 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 	};
 };
 export default serviceDiscoveryMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function serviceDiscoveryParam(name) {
+	return name;
+}

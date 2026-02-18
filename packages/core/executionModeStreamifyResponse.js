@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 /* global awslambda */
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";

@@ -1,3 +1,5 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
 	canPrefetch,
@@ -24,7 +26,11 @@ const defaults = {
 };
 
 const stsMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
+	};
 
 	const fetch = (request, cachedValues = {}) => {
 		const values = {};
@@ -80,3 +86,8 @@ const stsMiddleware = (opts = {}) => {
 	};
 };
 export default stsMiddleware;
+
+// used for TS type inference (see index.d.ts)
+export function stsParam(name) {
+	return name;
+}

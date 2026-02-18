@@ -591,3 +591,90 @@ test("Should not parse configuration is mime type is not application/json", asyn
 
 	await handler(event, context);
 });
+
+test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
+	let callCount = 0;
+	const params1 = {
+		Application: "MyApp",
+		Environment: "MyEnv",
+		Configuration: "MyConfig1",
+	};
+	const params2 = {
+		Application: "MyApp",
+		Environment: "MyEnv",
+		Configuration: "MyConfig2",
+	};
+
+	const mockService = mockClient(AppConfigDataClient)
+		.on(StartConfigurationSessionCommand)
+		.callsFake(async (input) => {
+			if (input.Configuration === "MyConfig1") {
+				return { InitialConfigurationToken: "InitialToken1" };
+			}
+			return { InitialConfigurationToken: "InitialToken2" };
+		})
+		.on(GetLatestConfigurationCommand)
+		.callsFake(async (input) => {
+			callCount++;
+			// First call for config1 succeeds
+			if (callCount === 1 && input.ConfigurationToken === "InitialToken1") {
+				return {
+					ContentType: "application/json",
+					Configuration: strToUintArray('{"option":"value1"}'),
+					NextPollConfigurationToken: "NextToken1",
+				};
+			}
+			// Second call for config2 fails
+			if (callCount === 2 && input.ConfigurationToken === "InitialToken2") {
+				throw new Error("timeout");
+			}
+			// Third call only fetches config2 (config1 is cached)
+			if (callCount === 3 && input.ConfigurationToken === "InitialToken2") {
+				return {
+					ContentType: "application/json",
+					Configuration: strToUintArray('{"option":"value2"}'),
+					NextPollConfigurationToken: "NextToken2",
+				};
+			}
+		});
+	const sendStub = mockService.send;
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key1?.option, "value1");
+		strictEqual(values.key2?.option, "value2");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			appConfig({
+				AwsClient: AppConfigDataClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					key1: params1,
+					key2: params2,
+				},
+			}),
+		)
+		.before(middleware);
+
+	// First call - key1 succeeds, key2 fails
+	try {
+		await handler(event, context);
+	} catch (e) {
+		// Expected to fail
+	}
+
+	// Second call - only key2 is fetched (key1 is already cached)
+	await handler(event, context);
+
+	// Should have called send 6 times (2 StartSession + 3 GetLatest initial + 1 GetLatest for cached config1)
+	strictEqual(sendStub.callCount, 6);
+});
+
+test("It should export appConfigParam helper for TypeScript type inference", async (t) => {
+	const { appConfigParam } = await import("./index.js");
+	const mockRequest = { event: {}, context: {}, internal: {} };
+	const result = appConfigParam(mockRequest);
+	strictEqual(result, mockRequest);
+});

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/validator",
-	"version": "7.0.2",
+	"version": "7.1.0",
 	"description": "Validator middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -11,6 +11,7 @@
 		"access": "public"
 	},
 	"module": "./index.js",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -74,8 +75,8 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.0.2",
-		"ajv": "8.17.1",
+		"@middy/util": "7.1.0",
+		"ajv": "8.18.0",
 		"ajv-errors": "3.0.0",
 		"ajv-formats": "3.0.1",
 		"@silverbucket/ajv-formats-draft2019": "1.6.5",
@@ -83,7 +84,7 @@
 		"ajv-keywords": "5.1.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.0.2",
+		"@middy/core": "7.1.0",
 		"@types/http-errors": "^2.0.0",
 		"ajv-bsontype": "^1.0.7",
 		"ajv-cmd": "^0.8.0"

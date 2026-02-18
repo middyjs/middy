@@ -26,9 +26,12 @@ test("It should decode complex url encoded requests", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepStrictEqual(processedEvent.body, {
-		"a[b][c][d]": "i",
-	});
+	deepStrictEqual(
+		processedEvent.body,
+		Object.assign(Object.create(null), {
+			"a[b][c][d]": "i",
+		}),
+	);
 });
 
 test("It should default when body is empty", async (t) => {
@@ -48,7 +51,7 @@ test("It should default when body is empty", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepStrictEqual(processedEvent.body, {});
+	deepStrictEqual(processedEvent.body, Object.create(null));
 });
 
 test("It should default when body is undefined", async (t) => {
@@ -68,7 +71,7 @@ test("It should default when body is undefined", async (t) => {
 
 	const processedEvent = await handler(event, defaultContext);
 
-	deepStrictEqual(processedEvent.body, {});
+	deepStrictEqual(processedEvent.body, Object.create(null));
 });
 
 test("It should not process the body if no headers are passed", async (t) => {
@@ -133,6 +136,49 @@ test("It should not process the body if malformed body is passed", async (t) => 
 	}
 });
 
+// Security: Prototype pollution via __proto__ key
+test("It should not pollute prototype with __proto__ key in body", async (t) => {
+	const handler = middy((event) => {
+		return event.body;
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: "__proto__[polluted]=true&foo=bar",
+	};
+
+	const body = await handler(event, defaultContext);
+
+	// querystring.parse returns null-prototype object, so __proto__ is just a key, not a prototype setter
+	strictEqual({}.polluted, undefined);
+	strictEqual(Object.getPrototypeOf(body), null);
+});
+
+test("It should not pollute prototype with constructor key in body", async (t) => {
+	const handler = middy((event) => {
+		return event.body;
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: "constructor=polluted",
+	};
+
+	const body = await handler(event, defaultContext);
+
+	// Should not affect other objects' constructor
+	strictEqual({}.constructor, Object);
+	strictEqual(Object.getPrototypeOf(body), null);
+});
+
 test("It should handle base64 body", async (t) => {
 	const handler = middy((event, context) => {
 		return event.body; // propagates the body as a response
@@ -150,5 +196,5 @@ test("It should handle base64 body", async (t) => {
 
 	const body = await handler(event, defaultContext);
 
-	deepStrictEqual(body, { a: "a", b: "b" });
+	deepStrictEqual(body, Object.assign(Object.create(null), { a: "a", b: "b" }));
 });
