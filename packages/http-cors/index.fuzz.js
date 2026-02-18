@@ -69,3 +69,32 @@ test("fuzz `event` w/ `Access-Control-Request-Method` header", async () => {
 		},
 	);
 });
+
+test("fuzz `event` w/ `Access-Control-Request-Headers` header", async () => {
+	const handlerWithRequestHeaders = middy((event) => event).use(
+		middleware({ requestHeaders: ["authorization", "x-custom-header"] }),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constant("OPTIONS"),
+				headers: fc.record({
+					"Access-Control-Request-Headers": fc.oneof(
+						fc.constant(undefined),
+						fc.string(),
+					),
+				}),
+			}),
+			async (event) => {
+				await handlerWithRequestHeaders(event, context);
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});

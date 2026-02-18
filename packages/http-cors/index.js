@@ -2,6 +2,16 @@
 // SPDX-License-Identifier: MIT
 import { normalizeHttpResponse } from "@middy/util";
 
+// CORS-safelisted request headers
+// https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header
+const corsSafelistedRequestHeaders = [
+	"accept",
+	"accept-language",
+	"content-language",
+	"content-type",
+	"range",
+];
+
 const defaults = {
 	disableBeforePreflightResponse: true,
 	getOrigin: undefined, // default inserted below
@@ -161,6 +171,27 @@ const httpCorsMiddleware = (opts = {}) => {
 
 			if (options.requestMethods?.length && requestMethod) {
 				if (!options.requestMethods.includes(requestMethod)) {
+					request.response.statusCode = 204;
+					request.response.headers = {};
+					return request.response;
+				}
+			}
+
+			const requestHeadersValue =
+				eventHeaders["Access-Control-Request-Headers"] ??
+				eventHeaders["access-control-request-headers"];
+
+			if (options.requestHeaders?.length && requestHeadersValue) {
+				const requestedHeaders = requestHeadersValue
+					.split(",")
+					.map((h) => h.trim().toLowerCase());
+				const nonSafelistedHeaders = requestedHeaders.filter(
+					(h) => !corsSafelistedRequestHeaders.includes(h),
+				);
+				const hasDisallowedHeader = nonSafelistedHeaders.some(
+					(h) => !options.requestHeaders.includes(h),
+				);
+				if (hasDisallowedHeader) {
 					request.response.statusCode = 204;
 					request.response.headers = {};
 					return request.response;
