@@ -73,7 +73,7 @@
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
-		"license-check-and-add": "2.3.6",
+		"license-check-and-add": "4.0.5",
 		"tinybench": "^6.0.0",
 		"tstyche": "^6.0.0",
 		"typescript": "^5.0.0",
