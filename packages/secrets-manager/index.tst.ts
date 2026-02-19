@@ -4,7 +4,7 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import secretsManager, { type Context, secret } from "./index.js";
+import secretsManager, { type Context, secretsManagerParam } from "./index.js";
 
 test("use with default options", () => {
 	expect(secretsManager()).type.toBe<
