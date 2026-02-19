@@ -1,5 +1,5 @@
 // import { Signer } from "@aws-sdk/rds-signer";
-// import { mockClient } from "aws-sdk-client-mock";
+// import { mockClient } from "aws-sdk-client-mock"; // Only applied to Commands
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
@@ -10,10 +10,8 @@ const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
 
-// TODO update to match others (ie s3)
 // Mock the Signer to avoid actual AWS calls
 class MockSigner {
-	constructor() {}
 	getAuthToken() {
 		return Promise.resolve(
 			"db.example.com:5432/?Action=connect&DBUser=testuser&X-Amz-Security-Token=mock-token",

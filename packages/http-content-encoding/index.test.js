@@ -1,6 +1,12 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { ReadableStream } from "node:stream/web";
 import { test } from "node:test";
-import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
+import {
+	brotliCompressSync,
+	deflateSync,
+	gzipSync,
+	zstdDecompressSync,
+} from "node:zlib";
 import { createReadableStream, streamToBuffer } from "@datastream/core";
 import middy from "../core/index.js";
 import httpContentEncoding from "./index.js";
@@ -489,4 +495,212 @@ test("It should handle lowercase cache-control header when appending no-transfor
 		headers: { "cache-control": "max-age=3600, no-transform" },
 		body: "body",
 	});
+});
+
+// Web API ReadableStream tests
+test("It should encode Web API ReadableStream using br", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "br",
+	});
+	ok(response.body instanceof ReadableStream);
+	response.body = await streamToBuffer(response.body);
+	response.body = response.body.toString("base64");
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+	});
+});
+
+test("It should encode Web API ReadableStream using gzip", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "gzip",
+	});
+	ok(response.body instanceof ReadableStream);
+	response.body = await streamToBuffer(response.body);
+	response.body = response.body.toString("base64");
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: gzipSync(body).toString("base64"),
+		headers: { "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
+	});
+});
+
+test("It should encode Web API ReadableStream using deflate", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "deflate",
+	});
+	ok(response.body instanceof ReadableStream);
+	response.body = await streamToBuffer(response.body);
+	response.body = response.body.toString("base64");
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: deflateSync(body).toString("base64"),
+		headers: { "Content-Encoding": "deflate", Vary: "Accept-Encoding" },
+	});
+});
+
+test("It should encode Web API ReadableStream using zstd", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "zstd",
+	});
+	ok(response.body instanceof ReadableStream);
+	const compressed = await streamToBuffer(response.body);
+	const decompressed = zstdDecompressSync(compressed).toString();
+	deepStrictEqual(response.statusCode, 200);
+	deepStrictEqual(response.headers, {
+		"Content-Encoding": "zstd",
+		Vary: "Accept-Encoding",
+	});
+	deepStrictEqual(decompressed, body);
+});
+
+test("It should not encode Web API ReadableStream when missing preferredEncoding", async (t) => {
+	const body = "test";
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, context);
+	ok(response.body instanceof ReadableStream);
+	response.body = await streamToBuffer(response.body);
+	response.body = response.body.toString();
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body,
+		headers: {},
+	});
+});
+
+test("It should not encode Web API ReadableStream when response.isBase64Encoded is true", async (t) => {
+	const body = "test";
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+		isBase64Encoded: true,
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "br",
+	});
+	ok(response.body instanceof ReadableStream);
+	deepStrictEqual(response.statusCode, 200);
+	deepStrictEqual(response.headers, {});
+	deepStrictEqual(response.isBase64Encoded, true);
+});
+
+test("It should not encode Web API ReadableStream when response Cache-Control is no-transform", async (t) => {
+	const body = "test";
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Cache-Control": "no-transform" },
+		body: new ReadableStream({
+			start(controller) {
+				controller.enqueue(body);
+				controller.close();
+			},
+		}),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "br",
+	});
+	ok(response.body instanceof ReadableStream);
+	response.body = await streamToBuffer(response.body);
+	response.body = response.body.toString();
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: { "Cache-Control": "no-transform" },
+		body,
+	});
+});
+
+test("It should encode Node.js stream using zstd", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: createReadableStream(body),
+	})).use(httpContentEncoding());
+
+	const event = { headers: {} };
+	const response = await handler(event, {
+		...context,
+		preferredEncoding: "zstd",
+	});
+	const compressed = await streamToBuffer(response.body);
+	const decompressed = zstdDecompressSync(compressed).toString();
+	deepStrictEqual(response.statusCode, 200);
+	deepStrictEqual(response.headers, {
+		"Content-Encoding": "zstd",
+		Vary: "Accept-Encoding",
+	});
+	deepStrictEqual(decompressed, body);
 });

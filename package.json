@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.0.3",
+	"version": "7.1.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -30,7 +30,7 @@
 		"test:perf": "node --test ./**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
 		"test:dast:fuzz": "node --test ./**/*.fuzz.js",
-		"test:packages:unit": "node --test --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
+		"test:packages:unit": "node --test --test-force-exit --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
 		"test:packages:fuzz": "node --test ./packages/**/*.fuzz.js",
 		"test:llrt": "cd llrt && npm test",
 		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",

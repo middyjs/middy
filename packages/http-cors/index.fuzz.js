@@ -40,3 +40,61 @@ test("fuzz `event` w/ `record`", async () => {
 		},
 	);
 });
+
+test("fuzz `event` w/ `Access-Control-Request-Method` header", async () => {
+	const handlerWithRequestMethods = middy((event) => event).use(
+		middleware({ requestMethods: ["GET", "POST"] }),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constant("OPTIONS"),
+				headers: fc.record({
+					"Access-Control-Request-Method": fc.oneof(
+						fc.constant(undefined),
+						fc.constantFrom("GET", "POST", "PUT", "DELETE", "PATCH"),
+					),
+				}),
+			}),
+			async (event) => {
+				await handlerWithRequestMethods(event, context);
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `Access-Control-Request-Headers` header", async () => {
+	const handlerWithRequestHeaders = middy((event) => event).use(
+		middleware({ requestHeaders: ["authorization", "x-custom-header"] }),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constant("OPTIONS"),
+				headers: fc.record({
+					"Access-Control-Request-Headers": fc.oneof(
+						fc.constant(undefined),
+						fc.string(),
+					),
+				}),
+			}),
+			async (event) => {
+				await handlerWithRequestHeaders(event, context);
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});

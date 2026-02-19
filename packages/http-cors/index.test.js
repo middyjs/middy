@@ -1360,3 +1360,705 @@ test("It should handle vary option with empty string header", async (t) => {
 
 	strictEqual(response.headers.Vary, "Accept");
 });
+
+// *** requestMethods *** //
+test("It should allow preflight when requestMethods matches Access-Control-Request-Method", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Method": "GET" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should reject preflight when requestMethods does not match Access-Control-Request-Method", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Method": "POST" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should allow preflight when requestMethods includes multiple methods", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET", "POST", "PUT"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Method": "POST" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow preflight when Access-Control-Request-Method is missing", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow preflight when requestMethods is empty array", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: [],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Method": "POST" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should be case-sensitive for requestMethods matching", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Method": "get" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should work with requestMethods and other options combined", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "https://example.com",
+			credentials: true,
+			methods: "GET, POST",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			Origin: "https://example.com",
+			"Access-Control-Request-Method": "GET",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Methods": "GET, POST",
+		},
+	});
+});
+
+test("It should handle requestMethods with v2.0 event format", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		version: "2.0",
+		requestContext: {
+			http: {
+				method: "OPTIONS",
+			},
+		},
+		headers: { "Access-Control-Request-Method": "GET" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should handle lowercase access-control-request-method header", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "access-control-request-method": "GET" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should prefer Access-Control-Request-Method over lowercase variant", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Method": "GET",
+			"access-control-request-method": "POST",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should handle OPTIONS when event.headers is undefined", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should add vary header when lowercase header already exists", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { vary: "Accept-Encoding" },
+	}));
+
+	handler.use(
+		httpCors({
+			origin: "*",
+			vary: "Accept",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, context);
+
+	strictEqual(response.headers.vary, "Accept-Encoding, Accept");
+});
+
+// *** requestHeaders *** //
+test("It should allow preflight when all non-safelisted headers in requestHeaders", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["x-custom-header", "authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Headers": "X-Custom-Header, Authorization",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should reject preflight when non-safelisted header not in requestHeaders", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Headers": "X-Disallowed-Header" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should allow preflight when only safelisted headers requested", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"], // safelisted headers don't need to be here
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Headers": "Content-Type, Accept" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow preflight when safelisted and allowed headers mixed", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Headers": "Content-Type, Authorization, Accept",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should be case-insensitive for requestHeaders matching", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["x-custom-header"], // normalized to lowercase
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Headers": "X-CUSTOM-HEADER" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should handle multiple comma-separated headers", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["x-header-one", "x-header-two"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Headers": "X-Header-One, X-Header-Two" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow preflight when Access-Control-Request-Headers is missing", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow preflight when requestHeaders is empty array", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: [],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "Access-Control-Request-Headers": "X-Custom-Header" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should combine requestHeaders with requestMethods filtering", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Method": "GET",
+			"Access-Control-Request-Headers": "Authorization",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should reject when requestMethods passes but requestHeaders fails", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Method": "GET",
+			"Access-Control-Request-Headers": "X-Disallowed",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should handle requestHeaders with v2.0 event format", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		version: "2.0",
+		requestContext: {
+			http: {
+				method: "OPTIONS",
+			},
+		},
+		headers: { "Access-Control-Request-Headers": "Authorization" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should handle lowercase access-control-request-headers header", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "access-control-request-headers": "Authorization" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should prefer Access-Control-Request-Headers over lowercase variant", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Headers": "Authorization",
+			"access-control-request-headers": "X-Disallowed",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should allow all CORS-safelisted request headers without requestHeaders option", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {
+			"Access-Control-Request-Headers":
+				"Accept, Accept-Language, Content-Language, Content-Type, Range",
+		},
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
