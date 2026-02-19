@@ -107,8 +107,9 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.statusCode, 415);
+		strictEqual(e.statusCode, 422);
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });
@@ -131,8 +132,9 @@ test("It should handle undefined as an UnprocessableEntity", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.statusCode, 415);
+		strictEqual(e.statusCode, 422);
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		strictEqual(e.cause.data, undefined);
 	}
 });
@@ -173,6 +175,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	} catch (e) {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		strictEqual(e.cause.data, undefined);
 	}
 });
@@ -242,7 +245,9 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.statusCode, 422);
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });

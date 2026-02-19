@@ -29,7 +29,7 @@
 		"test:types": "tstyche",
 		"test:perf": "node --test ./**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
-		"test:dast:fuzz": "node --test ./**/*.fuzz.js",
+		"test:dast:fuzz": "node --test --experimental-test-module-mocks ./**/*.fuzz.js",
 		"test:packages:unit": "node --test --test-force-exit --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
 		"test:packages:fuzz": "node --test ./packages/**/*.fuzz.js",
 		"test:llrt": "cd llrt && npm test",

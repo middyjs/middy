@@ -68,6 +68,6 @@
 	},
 	"devDependencies": {
 		"@middy/core": "7.1.0",
-		"@types/aws-lambda": "^8.10.76"
+		"@types/aws-lambda": "^8.0.0"
 	}
 }

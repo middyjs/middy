@@ -1,9 +1,7 @@
 import { ok } from "node:assert/strict";
 import { test } from "node:test";
 
-// import middy from '../../core/index.js'
-// import metrics from '../index.js'
-
+// Tests temporarily disabled - aws-embedded-metrics mocking needs refactoring
 test("it should skip cloudwatch-metrics", (t) => {
 	ok(true);
 });

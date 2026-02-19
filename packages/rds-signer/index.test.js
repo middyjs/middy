@@ -390,7 +390,7 @@ test("It should skip fetching already cached values when fetching multiple keys"
 	// First call - token1 succeeds, token2 fails
 	try {
 		await handler(defaultEvent, defaultContext);
-	} catch (e) {
+	} catch (_e) {
 		// Expected to fail
 	}
 

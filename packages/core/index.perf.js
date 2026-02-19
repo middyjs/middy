@@ -1,8 +1,6 @@
 import { Bench } from "tinybench";
 import middy from "./index.js";
 
-// import middyNext from '../index.next.js'
-
 const bench = new Bench({ time: 1_000 });
 
 const middleware = (opts = {}) => {
@@ -51,17 +49,6 @@ const warmDisableTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
 	baseHandler,
 );
 
-// const warmNextHandler = middyNext().handler(baseHandler)
-// const warmNextMiddlewareHandler = middyNext()
-//   .use([middleware()])
-//   .handler(baseHandler)
-// const warmNextAsyncMiddlewareHandler = middyNext()
-//   .use([middlewareAsync()])
-//   .handler(baseHandler)
-// const warmNextTimeoutHandler = middyNext({ timeoutEarlyInMillis: 0 }).handler(
-//   baseHandler
-// )
-
 const event = {};
 await bench
 	.add("Cold Invocation", async () => {
@@ -83,25 +70,16 @@ await bench
 			await warmHandler(event, context);
 		} catch (_e) {}
 	})
-	// .add('Warm Invocation * next', async () => {
-	//   await warmNextHandler(event, context)
-	// })
 	.add("Warm Async Invocation", async () => {
 		await warmAsyncHandler(event, context);
 	})
 	.add("Warm Invocation with disabled Timeout", async () => {
 		await warmDisableTimeoutHandler(event, context);
 	})
-	// .add('Warm Invocation with disabled Timeout * next', async () => {
-	//   await warmNextTimeoutHandler(event, context)
-	// })
-	// TODO StreamifyResponse
+	// TODO: Add StreamifyResponse benchmark
 	.add("Warm Invocation with middleware", async () => {
 		await warmMiddlewareHandler(event, context);
 	})
-	// .add('Warm Invocation with middleware * next', async () => {
-	//   await warmNextMiddlewareHandler(event, context)
-	// })
 	.add("Warm Invocation with async middleware", async () => {
 		await warmAsyncMiddlewareHandler(event, context);
 	})

@@ -406,7 +406,7 @@ test("It should skip fetching already cached values when fetching multiple keys"
 	// First call - service1 succeeds, service2 fails
 	try {
 		await handler(event, context);
-	} catch (e) {
+	} catch (_e) {
 		// Expected to fail
 	}
 

@@ -285,6 +285,7 @@ test("It should fail when mismatching", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-content-negotiation");
 		strictEqual(
 			e.message,
 			"Unsupported MediaType. Acceptable values: text/plain, text/x-dvi",
@@ -311,6 +312,7 @@ test("It should error when unfound preferred locale", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-content-negotiation");
 		strictEqual(e.message, "Unsupported Language. Acceptable values: en-CA");
 	}
 });

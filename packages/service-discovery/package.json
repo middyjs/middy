@@ -78,7 +78,7 @@
 	"devDependencies": {
 		"@aws-sdk/client-servicediscovery": "^3.0.0",
 		"@middy/core": "7.1.0",
-		"@types/aws-lambda": "^8.10.101",
+		"@types/aws-lambda": "^8.0.0",
 		"aws-xray-sdk": "^3.3.3"
 	},
 	"gitHead": "b84840ec8afd289f6decfd0d645be4899051792d"

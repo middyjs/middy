@@ -98,6 +98,7 @@ test("It should handle invalid form data (undefined) as an UnprocessableEntity",
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
 			e.message,
 			"Invalid or malformed multipart/form-data was provided",
@@ -126,6 +127,7 @@ test("It should handle invalid form data (null) as an UnprocessableEntity", asyn
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
 			e.message,
 			"Invalid or malformed multipart/form-data was provided",
@@ -154,6 +156,7 @@ test("It should handle more invalid form data as an UnprocessableEntity", async 
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
 			e.message,
 			"Invalid or malformed multipart/form-data was provided",
@@ -202,6 +205,7 @@ test("It shouldn't process the body if the content type is not multipart/form-da
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
 		strictEqual(e.cause.data, "application/json");
@@ -248,6 +252,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
 		strictEqual(e.cause.data, undefined);
