@@ -1,35 +1,34 @@
-import { hrtime, stderr, stdout } from "node:process";
-import { context } from "@opentelemetry/api";
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 
 const defaults = {
-	logger: console,
 	logEvent: false,
 	logResponse: false,
 	logError: false,
 };
 
 const openTelemetryProtocolLoggerMiddleware = (opts = {}) => {
-	const { logger, logEvent, logResponse, logError } = {
+	const { logEvent, logResponse, logError } = {
 		...defaults,
 		...opts,
 	};
 
 	const openTelemetryProtocolLoggerMiddlewareBefore = async (request) => {
 		if (logEvent) {
-			logger.info(request.event);
+			request.context.logger?.info(request.event);
 		}
 	};
 
 	const openTelemetryProtocolLoggerMiddlewareAfter = async (request) => {
 		if (logResponse) {
-			logger.info(request.response);
+			request.context.logger?.info(request.response);
 		}
 	};
 
 	const openTelemetryProtocolLoggerMiddlewareOnError = async (request) => {
 		if (request.response === undefined) {
 			if (logError) {
-				logger.error(request.error);
+				request.context.logger?.error(request.error);
 			}
 			return;
 		}

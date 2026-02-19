@@ -1,24 +1,24 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 const defaults = {
-	tracer: undefined,
+	captureHandler: true,
 };
 
 const openTelemetryProtocolTracerMiddleware = (opts = {}) => {
-	const { tracer } = {
+	const { captureHandler } = {
 		...defaults,
 		...opts,
 	};
 
-	let span;
 	const openTelemetryProtocolTracerMiddlewareBefore = async (request) => {
 		if (captureHandler) {
-			Object.assign(request.internal, value);
-			span = tracer.startSpan("handler");
+			request.context.tracerSpan = request.context.tracer?.startSpan("handler");
 		}
 	};
 
 	const openTelemetryProtocolTracerMiddlewareAfter = async (request) => {
 		if (captureHandler) {
-			span.end();
+			request.context.tracerSpan?.end();
 		}
 	};
 

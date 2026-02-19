@@ -1,35 +1,34 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 const defaults = {
-	metrics: undefined,
 	namespace: "default",
 	captureColdStartMetric: false,
 	captureOnErrorMetric: false,
 };
 
 const openTelemetryProtocolMetricsMiddleware = (opts = {}) => {
-	const { metrics, namespace, captureColdStartMetric } = {
+	const { namespace, captureColdStartMetric, captureOnErrorMetric } = {
 		...defaults,
 		...opts,
 	};
-	const meter = metrics.getMeter(namespace);
 
-	let coldStartMetric;
-	if (captureColdStartMetric) {
-		coldStartMetric = meter.createCounter("ColdStart");
-		coldStartMetric.add(1);
-	}
-
-	let onErrorMetric;
-	if (captureOnErrorMetric) {
-		onErrorMetric = meter.createCounter("Error");
-	}
+	let coldStart = true;
+	const openTelemetryProtocolMetricsMiddlewareBefore = async (request) => {
+		request.context.metricsMeter = request.context?.metrics.getMeter(namespace);
+		if (coldStart) {
+			coldStart = false;
+			request.context.metricsMeter?.createCounter("ColdStart").add(1);
+		}
+	};
 
 	const openTelemetryProtocolMetricsMiddlewareOnError = async (_request) => {
 		if (captureOnErrorMetric) {
-			onErrorMetric.add(1);
+			request.context.metricsMeter?.createCounter("Error").add(1);
 		}
 	};
 
 	return {
+		before: openTelemetryProtocolMetricsMiddlewareBefore,
 		onError: openTelemetryProtocolMetricsMiddlewareOnError,
 	};
 };

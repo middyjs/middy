@@ -25,7 +25,9 @@
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
-		"index.d.ts"
+		"index.d.ts",
+		"stdoutExporter.js",
+		"stdoutExporter.d.ts"
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
@@ -53,7 +55,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/input-output-logger"
+		"directory": "packages/otlp"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
