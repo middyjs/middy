@@ -27,7 +27,7 @@
     <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
     <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
   </p>
-<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/ws-responder">https://middy.js.org/docs/middlewares/ws-responder</a></p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/ws-response">https://middy.js.org/docs/middlewares/ws-response</a></p>
 </div>
 
 ## License

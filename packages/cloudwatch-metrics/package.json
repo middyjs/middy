@@ -30,8 +30,8 @@
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test",
-		"test:fuzz": "node --test index.fuzz.js",
+		"test:unit": "node --experimental-test-module-mocks --test",
+		"test:fuzz": "node --experimental-test-module-mocks --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js"
 	},
 	"license": "MIT",
