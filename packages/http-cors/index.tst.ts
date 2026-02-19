@@ -20,6 +20,7 @@ test("use with all options", () => {
 		requestHeaders: ["authorization", "x-custom-header"], // Filter preflight by Access-Control-Request-Headers
 		requestMethods: ["GET", "POST"], // Filter preflight by Access-Control-Request-Method
 		cacheControl: "proxy-revalidate", // Cache-Control,
+		vary: "Origin",
 		getOrigin: (incomingOrigin: string, options: Options) => {
 			return "foo.bar.com";
 		},

@@ -9,6 +9,7 @@ import type {
 
 interface Options {
 	reviver?: (key: string, value: any) => any;
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 

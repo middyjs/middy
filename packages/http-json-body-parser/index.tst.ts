@@ -17,6 +17,8 @@ test("use with default options", () => {
 test("use with all options", () => {
 	const middleware = jsonBodyParser({
 		reviver: (_key: string, value: any) => Boolean(value),
+		disableContentTypeCheck: true,
+		disableContentTypeError: true,
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>
