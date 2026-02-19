@@ -24,6 +24,7 @@
 		},
 		"./Standard": {
 			"import": {
+				"types": "./executionModeStandard.d.ts",
 				"default": "./executionModeStandard.js"
 			},
 			"require": {
@@ -32,6 +33,7 @@
 		},
 		"./DurableContext": {
 			"import": {
+				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
 			},
 			"require": {
@@ -40,6 +42,7 @@
 		},
 		"./StreamifyResponse": {
 			"import": {
+				"types": "./executionModeStreamifyResponse.d.ts",
 				"default": "./executionModeStreamifyResponse.js"
 			},
 			"require": {

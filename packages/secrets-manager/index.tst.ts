@@ -82,7 +82,7 @@ test("setToContext: true, use return type hint function", () => {
 			secretsManager({
 				...options,
 				fetchData: {
-					someSecret: secret<{ User: string; Password: string }>(
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
 						"someHiddenSecret",
 					),
 				},
@@ -106,7 +106,7 @@ test("setToContext: false, use return type hint function", () => {
 			secretsManager({
 				...options,
 				fetchData: {
-					someSecret: secret<{ User: string; Password: string }>(
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
 						"someHiddenSecret",
 					),
 				},
