@@ -75,5 +75,8 @@
 		"@types/aws-lambda": "^8.0.0",
 		"aws-xray-sdk": "^3.3.3"
 	},
+	"dependencies": {
+		"@middy/util": "7.1.0"
+	},
 	"gitHead": "4780887d818be31d9b6f1e2ced99c954d11a4a81"
 }
