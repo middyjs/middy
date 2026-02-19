@@ -4,7 +4,7 @@
 	"description": "Embedded CloudWatch metrics middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=14"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {

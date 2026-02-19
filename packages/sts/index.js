@@ -77,7 +77,7 @@ const stsMiddleware = (opts = {}) => {
 
 		if (options.setToContext) {
 			const data = await getInternal(Object.keys(options.fetchData), request);
-			if (options.setToContext) Object.assign(request.context, data);
+			Object.assign(request.context, data);
 		}
 	};
 

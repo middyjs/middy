@@ -82,7 +82,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 		originMany = true;
 		// Dynamic
-		// TODO: IDN -> puncycode not handled, add in if requested
+		// TODO: IDN -> punycode not handled, add in if requested
 		const regExpStr = origin
 			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
 			.replaceAll("*", "[^.]*");
@@ -227,7 +227,7 @@ const getVersionHttpMethod = {
 	"2.0": (event) => event.requestContext.http.method,
 };
 
-// header in offical name, lowercase varient handeled
+// header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {
 	if (!value) return;
 	const headerLower = header.toLowerCase();

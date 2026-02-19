@@ -54,7 +54,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/sts"
+		"directory": "packages/service-discovery"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"

@@ -1,7 +1,7 @@
 {
 	"name": "@middy/error-logger",
 	"version": "7.1.0",
-	"description": "Input and output logger middleware for the middy framework",
+	"description": "Error logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
