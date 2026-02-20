@@ -20,8 +20,7 @@
     <img src="https://snyk.io/test/github/middyjs/middy/badge.svg" alt="Known Vulnerabilities" data-canonical-src="https://snyk.io/test/github/middyjs/middy" style="max-width:100%;">
   </a>
   <a href="https://github.com/middyjs/middy/actions/workflows/sast.yml">
-    <img src="https://github.com/middyjs/middy/actions/workflows/sast.yml/badge.svg
-?branch=main&event=push" alt="CodeQL" style="max-width:100%;">
+    <img src="https://github.com/middyjs/middy/actions/workflows/sast.yml/badge.svg?branch=main&event=push" alt="CodeQL" style="max-width:100%;">
   </a>
   <a href="https://bestpractices.coreinfrastructure.org/projects/5280">
     <img src="https://bestpractices.coreinfrastructure.org/projects/5280/badge" alt="Core Infrastructure Initiative (CII) Best Practices"  style="max-width:100%;">

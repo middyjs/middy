@@ -7,7 +7,7 @@ interface SerializerHandler {
 	serializer: (response: any) => string | { body: any; [key: string]: any };
 }
 
-interface Options {
+export interface Options {
 	serializers?: SerializerHandler[];
 	defaultContentType?: string;
 }

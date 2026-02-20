@@ -5,7 +5,7 @@ import type { MetricsLogger } from "aws-embedded-metrics";
 import type { Context as LambdaContext } from "aws-lambda";
 export { MetricsLogger } from "aws-embedded-metrics";
 
-interface Options {
+export interface Options {
 	namespace?: string;
 	dimensions?: Array<Record<string, string>>;
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
+export interface Options {
 	eventSchema?: Function | any;
 	contextSchema?: Function | any;
 	responseSchema?: Function | any;

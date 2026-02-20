@@ -8,7 +8,7 @@ interface Route<T = never> {
 	handler: CloudFormationCustomResourceHandler<T>;
 }
 
-interface Options {
+export interface Options {
 	routes: Route[];
 	notFoundResponse?: (input: { requestType: string }) => never;
 }
