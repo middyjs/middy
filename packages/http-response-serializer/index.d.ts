@@ -8,7 +8,7 @@ interface SerializerHandler {
 }
 
 interface Options {
-	serializers: SerializerHandler[];
+	serializers?: SerializerHandler[];
 	defaultContentType?: string;
 }
 

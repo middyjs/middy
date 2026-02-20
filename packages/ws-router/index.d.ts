@@ -8,7 +8,7 @@ interface Route<T = never> {
 	handler: APIGatewayProxyWebsocketHandlerV2<T>;
 }
 
-interface Options {
+export interface Options {
 	routes: Route[];
 	notFoundResponse?: (input: { routeKey: string }) => never;
 }

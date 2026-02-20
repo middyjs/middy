@@ -30,3 +30,20 @@ const middleware = cloudformationRouterHandler([
 	},
 ]);
 expect(middleware).type.toBe<middy.MiddyfiedHandler>();
+
+const middlewareWithOptions = cloudformationRouterHandler({
+	routes: [
+		{
+			requestType: "Create",
+			handler: createLambdaHandler,
+		},
+		{
+			requestType: "Delete",
+			handler: deleteLambdaHandler,
+		},
+	],
+	notFoundResponse: ({ requestType }) => {
+		throw new Error(`Route not found: ${requestType}`);
+	},
+});
+expect(middlewareWithOptions).type.toBe<middy.MiddyfiedHandler>();

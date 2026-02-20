@@ -16,6 +16,7 @@ interface ServiceDiscoveryOptions<
 		MiddyOptions<AwsServiceDiscoveryClient, ServiceDiscoveryClientConfig>,
 		| "AwsClient"
 		| "awsClientOptions"
+		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
 		| "cacheKey"

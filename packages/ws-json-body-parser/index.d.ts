@@ -4,7 +4,7 @@ import type middy from "@middy/core";
 import type { APIGatewayProxyWebsocketEventV2 } from "aws-lambda";
 import type { JsonValue } from "type-fest";
 
-interface Options {
+export interface Options {
 	reviver?: (key: string, value: any) => any;
 }
 
