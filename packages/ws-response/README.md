@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy ws-response middleware</h1>
+  <h1>Middy `ws-response` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>WebSocket (ws) response middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
