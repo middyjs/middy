@@ -4,8 +4,8 @@ const defaults = {
 	isWarmingUp: (event) => event.source === "serverless-plugin-warmup",
 };
 
-const warmupMiddleware = (opt) => {
-	const options = { ...defaults, ...opt };
+const warmupMiddleware = (opts = {}) => {
+	const options = { ...defaults, ...opts };
 
 	const warmupMiddlewareBefore = (request) => {
 		if (options.isWarmingUp(request.event)) {

@@ -51,12 +51,12 @@ const httpRouteHandler = (opts = {}) => {
 		const { method, path } = getVersionRoute[pickVersion(event)](event);
 
 		if (!method) {
-			throw new Error("Unknown http event format", {
+			throw new Error("Unknown HTTP event format", {
 				cause: { package: "@middy/http-router", data: { method } },
 			});
 		}
 		if (!path) {
-			throw new Error("Unknown http event format", {
+			throw new Error("Unknown HTTP event format", {
 				cause: { package: "@middy/http-router", data: { path } },
 			});
 		}
