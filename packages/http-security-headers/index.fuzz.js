@@ -42,7 +42,7 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 				try {
 					await handler(event, context);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}
@@ -82,7 +82,7 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 				try {
 					await handler(event, context);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}
@@ -117,7 +117,7 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 				try {
 					await handler(event, context);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}

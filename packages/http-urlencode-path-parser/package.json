@@ -65,6 +65,9 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"dependencies": {
+		"@middy/util": "7.1.0"
+	},
 	"devDependencies": {
 		"@types/aws-lambda": "^8.0.0",
 		"type-fest": "^5.0.0"
