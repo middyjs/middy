@@ -8,6 +8,13 @@ interface Route<T = never> {
 	handler: APIGatewayProxyWebsocketHandlerV2<T>;
 }
 
-declare function wsRouterHandler(routes: Route[]): middy.MiddyfiedHandler;
+interface Options {
+	routes: Route[];
+	notFoundResponse?: (input: { routeKey: string }) => never;
+}
+
+declare function wsRouterHandler(
+	options: Options | Route[],
+): middy.MiddyfiedHandler;
 
 export default wsRouterHandler;

@@ -12,6 +12,8 @@ export type Event = Omit<APIGatewayProxyWebsocketEventV2, "body"> & {
 	body: JsonValue;
 };
 
-declare function jsonBodyParser(options?: Options): middy.MiddlewareObj<Event>;
+declare function wsJsonBodyParser(
+	options?: Options,
+): middy.MiddlewareObj<Event>;
 
-export default jsonBodyParser;
+export default wsJsonBodyParser;

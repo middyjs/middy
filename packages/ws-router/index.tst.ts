@@ -28,3 +28,20 @@ const middleware = wsRouterHandler([
 	},
 ]);
 expect(middleware).type.toBe<middy.MiddyfiedHandler>();
+
+const middlewareWithOptions = wsRouterHandler({
+	routes: [
+		{
+			routeKey: "$connect",
+			handler: connectLambdaHandler,
+		},
+		{
+			routeKey: "$disconnect",
+			handler: disconnectLambdaHandler,
+		},
+	],
+	notFoundResponse: ({ routeKey }) => {
+		throw new Error(`Route not found: ${routeKey}`);
+	},
+});
+expect(middlewareWithOptions).type.toBe<middy.MiddyfiedHandler>();
