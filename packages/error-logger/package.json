@@ -43,8 +43,7 @@
 		"AWS",
 		"AWS Lambda",
 		"Middy",
-		"Input",
-		"Output",
+		"Error",
 		"Logger"
 	],
 	"author": {
