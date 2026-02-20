@@ -1,7 +1,7 @@
 {
 	"name": "@middy/http-event-normalizer",
 	"version": "7.1.0",
-	"description": "Http event normalizer middleware for the middy framework",
+	"description": "HTTP event normalizer middleware for the middy framework",
 	"type": "module",
 	"engines": {
 		"node": ">=22"

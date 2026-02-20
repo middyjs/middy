@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
+export type ContentEncoding = "br" | "deflate" | "gzip" | "zstd";
+
 export interface Options {
 	br?: any;
 	gzip?: any;
@@ -9,6 +11,10 @@ export interface Options {
 	zstd?: any;
 	overridePreferredEncoding?: string[];
 }
+
+export declare function getContentEncodingStream(
+	preferredEncoding: ContentEncoding,
+): ReturnType<typeof import("node:zlib")["createGzip"]>;
 
 declare function httpContentEncoding(options?: Options): middy.MiddlewareObj;
 

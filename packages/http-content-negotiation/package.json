@@ -1,7 +1,7 @@
 {
 	"name": "@middy/http-content-negotiation",
 	"version": "7.1.0",
-	"description": "Http content negotiation middleware for the middy framework",
+	"description": "HTTP content negotiation middleware for the middy framework",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
