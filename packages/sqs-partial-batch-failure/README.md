@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy SQS partial batch failure middleware</h1>
+  <h1>Middy `sqs-partial-batch-failure` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>SQS batch middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>

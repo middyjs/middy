@@ -9,7 +9,7 @@ import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type SecretType<T> = string & { __returnType?: T };
-export declare function secret<T>(path: string): SecretType<T>;
+export declare function secretsManagerParam<T>(path: string): SecretType<T>;
 
 interface SecretsManagerOptions<AwsSecretsManagerClient = SecretsManagerClient>
 	extends Omit<

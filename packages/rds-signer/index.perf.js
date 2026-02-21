@@ -1,5 +1,3 @@
-// import { Signer } from "@aws-sdk/rds-signer";
-// import { mockClient } from "aws-sdk-client-mock"; // Only applied to Commands
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";

@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy ws-response middleware</h1>
+  <h1>Middy `ws-response` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>WebSocket (ws) response middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
@@ -9,11 +9,11 @@
     <a href="https://github.com/middyjs/middy/actions/workflows/test-sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-sast.yml/badge.svg" alt="GitHub Actions SAST test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-lint.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-lint.yml/badge.svg" alt="GitHub Actions lint test status"></a>
     <br/>
-    <a href="https://www.npmjs.com/package/@middy/ws-responder"><img alt="npm version" src="https://img.shields.io/npm/v/@middy/ws-responder.svg"></a>
-    <a href="https://packagephobia.com/result?p=@middy/ws-responder"><img src="https://packagephobia.com/badge?p=@middy/ws-responder" alt="npm install size"></a>
-    <a href="https://www.npmjs.com/package/@middy/ws-responder">
-    <img alt="npm weekly downloads" src="https://img.shields.io/npm/dw/@middy/ws-responder.svg"></a>
-    <a href="https://www.npmjs.com/package/@middy/ws-responder#provenance">
+    <a href="https://www.npmjs.com/package/@middy/ws-response"><img alt="npm version" src="https://img.shields.io/npm/v/@middy/ws-response.svg"></a>
+    <a href="https://packagephobia.com/result?p=@middy/ws-response"><img src="https://packagephobia.com/badge?p=@middy/ws-response" alt="npm install size"></a>
+    <a href="https://www.npmjs.com/package/@middy/ws-response">
+    <img alt="npm weekly downloads" src="https://img.shields.io/npm/dw/@middy/ws-response.svg"></a>
+    <a href="https://www.npmjs.com/package/@middy/ws-response#provenance">
     <img alt="npm provenance" src="https://img.shields.io/badge/provenance-Yes-brightgreen"></a>
     <br/>
     <a href="https://scorecard.dev/viewer/?uri=github.com/middyjs/middy"><img src="https://api.scorecard.dev/projects/github.com/middyjs/middy/badge" alt="Open Source Security Foundation (OpenSSF) Scorecard"></a>
@@ -27,7 +27,7 @@
     <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
     <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
   </p>
-<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/ws-responder">https://middy.js.org/docs/middlewares/ws-responder</a></p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/ws-response">https://middy.js.org/docs/middlewares/ws-response</a></p>
 </div>
 
 ## License

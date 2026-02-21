@@ -5,6 +5,9 @@ import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
+export type ParamType<T> = string & { __returnType?: T };
+export declare function rdsSignerParam<T>(name: string): ParamType<T>;
+
 export type RdsSignerOptions<AwsSigner = Signer> = Omit<
 	MiddyOptions<AwsSigner, SignerConfig>,
 	"fetchData"

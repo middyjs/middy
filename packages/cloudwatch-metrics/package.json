@@ -1,10 +1,10 @@
 {
 	"name": "@middy/cloudwatch-metrics",
-	"version": "7.1.0",
+	"version": "7.1.1",
 	"description": "Embedded CloudWatch metrics middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=14"
+		"node": ">=22"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -30,8 +30,8 @@
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test",
-		"test:fuzz": "node --test index.fuzz.js",
+		"test:unit": "node --experimental-test-module-mocks --test",
+		"test:fuzz": "node --experimental-test-module-mocks --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js"
 	},
 	"license": "MIT",
@@ -71,7 +71,8 @@
 		"aws-embedded-metrics": "4.2.1"
 	},
 	"devDependencies": {
-		"@types/aws-lambda": "^8.10.101"
+		"@middy/core": "7.1.1",
+		"@types/aws-lambda": "^8.0.0"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

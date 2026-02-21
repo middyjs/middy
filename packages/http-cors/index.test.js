@@ -2062,3 +2062,53 @@ test("It should allow all CORS-safelisted request headers without requestHeaders
 		},
 	});
 });
+
+test("It should match IDN origin when configured in unicode (static)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://münchen.de"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://xn--mnchen-3ya.de" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://xn--mnchen-3ya.de",
+		},
+	});
+});
+
+test("It should match IDN origin when configured in unicode (dynamic)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://*.münchen.de"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://sub.xn--mnchen-3ya.de" },
+	};
+
+	const response = await handler(event, context);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://sub.xn--mnchen-3ya.de",
+			Vary: "Origin",
+		},
+	});
+});

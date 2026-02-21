@@ -55,7 +55,6 @@ const wsResponseMiddleware = (opts) => {
 	};
 };
 
-// TODO move to @middy/util?
 const normalizeWsResponse = (request) => {
 	let { response } = request;
 	if (typeof response === "undefined") {

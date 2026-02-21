@@ -40,6 +40,7 @@ test("It should thrown 404 when route not found", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.message, "Route does not exist");
 		strictEqual(e.statusCode, 404);
 	}
@@ -127,6 +128,7 @@ test("It should not match inherited properties like __proto__ as routes", async 
 		await handler(event, context);
 	} catch (e) {
 		// Should hit "not found" rather than matching an inherited property
+		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
 		strictEqual(e.message, "Route does not exist");
 	}
@@ -148,6 +150,7 @@ test("It should not match inherited properties like constructor as routes", asyn
 		await handler(event, context);
 	} catch (e) {
 		// Should hit "not found", not invoke Object.prototype.constructor
+		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
 		strictEqual(e.message, "Route does not exist");
 	}
@@ -168,6 +171,7 @@ test("It should not match inherited properties like toString as routes", async (
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
 		strictEqual(e.message, "Route does not exist");
 	}
@@ -188,6 +192,7 @@ test("It should throw when not a ws event", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.message, "Unknown WebSocket event format");
 	}
 });

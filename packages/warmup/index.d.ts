@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
+export interface Options {
 	isWarmingUp?: (event: any) => boolean;
-	onWarmup?: (event: any) => void;
 }
 
 declare function warmup(options?: Options): middy.MiddlewareObj;

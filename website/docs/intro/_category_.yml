@@ -1,7 +1,0 @@
-position: 1 # float position is supported
-label: "Intro to Middy"
-collapsible: true
-collapsed: true
-link:
-  type: generated-index
-  title: Middy Intro

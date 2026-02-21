@@ -53,6 +53,7 @@ test("use with all options", () => {
 		permissionsPolicy: {
 			"ambient-light-sensor": "",
 		},
+		reportingEndpoints: { default: "https://example.com/report" },
 		permittedCrossDomainPolicies: {
 			policy: "none",
 		},
@@ -79,6 +80,14 @@ test("allow false options", () => {
 		originAgentCluster: false,
 		referrerPolicy: false,
 		xssProtection: false,
+	});
+
+	expect(middleware).type.toBe<middy.MiddlewareObj>();
+});
+
+test("allow true options", () => {
+	const middleware = httpSecurityHeaders({
+		poweredBy: true,
 	});
 
 	expect(middleware).type.toBe<middy.MiddlewareObj>();

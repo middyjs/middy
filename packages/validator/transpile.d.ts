@@ -8,3 +8,5 @@ export function transpileSchema(
 ): Ajv;
 
 export function transpileLocale(src: string, options?: object | any): Function;
+
+export function transpileFTL(src: string, options?: object | any): Function;

@@ -22,7 +22,7 @@ const createHtmlObjectResponse = () =>
 		{},
 		{
 			statusCode: 200,
-			body: "<html></html>",
+			body: '<html lang="en"></html>',
 			headers: {
 				"Content-Type": "text/html; charset=utf-8",
 			},

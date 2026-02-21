@@ -10,12 +10,16 @@ import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
+export type ParamType<T> = string & { __returnType?: T };
+export declare function serviceDiscoveryParam<T>(name: string): ParamType<T>;
+
 interface ServiceDiscoveryOptions<
 	AwsServiceDiscoveryClient = ServiceDiscoveryClient,
 > extends Pick<
 		MiddyOptions<AwsServiceDiscoveryClient, ServiceDiscoveryClientConfig>,
 		| "AwsClient"
 		| "awsClientOptions"
+		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
 		| "cacheKey"

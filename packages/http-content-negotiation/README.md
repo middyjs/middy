@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy http-content-negotiation middleware</h1>
+  <h1>Middy `http-content-negotiation` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP content negotiation middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>

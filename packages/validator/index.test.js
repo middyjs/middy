@@ -315,6 +315,7 @@ test("It should handle invalid schema as a BadRequest", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.message, "Event object failed validation");
 		deepStrictEqual(e.cause.data, [
 			{
@@ -372,6 +373,7 @@ for (const c of cases) {
 		try {
 			await handler(event, { ...context, preferredLanguage: c.lang });
 		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
 			strictEqual(e.message, "Event object failed validation");
 			deepStrictEqual(e.cause.data, [
 				{
@@ -423,6 +425,7 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 	try {
 		await handler(event, { ...context, preferredLanguage: "pt-BR" });
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.message, "Event object failed validation");
 		deepStrictEqual(e.cause.data, [
 			{
@@ -470,6 +473,7 @@ test("It should handle invalid schema as a BadRequest without i18n", async (t) =
 	try {
 		await handler(event, { ...context, preferredLanguage: "pt-BR" });
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.message, "Event object failed validation");
 		deepStrictEqual(e.cause.data, [
 			{
@@ -514,6 +518,7 @@ test("It should make requests with invalid context fails with an Internal Server
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
 		strictEqual(e.message, "Context object failed validation");
 	}
@@ -572,6 +577,7 @@ test("It should make requests with invalid responses fail with an Internal Serve
 	try {
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
 		strictEqual(e.message, "Response object failed validation");
 	}
@@ -594,6 +600,7 @@ test("It should not allow bad email format", async (t) => {
 		// This same email is not a valid one in 'full' validation mode
 		await handler(event, context);
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.cause.data[0].message, 'must match format "email"');
 	}
 });
@@ -655,6 +662,7 @@ test("It should use out-of-the-box ajv-errors plugin", async (t) => {
 	try {
 		await handler({ foo: "a" });
 	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.message, "Event object failed validation");
 		deepStrictEqual(e.cause.data, [
 			{

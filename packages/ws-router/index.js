@@ -27,7 +27,7 @@ const wsRouteHandler = (opts = {}) => {
 		routesStatic[routeKey] = handler;
 	}
 
-	return (event, context, abort) => {
+	const handler = (event, context, abort) => {
 		const { routeKey } = event.requestContext ?? {};
 		if (!routeKey) {
 			throw createError(400, "Unknown WebSocket event format", {
@@ -44,6 +44,7 @@ const wsRouteHandler = (opts = {}) => {
 		// Not Found
 		return notFoundResponse({ routeKey });
 	};
+	return handler;
 };
 
 export default wsRouteHandler;

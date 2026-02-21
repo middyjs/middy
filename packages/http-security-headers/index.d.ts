@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
+export interface Options {
 	dnsPrefetchControl?: {
 		allow?: boolean;
 	};
 	frameOptions?: {
 		action?: string;
 	};
-	poweredBy?: {
-		server: string;
-	};
+	poweredBy?:
+		| {
+				server: string;
+		  }
+		| boolean;
 	strictTransportSecurity?: {
 		maxAge?: number;
 		includeSubDomains?: boolean;
@@ -42,6 +44,7 @@ interface Options {
 		policy?: string;
 	};
 	permissionsPolicy?: Record<string, string>;
+	reportingEndpoints?: Record<string, string>;
 	permittedCrossDomainPolicies?: {
 		policy?: string;
 	};
