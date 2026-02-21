@@ -1,5 +1,48 @@
+import { Writable } from "node:stream";
 import { Bench } from "tinybench";
+import { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 import middy from "./index.js";
+
+const DELIMITER_LEN = 8;
+globalThis.awslambda = {
+	streamifyResponse: (cb) => cb,
+	HttpResponseStream: {
+		from: (underlyingStream, prelude) => {
+			const wrapStream = () => {
+				let isFirstWrite = true;
+				const originalWrite = underlyingStream.write;
+				underlyingStream.write = (...args) => {
+					if (
+						isFirstWrite &&
+						typeof underlyingStream._onBeforeFirstWrite === "function"
+					) {
+						isFirstWrite = false;
+						underlyingStream._onBeforeFirstWrite();
+					}
+					return originalWrite.apply(underlyingStream, args);
+				};
+				return underlyingStream;
+			};
+			underlyingStream._onBeforeFirstWrite = () => {
+				const metadataPrelude = JSON.stringify(prelude);
+				underlyingStream.write(metadataPrelude);
+				underlyingStream.write(new Uint8Array(DELIMITER_LEN));
+			};
+			return wrapStream();
+		},
+	},
+};
+
+function createResponseStreamMock() {
+	const chunks = [];
+	const responseStream = new Writable({
+		write(chunk, encoding, callback) {
+			chunks.push(chunk);
+			callback();
+		},
+	});
+	return responseStream;
+}
 
 const bench = new Bench({ time: 1_000 });
 
@@ -31,6 +74,9 @@ const middlewareAsync = (opts = {}) => {
 };
 const baseHandler = () => {};
 const baseHandlerAsync = async () => {};
+const streamHandler = (event, context) => {
+	return "chunk1chunk2chunk3";
+};
 const context = {
 	getRemainingTimeInMillis: () => 30000,
 };
@@ -48,6 +94,9 @@ const warmAsyncMiddlewareHandler = middy()
 const warmDisableTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
 	baseHandler,
 );
+const warmStreamHandler = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandler);
 
 const event = {};
 await bench
@@ -76,12 +125,20 @@ await bench
 	.add("Warm Invocation with disabled Timeout", async () => {
 		await warmDisableTimeoutHandler(event, context);
 	})
-	// TODO: Add StreamifyResponse benchmark
 	.add("Warm Invocation with middleware", async () => {
 		await warmMiddlewareHandler(event, context);
 	})
 	.add("Warm Invocation with async middleware", async () => {
 		await warmAsyncMiddlewareHandler(event, context);
+	})
+	.add("Warm Invocation with streamifyResponse", async () => {
+		await warmStreamHandler(event, createResponseStreamMock(), context);
+	})
+	.add("Cold Invocation with streamifyResponse", async () => {
+		const coldStreamHandler = middy({
+			executionMode: executionModeStreamifyResponse,
+		}).handler(streamHandler);
+		await coldStreamHandler(event, createResponseStreamMock(), context);
 	})
 
 	.run();

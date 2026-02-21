@@ -11,6 +11,7 @@ import {
 	clearCache,
 	createClient,
 	createError,
+	decodeBody,
 	executionContext,
 	getCache,
 	getInternal,
@@ -673,6 +674,27 @@ test("jsonSafeStringify should stringify with replacer", async (t) => {
 test("jsonSafeStringify should not stringify if throws error", async (t) => {
 	const value = jsonSafeStringify({ bigint: BigInt(9007199254740991) });
 	deepStrictEqual(value, { bigint: BigInt(9007199254740991) });
+});
+
+// decodeBody
+test("decodeBody should return body unchanged if not base64 encoded", async (t) => {
+	const event = { body: '{"foo":"bar"}', isBase64Encoded: false };
+	strictEqual(decodeBody(event), '{"foo":"bar"}');
+});
+test("decodeBody should decode base64 body", async (t) => {
+	const event = {
+		body: Buffer.from('{"foo":"bar"}').toString("base64"),
+		isBase64Encoded: true,
+	};
+	strictEqual(decodeBody(event), '{"foo":"bar"}');
+});
+test("decodeBody should return undefined for undefined body", async (t) => {
+	const event = { body: undefined, isBase64Encoded: false };
+	strictEqual(decodeBody(event), undefined);
+});
+test("decodeBody should return null for null body", async (t) => {
+	const event = { body: null, isBase64Encoded: false };
+	strictEqual(decodeBody(event), null);
 });
 
 // normalizeHttpResponse

@@ -62,7 +62,6 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
-			// TODO v8 deprecate `else`
 		} else {
 			if (incomingOrigin && options.credentials && options.origin === "*") {
 				return incomingOrigin;
@@ -77,6 +76,22 @@ const httpCorsMiddleware = (opts = {}) => {
 		...opts,
 	};
 
+	if (
+		options.requestHeaders !== undefined &&
+		!Array.isArray(options.requestHeaders)
+	) {
+		throw new Error("requestHeaders must be an array", {
+			cause: { package: "@middy/http-cors" },
+		});
+	}
+	if (
+		options.requestMethods !== undefined &&
+		!Array.isArray(options.requestMethods)
+	) {
+		throw new Error("requestMethods must be an array", {
+			cause: { package: "@middy/http-cors" },
+		});
+	}
 	options.requestHeaders = options.requestHeaders?.map((v) => v.toLowerCase());
 	options.requestMethods = options.requestMethods?.map((v) => v.toUpperCase());
 

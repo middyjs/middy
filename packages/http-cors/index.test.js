@@ -2112,3 +2112,27 @@ test("It should match IDN origin when configured in unicode (dynamic)", async (t
 		},
 	});
 });
+
+test("It should throw when requestHeaders is not an array", async (t) => {
+	try {
+		httpCors({
+			disableBeforePreflightResponse: false,
+			requestHeaders: "not-an-array",
+		});
+		throw new Error("Should have thrown");
+	} catch (e) {
+		strictEqual(e.message, "requestHeaders must be an array");
+	}
+});
+
+test("It should throw when requestMethods is not an array", async (t) => {
+	try {
+		httpCors({
+			disableBeforePreflightResponse: false,
+			requestMethods: "not-an-array",
+		});
+		throw new Error("Should have thrown");
+	} catch (e) {
+		strictEqual(e.message, "requestMethods must be an array");
+	}
+});
