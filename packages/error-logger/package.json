@@ -1,6 +1,6 @@
 {
 	"name": "@middy/error-logger",
-	"version": "7.1.0",
+	"version": "7.1.1",
 	"description": "Error logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,7 +64,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.0",
+		"@middy/core": "7.1.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	},

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-event-normalizer",
-	"version": "7.1.0",
+	"version": "7.1.1",
 	"description": "HTTP event normalizer middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -66,7 +66,7 @@
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
 	"devDependencies": {
-		"@middy/core": "7.1.0",
+		"@middy/core": "7.1.1",
 		"@types/aws-lambda": "^8.0.0"
 	}
 }
