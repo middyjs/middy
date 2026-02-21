@@ -1,7 +1,7 @@
 {
 	"name": "@middy/http-content-negotiation",
-	"version": "7.1.0",
-	"description": "Http content negotiation middleware for the middy framework",
+	"version": "7.1.1",
+	"description": "HTTP content negotiation middleware for the middy framework",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -65,11 +65,12 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.1.0",
+		"@middy/util": "7.1.1",
 		"negotiator": "1.0.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.0"
+		"@middy/core": "7.1.1",
+		"@types/aws-lambda": "^8.0.0"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

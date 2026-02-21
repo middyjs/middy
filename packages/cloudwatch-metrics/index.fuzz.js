@@ -1,15 +1,25 @@
 import { test } from "node:test";
 import fc from "fast-check";
-import middy from "../core/index.js";
 
-// import middleware from '../index.js' // TODO needs mocking
+test("fuzz `event` w/ `object`", async (t) => {
+	t.mock.module("aws-embedded-metrics", {
+		namedExports: {
+			createMetricsLogger: () => ({
+				setNamespace: () => {},
+				setDimensions: () => {},
+				flush: async () => {},
+			}),
+		},
+	});
 
-const handler = middy((event) => event); // .use(middleware())
-const context = {
-	getRemainingTimeInMillis: () => 1000,
-};
+	const { default: middy } = await import("../core/index.js");
+	const { default: middleware } = await import("./index.js");
 
-test("fuzz `event` w/ `object`", async () => {
+	const handler = middy((event) => event).use(middleware());
+	const context = {
+		getRemainingTimeInMillis: () => 1000,
+	};
+
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, context);
@@ -17,7 +27,6 @@ test("fuzz `event` w/ `object`", async () => {
 		{
 			numRuns: 100_000,
 			verbose: 2,
-
 			examples: [],
 		},
 	);

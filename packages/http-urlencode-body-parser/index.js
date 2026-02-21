@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import querystring from "node:querystring";
 import { createError } from "@middy/util";
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/;
@@ -27,17 +26,14 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			});
 		}
 
-		// if (typeof body === "undefined") {
-		// 		throw createError(415, "Invalid or malformed URL encoded form was provided",
-		// 			{ cause: { package: "@middy/http-urlencode-body-parser", data: body } },
-		// 		);
-		// }
-
 		const data = request.event.isBase64Encoded
 			? Buffer.from(body, "base64").toString()
 			: body;
 
-		request.event.body = querystring.parse(data);
+		request.event.body = Object.assign(
+			Object.create(null),
+			Object.fromEntries(new URLSearchParams(data)),
+		);
 		// Check if it didn't parse
 		if (request.event.body?.[body] === "") {
 			throw createError(

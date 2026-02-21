@@ -33,10 +33,6 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
 		if (request.response !== undefined) return;
 
-		// Force all to be sent to DLQ
-		// const recordPromises = request.event.Records.map(async (record, index) => {
-		//   throw request.error
-		// })
 		request.response = new Array(request.event.Records?.length).fill({
 			status: "rejected",
 			reason: request.error,

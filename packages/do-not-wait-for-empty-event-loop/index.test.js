@@ -1,8 +1,6 @@
 import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-// import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import middy from "../core/index.js";
-// import {lambdaContext} from '../util/index.js'
 import doNotWaitForEmptyEventLoop from "./index.js";
 
 const event = {};

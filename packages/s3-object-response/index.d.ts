@@ -6,6 +6,9 @@ import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
+export type ParamType<T> = string & { __returnType?: T };
+export declare function s3ObjectResponseParam<T>(name: string): ParamType<T>;
+
 export interface S3ObjectResponseOptions<AwsS3Client = S3Client>
 	extends Pick<
 		MiddyOptions<AwsS3Client, S3ClientConfig>,

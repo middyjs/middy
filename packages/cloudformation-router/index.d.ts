@@ -8,8 +8,13 @@ interface Route<T = never> {
 	handler: CloudFormationCustomResourceHandler<T>;
 }
 
+export interface Options {
+	routes: Route[];
+	notFoundResponse?: (input: { requestType: string }) => never;
+}
+
 declare function cloudformationRouterHandler(
-	routes: Route[],
+	options: Options | Route[],
 ): middy.MiddyfiedHandler;
 
 export default cloudformationRouterHandler;

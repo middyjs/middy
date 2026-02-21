@@ -6,7 +6,7 @@ import { MockAgent, setGlobalDispatcher } from "undici";
 import middy from "../core/index.js";
 import { clearCache } from "../util/index.js";
 
-import s3ObejctResponse from "./index.js";
+import s3ObjectResponse from "./index.js";
 
 let agent;
 test.beforeEach((t) => {
@@ -61,7 +61,7 @@ test("It should fetch and forward Body", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -100,7 +100,7 @@ test("It should fetch and forward body", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -139,7 +139,7 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 			disablePrefetch: true,
 		}),
@@ -170,7 +170,7 @@ test("It should handle event without getObjectContext", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -194,7 +194,7 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);

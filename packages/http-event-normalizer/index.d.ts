@@ -6,8 +6,21 @@ import type {
 	APIGatewayProxyEventMultiValueQueryStringParameters,
 	APIGatewayProxyEventPathParameters,
 	APIGatewayProxyEventQueryStringParameters,
-	// TODO add in VPC Lattice event
 } from "aws-lambda";
+
+// TODO: Import from 'aws-lambda' when @types/aws-lambda adds VPC Lattice types
+// https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/aws-lambda
+export interface VPCLatticeEvent {
+	body: string | null;
+	headers: { [name: string]: string | undefined };
+	is_base64_encoded: boolean;
+	isBase64Encoded: boolean;
+	method: string;
+	path: string;
+	pathParameters: APIGatewayProxyEventPathParameters;
+	query_string_parameters: APIGatewayProxyEventQueryStringParameters | null;
+	queryStringParameters: APIGatewayProxyEventQueryStringParameters;
+}
 
 export type Event = APIGatewayEvent & {
 	multiValueQueryStringParameters: APIGatewayProxyEventMultiValueQueryStringParameters;

@@ -1,151 +1,137 @@
-import { ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
-// import middy from '../../core/index.js'
-// import metrics from '../index.js'
-
-test("it should skip cloudwatch-metrics", (t) => {
-	ok(true);
-});
-/*
-let metricsLoggerMock, createMetricsLoggerStub, mock
-
-const event = {}
+const event = {};
 const defaultContext = {
-  getRemainingTimeInMillis: () => 1000
-}
+	getRemainingTimeInMillis: () => 1000,
+};
 
-test.beforeEach((t) => {
-  metricsLoggerMock = {
-    flush: t.mock.fn(),
-    setNamespace: t.mock.fn(),
-    setDimensions: t.mock.fn()
-  }
-  createMetricsLoggerStub = t.mock.fn(metricsLoggerMock)
-  mock = t.mock.module('aws-embedded-metrics', {
-    defaultExport: {
-      createMetricsLogger: function getterFn() {
-        return createMetricsLoggerStub
-      }
-    },
-    namedExports: {
-      createMetricsLogger: function getterFn() {
-        return createMetricsLoggerStub
-      }
-    }
-  })
+test("It should handle all cloudwatch-metrics scenarios", async (t) => {
+	const mockState = {
+		flushCalled: false,
+		namespaceValue: null,
+		dimensionsValue: null,
+		setNamespaceCalled: false,
+		setDimensionsCalled: false,
+	};
 
-})
+	t.mock.module("aws-embedded-metrics", {
+		namedExports: {
+			createMetricsLogger: () => ({
+				flush: async () => {
+					mockState.flushCalled = true;
+				},
+				setNamespace: (namespace) => {
+					mockState.namespaceValue = namespace;
+					mockState.setNamespaceCalled = true;
+				},
+				setDimensions: (dimensions) => {
+					mockState.dimensionsValue = dimensions;
+					mockState.setDimensionsCalled = true;
+				},
+			}),
+		},
+	});
 
-test.afterEach((t) => {
-  mock.rest()
-})
+	const { default: middy } = await import("../core/index.js");
+	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
 
-test('It should add a MetricLogger instance on context.metrics', async (t) => {
-  const handler = middy((event, context) => {
-    strictEqual(createMetricsLoggerStub.mock.callCount(), 1)
-    deepStrictEqual(context, {
-      ...defaultContext,
-      metrics: metricsLoggerMock
-    })
-  })
+	// Test 1: Add MetricLogger instance on context.metrics
+	const handler1 = middy((event, context) => {
+		ok(context.metrics);
+		strictEqual(typeof context.metrics.flush, "function");
+		strictEqual(typeof context.metrics.setNamespace, "function");
+		strictEqual(typeof context.metrics.setDimensions, "function");
+	});
+	handler1.use(cloudwatchMetricsMiddleware());
+	await handler1(event, defaultContext);
 
-  handler.use(metrics())
+	// Test 2: Call metrics.flush after handler invocation
+	mockState.flushCalled = false;
+	const handler2 = middy(() => {});
+	handler2.use(cloudwatchMetricsMiddleware());
+	await handler2(event, defaultContext);
+	strictEqual(mockState.flushCalled, true);
 
-  const context = { ...defaultContext }
-  await handler(event, context)
-})
+	// Test 3: Call metrics.setNamespace when option passed
+	mockState.namespaceValue = null;
+	mockState.setNamespaceCalled = false;
+	const handler3 = middy(() => {});
+	handler3.use(cloudwatchMetricsMiddleware({ namespace: "myNamespace" }));
+	await handler3(event, defaultContext);
+	strictEqual(mockState.namespaceValue, "myNamespace");
 
-test('It should call metrics.flush after handler invocation', async (t) => {
-  const handler = middy(() => {})
+	// Test 4: Call metrics.setDimensions when option passed using plain object
+	mockState.dimensionsValue = null;
+	mockState.setDimensionsCalled = false;
+	const handler4 = middy(() => {});
+	handler4.use(
+		cloudwatchMetricsMiddleware({
+			dimensions: {
+				Runtime: "NodeJS",
+				Platform: "ECS",
+				Agent: "CloudWatchAgent",
+				Version: 2,
+			},
+		}),
+	);
+	await handler4(event, defaultContext);
+	deepStrictEqual(mockState.dimensionsValue, {
+		Runtime: "NodeJS",
+		Platform: "ECS",
+		Agent: "CloudWatchAgent",
+		Version: 2,
+	});
 
-  const middleware = () => {
-    strictEqual(metricsLoggerMock.flush.mock.callCount(), 1)
-  }
+	// Test 5: Call metrics.setDimensions when option passed using an array of objects
+	mockState.dimensionsValue = null;
+	const handler5 = middy(() => {});
+	handler5.use(
+		cloudwatchMetricsMiddleware({
+			dimensions: [
+				{
+					Runtime: "NodeJS",
+					Platform: "ECS",
+					Agent: "CloudWatchAgent",
+					Version: 2,
+				},
+			],
+		}),
+	);
+	await handler5(event, defaultContext);
+	deepStrictEqual(mockState.dimensionsValue, [
+		{
+			Runtime: "NodeJS",
+			Platform: "ECS",
+			Agent: "CloudWatchAgent",
+			Version: 2,
+		},
+	]);
 
-  handler.use(metrics()).after(middleware)
+	// Test 6: Flush metrics on error
+	mockState.flushCalled = false;
+	const handler6 = middy(() => {
+		throw new Error("test error");
+	});
+	handler6.use(cloudwatchMetricsMiddleware());
+	try {
+		await handler6(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.message, "test error");
+	}
+	strictEqual(mockState.flushCalled, true);
 
-  const context = { ...defaultContext }
-  await handler(event, context)
-})
+	// Test 7: Not call setNamespace when namespace option not passed
+	mockState.setNamespaceCalled = false;
+	const handler7 = middy(() => {});
+	handler7.use(cloudwatchMetricsMiddleware());
+	await handler7(event, defaultContext);
+	strictEqual(mockState.setNamespaceCalled, false);
 
-test('It should call metrics.setNamespace when option passed', async (t) => {
-  const handler = middy(() => {})
-
-  const middleware = () => {
-    strictEqual(metricsLoggerMock.setNamespace.mock.callCount(), 1)
-    strictEqual(metricsLoggerMock.setNamespace.mock.calls, ['myNamespace'])
-  }
-
-  handler.use(metrics({ namespace: 'myNamespace' })).before(middleware)
-
-  const context = { ...defaultContext }
-  await handler(event, context)
-})
-
-test('It should call metrics.setDimensions when option passed using plain object', async (t) => {
-  const handler = middy(() => {})
-
-  const middleware = () => {
-    strictEqual(metricsLoggerMock.setDimensions.mock.callCount(), 1)
-    strictEqual(metricsLoggerMock.setDimensions.mock.calls, [
-      {
-        Runtime: 'NodeJS',
-        Platform: 'ECS',
-        Agent: 'CloudWatchAgent',
-        Version: 2
-      }
-    ])
-  }
-
-  handler
-    .use(
-      metrics({
-        dimensions: {
-          Runtime: 'NodeJS',
-          Platform: 'ECS',
-          Agent: 'CloudWatchAgent',
-          Version: 2
-        }
-      })
-    )
-    .before(middleware)
-
-  const context = { ...defaultContext }
-  await handler(event, context)
-})
-
-test('It should call metrics.setDimensions when option passed using an array of objects', async (t) => {
-  const handler = middy(() => {})
-
-  const middleware = () => {
-    strictEqual(metricsLoggerMock.setDimensions.mock.callCount(), 1)
-    strictEqual(metricsLoggerMock.setDimensions.mock.calls, [
-      {
-        Runtime: 'NodeJS',
-        Platform: 'ECS',
-        Agent: 'CloudWatchAgent',
-        Version: 2
-      }
-    ])
-  }
-
-  handler
-    .use(
-      metrics({
-        dimensions: [
-          {
-            Runtime: 'NodeJS',
-            Platform: 'ECS',
-            Agent: 'CloudWatchAgent',
-            Version: 2
-          }
-        ]
-      })
-    )
-    .before(middleware)
-
-  const context = { ...defaultContext }
-  await handler(event, context)
-})
-*/
+	// Test 8: Not call setDimensions when dimensions option not passed
+	mockState.setDimensionsCalled = false;
+	const handler8 = middy(() => {});
+	handler8.use(cloudwatchMetricsMiddleware());
+	await handler8(event, defaultContext);
+	strictEqual(mockState.setDimensionsCalled, false);
+});

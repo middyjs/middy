@@ -7,7 +7,7 @@ import type {
 import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 
-interface Options<
+export interface Options<
 	AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient,
 > extends Pick<
 		MiddyOptions<

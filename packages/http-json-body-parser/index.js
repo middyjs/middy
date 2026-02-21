@@ -26,7 +26,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		if (typeof body === "undefined") {
-			throw createError(415, "Invalid or malformed JSON was provided", {
+			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: { package: "@middy/http-json-body-parser", data: body },
 			});
 		}
@@ -38,8 +38,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 
 			request.event.body = JSON.parse(data, options.reviver);
 		} catch (err) {
-			// UnprocessableEntity
-			throw createError(415, "Invalid or malformed JSON was provided", {
+			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
 					package: "@middy/http-json-body-parser",
 					data: body,

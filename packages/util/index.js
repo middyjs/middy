@@ -226,17 +226,17 @@ export const jsonSafeParse = (text, reviver) => {
 	if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') return text;
 	try {
 		return JSON.parse(text, reviver);
-	} catch (_e) {}
-
-	return text;
+	} catch {
+		return text;
+	}
 };
 
 export const jsonSafeStringify = (value, replacer, space) => {
 	try {
 		return JSON.stringify(value, replacer, space);
-	} catch (_e) {}
-
-	return value;
+	} catch {
+		return value;
+	}
 };
 
 export const normalizeHttpResponse = (request) => {

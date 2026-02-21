@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy http-security-headers middleware</h1>
+  <h1>Middy `http-security-headers` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP security headers middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>Applies best practice security headers to responses. It's a simplified port of [HelmetJS](https://helmetjs.github.io/). See HelmetJS documentation for more details.</p>

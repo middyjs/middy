@@ -11,7 +11,7 @@ import type {
 	SanitizeKeys,
 } from "./type-utils.d.ts";
 
-interface Options<Client, ClientOptions> {
+export interface Options<Client, ClientOptions> {
 	AwsClient?: new (...[config]: [any] | any) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
@@ -23,7 +23,7 @@ interface Options<Client, ClientOptions> {
 	setToContext?: boolean;
 }
 
-declare class HttpError extends Error {
+export declare class HttpError extends Error {
 	status: number;
 	statusCode: number;
 	expose: boolean;
@@ -143,3 +143,35 @@ declare function createError(
 ): HttpError;
 
 declare function modifyCache(cacheKey: string, value: any): void;
+
+declare function catchInvalidSignatureException<Client, Command>(
+	e: Error & { __type?: string },
+	client: Client,
+	command: Command,
+): Promise<any>;
+
+declare function jsonSafeStringify(
+	value: any,
+	replacer?: (key: string, value: any) => any,
+	space?: string | number,
+): string | any;
+
+declare const lambdaContextKeys: string[];
+
+declare const executionContextKeys: string[];
+
+declare function isExecutionModeDurable(context: LambdaContext): boolean;
+
+declare function executionContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): any;
+
+declare function lambdaContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): any;
+
+declare const httpErrorCodes: Record<number, string>;

@@ -15,6 +15,7 @@ export interface Options {
 	requestHeaders?: string[];
 	requestMethods?: string[];
 	cacheControl?: string;
+	vary?: string;
 }
 
 declare function httpCors(options?: Options): middy.MiddlewareObj;

@@ -7,7 +7,7 @@ test("use with default options", () => {
 	expect(middleware).type.toBe<middy.MiddlewareObj>();
 });
 
-test("use with all options", () => {
-	const middleware = eventNormalizer();
+test("use with options", () => {
+	const middleware = eventNormalizer({ wrapNumbers: true });
 	expect(middleware).type.toBe<middy.MiddlewareObj>();
 });

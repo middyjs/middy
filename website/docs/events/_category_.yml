@@ -1,8 +1,0 @@
-position: 6 # float position is supported
-label: 'AWS Event Examples'
-collapsible: true # make the category collapsible
-collapsed: true # keep the category open by default
-className: red
-link:
-  type: generated-index
-  title: AWS Event Examples

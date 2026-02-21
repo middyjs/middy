@@ -18,6 +18,7 @@ test("use with default options", () => {
 const options = {
 	AwsClient: ServiceDiscoveryClient,
 	awsClientOptions: {},
+	awsClientAssumeRole: "some-role",
 	awsClientCapture: captureAWSv3Client,
 	disablePrefetch: true,
 };

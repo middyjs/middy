@@ -7,8 +7,9 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 
-interface Options {
+export interface Options {
 	reviver?: (key: string, value: any) => any;
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 

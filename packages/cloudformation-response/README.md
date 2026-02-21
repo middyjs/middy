@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy cloudformation lambda middleware</h1>
+  <h1>Middy `cloudformation-response` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>CloudFormation Custom Response event response handling for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
 <p>
@@ -27,12 +27,12 @@
     <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
     <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
 </p>
-<p>You can read the documentation at: <a href="https://middy.js.org/docs/middleware/cloudformation-response">https://middy.js.org/docs/middleware/cloudformation-response</a></p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/cloudformation-response">https://middy.js.org/docs/middlewares/cloudformation-response</a></p>
 </div>
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2024 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell), and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).
 
 <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
   <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">

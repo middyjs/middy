@@ -129,7 +129,7 @@ const runRequest = async (
 			];
 
 			// clearTimeout pattern is 10x faster than using AbortController
-			// Note: signal.abort is slow ~6000ns
+			// Note: signal.abort is slow ~6_000ns
 			// Required --test-force-exit to ignore unresolved timeoutPromise
 			if (timeoutEarly) {
 				let timeoutResolve;
@@ -153,22 +153,7 @@ const runRequest = async (
 
 			if (timeoutID) {
 				clearTimeout(timeoutID);
-			} // alt varient for when abort() is faster
-			// if (timeoutEarly) {
-			// 	const timeoutPromise = setTimeoutPromise(
-			// 		() => {
-			// 		  handlerAbort.abort();
-			// 		  plugin.timeoutEarlyResponse()
-			// 		},
-			// 		getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
-			// 		{
-			// 			signal: handlerAbort.signal,
-			// 		}
-			// 	);
-			// 	promises.push(timeoutPromise);
-			// }
-			// request.response = await Promise.race(promises);
-			// handlerAbort.abort(); // abort timeout
+			}
 
 			plugin.afterHandler?.();
 			await runMiddlewares(request, afterMiddlewares, plugin);

@@ -9,6 +9,9 @@ import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
+export type ParamType<T> = string & { __returnType?: T };
+export declare function stsParam<T>(name: string): ParamType<T>;
+
 export interface AssumedRoleCredentials {
 	accessKeyId: string;
 	secretAccessKey: string;

@@ -4,7 +4,7 @@ import type middy from "@middy/core";
 import type { APIGatewayEvent } from "aws-lambda";
 import type { JsonValue } from "type-fest";
 
-interface Options {
+export interface Options {
 	disableContentTypeError?: boolean;
 }
 

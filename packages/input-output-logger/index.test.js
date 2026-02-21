@@ -544,14 +544,18 @@ test("It should handle Uint8Array chunks in Web Streams", async (t) => {
 	);
 
 	const event = {};
-	let chunkResponse = "";
+	const chunks = [];
 	const responseStream = createWritableStream((chunk) => {
-		chunkResponse += chunk;
+		chunks.push(chunk);
 	});
 	const response = await handler(event, responseStream, context);
 	strictEqual(response, undefined);
-	// The response written to the stream should be the Uint8Array
-	// Since createWritableStream converts it to string, we need to check differently
+	const chunkResponse = chunks
+		.map((c) =>
+			c instanceof Uint8Array ? new TextDecoder().decode(c) : String(c),
+		)
+		.join("");
+	strictEqual(chunkResponse, input);
 	strictEqual(logged.length, 2);
 	deepStrictEqual(logged[0], { event: {} });
 	// The logged response should have decoded the Uint8Array to text
@@ -590,8 +594,8 @@ test("It should handle non-string non-Uint8Array chunks in Web Streams", async (
 	});
 	const response = await handler(event, responseStream, context);
 	strictEqual(response, undefined);
+	strictEqual(chunkResponse, "12345");
 	strictEqual(logged.length, 2);
 	deepStrictEqual(logged[0], { event: {} });
-	// The logged response should have converted the number to string
 	strictEqual(logged[1].response, "12345");
 });
