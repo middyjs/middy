@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+
+buildFile() {
+	#  --minify
+	esbuild ${1} \
+		--platform=browser --format=esm  --bundle \
+		"--external:/js/*" \
+		--legal-comments=external --sourcemap=external \
+		--log-level=error \
+		--allow-overwrite --outfile=${2}
+}
+
+buildDir() {
+	INPUT=$1
+	OUTPUT=$2
+
+	mkdir -p ${OUTPUT}
+
+	for file in ${INPUT}*; do
+		out_file=${file##${INPUT}}
+		out_file=${OUTPUT}${out_file}
+	  buildFile ${file} ${out_file} &
+	done
+}
+
+# run within workflows
+# curl https://www.browsers.fyi/api/ > ./src/scripts/browsers.json
+
+buildFile ./src/scripts/bootstrap.js    ./static/js/bootstrap.js &
+buildFile ./src/scripts/sw.js           ./static/sw.js &
+buildDir  ./src/scripts/pewc/           ./static/js/pewc/ &
+buildDir  ./src/scripts/polyfill/       ./static/js/polyfill/ &
+
+wait

@@ -78,6 +78,14 @@
 		"typescript": "^5.0.0",
 		"undici": "^7.0.0"
 	},
+	"overrides": {
+		"@sveltejs/kit": {
+			"cookie": "0.7.2"
+		},
+		"license-check-and-add": {
+			"minimatch": "10.2.2"
+		}
+	},
 	"devEngines": {
 		"runtime": {
 			"name": "node",
@@ -90,6 +98,7 @@
 	},
 	"workspaces": [
 		"packages/*",
+		"websites/*",
 		".github"
 	]
 }

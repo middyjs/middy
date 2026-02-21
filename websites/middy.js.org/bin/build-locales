@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -e
+
+srcDir=./src/locales
+destDir=./src/locales
+
+function buildFile {
+  # fix tabs
+  sed -i.bak 's/\t/    /g' ${1}
+  rm ${1}.bak
+
+  LOCALE=$(basename ${2%.js})
+  LANGUAGE=${LOCALE%-CA}
+
+  ftl ${1} --exclude-value \"\" --output ${2} \
+    --locale ${LOCALE} --locale ${LANGUAGE}
+}
+
+function buildDir {
+  INPUT=$1
+  OUTPUT=$2
+  mkdir -p $OUTPUT
+
+  for file in ${INPUT}*.ftl; do
+    file_output=${file%.ftl}.js
+    buildFile ${file} ${file/${INPUT}/${OUTPUT}}
+  done
+}
+
+buildFile ${srcDir}/en-CA.ftl ${destDir}/en-CA.js &
+#buildFile ${srcDir}/en.ftl ${destDir}/en-US.js &
+#buildFile ${srcDir}/fr-CA.ftl ${destDir}/fr-CA.js &
+
+wait
