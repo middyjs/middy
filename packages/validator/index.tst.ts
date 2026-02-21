@@ -9,9 +9,12 @@ test("use with default options", () => {
 
 test("use with all options", () => {
 	const middleware = validator({
-		eventSchema: () => {},
-		contextSchema: () => {},
-		responseSchema: () => {},
+		eventSchema: ((data: unknown): data is unknown =>
+			true) as import("./index.js").ValidateFunction,
+		contextSchema: ((data: unknown): data is unknown =>
+			true) as import("./index.js").ValidateFunction,
+		responseSchema: ((data: unknown): data is unknown =>
+			true) as import("./index.js").ValidateFunction,
 		defaultLanguage: "en",
 		languages: {},
 	});
