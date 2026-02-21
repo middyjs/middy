@@ -529,7 +529,7 @@ test("It should throw when not a http event (missing method)", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		strictEqual(e.message, "Unknown http event format");
+		strictEqual(e.message, "Unknown HTTP event format");
 	}
 });
 
@@ -547,7 +547,7 @@ test("It should throw when not a http event (missing path)", async (t) => {
 	try {
 		await handler(event, context);
 	} catch (e) {
-		strictEqual(e.message, "Unknown http event format");
+		strictEqual(e.message, "Unknown HTTP event format");
 	}
 });
 

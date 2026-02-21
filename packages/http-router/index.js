@@ -11,6 +11,9 @@ const defaults = {
 		throw err;
 	},
 };
+
+const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
+
 const httpRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {
@@ -47,7 +50,7 @@ const httpRouteHandler = (opts = {}) => {
 		attachDynamicRoute(method, path, handler, routesDynamic);
 	}
 
-	return (event, context, abort) => {
+	const handler = (event, context, abort) => {
 		const { method, path } = getVersionRoute[pickVersion(event)](event);
 
 		if (!method) {
@@ -87,12 +90,11 @@ const httpRouteHandler = (opts = {}) => {
 		// Not Found
 		return notFoundResponse({ method, path });
 	};
+	return handler;
 };
 
 const regExpDynamicWildcards = /\/\{(proxy)\+\}$/;
 const regExpDynamicParameters = /\/\{([^/]+)\}/g;
-
-const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
 
 const attachStaticRoute = (method, path, handler, routesType) => {
 	if (method === "ANY") {

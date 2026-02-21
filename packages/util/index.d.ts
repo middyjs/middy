@@ -11,7 +11,7 @@ import type {
 	SanitizeKeys,
 } from "./type-utils.d.ts";
 
-interface Options<Client, ClientOptions> {
+export interface Options<Client, ClientOptions> {
 	AwsClient?: new (...[config]: [any] | any) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
