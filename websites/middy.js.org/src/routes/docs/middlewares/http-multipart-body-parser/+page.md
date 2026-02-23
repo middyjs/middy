@@ -22,6 +22,7 @@ npm install --save @middy/http-multipart-body-parser
 
 - `busboy` (`object`) (optional): defaults to `{}` and it can be used to pass extraparameters to the internal `busboy` instance at creation time. Checkout [the official documentation](https://www.npmjs.com/package/busboy#busboy-methods) for more information on the supported options.
 - `charset` (string) (default `utf8`): it can be used to change default charset. Set to `binary` when recieving images.
+- `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for Form Data.. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
 **Note**: this middleware will buffer all the data as it is processed internally by `busboy`, so, if you are using this approach to parse significantly big volumes of data, keep in mind that all the data will be allocated in memory. This is somewhat inevitable with Lambdas (as the data is already encoded into the JSON in memory as Base64), but it's good to keep this in mind and evaluate the impact on you application.

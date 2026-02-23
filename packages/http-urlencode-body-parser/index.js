@@ -4,6 +4,7 @@ import { createError, decodeBody } from "@middy/util";
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/;
 const defaults = {
+	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
@@ -14,7 +15,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!mimePattern.test(contentType)) {
+		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
 			if (options.disableContentTypeError) {
 				return;
 			}
@@ -27,19 +28,18 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		}
 
 		const data = decodeBody(request.event);
+		const parsedBody = Object.fromEntries(new URLSearchParams(data));
 
-		request.event.body = Object.assign(
-			Object.create(null),
-			Object.fromEntries(new URLSearchParams(data)),
-		);
 		// Check if it didn't parse
-		if (request.event.body?.[body] === "") {
+		if (parsedBody?.[body] === "") {
 			throw createError(
 				415,
 				"Invalid or malformed URL encoded form was provided",
 				{ cause: { package: "@middy/http-urlencode-body-parser", data: body } },
 			);
 		}
+
+		request.event.body = Object.assign(Object.create(null), parsedBody);
 	};
 
 	return {

@@ -15,6 +15,7 @@ npm install --save @middy/http-urlencode-body-parser
 
 ## Options
 
+- `disableContentTypeCheck` (`boolean`) (optional): Skip `Content-Type` check for Form URLEncoded. Default: `false`.
 - `disableContentTypeError` (`boolean`) (optional): Skip throwing 415 when `Content-Type` is invalid. Default: `false`.
 
 ## Sample usage
