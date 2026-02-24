@@ -3,9 +3,9 @@
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import {
 	canPrefetch,
+	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
-	// catchInvalidSignatureException
 } from "@middy/util";
 
 const defaults = {
@@ -40,8 +40,10 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 			RequestToken: request.event.getObjectContext?.outputToken,
 			Body: request.response.Body ?? request.response.body,
 		});
-		await client.send(command); // Doesn't return a promise?
-		// .catch((e) => catchInvalidSignatureException(e, client, command))
+		await client
+			.send(command)
+			// ?. required due to mockClient able to return undefined
+			?.catch((e) => catchInvalidSignatureException(e, client, command));
 
 		return { statusCode: 200 };
 	};

@@ -30,5 +30,10 @@ export const handler = middy((event, context) => {
   }
 })
 
-handler.use(cloudformationResponse())
+handler.use(cloudformationResponse({routes:[
+		{
+			requestType: "Create",
+			handler: () => { ... },
+		},
+	]}))
 ```
