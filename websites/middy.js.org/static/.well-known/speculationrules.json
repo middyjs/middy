@@ -1,0 +1,10 @@
+{
+	"prerender": [
+		{
+			"where": {
+				"and": [{ "href_matches": "/*" }]
+			},
+			"eagerness": "moderate"
+		}
+	]
+}

@@ -3,7 +3,7 @@
 import { jsonSafeParse, normalizeHttpResponse } from "@middy/util";
 
 const defaults = {
-	logger: console.error, // TODO v8 change to pass in request
+	logger: console.error,
 	fallbackMessage: undefined,
 };
 

@@ -1,9 +1,14 @@
 import type { Ajv } from "ajv";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
+import type { LocalizeFunction } from "./transpile.js";
 import { transpileLocale, transpileSchema } from "./transpile.js";
 
-const schema = transpileSchema({ type: "object" }, {});
-expect(schema).type.toBe<Ajv>();
+test("transpileSchema returns Ajv instance", () => {
+	const schema = transpileSchema({ type: "object" }, {});
+	expect(schema).type.toBe<Ajv>();
+});
 
-const locale = transpileLocale("", {});
-expect(locale).type.toBe<Function>();
+test("transpileLocale returns LocalizeFunction", () => {
+	const locale = transpileLocale("", {});
+	expect(locale).type.toBe<LocalizeFunction>();
+});

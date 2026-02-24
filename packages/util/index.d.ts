@@ -156,6 +156,11 @@ declare function jsonSafeStringify(
 	space?: string | number,
 ): string | any;
 
+declare function decodeBody(event: {
+	body?: string | null;
+	isBase64Encoded?: boolean;
+}): string | null | undefined;
+
 declare const lambdaContextKeys: string[];
 
 declare const executionContextKeys: string[];

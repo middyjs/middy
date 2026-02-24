@@ -1,0 +1,127 @@
+:root {
+	--hex-main: #522e9a; /*#f90;*/
+}
+
+header input {
+	/*--border-width: 1px;*/
+	--border-color: var(--color-l5);
+}
+.grid:has(.stat) {
+	--grid-min-width: 15ch;
+	grid-template-columns: repeat(auto-fit, var(--grid-min-width));
+	list-style-type: none;
+	padding-inline-start: 0;
+	justify-content: center;
+}
+.grid > .stat {
+	--border-width: 0;
+
+	& h3 {
+		display: inline-flex;
+		align-items: center;
+	}
+	& p {
+		margin-block: 0;
+	}
+}
+section.grid:has(.feature) {
+	padding: var(--block-padding) var(--page-gap);
+}
+.grid:has(.feature) {
+	max-width: 110ch;
+	margin: auto;
+}
+.grid > .feature {
+	--border-width: 0;
+	--border-radius: 2em;
+	background-color: var(--color-l1);
+}
+
+.grid > .event {
+	--border-width: 1px;
+	--border-color: var(--color-l5);
+	filter: unset;
+	& > p {
+		margin: 0;
+	}
+}
+.grid > .sponsor {
+	--border-width: 0;
+	--border-radius: 2em;
+	align-content: center;
+	justify-items: center;
+	text-align: center;
+	background-color: light-dark(#fff, #efefef);
+}
+
+/* round buttons, cards */
+:root {
+	--border-radius: 0.25rem;
+}
+[is="ds-card"] {
+	background-color: var(--color-l1);
+	--border-radius: 0.5rem;
+
+	/*filter: drop-shadow(0 0 0.5rem var(--color-main-pseudo));
+    &:hover {
+        filter: drop-shadow(0 0 1rem var(--color-main-pseudo));
+    }*/
+}
+
+/* Logos */
+
+/* Safari bug workaround */
+/* Use filter: https://angel-rs.github.io/css-color-filter-generator/ */
+[src="/img/middy-logo-name.svg"],
+[src="/img/middy-logo.svg"] {
+	/* #1f1f1f */
+	filter: brightness(0) saturate(100%) invert(6%) sepia(56%) saturate(12%)
+		hue-rotate(102deg) brightness(95%) contrast(88%);
+}
+@media (prefers-color-scheme: dark) {
+	[src="/img/middy-logo-name.svg"],
+	[src="/img/middy-logo.svg"] {
+		/* #fafafa */
+		filter: brightness(0) saturate(100%) invert(100%) sepia(4%) saturate(0%)
+			hue-rotate(259deg) brightness(104%) contrast(96%);
+	}
+}
+
+/* Hero shader background */
+.hero {
+	position: relative;
+	overflow: visible;
+}
+
+.hero::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: -25%;
+	z-index: -1;
+	background:
+		radial-gradient(circle at 40% 40%, var(--hex-main) 0%, transparent 25%),
+		radial-gradient(circle at 50% 60%, var(--hex-main) 0%, transparent 25%),
+		radial-gradient(circle at 30% 50%, var(--hex-main) 0%, transparent 25%);
+	filter: blur(25px);
+	animation: hero-shader 20s ease-in-out infinite;
+	opacity: 0.6;
+	@media (prefers-color-scheme: dark) {
+		opacity: 0.4;
+	}
+}
+
+@keyframes hero-shader {
+	0%,
+	100% {
+		transform: translate(15%, -15%) scale(1);
+	}
+	33% {
+		transform: translate(20%, -20%) scale(1.05);
+	}
+	66% {
+		transform: translate(-5%, 5%) scale(0.95);
+	}
+}

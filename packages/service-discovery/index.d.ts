@@ -13,7 +13,7 @@ import type { Context as LambdaContext } from "aws-lambda";
 export type ParamType<T> = string & { __returnType?: T };
 export declare function serviceDiscoveryParam<T>(name: string): ParamType<T>;
 
-interface ServiceDiscoveryOptions<
+export interface ServiceDiscoveryOptions<
 	AwsServiceDiscoveryClient = ServiceDiscoveryClient,
 > extends Pick<
 		MiddyOptions<AwsServiceDiscoveryClient, ServiceDiscoveryClientConfig>,

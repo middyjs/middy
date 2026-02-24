@@ -1,0 +1,183 @@
+---
+title: Upgrade 6.x -> 7.x
+---
+
+aka "Lambda goes durable"
+
+Version 7.x of Middy no longer supports Node.js versions 20.x. You are highly encouraged to move to Node.js 24.x.
+
+## Notable changes
+
+- Add support for Durable Functions, caused breaking changes to `streamifyResponse`.
+- LLRT can now be used when using `executionModeStandard` (default) & `executionModeDurableContext`
+- Works with new Tenant isolation mode
+- Works with new multi-concurrency on Lambda Managed Instances
+
+## Core
+
+- Add support for Durable Functions. Will lack support for timeout abort signal at time of release.
+- Deprecate `streamifyResponse` option for `executionMode` **Breaking Change**
+
+```javascript
+import middy from '@middy/core'
+
+const lambdaHandler = (_event, _context) => {
+  // ...
+}
+export const handler = middy({ streamifyResponse: true })
+  .handler(lambdaHandler)
+```
+
+changes to 
+
+```javascript
+import middy from '@middy/core'
+import { executionModeStreamifyResponse } from '@middy/core/StreamifyResponse'
+
+const lambdaHandler = (_event, _context) => {
+  // ...
+}
+export const handler = middy({ executionMode: executionModeStreamifyResponse })
+  .handler(lambdaHandler)
+```
+
+## Util
+
+- Added in extra utils to support durable context
+
+## Middleware
+
+### [appconfig](/docs/middlewares/appconfig)
+
+No change
+
+### [cloudwatch-metrics](/docs/middlewares/cloudwatch-metrics)
+
+No change
+
+### [do-not-wait-for-empty-event-loop](/docs/middlewares/do-not-wait-for-empty-event-loop)
+
+- Add in support for DurableContext
+
+### [error-logger](/docs/middlewares/error-logger)
+
+No change
+
+### [event-normalizer](/docs/middlewares/event-normalizer)
+
+No change
+
+### [http-content-encoding](/docs/middlewares/http-content-encoding)
+
+- Add in `zstd` support
+
+### [http-content-negotiation](/docs/middlewares/http-content-negotiation)
+
+No change
+
+### [http-cors](/docs/middlewares/http-cors)
+
+No change
+
+### [http-error-handler](/docs/middlewares/http-error-handler)
+
+No change
+
+### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
+
+No change
+
+### [http-header-normalizer](/docs/middlewares/http-header-normalizer)
+
+No change
+
+### [http-json-body-parser](/docs/middlewares/http-json-body-parser)
+
+No change
+
+### [http-multipart-body-parser](/docs/middlewares/http-multipart-body-parser)
+
+No change
+
+### [http-partial-response](/docs/middlewares/http-partial-response)
+
+No change
+
+### [http-response-serializer](/docs/middlewares/http-response-serializer)
+
+No change
+
+### [http-router](/docs/routers/http-router)
+
+Updated to handle mixed dynamic/static route priority #1484 **Breaking Change**
+
+### [http-security-headers](/docs/middlewares/http-security-headers)
+
+- Update `poweredBy` to always remove, can be disabled **Breaking Change**
+- Update `xssProtection` to reflect new best practice (exclude, or `0`) **Breaking Change**
+
+### [http-urlencode-body-parser](/docs/middlewares/http-urlencode-body-parser)
+
+No change
+
+### [http-urlencode-path-parser](/docs/middlewares/http-urlencode-path-parser)
+
+No change
+
+### [input-output-logger](/docs/middlewares/input-output-logger)
+
+- Add in support for DurableContext
+- Add in option `executionContext` to allow logging of `tenantId`
+- Renamed option `awsContext` to `lambdaContext` **Breaking Change**
+
+### [rds-signer](/docs/middlewares/rds-signer)
+
+No change
+
+### [s3-object-response](/docs/middlewares/s3-object-response)
+
+No change
+
+### [secrets-manager](/docs/middlewares/secrets-manager)
+
+No change
+
+### [service-discovery](/docs/middlewares/service-discovery)
+
+No change
+
+### [sqs-partial-batch-failure](/docs/middlewares/sqs-partial-batch-failure)
+
+No change
+
+### [ssm](/docs/middlewares/ssm)
+
+No change
+
+### [sts](/docs/middlewares/sts)
+
+No change
+
+### [validator](/docs/middlewares/validator)
+
+No change
+
+### [warmup](/docs/middlewares/warmup)
+
+No change
+
+### [ws-json-body-parser](/docs/middlewares/ws-json-body-parser)
+
+No change
+
+### [ws-response](/docs/middlewares/ws-response)
+
+No change
+
+### [ws-router](/docs/routers/ws-router)
+
+No change
+
+## Notes
+
+None

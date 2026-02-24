@@ -11,8 +11,9 @@ import type { Context as LambdaContext } from "aws-lambda";
 export type SecretType<T> = string & { __returnType?: T };
 export declare function secretsManagerParam<T>(path: string): SecretType<T>;
 
-interface SecretsManagerOptions<AwsSecretsManagerClient = SecretsManagerClient>
-	extends Omit<
+export interface SecretsManagerOptions<
+	AwsSecretsManagerClient = SecretsManagerClient,
+> extends Omit<
 		MiddyOptions<AwsSecretsManagerClient, SecretsManagerClientConfig>,
 		"fetchData"
 	> {

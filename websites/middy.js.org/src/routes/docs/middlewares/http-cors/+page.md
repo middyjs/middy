@@ -1,0 +1,70 @@
+---
+title: http-cors
+---
+
+This middleware sets HTTP CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.
+
+Sets headers in `after` and `onError` phases.
+
+## Install
+
+To install this middleware you can use NPM:
+
+```bash npm2yarn
+npm install --save @middy/http-cors
+```
+
+## Options
+
+- `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
+- `disableBeforePreflightResponse` (bool) (optional): if false, replies automatically to cors preflight requests. Set to true if handling the response in a custom way (default `true`)
+- `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
+- `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
+- `getOrigin` (function(incomingOrigin:string, options)) (optional): take full control of the generating the returned origin. Defaults to using the origin or origins option.
+- `origin` (string) (optional): default origin to put in the header (default: `null`, will exclude this header).
+- `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. If the incoming origin is not found, the header will not be returned. Wildcards can be used within the origin to match multiple origins.
+- `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
+- `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
+- `requestHeaders` (string[]) (optional): array of allowed headers to filter preflight requests by `Access-Control-Request-Headers`. CORS-safelisted request headers (`accept`, `accept-language`, `content-language`, `content-type`, `range`) are always allowed. (default: `null`)
+- `requestMethods` (string[]) (optional): array of allowed methods to filter preflight requests by `Access-Control-Request-Method` header (default: `null`)
+- `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
+
+```javascript
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
+import cors from '@middy/http-cors'
+
+const lambdaHandler = (event, context) => {
+  throw new createError.UnprocessableEntity()
+}
+export const handler = middy()
+  .use(httpErrorHandler())
+  .use(cors())
+  .handler(lambdaHandler)
+
+// when Lambda runs the handler...
+handler({}, {}, (_, response) => {
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+  deepStrictEqual(response, {
+    statusCode: 422,
+    body: 'Unprocessable Entity'
+  })
+})
+```
+
+## Sample usage
+
+```javascript
+import middy from '@middy/core'
+import cors from '@middy/http-cors'
+
+const lambdaHandler = (event, context) => {
+  return {}
+}
+export const handler = middy().use(cors()).handler(lambdaHandler)
+
+// when Lambda runs the handler...
+handler({}, {}, (_, response) => {
+  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+})
+```

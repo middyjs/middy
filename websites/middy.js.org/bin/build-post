@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -e
+
+DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+HASH=$(git rev-parse --short HEAD)
+
+# default to only use esm
+#mv ${DIR}/../build/server/index.js ${DIR}/../build/server/index.mjs
+
+# Change ?/ to encoded version to work around CloudFront limitation
+#sed -i.bak 's/action=".."?\//action="$\{"?%2F/g' ${DIR}/../build/server/index.mjs
+# sed -i.bak 's|formaction="\?\/|formaction="?%2F|g' ${DIR}/../build/server/index.mjs
+# sed -i.bak 's|action="\?\/|action="?%2F|g' ${DIR}/../build/server/index.mjs
+# sed -i.bak 's|action2 = `\?/\${action2}`;|action2 = `?%2F${action2}`;|' ${DIR}/../build/server/index.mjs
+
+# *** Compress svg *** #
+mkdir -p ${DIR}/../build/assets/
+npx svgo --multipass --recursive ${DIR}/../build/assets/ -o ${DIR}/../build/assets/
+
+# robots.txt
+if [ "${NODE_ENV}" != "production" ]; then
+  echo "Override robots.txt to deny all"
+  echo "user-agent: *
+disallow: /" > ${DIR}/../build/assets/.well-known/robots.txt
+fi
+
+# *** Move to root *** #
+
+cp ${DIR}/../build/assets/.well-known/robots.txt ${DIR}/../build/assets/robots.txt
+
+# *** Cache break *** #
+# sw.js
+sed -i.bak "s|sw-|${HASH}-|g" ${DIR}/../build/assets/sw.js
+#find ${DIR}/../build/assets/ -name "*.html" -exec sed -i '' s/?v=\"/?v=${HASH}\"/g {} +
+
+# *** Clean up *** #
+# remove .map files
+find ${DIR}/../build/assets/ -name "*.js.map" -delete
+
+# remove .LEGAL.txt
+find ${DIR}/../build/assets/ -name "*.LEGAL.txt" -delete
+
+# remove __data.json
+find ${DIR}/../build/prerendered/ -name "__data.json" -delete
+# remove vite-metadata.json
+find ${DIR}/../build/prerendered/ -name "vite-metadata.json" -delete
+
+# remove empty folders
+find ${DIR}/../build/prerendered/ -type d -empty -delete

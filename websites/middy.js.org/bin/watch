@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+PATH="./node_modules/.bin:${PATH}"
+
+DIR=${1}
+CMD=${2}
+
+ls ${DIR} | entr ${CMD}

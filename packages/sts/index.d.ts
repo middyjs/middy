@@ -23,7 +23,7 @@ export type AssumeRoleCommandInputWithOptionalRoleSessionName = Omit<
 	"RoleSessionName"
 > & { RoleSessionName?: string | undefined };
 
-interface STSOptions<AwsSTSClient = STSClient>
+export interface STSOptions<AwsSTSClient = STSClient>
 	extends Pick<
 		MiddyOptions<AwsSTSClient, STSClientConfig>,
 		| "AwsClient"
