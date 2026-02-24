@@ -15,6 +15,11 @@ const defaults = {
 
 const timePlugin = (opts = {}) => {
   const { logger, enabled } = { ...defaults, ...opts }
+  if (!enabled) {
+		return {};
+	}
+  
+	let cold = true;
   const store = {}
 
   const start = (id) => {
@@ -22,24 +27,23 @@ const timePlugin = (opts = {}) => {
   }
   const stop = (id) => {
     if (!enabled) return
-    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) / 1000000, 'ms')
+    logger(id, Number.parseInt((process.hrtime.bigint() - store[id]).toString(), 10) / 1_000_000, 'ms')
   }
 
   // Only run during cold start
-  const beforePrefetch = () => start('total')
+  const beforePrefetch = () => start('prefetch')
   const requestStart = () => {
-    if (!store.init) {
-      store.init = store.total
-      stop('init')
-    } else {
-      start('total')
-    }
-  }
+		if (cold) {
+			cold = false;
+			stop("prefetch");
+		}
+		start("request");
+	};
   const beforeMiddleware = start
   const afterMiddleware = stop
   const beforeHandler = () => start('handler')
   const afterHandler = () => stop('handler')
-  const requestEnd = () => stop('total')
+  const requestEnd = () => stop('request')
 
   return {
     beforePrefetch,
@@ -104,11 +108,17 @@ This is why.
 import memwatch from '@airbnb/node-memwatch'
 
 const defaults = {
-  logger: console.log
+  logger: console.log,
+  enabled: true,
 }
 
 const memoryPlugin = (opts = {}) => {
-  const { logger } = { ...defaults, ...opts }
+  const { logger, enabled } = { ...defaults, ...opts }
+  if (!enabled) {
+		return {};
+	}
+ 
+	let cold = true;
   const store = {}
 
   const start = (id) => {
@@ -118,16 +128,19 @@ const memoryPlugin = (opts = {}) => {
     logger(id, store[id].end())
   }
 
-  const beforePrefetch = () => start('total')
+  const beforePrefetch = () => start('prefetch')
   const requestStart = () => {
-    store.init = store.total
-    stop('init')
-  }
+		if (cold) {
+			cold = false;
+			stop("prefetch");
+		}
+		start("request");
+	};
   const beforeMiddleware = start
   const afterMiddleware = stop
   const beforeHandler = () => start('handler')
   const afterHandler = () => stop('handler')
-  const requestEnd = () => stop('total')
+  const requestEnd = () => stop('request')
 
   return {
     beforePrefetch,
