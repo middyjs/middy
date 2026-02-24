@@ -1,5 +1,5 @@
 const httpHeadersMiddleware = async ({ event, resolve }) => {
-	// const { url, params, cookies } = event;
+	const { cookies } = event;
 
 	//let {domain} = domainParse(new URL(url).hostname)
 
