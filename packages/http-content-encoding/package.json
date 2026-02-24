@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-content-encoding",
-	"version": "7.1.1",
+	"version": "7.1.2",
 	"description": "HTTP content encoding middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -68,11 +68,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.1.1"
+		"@middy/util": "7.1.2"
 	},
 	"devDependencies": {
 		"@datastream/core": "0.0.42",
-		"@middy/core": "7.1.1",
+		"@middy/core": "7.1.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	},
