@@ -31,7 +31,7 @@ const options = {
 
 test("use with default options", () => {
 	expect(s3()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
 	>();
 });
 
@@ -94,86 +94,94 @@ const handler = middy(async (event: {}, context: LambdaContext) => {
 	return await Promise.resolve({});
 });
 
-handler
-	.use(
-		s3({
-			...options,
-			setToContext: true,
-		}),
-	)
-	.before(async (request) => {
-		expect(request.context.someS3Object).type.toBe<unknown>();
+test("setToContext: true", () => {
+	handler
+		.use(
+			s3({
+				...options,
+				setToContext: true,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.someS3Object).type.toBe<unknown>();
 
-		const data = await getInternal("someS3Object", request);
-		expect(data.someS3Object).type.toBe<unknown>();
-	});
+			const data = await getInternal("someS3Object", request);
+			expect(data.someS3Object).type.toBe<unknown>();
+		});
+});
 
-handler
-	.use(
-		s3({
-			...options,
-			setToContext: false,
-		}),
-	)
-	.before(async (request) => {
-		const data = await getInternal("someS3Object", request);
-		expect(data.someS3Object).type.toBe<unknown>();
-	});
+test("setToContext: false", () => {
+	handler
+		.use(
+			s3({
+				...options,
+				setToContext: false,
+			}),
+		)
+		.before(async (request) => {
+			const data = await getInternal("someS3Object", request);
+			expect(data.someS3Object).type.toBe<unknown>();
+		});
+});
 
-handler
-	.use(
-		s3({
-			...options,
-			fetchData: {
-				someS3Object: s3Param<{
-					param1: string;
-					param2: string;
-					param3: number;
-				}>({
-					Bucket: "bucket",
-					Key: "path/to/key.json", // {key: 'value'}
-				}),
-			},
-			setToContext: true,
-		}),
-	)
-	.before(async (request) => {
-		expect(request.context.someS3Object).type.toBe<{
-			param1: string;
-			param2: string;
-			param3: number;
-		}>();
+test("s3Param with setToContext: true", () => {
+	handler
+		.use(
+			s3({
+				...options,
+				fetchData: {
+					someS3Object: s3Param<{
+						param1: string;
+						param2: string;
+						param3: number;
+					}>({
+						Bucket: "bucket",
+						Key: "path/to/key.json", // {key: 'value'}
+					}),
+				},
+				setToContext: true,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.someS3Object).type.toBe<{
+				param1: string;
+				param2: string;
+				param3: number;
+			}>();
 
-		const data = await getInternal("someS3Object", request);
-		expect(data.someS3Object).type.toBe<{
-			param1: string;
-			param2: string;
-			param3: number;
-		}>();
-	});
+			const data = await getInternal("someS3Object", request);
+			expect(data.someS3Object).type.toBe<{
+				param1: string;
+				param2: string;
+				param3: number;
+			}>();
+		});
+});
 
-handler
-	.use(
-		s3({
-			...options,
-			fetchData: {
-				someS3Object: s3Param<{
-					param1: string;
-					param2: string;
-					param3: number;
-				}>({
-					Bucket: "bucket",
-					Key: "path/to/key.json", // {key: 'value'}
-				}),
-			},
-			setToContext: false,
-		}),
-	)
-	.before(async (request) => {
-		const data = await getInternal("someS3Object", request);
-		expect(data.someS3Object).type.toBe<{
-			param1: string;
-			param2: string;
-			param3: number;
-		}>();
-	});
+test("s3Param with setToContext: false", () => {
+	handler
+		.use(
+			s3({
+				...options,
+				fetchData: {
+					someS3Object: s3Param<{
+						param1: string;
+						param2: string;
+						param3: number;
+					}>({
+						Bucket: "bucket",
+						Key: "path/to/key.json", // {key: 'value'}
+					}),
+				},
+				setToContext: false,
+			}),
+		)
+		.before(async (request) => {
+			const data = await getInternal("someS3Object", request);
+			expect(data.someS3Object).type.toBe<{
+				param1: string;
+				param2: string;
+				param3: number;
+			}>();
+		});
+});

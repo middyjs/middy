@@ -183,6 +183,7 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
 	} catch (e) {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(e.cause.data, undefined);
 	}
 });

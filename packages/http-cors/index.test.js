@@ -2122,6 +2122,7 @@ test("It should throw when requestHeaders is not an array", async (t) => {
 		throw new Error("Should have thrown");
 	} catch (e) {
 		strictEqual(e.message, "requestHeaders must be an array");
+		strictEqual(e.cause.package, "@middy/http-cors");
 	}
 });
 
@@ -2134,5 +2135,6 @@ test("It should throw when requestMethods is not an array", async (t) => {
 		throw new Error("Should have thrown");
 	} catch (e) {
 		strictEqual(e.message, "requestMethods must be an array");
+		strictEqual(e.cause.package, "@middy/http-cors");
 	}
 });

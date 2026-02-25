@@ -33,7 +33,7 @@ export interface Route<TEvent, TResult> {
 export type RouteNotFoundResponseFn = (input: {
 	method: string;
 	path: string;
-}) => never;
+}) => any;
 
 declare function httpRouterHandler<
 	TEvent extends

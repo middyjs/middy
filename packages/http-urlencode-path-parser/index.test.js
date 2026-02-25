@@ -84,6 +84,7 @@ test("It should throw 400 for invalid percent sequence %ZZ", async (t) => {
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
 		strictEqual(e.cause.data, "name");
 	}
 });
@@ -107,6 +108,8 @@ test("It should handle multiple path parameters with one malformed", async (t) =
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
+		strictEqual(e.cause.data, "bad");
 	}
 });
 
@@ -146,5 +149,7 @@ test("It should throw error", async (t) => {
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
+		strictEqual(e.cause.data, "char");
 	}
 });

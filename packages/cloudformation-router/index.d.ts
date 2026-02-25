@@ -10,7 +10,7 @@ interface Route<T = never> {
 
 export interface Options {
 	routes: Route[];
-	notFoundResponse?: (input: { requestType: string }) => never;
+	notFoundResponse?: (input: { requestType: string }) => any;
 }
 
 declare function cloudformationRouterHandler(

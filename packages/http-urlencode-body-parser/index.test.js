@@ -135,6 +135,10 @@ test("It should not process the body if malformed body is passed", async (t) => 
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
 		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed URL encoded form was provided",
+		);
 	}
 });
 

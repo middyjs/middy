@@ -12,7 +12,8 @@ test("use with all options", () => {
 		br: {},
 		gzip: {},
 		deflate: {},
-		overridePreferredEncoding: ["br", "gzip", "deflate"],
+		zstd: {},
+		overridePreferredEncoding: ["br", "gzip", "deflate", "zstd"],
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj>();
 });

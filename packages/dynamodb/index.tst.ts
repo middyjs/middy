@@ -20,6 +20,7 @@ const options = {
 	disablePrefetch: true,
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,
+	cacheKeyExpiry: {},
 	setToContext: false,
 } as const;
 

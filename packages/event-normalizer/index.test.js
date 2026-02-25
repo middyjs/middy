@@ -257,6 +257,7 @@ test("It should catch DynamoDB event with invalid BigInt", async (t) => {
 			e.message,
 			`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
 		);
+		strictEqual(e.cause.package, "@middy/event-normalizer");
 	}
 });
 
@@ -272,6 +273,7 @@ test("It should catch DynamoDB event with unknown type", async (t) => {
 		await handler(event, context);
 	} catch (e) {
 		strictEqual(e.message, "Unsupported type passed: J");
+		strictEqual(e.cause.package, "@middy/event-normalizer");
 	}
 });
 

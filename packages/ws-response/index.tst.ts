@@ -12,6 +12,8 @@ test("use with default options", () => {
 test("use with all options", () => {
 	const middleware = wsResponse({
 		AwsClient: ApiGatewayManagementApiClient,
+		awsClientOptions: {},
+		awsClientAssumeRole: "some-role",
 		awsClientCapture: captureAWSv3Client,
 		disablePrefetch: true,
 	});
