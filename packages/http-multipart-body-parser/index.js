@@ -37,7 +37,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		if (typeof body === "undefined") {
 			throw createError(
-				415,
+				422,
 				"Invalid or malformed multipart/form-data was provided",
 				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
 			);
@@ -51,7 +51,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 			.catch((err) => {
 				// UnprocessableEntity
 				throw createError(
-					415,
+					422,
 					"Invalid or malformed multipart/form-data was provided",
 					{
 						cause: {

@@ -33,7 +33,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		// Check if it didn't parse
 		if (parsedBody?.[body] === "") {
 			throw createError(
-				415,
+				422,
 				"Invalid or malformed URL encoded form was provided",
 				{ cause: { package: "@middy/http-urlencode-body-parser", data: body } },
 			);

@@ -9,11 +9,7 @@ export interface Options {
 	frameOptions?: {
 		action?: string;
 	};
-	poweredBy?:
-		| {
-				server: string;
-		  }
-		| boolean;
+	poweredBy?: boolean;
 	strictTransportSecurity?: {
 		maxAge?: number;
 		includeSubDomains?: boolean;
@@ -29,9 +25,7 @@ export interface Options {
 	referrerPolicy?: {
 		policy?: string;
 	};
-	xssProtection?: {
-		reportUri?: string;
-	};
+	xssProtection?: boolean;
 	contentSecurityPolicy?: Record<string, string>;
 	contentSecurityPolicyReportOnly?: boolean;
 	crossOriginEmbedderPolicy?: {
