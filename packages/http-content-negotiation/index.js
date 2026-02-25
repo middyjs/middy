@@ -101,7 +101,7 @@ const parseHeader = (
 	context[resultsName] = parseFn[type](headerValue, availableValues);
 	context[resultName] = context[resultsName][0];
 
-	if (context[resultName] === undefined) {
+	if (typeof context[resultName] === "undefined") {
 		if (defaultToFirstValue) {
 			context[resultName] = availableValues[0];
 		} else if (failOnMismatch) {

@@ -17,7 +17,10 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 		}
 
 		// Set default expose value, only passes in when there is an override
-		if (request.error.statusCode && request.error.expose === undefined) {
+		if (
+			request.error.statusCode &&
+			typeof request.error.expose === "undefined"
+		) {
 			request.error.expose = request.error.statusCode < 500;
 		}
 

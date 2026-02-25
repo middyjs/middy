@@ -238,7 +238,7 @@ export const jsonSafeStringify = (value, replacer, space) => {
 
 export const decodeBody = (event) => {
 	const { body, isBase64Encoded } = event;
-	if (body === undefined || body === null) return body;
+	if (typeof body === "undefined" || body === null) return body;
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 

@@ -247,7 +247,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		request.response.headers = headers;
 	};
 	const httpCorsMiddlewareOnError = async (request) => {
-		if (request.response === undefined) return;
+		if (typeof request.response === "undefined") return;
 		await httpCorsMiddlewareAfter(request);
 	};
 	return {
