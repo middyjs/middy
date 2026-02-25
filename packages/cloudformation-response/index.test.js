@@ -11,7 +11,7 @@ const defaultEvent = {
 	LogicalResourceId: "LogicalResourceId",
 	StackId: "StackId",
 };
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -21,7 +21,7 @@ test("It should return SUCCESS when empty response", async (t) => {
 	handler.use(cloudformationResponse());
 
 	const event = defaultEvent;
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		Status: "SUCCESS",
 		RequestId: "RequestId",
@@ -38,7 +38,7 @@ test("It should return SUCCESS when empty object", async (t) => {
 	handler.use(cloudformationResponse());
 
 	const event = defaultEvent;
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		Status: "SUCCESS",
 		RequestId: "RequestId",
@@ -55,7 +55,7 @@ test("It should return FAILURE when error thrown", async (t) => {
 	handler.use(cloudformationResponse());
 
 	const event = defaultEvent;
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		Status: "FAILED",
 		Reason: "Internal Error",
@@ -78,7 +78,7 @@ test("It should not override response values", async (t) => {
 	handler.use(cloudformationResponse());
 
 	const event = defaultEvent;
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		Status: "FAILED",
 		RequestId: "RequestId*",

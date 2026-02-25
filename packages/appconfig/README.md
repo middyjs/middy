@@ -30,6 +30,23 @@
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/appconfig">https://middy.js.org/docs/middlewares/appconfig</a></p>
 </div>
 
+## Install
+
+```bash
+npm install --save @middy/appconfig @aws-sdk/client-appconfigdata
+```
+
+
+## Documentation and examples
+
+For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/appconfig).
+
+
+## Contributing
+
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
+
 ## License
 
 Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).

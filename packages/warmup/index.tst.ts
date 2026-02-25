@@ -1,6 +1,6 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import warmup from "./index.js";
+import warmup, { type Options } from "./index.js";
 
 test("use with default options", () => {
 	const middleware = warmup();
@@ -8,8 +8,15 @@ test("use with default options", () => {
 });
 
 test("use with all options", () => {
-	const middleware = warmup({
-		isWarmingUp: () => true,
-	});
+	const options: Options = {
+		isWarmingUp: (event: unknown) => typeof event === "string",
+	};
+	const middleware = warmup(options);
 	expect(middleware).type.toBe<middy.MiddlewareObj>();
+});
+
+test("Options type", () => {
+	expect<Options>().type.toBeAssignableTo<{
+		isWarmingUp?: (event: unknown) => boolean;
+	}>();
 });

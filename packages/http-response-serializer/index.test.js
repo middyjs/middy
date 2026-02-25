@@ -7,7 +7,7 @@ import { createError } from "../util/index.js";
 import httpResponseSerializer from "./index.js";
 
 // const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -50,7 +50,7 @@ for (const [key] of [["Content-Type"], ["content-type"]]) {
 		const event = {
 			headers: {},
 		};
-		const response = await handler(event, { ...context });
+		const response = await handler(event, { ...defaultContext });
 
 		deepStrictEqual(response, handlerResponse);
 	});
@@ -84,7 +84,7 @@ for (const [accept, result] of [
 			},
 		};
 
-		const response = await handler(event, { ...context });
+		const response = await handler(event, { ...defaultContext });
 
 		strictEqual(response.body, result);
 	});
@@ -97,7 +97,7 @@ test("missing headers skips", async (t) => {
 
 	const event = {};
 
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	strictEqual(response.body, '{"message":"Hello World"}');
 });
@@ -110,7 +110,7 @@ test("It should use the defaultContentType when no accept preferences are given"
 	const event = {
 		headers: {},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -142,7 +142,7 @@ test("It should allow the return of the entire response", async (t) => {
 	const event = {
 		headers: {},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -168,7 +168,7 @@ test("It should use the defaultContentType when no matching accept preferences a
 		},
 	};
 
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -193,7 +193,7 @@ test("It should use `context.preferredMediaTypes` instead of the defaultContentT
 			Accept: "text/plain",
 		},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -216,7 +216,7 @@ test("It should pass-through when no preference or defaultContentType is found",
 	const event = {
 		headers: {},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -236,7 +236,7 @@ test("It should not pass-through when request content-type is set", async (t) =>
 		},
 	};
 
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -269,7 +269,7 @@ test('It should replace the response object when the serializer returns an objec
 	const event = {
 		headers: {},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -292,7 +292,7 @@ test("It should work with `http-error-handler` middleware", async (t) => {
 	const event = {
 		headers: {},
 	};
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 422,
@@ -314,7 +314,7 @@ test("It should skip if the response is undefined form 502 error", async (t) => 
 		headers: {},
 	};
 	try {
-		await handler(event, { ...context });
+		await handler(event, { ...defaultContext });
 	} catch (e) {
 		deepStrictEqual(e.message, "test");
 	}
@@ -333,7 +333,7 @@ test("It should return false when response body is falsey", async (t) => {
 	handler
 		.use(httpContentNegotiation())
 		.use(httpResponseSerializer(standardConfiguration));
-	const response = await handler(event, { ...context });
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,

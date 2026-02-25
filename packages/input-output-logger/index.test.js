@@ -12,10 +12,9 @@ import inputOutputLogger from "./index.js";
 // console.log = () => {}
 
 // const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
-const defaultContext = context;
 
 test("It should log event and response", async (t) => {
 	const logger = t.mock.fn();
@@ -27,7 +26,7 @@ test("It should log event and response", async (t) => {
 	);
 
 	const event = { foo: "bar", fuu: "baz" };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
 	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
@@ -65,7 +64,7 @@ test("It should log with executionMode:executionModeStreamifyResponse using Read
 	const responseStream = createWritableStream((chunk) => {
 		chunkResponse += chunk;
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	strictEqual(chunkResponse, input);
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
@@ -103,7 +102,7 @@ test("It should log with executionMode:executionModeStreamifyResponse using body
 	const responseStream = createWritableStream((chunk) => {
 		chunkResponse += chunk;
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	strictEqual(chunkResponse, input);
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
@@ -148,7 +147,7 @@ test("It should log with Web Streams API using ReadableStream", async (t) => {
 	const responseStream = createWritableStream((chunk) => {
 		chunkResponse += chunk;
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	strictEqual(chunkResponse, input);
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
@@ -193,7 +192,7 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 	const responseStream = createWritableStream((chunk) => {
 		chunkResponse += chunk;
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	strictEqual(chunkResponse, input);
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: {} }]);
@@ -235,7 +234,7 @@ test("It should omit paths", async (t) => {
 	);
 
 	const event = { foo: "foo", bar: "bar" };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { bar: "bar" } }]);
 	deepStrictEqual(logger.mock.calls[1].arguments, [
@@ -257,7 +256,7 @@ test("It should mask paths", async (t) => {
 	);
 
 	const event = { foo: "foo", bar: "bar" };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{ event: { foo: "*****", bar: "bar" } },
@@ -280,7 +279,7 @@ test("It should omit nested paths", async (t) => {
 	);
 
 	const event = { foo: { foo: "foo" }, bar: [{ bar: "bar" }] };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{ event: { ...event, foo: {} } },
@@ -303,7 +302,7 @@ test("It should omit nested paths with conflicting paths", async (t) => {
 	);
 
 	const event = { foo: { foo: "foo" }, bar: [{ bar: "bar" }] };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { foo: {} } }]);
 	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
@@ -343,7 +342,7 @@ test("It should skip paths that do not exist", async (t) => {
 		zero: 0,
 		one: 1,
 	};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
 	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
@@ -465,7 +464,7 @@ test("It should skip logging if error is handled", async (t) => {
 		});
 
 	const event = { foo: "bar", fuu: "baz" };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
 	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
@@ -486,7 +485,7 @@ test("It should skip logging if error is not handled", async (t) => {
 
 	const event = { foo: "bar", fuu: "baz" };
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
 		strictEqual(logger.mock.callCount(), 1);
@@ -505,7 +504,7 @@ test("It should use default logger when no logger is provided", async (t) => {
 	const handler = middy((event) => event).use(inputOutputLogger());
 
 	const event = { foo: "bar" };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	// Restore console.log
 	console.log = originalLog;
@@ -548,7 +547,7 @@ test("It should handle Uint8Array chunks in Web Streams", async (t) => {
 	const responseStream = createWritableStream((chunk) => {
 		chunks.push(chunk);
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	const chunkResponse = chunks
 		.map((c) =>
@@ -592,7 +591,7 @@ test("It should handle non-string non-Uint8Array chunks in Web Streams", async (
 	const responseStream = createWritableStream((chunk) => {
 		chunkResponse += chunk;
 	});
-	const response = await handler(event, responseStream, context);
+	const response = await handler(event, responseStream, defaultContext);
 	strictEqual(response, undefined);
 	strictEqual(chunkResponse, "12345");
 	strictEqual(logged.length, 2);

@@ -4,7 +4,7 @@ import middy from "../core/index.js";
 import urlEncodePathParser from "./index.js";
 
 // const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -22,7 +22,7 @@ test("It should decode simple url encoded requests", async (t) => {
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		char: "Mîddy",
 	});
@@ -38,7 +38,7 @@ test("It should skip if no path parameters", async (t) => {
 	// invokes the handler
 	const event = {};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	strictEqual(response, undefined);
 });
 
@@ -57,7 +57,7 @@ test("It should throw 400 for incomplete percent encoding", async (t) => {
 	};
 
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
@@ -80,7 +80,7 @@ test("It should throw 400 for invalid percent sequence %ZZ", async (t) => {
 	};
 
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
@@ -104,7 +104,7 @@ test("It should handle multiple path parameters with one malformed", async (t) =
 	};
 
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");
@@ -127,7 +127,7 @@ test("It should not iterate inherited properties from pathParameters", async (t)
 
 	const event = { pathParameters };
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	strictEqual(response.char, "test");
 });
 
@@ -145,7 +145,7 @@ test("It should throw error", async (t) => {
 	};
 
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
 		strictEqual(e.message, "Invalid path parameter encoding");

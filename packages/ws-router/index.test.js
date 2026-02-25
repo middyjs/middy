@@ -4,7 +4,7 @@ import middy from "../core/index.js";
 import wsRouter from "./index.js";
 
 // const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -21,7 +21,7 @@ test("It should route to a static route", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -38,7 +38,7 @@ test("It should thrown 404 when route not found", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.message, "Route does not exist");
@@ -66,7 +66,7 @@ test("It should thrown 200 when route not found, using notFoundResponse", async 
 			};
 		},
 	});
-	const res = await handler(event, context);
+	const res = await handler(event, defaultContext);
 
 	strictEqual(res.statusCode, 200);
 	deepStrictEqual(JSON.parse(res.body), { routeKey: "missing" });
@@ -87,7 +87,7 @@ test("It should run middleware that are part of route handler", async (t) => {
 			}),
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -107,7 +107,7 @@ test("It should middleware part of router", async (t) => {
 	).after((request) => {
 		request.response = true;
 	});
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -125,7 +125,7 @@ test("It should not match inherited properties like __proto__ as routes", async 
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		// Should hit "not found" rather than matching an inherited property
 		strictEqual(e.cause.package, "@middy/ws-router");
@@ -147,7 +147,7 @@ test("It should not match inherited properties like constructor as routes", asyn
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		// Should hit "not found", not invoke Object.prototype.constructor
 		strictEqual(e.cause.package, "@middy/ws-router");
@@ -169,7 +169,7 @@ test("It should not match inherited properties like toString as routes", async (
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
@@ -190,7 +190,7 @@ test("It should throw when not a ws event", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.message, "Unknown WebSocket event format");

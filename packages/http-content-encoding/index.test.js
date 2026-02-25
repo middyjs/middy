@@ -11,7 +11,7 @@ import { createReadableStream, streamToBuffer } from "@datastream/core";
 import middy from "../core/index.js";
 import httpContentEncoding from "./index.js";
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -26,7 +26,7 @@ test("It should encode string using br", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -48,7 +48,7 @@ test("It should encode stream using br", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 	response.body = await streamToBuffer(response.body);
@@ -69,7 +69,7 @@ test("It should encode string using gzip", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "gzip",
 	});
 
@@ -91,7 +91,7 @@ test("It should encode stream using gzip", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "gzip",
 	});
 	response.body = await streamToBuffer(response.body);
@@ -111,7 +111,7 @@ test("It should encode string using deflate", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "deflate",
 	});
 
@@ -133,7 +133,7 @@ test("It should encode stream using deflate", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "deflate",
 	});
 	response.body = await streamToBuffer(response.body);
@@ -163,7 +163,7 @@ test("It should encode using br when context.preferredEncoding is gzip, but has 
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "gzip",
 		preferredEncodings: ["gzip", "deflate", "br"],
 	});
@@ -183,7 +183,7 @@ test("It should not encode when missing context.preferredEncoding", async (t) =>
 
 	const event = { headers: {} };
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
 });
@@ -196,7 +196,7 @@ test("It should not encode when missing context.preferredEncoding === `identity`
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "identity",
 		preferredEncodings: ["identity"],
 	});
@@ -216,7 +216,7 @@ test("It should not encode when response.isBase64Encoded is already set to true"
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -236,7 +236,7 @@ test("It should not encode when response.body is not a string", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -251,7 +251,7 @@ test("It should not encode when response.body is empty string", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -266,7 +266,7 @@ test("It should not encode when response.body is different type", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -280,7 +280,7 @@ test("It should not encode when response.body is undefined", async (t) => {
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -300,7 +300,7 @@ test('It should not encode when response.headers["Cache-Control"] is `no-transfo
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -326,7 +326,7 @@ test('It should not encode when event.headers["Cache-Control"] is `no-transform`
 	};
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -346,7 +346,7 @@ test("It should not encode when error is not handled", async (t) => {
 	const event = { headers: {} };
 
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "error");
 	}
@@ -378,7 +378,7 @@ test("It should handle errors in onError middleware when response is defined", a
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 	strictEqual(response.statusCode, 500);
 });
@@ -399,7 +399,7 @@ test("It should skip override encodings not in preferredEncodings", async (t) =>
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "deflate",
 		preferredEncodings: ["deflate", "gzip"], // Only deflate and gzip supported
 	});
@@ -428,7 +428,7 @@ test("It should not encode when compressed body is larger than original", async 
 	const event = { headers: {} };
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "gzip",
 		preferredEncodings: ["gzip"],
 	});
@@ -458,7 +458,7 @@ test("It should append no-transform when event has Cache-Control: no-transform a
 	};
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -486,7 +486,7 @@ test("It should handle lowercase cache-control header when appending no-transfor
 	};
 
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 
@@ -512,7 +512,7 @@ test("It should encode Web API ReadableStream using br", async (t) => {
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -539,7 +539,7 @@ test("It should encode Web API ReadableStream using gzip", async (t) => {
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "gzip",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -566,7 +566,7 @@ test("It should encode Web API ReadableStream using deflate", async (t) => {
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "deflate",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -593,7 +593,7 @@ test("It should encode Web API ReadableStream using zstd", async (t) => {
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "zstd",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -620,7 +620,7 @@ test("It should not encode Web API ReadableStream when missing preferredEncoding
 	})).use(httpContentEncoding());
 
 	const event = { headers: {} };
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response.body instanceof ReadableStream);
 	response.body = await streamToBuffer(response.body);
 	response.body = response.body.toString();
@@ -646,7 +646,7 @@ test("It should not encode Web API ReadableStream when response.isBase64Encoded 
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -670,7 +670,7 @@ test("It should not encode Web API ReadableStream when response Cache-Control is
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "br",
 	});
 	ok(response.body instanceof ReadableStream);
@@ -692,7 +692,7 @@ test("It should encode Node.js stream using zstd", async (t) => {
 
 	const event = { headers: {} };
 	const response = await handler(event, {
-		...context,
+		...defaultContext,
 		preferredEncoding: "zstd",
 	});
 	const compressed = await streamToBuffer(response.body);

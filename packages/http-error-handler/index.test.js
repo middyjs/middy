@@ -7,8 +7,8 @@ import httpErrorHandler from "./index.js";
 // Silence logging
 // console.error = () => {}
 
-const event = {};
-const context = {
+const defaultEvent = {};
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -19,7 +19,7 @@ test("It should create a response for HTTP errors (string)", async (t) => {
 
 	handler.use(httpErrorHandler({ logger: false }));
 
-	const response = await handler(null, context);
+	const response = await handler(null, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 422,
@@ -39,7 +39,7 @@ test("It should create a response for HTTP errors (json)", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: '{ "json": "error" }' }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 500,
@@ -57,7 +57,7 @@ test("It should handle non HTTP errors when fallback not set", async (t) => {
 
 	handler.use(httpErrorHandler({ logger: false }));
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
 		headers: {},
@@ -73,7 +73,7 @@ test("It should handle non HTTP errors when fallback set", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: "Error: unknown" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
 		body: "Error: unknown",
@@ -93,7 +93,7 @@ test("It should be possible to pass a custom logger function", async (t) => {
 
 	handler.use(httpErrorHandler({ logger }));
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [expectedError]);
 });
@@ -109,7 +109,7 @@ test("It should be possible to pass in headers with error", async (t) => {
 
 	handler.use(httpErrorHandler({ logger: false }));
 
-	const response = await handler(null, context);
+	const response = await handler(null, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 422,
@@ -130,7 +130,7 @@ test("It should create a response for HTTP errors created with a generic error",
 
 	handler.use(httpErrorHandler({ logger: false }));
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 412,
@@ -152,7 +152,7 @@ test("It should expose of error to user", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: "Error: unknown" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 404,
 		body: "NotFound",
@@ -173,7 +173,7 @@ test("It should be possible to prevent expose of error to user", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: "Error: unknown" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
 		body: "Error: unknown",
@@ -194,7 +194,7 @@ test("It should not send error to user", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: "Error: unknown" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
 		body: "Error: unknown",
@@ -215,7 +215,7 @@ test("It should be possible to force expose of error to user", async (t) => {
 		httpErrorHandler({ logger: false, fallbackMessage: "Error: unknown" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
 		body: "OkayError",
@@ -236,7 +236,7 @@ test("It should allow later middleware to modify the response", async (t) => {
 		})
 		.use(httpErrorHandler({ logger: false }));
 
-	const response = await handler(null, context);
+	const response = await handler(null, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 422,
@@ -257,7 +257,7 @@ test("It should not handle error is response is set", async (t) => {
 		request.response = true;
 	});
 
-	const response = await handler(null, context);
+	const response = await handler(null, defaultContext);
 
 	ok(response);
 });

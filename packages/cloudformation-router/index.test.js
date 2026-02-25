@@ -3,8 +3,8 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import cloudformationRouter from "./index.js";
 
-// const event = {}
-const context = {
+// const defaultEvent = {}
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -19,7 +19,7 @@ test("It should route to a static route", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -34,7 +34,7 @@ test("It should thrown FAILURE when route not found", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");
 	}
@@ -57,7 +57,7 @@ test("It should thrown FAILURE when route not found, using notFoundResponse", as
 			};
 		},
 	});
-	const res = await handler(event, context);
+	const res = await handler(event, defaultContext);
 
 	strictEqual(res.Status, "SUCCESS");
 });
@@ -75,7 +75,7 @@ test("It should run middleware that are part of route handler", async (t) => {
 			}),
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -93,7 +93,7 @@ test("It should middleware part of router", async (t) => {
 	).after((request) => {
 		request.response = true;
 	});
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -110,7 +110,7 @@ test("It should throw when not a cloudformation event", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(
 			e.message,

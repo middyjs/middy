@@ -15,8 +15,8 @@ const lambdaHandler = async (e) => {
 	return Promise.allSettled(processedRecords);
 };
 
-// const event = {}
-const context = {
+// const defaultEvent = {}
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -37,7 +37,7 @@ test("Should return when there are only failed messages", async (t) => {
 
 	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
@@ -64,7 +64,7 @@ test("Should resolve when there are no failed messages", async (t) => {
 
 	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { batchItemFailures: [] });
 	strictEqual(logger.mock.callCount(), 0);
 });
@@ -94,7 +94,7 @@ test("Should return only the rejected messageIds", async (t) => {
 
 	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: event.Records.filter(
 			(r) => r.messageAttributes.resolveOrReject.stringValue === "reject",
@@ -128,7 +128,7 @@ test("Should reject all messageIds when error is thrown", async (t) => {
 		})
 		.use(sqsPartialBatchFailure({ logger }));
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
 			itemIdentifier: r.messageId,
@@ -145,7 +145,7 @@ test("Should handle event without Records array", async (t) => {
 		return [{ status: "fulfilled", value: "success" }];
 	}).use(sqsPartialBatchFailure({ logger }));
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { batchItemFailures: [] });
 	strictEqual(logger.mock.callCount(), 0);
 });
@@ -168,7 +168,7 @@ test("Should handle non-function logger", async (t) => {
 		sqsPartialBatchFailure({ logger: "not-a-function" }),
 	);
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
 			itemIdentifier: r.messageId,
@@ -199,7 +199,7 @@ test("Should not override response in onError if response already exists", async
 			request.response = { custom: "response" };
 		});
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	// The custom response should be preserved, not overridden
 	deepStrictEqual(response, { custom: "response" });
 });
