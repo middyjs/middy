@@ -138,8 +138,8 @@ const runRequest = async (
 						handlerAbort.abort();
 						try {
 							resolve(plugin.timeoutEarlyResponse());
-						} catch (e) {
-							reject(e);
+						} catch (err) {
+							reject(err);
 						}
 					};
 				});
@@ -158,7 +158,7 @@ const runRequest = async (
 			plugin.afterHandler?.();
 			await runMiddlewares(request, afterMiddlewares, plugin);
 		}
-	} catch (e) {
+	} catch (err) {
 		// timeout should be aborted when errors happen in handler
 		if (timeoutID) {
 			clearTimeout(timeoutID);
@@ -166,13 +166,13 @@ const runRequest = async (
 
 		// Reset response changes made by after stack before error thrown
 		request.response = undefined;
-		request.error = e;
+		request.error = err;
 		try {
 			await runMiddlewares(request, onErrorMiddlewares, plugin);
-		} catch (e) {
+		} catch (err) {
 			// Save error that wasn't handled
-			e.originalError = request.error;
-			request.error = e;
+			err.originalError = request.error;
+			request.error = err;
 
 			throw request.error;
 		}

@@ -72,7 +72,7 @@ const appConfigMiddleware = (opts = {}) => {
 		const values = {};
 		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
-			if (configurationTokenCache[internalKey] == null) {
+			if (configurationTokenCache[internalKey] === null) {
 				const command = new StartConfigurationSessionCommand(
 					options.fetchData[internalKey],
 				);

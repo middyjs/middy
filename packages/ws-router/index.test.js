@@ -24,7 +24,7 @@ test("It should route to a static route", async (t) => {
 	ok(response);
 });
 
-test("It should thrown 404 when route not found", async (t) => {
+test("It should throw 404 when route not found", async (t) => {
 	const event = {
 		requestContext: {
 			routeKey: "missing",
@@ -45,7 +45,7 @@ test("It should thrown 404 when route not found", async (t) => {
 	}
 });
 
-test("It should thrown 200 when route not found, using notFoundResponse", async (t) => {
+test("It should throw200 when route not found, using notFoundResponse", async (t) => {
 	const event = {
 		requestContext: {
 			routeKey: "missing",

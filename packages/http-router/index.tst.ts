@@ -8,8 +8,12 @@ import type {
 	APIGatewayProxyResultV2,
 	Handler as LambdaHandler,
 } from "aws-lambda";
-import { expect } from "tstyche";
-import httpRouterHandler from "./index.js";
+import { expect, test } from "tstyche";
+import httpRouterHandler, {
+	type Method,
+	type Route,
+	type RouteNotFoundResponseFn,
+} from "./index.js";
 
 const lambdaHandler: LambdaHandler<
 	APIGatewayProxyEvent,
@@ -104,3 +108,36 @@ const middlewareRouteNotFoundReturn = httpRouterHandler({
 expect(middlewareRouteNotFoundReturn).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
+
+test("Method type", () => {
+	const method: Method = "GET";
+	expect(method).type.toBeAssignableTo<Method>();
+
+	expect<string>().type.not.toBeAssignableTo<Method>();
+});
+
+test("Route interface", () => {
+	const route: Route<APIGatewayProxyEvent, APIGatewayProxyResult> = {
+		method: "GET",
+		path: "/test",
+		handler: lambdaHandler,
+	};
+	expect(route).type.toBeAssignableTo<
+		Route<APIGatewayProxyEvent, APIGatewayProxyResult>
+	>();
+	expect(route.method).type.toBe<Method>();
+	expect(route.path).type.toBe<string>();
+});
+
+test("RouteNotFoundResponseFn type", () => {
+	const fn: RouteNotFoundResponseFn = ({ method, path }) => {
+		throw new Error(`${method} ${path} not found`);
+	};
+	expect(fn).type.toBeAssignableTo<RouteNotFoundResponseFn>();
+
+	const fnReturn: RouteNotFoundResponseFn = ({ method, path }) => ({
+		statusCode: 404,
+		body: `${method} ${path} not found`,
+	});
+	expect(fnReturn).type.toBeAssignableTo<RouteNotFoundResponseFn>();
+});

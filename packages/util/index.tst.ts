@@ -261,3 +261,93 @@ test("createError", () => {
 	expect(err).type.toBe<util.HttpError>();
 	// err instanceof util.HttpError // would throw a type error if not a class
 });
+
+test("HttpError properties", () => {
+	const err = util.createError(404, "Not Found");
+	expect(err).type.toBe<util.HttpError>();
+	expect(err.status).type.toBe<number>();
+	expect(err.statusCode).type.toBe<number>();
+	expect(err.expose).type.toBe<boolean>();
+	expect(err.message).type.toBe<string>();
+	expect(err instanceof util.HttpError).type.toBe<boolean>();
+});
+
+test("modifyCache", () => {
+	expect(util.modifyCache("someKey", { key: "value" })).type.toBe<void>();
+});
+
+test("catchInvalidSignatureException", () => {
+	const client = new SSMClient({});
+	const result = util.catchInvalidSignatureException(
+		new Error("test") as Error & { __type?: string },
+		client,
+		{},
+	);
+	expect(result).type.toBe<Promise<unknown>>();
+});
+
+test("jsonSafeStringify", () => {
+	const result = util.jsonSafeStringify({ foo: "bar" });
+	expect(result).type.toBe<string | unknown>();
+
+	const resultWithReplacer = util.jsonSafeStringify(
+		{ foo: "bar" },
+		(k, v) => v,
+		2,
+	);
+	expect(resultWithReplacer).type.toBe<string | unknown>();
+});
+
+test("decodeBody", () => {
+	const decoded = util.decodeBody({ body: "hello", isBase64Encoded: false });
+	expect(decoded).type.toBe<string | null | undefined>();
+
+	const decodedBase64 = util.decodeBody({
+		body: "aGVsbG8=",
+		isBase64Encoded: true,
+	});
+	expect(decodedBase64).type.toBe<string | null | undefined>();
+
+	const decodedNull = util.decodeBody({ body: null });
+	expect(decodedNull).type.toBe<string | null | undefined>();
+
+	const decodedUndefined = util.decodeBody({});
+	expect(decodedUndefined).type.toBe<string | null | undefined>();
+});
+
+test("lambdaContextKeys", () => {
+	expect(util.lambdaContextKeys).type.toBe<string[]>();
+});
+
+test("executionContextKeys", () => {
+	expect(util.executionContextKeys).type.toBe<string[]>();
+});
+
+test("isExecutionModeDurable", () => {
+	expect(
+		util.isExecutionModeDurable(sampleRequest.context),
+	).type.toBe<boolean>();
+});
+
+test("executionContext", () => {
+	const result = util.executionContext(
+		sampleRequest,
+		"tenantId",
+		sampleRequest.context,
+	);
+	expect(result).type.toBe<unknown>();
+});
+
+test("lambdaContext", () => {
+	const result = util.lambdaContext(
+		sampleRequest,
+		"functionName",
+		sampleRequest.context,
+	);
+	expect(result).type.toBe<unknown>();
+});
+
+test("httpErrorCodes", () => {
+	expect(util.httpErrorCodes).type.toBe<Record<number, string>>();
+	expect(util.httpErrorCodes[404]).type.toBe<string>();
+});
