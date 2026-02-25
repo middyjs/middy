@@ -20,6 +20,7 @@ export interface Options<Client, ClientOptions> {
 	disablePrefetch?: boolean;
 	cacheKey?: string;
 	cacheExpiry?: number;
+	cacheKeyExpiry?: Record<string, number>;
 	setToContext?: boolean;
 }
 

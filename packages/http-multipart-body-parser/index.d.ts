@@ -22,6 +22,7 @@ export interface Options {
 		};
 	};
 	charset?: string;
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 

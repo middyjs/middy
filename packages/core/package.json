@@ -96,6 +96,9 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"dependencies": {
+		"@middy/util": "7.1.2"
+	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"
 	},

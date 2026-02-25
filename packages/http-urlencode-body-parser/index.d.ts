@@ -5,6 +5,7 @@ import type { APIGatewayEvent } from "aws-lambda";
 import type { JsonValue } from "type-fest";
 
 export interface Options {
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 
