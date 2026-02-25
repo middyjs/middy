@@ -24,6 +24,7 @@ const options = {
 	awsClientAssumeRole: "some-role",
 	awsClientCapture: captureAWSv3Client,
 	fetchData: { foo: "bar" },
+	fetchRotationDate: true,
 	disablePrefetch: true,
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,

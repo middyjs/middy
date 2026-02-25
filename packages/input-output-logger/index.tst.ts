@@ -15,6 +15,7 @@ test("use with all options", () => {
 		executionContext: true,
 		lambdaContext: true,
 		omitPaths: ["a", "b", "c"],
+		mask: "***",
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj>();
 });

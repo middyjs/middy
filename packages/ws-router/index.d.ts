@@ -10,7 +10,7 @@ interface Route<T = never> {
 
 export interface Options {
 	routes: Route[];
-	notFoundResponse?: (input: { routeKey: string }) => never;
+	notFoundResponse?: (input: { routeKey: string }) => any;
 }
 
 declare function wsRouterHandler(

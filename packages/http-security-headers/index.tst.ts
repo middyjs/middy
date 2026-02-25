@@ -15,9 +15,7 @@ test("use with all options", () => {
 		frameOptions: {
 			action: "SAMEORIGIN",
 		},
-		poweredBy: {
-			server: "middy",
-		},
+		poweredBy: true,
 		strictTransportSecurity: {
 			maxAge: 60 * 60 * 10,
 			includeSubDomains: true,
@@ -33,9 +31,7 @@ test("use with all options", () => {
 		referrerPolicy: {
 			policy: "same-origin",
 		},
-		xssProtection: {
-			reportUri: "xss",
-		},
+		xssProtection: true,
 		contentSecurityPolicy: {
 			"default-src": "'none'",
 			sandbox: "",

@@ -9,8 +9,9 @@ test("use with default options", () => {
 
 test("use with all options", () => {
 	const middleware = httpHeaderNormalizer({
-		normalizeHeaderKey: (key: string) => key.toLowerCase(),
+		normalizeHeaderKey: (key: string, canonical: boolean) => key.toLowerCase(),
 		canonical: false,
+		defaultHeaders: { "x-custom": "value" },
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
 });

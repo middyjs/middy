@@ -18,6 +18,7 @@ export interface SecretsManagerOptions<
 		"fetchData"
 	> {
 	fetchData?: { [key: string]: string | SecretType<unknown> };
+	fetchRotationDate?: boolean | Record<string, boolean>;
 }
 
 export type Context<TOptions extends SecretsManagerOptions | undefined> =

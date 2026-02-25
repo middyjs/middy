@@ -26,6 +26,8 @@ test("use with all options", () => {
 			},
 		},
 		charset: "utf8",
+		disableContentTypeCheck: true,
+		disableContentTypeError: true,
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
 });

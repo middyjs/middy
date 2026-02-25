@@ -45,3 +45,14 @@ const middlewareWithOptions = wsRouterHandler({
 	},
 });
 expect(middlewareWithOptions).type.toBe<middy.MiddyfiedHandler>();
+
+const middlewareWithReturnResponse = wsRouterHandler({
+	routes: [
+		{
+			routeKey: "$connect",
+			handler: connectLambdaHandler,
+		},
+	],
+	notFoundResponse: ({ routeKey }) => ({ statusCode: 404, body: routeKey }),
+});
+expect(middlewareWithReturnResponse).type.toBe<middy.MiddyfiedHandler>();
