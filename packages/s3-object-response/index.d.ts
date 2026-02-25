@@ -24,6 +24,6 @@ export type Context = LambdaContext & {
 
 declare function s3ObjectResponse(
 	options?: S3ObjectResponseOptions,
-): middy.MiddlewareObj<unknown, any, Error, Context>;
+): middy.MiddlewareObj<unknown, unknown, Error, Context>;
 
 export default s3ObjectResponse;

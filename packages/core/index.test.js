@@ -880,6 +880,29 @@ test("Should not invoke timeoutEarlyResponse on success", async (t) => {
 	ok(!timeoutCalled);
 });
 
+test("Should use default timeoutEarlyResponse when timeout expires", async (t) => {
+	t.mock.timers.reset();
+	const context = {
+		getRemainingTimeInMillis: () => 10,
+	};
+	const handler = middy(
+		async () => {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			return true;
+		},
+		{ timeoutEarlyInMillis: 1 },
+	);
+
+	try {
+		await handler(defaultEvent, context);
+		throw new Error("Expected timeout");
+	} catch (e) {
+		strictEqual(e.name, "TimeoutError");
+		strictEqual(e.message, "[AbortError]: The operation was aborted.");
+		deepStrictEqual(e.cause, { package: "@middy/core" });
+	}
+});
+
 test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	let timeoutCalled = false;
 	const plugin = {

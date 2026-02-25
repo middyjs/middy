@@ -8,7 +8,7 @@ import secretsManager, { type Context, secretsManagerParam } from "./index.js";
 
 test("use with default options", () => {
 	expect(secretsManager()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<undefined>>
 	>();
 });
 
@@ -35,7 +35,7 @@ test("use with all options", () => {
 	expect(secretsManager(options)).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			Context<typeof options>,
 			{ foo: unknown }

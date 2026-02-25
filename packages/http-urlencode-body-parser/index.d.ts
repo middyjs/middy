@@ -15,6 +15,6 @@ export type Event = APIGatewayEvent & {
 
 declare function urlEncodeBodyParser(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<Event, unknown, Error>;
 
 export default urlEncodeBodyParser;

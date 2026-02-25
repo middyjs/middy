@@ -4,7 +4,7 @@ import httpContentEncodingMiddleware from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpContentEncodingMiddleware();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -15,5 +15,5 @@ test("use with all options", () => {
 		zstd: {},
 		overridePreferredEncoding: ["br", "gzip", "deflate", "zstd"],
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

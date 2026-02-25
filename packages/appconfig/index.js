@@ -29,7 +29,7 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
-const contentTypePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 const appConfigMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
@@ -54,7 +54,7 @@ const appConfigMiddleware = (opts = {}) => {
 				}
 
 				let value = new TextDecoder().decode(configResp.Configuration);
-				if (contentTypePattern.test(configResp.ContentType)) {
+				if (jsonContentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}
 				configurationCache[internalKey] = value;

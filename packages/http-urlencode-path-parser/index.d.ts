@@ -5,6 +5,10 @@ import type { APIGatewayEvent } from "aws-lambda";
 
 export type Event = APIGatewayEvent;
 
-declare function urlEncodePathParser(): middy.MiddlewareObj<Event>;
+declare function urlEncodePathParser(): middy.MiddlewareObj<
+	Event,
+	unknown,
+	Error
+>;
 
 export default urlEncodePathParser;

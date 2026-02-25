@@ -6,6 +6,8 @@ export interface Options {
 	filteringKeyName?: string;
 }
 
-declare function httpPartialResponse(options?: Options): middy.MiddlewareObj;
+declare function httpPartialResponse(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpPartialResponse;

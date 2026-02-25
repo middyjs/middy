@@ -6,6 +6,8 @@ export interface Options {
 	logger?: (request: middy.Request) => void;
 }
 
-declare function errorLogger(options?: Options): middy.MiddlewareObj;
+declare function errorLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default errorLogger;

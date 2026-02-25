@@ -7,7 +7,7 @@ import httpEventNormalizer, {
 
 test("use with default options", () => {
 	const middleware = httpEventNormalizer();
-	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<Event, unknown, Error>>();
 });
 
 test("VPCLatticeEvent type is exported", () => {

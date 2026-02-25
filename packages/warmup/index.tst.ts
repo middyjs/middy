@@ -4,7 +4,7 @@ import warmup, { type Options } from "./index.js";
 
 test("use with default options", () => {
 	const middleware = warmup();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -12,7 +12,7 @@ test("use with all options", () => {
 		isWarmingUp: (event: unknown) => typeof event === "string",
 	};
 	const middleware = warmup(options);
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("Options type", () => {

@@ -39,9 +39,9 @@ export interface Request<
 > {
 	event: TEvent;
 	context: TContext;
-	response: TResult | null;
+	response: TResult | undefined;
 	earlyResponse?: TResult | null | undefined;
-	error: TErr | null;
+	error: TErr | undefined;
 	internal: TInternal;
 }
 

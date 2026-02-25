@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { createError, decodeBody } from "@middy/util";
 
-const mimePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 
 const defaults = {
 	reviver: undefined,
@@ -16,7 +16,10 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		const { headers, body } = request.event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
+		if (
+			!options.disableContentTypeCheck &&
+			!jsonContentTypePattern.test(contentType)
+		) {
 			if (options.disableContentTypeError) {
 				return;
 			}

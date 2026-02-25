@@ -56,6 +56,13 @@ test("It should return default security headers", async (t) => {
 
 	strictEqual(response.statusCode, 200);
 
+	strictEqual(
+		response.headers["Content-Security-Policy"],
+		"default-src 'report-sample' 'report-sha256'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; report-to default; require-trusted-types-for 'script'; sandbox; upgrade-insecure-requests",
+	);
+	strictEqual(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
+	strictEqual(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
+	strictEqual(response.headers["Cross-Origin-Resource-Policy"], "same-origin");
 	strictEqual(response.headers["Origin-Agent-Cluster"], "?1");
 	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
 	strictEqual(response.headers.Server, undefined);
@@ -66,10 +73,9 @@ test("It should return default security headers", async (t) => {
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
 	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Frame-Options"], "DENY");
 	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
 	strictEqual(response.headers["X-Powered-By"], undefined);
-	strictEqual(response.headers["X-Frame-Options"], undefined);
-	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should return default security headers when HTML", async (t) => {
@@ -204,19 +210,20 @@ test("It should support array responses", async (t) => {
 
 	deepStrictEqual(response.body, [{ firstname: "john", lastname: "doe" }]);
 	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
+	strictEqual(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
+	strictEqual(response.headers["Cross-Origin-Resource-Policy"], "same-origin");
 	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
 		"max-age=15552000; includeSubDomains; preload",
 	);
-	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
-	strictEqual(response.headers["X-Powered-By"], undefined);
-	strictEqual(response.headers["X-Download-Options"], "noopen");
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
+	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Frame-Options"], "DENY");
 	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
-
-	strictEqual(response.headers["X-Frame-Options"], undefined);
-	strictEqual(response.headers["X-XSS-Protection"], undefined);
+	strictEqual(response.headers["X-Powered-By"], undefined);
 });
 
 test("It should skip onError if error has not been handled", async (t) => {
@@ -257,6 +264,9 @@ test("It should apply security headers if error is handled", async (t) => {
 
 	strictEqual(response.statusCode, 500);
 
+	strictEqual(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
+	strictEqual(response.headers["Cross-Origin-Opener-Policy"], "same-origin");
+	strictEqual(response.headers["Cross-Origin-Resource-Policy"], "same-origin");
 	strictEqual(response.headers["Origin-Agent-Cluster"], "?1");
 	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
 	strictEqual(response.headers.Server, undefined);
@@ -267,10 +277,9 @@ test("It should apply security headers if error is handled", async (t) => {
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
 	strictEqual(response.headers["X-Download-Options"], "noopen");
+	strictEqual(response.headers["X-Frame-Options"], "DENY");
 	strictEqual(response.headers["X-Permitted-Cross-Domain-Policies"], "none");
 	strictEqual(response.headers["X-Powered-By"], undefined);
-	strictEqual(response.headers["X-Frame-Options"], undefined);
-	strictEqual(response.headers["X-XSS-Protection"], undefined);
 });
 
 test("It should support report only mode", async (t) => {
@@ -297,10 +306,31 @@ test("It should support report only mode", async (t) => {
 	);
 });
 
+test("It should apply all headers regardless of content type", async (t) => {
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "{}",
+		headers: { "Content-Type": "application/json" },
+	}));
+
+	handler.use(httpSecurityHeaders());
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.statusCode, 200);
+	strictEqual(response.headers["X-Frame-Options"], "DENY");
+	strictEqual(response.headers["Cross-Origin-Embedder-Policy"], "require-corp");
+	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
+	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
+});
+
 test("It should handle reportTo with non-default group", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
-		headers: { "Content-Type": "text/html" },
 	}));
 
 	handler.use(
@@ -319,5 +349,29 @@ test("It should handle reportTo with non-default group", async (t) => {
 	strictEqual(
 		response.headers["Report-To"],
 		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }, { "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://custom.example.com" } ] }',
+	);
+});
+
+test("It should handle reportTo with falsy group value", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+	}));
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				disabled: "",
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.statusCode, 200);
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }',
 	);
 });

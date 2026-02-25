@@ -4,7 +4,7 @@ import inputOutputLogger from "./index.js";
 
 test("use with default options", () => {
 	const middleware = inputOutputLogger();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -17,5 +17,5 @@ test("use with all options", () => {
 		omitPaths: ["a", "b", "c"],
 		mask: "***",
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

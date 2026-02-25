@@ -25,7 +25,7 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
-const contentTypePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 const s3Middleware = (opts = {}) => {
 	const options = {
 		...defaults,
@@ -41,7 +41,7 @@ const s3Middleware = (opts = {}) => {
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
 					let value = await resp.Body.transformToString();
-					if (contentTypePattern.test(resp.ContentType)) {
+					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);
 					}
 					return value;

@@ -672,6 +672,40 @@ test("It should skip fetching already cached values when fetching multiple keys"
 	strictEqual(sendStub.callCount, 6);
 });
 
+test("It should handle GetLatestConfiguration error with cache enabled", async (t) => {
+	mockClient(AppConfigDataClient)
+		.on(StartConfigurationSessionCommand)
+		.resolvesOnce({
+			ContentType: "application/json",
+			InitialConfigurationToken: "InitialToken...",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "InitialToken...",
+		})
+		.rejects("timeout");
+
+	const handler = middy(() => {}).use(
+		appConfig({
+			AwsClient: AppConfigDataClient,
+			cacheExpiry: -1,
+			fetchData: {
+				key: {
+					ApplicationIdentifier: "...",
+					ConfigurationProfileIdentifier: "...",
+					EnvironmentIdentifier: "...",
+				},
+			},
+			setToContext: true,
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (e) {
+		strictEqual(e.message, "Failed to resolve internal values");
+	}
+});
+
 test("It should export appConfigParam helper for TypeScript type inference", async (t) => {
 	const { appConfigParam } = await import("./index.js");
 	const mockRequest = { event: {}, context: {}, internal: {} };

@@ -1,6 +1,9 @@
 import cloudformationRouterHandler from "@middy/cloudformation-router";
 import type middy from "@middy/core";
-import type { CloudFormationCustomResourceHandler } from "aws-lambda";
+import type {
+	CloudFormationCustomResourceEvent,
+	CloudFormationCustomResourceHandler,
+} from "aws-lambda";
 import { expect, test } from "tstyche";
 
 const createLambdaHandler: CloudFormationCustomResourceHandler = async (
@@ -30,7 +33,9 @@ test("use with array form", () => {
 			handler: deleteLambdaHandler,
 		},
 	]);
-	expect(middleware).type.toBe<middy.MiddyfiedHandler>();
+	expect(middleware).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+	>();
 });
 
 test("use with options form", () => {
@@ -49,7 +54,9 @@ test("use with options form", () => {
 			throw new Error(`Route not found: ${requestType}`);
 		},
 	});
-	expect(middlewareWithOptions).type.toBe<middy.MiddyfiedHandler>();
+	expect(middlewareWithOptions).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+	>();
 });
 
 test("use with returning notFoundResponse", () => {
@@ -62,5 +69,7 @@ test("use with returning notFoundResponse", () => {
 		],
 		notFoundResponse: ({ requestType }) => ({ Status: "SUCCESS" }),
 	});
-	expect(middlewareWithReturnResponse).type.toBe<middy.MiddyfiedHandler>();
+	expect(middlewareWithReturnResponse).type.toBe<
+		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
+	>();
 });

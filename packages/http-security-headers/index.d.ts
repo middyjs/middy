@@ -56,6 +56,6 @@ type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean };
 
 declare function httpSecurityHeaders(
 	options?: WithBoolValues<Options>,
-): middy.MiddlewareObj;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpSecurityHeaders;

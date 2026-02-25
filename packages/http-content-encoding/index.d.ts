@@ -1,7 +1,15 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
-import type { BrotliOptions, ZlibOptions, ZstdOptions } from "node:zlib";
+import type {
+	BrotliCompress,
+	BrotliOptions,
+	Deflate,
+	Gzip,
+	ZlibOptions,
+	ZstdCompress,
+	ZstdOptions,
+} from "node:zlib";
 
 export type ContentEncoding = "br" | "deflate" | "gzip" | "zstd";
 
@@ -15,8 +23,10 @@ export interface Options {
 
 export declare function getContentEncodingStream(
 	preferredEncoding: ContentEncoding,
-): ReturnType<typeof import("node:zlib")["createGzip"]>;
+): BrotliCompress | Deflate | Gzip | ZstdCompress;
 
-declare function httpContentEncoding(options?: Options): middy.MiddlewareObj;
+declare function httpContentEncoding(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpContentEncoding;

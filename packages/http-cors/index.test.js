@@ -2138,3 +2138,44 @@ test("It should throw when requestMethods is not an array", async (t) => {
 		strictEqual(e.cause.package, "@middy/http-cors");
 	}
 });
+
+test("It should handle invalid hostname in origin gracefully", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://invalid host.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://invalid host.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Access-Control-Allow-Origin"],
+		"https://invalid host.com",
+	);
+});
+
+test("It should handle origin without protocol prefix", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Access-Control-Allow-Origin"], "example.com");
+});

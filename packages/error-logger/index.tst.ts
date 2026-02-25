@@ -4,7 +4,7 @@ import errorLogger from "./index.js";
 
 test("use with default options", () => {
 	const middleware = errorLogger();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -13,5 +13,5 @@ test("use with all options", () => {
 			console.log(error);
 		},
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

@@ -6,6 +6,8 @@ export interface Options {
 	isWarmingUp?: (event: unknown) => boolean;
 }
 
-declare function warmup(options?: Options): middy.MiddlewareObj;
+declare function warmup(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default warmup;

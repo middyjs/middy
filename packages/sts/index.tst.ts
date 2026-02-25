@@ -8,7 +8,7 @@ import sts, { type AssumedRoleCredentials, type Context } from "./index.js";
 
 test("use with default options", () => {
 	expect(sts()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<undefined>>
 	>();
 });
 
@@ -20,7 +20,7 @@ const options = {
 
 test("use with all options", () => {
 	expect(sts(options)).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<typeof options>>
 	>();
 });
 

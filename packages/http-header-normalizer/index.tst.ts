@@ -1,10 +1,10 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import httpHeaderNormalizer, { type Event } from "./index.js";
+import httpHeaderNormalizer from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpHeaderNormalizer();
-	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -13,5 +13,5 @@ test("use with all options", () => {
 		canonical: false,
 		defaultHeaders: { "x-custom": "value" },
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj<Event>>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

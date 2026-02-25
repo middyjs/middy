@@ -32,6 +32,6 @@ export type Event = Omit<APIGatewayEvent, "body"> & {
 
 declare function multipartBodyParser(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<Event, unknown, Error>;
 
 export default multipartBodyParser;

@@ -8,10 +8,8 @@ export interface Options {
 	normalizeHeaderKey?: (key: string, canonical: boolean) => string;
 }
 
-export type Event = {};
-
 declare function httpHeaderNormalizer(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpHeaderNormalizer;

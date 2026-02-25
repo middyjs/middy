@@ -8,7 +8,7 @@ import s3ObjectResponse, { type Context } from "./index.js";
 test("use with default options", () => {
 	const middleware = s3ObjectResponse();
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context>
+		middy.MiddlewareObj<unknown, unknown, Error, Context>
 	>();
 });
 
@@ -19,7 +19,7 @@ test("use with all options", () => {
 		disablePrefetch: true,
 	});
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context>
+		middy.MiddlewareObj<unknown, unknown, Error, Context>
 	>();
 });
 

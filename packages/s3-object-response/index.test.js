@@ -209,6 +209,30 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 	strictEqual(response.statusCode, 200);
 });
 
+test("It should handle non-InvalidSignatureException error from S3", async (t) => {
+	const s3Data = "test";
+	const error = new Error("SomeOtherError");
+
+	mockClient(S3Client).on(WriteGetObjectResponseCommand).rejects(error);
+
+	const handler = middy(async (event, context) => {
+		return { Body: s3Data };
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected error");
+	} catch (e) {
+		strictEqual(e.message, "SomeOtherError");
+	}
+});
+
 test("It should handle InvalidSignatureException and retry", async (t) => {
 	const s3Data = JSON.stringify({ key: "item", value: 1 });
 	const invalidSignatureError = new Error("InvalidSignatureException");

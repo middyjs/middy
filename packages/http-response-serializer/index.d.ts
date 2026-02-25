@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface SerializerHandler {
+export interface SerializerHandler {
 	regex: RegExp;
-	serializer: (response: any) => string | { body: any; [key: string]: any };
+	serializer: (
+		response: unknown,
+	) => string | { body: string; [key: string]: unknown };
 }
 
 export interface Options {
@@ -12,6 +14,8 @@ export interface Options {
 	defaultContentType?: string;
 }
 
-declare function httpResponseSerializer(options?: Options): middy.MiddlewareObj;
+declare function httpResponseSerializer(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpResponseSerializer;

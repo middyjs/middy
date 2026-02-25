@@ -10,6 +10,8 @@ export interface Options {
 	mask?: string;
 }
 
-declare function inputOutputLogger(options?: Options): middy.MiddlewareObj;
+declare function inputOutputLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default inputOutputLogger;

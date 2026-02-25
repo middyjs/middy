@@ -6,6 +6,8 @@ export interface Options {
 	logger?: (reason: unknown, record: unknown) => void;
 }
 
-declare function sqsPartialBatchFailure(options?: Options): middy.MiddlewareObj;
+declare function sqsPartialBatchFailure(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default sqsPartialBatchFailure;

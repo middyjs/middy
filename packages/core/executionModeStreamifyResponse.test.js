@@ -1,4 +1,4 @@
-import { strictEqual } from "node:assert/strict";
+import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	createPassThroughStream,
@@ -353,6 +353,29 @@ test("Should allow replacing lambda handler using .handler() method", async (t) 
 });
 
 // plugin
+
+test("Should trigger requestStart hook", async (t) => {
+	let startCalled = false;
+	const input = "test";
+	const handler = middy(
+		async () => {
+			return input;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+			requestStart: () => {
+				startCalled = true;
+			},
+		},
+	);
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	await handler(event, responseStream, context);
+	ok(startCalled);
+	strictEqual(chunkResponse(), input);
+});
 
 test("Should trigger requestEnd hook after stream ends", async (t) => {
 	const input = "x".repeat(1024 * 1024);

@@ -1,5 +1,9 @@
 import type middy from "@middy/core";
-import type { APIGatewayProxyWebsocketHandlerV2 } from "aws-lambda";
+import type {
+	APIGatewayProxyResultV2,
+	APIGatewayProxyWebsocketEventV2,
+	APIGatewayProxyWebsocketHandlerV2,
+} from "aws-lambda";
 import { expect } from "tstyche";
 import wsRouterHandler from "./index.js";
 
@@ -27,7 +31,12 @@ const middleware = wsRouterHandler([
 		handler: disconnectLambdaHandler,
 	},
 ]);
-expect(middleware).type.toBe<middy.MiddyfiedHandler>();
+expect(middleware).type.toBe<
+	middy.MiddyfiedHandler<
+		APIGatewayProxyWebsocketEventV2,
+		APIGatewayProxyResultV2
+	>
+>();
 
 const middlewareWithOptions = wsRouterHandler({
 	routes: [
@@ -44,7 +53,12 @@ const middlewareWithOptions = wsRouterHandler({
 		throw new Error(`Route not found: ${routeKey}`);
 	},
 });
-expect(middlewareWithOptions).type.toBe<middy.MiddyfiedHandler>();
+expect(middlewareWithOptions).type.toBe<
+	middy.MiddyfiedHandler<
+		APIGatewayProxyWebsocketEventV2,
+		APIGatewayProxyResultV2
+	>
+>();
 
 const middlewareWithReturnResponse = wsRouterHandler({
 	routes: [
@@ -55,4 +69,9 @@ const middlewareWithReturnResponse = wsRouterHandler({
 	],
 	notFoundResponse: ({ routeKey }) => ({ statusCode: 404, body: routeKey }),
 });
-expect(middlewareWithReturnResponse).type.toBe<middy.MiddyfiedHandler>();
+expect(middlewareWithReturnResponse).type.toBe<
+	middy.MiddyfiedHandler<
+		APIGatewayProxyWebsocketEventV2,
+		APIGatewayProxyResultV2
+	>
+>();

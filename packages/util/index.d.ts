@@ -28,8 +28,8 @@ export declare class HttpError extends Error {
 	status: number;
 	statusCode: number;
 	expose: boolean;
-	[key: string]: any;
-	[key: number]: any;
+	[key: string]: unknown;
+	[key: number]: unknown;
 }
 
 declare function createPrefetchClient<Client, ClientOptions>(
