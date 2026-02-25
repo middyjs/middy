@@ -25,7 +25,7 @@ const defaultEvent = {
 await bench
 	.add("process failures", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.run();

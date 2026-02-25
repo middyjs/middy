@@ -28,7 +28,7 @@ await bench
 			},
 		) => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(event, defaultContext);
 			} catch (_e) {}
 		},
 	)

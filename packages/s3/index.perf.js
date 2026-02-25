@@ -37,12 +37,12 @@ const defaultEvent = {};
 await bench
 	.add("without cache", async () => {
 		try {
-			await coldHandler(event, context);
+			await coldHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.add("with cache", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 

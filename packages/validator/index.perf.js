@@ -24,7 +24,7 @@ const defaultEvent = {};
 await bench
 	.add("type check input & output", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 
