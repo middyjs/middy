@@ -1,14 +1,15 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
+import type { BrotliOptions, ZlibOptions, ZstdOptions } from "node:zlib";
 
 export type ContentEncoding = "br" | "deflate" | "gzip" | "zstd";
 
 export interface Options {
-	br?: any;
-	gzip?: any;
-	deflate?: any;
-	zstd?: any;
+	br?: BrotliOptions;
+	gzip?: ZlibOptions;
+	deflate?: ZlibOptions;
+	zstd?: ZstdOptions;
 	overridePreferredEncoding?: string[];
 }
 

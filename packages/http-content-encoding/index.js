@@ -30,7 +30,7 @@ export const getContentEncodingStream = (preferredEncoding) => {
 	return contentEncodingStreams[preferredEncoding]();
 };
 
-const httpContentEncodingMiddleware = (opts) => {
+const httpContentEncodingMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const supportedContentEncodings = Object.keys(contentEncodingStreams);
@@ -42,7 +42,7 @@ const httpContentEncodingMiddleware = (opts) => {
 			response,
 		} = request;
 
-		// Encoding not supported, already encoded, or doesn't need to'
+		// Encoding not supported, already encoded, or doesn't need to
 		const eventCacheControl =
 			request.event?.headers?.["cache-control"] ??
 			request.event?.headers?.["Cache-Control"];

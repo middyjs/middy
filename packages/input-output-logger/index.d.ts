@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (message: any) => void;
+	logger?: (message: unknown) => void;
 	executionContext?: boolean;
 	lambdaContext?: boolean;
 	omitPaths?: string[];

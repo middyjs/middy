@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	isWarmingUp?: (event: any) => boolean;
+	isWarmingUp?: (event: unknown) => boolean;
 }
 
 declare function warmup(options?: Options): middy.MiddlewareObj;

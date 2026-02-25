@@ -192,10 +192,7 @@ export const lambdaContextKeys = [
 	"callbackWaitsForEmptyEventLoop",
 ];
 
-export const executionContextKeys = [
-	//'requestId',
-	"tenantId",
-];
+export const executionContextKeys = ["tenantId"];
 
 export const isExecutionModeDurable = (context) => {
 	// using `context instanceof DurableContextImpl` would be better
@@ -286,7 +283,7 @@ export const createError = (code, message, properties = {}) => {
 	return new HttpError(code, message, properties);
 };
 
-const httpErrorCodes = {
+export const httpErrorCodes = {
 	100: "Continue",
 	101: "Switching Protocols",
 	102: "Processing",

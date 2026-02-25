@@ -17,7 +17,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
 		const batchItemFailures = [];
 		if (Array.isArray(Records)) {
-			for (const [idx, record] of Object.entries(Records)) {
+			for (const [idx, record] of Records.entries()) {
 				const { status, reason } = response[idx];
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });

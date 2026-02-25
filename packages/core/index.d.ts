@@ -17,7 +17,7 @@ export declare const executionModeDurableContext: PluginExecutionMode;
 export declare const executionModeStreamifyResponse: PluginExecutionMode;
 
 interface PluginObject {
-	internal?: any;
+	internal?: Record<string, unknown>;
 	beforePrefetch?: PluginHook;
 	requestStart?: PluginHook;
 	beforeMiddleware?: PluginHookWithMiddlewareName;

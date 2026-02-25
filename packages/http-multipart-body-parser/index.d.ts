@@ -6,7 +6,7 @@ import type { JsonValue } from "type-fest";
 
 export interface Options {
 	busboy?: {
-		headers?: any;
+		headers?: Record<string, string>;
 		highWaterMark?: number;
 		fileHwm?: number;
 		defCharset?: string;

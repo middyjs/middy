@@ -12,7 +12,7 @@ import type {
 } from "./type-utils.d.ts";
 
 export interface Options<Client, ClientOptions> {
-	AwsClient?: new (...[config]: [any] | any) => Client;
+	AwsClient?: new (config: ClientOptions) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
 	awsClientCapture?: (service: Client) => Client;
@@ -119,43 +119,43 @@ declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 declare function processCache<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
-	fetch: (request: middy.Request, cachedValues: any) => any,
+	fetch: (request: middy.Request, cachedValues: unknown) => unknown,
 	request?: middy.Request,
-): { value: any; expiry: number };
+): { value: unknown; expiry: number };
 
-declare function getCache(keys: string): any;
+declare function getCache(keys: string): unknown;
 
 declare function clearCache(keys?: string | string[] | null): void;
 
 declare function jsonSafeParse(
 	string: string,
-	reviver?: (key: string, value: any) => any,
-): any;
+	reviver?: (key: string, value: unknown) => unknown,
+): unknown;
 
 declare function normalizeHttpResponse(
-	request: any,
-	fallbackResponse?: any,
-): any;
+	request: middy.Request,
+	fallbackResponse?: Record<string, unknown>,
+): Record<string, unknown>;
 
 declare function createError(
 	code: number,
 	message: string,
-	properties?: Record<string, any>,
+	properties?: Record<string, unknown>,
 ): HttpError;
 
-declare function modifyCache(cacheKey: string, value: any): void;
+declare function modifyCache(cacheKey: string, value: unknown): void;
 
 declare function catchInvalidSignatureException<Client, Command>(
 	e: Error & { __type?: string },
 	client: Client,
 	command: Command,
-): Promise<any>;
+): Promise<unknown>;
 
 declare function jsonSafeStringify(
-	value: any,
-	replacer?: (key: string, value: any) => any,
+	value: unknown,
+	replacer?: (key: string, value: unknown) => unknown,
 	space?: string | number,
-): string | any;
+): string | unknown;
 
 declare function decodeBody(event: {
 	body?: string | null;
@@ -172,12 +172,12 @@ declare function executionContext(
 	request: middy.Request,
 	key: string,
 	context: LambdaContext,
-): any;
+): unknown;
 
 declare function lambdaContext(
 	request: middy.Request,
 	key: string,
 	context: LambdaContext,
-): any;
+): unknown;
 
 declare const httpErrorCodes: Record<number, string>;

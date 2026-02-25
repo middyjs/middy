@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (reason: any, record: any) => void;
+	logger?: (reason: unknown, record: unknown) => void;
 }
 
 declare function sqsPartialBatchFailure(options?: Options): middy.MiddlewareObj;

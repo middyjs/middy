@@ -232,13 +232,13 @@ test("processCache", () => {
 		(request) => request,
 		sampleRequest,
 	);
-	expect(value).type.toBe<any>();
+	expect(value).type.toBe<unknown>();
 	expect(expiry).type.toBe<number>();
 });
 
 test("getCache", () => {
 	const cachedValue = util.getCache("someKey");
-	expect(cachedValue).type.toBe<any>();
+	expect(cachedValue).type.toBe<unknown>();
 
 	util.clearCache(["someKey", "someOtherKey"]);
 	util.clearCache("someKey");
@@ -248,12 +248,12 @@ test("getCache", () => {
 
 test("jsonSafeParse", () => {
 	const parsed = util.jsonSafeParse('{"foo":"bar"}', (k, v) => v);
-	expect(parsed).type.toBe<any>();
+	expect(parsed).type.toBe<unknown>();
 });
 
 test("normalizeHttpResponse", () => {
-	const normalizedResponse = util.normalizeHttpResponse({}, {});
-	expect(normalizedResponse).type.toBe<any>();
+	const normalizedResponse = util.normalizeHttpResponse(sampleRequest, {});
+	expect(normalizedResponse).type.toBe<Record<string, unknown>>();
 });
 
 test("createError", () => {

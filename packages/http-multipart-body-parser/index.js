@@ -45,7 +45,6 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		return parseMultipartData(request.event, options)
 			.then((multipartData) => {
-				// request.event.rawBody = body
 				request.event.body = multipartData;
 			})
 			.catch((err) => {
