@@ -197,10 +197,7 @@ export const executionContextKeys = ["tenantId"];
 export const isExecutionModeDurable = (context) => {
 	// using `context instanceof DurableContextImpl` would be better
 	// but would require an extra dependency
-	if (context.constructor.name === "DurableContextImpl") {
-		return true;
-	}
-	return false;
+	return context.constructor.name === "DurableContextImpl";
 };
 
 export const executionContext = (request, key, context) => {
