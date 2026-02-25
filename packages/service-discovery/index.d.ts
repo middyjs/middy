@@ -24,6 +24,7 @@ export interface ServiceDiscoveryOptions<
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
+		| "cacheKeyExpiry"
 		| "setToContext"
 	> {
 	fetchData?: { [key: string]: DiscoverInstancesCommandInput };

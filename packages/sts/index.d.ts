@@ -32,6 +32,7 @@ export interface STSOptions<AwsSTSClient = STSClient>
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
+		| "cacheKeyExpiry"
 		| "setToContext"
 	> {
 	fetchData?: {

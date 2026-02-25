@@ -113,7 +113,12 @@ const parseHeader = (
 			throw createError(
 				406,
 				`Unsupported ${type}. Acceptable values: ${availableValues.join(", ")}`,
-				{ cause: { package: "@middy/http-content-negotiation" } },
+				{
+					cause: {
+						package: "@middy/http-content-negotiation",
+						data: { [headerName]: headerValue },
+					},
+				},
 			);
 		}
 	}

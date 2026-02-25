@@ -5,12 +5,16 @@ import type middy from "@middy/core";
 export interface Options {
 	parseCharsets?: boolean;
 	availableCharsets?: string[];
+	defaultToFirstCharset?: boolean;
 	parseEncodings?: boolean;
 	availableEncodings?: string[];
+	defaultToFirstEncoding?: boolean;
 	parseLanguages?: boolean;
 	availableLanguages?: string[];
+	defaultToFirstLanguage?: boolean;
 	parseMediaTypes?: boolean;
 	availableMediaTypes?: string[];
+	defaultToFirstMediaType?: boolean;
 	failOnMismatch?: boolean;
 }
 
