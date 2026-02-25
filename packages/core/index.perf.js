@@ -77,7 +77,7 @@ const baseHandlerAsync = async () => {};
 const streamHandler = (event, context) => {
 	return "chunk1chunk2chunk3";
 };
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 

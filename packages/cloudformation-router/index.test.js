@@ -3,7 +3,6 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import cloudformationRouter from "./index.js";
 
-// const defaultEvent = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

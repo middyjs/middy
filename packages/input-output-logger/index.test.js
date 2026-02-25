@@ -8,10 +8,6 @@ import { executionModeStreamifyResponse } from "../core/executionModeStreamifyRe
 import middy from "../core/index.js";
 import inputOutputLogger from "./index.js";
 
-// Silence logging
-// console.log = () => {}
-
-// const event = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

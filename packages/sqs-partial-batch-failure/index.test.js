@@ -15,7 +15,6 @@ const lambdaHandler = async (e) => {
 	return Promise.allSettled(processedRecords);
 };
 
-// const defaultEvent = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

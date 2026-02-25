@@ -16,16 +16,12 @@ const parseFn = {
 const defaults = {
 	parseCharsets: true,
 	availableCharsets: undefined,
-	// defaultToFirstCharset: false, // Should not be used
 	parseEncodings: true,
 	availableEncodings: undefined,
-	// defaultToFirstEncoding: false, // Should not be used
 	parseLanguages: true,
 	availableLanguages: undefined,
-	// defaultToFirstLanguage: false, // Should not be used
 	parseMediaTypes: true,
 	availableMediaTypes: undefined,
-	// defaultToFirstMediaType: false, // Should not be used
 	failOnMismatch: true,
 };
 

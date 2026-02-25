@@ -4,7 +4,7 @@ import router from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {

@@ -3,7 +3,6 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import httpRouter from "./index.js";
 
-// const defaultEvent = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

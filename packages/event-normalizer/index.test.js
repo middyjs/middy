@@ -4,7 +4,6 @@ import createEvent from "@serverless/event-mocks";
 import middy from "../core/index.js";
 import eventNormalizer from "./index.js";
 
-// const event = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

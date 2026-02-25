@@ -8,7 +8,6 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import httpMultipartBodyParser from "./index.js";
 
-// const event = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

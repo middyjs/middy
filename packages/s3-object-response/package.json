@@ -72,14 +72,14 @@
 			"optional": true
 		}
 	},
+	"dependencies": {
+		"@middy/util": "7.1.2"
+	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "^3.0.0",
 		"@middy/core": "7.1.2",
 		"@types/aws-lambda": "^8.0.0",
 		"aws-xray-sdk": "^3.3.3"
-	},
-	"dependencies": {
-		"@middy/util": "7.1.2"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

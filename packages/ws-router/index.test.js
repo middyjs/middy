@@ -3,7 +3,6 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import wsRouter from "./index.js";
 
-// const event = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };

@@ -4,7 +4,7 @@ import middy from "../core/index.js";
 import jsonBodyParser from "./index.js";
 
 const handler = middy((event) => event).use(jsonBodyParser());
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -12,7 +12,7 @@ test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
 			try {
-				await handler(event, context);
+				await handler(event, defaultContext);
 			} catch (e) {
 				if (e.cause?.package !== "@middy/ws-json-body-parser") {
 					throw e;
@@ -36,7 +36,7 @@ test("fuzz `event` w/ `record`", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/ws-json-body-parser") {
 						throw e;

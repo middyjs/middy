@@ -4,7 +4,7 @@ import router from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {
@@ -21,11 +21,11 @@ const setupHandler = () => {
 
 const coldHandler = setupHandler();
 
-const event = {};
+const defaultEvent = {};
 await bench
 	.add("without cache", async () => {
 		try {
-			await coldHandler(event, context);
+			await coldHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 
