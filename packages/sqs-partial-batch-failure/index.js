@@ -33,7 +33,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
 		if (request.response !== undefined) return;
 
-		request.response = new Array(request.event.Records?.length).fill({
+		request.response = new Array(request.event.Records?.length ?? 0).fill({
 			status: "rejected",
 			reason: request.error,
 		});

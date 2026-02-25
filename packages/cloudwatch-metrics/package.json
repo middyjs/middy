@@ -73,6 +73,5 @@
 	"devDependencies": {
 		"@middy/core": "7.1.2",
 		"@types/aws-lambda": "^8.0.0"
-	},
-	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	}
 }

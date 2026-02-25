@@ -26,8 +26,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 			defaultContentType,
 		];
 
-		for (const type of types) {
-			let breakTypes;
+		outerLoop: for (const type of types) {
 			for (const s of serializers) {
 				s.regex.lastIndex = 0;
 				if (!s.regex.test(type)) {
@@ -43,10 +42,8 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 					request.response.body = result;
 				}
 
-				breakTypes = true;
-				break;
+				break outerLoop;
 			}
-			if (breakTypes) break;
 		}
 	};
 

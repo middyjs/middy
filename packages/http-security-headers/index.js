@@ -183,7 +183,6 @@ helmet.referrerPolicy = (headers, config) => {
 
 // DEPRECATED by reportingEndpoints
 helmet.reportTo = (headers, config) => {
-	headers["Report-To"] = "";
 	const keys = Object.keys(config);
 	headers["Report-To"] = keys
 		.map((group) => {
@@ -201,13 +200,10 @@ helmet.reportTo = (headers, config) => {
 };
 
 helmet.reportingEndpoints = (headers, config) => {
-	headers["Reporting-Endpoints"] = "";
 	const keys = Object.keys(config);
-	for (let i = 0, l = keys.length; i < l; i++) {
-		if (i) headers["Reporting-Endpoints"] += ", ";
-		const key = keys[i];
-		headers["Reporting-Endpoints"] += `${key}="${config[key]}"`;
-	}
+	headers["Reporting-Endpoints"] = keys
+		.map((key) => `${key}="${config[key]}"`)
+		.join(", ");
 };
 
 // https://github.com/helmetjs/hsts

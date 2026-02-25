@@ -113,6 +113,5 @@
 		"@datastream/core": "0.0.42",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
-	},
-	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	}
 }

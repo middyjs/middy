@@ -62,7 +62,6 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
-	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
 	"dependencies": {
 		"@middy/util": "7.1.2"
 	},
