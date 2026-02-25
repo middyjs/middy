@@ -39,7 +39,7 @@ npm install --save @middy/secrets-manager @aws-sdk/client-secrets-manager
 
 ## Documentation and examples
 
-For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/secrets-manager).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/secrets-manager).
 
 
 ## Contributing

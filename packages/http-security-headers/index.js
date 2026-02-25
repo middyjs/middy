@@ -254,8 +254,7 @@ helmet.poweredBy = (headers, config) => {
 
 // https://github.com/helmetjs/x-xss-protection
 helmet.xssProtection = (headers, config) => {
-	const header = "0";
-	headers["X-XSS-Protection"] = header;
+	headers["X-XSS-Protection"] = "0";
 };
 
 const httpSecurityHeadersMiddleware = (opts = {}) => {

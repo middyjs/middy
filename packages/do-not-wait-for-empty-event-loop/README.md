@@ -39,7 +39,7 @@ npm install --save @middy/do-not-wait-for-empty-event-loop
 
 ## Documentation and examples
 
-For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop).
 
 
 ## Contributing

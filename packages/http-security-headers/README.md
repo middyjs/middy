@@ -40,7 +40,7 @@ npm install --save @middy/http-security-headers
 
 ## Documentation and examples
 
-For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-security-headers).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-security-headers).
 
 
 ## Contributing

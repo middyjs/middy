@@ -39,7 +39,7 @@ npm install --save @middy/http-multipart-body-parser
 
 ## Documentation and examples
 
-For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-multipart-body-parser).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-multipart-body-parser).
 
 
 ## Contributing

@@ -39,7 +39,7 @@ npm install --save @middy/s3-object-response @aws-sdk/client-s3
 
 ## Documentation and examples
 
-For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/s3-object-response).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/s3-object-response).
 
 
 ## Contributing
