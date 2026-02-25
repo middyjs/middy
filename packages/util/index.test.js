@@ -11,6 +11,7 @@ import {
 	clearCache,
 	createClient,
 	createError,
+	decodeBody,
 	executionContext,
 	getCache,
 	getInternal,
@@ -516,6 +517,20 @@ describe("processCache / clearCache", () => {
 		clearCache();
 	});
 
+	test("processCache should cache with large unix timestamp expiry", async (t) => {
+		const fetchRequest = t.mock.fn(() => "value");
+		t.mock.timers.tick(86400001);
+		const options = {
+			cacheKey: "key-unix-large",
+			cacheExpiry: Date.now() + 1000,
+		};
+		processCache(options, fetchRequest, cacheRequest);
+		const cache = getCache("key-unix-large");
+		notStrictEqual(cache.value, undefined);
+		strictEqual(cache.expiry, options.cacheExpiry);
+		clearCache();
+	});
+
 	test("processCache should cache with past unix timestamp (no refresh)", async (t) => {
 		const fetchRequest = t.mock.fn(() => "value");
 		const options = {
@@ -621,6 +636,12 @@ describe("catchInvalidSignatureException", () => {
 	});
 });
 
+test("processCache should work with default middlewareFetch", async (t) => {
+	const result = processCache({ cacheKey: "test-default", cacheExpiry: 0 });
+	strictEqual(result.value, undefined);
+	clearCache();
+});
+
 // modifyCache
 test("modifyCache should not override value when it does not exist", async (t) => {
 	modifyCache("key");
@@ -673,6 +694,27 @@ test("jsonSafeStringify should stringify with replacer", async (t) => {
 test("jsonSafeStringify should not stringify if throws error", async (t) => {
 	const value = jsonSafeStringify({ bigint: BigInt(9007199254740991) });
 	deepStrictEqual(value, { bigint: BigInt(9007199254740991) });
+});
+
+// decodeBody
+test("decodeBody should return body unchanged if not base64 encoded", async (t) => {
+	const event = { body: '{"foo":"bar"}', isBase64Encoded: false };
+	strictEqual(decodeBody(event), '{"foo":"bar"}');
+});
+test("decodeBody should decode base64 body", async (t) => {
+	const event = {
+		body: Buffer.from('{"foo":"bar"}').toString("base64"),
+		isBase64Encoded: true,
+	};
+	strictEqual(decodeBody(event), '{"foo":"bar"}');
+});
+test("decodeBody should return undefined for undefined body", async (t) => {
+	const event = { body: undefined, isBase64Encoded: false };
+	strictEqual(decodeBody(event), undefined);
+});
+test("decodeBody should return null for null body", async (t) => {
+	const event = { body: null, isBase64Encoded: false };
+	strictEqual(decodeBody(event), null);
 });
 
 // normalizeHttpResponse
@@ -775,6 +817,15 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.name, "InternalServerError");
 	strictEqual(e.message, "Internal Server Error");
 	strictEqual(e.expose, false);
+});
+
+test("HttpError should create error with explicit expose", async (t) => {
+	const e = new HttpError(500, "message", { expose: true });
+	strictEqual(e.status, 500);
+	strictEqual(e.statusCode, 500);
+	strictEqual(e.name, "InternalServerError");
+	strictEqual(e.message, "message");
+	strictEqual(e.expose, true);
 });
 
 // executionContext

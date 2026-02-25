@@ -29,11 +29,9 @@ import ajvFormats from "ajv-formats";
 import { transpile } from "ajv-ftl-i18n";
 import ajvKeywords from "ajv-keywords";
 
-// import transpileFTL from 'ajv-cmd/ftl'
 export const transpileFTL = transpile;
 
-// *** Start `ajv-cmd/compile` *** //
-// import compileSchema from 'ajv-cmd/compile'
+// Inlined from `ajv-cmd/compile` to avoid extra dependency
 
 const instance = (options = {}) => {
 	Object.assign(options, { keywords: [] });

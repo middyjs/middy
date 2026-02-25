@@ -1,15 +1,14 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
 import { Readable } from "node:stream";
 import { ReadableStream } from "node:stream/web";
-
 import {
 	createBrotliCompress as brotliCompressStream,
 	createDeflate as deflateCompressStream,
 	createGzip as gzipCompressStream,
 	createZstdCompress as zstdCompressStream,
 } from "node:zlib";
-
 import { normalizeHttpResponse } from "@middy/util";
 
 const contentEncodingStreams = {
@@ -31,7 +30,7 @@ export const getContentEncodingStream = (preferredEncoding) => {
 	return contentEncodingStreams[preferredEncoding]();
 };
 
-const httpContentEncodingMiddleware = (opts) => {
+const httpContentEncodingMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const supportedContentEncodings = Object.keys(contentEncodingStreams);
@@ -43,7 +42,7 @@ const httpContentEncodingMiddleware = (opts) => {
 			response,
 		} = request;
 
-		// Encoding not supported, already encoded, or doesn't need to'
+		// Encoding not supported, already encoded, or doesn't need to
 		const eventCacheControl =
 			request.event?.headers?.["cache-control"] ??
 			request.event?.headers?.["Cache-Control"];
@@ -128,7 +127,7 @@ const httpContentEncodingMiddleware = (opts) => {
 	};
 };
 
-// header in offical name, lowercase varient handeled
+// header in official name, lowercase variant handled
 const addHeaderPart = (response, header, value) => {
 	const headerLower = header.toLowerCase();
 	const sanitizedHeader = response.headers[headerLower] ? headerLower : header;

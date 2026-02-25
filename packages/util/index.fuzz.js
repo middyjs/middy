@@ -16,7 +16,7 @@ test("fuzz `jsonSafeParse` w/ `anything`", async () => {
 		fc.asyncProperty(fc.anything(), async (value) => {
 			try {
 				jsonSafeParse(value);
-			} catch (e) {
+			} catch (_e) {
 				// Expected to not throw
 			}
 		}),
@@ -33,7 +33,7 @@ test("fuzz `jsonSafeStringify` w/ `anything`", async () => {
 		fc.asyncProperty(fc.anything(), async (value) => {
 			try {
 				jsonSafeStringify(value);
-			} catch (e) {
+			} catch (_e) {
 				// Expected to not throw
 			}
 		}),
@@ -50,7 +50,7 @@ test("fuzz `sanitizeKey` w/ `string`", async () => {
 		fc.asyncProperty(fc.string(), async (key) => {
 			try {
 				sanitizeKey(key);
-			} catch (e) {
+			} catch (_e) {
 				// Expected to not throw
 			}
 		}),
@@ -67,7 +67,7 @@ test("fuzz `normalizeHttpResponse` w/ `anything`", async () => {
 		fc.asyncProperty(fc.anything(), async (response) => {
 			try {
 				normalizeHttpResponse(response);
-			} catch (e) {
+			} catch (_e) {
 				// Expected to not throw
 			}
 		}),
@@ -109,7 +109,7 @@ test("fuzz `getInternal` w/ `object`", async () => {
 			const request = { internal };
 			try {
 				await getInternal(variables, request);
-			} catch (e) {
+			} catch (_e) {
 				// Expected to handle various inputs
 			}
 		}),

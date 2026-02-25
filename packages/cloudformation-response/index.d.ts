@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-declare function cloudformationResponse(): middy.MiddlewareObj;
+declare function cloudformationResponse(): middy.MiddlewareObj<
+	unknown,
+	unknown,
+	Error
+>;
 
 export default cloudformationResponse;

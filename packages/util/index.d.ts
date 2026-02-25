@@ -11,8 +11,8 @@ import type {
 	SanitizeKeys,
 } from "./type-utils.d.ts";
 
-interface Options<Client, ClientOptions> {
-	AwsClient?: new (...[config]: [any] | any) => Client;
+export interface Options<Client, ClientOptions> {
+	AwsClient?: new (config: ClientOptions) => Client;
 	awsClientOptions?: Partial<ClientOptions>;
 	awsClientAssumeRole?: string;
 	awsClientCapture?: (service: Client) => Client;
@@ -20,15 +20,16 @@ interface Options<Client, ClientOptions> {
 	disablePrefetch?: boolean;
 	cacheKey?: string;
 	cacheExpiry?: number;
+	cacheKeyExpiry?: Record<string, number>;
 	setToContext?: boolean;
 }
 
-declare class HttpError extends Error {
+export declare class HttpError extends Error {
 	status: number;
 	statusCode: number;
 	expose: boolean;
-	[key: string]: any;
-	[key: number]: any;
+	[key: string]: unknown;
+	[key: number]: unknown;
 }
 
 declare function createPrefetchClient<Client, ClientOptions>(
@@ -118,28 +119,65 @@ declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 declare function processCache<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
-	fetch: (request: middy.Request, cachedValues: any) => any,
+	fetch: (request: middy.Request, cachedValues: unknown) => unknown,
 	request?: middy.Request,
-): { value: any; expiry: number };
+): { value: unknown; expiry: number };
 
-declare function getCache(keys: string): any;
+declare function getCache(keys: string): unknown;
 
 declare function clearCache(keys?: string | string[] | null): void;
 
 declare function jsonSafeParse(
 	string: string,
-	reviver?: (key: string, value: any) => any,
-): any;
+	reviver?: (key: string, value: unknown) => unknown,
+): unknown;
 
 declare function normalizeHttpResponse(
-	request: any,
-	fallbackResponse?: any,
-): any;
+	request: middy.Request,
+	fallbackResponse?: Record<string, unknown>,
+): Record<string, unknown>;
 
 declare function createError(
 	code: number,
 	message: string,
-	properties?: Record<string, any>,
+	properties?: Record<string, unknown>,
 ): HttpError;
 
-declare function modifyCache(cacheKey: string, value: any): void;
+declare function modifyCache(cacheKey: string, value: unknown): void;
+
+declare function catchInvalidSignatureException<Client, Command>(
+	e: Error & { __type?: string },
+	client: Client,
+	command: Command,
+): Promise<unknown>;
+
+declare function jsonSafeStringify(
+	value: unknown,
+	replacer?: (key: string, value: unknown) => unknown,
+	space?: string | number,
+): string | unknown;
+
+declare function decodeBody(event: {
+	body?: string | null;
+	isBase64Encoded?: boolean;
+}): string | null | undefined;
+
+declare const lambdaContextKeys: string[];
+
+declare const executionContextKeys: string[];
+
+declare function isExecutionModeDurable(context: LambdaContext): boolean;
+
+declare function executionContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): unknown;
+
+declare function lambdaContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): unknown;
+
+declare const httpErrorCodes: Record<number, string>;

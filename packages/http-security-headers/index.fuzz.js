@@ -3,15 +3,33 @@ import fc from "fast-check";
 import middy from "../core/index.js";
 import middleware from "./index.js";
 
+const webPathWithQuery = fc
+	.webUrl({
+		authoritySettings: {
+			host: fc.constant("example.com"),
+			port: fc.constant(undefined),
+		},
+		withQueryParameters: true,
+		withFragments: false,
+	})
+	.map((url) => {
+		try {
+			const parsed = new URL(url);
+			return parsed.pathname + parsed.search;
+		} catch {
+			return "/";
+		}
+	});
+
 const handler = middy((event) => event).use(middleware());
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
 test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
-			await handler(event, context);
+			await handler(event, defaultContext);
 		}),
 		{
 			numRuns: 100_000,
@@ -40,9 +58,9 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}
@@ -80,9 +98,9 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}
@@ -111,13 +129,13 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 					"TRACE",
 					"CONNECT",
 				),
-				raw_path: fc.webPath(), // TODO webUrl({ withDomain:false, withPath: true, withQueryParameters:true})
+				raw_path: webPathWithQuery,
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
-					if (e.cause?.package !== "@middy/http-multipart-body-parser") {
+					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
 					}
 				}

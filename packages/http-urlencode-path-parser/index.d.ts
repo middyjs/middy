@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 import type { APIGatewayEvent } from "aws-lambda";
-import type { JsonValue } from "type-fest";
 
-export type Event = APIGatewayEvent & {
-	body: JsonValue;
-};
+export type Event = APIGatewayEvent;
 
-declare function urlEncodePathParser(): middy.MiddlewareObj<Event>;
+declare function urlEncodePathParser(): middy.MiddlewareObj<
+	Event,
+	unknown,
+	Error
+>;
 
 export default urlEncodePathParser;

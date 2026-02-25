@@ -7,8 +7,9 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 
-interface Options {
-	reviver?: (key: string, value: any) => any;
+export interface Options {
+	reviver?: (key: string, value: unknown) => unknown;
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 
@@ -16,6 +17,6 @@ export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;
 
 declare function jsonBodyParser<EventType extends RequestEvent = RequestEvent>(
 	options?: Options,
-): middy.MiddlewareObj<EventType>;
+): middy.MiddlewareObj<EventType, unknown, Error>;
 
 export default jsonBodyParser;

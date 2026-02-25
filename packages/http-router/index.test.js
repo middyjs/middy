@@ -3,8 +3,7 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import httpRouter from "./index.js";
 
-// const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -21,7 +20,7 @@ test("It should route to a static route", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -37,7 +36,7 @@ test("It should route to a static route with trailing slash", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -56,7 +55,7 @@ test("It should route to a dynamic route with `{variable}`", async (t) => {
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 test("It should route to a dynamic route with `{variable1}`", async (t) => {
@@ -74,7 +73,7 @@ test("It should route to a dynamic route with `{variable1}`", async (t) => {
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 test("It should route to a dynamic route with `{Variable}`", async (t) => {
@@ -92,7 +91,7 @@ test("It should route to a dynamic route with `{Variable}`", async (t) => {
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 test("It should route to a dynamic route with `{var_iable}`", async (t) => {
@@ -110,7 +109,7 @@ test("It should route to a dynamic route with `{var_iable}`", async (t) => {
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 test("It should not route to a dynamic route with `{var-iable}`", async (t) => {
@@ -145,7 +144,7 @@ test("It should route to a dynamic route with `{variable}` with trailing slash",
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -169,7 +168,7 @@ test("It should route to a dynamic route with multiple `{variable}`", async (t) 
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -188,7 +187,7 @@ test("It should route to a dynamic route (/) with `{proxy+}`", async (t) => {
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -207,7 +206,7 @@ test("It should route to a dynamic route (/path) with `{proxy+}`", async (t) => 
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -227,7 +226,7 @@ test("It should route to a dynamic route (/path/to) with `{proxy+}`", async (t) 
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -250,7 +249,7 @@ test("It should populate pathParameters to a dynamic route even if they already 
 			},
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -267,7 +266,7 @@ test("It should thrown 404 when route not found", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");
 		strictEqual(e.statusCode, 404);
@@ -295,7 +294,7 @@ test("It should thrown 200 when route not found, using notFoundResponse", async 
 		},
 	});
 
-	const res = await handler(event, context);
+	const res = await handler(event, defaultContext);
 
 	strictEqual(res.statusCode, 200);
 	deepStrictEqual(JSON.parse(res.body), { method: "GET", path: "/notfound" });
@@ -314,7 +313,7 @@ test("It should route to a static POST method", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -330,7 +329,7 @@ test("It should route to a static ANY method", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -346,7 +345,7 @@ test("It should route to a dynamic POST method", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -362,7 +361,7 @@ test("It should route to a dynamic ANY method", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -379,7 +378,7 @@ test("It should route to a REST v1 event", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -400,7 +399,7 @@ test("It should route to a v2 event", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -416,7 +415,7 @@ test("It should route to a VPC Lattice event", async (t) => {
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -432,7 +431,7 @@ test("It should route to a VPC Lattice event with query parameters", async (t) =
 			handler: () => true,
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -451,7 +450,7 @@ test("It should run middleware that are part of route handler", async (t) => {
 			}),
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -475,7 +474,7 @@ test("It should not run middleware that are part of another route handler", asyn
 			}),
 		},
 	]);
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 	ok(success);
 });
@@ -496,7 +495,7 @@ test("It should run middleware part of router", async (t) => {
 	).after((request) => {
 		request.response = true;
 	});
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	ok(response);
 });
 
@@ -527,9 +526,9 @@ test("It should throw when not a http event (missing method)", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown http event format");
+		strictEqual(e.message, "Unknown HTTP event format");
 	}
 });
 
@@ -545,9 +544,9 @@ test("It should throw when not a http event (missing path)", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown http event format");
+		strictEqual(e.message, "Unknown HTTP event format");
 	}
 });
 
@@ -564,7 +563,7 @@ test("It should throw 404 when method has no routes defined", async (t) => {
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");
 		strictEqual(e.statusCode, 404);
@@ -589,7 +588,7 @@ test("It should throw 404 when method has only static routes and no matching dyn
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");
 		strictEqual(e.statusCode, 404);
@@ -609,7 +608,7 @@ test("It should return 404 when dynamic route exists but path does not match", a
 		},
 	]);
 	try {
-		await handler(event, context);
+		await handler(event, defaultContext);
 		fail("Should have thrown 404");
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");

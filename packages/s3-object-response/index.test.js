@@ -6,7 +6,7 @@ import { MockAgent, setGlobalDispatcher } from "undici";
 import middy from "../core/index.js";
 import { clearCache } from "../util/index.js";
 
-import s3ObejctResponse from "./index.js";
+import s3ObjectResponse from "./index.js";
 
 let agent;
 test.beforeEach((t) => {
@@ -61,7 +61,7 @@ test("It should fetch and forward Body", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -100,7 +100,7 @@ test("It should fetch and forward body", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -139,7 +139,7 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 			disablePrefetch: true,
 		}),
@@ -170,7 +170,7 @@ test("It should handle event without getObjectContext", async (t) => {
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -194,7 +194,7 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 	});
 
 	handler.use(
-		s3ObejctResponse({
+		s3ObjectResponse({
 			AwsClient: S3Client,
 		}),
 	);
@@ -207,4 +207,58 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 	};
 	const response = await handler(event, defaultContext);
 	strictEqual(response.statusCode, 200);
+});
+
+test("It should handle non-InvalidSignatureException error from S3", async (t) => {
+	const s3Data = "test";
+	const error = new Error("SomeOtherError");
+
+	mockClient(S3Client).on(WriteGetObjectResponseCommand).rejects(error);
+
+	const handler = middy(async (event, context) => {
+		return { Body: s3Data };
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected error");
+	} catch (e) {
+		strictEqual(e.message, "SomeOtherError");
+	}
+});
+
+test("It should handle InvalidSignatureException and retry", async (t) => {
+	const s3Data = JSON.stringify({ key: "item", value: 1 });
+	const invalidSignatureError = new Error("InvalidSignatureException");
+	invalidSignatureError.__type = "InvalidSignatureException";
+
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand, {
+			RequestRoute: defaultEvent.outputRoute,
+			RequestToken: defaultEvent.outputToken,
+			Body: s3Data,
+		})
+		.rejectsOnce(invalidSignatureError)
+		.resolvesOnce({ statusCode: 200 });
+
+	const handler = middy(async (event, context) => {
+		return {
+			Body: s3Data,
+		};
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response.statusCode, 200);
 });

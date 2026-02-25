@@ -25,15 +25,13 @@ export type Method =
 export interface Route<TEvent, TResult> {
 	method: Method;
 	path: string;
-	handler:
-		| LambdaHandler<TEvent, TResult>
-		| MiddyfiedHandler<TEvent, TResult, any, any>;
+	handler: LambdaHandler<TEvent, TResult> | MiddyfiedHandler<TEvent, TResult>;
 }
 
 export type RouteNotFoundResponseFn = (input: {
 	method: string;
 	path: string;
-}) => never;
+}) => unknown;
 
 declare function httpRouterHandler<
 	TEvent extends

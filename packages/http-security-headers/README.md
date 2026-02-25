@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy http-security-headers middleware</h1>
+  <h1>Middy `http-security-headers` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP security headers middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>Applies best practice security headers to responses. It's a simplified port of [HelmetJS](https://helmetjs.github.io/). See HelmetJS documentation for more details.</p>
@@ -30,6 +30,23 @@
   </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-security-headers">https://middy.js.org/docs/middlewares/http-security-headers</a></p>
 </div>
+
+## Install
+
+```bash
+npm install --save @middy/http-security-headers
+```
+
+
+## Documentation and examples
+
+For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-security-headers).
+
+
+## Contributing
+
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
 
 ## License
 

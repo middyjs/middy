@@ -3,8 +3,26 @@ import fc from "fast-check";
 import middy from "../core/index.js";
 import router from "./index.js";
 
+const webPathWithQuery = fc
+	.webUrl({
+		authoritySettings: {
+			host: fc.constant("example.com"),
+			port: fc.constant(undefined),
+		},
+		withQueryParameters: true,
+		withFragments: false,
+	})
+	.map((url) => {
+		try {
+			const parsed = new URL(url);
+			return parsed.pathname + parsed.search;
+		} catch {
+			return "/";
+		}
+	});
+
 const handler = middy(router());
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -12,7 +30,7 @@ test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
 			try {
-				await handler(event, context);
+				await handler(event, defaultContext);
 			} catch (e) {
 				if (e.cause?.package !== "@middy/http-router") {
 					throw e;
@@ -46,7 +64,7 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-router") {
 						throw e;
@@ -89,7 +107,7 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-router") {
 						throw e;
@@ -123,11 +141,11 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 					"TRACE",
 					"CONNECT",
 				),
-				raw_path: fc.webPath(), // TODO webUrl({ withDomain:false, withPath: true, withQueryParameters:true})
+				raw_path: webPathWithQuery,
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-router") {
 						throw e;

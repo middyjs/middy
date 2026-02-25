@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.1.0",
+	"version": "7.1.2",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -24,6 +24,7 @@
 		},
 		"./Standard": {
 			"import": {
+				"types": "./executionModeStandard.d.ts",
 				"default": "./executionModeStandard.js"
 			},
 			"require": {
@@ -32,6 +33,7 @@
 		},
 		"./DurableContext": {
 			"import": {
+				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
 			},
 			"require": {
@@ -40,6 +42,7 @@
 		},
 		"./StreamifyResponse": {
 			"import": {
+				"types": "./executionModeStreamifyResponse.d.ts",
 				"default": "./executionModeStreamifyResponse.js"
 			},
 			"require": {
@@ -93,6 +96,9 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"dependencies": {
+		"@middy/util": "7.1.2"
+	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"
 	},
@@ -105,7 +111,7 @@
 		"@aws/durable-execution-sdk-js": "^1.0.0",
 		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
 		"@datastream/core": "0.0.42",
-		"@types/aws-lambda": "^8.10.76",
+		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"

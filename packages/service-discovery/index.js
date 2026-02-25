@@ -22,7 +22,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {}, // { contextKey: {NamespaceName, ServiceName, HealthStatus} }
 	disablePrefetch: false,
-	cacheKey: "cloud-map",
+	cacheKey: "service-discovery",
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,

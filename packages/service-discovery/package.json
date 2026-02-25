@@ -1,6 +1,6 @@
 {
 	"name": "@middy/service-discovery",
-	"version": "7.1.0",
+	"version": "7.1.2",
 	"description": "Service Discovery (Cloud Map) instances middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -44,7 +44,7 @@
 		"AWS Lambda",
 		"Middy",
 		"Service Discovery",
-		"SCloud Map",
+		"Cloud Map",
 		"Instances"
 	],
 	"author": {
@@ -54,7 +54,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/sts"
+		"directory": "packages/service-discovery"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
@@ -73,13 +73,13 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.1.0"
+		"@middy/util": "7.1.2"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-servicediscovery": "^3.0.0",
-		"@middy/core": "7.1.0",
-		"@types/aws-lambda": "^8.10.101",
+		"@middy/core": "7.1.2",
+		"@types/aws-lambda": "^8.0.0",
 		"aws-xray-sdk": "^3.3.3"
 	},
-	"gitHead": "b84840ec8afd289f6decfd0d645be4899051792d"
+	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
 }

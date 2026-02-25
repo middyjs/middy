@@ -17,7 +17,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
 		const batchItemFailures = [];
 		if (Array.isArray(Records)) {
-			for (const [idx, record] of Object.entries(Records)) {
+			for (const [idx, record] of Records.entries()) {
 				const { status, reason } = response[idx];
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -33,10 +33,6 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
 		if (request.response !== undefined) return;
 
-		// Force all to be sent to DLQ
-		// const recordPromises = request.event.Records.map(async (record, index) => {
-		//   throw request.error
-		// })
 		request.response = new Array(request.event.Records?.length).fill({
 			status: "rejected",
 			reason: request.error,

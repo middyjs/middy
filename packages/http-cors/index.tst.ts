@@ -4,7 +4,7 @@ import httpCors, { type Options } from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpCors();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -20,9 +20,10 @@ test("use with all options", () => {
 		requestHeaders: ["authorization", "x-custom-header"], // Filter preflight by Access-Control-Request-Headers
 		requestMethods: ["GET", "POST"], // Filter preflight by Access-Control-Request-Method
 		cacheControl: "proxy-revalidate", // Cache-Control,
+		vary: "Origin",
 		getOrigin: (incomingOrigin: string, options: Options) => {
 			return "foo.bar.com";
 		},
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

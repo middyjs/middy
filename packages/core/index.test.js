@@ -2,8 +2,8 @@ import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "./index.js";
 
-const event = {};
-const context = {
+const defaultEvent = {};
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -48,7 +48,7 @@ test('"use" should add single before middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use(middleware1());
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["b1", "handler"]);
 });
 
@@ -60,7 +60,7 @@ test('"before" should add a before middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).before(before);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["b1", "handler"]);
 });
 
@@ -79,7 +79,7 @@ test('"use" should add multiple before middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["b1", "b2", "handler"]);
 });
 
@@ -93,7 +93,7 @@ test('"use" should add single after middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use(middleware1());
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["handler", "a1"]);
 });
 
@@ -105,7 +105,7 @@ test('"after" should add an after middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).after(after);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["handler", "a1"]);
 });
 
@@ -124,7 +124,7 @@ test('"use" should add multiple after middleware', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["handler", "a2", "a1"]);
 });
 
@@ -140,7 +140,7 @@ test('"use" should add single onError middleware', async (t) => {
 		throw new Error("onError");
 	}).use(middleware1());
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["handler", "e1"]);
 });
@@ -156,7 +156,7 @@ test('"onError" should add a before middleware', async (t) => {
 	};
 	handler.onError(onError);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["handler", "e1"]);
 });
@@ -179,7 +179,7 @@ test('"use" should add multiple onError middleware', async (t) => {
 	});
 	handler.use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["handler", "e2", "e1"]);
 });
@@ -202,7 +202,7 @@ test('"use" should add single object with all types of middlewares', async (t) =
 		executed.push("handler");
 	}).use(middleware());
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["b1", "handler", "a1", "e1"]);
 });
@@ -236,7 +236,7 @@ test('"use" can add multiple object with all types of middlewares', async (t) =>
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "a1", "e2", "e1"]);
 });
@@ -270,7 +270,7 @@ test('"use" can add multiple object with all types of middlewares (async)', asyn
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {}
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "a1", "e2", "e1"]);
 });
@@ -284,7 +284,7 @@ test('"handler" should replace lambdaHandler', async (t) => {
 	}).handler(() => {
 		executed.push("handler");
 	});
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["handler"]);
 });
 
@@ -297,7 +297,7 @@ test('"middy" should allow setting plugin as first arg', async (t) => {
 	}).handler(() => {
 		executed.push("handler");
 	});
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 	deepStrictEqual(executed, ["beforePrefetch", "handler"]);
 });
 
@@ -332,7 +332,7 @@ test('Thrown error from"before" middlewares should handled', async (t) => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		deepStrictEqual(e, beforeError);
 	}
@@ -369,7 +369,7 @@ test("Thrown error from handler should handled", async (t) => {
 		throw handlerError;
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "handler");
 		deepStrictEqual(executed, ["b1", "b2", "handler", "e2", "e1"]);
@@ -393,7 +393,7 @@ test("Should handle error thrown by timeoutEarlyResponse", async (t) => {
 	}, plugin);
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (e) {
 		strictEqual(e, timeoutError);
 		strictEqual(e.message, "Custom timeout error");
@@ -430,7 +430,7 @@ test('Thrown error from "after" middlewares should handled', async (t) => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		deepStrictEqual(e, afterError);
 	}
@@ -470,7 +470,7 @@ test('Thrown error from "onError" middlewares should handled', async (t) => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		onErrorError.originalError = afterError;
 		deepStrictEqual(e, onErrorError);
@@ -505,7 +505,7 @@ test('"before" middlewares should be able to mutate event and context', async (t
 			ok(request.context.modifiedAssign);
 		});
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test('"before" middleware should be able to short circuit response', async (t) => {
@@ -536,7 +536,7 @@ test('"before" middleware should be able to short circuit response', async (t) =
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 	deepStrictEqual(executed, ["b1"]);
 });
@@ -568,7 +568,7 @@ test('"before" middleware should be able to use earlyResponse', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(typeof response === "undefined");
 	deepStrictEqual(executed, ["b1"]);
 });
@@ -601,7 +601,7 @@ test("handler should be able to set response", async (t) => {
 		executed.push("handler");
 		return true;
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "a1"]);
 });
@@ -632,7 +632,7 @@ test('"after" middlewares should be able to mutate event and context', async (t)
 		.after(mutateLambdaContext)
 		.after(mutateLambdaEvent);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test('"after" middleware should be able to short circuit response', async (t) => {
@@ -663,7 +663,7 @@ test('"after" middleware should be able to short circuit response', async (t) =>
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2"]);
 });
@@ -696,7 +696,7 @@ test('"after" middleware should be able to use earlyResponse', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(typeof response === "undefined");
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2"]);
 });
@@ -712,7 +712,7 @@ test('"onError" middlewares should be able to change response', async (t) => {
 
 	handler.onError(changeResponseMiddleware);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 });
 
@@ -745,7 +745,7 @@ test('"onError" middleware should be able to short circuit response', async (t) 
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 	deepStrictEqual(executed, ["b1", "e2"]);
 });
@@ -779,7 +779,7 @@ test('"onError" middleware should be able to use earlyResponse', async (t) => {
 	const handler = middy(() => {
 		executed.push("handler");
 	}).use([middleware1(), middleware2()]);
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, defaultContext);
 	ok(response);
 	deepStrictEqual(executed, ["b1", "e2"]);
 });
@@ -803,7 +803,7 @@ test("Should trigger all plugin hooks", async (t) => {
 		.before(beforeMiddleware)
 		.after(afterMiddleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(plugin.beforePrefetch.mock.callCount(), 1);
 	strictEqual(plugin.requestStart.mock.callCount(), 1);
@@ -831,7 +831,7 @@ test("Should abort handler when timeout expires", async (t) => {
 	}, plugin);
 
 	try {
-		const response = await handler(event, context);
+		const response = await handler(defaultEvent, context);
 		ok(response);
 	} catch (_e) {}
 });
@@ -849,7 +849,7 @@ test("Should throw error when timeout expires", async (t) => {
 	}, plugin);
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (e) {
 		strictEqual(e.name, "TimeoutError");
 		strictEqual(e.message, "[AbortError]: The operation was aborted.");
@@ -872,12 +872,35 @@ test("Should not invoke timeoutEarlyResponse on success", async (t) => {
 		return true;
 	}, plugin);
 
-	const response = await handler(event, context);
+	const response = await handler(defaultEvent, context);
 	ok(response);
 
 	t.mock.timers.tick(200);
 
 	ok(!timeoutCalled);
+});
+
+test("Should use default timeoutEarlyResponse when timeout expires", async (t) => {
+	t.mock.timers.reset();
+	const context = {
+		getRemainingTimeInMillis: () => 10,
+	};
+	const handler = middy(
+		async () => {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			return true;
+		},
+		{ timeoutEarlyInMillis: 1 },
+	);
+
+	try {
+		await handler(defaultEvent, context);
+		throw new Error("Expected timeout");
+	} catch (e) {
+		strictEqual(e.name, "TimeoutError");
+		strictEqual(e.message, "[AbortError]: The operation was aborted.");
+		deepStrictEqual(e.cause, { package: "@middy/core" });
+	}
 });
 
 test("Should not invoke timeoutEarlyResponse on error", async (t) => {
@@ -896,7 +919,7 @@ test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 		throw error;
 	}, plugin);
 
-	const response = await handler(event, context).catch((err) => err);
+	const response = await handler(defaultEvent, context).catch((err) => err);
 	strictEqual(response, error);
 
 	t.mock.timers.tick(100);

@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy http-response-serializer middleware</h1>
+  <h1>Middy `http-response-serializer` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP response serializer middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
@@ -29,6 +29,23 @@
   </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-response-serializer">https://middy.js.org/docs/middlewares/http-response-serializer</a></p>
 </div>
+
+## Install
+
+```bash
+npm install --save @middy/http-response-serializer
+```
+
+
+## Documentation and examples
+
+For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-response-serializer).
+
+
+## Contributing
+
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
 
 ## License
 

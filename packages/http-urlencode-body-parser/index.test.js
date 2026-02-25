@@ -3,7 +3,6 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import urlEncodeBodyParser from "./index.js";
 
-// const event = {}
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
@@ -110,6 +109,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	} catch (e) {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
 		strictEqual(e.cause.data, undefined);
 	}
 });
@@ -132,7 +132,12 @@ test("It should not process the body if malformed body is passed", async (t) => 
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.statusCode, 415);
+		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed URL encoded form was provided",
+		);
 	}
 });
 

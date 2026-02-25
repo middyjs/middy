@@ -11,6 +11,7 @@ const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
 	busboy: {},
 	charset: "utf8",
+	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
 
@@ -22,7 +23,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!mimePattern.test(contentType)) {
+		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
 			if (options.disableContentTypeError) {
 				return;
 			}
@@ -36,7 +37,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		if (typeof body === "undefined") {
 			throw createError(
-				415,
+				422,
 				"Invalid or malformed multipart/form-data was provided",
 				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
 			);
@@ -44,13 +45,12 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		return parseMultipartData(request.event, options)
 			.then((multipartData) => {
-				// request.event.rawBody = body
 				request.event.body = multipartData;
 			})
 			.catch((err) => {
 				// UnprocessableEntity
 				throw createError(
-					415,
+					422,
 					"Invalid or malformed multipart/form-data was provided",
 					{
 						cause: {

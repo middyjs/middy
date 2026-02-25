@@ -20,7 +20,7 @@ const defaults = {
 	disablePrefetch: false,
 };
 
-const wsResponseMiddleware = (opts) => {
+const wsResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	let client;
@@ -33,11 +33,12 @@ const wsResponseMiddleware = (opts) => {
 
 		if (!normalizedResponse.ConnectionId) return;
 
-		if (!options.awsClientOptions.endpoint && request.event.requestContext) {
-			options.awsClientOptions.endpoint = `https://${
+		if (request.event.requestContext) {
+			options.awsClientOptions.endpoint ??= `https://${
 				request.event.requestContext.domainName
 			}/${request.event.requestContext.stage}`;
 		}
+
 		if (!client) {
 			client = await createClient(options, request);
 		}
@@ -55,7 +56,6 @@ const wsResponseMiddleware = (opts) => {
 	};
 };
 
-// TODO move to @middy/util?
 const normalizeWsResponse = (request) => {
 	let { response } = request;
 	if (typeof response === "undefined") {

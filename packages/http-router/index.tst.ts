@@ -86,3 +86,21 @@ const middlewareRouteNotFound = httpRouterHandler({
 expect(middlewareRouteNotFound).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
+
+const middlewareRouteNotFoundReturn = httpRouterHandler({
+	routes: [
+		{
+			method: "GET",
+			path: "/",
+			handler: lambdaHandler,
+		},
+	],
+	notFoundResponse: ({ method, path }) => ({
+		statusCode: 404,
+		body: `${method} ${path} not found`,
+	}),
+});
+
+expect(middlewareRouteNotFoundReturn).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+>();

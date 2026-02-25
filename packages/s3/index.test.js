@@ -11,8 +11,8 @@ test.afterEach((t) => {
 	clearCache();
 });
 
-const event = {};
-const context = {
+const defaultEvent = {};
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -51,7 +51,7 @@ test("It should set S3 param value to internal storage", async (t) => {
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should set S3 param value to string when no ContentType is returned", async (t) => {
@@ -82,7 +82,7 @@ test("It should set S3 param value to string when no ContentType is returned", a
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should set S3 param value to context", async (t) => {
@@ -114,7 +114,7 @@ test("It should set S3 param value to context", async (t) => {
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should not call aws-sdk again if parameter is cached forever", async (t) => {
@@ -145,8 +145,8 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 		)
 		.before(middleware);
 
-	await handler(event, context);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(sendStub.callCount, 1);
 });
@@ -180,8 +180,8 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 		)
 		.before(middleware);
 
-	await handler(event, context);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(sendStub.callCount, 1);
 });
@@ -216,8 +216,8 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 		)
 		.before(middleware);
 
-	await handler(event, context);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(sendStub.callCount, 2);
 });
@@ -244,7 +244,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	);
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
@@ -306,13 +306,13 @@ test("It should skip fetching already cached values when fetching multiple keys"
 
 	// First call - key1 succeeds, key2 fails
 	try {
-		await handler(event, context);
-	} catch (e) {
+		await handler(defaultEvent, defaultContext);
+	} catch (_e) {
 		// Expected to fail
 	}
 
 	// Second call - only key2 is fetched (key1 is already cached)
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 
 	// Should have called send 3 times total (key1 once, key2 twice)
 	strictEqual(sendStub.callCount, 3);

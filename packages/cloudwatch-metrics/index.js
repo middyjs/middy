@@ -6,7 +6,7 @@ const defaults = {};
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
 	const { namespace, dimensions } = { ...defaults, ...opts };
-	const cloudwatchMetricsBefore = (request) => {
+	const cloudwatchMetricsBefore = async (request) => {
 		const metrics = awsEmbeddedMetrics.createMetricsLogger();
 
 		// If not set, defaults to aws-embedded-metrics

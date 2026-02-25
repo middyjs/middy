@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-declare function eventNormalizer(): middy.MiddlewareObj;
+export interface Options {
+	wrapNumbers?: boolean;
+}
+
+declare function eventNormalizer(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default eventNormalizer;

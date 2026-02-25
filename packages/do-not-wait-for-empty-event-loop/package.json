@@ -1,6 +1,6 @@
 {
 	"name": "@middy/do-not-wait-for-empty-event-loop",
-	"version": "7.1.0",
+	"version": "7.1.2",
 	"description": "Middleware for the middy framework that allows to easily disable the wait for empty event loop in a Lambda function",
 	"type": "module",
 	"engines": {
@@ -64,10 +64,10 @@
 	},
 	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431",
 	"dependencies": {
-		"@middy/util": "7.1.0"
+		"@middy/util": "7.1.2"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.0",
-		"@types/aws-lambda": "^8.10.76"
+		"@middy/core": "7.1.2",
+		"@types/aws-lambda": "^8.0.0"
 	}
 }

@@ -128,11 +128,10 @@ const defaults = {
 };
 
 const helmet = {};
-const helmetHtmlOnly = {};
 
 // *** https://github.com/helmetjs/helmet/tree/main/middlewares *** //
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
-helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
+helmet.contentSecurityPolicy = (reportOnly) => (headers, config) => {
 	let header = Object.keys(config)
 		.map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ""))
 		.filter((str) => str)
@@ -150,13 +149,13 @@ helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
 	headers[cspHeaderName] = header;
 };
 // crossdomain - N/A - for Adobe products
-helmetHtmlOnly.crossOriginEmbedderPolicy = (headers, config) => {
+helmet.crossOriginEmbedderPolicy = (headers, config) => {
 	headers["Cross-Origin-Embedder-Policy"] = config.policy;
 };
-helmetHtmlOnly.crossOriginOpenerPolicy = (headers, config) => {
+helmet.crossOriginOpenerPolicy = (headers, config) => {
 	headers["Cross-Origin-Opener-Policy"] = config.policy;
 };
-helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
+helmet.crossOriginResourcePolicy = (headers, config) => {
 	headers["Cross-Origin-Resource-Policy"] = config.policy;
 };
 
@@ -164,7 +163,7 @@ helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
 // DEPRECATED: hpkp
 
 // https://www.permissionspolicy.com/
-helmetHtmlOnly.permissionsPolicy = (headers, config) => {
+helmet.permissionsPolicy = (headers, config) => {
 	headers["Permissions-Policy"] = Object.keys(config)
 		.map(
 			(policy) =>
@@ -173,7 +172,7 @@ helmetHtmlOnly.permissionsPolicy = (headers, config) => {
 		.join(", ");
 };
 
-helmet.originAgentCluster = (headers, _config) => {
+helmet.originAgentCluster = (headers) => {
 	headers["Origin-Agent-Cluster"] = "?1";
 };
 
@@ -183,7 +182,7 @@ helmet.referrerPolicy = (headers, config) => {
 };
 
 // DEPRECATED by reportingEndpoints
-helmetHtmlOnly.reportTo = (headers, config) => {
+helmet.reportTo = (headers, config) => {
 	headers["Report-To"] = "";
 	const keys = Object.keys(config);
 	headers["Report-To"] = keys
@@ -242,7 +241,7 @@ helmet.downloadOptions = (headers, config) => {
 };
 
 // https://github.com/helmetjs/frameOptions
-helmetHtmlOnly.frameOptions = (headers, config) => {
+helmet.frameOptions = (headers, config) => {
 	headers["X-Frame-Options"] = config.action.toUpperCase();
 };
 
@@ -258,7 +257,7 @@ helmet.poweredBy = (headers, config) => {
 };
 
 // https://github.com/helmetjs/x-xss-protection
-helmetHtmlOnly.xssProtection = (headers, config) => {
+helmet.xssProtection = (headers, config) => {
 	const header = "0";
 	headers["X-XSS-Protection"] = header;
 };
@@ -272,23 +271,13 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		for (const key of Object.keys(helmet)) {
 			if (!options[key]) continue;
 			const config = { ...defaults[key], ...options[key] };
-			helmet[key](request.response.headers, config);
-		}
-		const contentTypeHeader =
-			request.response.headers["Content-Type"] ??
-			request.response.headers["content-type"];
-		if (contentTypeHeader?.includes("text/html")) {
-			for (const key of Object.keys(helmetHtmlOnly)) {
-				if (!options[key]) continue;
-				const config = { ...defaults[key], ...options[key] };
-				if (key === "contentSecurityPolicy") {
-					helmetHtmlOnly[key](options.contentSecurityPolicyReportOnly)(
-						request.response.headers,
-						config,
-					);
-				} else {
-					helmetHtmlOnly[key](request.response.headers, config);
-				}
+			if (key === "contentSecurityPolicy") {
+				helmet[key](options.contentSecurityPolicyReportOnly)(
+					request.response.headers,
+					config,
+				);
+			} else {
+				helmet[key](request.response.headers, config);
 			}
 		}
 		// Clean up headers removals

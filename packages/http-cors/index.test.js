@@ -3,7 +3,7 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import httpCors from "./index.js";
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -17,7 +17,7 @@ test("Should return default headers when { }", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -34,7 +34,7 @@ test('Should return default headers when { origin: "*" }', async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -65,7 +65,7 @@ test("It should add headers even onError", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 500,
@@ -90,7 +90,7 @@ test("It should run handler when { disableBeforePreflightResponse: true }", asyn
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	strictEqual(trigger.mock.callCount(), 1);
 	deepStrictEqual(response, {
@@ -113,7 +113,7 @@ test("It should respond during `before` when { disableBeforePreflightResponse: f
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	strictEqual(trigger.mock.callCount(), 0);
 	deepStrictEqual(response, {
@@ -133,7 +133,7 @@ test("It should exclude `Access-Control-Allow-Origin`", async (t) => {
 		headers: { Origin: "https://unknown.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -159,7 +159,7 @@ test('It should not override response Access-Control-Allow-Origin header when { 
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -179,7 +179,7 @@ test('Access-Control-Allow-Origin header should be "*" when origin is "*"', asyn
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -204,7 +204,7 @@ test("It should use origin specified in options", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -231,7 +231,7 @@ test("It should use Origin when matching origin specified in options", async (t)
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -256,7 +256,7 @@ test("It should return whitelisted origin (any)", async (t) => {
 		headers: { Origin: "https://another-example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -281,7 +281,7 @@ test("It should return whitelisted origin (static)", async (t) => {
 		headers: { Origin: "https://another-example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -306,7 +306,7 @@ test("It should return whitelisted origin (static & localhost)", async (t) => {
 		headers: { Origin: "https://localhost:3000" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -332,7 +332,7 @@ test("It should return whitelisted origin (dynamic sub-domain)", async (t) => {
 		headers: { Origin: "https://subdomain.example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -358,7 +358,7 @@ test("It should return whitelisted origin (dynamic sub-sub-domain)", async (t) =
 		headers: { Origin: "https://nested.subdomain.example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -384,7 +384,7 @@ test("It should exclude `Access-Control-Allow-Origin` if no match in origins (st
 		headers: { Origin: "https://unknown.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -409,7 +409,7 @@ test("It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
 		headers: { Origin: "https://nested.subdomain.example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -434,7 +434,7 @@ test("It should exclude `Access-Control-Allow-Origin` if no match in origins (dy
 		headers: { Origin: "https://subdomain.example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -464,7 +464,7 @@ test("It should not override already declared Access-Control-Allow-Headers heade
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -489,7 +489,7 @@ test("It should use allowed headers specified in options", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -520,7 +520,7 @@ test("It should not override already declared Access-Control-Allow-Credentials h
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -549,7 +549,7 @@ test("It should not override already declared Access-Control-Allow-Credentials h
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -576,7 +576,7 @@ test("It should use change credentials as specified in options (true) w/ origin:
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -606,7 +606,7 @@ test("It should use change credentials as specified in options (true)", async (t
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -636,7 +636,7 @@ test("It should use change credentials as specified in options (true) with lower
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -663,7 +663,7 @@ test("it should set Access-Control-Allow-Methods header if present in config", a
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -690,7 +690,7 @@ test("it should not overwrite Access-Control-Allow-Methods header if already set
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -714,7 +714,7 @@ test("it should set Access-Control-Expose-Headers header if present in config", 
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -741,7 +741,7 @@ test("it should not overwrite Access-Control-Expose-Headers header if already se
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -765,7 +765,7 @@ test("it should set Access-Control-Max-Age header if present in config", async (
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -792,7 +792,7 @@ test("it should not overwrite Access-Control-Max-Age header if already set", asy
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -816,7 +816,7 @@ test("it should set Cache-Control header if present in config and http method OP
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -838,7 +838,7 @@ for (const httpMethod of ["GET", "POST", "PUT", "PATCH"]) {
 
 		const event = { httpMethod };
 
-		const response = await handler(event, context);
+		const response = await handler(event, defaultContext);
 		deepStrictEqual(response, {
 			statusCode: 200,
 			headers: {},
@@ -866,7 +866,7 @@ test("It should handle v2.0 event format for OPTIONS request", async (t) => {
 		headers: { Origin: "https://example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -895,7 +895,7 @@ test("it should not overwrite Cache-Control header if already set", async (t) =>
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -922,7 +922,7 @@ test("it should not overwrite Vary header if already set", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: {
@@ -946,7 +946,7 @@ test("it should set Vary header if present in config", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -971,7 +971,7 @@ test("It should not match origins with unescaped dots (e.g. example.com should n
 		headers: { Origin: "https://exampleXcom" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	// Should NOT match - the dot in example.com is literal, not a regex wildcard
 	deepStrictEqual(response, {
@@ -996,7 +996,7 @@ test("It should properly escape regex metacharacters in origin patterns", async 
 		headers: { Origin: "https://subdomainXexampleYcom" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	// Should NOT match
 	deepStrictEqual(response, {
@@ -1023,7 +1023,7 @@ test("It should handle origins containing parentheses and pipes", async (t) => {
 		headers: { Origin: "https://app(1).example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1048,7 +1048,7 @@ test("It should handle origins containing square brackets", async (t) => {
 		headers: { Origin: "https://app[1].example.com" },
 	};
 
-	const response = await handler(eventMatch, context);
+	const response = await handler(eventMatch, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1074,7 +1074,7 @@ test("It should not allow wildcard to match dots in subdomain patterns", async (
 		headers: { Origin: "https://nested.sub.example.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1101,7 +1101,7 @@ test("It should use custom getOrigin", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1128,7 +1128,7 @@ test("It should use pass incoming origin to custom getOrigin", async (t) => {
 		headers: { Origin: "https://incoming.com" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1160,7 +1160,7 @@ test("it should not throw when not a http event", async (t) => {
 	handler.use(httpCors());
 
 	const event = {};
-	doesNotThrow(async () => await handler(event, context));
+	doesNotThrow(async () => await handler(event, defaultContext));
 });
 
 test("Should return correct origin on subsequent calls", async (t) => {
@@ -1184,7 +1184,7 @@ test("Should return correct origin on subsequent calls", async (t) => {
 		},
 	};
 
-	const response1 = await handler(eventLocalhost, context);
+	const response1 = await handler(eventLocalhost, defaultContext);
 
 	deepStrictEqual(response1, {
 		statusCode: 200,
@@ -1201,7 +1201,7 @@ test("Should return correct origin on subsequent calls", async (t) => {
 		},
 	};
 
-	const response2 = await handler(eventExampleOrg, context);
+	const response2 = await handler(eventExampleOrg, defaultContext);
 
 	deepStrictEqual(response2, {
 		statusCode: 200,
@@ -1234,7 +1234,7 @@ test("It should append to Vary header when custom vary is set and multiple origi
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -1267,7 +1267,7 @@ test("It should append Origin to existing Vary header from response", async (t) 
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -1298,7 +1298,7 @@ test("It should add Vary: Origin when newOrigin is * and credentials set via res
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -1325,7 +1325,7 @@ test("It should set Vary: Origin when origin is * with credentials but no incomi
 		headers: {}, // No Origin header
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 200,
@@ -1356,7 +1356,7 @@ test("It should handle vary option with empty string header", async (t) => {
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	strictEqual(response.headers.Vary, "Accept");
 });
@@ -1378,7 +1378,7 @@ test("It should allow preflight when requestMethods matches Access-Control-Reque
 		headers: { "Access-Control-Request-Method": "GET" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1404,7 +1404,7 @@ test("It should reject preflight when requestMethods does not match Access-Contr
 		headers: { "Access-Control-Request-Method": "POST" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1428,7 +1428,7 @@ test("It should allow preflight when requestMethods includes multiple methods", 
 		headers: { "Access-Control-Request-Method": "POST" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1454,7 +1454,7 @@ test("It should allow preflight when Access-Control-Request-Method is missing", 
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1480,7 +1480,7 @@ test("It should allow preflight when requestMethods is empty array", async (t) =
 		headers: { "Access-Control-Request-Method": "POST" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1506,7 +1506,7 @@ test("It should be case-sensitive for requestMethods matching", async (t) => {
 		headers: { "Access-Control-Request-Method": "get" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1535,7 +1535,7 @@ test("It should work with requestMethods and other options combined", async (t) 
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1568,7 +1568,7 @@ test("It should handle requestMethods with v2.0 event format", async (t) => {
 		headers: { "Access-Control-Request-Method": "GET" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1594,7 +1594,7 @@ test("It should handle lowercase access-control-request-method header", async (t
 		headers: { "access-control-request-method": "GET" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1623,7 +1623,7 @@ test("It should prefer Access-Control-Request-Method over lowercase variant", as
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1647,7 +1647,7 @@ test("It should handle OPTIONS when event.headers is undefined", async (t) => {
 		httpMethod: "OPTIONS",
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1675,7 +1675,7 @@ test("It should add vary header when lowercase header already exists", async (t)
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	strictEqual(response.headers.vary, "Accept-Encoding, Accept");
 });
@@ -1699,7 +1699,7 @@ test("It should allow preflight when all non-safelisted headers in requestHeader
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1725,7 +1725,7 @@ test("It should reject preflight when non-safelisted header not in requestHeader
 		headers: { "Access-Control-Request-Headers": "X-Disallowed-Header" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1749,7 +1749,7 @@ test("It should allow preflight when only safelisted headers requested", async (
 		headers: { "Access-Control-Request-Headers": "Content-Type, Accept" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1777,7 +1777,7 @@ test("It should allow preflight when safelisted and allowed headers mixed", asyn
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1803,7 +1803,7 @@ test("It should be case-insensitive for requestHeaders matching", async (t) => {
 		headers: { "Access-Control-Request-Headers": "X-CUSTOM-HEADER" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1829,7 +1829,7 @@ test("It should handle multiple comma-separated headers", async (t) => {
 		headers: { "Access-Control-Request-Headers": "X-Header-One, X-Header-Two" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1855,7 +1855,7 @@ test("It should allow preflight when Access-Control-Request-Headers is missing",
 		headers: {},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1881,7 +1881,7 @@ test("It should allow preflight when requestHeaders is empty array", async (t) =
 		headers: { "Access-Control-Request-Headers": "X-Custom-Header" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1911,7 +1911,7 @@ test("It should combine requestHeaders with requestMethods filtering", async (t)
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1941,7 +1941,7 @@ test("It should reject when requestMethods passes but requestHeaders fails", asy
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1970,7 +1970,7 @@ test("It should handle requestHeaders with v2.0 event format", async (t) => {
 		headers: { "Access-Control-Request-Headers": "Authorization" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -1996,7 +1996,7 @@ test("It should handle lowercase access-control-request-headers header", async (
 		headers: { "access-control-request-headers": "Authorization" },
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -2025,7 +2025,7 @@ test("It should prefer Access-Control-Request-Headers over lowercase variant", a
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -2053,7 +2053,7 @@ test("It should allow all CORS-safelisted request headers without requestHeaders
 		},
 	};
 
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, {
 		statusCode: 204,
@@ -2061,4 +2061,121 @@ test("It should allow all CORS-safelisted request headers without requestHeaders
 			"Access-Control-Allow-Origin": "*",
 		},
 	});
+});
+
+test("It should match IDN origin when configured in unicode (static)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://münchen.de"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://xn--mnchen-3ya.de" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://xn--mnchen-3ya.de",
+		},
+	});
+});
+
+test("It should match IDN origin when configured in unicode (dynamic)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://*.münchen.de"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://sub.xn--mnchen-3ya.de" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://sub.xn--mnchen-3ya.de",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should throw when requestHeaders is not an array", async (t) => {
+	try {
+		httpCors({
+			disableBeforePreflightResponse: false,
+			requestHeaders: "not-an-array",
+		});
+		throw new Error("Should have thrown");
+	} catch (e) {
+		strictEqual(e.message, "requestHeaders must be an array");
+		strictEqual(e.cause.package, "@middy/http-cors");
+	}
+});
+
+test("It should throw when requestMethods is not an array", async (t) => {
+	try {
+		httpCors({
+			disableBeforePreflightResponse: false,
+			requestMethods: "not-an-array",
+		});
+		throw new Error("Should have thrown");
+	} catch (e) {
+		strictEqual(e.message, "requestMethods must be an array");
+		strictEqual(e.cause.package, "@middy/http-cors");
+	}
+});
+
+test("It should handle invalid hostname in origin gracefully", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://invalid host.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://invalid host.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Access-Control-Allow-Origin"],
+		"https://invalid host.com",
+	);
+});
+
+test("It should handle origin without protocol prefix", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Access-Control-Allow-Origin"], "example.com");
 });

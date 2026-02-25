@@ -4,7 +4,7 @@ import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {
@@ -25,7 +25,7 @@ await bench
 			},
 		) => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(event, defaultContext);
 			} catch (_e) {}
 		},
 	)

@@ -1,0 +1,294 @@
+#!/usr/bin/env bash
+set -e
+
+# ./bin/aws-s3-deploy tardisec-development-static-assets ./build/assets /main --region us-east-1 --profile tardisec-development --compression
+# If dev, skip this command
+# ./bin/aws-s3-deploy tardisec-development-static-assets ./build/prerendered /main --region us-east-1 --profile tardisec-development --compression
+
+DEFAULT_CACHE_CONTROL='public, max-age=31536000, stale-while-revalidate=31536000, immutable' # or no-cache
+
+# Src: https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case ${1} in
+        --dryrun)
+        DRYRUN="${1}"
+        shift # past argument
+        ;;
+        --clear-all)
+        CLEARALL="/*"
+        shift # past argument
+        ;;
+        --compression)
+        COMPRESSION="TRUE"
+        shift # past argument
+        ;;
+        --cache-control)
+        CACHE_CONTROL="${2}"
+        shift # past argument
+        shift # past value
+        ;;
+        --distribution-id)
+        AWS_CLOUDFRONT_DISTRIBUTION_ID="${2}"
+        shift # past argument
+        shift # past value
+        ;;
+        --region)
+        AWS_REGION="${2}"
+        shift # past argument
+        shift # past value
+        ;;
+        --profile)
+        AWS_PROFILE="--profile ${2}"
+        shift # past argument
+        shift # past value
+        ;;
+        *)    # unknown option
+        POSITIONAL+=("$1") # save it in an array for later
+        shift # past argument
+        ;;
+    esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+BUCKET_NAME=$1
+SOURCE_DIR=${2:-'./'}
+BUCKET_PATH=${3:-''}
+
+AWS_REGION=${AWS_REGION:-${AWS_DEFAULT_REGION}}
+AWS_PROFILE=${AWS_PROFILE:-${AWS_DEFAULT_PROFILE}}
+
+CACHE_CONTROL=${CACHE_CONTROL:-${DEFAULT_CACHE_CONTROL}}
+
+# Ensure required vars a set
+if [ -z "${BUCKET_NAME}" ]; then
+    echo "Destination bucket name required. 'aws-s3-deploy \${source_dir} \${bucket_name}'";
+    exit 1;
+fi
+
+
+# ** Modify below to fit your specific needs **
+
+# Clean up
+#aws s3 rm s3://${BUCKET_NAME} --recursive --include "*"
+
+# Docs https://docs.aws.amazon.com/cli/latest/reference/s3/sync.html
+# --dryrun (boolean) Displays the operations that would be performed using the specified command without actually running them.
+# --quiet (boolean) Does not display the operations performed from the specified command.
+# --include (string) Don't exclude files or objects in the command that match the specified pattern. See Use of Exclude and Include Filters for details.
+# --exclude (string) Exclude all files or objects from the command that matches the specified pattern.
+# --sse (string) Specifies server-side encryption of the object in S3. Valid values are AES256 and aws:kms. If the parameter is specified but no value is provided, AES256 is used.
+# --content-type (string) Specify an explicit content type for this operation. This value overrides any guessed mime types.
+# --cache-control (string) Specifies caching behavior along the request/reply chain.
+# --content-language (string) The language the content is in.
+# --expires (string) The date and time at which the object is no longer cacheable.
+# --metadata (map) A map of metadata to store with the objects in S3. This will be applied to every object which is part of this request. In a sync, this means that files which haven't changed won't receive the new metadata. When copying between two s3 locations, the metadata-directive argument will default to 'REPLACE' unless otherwise specified. https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#object-metadata
+# --metadata-directive (string) Specifies whether the metadata is copied from the source object or replaced with metadata provided when copying S3 objects. Note that if the object is copied over in parts, the source object's metadata will not be copied over, no matter the value for --metadata-directive, and instead the desired metadata values must be specified as parameters on the command line. Valid values are COPY and REPLACE. If this parameter is not specified, COPY will be used by default. If REPLACE is used, the copied object will only have the metadata values that were specified by the CLI command. Note that if you are using any of the following parameters: --content-type, content-language, --content-encoding, --content-disposition, --cache-control, or --expires, you will need to specify --metadata-directive REPLACE for non-multipart copies if you want the copied objects to have the specified metadata values.
+# --delete (boolean) Files that exist in the destination but not in the source are deleted during sync.
+
+echo "s3 sync ${SOURCE_DIR} => s3://${BUCKET_NAME}${BUCKET_PATH}"
+
+clean() {
+    find . -type f -name '*.DS_Store' -exec rm {} \;
+}
+
+copy() {
+    CONTENT_TYPE=${2:-''}
+    echo "copy ${1} ${CONTENT_TYPE}"
+    aws s3 cp ${SOURCE_DIR} s3://${BUCKET_NAME}${BUCKET_PATH} --recursive --sse \
+            --no-guess-mime-type --content-type "${CONTENT_TYPE}" --metadata-directive "REPLACE" \
+            --exclude "*" --include "${1}" \
+            --cache-control "${CACHE_CONTROL}" ${DRYRUN} \
+            ${AWS_PROFILE}
+}
+
+sync() {
+    CONTENT_PATH=${1:-''}
+    CONTENT_EXT=${2:-''}
+    CONTENT_TYPE=${3:-''}
+    COMPRESSION_OVERRIDE=${4:-${COMPRESSION}}
+    CACHE_CONTROL_OVERRIDE=${5:-${CACHE_CONTROL}}
+    #CONTENT_LANGUAGE=${5:-''}
+    echo "sync ${CONTENT_PATH}/**/${CONTENT_EXT} \"${CONTENT_TYPE}\" compress=${COMPRESSION_OVERRIDE} lang=\"${CONTENT_LANGUAGE}\""
+
+    #if [ "no-cache" != "${CACHE_CONTROL}" ]; then
+    #  if [ "index.html" == "${1}" ]; then
+    #      CACHE_CONTROL_OVERRIDE='max-age=180'
+    #  fi
+    #fi
+
+    CONTENT_LANGUAGE=""
+    if [ "/en-CA" == "${CONTENT_PATH}" ] || [  "en-CA.html" == "${CONTENT_EXT}" ]; then
+        CONTENT_LANGUAGE="--content-language en-CA"
+    elif [ "/fr-CA" == "${CONTENT_PATH}" ] || [  "fr-CA.html" == "${CONTENT_EXT}" ]; then
+        CONTENT_LANGUAGE="--content-language fr-CA"
+    fi
+
+    # Skip sync if no files
+    files=$(find ${SOURCE_DIR}${CONTENT_PATH} -type f -name "${CONTENT_EXT}" | wc -l)
+    if [ $files -eq 0 ]; then
+      return
+    fi
+
+    aws s3 sync ${SOURCE_DIR}${CONTENT_PATH} s3://${BUCKET_NAME}${BUCKET_PATH}${CONTENT_PATH} --sse \
+            --no-guess-mime-type --content-type "${CONTENT_TYPE}" ${CONTENT_LANGUAGE} --metadata-directive "REPLACE" \
+            --exclude="*" --include "${CONTENT_EXT}" \
+            --cache-control "${CACHE_CONTROL_OVERRIDE}" ${DRYRUN} \
+            ${AWS_PROFILE}
+
+    if [ "${COMPRESSION_OVERRIDE}" == "TRUE" ]; then
+      # brotli
+      find ${SOURCE_DIR}${CONTENT_PATH} -type f -name "${CONTENT_EXT}" -exec brotli --best --keep --force {} +
+      aws s3 sync ${SOURCE_DIR}${CONTENT_PATH} s3://${BUCKET_NAME}${BUCKET_PATH}${CONTENT_PATH} --sse \
+        --no-guess-mime-type --content-type "${CONTENT_TYPE}" ${CONTENT_LANGUAGE} --content-encoding "br" --metadata-directive "REPLACE" \
+        --exclude="*" --include "${CONTENT_EXT}.br" \
+        --cache-control "${CACHE_CONTROL_OVERRIDE}" ${DRYRUN} \
+        ${AWS_PROFILE}
+
+      # gzip
+      find ${SOURCE_DIR}${CONTENT_PATH} -type f -name "${CONTENT_EXT}" -exec gzip --best --keep --force {} +
+      aws s3 sync ${SOURCE_DIR}${CONTENT_PATH} s3://${BUCKET_NAME}${BUCKET_PATH}${CONTENT_PATH} --sse \
+        --no-guess-mime-type --content-type "${CONTENT_TYPE}" ${CONTENT_LANGUAGE} --content-encoding "gzip" --metadata-directive "REPLACE" \
+        --exclude="*" --include "${CONTENT_EXT}.gz" \
+        --cache-control "${CACHE_CONTROL_OVERRIDE}" ${DRYRUN} \
+        ${AWS_PROFILE}
+
+    fi
+}
+
+syncClean() {
+  aws s3 sync ${SOURCE_DIR}/${1} s3://${BUCKET_NAME}${BUCKET_PATH}${1} --sse \
+      --delete ${DRYRUN} \
+      ${AWS_PROFILE} ${DELETE_EXCLUDE}
+}
+
+clean
+
+# /etc/mime.types
+# https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
+
+# | ext         | mime                                     | br/gzip |
+# |-------------|------------------------------------------|---------|
+# |         css | text/css; charset=UTF-8                  | Yes     |
+# |        html | text/html; charset=UTF-8                 | Yes     |
+# |          js | application/javascript; charset=UTF-8    | Yes     |
+# |        json | application/json; charset=UTF-8          | Yes     |
+# |         txt | text/plain; charset=UTF-8                | Yes     |
+# |         asc | application/pgp-encrypted; charset=UTF-8 | Yes     |
+# | webmanifest | application/manifest+json; charset=UTF-8 | Yes     |
+# |         xml | application/xml; charset=UTF-8           | Yes     |
+# |         pbf | application/x-protobuf                   | No      |
+# |         ico | image/vnd.microsoft.icon                 | No      |
+# |         svg | image/svg+xml; charset=UTF-8             | Yes     |
+# |         jpg | image/jpeg                               | N/A     |
+# |         png | image/png                                | N/A     |
+# |        webp | image/webp                               | N/A     |
+# |        avif | image/avif                               | N/A     |
+# |        apng | image/apng                               | N/A     |
+# |         gif | image/gif                                | N/A     |
+# |        webm | video/webm                               | N/A     |
+# |         mp4 | image/mp4                                | N/A     |
+# |         vtt | text/vtt; charset=UTF-8                  | Yes     |
+# |         eot | application/vnd.ms-fontobject            | Yes     |
+# |         ttf | font/ttf                                 | Yes     |
+# |        woff | font/woff                                | N/A     |
+# |       woff2 | font/woff2                               | N/A     |
+
+# day  seconds
+# 365 31536000
+# 180 15552000
+#  30  2505600
+#   1    86400
+#  <1    86100 (1day - 5min)
+#  <1      300 (5min)
+
+#sync "/files" "*.asc"   "application/pgp-encrypted" # pgp public keys
+#sync "/files" "*.pdf"   "application/pdf"
+#sync "/files" "*.csv"   "text/csv; charset=UTF-8" "TRUE"
+#sync "/files" "*.xlsx"  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#sync "/files" "*.xlsb"  "application/vnd.ms-excel.sheet.binary.macroEnabled.12"
+#sync "/files" "*.zip"   "application/zip" "FALSE"
+
+sync "/_"           "*.css"         "text/css; charset=UTF-8"                  "FALSE" "max-age=31536000, stale-while-revalidate=31536000"
+sync "/css"         "*.css"         "text/css; charset=UTF-8"                  "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/_"           "*.js"          "application/javascript; charset=UTF-8"    "FALSE" "max-age=31536000, stale-while-revalidate=31536000"
+sync "/js"          "*.js"          "application/javascript; charset=UTF-8"    "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "sw.js"         "application/javascript; charset=UTF-8"    "FALSE" "max-age=300, stale-while-revalidate=31536000" # "no-cache" # Service workers should never be cached
+sync ""             "*.json"        "application/json; charset=UTF-8"          "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/.well-known" "*.asc"         "application/pgp-encrypted; charset=UTF-8" "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/.well-known" "*.webmanifest" "application/manifest+json; charset=UTF-8" "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/.well-known" "*.txt"         "text/plain; charset=UTF-8"                "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/.well-known" "atproto-did"   "text/plain; charset=UTF-8"                "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "robots.txt"    "text/plain; charset=UTF-8"                "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "sitemap.xml"   "application/xml"                          "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync "/sitemap"     "*.xml"         "application/xml"                          "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "rss.xml"       "application/rss+xml"                      "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "atom.xml"      "application/atom+xml"                     "FALSE" "max-age=86400, stale-while-revalidate=31536000"
+sync ""             "en-CA.html"    "text/html; charset=UTF-8"                 "FALSE" "max-age=300, stale-while-revalidate=31536000"
+sync ""             "fr-CA.html"    "text/html; charset=UTF-8"                 "FALSE" "max-age=300, stale-while-revalidate=31536000"
+sync "/en-CA"       "*.html"        "text/html; charset=UTF-8"                 "FALSE" "max-age=300, stale-while-revalidate=31536000"
+sync "/fr-CA"       "*.html"        "text/html; charset=UTF-8"                 "FALSE" "max-age=300, stale-while-revalidate=31536000"
+
+# Images
+sync ""     "favicon.ico"   "image/vnd.microsoft.icon"
+sync ""     "favicon.svg"   "image/svg+xml; charset=UTF-8" "FALSE"
+sync ""     "apple-touch-icon.png"   "image/png"           "FALSE"
+sync "/img" "*.svg"   "image/svg+xml; charset=UTF-8"       "FALSE"
+sync "/img" "*.jpg"   "image/jpeg"                         "FALSE"
+sync "/img" "*.png"   "image/png"                          "FALSE"
+sync "/img" "*.webp"  "image/webp"                         "FALSE"
+sync "/img" "*.apng"  "image/apng"                         "FALSE"
+sync "/img" "*.gif"   "image/gif"                          "FALSE"
+sync "/img" "*.avif"  "image/avif"                         "FALSE"
+#sync "" *.pbf"   "application/x-protobuf" "FALSE"
+
+# Video
+sync "" "*.webm"  "video/webm"              "FALSE"
+sync "" "*.mp4"   "video/mp4"               "FALSE"
+sync "" "*.vtt"   "text/vtt; charset=UTF-8" "FALSE"
+
+# TODO run delete sync
+
+# Fonts
+#sync "/font" "*.eot"   "application/vnd.ms-fontobject" "TRUE"
+#sync "/font" "*.ttf"   "font/ttf"                      "TRUE"
+#sync "/font" "*.woff"  "font/woff"                     "FALSE"
+#sync "/font" "*.woff2" "font/woff2"                    "FALSE"
+
+# Downloads
+#sync "/files" "*.pdf"   "application/pdf"
+#sync "/files" "*.csv"   "text/csv; charset=UTF-8" "TRUE"
+#sync "/files" "*.xlsx"  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#sync "/files" "*.xlsb"  "application/vnd.ms-excel.sheet.binary.macroEnabled.12"
+#sync "/files" "*.zip"   "application/zip" "FALSE"
+
+# TODO prevent .js.map from being uploaded to production
+
+# if [ ! -z "${AWS_CLOUDFRONT_DISTRIBUTION_ID}" ]; then
+#     PATHS_FILES=$(ls -p ${SOURCE_DIR} | grep -v / | awk '$0="'${BUCKET_PATH}'"$0')
+#     PATHS_DIRS=$(ls -p ${SOURCE_DIR} | grep / | awk '$0="'${BUCKET_PATH}'"$0"*"')
+#     PATHS="${PATHS_FILES[@]} ${PATHS_DIRS[@]}"
+#
+#     if [ ! -z "${DRYRUN}" ]; then
+#         echo "(dryrun) aws cloudfront create-invalidation ${AWS_PROFILE} --distribution-id ${AWS_CLOUDFRONT_DISTRIBUTION_ID} --paths $(echo $PATHS | xargs echo)"
+#     elif [ ! -z "${CLEARALL}" ]; then
+#        aws cloudfront create-invalidation ${AWS_PROFILE} --distribution-id ${AWS_CLOUDFRONT_DISTRIBUTION_ID}  --paths "/dataset/*" "/en/*" "/fr/*" "/css/*" "/js/*" "/sitemap.xml" "/manifest.webmanifest"
+#     else
+#         echo ${PATHS} | xargs aws cloudfront create-invalidation ${AWS_PROFILE} --distribution-id ${AWS_CLOUDFRONT_DISTRIBUTION_ID} --paths
+#     fi
+# fi
+
+# Clean up
+# TODO re-enable hashed files after smart update to dataset pages
+#syncClean ".well-known"
+#syncClean "css"
+#syncClean "en/article"
+#syncClean "en/story"
+#syncClean "fonts"
+#syncClean "fr/article"
+#syncClean "fr/story"
+#syncClean "img"
+#syncClean "js"
+#syncClean "svg"
+
+wait

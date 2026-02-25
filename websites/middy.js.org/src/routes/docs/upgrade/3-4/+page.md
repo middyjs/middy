@@ -1,0 +1,195 @@
+---
+title: Upgrade 3.x -> 4.x
+---
+
+aka "The AWS SDK v3 Update"
+
+Version 4.x of Middy no longer supports Node.js versions 14.x. You are highly encouraged to move to Node.js 18.x.
+
+## Notable changes
+
+- Middy now uses AWS SDK v3 by default.
+
+## Core
+
+- Remove polyfill for `AbortControler`
+- Remove polyfill for `timers/promises`
+
+## Util
+
+- `normalizeResponse` now will set the `statusCode` to `200` when casting to a new object or `500` when missing **Breaking Change**
+
+## Middleware
+
+### [cloudwatch-metrics](/docs/middlewares/cloudwatch-metrics)
+
+No change
+
+### [do-not-wait-for-empty-event-loop](/docs/middlewares/do-not-wait-for-empty-event-loop)
+
+No change
+
+### [error-logger](/docs/middlewares/error-logger)
+
+No change
+
+### [event-normalizer](/docs/middlewares/event-normalizer)
+
+No change
+
+### [http-content-encoding](/docs/middlewares/http-content-encoding)
+
+- Removed body as stream support, will be brought back as a new middleware in a future middleware **Breaking Change**
+
+### [http-content-negotiation](/docs/middlewares/http-content-negotiation)
+
+No change
+
+### [http-cors](/docs/middlewares/http-cors)
+
+No change
+
+### [http-error-handler](/docs/middlewares/http-error-handler)
+
+No change
+
+### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
+
+No change
+
+### [http-header-normalizer](/docs/middlewares/http-header-normalizer)
+
+No change
+
+### [http-json-body-parser](/docs/middlewares/http-json-body-parser)
+
+- Deprecate `event.rawBody` **Breaking Change**
+
+You can add in an inline middleware as a workaround.
+
+```javascript
+  .before((request) => {
+    request.event.rawBody = request.event.body
+  })
+  .use(httpJSONBodyParserMiddleware())
+```
+
+See https://github.com/middyjs/middy/issues/945 for discussion and reasoning.
+
+### [http-multipart-body-parser](/docs/middlewares/http-multipart-body-parser)
+
+- Add new option to set `charset`
+
+### [http-partial-response](/docs/middlewares/http-partial-response)
+
+No change
+
+### [http-response-serializer](/docs/middlewares/http-response-serializer)
+
+No change
+
+### [http-router](/docs/routers/http-router)
+
+No change
+
+### [http-security-headers](/docs/middlewares/http-security-headers)
+
+No change
+
+### [http-urlencode-body-parser](/docs/middlewares/http-urlencode-body-parser)
+
+- Now throws 422 when unable to parse JSON **Breaking Change**
+
+### [http-urlencode-path-parser](/docs/middlewares/http-urlencode-path-parser)
+
+No change
+
+### [input-output-logger](/docs/middlewares/input-output-logger)
+
+No change
+
+### [rds-signer](/docs/middlewares/rds-signer)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [s3-object-response](/docs/middlewares/s3-object-response)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [secrets-manager](/docs/middlewares/secrets-manager)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [service-discovery](/docs/middlewares/service-discovery)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [sqs-partial-batch-failure](/docs/middlewares/sqs-partial-batch-failure)
+
+No change
+
+### [ssm](/docs/middlewares/ssm)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [sts](/docs/middlewares/sts)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [validator](/docs/middlewares/validator)
+
+We've put a lot of work into making this middleware bundle smaller and faster by default, while allowing for opting into more functionality.
+
+- Deprecate `inputSchema` and `outputSchema` options **Breaking Change**
+- Deprecated `i18nEnabled` **Breaking Change**
+- Must now pass in `defaultLanguage` localizations to `languages` **Breaking Change**
+- Added in `ajv-error` support
+- Pulled `transpileSchema` out of middleware to allow for tree shaking and pre-compile option **Breaking Change**
+- Added in `transpileLocale` to allow for custom internationalization of error messages including `errorMessage`
+
+How to update use of middleware
+
+```javascript
+import validatorMiddleware from '@middy/validator'
+// 1. Import transpileSchema
+import { transpileSchema } from '@middy/validator/transpile'
+
+export const handler = middy(...)
+  .use(validatorMiddleware({
+    // 2. Wrap schemas with transpileSchema
+    eventSchema: transpileSchema(eventJsonSchema)
+  }))
+```
+
+```javascript
+import validatorMiddleware from '@middy/validator'
+// 1. Import localizations
+import { en, fr } from 'ajv-ftl-i18n'
+
+export const handler = middy(...)
+  .use(validatorMiddleware({
+    eventSchema: transpileSchema(eventJsonSchema),
+    // 2. Add localizations in
+    langauges: { en, fr }
+  }))
+```
+
+### [warmup](/docs/middlewares/warmup)
+
+No change
+
+### [ws-json-body-parser](/docs/middlewares/ws-json-body-parser)
+
+No change
+
+### [ws-response](/docs/middlewares/ws-response)
+
+- Updated to use AWS SDK v3 **Breaking Change**
+
+### [ws-router](/docs/routers/ws-router)
+
+No change
+
+## Notes
+
+None

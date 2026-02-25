@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
-	logger?: (message: any) => void;
+export interface Options {
+	logger?: (message: unknown) => void;
 	executionContext?: boolean;
 	lambdaContext?: boolean;
 	omitPaths?: string[];
 	mask?: string;
 }
 
-declare function inputOutputLogger(options?: Options): middy.MiddlewareObj;
+declare function inputOutputLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default inputOutputLogger;

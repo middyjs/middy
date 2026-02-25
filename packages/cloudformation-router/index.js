@@ -13,13 +13,12 @@ const defaults = {
 	},
 };
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
-	const options = { ...defaults };
+	let options;
 	if (Array.isArray(opts)) {
-		Object.assign(options, { routes: opts });
-	} else {
-		Object.assign(options, opts);
+		options = { routes: opts };
 	}
-	const { routes, notFoundResponse } = options;
+	options ??= opts;
+	const { routes, notFoundResponse } = { ...defaults, ...options };
 
 	const routesStatic = {};
 	for (const route of routes) {

@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
-	logger?: ((error: any) => void) | boolean;
+export interface Options {
+	logger?: ((error: Error) => void) | boolean;
 	fallbackMessage?: string;
 }
 
-declare function httpErrorHandler(options?: Options): middy.MiddlewareObj;
+declare function httpErrorHandler(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpErrorHandler;

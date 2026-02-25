@@ -2,6 +2,25 @@
 // SPDX-License-Identifier: MIT
 import { normalizeHttpResponse } from "@middy/util";
 
+const hostnameToPunycode = (hostname) => {
+	const placeholder = "-_ANY_-";
+	const tempHostname = hostname.replace(/\*/g, placeholder);
+	try {
+		const url = new URL(`https://${tempHostname}`);
+		return url.host.replaceAll(placeholder.toLowerCase(), "*");
+	} catch {
+		return hostname;
+	}
+};
+
+const originToPunycode = (origin) => {
+	if (!origin || origin === "*") return origin;
+	const match = origin.match(/^(https?:\/\/)(.+)$/);
+	if (!match) return origin;
+	const [, protocol, host] = match;
+	return protocol + hostnameToPunycode(host);
+};
+
 // CORS-safelisted request headers
 // https://developer.mozilla.org/en-US/docs/Glossary/CORS-safelisted_request_header
 const corsSafelistedRequestHeaders = [
@@ -43,7 +62,6 @@ const httpCorsMiddleware = (opts = {}) => {
 			if (originDynamic.some((regExp) => regExp.test(incomingOrigin))) {
 				return incomingOrigin;
 			}
-			// TODO v8 deprecate `else`
 		} else {
 			if (incomingOrigin && options.credentials && options.origin === "*") {
 				return incomingOrigin;
@@ -58,6 +76,22 @@ const httpCorsMiddleware = (opts = {}) => {
 		...opts,
 	};
 
+	if (
+		options.requestHeaders !== undefined &&
+		!Array.isArray(options.requestHeaders)
+	) {
+		throw new Error("requestHeaders must be an array", {
+			cause: { package: "@middy/http-cors" },
+		});
+	}
+	if (
+		options.requestMethods !== undefined &&
+		!Array.isArray(options.requestMethods)
+	) {
+		throw new Error("requestMethods must be an array", {
+			cause: { package: "@middy/http-cors" },
+		});
+	}
 	options.requestHeaders = options.requestHeaders?.map((v) => v.toLowerCase());
 	options.requestMethods = options.requestMethods?.map((v) => v.toUpperCase());
 
@@ -66,10 +100,11 @@ const httpCorsMiddleware = (opts = {}) => {
 	const originStatic = {};
 	const originDynamic = [];
 
-	for (const origin of [options.origin, ...options.origins]) {
+	for (let origin of [options.origin, ...options.origins]) {
 		if (!origin) {
 			continue;
 		}
+		origin = originToPunycode(origin);
 		// All
 		if (origin === "*") {
 			originAny = true;
@@ -82,7 +117,6 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 		originMany = true;
 		// Dynamic
-		// TODO: IDN -> puncycode not handled, add in if requested
 		const regExpStr = origin
 			.replace(/[.+?^${}()|[\]\\]/g, "\\$&")
 			.replaceAll("*", "[^.]*");
@@ -227,7 +261,7 @@ const getVersionHttpMethod = {
 	"2.0": (event) => event.requestContext.http.method,
 };
 
-// header in offical name, lowercase varient handeled
+// header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {
 	if (!value) return;
 	const headerLower = header.toLowerCase();

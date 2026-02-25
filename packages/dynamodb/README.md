@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Middy dynamodb middleware</h1>
+  <h1>Middy `dynamodb` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-  <p><strong>Secrets Manager middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>DynamoDB middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-dast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-dast.yml/badge.svg" alt="GitHub Actions dast test status"></a>
@@ -29,6 +29,23 @@
   </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/dynamodb">https://middy.js.org/docs/middlewares/dynamodb</a></p>
 </div>
+
+## Install
+
+```bash
+npm install --save @middy/dynamodb @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
+```
+
+
+## Documentation and examples
+
+For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/dynamodb).
+
+
+## Contributing
+
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
 
 ## License
 

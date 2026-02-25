@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
+export interface Options {
 	dnsPrefetchControl?: {
 		allow?: boolean;
 	};
 	frameOptions?: {
 		action?: string;
 	};
-	poweredBy?: {
-		server: string;
-	};
+	poweredBy?: boolean;
 	strictTransportSecurity?: {
 		maxAge?: number;
 		includeSubDomains?: boolean;
@@ -27,9 +25,7 @@ interface Options {
 	referrerPolicy?: {
 		policy?: string;
 	};
-	xssProtection?: {
-		reportUri?: string;
-	};
+	xssProtection?: boolean;
 	contentSecurityPolicy?: Record<string, string>;
 	contentSecurityPolicyReportOnly?: boolean;
 	crossOriginEmbedderPolicy?: {
@@ -42,6 +38,7 @@ interface Options {
 		policy?: string;
 	};
 	permissionsPolicy?: Record<string, string>;
+	reportingEndpoints?: Record<string, string>;
 	permittedCrossDomainPolicies?: {
 		policy?: string;
 	};
@@ -59,6 +56,6 @@ type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean };
 
 declare function httpSecurityHeaders(
 	options?: WithBoolValues<Options>,
-): middy.MiddlewareObj;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpSecurityHeaders;

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.1.0",
+	"version": "7.1.2",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -18,7 +18,7 @@
 		"lint": "biome check --write --no-errors-on-unmatched",
 		"test": "npm run test:lint && npm run test:unit && npm run test:types && npm run test:sast && npm run test:perf && npm run test:dast",
 		"test:lint": "biome check --staged --no-errors-on-unmatched",
-		"test:unit": "node --test --test-force-exit",
+		"test:unit": "node --test --test-force-exit --experimental-test-module-mocks",
 		"test:sast": "npm run test:sast:license && npm run test:sast:lockfile && npm run test:sast:semgrep && npm run test:sast:trufflehog && npm run test:sast:trivy && npm run test:sast:ort",
 		"test:sast:license": "license-check-and-add check -f license.json",
 		"test:sast:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https",
@@ -29,12 +29,12 @@
 		"test:types": "tstyche",
 		"test:perf": "node --test ./**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
-		"test:dast:fuzz": "node --test ./**/*.fuzz.js",
-		"test:packages:unit": "node --test --test-force-exit --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
-		"test:packages:fuzz": "node --test ./packages/**/*.fuzz.js",
+		"test:dast:fuzz": "node --test --experimental-test-module-mocks ./**/*.fuzz.js",
+		"test:packages:unit": "node --test --test-force-exit --experimental-test-module-mocks --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
+		"test:packages:fuzz": "node --test --experimental-test-module-mocks ./packages/**/*.fuzz.js",
 		"test:llrt": "cd llrt && npm test",
 		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
-		"rm:lock": "find . -name 'package-lock.json' -type d -prune -exec rm -rf '{}' +",
+		"rm:lock": "find . -name 'package-lock.json' -type f -exec rm -f '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "npm update --workspaces && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
@@ -73,11 +73,19 @@
 		"aws-sdk-client-mock": "^4.0.0",
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
-		"license-check-and-add": "4.0.5",
 		"tinybench": "^6.0.0",
 		"tstyche": "^6.0.0",
 		"typescript": "^5.0.0",
 		"undici": "^7.0.0"
+	},
+	"overrides": {
+		"@sveltejs/kit": {
+			"cookie": "0.7.2"
+		},
+		"license-check-and-add": {
+			"globby": "14.1.0",
+			"minimatch": "10.2.2"
+		}
 	},
 	"devEngines": {
 		"runtime": {
@@ -91,6 +99,7 @@
 	},
 	"workspaces": [
 		"packages/*",
+		"websites/*",
 		".github"
 	]
 }

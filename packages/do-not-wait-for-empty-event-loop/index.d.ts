@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
 
-interface Options {
+export interface Options {
 	runOnBefore?: boolean;
 	runOnAfter?: boolean;
 	runOnError?: boolean;
@@ -10,6 +10,6 @@ interface Options {
 
 declare function doNotWaitForEmptyEventLoop(
 	options?: Options,
-): middy.MiddlewareObj;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default doNotWaitForEmptyEventLoop;

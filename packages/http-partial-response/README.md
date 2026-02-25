@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Middy http-partial-response middleware</h1>
+  <h1>Middy `http-partial-response` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
   <p><strong>HTTP partial response middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
@@ -29,6 +29,23 @@
   </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-partial-response">https://middy.js.org/docs/middlewares/http-partial-response</a></p>
 </div>
+
+## Install
+
+```bash
+npm install --save @middy/http-partial-response
+```
+
+
+## Documentation and examples
+
+For documentation and examples, refers to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-partial-response).
+
+
+## Contributing
+
+Everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
+
 
 ## License
 

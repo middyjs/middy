@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import { executionModeDurableContext } from "./executionModeDurableContext.js";
@@ -28,7 +28,7 @@ test("Should return with executionMode:executionModeDurableContext using string"
 	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
 	const execution = await runner.run({ payload: input });
-	//console.log(execution.getError())
+
 	strictEqual(execution.getOperations().length, 0);
 	strictEqual(execution.getStatus(), "SUCCEEDED");
 	strictEqual(execution.getResult(), input);
@@ -91,6 +91,27 @@ test("Should return with executionMode:executionModeDurableContext using body:st
 	strictEqual(execution.getOperations().length, 0);
 	strictEqual(execution.getStatus(), "SUCCEEDED");
 	deepStrictEqual(execution.getResult(), input);
+});
+
+test("Should trigger requestStart and requestEnd hooks with executionModeDurableContext", async (t) => {
+	let startCalled = false;
+	let endCalled = false;
+	const handler = middy({
+		executionMode: executionModeDurableContext,
+		requestStart: () => {
+			startCalled = true;
+		},
+		requestEnd: () => {
+			endCalled = true;
+		},
+	}).handler((event) => event);
+	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+	const execution = await runner.run({ payload: {} });
+
+	strictEqual(execution.getStatus(), "SUCCEEDED");
+	ok(startCalled);
+	ok(endCalled);
 });
 
 test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {

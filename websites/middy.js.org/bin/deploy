@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+env=${1}
+region=ca-central-1
+
+echo "Terraform update"
+cd terraform
+terraform init -upgrade
+terraform workspace select ${env}
+terraform apply
+
+echo "S3 assets sync"
+# ${DIR}/deploy-s3 tardisec-${env}-${region}-cdn ${DIR}/../build/assets /app --profile tardisec-${env} --region ${region} --compression
+if [ "${env}" != "development" ]; then
+  echo "S3 prerendered sync"
+  #${DIR}/deploy-s3 tardisec-${env}-${region}-cdn ${DIR}/../build/prerendered /app --profile tardisec-${env} --region ${region} --compression
+fi

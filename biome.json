@@ -1,9 +1,9 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
 	"vcs": {
-		"enabled": false,
+		"enabled": true,
 		"clientKind": "git",
-		"useIgnoreFile": false
+		"useIgnoreFile": true
 	},
 	"files": {
 		"ignoreUnknown": true
@@ -27,6 +27,9 @@
 			}
 		}
 	},
+	"html": {
+		"experimentalFullSupportEnabled": true
+	},
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"
@@ -39,5 +42,15 @@
 				"organizeImports": "on"
 			}
 		}
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.svelte"],
+			"css": {
+				"linter": {
+					"enabled": false
+				}
+			}
+		}
+	]
 }

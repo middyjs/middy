@@ -4,11 +4,11 @@ import { getInternal } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import secretsManager, { type Context, secret } from "./index.js";
+import secretsManager, { type Context, secretsManagerParam } from "./index.js";
 
 test("use with default options", () => {
 	expect(secretsManager()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<undefined>>
 	>();
 });
 
@@ -24,6 +24,7 @@ const options = {
 	awsClientAssumeRole: "some-role",
 	awsClientCapture: captureAWSv3Client,
 	fetchData: { foo: "bar" },
+	fetchRotationDate: true,
 	disablePrefetch: true,
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,
@@ -34,7 +35,7 @@ test("use with all options", () => {
 	expect(secretsManager(options)).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			Context<typeof options>,
 			{ foo: unknown }
@@ -82,7 +83,7 @@ test("setToContext: true, use return type hint function", () => {
 			secretsManager({
 				...options,
 				fetchData: {
-					someSecret: secret<{ User: string; Password: string }>(
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
 						"someHiddenSecret",
 					),
 				},
@@ -106,7 +107,7 @@ test("setToContext: false, use return type hint function", () => {
 			secretsManager({
 				...options,
 				fetchData: {
-					someSecret: secret<{ User: string; Password: string }>(
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
 						"someHiddenSecret",
 					),
 				},

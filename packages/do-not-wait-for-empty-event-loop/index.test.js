@@ -1,11 +1,9 @@
 import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-// import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
 import middy from "../core/index.js";
-// import {lambdaContext} from '../util/index.js'
 import doNotWaitForEmptyEventLoop from "./index.js";
 
-const event = {};
+const defaultEvent = {};
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
@@ -16,7 +14,7 @@ test("It should set callbackWaitsForEmptyEventLoop to false by default (executio
 		.handler((event, context) => {});
 
 	const context = { ...defaultContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
@@ -29,7 +27,7 @@ test("callbackWaitsForEmptyEventLoop should remain true if was overridden by use
 		});
 
 	const context = { ...defaultContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(context.callbackWaitsForEmptyEventLoop);
 });
@@ -44,7 +42,7 @@ test("callbackWaitsForEmptyEventLoop should stay false if handler has error (exe
 	const context = { ...defaultContext };
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(!context.callbackWaitsForEmptyEventLoop);
 	}
@@ -62,7 +60,7 @@ test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
 		});
 
 	const context = { ...defaultContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
@@ -81,7 +79,7 @@ test("callbackWaitsForEmptyEventLoop should remain true when error occurs even i
 
 	const context = { ...defaultContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(context.callbackWaitsForEmptyEventLoop);
 	}
@@ -102,7 +100,7 @@ test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
 
 	const context = { ...defaultContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(!context.callbackWaitsForEmptyEventLoop);
 	}
@@ -123,7 +121,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 
 	const context = { ...defaultContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (error) {
 		strictEqual(error.message, "!");
 	}
@@ -142,7 +140,7 @@ test("callbackWaitsForEmptyEventLoop should be false in handler but true after i
 		});
 
 	const context = { ...defaultContext, callbackWaitsForEmptyEventLoop: true };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
@@ -163,7 +161,7 @@ test("It should set callbackWaitsForEmptyEventLoop to false by default (executio
 		.handler((event, context) => {});
 
 	const context = { ...defaultDurableContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
 });
@@ -176,7 +174,7 @@ test("callbackWaitsForEmptyEventLoop should remain true if was overridden by use
 		});
 
 	const context = { ...defaultDurableContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(context.lambdaContext.callbackWaitsForEmptyEventLoop);
 });
@@ -191,7 +189,7 @@ test("callbackWaitsForEmptyEventLoop should stay false if handler has error (exe
 	const context = { ...defaultDurableContext };
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
 	}
@@ -209,7 +207,7 @@ test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
 		});
 
 	const context = { ...defaultDurableContext };
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
 });
@@ -228,7 +226,7 @@ test("callbackWaitsForEmptyEventLoop should remain true when error occurs even i
 
 	const context = { ...defaultDurableContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(context.lambdaContext.callbackWaitsForEmptyEventLoop);
 	}
@@ -249,7 +247,7 @@ test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
 
 	const context = { ...defaultDurableContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (_e) {
 		ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
 	}
@@ -270,7 +268,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 
 	const context = { ...defaultDurableContext };
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, context);
 	} catch (error) {
 		strictEqual(error.message, "!");
 	}
@@ -295,7 +293,7 @@ test("callbackWaitsForEmptyEventLoop should be false in handler but true after i
 			callbackWaitsForEmptyEventLoop: true,
 		},
 	};
-	await handler(event, context);
+	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
 });

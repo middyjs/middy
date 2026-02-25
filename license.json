@@ -24,7 +24,7 @@
 		"**/*.md",
 		"**/*.yml",
 		"test/**/*",
-		"website/**/*",
-		"websites/**/*"
+		"websites/**/*",
+		".DS_Store"
 	]
 }

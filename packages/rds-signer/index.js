@@ -35,7 +35,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 			values[internalKey] = client
 				.getAuthToken()
 				.then((token) => {
-					// Catch Missing token, this usually means their is something wrong with the credentials
+					// Catch Missing token, this usually means there is something wrong with the credentials
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
 							cause: { package: "@middy/rds-signer" },

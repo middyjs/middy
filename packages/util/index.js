@@ -192,10 +192,7 @@ export const lambdaContextKeys = [
 	"callbackWaitsForEmptyEventLoop",
 ];
 
-export const executionContextKeys = [
-	//'requestId',
-	"tenantId",
-];
+export const executionContextKeys = ["tenantId"];
 
 export const isExecutionModeDurable = (context) => {
 	// using `context instanceof DurableContextImpl` would be better
@@ -226,17 +223,23 @@ export const jsonSafeParse = (text, reviver) => {
 	if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') return text;
 	try {
 		return JSON.parse(text, reviver);
-	} catch (_e) {}
-
-	return text;
+	} catch {
+		return text;
+	}
 };
 
 export const jsonSafeStringify = (value, replacer, space) => {
 	try {
 		return JSON.stringify(value, replacer, space);
-	} catch (_e) {}
+	} catch {
+		return value;
+	}
+};
 
-	return value;
+export const decodeBody = (event) => {
+	const { body, isBase64Encoded } = event;
+	if (body === undefined || body === null) return body;
+	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 
 export const normalizeHttpResponse = (request) => {
@@ -280,7 +283,7 @@ export const createError = (code, message, properties = {}) => {
 	return new HttpError(code, message, properties);
 };
 
-const httpErrorCodes = {
+export const httpErrorCodes = {
 	100: "Continue",
 	101: "Switching Protocols",
 	102: "Processing",

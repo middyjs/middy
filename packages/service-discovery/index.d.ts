@@ -10,16 +10,21 @@ import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
-interface ServiceDiscoveryOptions<
+export type ParamType<T> = string & { __returnType?: T };
+export declare function serviceDiscoveryParam<T>(name: string): ParamType<T>;
+
+export interface ServiceDiscoveryOptions<
 	AwsServiceDiscoveryClient = ServiceDiscoveryClient,
 > extends Pick<
 		MiddyOptions<AwsServiceDiscoveryClient, ServiceDiscoveryClientConfig>,
 		| "AwsClient"
 		| "awsClientOptions"
+		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
+		| "cacheKeyExpiry"
 		| "setToContext"
 	> {
 	fetchData?: { [key: string]: DiscoverInstancesCommandInput };
@@ -49,7 +54,7 @@ declare function serviceDiscovery<
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

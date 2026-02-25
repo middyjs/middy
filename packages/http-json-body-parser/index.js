@@ -1,8 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError } from "@middy/util";
+import { createError, decodeBody } from "@middy/util";
 
-const mimePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 
 const defaults = {
 	reviver: undefined,
@@ -16,7 +16,10 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		const { headers, body } = request.event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
+		if (
+			!options.disableContentTypeCheck &&
+			!jsonContentTypePattern.test(contentType)
+		) {
 			if (options.disableContentTypeError) {
 				return;
 			}
@@ -26,20 +29,17 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		if (typeof body === "undefined") {
-			throw createError(415, "Invalid or malformed JSON was provided", {
+			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: { package: "@middy/http-json-body-parser", data: body },
 			});
 		}
 
 		try {
-			const data = request.event.isBase64Encoded
-				? Buffer.from(body, "base64").toString()
-				: body;
+			const data = decodeBody(request.event);
 
 			request.event.body = JSON.parse(data, options.reviver);
 		} catch (err) {
-			// UnprocessableEntity
-			throw createError(415, "Invalid or malformed JSON was provided", {
+			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
 					package: "@middy/http-json-body-parser",
 					data: body,

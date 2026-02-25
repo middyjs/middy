@@ -719,7 +719,7 @@ test("It should skip fetching already cached path values", async (t) => {
 	// First call - path1 succeeds, path2 fails
 	try {
 		await handler(event, context);
-	} catch (e) {
+	} catch (_e) {
 		// Expected to fail
 	}
 

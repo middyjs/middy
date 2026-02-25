@@ -5,7 +5,7 @@ import type { MetricsLogger } from "aws-embedded-metrics";
 import type { Context as LambdaContext } from "aws-lambda";
 export { MetricsLogger } from "aws-embedded-metrics";
 
-interface Options {
+export interface Options {
 	namespace?: string;
 	dimensions?: Array<Record<string, string>>;
 }
@@ -16,6 +16,6 @@ export type Context = LambdaContext & {
 
 declare function cloudwatchMetrics(
 	options?: Options,
-): middy.MiddlewareObj<unknown, any, Error, Context>;
+): middy.MiddlewareObj<unknown, unknown, Error, Context>;
 
 export default cloudwatchMetrics;

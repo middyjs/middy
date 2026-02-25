@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -e
+
+export NODE_OPTIONS="--disable-warning=DEP0040"
+
+# srcDir=./src/schemas
+# destDir=./src/schemas
+#
+# function ftlBuildFile {
+#   LOCALE=$(basename ${2%.js})
+#   LANGUAGE=${LOCALE%-CA}
+#
+#   ajv ftl ${1} \
+#     --locale ${LOCALE} --locale ${LANGUAGE} \
+#     -o ${2}
+#
+# }
+#
+# function jsonBuildFile {
+#   if [ "${1}" == "${srcDir}/definitions.json" ]; then
+#     return
+#   fi
+#   # TODO add in schema definitions for meta forms
+#   ajv validate ${1} \
+#     --all-errors --coerce-types  --use-defaults empty \
+#     -r ./src/schemas/definitions.json
+#   ajv transpile ${1} \
+#     --all-errors --coerce-types  --use-defaults empty \
+#     -r ./src/schemas/definitions.json \
+#     -o ${2}
+# }
+#
+# function buildDir {
+#   INPUT=$1
+#   OUTPUT=$2
+#   mkdir -p $OUTPUT
+#
+#   for file in ${INPUT}*.json; do
+#     file_output=${file%.json}.js
+#     jsonBuildFile ${file} ${file_output/${INPUT}/${OUTPUT}}
+#   done
+#   for file in ${INPUT}*.ftl; do
+#     file_output=${file%.ftl}.js
+#     ftlBuildFile ${file} ${file_output/${INPUT}/${OUTPUT}}
+#   done
+# }
+
+#buildDir ${srcDir}/ ${destDir}/
+#buildFile ${srcDir}/en-CA.ftl ${destDir}/en-CA.js
+
+find ./src/schemas -name 'definitions.*.json' -exec bash -c 'ajv sast $0' '{}' \; &
+
+function makeSchemaValidator {
+  #echo ${1}
+  ajv validate ${1} \
+    --strict true --all-errors --coerce-types array  --use-defaults empty \
+    -r ./src/schemas/definitions.json \
+    -r ./src/schemas/definitions.account.json \
+    -r ./src/schemas/definitions.auth.json \
+    -r ./src/schemas/definitions.contributor.json \
+    -r ./src/schemas/definitions.program.json \
+    -r ./src/schemas/definitions.dataset.json \
+    -r ./src/schemas/definitions.search.json \
+    -r ./src/schemas/definitions.admin.json \
+     | grep 'is invalid, failed'
+
+  ajv sast ${1} \
+    -r ./src/schemas/definitions.json \
+    -r ./src/schemas/definitions.account.json \
+    -r ./src/schemas/definitions.auth.json \
+    -r ./src/schemas/definitions.contributor.json \
+    -r ./src/schemas/definitions.program.json \
+    -r ./src/schemas/definitions.dataset.json \
+    -r ./src/schemas/definitions.search.json \
+    -r ./src/schemas/definitions.admin.json \
+     | grep 'has issues'
+
+  ajv transpile ${1} \
+    --strict true --all-errors --coerce-types array  --use-defaults empty \
+    -r ./src/schemas/definitions.json \
+    -r ./src/schemas/definitions.account.json \
+    -r ./src/schemas/definitions.auth.json \
+    -r ./src/schemas/definitions.contributor.json \
+    -r ./src/schemas/definitions.program.json \
+    -r ./src/schemas/definitions.dataset.json \
+    -r ./src/schemas/definitions.search.json \
+    -r ./src/schemas/definitions.admin.json \
+    -o ${1%.json}.js
+}
+export -f makeSchemaValidator
+find ./src/routes -name '=schema.*.json' -exec bash -c 'makeSchemaValidator "{}"' \; &
+
+function makeSchemaLocalization {
+  LOCALE=$(basename ${1%.ftl})
+  LANGUAGE=${LOCALE%-CA}
+
+  ajv ftl ${1} \
+    --locale ${LOCALE} --locale ${LANGUAGE} \
+    -o ${1%.ftl}.js
+
+}
+export -f makeSchemaLocalization
+find ./src/schemas -name '*.ftl' -exec bash -c 'makeSchemaLocalization "{}"' \; &
+
+wait

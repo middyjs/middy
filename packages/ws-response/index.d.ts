@@ -7,7 +7,7 @@ import type {
 import type middy from "@middy/core";
 import type { Options as MiddyOptions } from "@middy/util";
 
-interface Options<
+export interface Options<
 	AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient,
 > extends Pick<
 		MiddyOptions<
@@ -21,6 +21,8 @@ interface Options<
 		| "disablePrefetch"
 	> {}
 
-declare function wsResponse(options?: Options): middy.MiddlewareObj;
+declare function wsResponse(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default wsResponse;

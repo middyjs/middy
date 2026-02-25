@@ -3,8 +3,7 @@ import { test } from "node:test";
 import middy from "../core/index.js";
 import httpHeaderNormalizer from "./index.js";
 
-// const event = {}
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -32,7 +31,7 @@ test("It should normalize (lowercase) all the headers and create a copy in rawHe
 		foo: "bar",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
@@ -60,7 +59,7 @@ test("It should normalize (canonical) all the headers", async (t) => {
 		Foo: "bar",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
@@ -94,7 +93,7 @@ test("It can use custom normalization function", async (t) => {
 		FOO: "bar",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
@@ -132,7 +131,7 @@ test("It should normalize (lowercase) all the headers with defaults", async (t) 
 		"content-type": "application/json",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
@@ -154,7 +153,7 @@ test("It should normalize (lowercase) all the headers and create a copy in rawMu
 		cookie: ["123456", "654321"],
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
@@ -174,7 +173,7 @@ test("It should normalize (canonical) all the headers and create a copy in rawMu
 		Cookie: ["123456", "654321"],
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
@@ -200,7 +199,7 @@ test("It can use custom normalization function on multiValueHeaders", async (t) 
 		COOKIE: ["123456", "654321"],
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
@@ -238,7 +237,7 @@ test("It should normalize (lowercase) all the multiValueHeaders with defaults", 
 		"content-type": ["application/json", "*/*"],
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
@@ -257,7 +256,7 @@ test("It should not fail if the event does not contain headers", async (t) => {
 		foo: "bar",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent, expectedEvent);
 });
@@ -274,7 +273,7 @@ test("It should not match inherited properties like 'constructor' in canonical e
 		},
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	// "constructor" should be canonicalized normally (to "Constructor"),
 	// NOT matched against Object.prototype.constructor
@@ -294,7 +293,7 @@ test("It should not match inherited properties like 'toString' in canonical exce
 		},
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	// "tostring" should be canonicalized normally (to "Tostring"),
 	// NOT matched against Object.prototype.toString
@@ -318,7 +317,7 @@ test("It should not fail given a corrupted header key", async (t) => {
 		"X----": "foo",
 	};
 
-	const resultingEvent = await handler(event, context);
+	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
 });
