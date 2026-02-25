@@ -61,7 +61,7 @@ const appConfigMiddleware = (opts = {}) => {
 				return value;
 			})
 			.catch((e) => {
-				const value = getCache(options.cacheKey).value ?? {};
+				const value = { ...getCache(options.cacheKey).value };
 				value[internalKey] = undefined;
 				modifyCache(options.cacheKey, value);
 				throw e;
@@ -86,7 +86,7 @@ const appConfigMiddleware = (opts = {}) => {
 						),
 					)
 					.catch((e) => {
-						const value = getCache(options.cacheKey).value ?? {};
+						const value = { ...getCache(options.cacheKey).value };
 						value[internalKey] = undefined;
 						modifyCache(options.cacheKey, value);
 						throw e;
