@@ -61,6 +61,36 @@ export const getInternal = async (variables, request) => {
 		keys = Object.keys(variables);
 		values = Object.values(variables);
 	}
+	// Fast synchronous path: when all internal values are already resolved
+	// (warm/cached invocations), skip all Promise machinery entirely
+	let allSync = true;
+	const syncResults = new Array(values.length);
+	for (let i = 0; i < values.length; i++) {
+		const internalKey = values[i];
+		const dotIndex = internalKey.indexOf(".");
+		const rootKey =
+			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
+		let value = request.internal[rootKey];
+		if (isPromise(value)) {
+			allSync = false;
+			break;
+		}
+		if (dotIndex !== -1) {
+			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
+				value = value?.[part];
+			}
+		}
+		syncResults[i] = value;
+	}
+	if (allSync) {
+		const obj = {};
+		for (let i = 0; i < keys.length; i++) {
+			obj[sanitizeKey(keys[i])] = syncResults[i];
+		}
+		return obj;
+	}
+
+	// Async fallback: for cold/first invocations with pending promises
 	const promises = [];
 	for (const internalKey of values) {
 		// 'internal.key.sub_value' -> { [key]: internal.key.sub_value }

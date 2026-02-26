@@ -104,6 +104,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 
 // shared AbortController, because it's slow
 let handlerAbort = new AbortController();
+let abortOpts = { signal: handlerAbort.signal };
 const runRequest = async (
 	request,
 	beforeMiddlewares,
@@ -123,21 +124,24 @@ const runRequest = async (
 		await runMiddlewares(request, beforeMiddlewares, plugin);
 
 		// Check if before stack hasn't exit early
-		if (!Object.hasOwn(request, "earlyResponse")) {
+		if (!("earlyResponse" in request)) {
 			plugin.beforeHandler();
 
 			// Can't manually abort and timeout with same AbortSignal
 			// https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
 			if (handlerAbort.signal.aborted) {
 				handlerAbort = new AbortController();
+				abortOpts = { signal: handlerAbort.signal };
 			}
 
 			// clearTimeout pattern is 10x faster than using AbortController
 			// Note: signal.abort is slow ~6_000ns
 			// Required --test-force-exit to ignore unresolved timeoutPromise
-			const handlerResult = lambdaHandler(request.event, request.context, {
-				signal: handlerAbort.signal,
-			});
+			const handlerResult = lambdaHandler(
+				request.event,
+				request.context,
+				abortOpts,
+			);
 			if (timeoutEarly) {
 				let timeoutResolve;
 				const timeoutPromise = new Promise((resolve, reject) => {
@@ -201,7 +205,7 @@ const runMiddlewares = async (request, middlewares, plugin) => {
 			request.earlyResponse = res;
 		}
 		// earlyResponse pattern added in 6.0.0 to handle undefined values
-		if (Object.hasOwn(request, "earlyResponse")) {
+		if ("earlyResponse" in request) {
 			request.response = request.earlyResponse;
 			return;
 		}

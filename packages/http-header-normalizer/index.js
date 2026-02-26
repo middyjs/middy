@@ -86,9 +86,13 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
+	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	const hasDefaultMultiValueHeaders =
+		Object.keys(defaultMultiValueHeaders).length > 0;
+
 	const httpHeaderNormalizerMiddlewareBefore = (request) => {
 		if (request.event.headers) {
-			const headers = { ...defaultHeaders };
+			const headers = hasDefaultHeaders ? { ...defaultHeaders } : {};
 
 			for (const key in request.event.headers) {
 				headers[cachedNormalizeKey(key)] = request.event.headers[key];
@@ -98,7 +102,9 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 		}
 
 		if (request.event.multiValueHeaders) {
-			const headers = { ...defaultMultiValueHeaders };
+			const headers = hasDefaultMultiValueHeaders
+				? { ...defaultMultiValueHeaders }
+				: {};
 
 			for (const key in request.event.multiValueHeaders) {
 				headers[cachedNormalizeKey(key)] = request.event.multiValueHeaders[key];

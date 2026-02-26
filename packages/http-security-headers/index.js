@@ -258,34 +258,32 @@ helmet.xssProtection = (headers, config) => {
 const httpSecurityHeadersMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	// Pre-compute enabled helmet functions and their configs at initialization
-	const enabledHelmetFns = [];
+	// Pre-compute all static header values once at initialization
+	const precomputedHeaders = {};
 	for (const key of Object.keys(helmet)) {
 		if (!options[key]) continue;
 		const config = { ...defaults[key], ...options[key] };
 		if (key === "contentSecurityPolicy") {
-			const fn = helmet[key](options.contentSecurityPolicyReportOnly);
-			enabledHelmetFns.push((headers) => fn(headers, config));
+			helmet[key](options.contentSecurityPolicyReportOnly)(
+				precomputedHeaders,
+				config,
+			);
 		} else {
-			enabledHelmetFns.push((headers) => helmet[key](headers, config));
+			helmet[key](precomputedHeaders, config);
 		}
 	}
 
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-
-		for (const fn of enabledHelmetFns) {
-			fn(request.response.headers);
-		}
-		// Clean up poweredBy undefined removals
+		Object.assign(request.response.headers, precomputedHeaders);
 		if (options.poweredBy) {
 			delete request.response.headers.Server;
 			delete request.response.headers["X-Powered-By"];
 		}
 	};
-	const httpSecurityHeadersMiddlewareOnError = async (request) => {
+	const httpSecurityHeadersMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
-		await httpSecurityHeadersMiddlewareAfter(request);
+		httpSecurityHeadersMiddlewareAfter(request);
 	};
 	return {
 		after: httpSecurityHeadersMiddlewareAfter,
