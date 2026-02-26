@@ -89,8 +89,8 @@ const sampleRequest: middy.Request<
 		fail: () => {},
 		succeed: () => {},
 	},
-	response: null,
-	error: null,
+	response: undefined,
+	error: undefined,
 	internal: {
 		boolean: true,
 		number: 1,
