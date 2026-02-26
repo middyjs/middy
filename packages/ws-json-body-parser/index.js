@@ -8,7 +8,7 @@ const defaults = {
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
-	const wsJsonBodyParserMiddlewareBefore = async (request) => {
+	const wsJsonBodyParserMiddlewareBefore = (request) => {
 		const { body } = request.event;
 		if (typeof body === "undefined") {
 			throw createError(422, "Invalid or malformed JSON was provided", {

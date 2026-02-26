@@ -8,7 +8,7 @@ const defaults = {
 
 const eventNormalizerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
-	const eventNormalizerMiddlewareBefore = async (request) => {
+	const eventNormalizerMiddlewareBefore = (request) => {
 		parseEvent(request.event, options);
 	};
 	return {

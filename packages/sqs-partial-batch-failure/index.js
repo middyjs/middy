@@ -7,7 +7,7 @@ const defaults = {
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };
 
-	const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
+	const sqsPartialBatchFailureMiddlewareAfter = (request) => {
 		const {
 			event: { Records },
 			response,

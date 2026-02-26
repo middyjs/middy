@@ -75,7 +75,7 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
-	const httpHeaderNormalizerMiddlewareBefore = async (request) => {
+	const httpHeaderNormalizerMiddlewareBefore = (request) => {
 		if (request.event.headers) {
 			const headers = { ...defaultHeaders };
 

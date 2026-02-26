@@ -190,7 +190,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 	};
 
-	const httpCorsMiddlewareBefore = async (request) => {
+	const httpCorsMiddlewareBefore = (request) => {
 		if (options.disableBeforePreflightResponse) return;
 
 		const method = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
@@ -240,9 +240,9 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 	};
 
-	const httpCorsMiddlewareAfter = async (request) => {
+	const httpCorsMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		const headers = structuredClone(request.response.headers);
+		const headers = { ...request.response.headers };
 		modifyHeaders(headers, options, request);
 		request.response.headers = headers;
 	};

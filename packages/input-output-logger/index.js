@@ -90,10 +90,10 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		}
 	};
 
-	const inputOutputLoggerMiddlewareBefore = async (request) => {
+	const inputOutputLoggerMiddlewareBefore = (request) => {
 		omitAndLog("event", request);
 	};
-	const inputOutputLoggerMiddlewareAfter = async (request) => {
+	const inputOutputLoggerMiddlewareAfter = (request) => {
 		// Check for Node.js stream
 		if (
 			request.response?._readableState ??

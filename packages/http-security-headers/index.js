@@ -260,7 +260,7 @@ helmet.xssProtection = (headers, config) => {
 const httpSecurityHeadersMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpSecurityHeadersMiddlewareAfter = async (request) => {
+	const httpSecurityHeadersMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 
 		for (const key of Object.keys(helmet)) {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { createError, decodeBody } from "@middy/util";
 
-const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/;
+const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
 const defaults = {
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
@@ -10,7 +10,7 @@ const defaults = {
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpUrlencodeBodyParserMiddlewareBefore = async (request) => {
+	const httpUrlencodeBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];

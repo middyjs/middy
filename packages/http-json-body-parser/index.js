@@ -12,7 +12,7 @@ const defaults = {
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
-	const httpJsonBodyParserMiddlewareBefore = async (request) => {
+	const httpJsonBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 

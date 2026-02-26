@@ -11,7 +11,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const { filteringKeyName } = options;
 
-	const httpPartialResponseMiddlewareAfter = async (request) => {
+	const httpPartialResponseMiddlewareAfter = (request) => {
 		const fields = request.event?.queryStringParameters?.[filteringKeyName];
 		if (!fields) return;
 
