@@ -16,7 +16,7 @@ export const executionModeStreamifyResponse = (
 	const middy = awslambda.streamifyResponse(
 		async (event, lambdaResponseStream, context) => {
 			const request = middyRequest(event, context);
-			plugin.requestStart?.(request);
+			plugin.requestStart(request);
 			const handlerResponse = await runRequest(
 				request,
 				beforeMiddlewares,
@@ -55,7 +55,7 @@ export const executionModeStreamifyResponse = (
 			}
 
 			await pipeline(handlerStream, responseStream);
-			await plugin.requestEnd?.(request);
+			await plugin.requestEnd(request);
 		},
 	);
 

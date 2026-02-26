@@ -38,10 +38,11 @@ const secretsManagerMiddleware = (opts = {}) => {
 		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
 	};
 
+	const fetchDataKeys = Object.keys(options.fetchData);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
 			const fetchRotation =
@@ -115,7 +116,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

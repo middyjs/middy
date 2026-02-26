@@ -32,10 +32,11 @@ const stsMiddleware = (opts = {}) => {
 		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
+	const fetchDataKeys = Object.keys(options.fetchData);
 	const fetch = (request, cachedValues = {}) => {
 		const values = {};
 
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const assumeRoleOptions = options.fetchData[internalKey];
 			// Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
@@ -76,7 +77,7 @@ const stsMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

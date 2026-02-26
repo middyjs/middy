@@ -4,6 +4,7 @@ import { setTimeout } from "node:timers";
 import { executionModeStandard } from "./executionModeStandard.js";
 
 const defaultLambdaHandler = () => {};
+const noop = () => {};
 const defaultPluginConfig = {
 	timeoutEarlyInMillis: 5,
 	timeoutEarlyResponse: () => {
@@ -28,6 +29,14 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 		plugin = { ...defaultPluginConfig, ...setupLambdaHandler };
 	}
 	plugin.timeoutEarly = plugin.timeoutEarlyInMillis > 0;
+
+	// Pre-compute single-call plugin hooks as noop to avoid optional chaining
+	// Note: beforeMiddleware/afterMiddleware kept as optional chaining in runMiddlewares
+	// because V8 optimizes ?.() null-checks faster than noop calls in tight loops
+	plugin.requestStart ??= noop;
+	plugin.requestEnd ??= noop;
+	plugin.beforeHandler ??= noop;
+	plugin.afterHandler ??= noop;
 
 	plugin.beforePrefetch?.();
 	const beforeMiddlewares = [];
@@ -115,7 +124,7 @@ const runRequest = async (
 
 		// Check if before stack hasn't exit early
 		if (!Object.hasOwn(request, "earlyResponse")) {
-			plugin.beforeHandler?.();
+			plugin.beforeHandler();
 
 			// Can't manually abort and timeout with same AbortSignal
 			// https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
@@ -154,7 +163,7 @@ const runRequest = async (
 				clearTimeout(timeoutID);
 			}
 
-			plugin.afterHandler?.();
+			plugin.afterHandler();
 			await runMiddlewares(request, afterMiddlewares, plugin);
 		}
 	} catch (err) {
@@ -182,11 +191,11 @@ const runRequest = async (
 	return request.response;
 };
 
-const runMiddlewares = async (request, middlewares, pluginConfig) => {
+const runMiddlewares = async (request, middlewares, plugin) => {
 	for (const nextMiddleware of middlewares) {
-		pluginConfig.beforeMiddleware?.(nextMiddleware.name);
+		plugin.beforeMiddleware?.(nextMiddleware.name);
 		const res = await nextMiddleware(request);
-		pluginConfig.afterMiddleware?.(nextMiddleware.name);
+		plugin.afterMiddleware?.(nextMiddleware.name);
 		// short circuit chaining and respond early
 		if (typeof res !== "undefined") {
 			request.earlyResponse = res;

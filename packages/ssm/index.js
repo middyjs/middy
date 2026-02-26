@@ -35,11 +35,12 @@ const defaults = {
 const ssmMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
+	const fetchDataKeys = Object.keys(options.fetchData);
+	const fetchDataValues = Object.values(options.fetchData);
 	const fetchRequest = (request, cachedValues) => {
-		return {
-			...fetchSingleRequest(request, cachedValues),
-			...fetchByPathRequest(request, cachedValues),
-		};
+		const single = fetchSingleRequest(request, cachedValues);
+		const path = fetchByPathRequest(request, cachedValues);
+		return Object.assign(single, path);
 	};
 
 	const fetchSingleRequest = (request, cachedValues = {}) => {
@@ -48,8 +49,8 @@ const ssmMiddleware = (opts = {}) => {
 		const batchKeys = new Map();
 		const namedKeys = [];
 
-		const internalKeys = Object.keys(options.fetchData);
-		const fetchKeys = Object.values(options.fetchData);
+		const internalKeys = fetchDataKeys;
+		const fetchKeys = fetchDataValues;
 		for (const internalKey of internalKeys) {
 			if (cachedValues[internalKey]) continue;
 			if (options.fetchData[internalKey].endsWith("/")) continue; // Skip path passed in
@@ -124,7 +125,7 @@ const ssmMiddleware = (opts = {}) => {
 
 	const fetchByPathRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const fetchKey = options.fetchData[internalKey];
 			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
@@ -182,7 +183,7 @@ const ssmMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

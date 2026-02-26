@@ -10,7 +10,7 @@ export const executionModeStandard = (
 ) => {
 	const middy = async (event, context) => {
 		const request = middyRequest(event, context);
-		plugin.requestStart?.(request);
+		plugin.requestStart(request);
 
 		const response = await runRequest(
 			request,
@@ -20,7 +20,7 @@ export const executionModeStandard = (
 			onErrorMiddlewares,
 			plugin,
 		);
-		await plugin.requestEnd?.(request);
+		await plugin.requestEnd(request);
 		return response;
 	};
 	middy.handler = (replaceLambdaHandler) => {

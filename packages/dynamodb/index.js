@@ -32,8 +32,9 @@ const dynamodbMiddleware = (opts = {}) => {
 		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
+	const fetchDataKeys = Object.keys(options.fetchData);
 	// force marshall of Key during cold start
-	for (const internalKey of Object.keys(options.fetchData)) {
+	for (const internalKey of fetchDataKeys) {
 		options.fetchData[internalKey].Key = marshall(
 			options.fetchData[internalKey].Key,
 		);
@@ -41,7 +42,7 @@ const dynamodbMiddleware = (opts = {}) => {
 
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const inputParameters = options.fetchData[internalKey];
 			const command = new GetItemCommand(inputParameters);
@@ -71,7 +72,7 @@ const dynamodbMiddleware = (opts = {}) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};
