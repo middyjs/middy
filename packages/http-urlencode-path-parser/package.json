@@ -71,6 +71,7 @@
 	"devDependencies": {
 		"@middy/core": "7.1.2",
 		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0",
 		"type-fest": "^5.0.0"
 	}
 }

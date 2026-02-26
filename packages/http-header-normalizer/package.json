@@ -67,6 +67,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.2"
+		"@middy/core": "7.1.2",
+		"@types/node": "^22.0.0"
 	}
 }

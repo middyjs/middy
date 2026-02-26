@@ -87,6 +87,7 @@
 		"@middy/core": "7.1.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/http-errors": "^2.0.0",
+		"@types/node": "^22.0.0",
 		"ajv-bsontype": "^1.0.7",
 		"ajv-cmd": "^0.8.0"
 	}

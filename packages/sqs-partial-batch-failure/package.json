@@ -68,6 +68,7 @@
 		"@aws-sdk/client-sqs": "^3.0.0",
 		"@middy/core": "7.1.2",
 		"@serverless/event-mocks": "^1.1.1",
-		"@types/aws-lambda": "^8.0.0"
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0"
 	}
 }
