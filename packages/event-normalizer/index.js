@@ -86,8 +86,8 @@ const events = {
 		record.dynamodb.OldImage = unmarshall(record.dynamodb.OldImage, options);
 	},
 	"aws:kafka": (event) => {
-		for (const record of Object.keys(event.records)) {
-			for (const topic of event.records[record]) {
+		for (const topics of Object.values(event.records)) {
+			for (const topic of topics) {
 				topic.value &&= base64Parse(topic.value);
 			}
 		}
@@ -169,25 +169,27 @@ const convertValue = {
 	B: (value) => value,
 	S: (value) => value,
 	L: (value, options) => value.map((item) => convertToNative(item, options)),
-	M: (value, options) =>
-		Object.entries(value).reduce((acc, [key, value]) => {
-			acc[key] = convertToNative(value, options);
-			return acc;
-		}, Object.create(null)),
+	M: (value, options) => {
+		const obj = Object.create(null);
+		for (const key in value) {
+			obj[key] = convertToNative(value[key], options);
+		}
+		return obj;
+	},
 	NS: (value, options) => new Set(value.map((v) => convertValue.N(v, options))),
 	BS: (value) => new Set(value.map(convertValue.B)),
 	SS: (value) => new Set(value.map(convertValue.S)),
 };
 
 const convertToNative = (data, options) => {
-	for (const [key, value] of Object.entries(data)) {
+	for (const key in data) {
 		if (!convertValue[key]) {
 			throw new Error(`Unsupported type passed: ${key}`, {
 				cause: { package: "@middy/event-normalizer" },
 			});
 		}
-		if (typeof value === "undefined") continue;
-		return convertValue[key](value, options);
+		if (typeof data[key] === "undefined") continue;
+		return convertValue[key](data[key], options);
 	}
 };
 // End: AWS SDK unmarshall

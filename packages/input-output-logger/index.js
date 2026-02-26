@@ -63,7 +63,9 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 		let cloneMessage = message;
 		if (omitPaths.length) {
-			cloneMessage = structuredClone(message); // Full clone to prevent nested mutations
+			// Clone only the branch being omitted, not the entire message
+			cloneMessage = { ...message };
+			cloneMessage[param] = structuredClone(message[param]);
 			omit(cloneMessage, { [param]: omitPathTree[param] });
 		}
 		logger(cloneMessage);

@@ -61,7 +61,7 @@ const appConfigMiddleware = (opts = {}) => {
 				return value;
 			})
 			.catch((e) => {
-				const value = { ...getCache(options.cacheKey).value };
+				const value = getCache(options.cacheKey).value ?? {};
 				value[internalKey] = undefined;
 				modifyCache(options.cacheKey, value);
 				throw e;
@@ -72,7 +72,7 @@ const appConfigMiddleware = (opts = {}) => {
 		const values = {};
 		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
-			if (configurationTokenCache[internalKey] === null) {
+			if (typeof configurationTokenCache[internalKey] === "undefined") {
 				const command = new StartConfigurationSessionCommand(
 					options.fetchData[internalKey],
 				);

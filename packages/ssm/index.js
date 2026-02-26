@@ -77,25 +77,22 @@ const ssmMiddleware = (opts = {}) => {
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
-					return Object.assign(
-						{},
-						...(resp.InvalidParameters ?? []).map((fetchKey) => {
-							return {
-								[fetchKey]: new Promise(() => {
-									const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-									const value = getCache(options.cacheKey).value ?? {};
-									value[internalKey] = undefined;
-									modifyCache(options.cacheKey, value);
-									throw new Error(`InvalidParameter ${fetchKey}`, {
-										cause: { package: "@middy/ssm" },
-									});
-								}),
-							};
-						}),
-						...(resp.Parameters ?? []).map((param) => {
-							return { [param.Name]: parseValue(param) };
-						}),
-					);
+					const result = {};
+					for (const fetchKey of resp.InvalidParameters ?? []) {
+						result[fetchKey] = new Promise(() => {
+							const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
+							const value = getCache(options.cacheKey).value ?? {};
+							value[internalKey] = undefined;
+							modifyCache(options.cacheKey, value);
+							throw new Error(`InvalidParameter ${fetchKey}`, {
+								cause: { package: "@middy/ssm" },
+							});
+						});
+					}
+					for (const param of resp.Parameters ?? []) {
+						result[param.Name] = parseValue(param);
+					}
+					return result;
 				})
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
@@ -152,14 +149,9 @@ const ssmMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((resp) => {
-				Object.assign(
-					values,
-					...resp.Parameters.map((param) => {
-						return {
-							[sanitizeKey(param.Name.replace(path, ""))]: parseValue(param),
-						};
-					}),
-				);
+				for (const param of resp.Parameters) {
+					values[sanitizeKey(param.Name.replace(path, ""))] = parseValue(param);
+				}
 				if (resp.NextToken) {
 					return fetchPathRequest(path, resp.NextToken, values);
 				}

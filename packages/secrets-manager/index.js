@@ -44,48 +44,57 @@ const secretsManagerMiddleware = (opts = {}) => {
 		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
 
-			values[internalKey] = Promise.resolve()
-				.then(() => {
-					if (
-						options.fetchRotationDate === true ||
-						options.fetchRotationDate?.[internalKey]
-					) {
-						const command = new DescribeSecretCommand({
-							SecretId: options.fetchData[internalKey],
-						});
-						return client
-							.send(command)
-							.catch((e) => catchInvalidSignatureException(e, client, command))
-							.then((resp) => {
-								if (options.cacheExpiry < 0) {
-									options.cacheKeyExpiry[internalKey] =
-										resp.NextRotationDate * 1000;
-								} else {
-									options.cacheKeyExpiry[internalKey] = Math.min(
-										Math.max(resp.LastRotationDate, resp.LastChangedDate) *
-											1000 +
-											options.cacheExpiry,
-										resp.NextRotationDate * 1000,
-									);
-								}
-							});
-					}
-				})
-				.then(() => {
-					const command = new GetSecretValueCommand({
-						SecretId: options.fetchData[internalKey],
-					});
-					return client
-						.send(command)
-						.catch((e) => catchInvalidSignatureException(e, client, command));
-				})
-				.then((resp) => jsonSafeParse(resp.SecretString))
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
+			const fetchRotation =
+				options.fetchRotationDate === true ||
+				options.fetchRotationDate?.[internalKey];
+			const rotationPromise = fetchRotation
+				? client
+						.send(
+							new DescribeSecretCommand({
+								SecretId: options.fetchData[internalKey],
+							}),
+						)
+						.catch((e) =>
+							catchInvalidSignatureException(
+								e,
+								client,
+								new DescribeSecretCommand({
+									SecretId: options.fetchData[internalKey],
+								}),
+							),
+						)
+						.then((resp) => {
+							if (options.cacheExpiry < 0) {
+								options.cacheKeyExpiry[internalKey] =
+									resp.NextRotationDate * 1000;
+							} else {
+								options.cacheKeyExpiry[internalKey] = Math.min(
+									Math.max(resp.LastRotationDate, resp.LastChangedDate) * 1000 +
+										options.cacheExpiry,
+									resp.NextRotationDate * 1000,
+								);
+							}
+						})
+				: undefined;
+
+			const fetchSecret = () => {
+				const command = new GetSecretValueCommand({
+					SecretId: options.fetchData[internalKey],
 				});
+				return client
+					.send(command)
+					.catch((e) => catchInvalidSignatureException(e, client, command))
+					.then((resp) => jsonSafeParse(resp.SecretString));
+			};
+
+			values[internalKey] = (
+				rotationPromise ? rotationPromise.then(fetchSecret) : fetchSecret()
+			).catch((e) => {
+				const value = getCache(options.cacheKey).value ?? {};
+				value[internalKey] = undefined;
+				modifyCache(options.cacheKey, value);
+				throw e;
+			});
 		}
 		return values;
 	};

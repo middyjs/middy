@@ -65,12 +65,9 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		if (
-			Object.hasOwn(routesStatic, method) &&
-			Object.hasOwn(routesStatic[method], path)
-		) {
-			const handler = routesStatic[method][path];
-			return handler(event, context, abort);
+		const staticHandler = routesStatic[method]?.[path];
+		if (staticHandler) {
+			return staticHandler(event, context, abort);
 		}
 
 		// Dynamic

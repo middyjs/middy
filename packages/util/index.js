@@ -79,17 +79,20 @@ export const getInternal = async (variables, request) => {
 	// ensure promise has resolved by the time it's needed
 	// If one of the promises throws it will bubble up to @middy/core
 	values = await Promise.allSettled(promises);
-	const errors = values
-		.filter((res) => res.status === "rejected")
-		.map((res) => res.reason);
-	if (errors.length) {
+	const obj = {};
+	let errors;
+	for (let i = 0; i < keys.length; i++) {
+		if (values[i].status === "rejected") {
+			errors ??= [];
+			errors.push(values[i].reason);
+		} else {
+			obj[sanitizeKey(keys[i])] = values[i].value;
+		}
+	}
+	if (errors) {
 		throw new Error("Failed to resolve internal values", {
 			cause: { package: "@middy/util", data: errors },
 		});
-	}
-	const obj = {};
-	for (let i = keys.length; i--; ) {
-		obj[sanitizeKey(keys[i])] = values[i].value;
 	}
 	return obj;
 };
@@ -125,7 +128,8 @@ export const processCache = (
 				cache[cacheKey] = { value: cached.value, expiry: cached.expiry };
 				return cache[cacheKey];
 			}
-			return { ...cached, cache: true };
+			cached.cache = true;
+			return cached;
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
@@ -161,8 +165,9 @@ export const getCache = (key) => {
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
 	if (!cache[cacheKey]) return;
-	clearTimeout(cache[cacheKey]?.refresh);
-	cache[cacheKey] = { ...cache[cacheKey], value, modified: true };
+	clearTimeout(cache[cacheKey].refresh);
+	cache[cacheKey].value = value;
+	cache[cacheKey].modified = true;
 };
 
 export const clearCache = (inputKeys = null) => {

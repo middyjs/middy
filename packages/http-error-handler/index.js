@@ -37,14 +37,10 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 			normalizeHttpResponse(request);
 			const { statusCode, message, headers } = request.error;
 
-			request.response = {
-				...request.response,
-				statusCode,
-				headers: {
-					...request.response.headers,
-					...headers,
-				},
-			};
+			request.response.statusCode = statusCode;
+			if (headers) {
+				Object.assign(request.response.headers, headers);
+			}
 
 			if (message) {
 				const headerContentType =

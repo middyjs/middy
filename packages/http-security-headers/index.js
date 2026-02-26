@@ -247,10 +247,8 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 };
 
 // https://github.com/helmetjs/hide-powered-by
-helmet.poweredBy = (headers, config) => {
-	headers.Server = undefined;
-	headers["X-Powered-By"] = undefined;
-};
+// Removal handled in after hook via delete to avoid undefined cleanup loop
+helmet.poweredBy = () => {};
 
 // https://github.com/helmetjs/x-xss-protection
 helmet.xssProtection = (headers, config) => {
@@ -260,29 +258,30 @@ helmet.xssProtection = (headers, config) => {
 const httpSecurityHeadersMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
+	// Pre-compute enabled helmet functions and their configs at initialization
+	const enabledHelmetFns = [];
+	for (const key of Object.keys(helmet)) {
+		if (!options[key]) continue;
+		const config = { ...defaults[key], ...options[key] };
+		if (key === "contentSecurityPolicy") {
+			const fn = helmet[key](options.contentSecurityPolicyReportOnly);
+			enabledHelmetFns.push((headers) => fn(headers, config));
+		} else {
+			enabledHelmetFns.push((headers) => helmet[key](headers, config));
+		}
+	}
+
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 
-		for (const key of Object.keys(helmet)) {
-			if (!options[key]) continue;
-			const config = { ...defaults[key], ...options[key] };
-			if (key === "contentSecurityPolicy") {
-				helmet[key](options.contentSecurityPolicyReportOnly)(
-					request.response.headers,
-					config,
-				);
-			} else {
-				helmet[key](request.response.headers, config);
-			}
+		for (const fn of enabledHelmetFns) {
+			fn(request.response.headers);
 		}
-		// Clean up headers removals
-		const headers = {};
-		for (const key of Object.keys(request.response.headers)) {
-			if (typeof request.response.headers[key] !== "undefined") {
-				headers[key] = request.response.headers[key];
-			}
+		// Clean up poweredBy undefined removals
+		if (options.poweredBy) {
+			delete request.response.headers.Server;
+			delete request.response.headers["X-Powered-By"];
 		}
-		request.response.headers = headers;
 	};
 	const httpSecurityHeadersMiddlewareOnError = async (request) => {
 		if (typeof request.response === "undefined") return;

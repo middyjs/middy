@@ -122,15 +122,13 @@ const runRequest = async (
 			if (handlerAbort.signal.aborted) {
 				handlerAbort = new AbortController();
 			}
-			const promises = [
-				lambdaHandler(request.event, request.context, {
-					signal: handlerAbort.signal,
-				}),
-			];
 
 			// clearTimeout pattern is 10x faster than using AbortController
 			// Note: signal.abort is slow ~6_000ns
 			// Required --test-force-exit to ignore unresolved timeoutPromise
+			const handlerResult = lambdaHandler(request.event, request.context, {
+				signal: handlerAbort.signal,
+			});
 			if (timeoutEarly) {
 				let timeoutResolve;
 				const timeoutPromise = new Promise((resolve, reject) => {
@@ -147,9 +145,10 @@ const runRequest = async (
 					timeoutResolve,
 					getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
 				);
-				promises.push(timeoutPromise);
+				request.response = await Promise.race([handlerResult, timeoutPromise]);
+			} else {
+				request.response = await handlerResult;
 			}
-			request.response = await Promise.race(promises);
 
 			if (timeoutID) {
 				clearTimeout(timeoutID);
