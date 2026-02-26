@@ -152,7 +152,7 @@ const convertValue = {
 		) {
 			try {
 				return BigInt(value);
-			} catch (err) {
+			} catch (_err) {
 				throw new Error(
 					`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
 					{
