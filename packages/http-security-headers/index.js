@@ -248,8 +248,8 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 
 // https://github.com/helmetjs/hide-powered-by
 helmet.poweredBy = (headers, config) => {
-	delete headers.Server;
-	delete headers["X-Powered-By"];
+	headers.Server = undefined;
+	headers["X-Powered-By"] = undefined;
 };
 
 // https://github.com/helmetjs/x-xss-protection

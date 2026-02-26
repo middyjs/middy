@@ -144,16 +144,14 @@ const buildPathTree = (paths) => {
 		// reverse to ensure conflicting paths don't cause issues
 		if (!Array.isArray(path)) path = path.split(".");
 		if (path.includes("__proto__")) continue;
-		path
-			.slice(0) // clone
-			.reduce((a, b, idx) => {
-				if (idx < path.length - 1) {
-					a[b] ??= {};
-					return a[b];
-				}
-				a[b] = true;
-				return true;
-			}, tree);
+		path.reduce((a, b, idx) => {
+			if (idx < path.length - 1) {
+				a[b] ??= {};
+				return a[b];
+			}
+			a[b] = true;
+			return true;
+		}, tree);
 	}
 	return tree;
 };

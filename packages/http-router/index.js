@@ -22,8 +22,8 @@ const httpRouteHandler = (opts = {}) => {
 	options ??= opts;
 	const { routes, notFoundResponse } = { ...defaults, ...options };
 
-	const routesStatic = {};
-	const routesDynamic = {};
+	const routesStatic = Object.create(null);
+	const routesDynamic = Object.create(null);
 	const enumMethods = methods.concat("ANY");
 	for (const route of routes) {
 		let { method, path, handler } = route;

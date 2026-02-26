@@ -33,7 +33,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	};
 
 	// force marshall of Key during cold start
-	for (const internalKey in options.fetchData) {
+	for (const internalKey of Object.keys(options.fetchData)) {
 		options.fetchData[internalKey].Key = marshall(
 			options.fetchData[internalKey].Key,
 		);
@@ -41,7 +41,7 @@ const dynamodbMiddleware = (opts = {}) => {
 
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey in options.fetchData) {
+		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
 			const inputParameters = options.fetchData[internalKey];
 			const command = new GetItemCommand(inputParameters);
