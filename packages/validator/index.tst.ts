@@ -4,7 +4,7 @@ import validator from "./index.js";
 
 test("use with default options", () => {
 	const middleware = validator();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -18,5 +18,5 @@ test("use with all options", () => {
 		defaultLanguage: "en",
 		languages: {},
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

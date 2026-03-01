@@ -4,7 +4,7 @@ import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 	functionName: "benchmark",
 };
@@ -43,7 +43,7 @@ await bench
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(event, defaultContext);
 			} catch (_e) {}
 		},
 	)
@@ -52,7 +52,7 @@ await bench
 		async (
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
-			await shallowHandler(event, context);
+			await shallowHandler(event, defaultContext);
 		},
 	)
 	.add(
@@ -60,7 +60,7 @@ await bench
 		async (
 			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
 		) => {
-			await deepHandler(event, context);
+			await deepHandler(event, defaultContext);
 		},
 	)
 	.run();

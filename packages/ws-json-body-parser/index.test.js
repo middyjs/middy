@@ -59,6 +59,7 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });
@@ -102,6 +103,7 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
 	}
 });

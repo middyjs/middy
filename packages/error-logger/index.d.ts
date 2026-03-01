@@ -3,9 +3,11 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (request: any) => void;
+	logger?: (request: middy.Request) => void;
 }
 
-declare function errorLogger(options?: Options): middy.MiddlewareObj;
+declare function errorLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default errorLogger;

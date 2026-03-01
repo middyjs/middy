@@ -4,7 +4,7 @@ import sqsPartialBatchFailure from "./index.js";
 
 test("use with default options", () => {
 	const middleware = sqsPartialBatchFailure();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -13,5 +13,5 @@ test("use with all options", () => {
 			console.error(...args);
 		},
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

@@ -16,6 +16,8 @@ export interface Options {
 	languages?: Record<string, (errors: ErrorObject[] | undefined) => void>;
 }
 
-declare function validator(options?: Options): middy.MiddlewareObj;
+declare function validator(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default validator;

@@ -24,6 +24,7 @@ export interface ServiceDiscoveryOptions<
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
+		| "cacheKeyExpiry"
 		| "setToContext"
 	> {
 	fetchData?: { [key: string]: DiscoverInstancesCommandInput };
@@ -53,7 +54,7 @@ declare function serviceDiscovery<
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

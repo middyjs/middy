@@ -20,18 +20,19 @@ const options = {
 	disablePrefetch: true,
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,
+	cacheKeyExpiry: {},
 	setToContext: false,
 } as const;
 
 test("use with default options", () => {
 	expect(dynamodb()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<undefined>>
 	>();
 });
 
 test("use with all options", () => {
 	expect(dynamodb(options)).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<typeof options>>
 	>();
 });
 
@@ -54,7 +55,7 @@ test("use with setToContext: true", () => {
 	).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			LambdaContext & { configurationObjFromDynamo: Record<string, any> },
 			{ configurationObjFromDynamo: Record<string, any> }
@@ -81,7 +82,7 @@ test("use with setToContext: false", () => {
 	).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			LambdaContext,
 			{ configurationObjFromDynamo: Record<string, any> }

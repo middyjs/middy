@@ -75,7 +75,7 @@ const httpRouteHandler = (opts = {}) => {
 
 		// Dynamic
 		if (Object.hasOwn(routesDynamic, method)) {
-			for (const route of routesDynamic[method] ?? []) {
+			for (const route of routesDynamic[method]) {
 				const match = path.match(route.path);
 				if (match) {
 					event.pathParameters = {

@@ -10,7 +10,7 @@ import middy from "../core/index.js";
 
 import wsResponse from "./index.js";
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -36,7 +36,7 @@ test("It should post when api gateway event", async (t) => {
 			connectionId: "id",
 		},
 	};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { statusCode: 200 });
 });
 
@@ -62,7 +62,7 @@ test("It should post when endpoint option set", async (t) => {
 	);
 
 	const event = {};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { statusCode: 200 });
 });
 
@@ -82,7 +82,7 @@ test("It should not post when connection id is not set", async (t) => {
 	);
 
 	const event = {};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, true);
 });
 
@@ -100,7 +100,7 @@ test("It should not post when response not set", async (t) => {
 	);
 
 	const event = {};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, undefined);
 });
@@ -132,6 +132,6 @@ test("It should handle InvalidSignatureException and retry", async (t) => {
 			connectionId: "id",
 		},
 	};
-	const response = await handler(event, context);
+	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { statusCode: 200 });
 });

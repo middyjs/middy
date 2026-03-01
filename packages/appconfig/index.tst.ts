@@ -20,18 +20,19 @@ const options = {
 	disablePrefetch: true,
 	cacheKey: "some-key",
 	cacheExpiry: 60 * 60 * 5,
+	cacheKeyExpiry: {},
 	setToContext: false,
 };
 
 test("use with default options", () => {
 	expect(appConfig()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, LambdaContext>
+		middy.MiddlewareObj<unknown, unknown, Error, LambdaContext>
 	>();
 });
 
 test("use with all options", () => {
 	expect(appConfig(options)).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<typeof options>>
 	>();
 });
 
@@ -51,7 +52,7 @@ test("use with setToContext: false", () => {
 	).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			LambdaContext,
 			Record<"config", unknown>
@@ -75,7 +76,7 @@ test("use with setToContext: true", () => {
 	).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			LambdaContext & Record<"config", unknown>,
 			Record<"config", unknown>

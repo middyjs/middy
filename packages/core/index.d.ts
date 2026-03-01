@@ -17,7 +17,7 @@ export declare const executionModeDurableContext: PluginExecutionMode;
 export declare const executionModeStreamifyResponse: PluginExecutionMode;
 
 interface PluginObject {
-	internal?: any;
+	internal?: Record<string, unknown>;
 	beforePrefetch?: PluginHook;
 	requestStart?: PluginHook;
 	beforeMiddleware?: PluginHookWithMiddlewareName;
@@ -39,9 +39,9 @@ export interface Request<
 > {
 	event: TEvent;
 	context: TContext;
-	response: TResult | null;
+	response: TResult | undefined;
 	earlyResponse?: TResult | null | undefined;
-	error: TErr | null;
+	error: TErr | undefined;
 	internal: TInternal;
 }
 

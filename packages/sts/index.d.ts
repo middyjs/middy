@@ -32,6 +32,7 @@ export interface STSOptions<AwsSTSClient = STSClient>
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
+		| "cacheKeyExpiry"
 		| "setToContext"
 	> {
 	fetchData?: {
@@ -61,7 +62,7 @@ declare function sts<TOptions extends STSOptions | undefined>(
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

@@ -5,6 +5,7 @@ import type { APIGatewayEvent } from "aws-lambda";
 import type { JsonValue } from "type-fest";
 
 export interface Options {
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 
@@ -14,6 +15,6 @@ export type Event = APIGatewayEvent & {
 
 declare function urlEncodeBodyParser(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<Event, unknown, Error>;
 
 export default urlEncodeBodyParser;

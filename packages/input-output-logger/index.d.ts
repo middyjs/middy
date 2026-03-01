@@ -3,13 +3,15 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (message: any) => void;
+	logger?: (message: unknown) => void;
 	executionContext?: boolean;
 	lambdaContext?: boolean;
 	omitPaths?: string[];
 	mask?: string;
 }
 
-declare function inputOutputLogger(options?: Options): middy.MiddlewareObj;
+declare function inputOutputLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default inputOutputLogger;
