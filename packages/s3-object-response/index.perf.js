@@ -6,7 +6,7 @@ import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 
@@ -27,7 +27,7 @@ const setupHandler = (options = {}) => {
 const coldHandler = setupHandler({ disablePrefetch: true });
 const warmHandler = setupHandler();
 
-const event = {
+const defaultEvent = {
 	getObjectContext: {
 		inputS3Url: "https://localhost",
 	},
@@ -35,12 +35,12 @@ const event = {
 await bench
 	.add("without cache", async () => {
 		try {
-			await coldHandler(event, context);
+			await coldHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.add("with cache", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 

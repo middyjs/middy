@@ -26,14 +26,14 @@ const handler = middy((event) => event).use(
 		AwsClient: S3Client,
 	}),
 );
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
 test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
-			await handler(event, context);
+			await handler(event, defaultContext);
 		}),
 		{
 			numRuns: 100_000,
@@ -56,7 +56,7 @@ test("fuzz `event` w/ `record`", async () => {
 				Body: fc.string(),
 			}),
 			async (event) => {
-				await handler(event, context);
+				await handler(event, defaultContext);
 			},
 		),
 		{

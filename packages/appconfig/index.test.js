@@ -15,8 +15,8 @@ test.afterEach((t) => {
 	clearCache();
 });
 
-const event = {};
-const context = {
+const defaultEvent = {};
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
@@ -88,7 +88,7 @@ test("It should set AppConfigData param value to internal storage for multiple p
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should set AppConfigData param value to internal storage", async (t) => {
@@ -130,7 +130,7 @@ test("It should set AppConfigData param value to internal storage", async (t) =>
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should use previous configuration token on subsequent app config fetch", async (t) => {
@@ -180,8 +180,8 @@ test("It should use previous configuration token on subsequent app config fetch"
 		)
 		.before(middleware);
 
-	const configOne = await handler(event, context);
-	const configTwo = await handler(event, context);
+	const configOne = await handler(defaultEvent, defaultContext);
+	const configTwo = await handler(defaultEvent, defaultContext);
 
 	strictEqual(configOne, "value");
 	strictEqual(configTwo, "newValue");
@@ -233,8 +233,8 @@ test("It should keep previous configuration value if getLatestConfiguration retu
 		)
 		.before(middleware);
 
-	const configOne = await handler(event, context);
-	const configTwo = await handler(event, context);
+	const configOne = await handler(defaultEvent, defaultContext);
+	const configTwo = await handler(defaultEvent, defaultContext);
 
 	strictEqual(configOne, "value");
 	strictEqual(configTwo, "value");
@@ -278,7 +278,7 @@ test("It should set AppConfig param value to internal storage without prefetch",
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should set AppConfig param value to context", async (t) => {
@@ -319,7 +319,7 @@ test("It should set AppConfig param value to context", async (t) => {
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should not call aws-sdk again if parameter is cached forever", async (t) => {
@@ -360,8 +360,8 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 		)
 		.before(middleware);
 
-	await handler(event, context);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(mockService.send.callCount, 2);
 });
@@ -404,8 +404,8 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 		)
 		.before(middleware);
 
-	await handler(event, context);
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
 
 	strictEqual(mockService.send.callCount, 2);
 });
@@ -457,8 +457,8 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 		)
 		.before(middleware);
 
-	const configOne = await handler(event, context);
-	const configTwo = await handler(event, context);
+	const configOne = await handler(defaultEvent, defaultContext);
+	const configTwo = await handler(defaultEvent, defaultContext);
 
 	strictEqual(configOne, "value");
 	strictEqual(configTwo, "newValue");
@@ -508,7 +508,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	);
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		strictEqual(mockService.send.callCount, 2);
 		strictEqual(e.message, "Failed to resolve internal values");
@@ -537,7 +537,7 @@ test("It should catch if an error is returned from start configuration session c
 	);
 
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (e) {
 		strictEqual(mockService.send.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
@@ -589,7 +589,7 @@ test("Should not parse configuration is mime type is not application/json", asyn
 		)
 		.before(middleware);
 
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
@@ -660,16 +660,50 @@ test("It should skip fetching already cached values when fetching multiple keys"
 
 	// First call - key1 succeeds, key2 fails
 	try {
-		await handler(event, context);
+		await handler(defaultEvent, defaultContext);
 	} catch (_e) {
 		// Expected to fail
 	}
 
 	// Second call - only key2 is fetched (key1 is already cached)
-	await handler(event, context);
+	await handler(defaultEvent, defaultContext);
 
 	// Should have called send 6 times (2 StartSession + 3 GetLatest initial + 1 GetLatest for cached config1)
 	strictEqual(sendStub.callCount, 6);
+});
+
+test("It should handle GetLatestConfiguration error with cache enabled", async (t) => {
+	mockClient(AppConfigDataClient)
+		.on(StartConfigurationSessionCommand)
+		.resolvesOnce({
+			ContentType: "application/json",
+			InitialConfigurationToken: "InitialToken...",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "InitialToken...",
+		})
+		.rejects("timeout");
+
+	const handler = middy(() => {}).use(
+		appConfig({
+			AwsClient: AppConfigDataClient,
+			cacheExpiry: -1,
+			fetchData: {
+				key: {
+					ApplicationIdentifier: "...",
+					ConfigurationProfileIdentifier: "...",
+					EnvironmentIdentifier: "...",
+				},
+			},
+			setToContext: true,
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (e) {
+		strictEqual(e.message, "Failed to resolve internal values");
+	}
 });
 
 test("It should export appConfigParam helper for TypeScript type inference", async (t) => {

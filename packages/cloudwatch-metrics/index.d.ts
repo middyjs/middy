@@ -16,6 +16,6 @@ export type Context = LambdaContext & {
 
 declare function cloudwatchMetrics(
 	options?: Options,
-): middy.MiddlewareObj<unknown, any, Error, Context>;
+): middy.MiddlewareObj<unknown, unknown, Error, Context>;
 
 export default cloudwatchMetrics;

@@ -8,7 +8,7 @@ const errorLoggerMiddleware = (opts = {}) => {
 	let { logger } = { ...defaults, ...opts };
 	if (typeof logger !== "function") logger = null;
 
-	const errorLoggerMiddlewareOnError = async (request) => {
+	const errorLoggerMiddlewareOnError = (request) => {
 		logger(request);
 	};
 	return {

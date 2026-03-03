@@ -7,7 +7,7 @@ const defaults = {
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };
 
-	const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
+	const sqsPartialBatchFailureMiddlewareAfter = (request) => {
 		const {
 			event: { Records },
 			response,
@@ -17,7 +17,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
 		const batchItemFailures = [];
 		if (Array.isArray(Records)) {
-			for (const [idx, record] of Object.entries(Records)) {
+			for (const [idx, record] of Records.entries()) {
 				const { status, reason } = response[idx];
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -31,9 +31,9 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	};
 
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
-		if (request.response !== undefined) return;
+		if (typeof request.response !== "undefined") return;
 
-		request.response = new Array(request.event.Records?.length).fill({
+		request.response = new Array(request.event.Records?.length ?? 0).fill({
 			status: "rejected",
 			reason: request.error,
 		});

@@ -17,7 +17,7 @@ export declare const executionModeDurableContext: PluginExecutionMode;
 export declare const executionModeStreamifyResponse: PluginExecutionMode;
 
 interface PluginObject {
-	internal?: any;
+	internal?: Record<string, unknown>;
 	beforePrefetch?: PluginHook;
 	requestStart?: PluginHook;
 	beforeMiddleware?: PluginHookWithMiddlewareName;
@@ -31,7 +31,7 @@ interface PluginObject {
 }
 
 export interface Request<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -39,14 +39,14 @@ export interface Request<
 > {
 	event: TEvent;
 	context: TContext;
-	response: TResult | null;
+	response: TResult | undefined;
 	earlyResponse?: TResult | null | undefined;
-	error: TErr | null;
+	error: TErr | undefined;
 	internal: TInternal;
 }
 
 declare type MiddlewareFn<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -91,7 +91,7 @@ type MiddyInputPromiseHandler<
 > = (event: TEvent, context: TContext) => Promise<TResult>;
 
 export interface MiddyfiedHandler<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -122,7 +122,7 @@ export interface MiddyfiedHandler<
 }
 
 declare type AttachMiddlewareFn<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -132,7 +132,7 @@ declare type AttachMiddlewareFn<
 ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare type AttachMiddlewareObj<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -142,7 +142,7 @@ declare type AttachMiddlewareObj<
 ) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare type UseFn<
-	TEvent = any,
+	TEvent = unknown,
 	TResult = any,
 	TErr = Error,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
@@ -187,7 +187,7 @@ declare type MiddlewareHandler<
 	THandler extends LambdaHandler<any, any>,
 	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 	TResult = any,
-	TEvent = any,
+	TEvent = unknown,
 > =
 	THandler extends LambdaHandler<TEvent, TResult> // always true
 		? MiddyInputHandler<TEvent, TResult, TContext>

@@ -39,7 +39,7 @@ declare function ssm<TOptions extends SSMOptions>(
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

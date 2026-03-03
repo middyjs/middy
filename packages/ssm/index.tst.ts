@@ -8,7 +8,7 @@ import ssm, { type Context, ssmParam } from "./index.js";
 
 test("use with default options", () => {
 	expect(ssm()).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<undefined>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<undefined>>
 	>();
 });
 
@@ -27,7 +27,7 @@ test("use with all options", () => {
 		disablePrefetch: true,
 	};
 	expect(ssm(options)).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context<typeof options>>
+		middy.MiddlewareObj<unknown, unknown, Error, Context<typeof options>>
 	>();
 
 	expect(
@@ -40,7 +40,7 @@ test("use with all options", () => {
 	).type.toBe<
 		middy.MiddlewareObj<
 			unknown,
-			any,
+			unknown,
 			Error,
 			LambdaContext,
 			Record<"lorem" | "ipsum", unknown>

@@ -20,7 +20,7 @@ const defaults = {
 	disablePrefetch: false,
 };
 
-const wsResponseMiddleware = (opts) => {
+const wsResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	let client;

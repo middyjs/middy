@@ -7,7 +7,7 @@ import rdsSigner from "./index.js";
 
 test("use with default options", () => {
 	const middleware = rdsSigner();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 const options = {
@@ -34,12 +34,12 @@ const options = {
 };
 
 test("use with no options", () => {
-	expect(rdsSigner()).type.toBe<middy.MiddlewareObj>();
+	expect(rdsSigner()).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
 	expect(rdsSigner(options)).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, LambdaContext, { foo: string }>
+		middy.MiddlewareObj<unknown, unknown, Error, LambdaContext, { foo: string }>
 	>();
 });
 

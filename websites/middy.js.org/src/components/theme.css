@@ -90,7 +90,7 @@ section.grid:has(.feature) {
 /* Hero shader background */
 .hero {
 	position: relative;
-	overflow: visible;
+	overflow: clip;
 }
 
 .hero::before {

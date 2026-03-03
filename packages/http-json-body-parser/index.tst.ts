@@ -10,18 +10,26 @@ import jsonBodyParser from "./index.js";
 test("use with default options", () => {
 	const middleware = jsonBodyParser();
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>
+		middy.MiddlewareObj<
+			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
+			unknown,
+			Error
+		>
 	>();
 });
 
 test("use with all options", () => {
 	const middleware = jsonBodyParser({
-		reviver: (_key: string, value: any) => Boolean(value),
+		reviver: (_key: string, value: unknown) => Boolean(value),
 		disableContentTypeCheck: true,
 		disableContentTypeError: true,
 	});
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent>
+		middy.MiddlewareObj<
+			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
+			unknown,
+			Error
+		>
 	>();
 });
 
@@ -102,12 +110,14 @@ test("allow body to only be string or null", () => {
 test("allow specifying the event type", () => {
 	const apiGatewayV1Middleware = jsonBodyParser<APIGatewayEvent>();
 	expect(apiGatewayV1Middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayEvent>
+		middy.MiddlewareObj<APIGatewayEvent, unknown, Error>
 	>();
 	const apiGatewayV2Middleware = jsonBodyParser<APIGatewayProxyEventV2>();
 	expect(apiGatewayV2Middleware).type.toBe<
-		middy.MiddlewareObj<APIGatewayProxyEventV2>
+		middy.MiddlewareObj<APIGatewayProxyEventV2, unknown, Error>
 	>();
 	const albMiddleware = jsonBodyParser<ALBEvent>();
-	expect(albMiddleware).type.toBe<middy.MiddlewareObj<ALBEvent>>();
+	expect(albMiddleware).type.toBe<
+		middy.MiddlewareObj<ALBEvent, unknown, Error>
+	>();
 });

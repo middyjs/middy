@@ -39,7 +39,7 @@ declare function rdsSigner<TOptions extends RdsSignerOptions | undefined>(
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

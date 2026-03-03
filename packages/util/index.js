@@ -61,6 +61,36 @@ export const getInternal = async (variables, request) => {
 		keys = Object.keys(variables);
 		values = Object.values(variables);
 	}
+	// Fast synchronous path: when all internal values are already resolved
+	// (warm/cached invocations), skip all Promise machinery entirely
+	let allSync = true;
+	const syncResults = new Array(values.length);
+	for (let i = 0; i < values.length; i++) {
+		const internalKey = values[i];
+		const dotIndex = internalKey.indexOf(".");
+		const rootKey =
+			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
+		let value = request.internal[rootKey];
+		if (isPromise(value)) {
+			allSync = false;
+			break;
+		}
+		if (dotIndex !== -1) {
+			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
+				value = value?.[part];
+			}
+		}
+		syncResults[i] = value;
+	}
+	if (allSync) {
+		const obj = {};
+		for (let i = 0; i < keys.length; i++) {
+			obj[sanitizeKey(keys[i])] = syncResults[i];
+		}
+		return obj;
+	}
+
+	// Async fallback: for cold/first invocations with pending promises
 	const promises = [];
 	for (const internalKey of values) {
 		// 'internal.key.sub_value' -> { [key]: internal.key.sub_value }
@@ -79,17 +109,20 @@ export const getInternal = async (variables, request) => {
 	// ensure promise has resolved by the time it's needed
 	// If one of the promises throws it will bubble up to @middy/core
 	values = await Promise.allSettled(promises);
-	const errors = values
-		.filter((res) => res.status === "rejected")
-		.map((res) => res.reason);
-	if (errors.length) {
+	const obj = {};
+	let errors;
+	for (let i = 0; i < keys.length; i++) {
+		if (values[i].status === "rejected") {
+			errors ??= [];
+			errors.push(values[i].reason);
+		} else {
+			obj[sanitizeKey(keys[i])] = values[i].value;
+		}
+	}
+	if (errors) {
 		throw new Error("Failed to resolve internal values", {
 			cause: { package: "@middy/util", data: errors },
 		});
-	}
-	const obj = {};
-	for (let i = keys.length; i--; ) {
-		obj[sanitizeKey(keys[i])] = values[i].value;
 	}
 	return obj;
 };
@@ -125,7 +158,8 @@ export const processCache = (
 				cache[cacheKey] = { value: cached.value, expiry: cached.expiry };
 				return cache[cacheKey];
 			}
-			return { ...cached, cache: true };
+			cached.cache = true;
+			return cached;
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
@@ -161,8 +195,9 @@ export const getCache = (key) => {
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
 	if (!cache[cacheKey]) return;
-	clearTimeout(cache[cacheKey]?.refresh);
-	cache[cacheKey] = { ...cache[cacheKey], value, modified: true };
+	clearTimeout(cache[cacheKey].refresh);
+	cache[cacheKey].value = value;
+	cache[cacheKey].modified = true;
 };
 
 export const clearCache = (inputKeys = null) => {
@@ -192,18 +227,12 @@ export const lambdaContextKeys = [
 	"callbackWaitsForEmptyEventLoop",
 ];
 
-export const executionContextKeys = [
-	//'requestId',
-	"tenantId",
-];
+export const executionContextKeys = ["tenantId"];
 
 export const isExecutionModeDurable = (context) => {
 	// using `context instanceof DurableContextImpl` would be better
 	// but would require an extra dependency
-	if (context.constructor.name === "DurableContextImpl") {
-		return true;
-	}
-	return false;
+	return context.constructor.name === "DurableContextImpl";
 };
 
 export const executionContext = (request, key, context) => {
@@ -241,7 +270,7 @@ export const jsonSafeStringify = (value, replacer, space) => {
 
 export const decodeBody = (event) => {
 	const { body, isBase64Encoded } = event;
-	if (body === undefined || body === null) return body;
+	if (typeof body === "undefined" || body === null) return body;
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 
@@ -286,7 +315,7 @@ export const createError = (code, message, properties = {}) => {
 	return new HttpError(code, message, properties);
 };
 
-const httpErrorCodes = {
+export const httpErrorCodes = {
 	100: "Continue",
 	101: "Switching Protocols",
 	102: "Processing",

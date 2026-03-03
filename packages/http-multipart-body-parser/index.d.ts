@@ -6,7 +6,7 @@ import type { JsonValue } from "type-fest";
 
 export interface Options {
 	busboy?: {
-		headers?: any;
+		headers?: Record<string, string>;
 		highWaterMark?: number;
 		fileHwm?: number;
 		defCharset?: string;
@@ -22,6 +22,7 @@ export interface Options {
 		};
 	};
 	charset?: string;
+	disableContentTypeCheck?: boolean;
 	disableContentTypeError?: boolean;
 }
 
@@ -31,6 +32,6 @@ export type Event = Omit<APIGatewayEvent, "body"> & {
 
 declare function multipartBodyParser(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<Event, unknown, Error>;
 
 export default multipartBodyParser;

@@ -18,6 +18,7 @@ export interface SecretsManagerOptions<
 		"fetchData"
 	> {
 	fetchData?: { [key: string]: string | SecretType<unknown> };
+	fetchRotationDate?: boolean | Record<string, boolean>;
 }
 
 export type Context<TOptions extends SecretsManagerOptions | undefined> =
@@ -48,7 +49,7 @@ declare function secretsManager<
 	options?: TOptions,
 ): middy.MiddlewareObj<
 	unknown,
-	any,
+	unknown,
 	Error,
 	Context<TOptions>,
 	Internal<TOptions>

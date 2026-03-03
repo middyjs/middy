@@ -22,14 +22,14 @@ const webPathWithQuery = fc
 	});
 
 const handler = middy((event) => event).use(middleware());
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
 test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
-			await handler(event, context);
+			await handler(event, defaultContext);
 		}),
 		{
 			numRuns: 100_000,
@@ -58,7 +58,7 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
@@ -98,7 +98,7 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;
@@ -133,7 +133,7 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 			}),
 			async (event) => {
 				try {
-					await handler(event, context);
+					await handler(event, defaultContext);
 				} catch (e) {
 					if (e.cause?.package !== "@middy/http-security-headers") {
 						throw e;

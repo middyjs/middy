@@ -9,7 +9,7 @@ const defaults = {
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
 	const { serializers, defaultContentType } = { ...defaults, ...opts };
-	const httpResponseSerializerMiddlewareAfter = async (request) => {
+	const httpResponseSerializerMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 
 		// skip serialization when Content-Type or content-type is already set
@@ -26,8 +26,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 			defaultContentType,
 		];
 
-		for (const type of types) {
-			let breakTypes;
+		outerLoop: for (const type of types) {
 			for (const s of serializers) {
 				s.regex.lastIndex = 0;
 				if (!s.regex.test(type)) {
@@ -43,16 +42,14 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 					request.response.body = result;
 				}
 
-				breakTypes = true;
-				break;
+				break outerLoop;
 			}
-			if (breakTypes) break;
 		}
 	};
 
-	const httpResponseSerializerMiddlewareOnError = async (request) => {
-		if (request.response === undefined) return;
-		await httpResponseSerializerMiddlewareAfter(request);
+	const httpResponseSerializerMiddlewareOnError = (request) => {
+		if (typeof request.response === "undefined") return;
+		httpResponseSerializerMiddlewareAfter(request);
 	};
 	return {
 		after: httpResponseSerializerMiddlewareAfter,

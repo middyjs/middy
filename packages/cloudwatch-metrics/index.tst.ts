@@ -5,7 +5,7 @@ import cloudwatchMetrics, { type Context } from "./index.js";
 test("use with default options", () => {
 	const middleware = cloudwatchMetrics();
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context>
+		middy.MiddlewareObj<unknown, unknown, Error, Context>
 	>();
 });
 
@@ -15,6 +15,6 @@ test("use with all options", () => {
 		dimensions: [{ Action: "Buy" }],
 	});
 	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, any, Error, Context>
+		middy.MiddlewareObj<unknown, unknown, Error, Context>
 	>();
 });

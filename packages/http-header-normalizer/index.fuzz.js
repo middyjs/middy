@@ -4,14 +4,14 @@ import middy from "../core/index.js";
 import middleware from "./index.js";
 
 const handler = middy((event) => event).use(middleware());
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
 test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
-			await handler(event, context);
+			await handler(event, defaultContext);
 		}),
 		{
 			numRuns: 100_000,
@@ -29,7 +29,7 @@ test("fuzz `event` w/ `record`", async () => {
 				headers: fc.object(),
 			}),
 			async (event) => {
-				await handler(event, context);
+				await handler(event, defaultContext);
 			},
 		),
 		{

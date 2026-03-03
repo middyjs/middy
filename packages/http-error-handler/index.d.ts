@@ -3,10 +3,12 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: ((error: any) => void) | boolean;
+	logger?: ((error: Error) => void) | boolean;
 	fallbackMessage?: string;
 }
 
-declare function httpErrorHandler(options?: Options): middy.MiddlewareObj;
+declare function httpErrorHandler(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpErrorHandler;

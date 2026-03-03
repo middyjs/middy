@@ -128,11 +128,10 @@ const defaults = {
 };
 
 const helmet = {};
-const helmetHtmlOnly = {};
 
 // *** https://github.com/helmetjs/helmet/tree/main/middlewares *** //
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
-helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
+helmet.contentSecurityPolicy = (reportOnly) => (headers, config) => {
 	let header = Object.keys(config)
 		.map((policy) => (config[policy] ? `${policy} ${config[policy]}` : ""))
 		.filter((str) => str)
@@ -150,13 +149,13 @@ helmetHtmlOnly.contentSecurityPolicy = (reportOnly) => (headers, config) => {
 	headers[cspHeaderName] = header;
 };
 // crossdomain - N/A - for Adobe products
-helmetHtmlOnly.crossOriginEmbedderPolicy = (headers, config) => {
+helmet.crossOriginEmbedderPolicy = (headers, config) => {
 	headers["Cross-Origin-Embedder-Policy"] = config.policy;
 };
-helmetHtmlOnly.crossOriginOpenerPolicy = (headers, config) => {
+helmet.crossOriginOpenerPolicy = (headers, config) => {
 	headers["Cross-Origin-Opener-Policy"] = config.policy;
 };
-helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
+helmet.crossOriginResourcePolicy = (headers, config) => {
 	headers["Cross-Origin-Resource-Policy"] = config.policy;
 };
 
@@ -164,7 +163,7 @@ helmetHtmlOnly.crossOriginResourcePolicy = (headers, config) => {
 // DEPRECATED: hpkp
 
 // https://www.permissionspolicy.com/
-helmetHtmlOnly.permissionsPolicy = (headers, config) => {
+helmet.permissionsPolicy = (headers, config) => {
 	headers["Permissions-Policy"] = Object.keys(config)
 		.map(
 			(policy) =>
@@ -183,8 +182,7 @@ helmet.referrerPolicy = (headers, config) => {
 };
 
 // DEPRECATED by reportingEndpoints
-helmetHtmlOnly.reportTo = (headers, config) => {
-	headers["Report-To"] = "";
+helmet.reportTo = (headers, config) => {
 	const keys = Object.keys(config);
 	headers["Report-To"] = keys
 		.map((group) => {
@@ -202,13 +200,10 @@ helmetHtmlOnly.reportTo = (headers, config) => {
 };
 
 helmet.reportingEndpoints = (headers, config) => {
-	headers["Reporting-Endpoints"] = "";
 	const keys = Object.keys(config);
-	for (let i = 0, l = keys.length; i < l; i++) {
-		if (i) headers["Reporting-Endpoints"] += ", ";
-		const key = keys[i];
-		headers["Reporting-Endpoints"] += `${key}="${config[key]}"`;
-	}
+	headers["Reporting-Endpoints"] = keys
+		.map((key) => `${key}="${config[key]}"`)
+		.join(", ");
 };
 
 // https://github.com/helmetjs/hsts
@@ -242,7 +237,7 @@ helmet.downloadOptions = (headers, config) => {
 };
 
 // https://github.com/helmetjs/frameOptions
-helmetHtmlOnly.frameOptions = (headers, config) => {
+helmet.frameOptions = (headers, config) => {
 	headers["X-Frame-Options"] = config.action.toUpperCase();
 };
 
@@ -252,57 +247,43 @@ helmet.permittedCrossDomainPolicies = (headers, config) => {
 };
 
 // https://github.com/helmetjs/hide-powered-by
-helmet.poweredBy = (headers, config) => {
-	delete headers.Server;
-	delete headers["X-Powered-By"];
-};
+// Removal handled in after hook via delete to avoid undefined cleanup loop
+helmet.poweredBy = () => {};
 
 // https://github.com/helmetjs/x-xss-protection
-helmetHtmlOnly.xssProtection = (headers, config) => {
-	const header = "0";
-	headers["X-XSS-Protection"] = header;
+helmet.xssProtection = (headers, config) => {
+	headers["X-XSS-Protection"] = "0";
 };
 
 const httpSecurityHeadersMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpSecurityHeadersMiddlewareAfter = async (request) => {
-		normalizeHttpResponse(request);
+	// Pre-compute all static header values once at initialization
+	const precomputedHeaders = {};
+	for (const key of Object.keys(helmet)) {
+		if (!options[key]) continue;
+		const config = { ...defaults[key], ...options[key] };
+		if (key === "contentSecurityPolicy") {
+			helmet[key](options.contentSecurityPolicyReportOnly)(
+				precomputedHeaders,
+				config,
+			);
+		} else {
+			helmet[key](precomputedHeaders, config);
+		}
+	}
 
-		for (const key of Object.keys(helmet)) {
-			if (!options[key]) continue;
-			const config = { ...defaults[key], ...options[key] };
-			helmet[key](request.response.headers, config);
+	const httpSecurityHeadersMiddlewareAfter = (request) => {
+		normalizeHttpResponse(request);
+		Object.assign(request.response.headers, precomputedHeaders);
+		if (options.poweredBy) {
+			delete request.response.headers.Server;
+			delete request.response.headers["X-Powered-By"];
 		}
-		const contentTypeHeader =
-			request.response.headers["Content-Type"] ??
-			request.response.headers["content-type"];
-		if (contentTypeHeader?.includes("text/html")) {
-			for (const key of Object.keys(helmetHtmlOnly)) {
-				if (!options[key]) continue;
-				const config = { ...defaults[key], ...options[key] };
-				if (key === "contentSecurityPolicy") {
-					helmetHtmlOnly[key](options.contentSecurityPolicyReportOnly)(
-						request.response.headers,
-						config,
-					);
-				} else {
-					helmetHtmlOnly[key](request.response.headers, config);
-				}
-			}
-		}
-		// Clean up headers removals
-		const headers = {};
-		for (const key of Object.keys(request.response.headers)) {
-			if (typeof request.response.headers[key] !== "undefined") {
-				headers[key] = request.response.headers[key];
-			}
-		}
-		request.response.headers = headers;
 	};
-	const httpSecurityHeadersMiddlewareOnError = async (request) => {
-		if (request.response === undefined) return;
-		await httpSecurityHeadersMiddlewareAfter(request);
+	const httpSecurityHeadersMiddlewareOnError = (request) => {
+		if (typeof request.response === "undefined") return;
+		httpSecurityHeadersMiddlewareAfter(request);
 	};
 	return {
 		after: httpSecurityHeadersMiddlewareAfter,

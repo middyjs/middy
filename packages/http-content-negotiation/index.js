@@ -16,23 +16,19 @@ const parseFn = {
 const defaults = {
 	parseCharsets: true,
 	availableCharsets: undefined,
-	// defaultToFirstCharset: false, // Should not be used
 	parseEncodings: true,
 	availableEncodings: undefined,
-	// defaultToFirstEncoding: false, // Should not be used
 	parseLanguages: true,
 	availableLanguages: undefined,
-	// defaultToFirstLanguage: false, // Should not be used
 	parseMediaTypes: true,
 	availableMediaTypes: undefined,
-	// defaultToFirstMediaType: false, // Should not be used
 	failOnMismatch: true,
 };
 
 const httpContentNegotiationMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpContentNegotiationMiddlewareBefore = async (request) => {
+	const httpContentNegotiationMiddlewareBefore = (request) => {
 		const { event, context } = request;
 		if (!event.headers) return;
 		if (options.parseCharsets) {
@@ -105,7 +101,7 @@ const parseHeader = (
 	context[resultsName] = parseFn[type](headerValue, availableValues);
 	context[resultName] = context[resultsName][0];
 
-	if (context[resultName] === undefined) {
+	if (typeof context[resultName] === "undefined") {
 		if (defaultToFirstValue) {
 			context[resultName] = availableValues[0];
 		} else if (failOnMismatch) {
@@ -113,7 +109,12 @@ const parseHeader = (
 			throw createError(
 				406,
 				`Unsupported ${type}. Acceptable values: ${availableValues.join(", ")}`,
-				{ cause: { package: "@middy/http-content-negotiation" } },
+				{
+					cause: {
+						package: "@middy/http-content-negotiation",
+						data: { [headerName]: headerValue },
+					},
+				},
 			);
 		}
 	}

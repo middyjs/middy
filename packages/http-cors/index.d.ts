@@ -3,7 +3,10 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	getOrigin?: (incomingOrigin: string, options: Options) => string;
+	getOrigin?: (
+		incomingOrigin: string,
+		options: Options,
+	) => string | null | undefined;
 	credentials?: boolean | string;
 	disableBeforePreflightResponse?: boolean;
 	headers?: string;
@@ -18,6 +21,8 @@ export interface Options {
 	vary?: string;
 }
 
-declare function httpCors(options?: Options): middy.MiddlewareObj;
+declare function httpCors(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpCors;

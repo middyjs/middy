@@ -6,6 +6,8 @@ export interface Options {
 	wrapNumbers?: boolean;
 }
 
-declare function eventNormalizer(options?: Options): middy.MiddlewareObj;
+declare function eventNormalizer(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default eventNormalizer;

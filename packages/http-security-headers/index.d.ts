@@ -9,11 +9,7 @@ export interface Options {
 	frameOptions?: {
 		action?: string;
 	};
-	poweredBy?:
-		| {
-				server: string;
-		  }
-		| boolean;
+	poweredBy?: boolean;
 	strictTransportSecurity?: {
 		maxAge?: number;
 		includeSubDomains?: boolean;
@@ -29,9 +25,7 @@ export interface Options {
 	referrerPolicy?: {
 		policy?: string;
 	};
-	xssProtection?: {
-		reportUri?: string;
-	};
+	xssProtection?: boolean;
 	contentSecurityPolicy?: Record<string, string>;
 	contentSecurityPolicyReportOnly?: boolean;
 	crossOriginEmbedderPolicy?: {
@@ -62,6 +56,6 @@ type WithBoolValues<T> = { [K in keyof T]: T[K] | boolean };
 
 declare function httpSecurityHeaders(
 	options?: WithBoolValues<Options>,
-): middy.MiddlewareObj;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpSecurityHeaders;

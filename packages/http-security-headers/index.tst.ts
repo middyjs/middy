@@ -4,7 +4,7 @@ import httpSecurityHeaders from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpSecurityHeaders();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -15,9 +15,7 @@ test("use with all options", () => {
 		frameOptions: {
 			action: "SAMEORIGIN",
 		},
-		poweredBy: {
-			server: "middy",
-		},
+		poweredBy: true,
 		strictTransportSecurity: {
 			maxAge: 60 * 60 * 10,
 			includeSubDomains: true,
@@ -33,9 +31,7 @@ test("use with all options", () => {
 		referrerPolicy: {
 			policy: "same-origin",
 		},
-		xssProtection: {
-			reportUri: "xss",
-		},
+		xssProtection: true,
 		contentSecurityPolicy: {
 			"default-src": "'none'",
 			sandbox: "",
@@ -66,7 +62,7 @@ test("use with all options", () => {
 			xss: "",
 		},
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("allow false options", () => {
@@ -82,7 +78,7 @@ test("allow false options", () => {
 		xssProtection: false,
 	});
 
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("allow true options", () => {
@@ -90,5 +86,5 @@ test("allow true options", () => {
 		poweredBy: true,
 	});
 
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

@@ -29,7 +29,7 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
-const contentTypePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 const appConfigMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
@@ -54,7 +54,7 @@ const appConfigMiddleware = (opts = {}) => {
 				}
 
 				let value = new TextDecoder().decode(configResp.Configuration);
-				if (contentTypePattern.test(configResp.ContentType)) {
+				if (jsonContentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}
 				configurationCache[internalKey] = value;
@@ -68,11 +68,12 @@ const appConfigMiddleware = (opts = {}) => {
 			});
 	}
 
+	const fetchDataKeys = Object.keys(options.fetchData);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
-			if (configurationTokenCache[internalKey] == null) {
+			if (typeof configurationTokenCache[internalKey] === "undefined") {
 				const command = new StartConfigurationSessionCommand(
 					options.fetchData[internalKey],
 				);
@@ -86,7 +87,7 @@ const appConfigMiddleware = (opts = {}) => {
 						),
 					)
 					.catch((e) => {
-						const value = getCache(options.cacheKey).value ?? {};
+						const value = { ...getCache(options.cacheKey).value };
 						value[internalKey] = undefined;
 						modifyCache(options.cacheKey, value);
 						throw e;
@@ -113,7 +114,7 @@ const appConfigMiddleware = (opts = {}) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

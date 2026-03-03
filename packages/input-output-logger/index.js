@@ -63,7 +63,9 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 		let cloneMessage = message;
 		if (omitPaths.length) {
-			cloneMessage = structuredClone(message); // Full clone to prevent nested mutations
+			// Clone only the branch being omitted, not the entire message
+			cloneMessage = { ...message };
+			cloneMessage[param] = structuredClone(message[param]);
 			omit(cloneMessage, { [param]: omitPathTree[param] });
 		}
 		logger(cloneMessage);
@@ -90,10 +92,10 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		}
 	};
 
-	const inputOutputLoggerMiddlewareBefore = async (request) => {
+	const inputOutputLoggerMiddlewareBefore = (request) => {
 		omitAndLog("event", request);
 	};
-	const inputOutputLoggerMiddlewareAfter = async (request) => {
+	const inputOutputLoggerMiddlewareAfter = (request) => {
 		// Check for Node.js stream
 		if (
 			request.response?._readableState ??
@@ -112,7 +114,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		}
 	};
 	const inputOutputLoggerMiddlewareOnError = async (request) => {
-		if (request.response === undefined) return;
+		if (typeof request.response === "undefined") return;
 		await inputOutputLoggerMiddlewareAfter(request);
 	};
 
@@ -144,16 +146,14 @@ const buildPathTree = (paths) => {
 		// reverse to ensure conflicting paths don't cause issues
 		if (!Array.isArray(path)) path = path.split(".");
 		if (path.includes("__proto__")) continue;
-		path
-			.slice(0) // clone
-			.reduce((a, b, idx) => {
-				if (idx < path.length - 1) {
-					a[b] ??= {};
-					return a[b];
-				}
-				a[b] = true;
-				return true;
-			}, tree);
+		path.reduce((a, b, idx) => {
+			if (idx < path.length - 1) {
+				a[b] ??= {};
+				return a[b];
+			}
+			a[b] = true;
+			return true;
+		}, tree);
 	}
 	return tree;
 };

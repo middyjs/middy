@@ -4,25 +4,32 @@ import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
-	getRemainingTimeInMillis: () => 30000,
-};
-const setupHandler = (options) => {
+const setupHandler = () => {
 	const response = JSON.stringify(new Array(100000).fill(0));
 	const baseHandler = () => response;
-	return middy(baseHandler).use(middleware(options));
+	return middy(baseHandler).use(middleware());
 };
 
-const gzHandler = setupHandler({ preferredEncoding: "gz" });
-const brHandler = setupHandler({ preferredEncoding: "br" });
+const warmHandler = setupHandler();
+
+const gzipContext = {
+	getRemainingTimeInMillis: () => 30000,
+	preferredEncoding: "gzip",
+	preferredEncodings: ["gzip"],
+};
+const brContext = {
+	getRemainingTimeInMillis: () => 30000,
+	preferredEncoding: "br",
+	preferredEncodings: ["br"],
+};
 
 const event = {};
 await bench
 	.add("gzip Response", async () => {
-		await gzHandler(event, context);
+		await warmHandler(event, gzipContext);
 	})
 	.add("brotli Response", async () => {
-		await brHandler(event, context);
+		await warmHandler(event, brContext);
 	})
 	.run();
 

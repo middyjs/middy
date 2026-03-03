@@ -17,6 +17,13 @@ await bench
 			},
 		});
 	})
+	.add("getInternal (cached/sync)", async () => {
+		await getInternal(true, {
+			internal: {
+				key: "value",
+			},
+		});
+	})
 	.add("processCache w/ { cacheExpiry: 0 }", async () => {
 		await processCache({ cacheExpiry: 0, cacheKey: "key" });
 	})

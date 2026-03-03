@@ -16,13 +16,13 @@ test("fuzz `event` w/ `object`", async (t) => {
 	const { default: middleware } = await import("./index.js");
 
 	const handler = middy((event) => event).use(middleware());
-	const context = {
+	const defaultContext = {
 		getRemainingTimeInMillis: () => 1000,
 	};
 
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
-			await handler(event, context);
+			await handler(event, defaultContext);
 		}),
 		{
 			numRuns: 100_000,

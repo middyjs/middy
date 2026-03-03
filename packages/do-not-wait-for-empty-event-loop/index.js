@@ -11,7 +11,7 @@ const defaults = {
 const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const doNotWaitForEmptyEventLoop = async (request) => {
+	const doNotWaitForEmptyEventLoop = (request) => {
 		if (isExecutionModeDurable(request.context)) {
 			request.context.lambdaContext.callbackWaitsForEmptyEventLoop = false;
 		} else {

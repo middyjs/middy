@@ -10,6 +10,6 @@ export interface Options {
 
 declare function doNotWaitForEmptyEventLoop(
 	options?: Options,
-): middy.MiddlewareObj;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default doNotWaitForEmptyEventLoop;

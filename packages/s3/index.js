@@ -25,15 +25,16 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
-const contentTypePattern = /^application\/(.+\+)?json($|;.+)/;
+const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 const s3Middleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
 	};
+	const fetchDataKeys = Object.keys(options.fetchData);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const command = new GetObjectCommand(options.fetchData[internalKey]);
 			values[internalKey] = client
@@ -41,7 +42,7 @@ const s3Middleware = (opts = {}) => {
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
 					let value = await resp.Body.transformToString();
-					if (contentTypePattern.test(resp.ContentType)) {
+					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);
 					}
 					return value;
@@ -67,7 +68,7 @@ const s3Middleware = (opts = {}) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

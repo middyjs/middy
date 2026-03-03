@@ -21,6 +21,8 @@ export interface Options<
 		| "disablePrefetch"
 	> {}
 
-declare function wsResponse(options?: Options): middy.MiddlewareObj;
+declare function wsResponse(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default wsResponse;

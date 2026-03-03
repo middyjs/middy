@@ -5,7 +5,7 @@ import type { APIGatewayProxyWebsocketEventV2 } from "aws-lambda";
 import type { JsonValue } from "type-fest";
 
 export interface Options {
-	reviver?: (key: string, value: any) => any;
+	reviver?: (key: string, value: unknown) => unknown;
 }
 
 export type Event = Omit<APIGatewayProxyWebsocketEventV2, "body"> & {
@@ -14,6 +14,6 @@ export type Event = Omit<APIGatewayProxyWebsocketEventV2, "body"> & {
 
 declare function wsJsonBodyParser(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<Event, unknown, Error>;
 
 export default wsJsonBodyParser;

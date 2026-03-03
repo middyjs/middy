@@ -5,7 +5,7 @@ import { transpileSchema } from "./transpile.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {
@@ -20,11 +20,11 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler();
 
-const event = {};
+const defaultEvent = {};
 await bench
 	.add("type check input & output", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 

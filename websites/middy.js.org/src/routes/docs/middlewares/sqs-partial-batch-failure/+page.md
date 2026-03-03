@@ -42,6 +42,7 @@ With TypeScript:
 ```typescript
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
+import type { SQSEvent } from 'aws-lambda'
 
 const lambdaHandler = async (event: SQSEvent): Promise<PromiseSettledResult<unknown>[]> => {
     return Promise.allSettled(

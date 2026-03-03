@@ -5,7 +5,7 @@ import middleware from "./index.js";
 
 const bench = new Bench({ time: 1_000 });
 
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 const setupHandler = () => {
@@ -37,18 +37,18 @@ const deepJsonEvent = () => {
 	return event;
 };
 
-let event;
+let defaultEvent;
 await bench
 	.add(
 		"S3 Event",
 		async () => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(defaultEvent, defaultContext);
 			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
-				event = s3Event();
+				defaultEvent = s3Event();
 			},
 		},
 	)
@@ -56,12 +56,12 @@ await bench
 		"Shallow JSON (SQS) Event",
 		async () => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(defaultEvent, defaultContext);
 			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
-				event = sqsEvent();
+				defaultEvent = sqsEvent();
 			},
 		},
 	)
@@ -69,12 +69,12 @@ await bench
 		"Deep JSON (S3>SNS>SQS) Event",
 		async () => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(defaultEvent, defaultContext);
 			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
-				event = deepJsonEvent();
+				defaultEvent = deepJsonEvent();
 			},
 		},
 	)
@@ -82,12 +82,12 @@ await bench
 		"DynamoDB Event",
 		async () => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(defaultEvent, defaultContext);
 			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
-				event = dynamoEvent();
+				defaultEvent = dynamoEvent();
 			},
 		},
 	)
@@ -95,12 +95,12 @@ await bench
 		"Kinesis Event",
 		async () => {
 			try {
-				await warmHandler(event, context);
+				await warmHandler(defaultEvent, defaultContext);
 			} catch (_e) {}
 		},
 		{
 			beforeEach: () => {
-				event = kinesisEvent();
+				defaultEvent = kinesisEvent();
 			},
 		},
 	)

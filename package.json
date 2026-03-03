@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.1.2",
+	"version": "7.1.3",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -34,7 +34,7 @@
 		"test:packages:fuzz": "node --test --experimental-test-module-mocks ./packages/**/*.fuzz.js",
 		"test:llrt": "cd llrt && npm test",
 		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
-		"rm:lock": "find . -name 'package-lock.json' -type d -prune -exec rm -rf '{}' +",
+		"rm:lock": "find . -name 'package-lock.json' -type f -exec rm -f '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "npm update --workspaces && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",

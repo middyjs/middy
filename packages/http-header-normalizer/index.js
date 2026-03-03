@@ -62,10 +62,21 @@ const defaults = {
 const httpHeaderNormalizerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
+	// Cache for normalized header keys to avoid repeated split/map/join
+	const normalizedKeyCache = new Map();
+	const cachedNormalizeKey = (key) => {
+		let normalized = normalizedKeyCache.get(key);
+		if (normalized === undefined) {
+			normalized = options.normalizeHeaderKey(key, options.canonical);
+			normalizedKeyCache.set(key, normalized);
+		}
+		return normalized;
+	};
+
 	const defaultHeaders = {};
 	const defaultMultiValueHeaders = {};
 	for (const key of Object.keys(options.defaultHeaders)) {
-		const newKey = options.normalizeHeaderKey(key, options.canonical);
+		const newKey = cachedNormalizeKey(key);
 		const isArray = Array.isArray(options.defaultHeaders[key]);
 		defaultHeaders[newKey] = isArray
 			? options.defaultHeaders[key].join(",")
@@ -75,24 +86,28 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
-	const httpHeaderNormalizerMiddlewareBefore = async (request) => {
-		if (request.event.headers) {
-			const headers = { ...defaultHeaders };
+	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	const hasDefaultMultiValueHeaders =
+		Object.keys(defaultMultiValueHeaders).length > 0;
 
-			for (const key of Object.keys(request.event.headers)) {
-				headers[options.normalizeHeaderKey(key, options.canonical)] =
-					request.event.headers[key];
+	const httpHeaderNormalizerMiddlewareBefore = (request) => {
+		if (request.event.headers) {
+			const headers = hasDefaultHeaders ? { ...defaultHeaders } : {};
+
+			for (const key in request.event.headers) {
+				headers[cachedNormalizeKey(key)] = request.event.headers[key];
 			}
 
 			request.event.headers = headers;
 		}
 
 		if (request.event.multiValueHeaders) {
-			const headers = { ...defaultMultiValueHeaders };
+			const headers = hasDefaultMultiValueHeaders
+				? { ...defaultMultiValueHeaders }
+				: {};
 
-			for (const key of Object.keys(request.event.multiValueHeaders)) {
-				headers[options.normalizeHeaderKey(key, options.canonical)] =
-					request.event.multiValueHeaders[key];
+			for (const key in request.event.multiValueHeaders) {
+				headers[cachedNormalizeKey(key)] = request.event.multiValueHeaders[key];
 			}
 
 			request.event.multiValueHeaders = headers;

@@ -13,7 +13,7 @@ export const executionModeDurableContext = (
 ) => {
 	const middy = withDurableExecution(async (event, context) => {
 		const request = middyRequest(event, context);
-		plugin.requestStart?.(request);
+		plugin.requestStart(request);
 
 		// normalize context with executionModeStandard
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
@@ -33,7 +33,7 @@ export const executionModeDurableContext = (
 			onErrorMiddlewares,
 			plugin,
 		);
-		await plugin.requestEnd?.(request);
+		await plugin.requestEnd(request);
 		return response;
 	});
 	middy.handler = (replaceLambdaHandler) => {
@@ -44,7 +44,7 @@ export const executionModeDurableContext = (
 };
 
 const copyKeys = (to, from, keys) => {
-	keys.forEach((key) => {
-		to[key] = from[key];
-	});
+	for (let i = 0, len = keys.length; i < len; i++) {
+		to[keys[i]] = from[keys[i]];
+	}
 };

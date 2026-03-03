@@ -4,7 +4,7 @@ import BusBoy from "@fastify/busboy";
 import { createError } from "@middy/util";
 
 const mimePattern =
-	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?[cC]harset=[\w-]+)?$/;
+	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?charset=[\w-]+)?$/i;
 const fieldnamePattern = /(.+)\[(.*)]$/;
 
 const defaults = {
@@ -18,7 +18,7 @@ const defaults = {
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpMultipartBodyParserMiddlewareBefore = async (request) => {
+	const httpMultipartBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
@@ -37,7 +37,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		if (typeof body === "undefined") {
 			throw createError(
-				415,
+				422,
 				"Invalid or malformed multipart/form-data was provided",
 				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
 			);
@@ -45,13 +45,12 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 
 		return parseMultipartData(request.event, options)
 			.then((multipartData) => {
-				// request.event.rawBody = body
 				request.event.body = multipartData;
 			})
 			.catch((err) => {
 				// UnprocessableEntity
 				throw createError(
-					415,
+					422,
 					"Invalid or malformed multipart/form-data was provided",
 					{
 						cause: {

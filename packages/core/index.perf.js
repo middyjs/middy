@@ -77,7 +77,7 @@ const baseHandlerAsync = async () => {};
 const streamHandler = (event, context) => {
 	return "chunk1chunk2chunk3";
 };
-const context = {
+const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
 
@@ -98,12 +98,12 @@ const warmStreamHandler = middy({
 	executionMode: executionModeStreamifyResponse,
 }).handler(streamHandler);
 
-const event = {};
+const defaultEvent = {};
 await bench
 	.add("Cold Invocation", async () => {
 		const coldHandler = middy().handler(baseHandler);
 		try {
-			await coldHandler(event, context);
+			await coldHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.add("Cold Invocation with middleware", async () => {
@@ -111,34 +111,42 @@ await bench
 		middlewares.fill(middleware());
 		const coldHandler = middy().use(middlewares).handler(baseHandler);
 		try {
-			await coldHandler(event, context);
+			await coldHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.add("Warm Invocation", async () => {
 		try {
-			await warmHandler(event, context);
+			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
 	})
 	.add("Warm Async Invocation", async () => {
-		await warmAsyncHandler(event, context);
+		await warmAsyncHandler(defaultEvent, defaultContext);
 	})
 	.add("Warm Invocation with disabled Timeout", async () => {
-		await warmDisableTimeoutHandler(event, context);
+		await warmDisableTimeoutHandler(defaultEvent, defaultContext);
 	})
 	.add("Warm Invocation with middleware", async () => {
-		await warmMiddlewareHandler(event, context);
+		await warmMiddlewareHandler(defaultEvent, defaultContext);
 	})
 	.add("Warm Invocation with async middleware", async () => {
-		await warmAsyncMiddlewareHandler(event, context);
+		await warmAsyncMiddlewareHandler(defaultEvent, defaultContext);
 	})
 	.add("Warm Invocation with streamifyResponse", async () => {
-		await warmStreamHandler(event, createResponseStreamMock(), context);
+		await warmStreamHandler(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
 	})
 	.add("Cold Invocation with streamifyResponse", async () => {
 		const coldStreamHandler = middy({
 			executionMode: executionModeStreamifyResponse,
 		}).handler(streamHandler);
-		await coldStreamHandler(event, createResponseStreamMock(), context);
+		await coldStreamHandler(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
 	})
 
 	.run();

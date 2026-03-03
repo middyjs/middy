@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 import type { Ajv, ErrorObject, Options as AjvOptions } from "ajv";
 
-export type LocalizeFunction = (errors: ErrorObject[] | undefined) => void;
+export type LocalizeFunction = (
+	errors: ErrorObject[] | null | undefined,
+) => void;
 
 export function transpileSchema(
 	schema: object,

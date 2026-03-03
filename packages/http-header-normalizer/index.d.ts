@@ -4,14 +4,12 @@ import type middy from "@middy/core";
 
 export interface Options {
 	canonical?: boolean;
-	defaultHeaders?: Record<string, string>;
-	normalizeHeaderKey?: (key: string) => string;
+	defaultHeaders?: Record<string, string | string[]>;
+	normalizeHeaderKey?: (key: string, canonical: boolean) => string;
 }
-
-export type Event = {};
 
 declare function httpHeaderNormalizer(
 	options?: Options,
-): middy.MiddlewareObj<Event>;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpHeaderNormalizer;

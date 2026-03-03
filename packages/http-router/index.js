@@ -22,8 +22,8 @@ const httpRouteHandler = (opts = {}) => {
 	options ??= opts;
 	const { routes, notFoundResponse } = { ...defaults, ...options };
 
-	const routesStatic = {};
-	const routesDynamic = {};
+	const routesStatic = Object.create(null);
+	const routesDynamic = Object.create(null);
 	const enumMethods = methods.concat("ANY");
 	for (const route of routes) {
 		let { method, path, handler } = route;
@@ -65,17 +65,14 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
-		if (
-			Object.hasOwn(routesStatic, method) &&
-			Object.hasOwn(routesStatic[method], path)
-		) {
-			const handler = routesStatic[method][path];
-			return handler(event, context, abort);
+		const staticHandler = routesStatic[method]?.[path];
+		if (staticHandler) {
+			return staticHandler(event, context, abort);
 		}
 
 		// Dynamic
 		if (Object.hasOwn(routesDynamic, method)) {
-			for (const route of routesDynamic[method] ?? []) {
+			for (const route of routesDynamic[method]) {
 				const match = path.match(route.path);
 				if (match) {
 					event.pathParameters = {

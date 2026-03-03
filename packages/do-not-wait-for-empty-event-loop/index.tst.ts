@@ -4,7 +4,7 @@ import doNotWaitForEmptyEventLoop from "./index.js";
 
 test("use with default options", () => {
 	const middleware = doNotWaitForEmptyEventLoop();
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -13,5 +13,5 @@ test("use with all options", () => {
 		runOnAfter: true,
 		runOnError: true,
 	});
-	expect(middleware).type.toBe<middy.MiddlewareObj>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
