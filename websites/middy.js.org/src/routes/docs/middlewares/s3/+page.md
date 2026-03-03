@@ -80,9 +80,10 @@ The following example illustrates how to use `s3Param`:
 
 ```typescript
 import middy from '@middy/core'
+import { getInternal } from '@middy/util'
 import s3, { s3Param } from '@middy/s3'
 
-const handler = middy((event, context) => {
+const lambdaHandler = (event, context) => {
   console.log(context.config)
   const response = {
     statusCode: 200,
@@ -91,23 +92,25 @@ const handler = middy((event, context) => {
   }
 
   return response
-})
+}
 
-handler.use(
-  s3({
-    fetchData: {
-      config: s3Param<{field1: string, field2: string, field3: number}>({
-        Bucket: '...',
-        Key: '...'
-      }
-    }),
-    setToContext: true
+export const handler = middy()
+  .use(
+    s3({
+      fetchData: {
+        config: s3Param<{field1: string, field2: string, field3: number}>({
+          Bucket: '...',
+          Key: '...'
+        })
+      },
+      setToContext: true
+    })
+  )
+  .before(async (request) => {
+    const data = await getInternal('config', request)
+    // data.config.field1 (string)
+    // data.config.field2 (string)
+    // data.config.field3 (number)
   })
-)
-.before(async (request) => {
-  const data = await getInternal('config', request)
-  // data.config.field1 (string)
-  // data.config.field2 (string)
-  // data.config.field3 (number)
-})
+  .handler(lambdaHandler)
 ```

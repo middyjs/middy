@@ -78,20 +78,20 @@ To exclude `@aws-sdk` add `@aws-sdk/client-secrets-manager` to the exclude list.
 
 Data stored in SecretsManager can be stored as arbitrary structured data. It's not possible to know in advance what shape the fetched data will have, so by default the fetched secrets will have type `unknown`.
 
-You can provide some type hints by leveraging the `secret` utility function. This function allows you to specify what's the expected type that will be fetched for every SecretsManager request.
+You can provide some type hints by leveraging the `secretsManagerParam` utility function. This function allows you to specify what's the expected type that will be fetched for every SecretsManager request.
 
-The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `secret<ParamType>(key)` call. Internally, `secret` is a function that will return `key` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
+The idea is that, for every request specified in the `fetchData` option, rather than just providing the parameter configuration as an object, you can wrap it in a `secretsManagerParam<ParamType>(key)` call. Internally, `secretsManagerParam` is a function that will return `key` as received, but it allows you to use generics to provide type hints for the expected fetched value type for that request.
 
 This way TypeScript can understand how to treat the additional data attached to the context and stored in the internal storage.
 
-The following example illustrates how to use `secret`:
+The following example illustrates how to use `secretsManagerParam`:
 
 ```typescript
 import middy from '@middy/core'
-import secretsManager, { secret } from '@middy/secrets-manager'
+import { getInternal } from '@middy/util'
+import secretsManager, { secretsManagerParam } from '@middy/secrets-manager'
 
 const lambdaHandler = (event, context) => {
-  console.log(context.config)
   const response = {
     statusCode: 200,
     headers: {},
@@ -102,21 +102,21 @@ const lambdaHandler = (event, context) => {
 }
 
 export const handler = middy()
-.use(
-  secretsManager({
-    fetchData: {
-      someSecret: secret<{User: string, Password: string}>('someHiddenSecret')
-    }),
-    setToContext: true
+  .use(
+    secretsManager({
+      fetchData: {
+        someSecret: secretsManagerParam<{User: string, Password: string}>('someHiddenSecret')
+      },
+      setToContext: true
+    })
+  )
+  .before(async (request) => {
+    const data = await getInternal('someSecret', request)
+    // data.someSecret.User (string)
+    // data.someSecret.Password (string)
+    // or, since we have `setToContext: true`
+    // request.context.someSecret.User (string)
+    // request.context.someSecret.Password (string)
   })
-)
-.before(async (request) => {
-  const data = await getInternal('someSecret', request)
-  // data.someSecret.User (string)
-  // data.someSecret.Password (string)
-  // or, since we have `setToContext: true`
-  // request.context.someSecret.User (string)
-  // request.context.someSecret.Password (string)
-})
-.handler(lambdaHandler)
+  .handler(lambdaHandler)
 ```
