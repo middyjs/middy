@@ -12,9 +12,8 @@
 		"build:scripts": "./bin/build-scripts",
 		"build:vite": "vite build",
 		"release:login": "wrangler login --browser false",
-		"releases:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H 'Authorization: Bearer ${API_KEY_W_PAGES_EDIT}' -d '{\"name\": \"middy.js.org\"}'",
-		"release:deploy:workers": "wrangler deploy --config wrangler.worker.jsonc",
-		"release:deploy:pages": "wrangler pages deploy"
+		"release:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H 'Authorization: Bearer ${API_KEY_W_PAGES_EDIT}' -d '{\"name\": \"middy.js.org\"}'",
+		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
 		"@plausible-analytics/tracker": "0.4.4",
