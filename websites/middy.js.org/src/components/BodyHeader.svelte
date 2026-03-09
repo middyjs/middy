@@ -39,7 +39,7 @@ const navPrimary = null; //{};
         <A href="/">
           <Image
             src="/img/middy-logo-name.svg"
-            alt="Home"
+            alt="Middy logo, to the homepage"
             height="48"
             width="110"
             decoding="auto"

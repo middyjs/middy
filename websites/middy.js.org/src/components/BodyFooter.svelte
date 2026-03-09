@@ -35,7 +35,7 @@ const navLinks = {
         <A href="/">
           <Image
             src="/img/middy-logo.svg"
-            alt="Home"
+            alt="Middy logo, to the homepage"
             width="160"
 			height="180"
           />
