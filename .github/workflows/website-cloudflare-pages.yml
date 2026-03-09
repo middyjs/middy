@@ -1,4 +1,4 @@
-name: Publish Website
+name: Publish Website to CloudFlare Pages
 
 on:
   workflow_dispatch:

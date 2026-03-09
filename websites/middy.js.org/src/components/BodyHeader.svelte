@@ -9,6 +9,8 @@ import Div from "@design-system/elements/div.svelte";
 import Form from "@design-system/elements/form.svelte";
 import Search from "@design-system/elements/search.svelte";
 import Span from "@design-system/elements/span.svelte";
+import webComponentUrl from "@willfarrell-ds/vanilla/components/ds-input-focus.js?url&worker";
+
 import { page } from "$app/state";
 
 const { params, data, form } = page;
@@ -29,7 +31,7 @@ const navPrimary = null; //{};
 </script>
 
 <svelte:head>
-  <!-- <script src={webComponentUrl} type="module"></script> -->
+  <link rel="modulepreload" href={webComponentUrl} />
 </svelte:head>
 
 <BodyHeader {navTopLinks} {navStartLinks} {navEndLinks} {navPrimary}>
@@ -38,8 +40,8 @@ const navPrimary = null; //{};
           <Image
             src="/img/middy-logo-name.svg"
             alt="Home"
-            height="37"
-            width="86"
+            height="48"
+            width="110"
             decoding="auto"
             fetchpriority="high"
             loading="eager"
