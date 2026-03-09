@@ -1,5 +1,5 @@
 <script>
-import BodyMain from "@design-system/svelte/BodyMain.svelte";
+import BodyMain from "@design-system/components/BodyMain.svelte";
 
 const { children } = $props();
 </script>

@@ -1,14 +1,14 @@
 <script>
-import BodyHeader from "@design-system/svelte/BodyHeader.svelte";
-import A from "@design-system/svelte/element/a.svelte";
-import Button from "@design-system/svelte/element/button.svelte";
-import Div from "@design-system/svelte/element/div.svelte";
-import Form from "@design-system/svelte/element/form.svelte";
-import Search from "@design-system/svelte/element/search.svelte";
-import Span from "@design-system/svelte/element/span.svelte";
-import Icon from "@design-system/svelte/Icon.svelte";
-import Image from "@design-system/svelte/Image.svelte";
-import InputSearch from "@design-system/svelte/InputSearch.svelte";
+import BodyHeader from "@design-system/components/BodyHeader.svelte";
+import Icon from "@design-system/components/Icon.svelte";
+import Image from "@design-system/components/Image.svelte";
+import InputSearch from "@design-system/components/InputSearch.svelte";
+import A from "@design-system/elements/a.svelte";
+import Button from "@design-system/elements/button.svelte";
+import Div from "@design-system/elements/div.svelte";
+import Form from "@design-system/elements/form.svelte";
+import Search from "@design-system/elements/search.svelte";
+import Span from "@design-system/elements/span.svelte";
 import { page } from "$app/state";
 
 const { params, data, form } = page;

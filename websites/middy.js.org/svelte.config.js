@@ -13,11 +13,11 @@ const config = {
 	kit: {
 		adapter: adapter({}),
 		alias: {
-			"@design-system": resolve(
-				"../../../../willfarrell/design-system/packages",
-			),
+			"@design-system": resolve("../../node_modules/@willfarrell-ds/svelte"),
 			"@components": resolve("./src/components"),
 			"@hooks": resolve("./src/hooks"),
+			"@scripts": resolve("./src/scripts"),
+			"@styles": resolve("./src/styles"),
 		},
 		appDir: "_",
 		csp: {

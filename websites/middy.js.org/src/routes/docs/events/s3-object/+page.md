@@ -3,7 +3,7 @@ title: S3 Object
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

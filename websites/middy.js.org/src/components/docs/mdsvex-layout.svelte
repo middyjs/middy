@@ -1,15 +1,15 @@
 <script>
-import A from "@design-system/svelte/element/a.svelte";
-import Header from "@design-system/svelte/element/header.svelte";
-import Hgroup from "@design-system/svelte/element/hgroup.svelte";
-import Li from "@design-system/svelte/element/li.svelte";
-import Ol from "@design-system/svelte/element/ol.svelte";
-import Section from "@design-system/svelte/element/section.svelte";
-import H1 from "@design-system/svelte/Heading1.svelte";
-import H2 from "@design-system/svelte/Heading2.svelte";
-import LayoutAside from "@design-system/svelte/LayoutAside.svelte";
-import LayoutTableOfContents from "@design-system/svelte/LayoutTableOfContents.svelte";
-import NavScrollspy from "@design-system/svelte/NavScrollspy.svelte";
+import H1 from "@design-system/components/Heading1.svelte";
+import H2 from "@design-system/components/Heading2.svelte";
+import LayoutAside from "@design-system/components/LayoutAside.svelte";
+import LayoutTableOfContents from "@design-system/components/LayoutTableOfContents.svelte";
+import NavScrollspy from "@design-system/components/NavScrollspy.svelte";
+import A from "@design-system/elements/a.svelte";
+import Header from "@design-system/elements/header.svelte";
+import Hgroup from "@design-system/elements/hgroup.svelte";
+import Li from "@design-system/elements/li.svelte";
+import Ol from "@design-system/elements/ol.svelte";
+import Section from "@design-system/elements/section.svelte";
 import AsideNav from "./AsideNav.svelte";
 
 const { title = "Documentation", headings = [], children } = $props();

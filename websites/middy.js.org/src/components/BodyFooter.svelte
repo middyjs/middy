@@ -1,7 +1,7 @@
 <script>
-import BodyFooter from "@design-system/svelte/BodyFooter.svelte";
-import A from "@design-system/svelte/element/a.svelte";
-import Image from "@design-system/svelte/Image.svelte";
+import BodyFooter from "@design-system/components/BodyFooter.svelte";
+import Image from "@design-system/components/Image.svelte";
+import A from "@design-system/elements/a.svelte";
 import { page } from "$app/state";
 
 const { children } = $props();

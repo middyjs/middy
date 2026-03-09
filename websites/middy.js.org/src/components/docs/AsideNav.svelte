@@ -1,5 +1,5 @@
 <script>
-import LayoutAsideNav from "@design-system/svelte/LayoutAsideNav.svelte";
+import LayoutAsideNav from "@design-system/components/LayoutAsideNav.svelte";
 import { page } from "$app/state";
 
 const { params, data, form } = page;

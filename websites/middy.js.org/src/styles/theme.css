@@ -34,7 +34,7 @@ section.grid:has(.feature) {
 .grid > .feature {
 	--border-width: 0;
 	--border-radius: 2em;
-	background-color: var(--color-l1);
+	padding: var(--border-radius);
 }
 
 .grid > .event {

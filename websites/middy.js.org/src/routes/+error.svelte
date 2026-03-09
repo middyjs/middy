@@ -1,10 +1,9 @@
 <script>
-    import Div from "@design-system/svelte/element/div.svelte";
-
-    import Main from "@design-system/svelte/element/main.svelte";
-    import P from "@design-system/svelte/element/p.svelte";
-    import H1 from "@design-system/svelte/Heading1.svelte";
-    import Image from "@design-system/svelte/Image.svelte";
+    import H1 from "@design-system/components/Heading1.svelte";
+    import Image from "@design-system/components/Image.svelte";
+    import Div from "@design-system/elements/div.svelte";
+    import Main from "@design-system/elements/main.svelte";
+    import P from "@design-system/elements/p.svelte";
     import { page } from "$app/state";
 </script>
 

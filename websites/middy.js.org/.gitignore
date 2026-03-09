@@ -8,7 +8,7 @@ node_modules
 .wrangler
 .svelte-kit
 build
-static/js
+src/styles/app.css
 
 # OS
 .DS_Store

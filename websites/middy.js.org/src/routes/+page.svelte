@@ -1,20 +1,20 @@
 <script>
-import Card from "@design-system/svelte/Card.svelte";
-import Codeblock from "@design-system/svelte/Codeblock.svelte";
-import A from "@design-system/svelte/element/a.svelte";
-import Div from "@design-system/svelte/element/div.svelte";
-import Em from "@design-system/svelte/element/em.svelte";
-import Li from "@design-system/svelte/element/li.svelte";
-import P from "@design-system/svelte/element/p.svelte";
-import Section from "@design-system/svelte/element/section.svelte";
-import Span from "@design-system/svelte/element/span.svelte";
-import Ul from "@design-system/svelte/element/ul.svelte";
-import H1 from "@design-system/svelte/Heading1.svelte";
-import H2 from "@design-system/svelte/Heading2.svelte";
-import H3 from "@design-system/svelte/Heading3.svelte";
-import Icon from "@design-system/svelte/Icon.svelte";
-import Image from "@design-system/svelte/Image.svelte";
-import LayoutSlices from "@design-system/svelte/LayoutSlices.svelte";
+import Card from "@design-system/components/Card.svelte";
+import Codeblock from "@design-system/components/Codeblock.svelte";
+import H1 from "@design-system/components/Heading1.svelte";
+import H2 from "@design-system/components/Heading2.svelte";
+import H3 from "@design-system/components/Heading3.svelte";
+import Icon from "@design-system/components/Icon.svelte";
+import Image from "@design-system/components/Image.svelte";
+import LayoutSlices from "@design-system/components/LayoutSlices.svelte";
+import A from "@design-system/elements/a.svelte";
+import Div from "@design-system/elements/div.svelte";
+import Em from "@design-system/elements/em.svelte";
+import Li from "@design-system/elements/li.svelte";
+import P from "@design-system/elements/p.svelte";
+import Section from "@design-system/elements/section.svelte";
+import Span from "@design-system/elements/span.svelte";
+import Ul from "@design-system/elements/ul.svelte";
 import { page } from "$app/state";
 
 const { data } = page;
@@ -115,7 +115,7 @@ export const handler = middy(lambdaHandler)
             <H2>Everything you need for clean Lambda code</H2>
         </Div>
         <Ul class="grid">
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/powerful.svg"
                     alt=""
@@ -130,7 +130,7 @@ export const handler = middy(lambdaHandler)
                     serialization.</P
                 >
             </Li>
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/focus.svg"
                     alt=""
@@ -144,7 +144,7 @@ export const handler = middy(lambdaHandler)
                     business logic!</P
                 >
             </Li>
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/small-core.svg"
                     alt=""
@@ -157,7 +157,7 @@ export const handler = middy(lambdaHandler)
                     to add the minimum amount of overhead to your code.</P
                 >
             </Li>
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/batteries-included.svg"
                     alt=""
@@ -173,7 +173,7 @@ export const handler = middy(lambdaHandler)
                     use cases.</P
                 >
             </Li>
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/blazing-fast.svg"
                     alt=""
@@ -187,7 +187,7 @@ export const handler = middy(lambdaHandler)
                     your cold starts under control. Add only what you need!</P
                 >
             </Li>
-            <Li class="feature">
+            <Li class="card feature">
                 <Image
                     src="/img/home/extensible.svg"
                     alt=""
@@ -348,7 +348,7 @@ export const handler = middy(lambdaHandler)
             <P>Middy is open-source and supported by amazing sponsors.</P>
         </Div>
         <Ul class="grid">
-            <Li class="sponsor">
+            <Li class="card sponsor">
                 <!-- 2023-07 - 2026-06 -->
                 <A href="https://fourtheorem.com">
                     <Image
@@ -359,7 +359,7 @@ export const handler = middy(lambdaHandler)
                     /></A
                 >
             </Li>
-            <Li class="sponsor">
+            <Li class="card sponsor">
                 <!-- 2023-11-08 -->
                 <A href="https://github.com/aws">
                     <Image
