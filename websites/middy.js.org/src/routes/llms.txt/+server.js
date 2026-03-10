@@ -1,57 +1,22 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { getDocsFiles } from "$lib/docs-content.js";
 
 export const prerender = true;
 
-async function getMarkdownFiles(dir, fileList = []) {
-	const files = await readdir(dir, { withFileTypes: true });
+export const GET = () => {
+	const files = getDocsFiles();
+	const contents = [];
 
-	for (const file of files) {
-		const filePath = join(dir, file.name);
-
-		if (file.isDirectory()) {
-			await getMarkdownFiles(filePath, fileList);
-		} else if (file.name.endsWith(".md")) {
-			fileList.push(filePath);
-		}
+	for (const { filePath, content } of files) {
+		contents.push(`\n\n// File: ${filePath}\n\n`);
+		contents.push(content);
 	}
 
-	return fileList;
-}
+	const finalContent = contents.join("");
 
-export const GET = async () => {
-	try {
-		const docsDir = join(process.cwd(), "src", "routes", "docs");
-		const markdownFiles = await getMarkdownFiles(docsDir);
-
-		// Sort files for consistent output
-		markdownFiles.sort();
-
-		const contents = [];
-
-		for (const filePath of markdownFiles) {
-			const content = await readFile(filePath, "utf-8");
-			const relativePath = filePath.replace(docsDir, "").replace(/^\//, "");
-
-			// Add separator with file path
-			contents.push(`\n\n// File: ${relativePath}\n\n`);
-			contents.push(content);
-		}
-
-		const finalContent = contents.join("");
-
-		return new Response(finalContent, {
-			headers: {
-				"Content-Type": "text/plain; charset=utf-8",
-				"Cache-Control": "public, max-age=3600",
-			},
-		});
-	} catch (error) {
-		return new Response(`Error generating llms.txt: ${error.message}`, {
-			status: 500,
-			headers: {
-				"Content-Type": "text/plain; charset=utf-8",
-			},
-		});
-	}
+	return new Response(finalContent, {
+		headers: {
+			"Content-Type": "text/plain; charset=utf-8",
+			"Cache-Control": "public, max-age=3600",
+		},
+	});
 };

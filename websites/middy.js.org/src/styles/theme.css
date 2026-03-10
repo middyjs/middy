@@ -1,10 +1,10 @@
 :root {
-	--hex-main: #522e9a; /*#f90;*/
+	--hex-main: #522e9a; /* #f90; */
 }
 
 header input {
 	/*--border-width: 1px;*/
-	--border-color: var(--color-l5);
+	--border-color: var(--color-main-bold);
 }
 .grid:has(.stat) {
 	--grid-min-width: 15ch;

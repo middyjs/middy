@@ -10,6 +10,7 @@ const logger = createLogger();
 const originalWarn = logger.warn.bind(logger);
 logger.warn = (msg, options) => {
 	if (msg.includes("node:async_hooks")) return;
+	if (msg.includes("codeSplitting")) return;
 	originalWarn(msg, options);
 };
 
