@@ -3,7 +3,7 @@ title: Application Load Balancer
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 Same as API Gateway (REST)
 

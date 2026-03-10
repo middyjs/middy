@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.1.3",
+	"version": "7.1.4",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -30,10 +30,11 @@
 		"test:perf": "node --test ./**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
 		"test:dast:fuzz": "node --test --experimental-test-module-mocks ./**/*.fuzz.js",
-		"test:packages:unit": "node --test --test-force-exit --experimental-test-module-mocks --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
-		"test:packages:fuzz": "node --test --experimental-test-module-mocks ./packages/**/*.fuzz.js",
+		"test:packages:unit": "node --test ./packages/**/*.test.js --test-force-exit --experimental-test-module-mocks --experimental-test-coverage --test-coverage-lines=99 --test-coverage-branches=98 --test-coverage-functions=99",
+		"test:packages:perf": "node --test ./packages/**/*.perf.js",
+		"test:packages:fuzz": "node --test ./packages/**/*.fuzz.js --experimental-test-module-mocks",
 		"test:llrt": "cd llrt && npm test",
-		"rm": "npm run rm:coverage && npm run rm:node_modules && npm run rm:lock",
+		"rm": "npm run rm:node_modules && npm run rm:lock",
 		"rm:lock": "find . -name 'package-lock.json' -type f -exec rm -f '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "npm update --workspaces && npm install --workspaces",
@@ -80,6 +81,7 @@
 	},
 	"overrides": {
 		"@sveltejs/kit": {
+			".": "file:/Users/willfarrell/Development/github/kit/packages/kit",
 			"cookie": "0.7.2"
 		},
 		"license-check-and-add": {

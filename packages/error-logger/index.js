@@ -12,7 +12,7 @@ const errorLoggerMiddleware = (opts = {}) => {
 		logger(request);
 	};
 	return {
-		onError: logger ? errorLoggerMiddlewareOnError : null,
+		onError: logger ? errorLoggerMiddlewareOnError : undefined,
 	};
 };
 export default errorLoggerMiddleware;

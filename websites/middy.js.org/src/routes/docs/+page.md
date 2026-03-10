@@ -19,8 +19,7 @@ Let's assume you are building a JSON API to process a payment:
 
 ```javascript title="handler.js"
 // import core
-import middy from '@middy/core' // esm Node v14+
-//const middy = require('@middy/core') // cjs Node v12+
+import middy from '@middy/core'
 
 // import some middlewares
 import jsonBodyParser from '@middy/http-json-body-parser'

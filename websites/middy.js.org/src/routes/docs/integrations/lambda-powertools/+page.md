@@ -7,7 +7,7 @@ Powertools for AWS is a developer toolkit to implement Serverless [best practice
 You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

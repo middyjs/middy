@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+    paths:
+      - 'package.json'
 
 env:
   NODE_VERSION: 24.x

@@ -15,4 +15,5 @@ updates:
       - dependency-name: "@types/node" # Needs to be oldest LTS version
     schedule:
       interval: "weekly"
-    cooldown-period: 15
+      cooldown:
+          default-days: 15
