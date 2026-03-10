@@ -46,6 +46,9 @@ export const canPrefetch = (options = {}) => {
 	return !options.awsClientAssumeRole && !options.disablePrefetch;
 };
 
+const safeGet = (obj, key) =>
+	obj != null && Object.hasOwn(obj, key) ? obj[key] : undefined;
+
 // Internal Context
 export const getInternal = async (variables, request) => {
 	if (!variables || !request) return {};
@@ -77,7 +80,7 @@ export const getInternal = async (variables, request) => {
 		}
 		if (dotIndex !== -1) {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
-				value = value?.[part];
+				value = safeGet(value, part);
 			}
 		}
 		syncResults[i] = value;
@@ -101,9 +104,7 @@ export const getInternal = async (variables, request) => {
 			valuePromise = Promise.resolve(valuePromise);
 		}
 		promises.push(
-			valuePromise.then((value) =>
-				pathOptionKey.reduce((p, c) => p?.[c], value),
-			),
+			valuePromise.then((value) => pathOptionKey.reduce(safeGet, value)),
 		);
 	}
 	// ensure promise has resolved by the time it's needed
