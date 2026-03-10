@@ -31,4 +31,7 @@ export default defineConfig({
 		// Required for codeblock SSR
 		noExternal: ["prismjs"],
 	},
+	optimizeDeps: {
+		exclude: ["@willfarrell-ds/svelte", "@willfarrell-ds/vanilla"],
+	},
 });
