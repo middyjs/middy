@@ -106,7 +106,9 @@ section.grid:has(.feature) {
 		radial-gradient(circle at 50% 60%, var(--hex-main) 0%, transparent 25%),
 		radial-gradient(circle at 30% 50%, var(--hex-main) 0%, transparent 25%);
 	filter: blur(25px);
-	animation: hero-shader 20s ease-in-out infinite;
+	@media (prefers-reduced-motion: no-preference) {
+		animation: hero-shader 20s ease-in-out infinite;
+	}
 	opacity: 0.6;
 	@media (prefers-color-scheme: dark) {
 		opacity: 0.4;

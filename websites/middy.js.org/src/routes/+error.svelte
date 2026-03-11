@@ -5,10 +5,12 @@
     import Main from "@design-system/elements/main.svelte";
     import P from "@design-system/elements/p.svelte";
     import { page } from "$app/state";
+
+    const message = $derived(page.error?.message ?? "An error occurred");
 </script>
 
 <svelte:head>
-    <title>{page.status} | Middy.js</title>
+    <title>{page.status} {message} | Middy.js</title>
     <!-- <script src="{bootstrapUrl}?v=" type="module"></script> -->
 </svelte:head>
 
@@ -24,6 +26,7 @@
             loading="eager"
         />
         <H1>{page.status}</H1>
+        <P>{message}</P>
         {#if page.status === 500}
             <P>
                 {import.meta.env.AWS_REQUEST_ID ??

@@ -12,7 +12,7 @@ const navLinks = {
 		Documentation: "/docs",
 		Middlewares: "/docs/middlewares/intro",
 		"AWS Events": "/docs/events/intro",
-		LLMs: "/llms.txt",
+		"LLMs (llms.txt)": "/llms.txt",
 	},
 	"Community & support": {
 		GitHub: "https://github.com/middyjs/middy",
