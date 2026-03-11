@@ -1,5 +1,6 @@
 ---
 title: Code Commit
+description: "Use Middy with CodeCommit Lambda trigger events for repository automation."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: warmup
+description: "Keep Lambda functions warm to reduce cold starts with scheduled warmup invocations."
 ---
 
 Warmup middleware that helps to reduce the [cold-start issue](https://serverless.com/blog/keep-your-lambdas-warm/). Compatible by default with [`serverless-plugin-warmup`](https://www.npmjs.com/package/serverless-plugin-warmup), but it can be configured to suit your implementation.

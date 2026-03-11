@@ -1,5 +1,6 @@
 ---
 title: IoT Events
+description: "Use Middy with AWS IoT Events Lambda action events."
 ---
 
 <script>

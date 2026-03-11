@@ -1,5 +1,6 @@
 ---
 title: DocumentDB
+description: "Use Middy with Amazon DocumentDB change stream Lambda events."
 ---
 
 <script>

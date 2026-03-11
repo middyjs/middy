@@ -1,5 +1,6 @@
 ---
 title: Upgrade 4.x -> 5.x
+description: "Migrate from Middy 4.x to 5.x with ESM-only modules and TypeScript v5."
 ---
 
 aka "The ESM Only Update"

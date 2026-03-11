@@ -1,5 +1,6 @@
 ---
 title: Kafka, Self-Managed
+description: "Use Middy with self-managed Apache Kafka Lambda trigger events."
 ---
 
 <script>

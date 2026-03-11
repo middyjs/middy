@@ -1,5 +1,6 @@
 ---
 title: DynamoDB
+description: "Use Middy with DynamoDB Streams Lambda trigger events for change data capture."
 ---
 
 <script>

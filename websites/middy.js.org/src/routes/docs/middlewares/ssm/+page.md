@@ -1,5 +1,6 @@
 ---
 title: ssm
+description: "Fetch and cache AWS Systems Manager Parameter Store values in Lambda with Middy."
 ---
 
 This middleware fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).

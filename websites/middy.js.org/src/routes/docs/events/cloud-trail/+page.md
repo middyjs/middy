@@ -1,5 +1,6 @@
 ---
 title: CloudTrail
+description: "Use Middy with CloudTrail Lambda events for audit log processing."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: Apollo Server
+description: "Use Middy with Apollo Server for GraphQL API Lambda handlers."
 ---
 
 <script>

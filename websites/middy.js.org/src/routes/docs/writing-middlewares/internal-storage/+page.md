@@ -1,5 +1,6 @@
 ---
 title: Internal Storage
+description: "Use Middy internal storage to share async data between middlewares securely."
 position: 4
 ---
 

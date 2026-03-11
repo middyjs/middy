@@ -1,5 +1,6 @@
 ---
 title: dynamodb
+description: "Fetch and cache DynamoDB configuration values in your Lambda with Middy."
 ---
 
 Fetches DynamoDB stored configuration and parses out JSON.

@@ -1,5 +1,6 @@
 ---
 title: Connect
+description: "Use Middy with Amazon Connect contact flow Lambda events."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: http-content-encoding
+description: "Compress HTTP response bodies with Brotli, gzip, or deflate encoding using Middy."
 ---
 
 This middleware take the `preferredEncoding` output from `@middy/http-content-negotiation` and applies the encoding to `response.body` when a string.

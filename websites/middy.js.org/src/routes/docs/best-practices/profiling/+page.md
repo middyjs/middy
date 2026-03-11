@@ -1,5 +1,6 @@
 ---
 title: Profiling
+description: "Profile Middy middleware execution time using built-in hooks for performance tuning."
 ---
 
 Inside of `@middy/core` we've added some hook before and after every middleware called, the handler and from start to end of it's execution.

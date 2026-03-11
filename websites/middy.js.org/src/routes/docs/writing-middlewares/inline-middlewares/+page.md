@@ -1,5 +1,6 @@
 ---
 title: Inline Middlewares
+description: "Use inline middlewares for quick, non-reusable logic in a single lifecycle phase."
 position: 3
 ---
 

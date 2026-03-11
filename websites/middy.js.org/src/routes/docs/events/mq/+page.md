@@ -1,5 +1,6 @@
 ---
 title: MQ
+description: "Use Middy with Amazon MQ (ActiveMQ/RabbitMQ) Lambda trigger events."
 ---
 
 <script>

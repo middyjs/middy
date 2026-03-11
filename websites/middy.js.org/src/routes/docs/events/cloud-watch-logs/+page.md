@@ -1,5 +1,6 @@
 ---
 title: CloudWatch Logs
+description: "Use Middy with CloudWatch Logs subscription filter Lambda events."
 ---
 
 <script>

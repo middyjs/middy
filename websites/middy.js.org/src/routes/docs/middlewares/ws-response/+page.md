@@ -1,5 +1,6 @@
 ---
 title: ws-response
+description: "Post messages to WebSocket connections via API Gateway Management API with Middy."
 ---
 
 Post message to WebSocket connection.

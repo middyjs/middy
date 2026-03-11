@@ -1,5 +1,6 @@
 ---
 title: API Gateway (WebSocket)
+description: "Use Middy with API Gateway WebSocket events for real-time communication."
 ---
 
 <script>

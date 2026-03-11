@@ -1,5 +1,6 @@
 ---
 title: Streamify Response
+description: "Stream Lambda responses progressively using Middy with Function URLs and API Gateway."
 position: 5
 ---
 

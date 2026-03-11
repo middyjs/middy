@@ -1,5 +1,6 @@
 ---
 title: API Gateway (REST)
+description: "Use Middy with API Gateway REST API (v1) events for building REST APIs."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: error-logger
+description: "Log Lambda errors to CloudWatch automatically without interfering with error handling."
 ---
 
 Logs the error and propagates it to the next middleware.

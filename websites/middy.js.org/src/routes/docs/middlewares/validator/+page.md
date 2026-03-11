@@ -1,5 +1,6 @@
 ---
 title: validator
+description: "Validate Lambda event input and response output against JSON schemas with Middy."
 ---
 
 This middleware automatically validates incoming events and outgoing responses against custom

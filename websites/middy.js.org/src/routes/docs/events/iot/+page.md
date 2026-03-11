@@ -1,5 +1,6 @@
 ---
 title: Internet of things (IoT)
+description: "Use Middy with AWS IoT rule Lambda action events."
 ---
 
 <script>

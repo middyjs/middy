@@ -1,5 +1,6 @@
 ---
 title: appconfig
+description: "Fetch and parse AWS AppConfig configuration values in your Lambda with Middy."
 ---
 
 Fetches AppConfig stored configuration and parses out JSON.

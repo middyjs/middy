@@ -1,5 +1,6 @@
 ---
 title: Serverless Stack
+description: "Use Middy with Serverless Stack (SST) for Lambda development."
 ---
 
 <script>

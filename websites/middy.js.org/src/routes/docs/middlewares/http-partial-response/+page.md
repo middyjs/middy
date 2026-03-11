@@ -1,5 +1,6 @@
 ---
 title: http-partial-response
+description: "Filter JSON response fields based on query string parameters for partial responses."
 ---
 
 Filtering the data returned in an object or JSON stringified response has never been so easy. Add the `httpPartialResponse` middleware to your middleware chain, specify a custom `filteringKeyName` if you want to and that's it. Any consumer of your API will be able to filter your JSON response by adding a querystring key with the fields to filter such as `fields=firstname,lastname`.

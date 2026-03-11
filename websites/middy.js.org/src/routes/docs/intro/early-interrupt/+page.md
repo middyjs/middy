@@ -1,5 +1,6 @@
 ---
 title: Early Response
+description: "Learn how to return early responses from Middy middleware, useful for caching and authorization."
 position: 4
 ---
 

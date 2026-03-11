@@ -1,5 +1,6 @@
 ---
 title: http-router
+description: "Route HTTP requests to nested handlers based on method and path with Middy."
 ---
 
 This handler can route to requests to one of a nested handler based on `method` and `path` of an http event from API Gateway (REST or HTTP) or Elastic Load Balancer.

@@ -1,5 +1,6 @@
 ---
 title: Upgrade 6.x -> 7.x
+description: "Migrate from Middy 6.x to 7.x with durable function and streaming support."
 ---
 
 aka "Lambda goes durable"

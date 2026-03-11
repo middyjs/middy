@@ -1,5 +1,6 @@
 ---
 title: S3 Object
+description: "Use Middy with S3 Object Lambda events for transforming object responses."
 ---
 
 <script>

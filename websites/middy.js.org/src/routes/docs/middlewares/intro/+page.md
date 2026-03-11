@@ -1,5 +1,6 @@
 ---
 title: Official middlewares
+description: "Browse the complete list of official Middy middlewares for AWS Lambda."
 ---
 
 Middy comes with a series of additional (opt-in) plugins that are officially maintained by the core team and kept in sync with every release of the core package.

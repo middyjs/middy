@@ -1,5 +1,6 @@
 ---
 title: Cognito
+description: "Use Middy with Cognito User Pool Lambda trigger events for auth workflows."
 ---
 
 <script>

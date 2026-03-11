@@ -1,5 +1,6 @@
 ---
 title: Kinesis Firehose
+description: "Use Middy with Kinesis Data Firehose transformation Lambda events."
 ---
 
 <script>

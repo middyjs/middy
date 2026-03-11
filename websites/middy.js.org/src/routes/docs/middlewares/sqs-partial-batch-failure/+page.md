@@ -1,5 +1,6 @@
 ---
 title: sqs-partial-batch-failure
+description: "Handle partially failed SQS batch processing with automatic failure reporting."
 ---
 
 Middleware for handling partially failed SQS batches.

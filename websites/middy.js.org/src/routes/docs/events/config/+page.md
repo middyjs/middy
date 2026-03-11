@@ -1,5 +1,6 @@
 ---
 title: Config
+description: "Use Middy with AWS Config rule Lambda events for resource compliance checks."
 ---
 
 <script>

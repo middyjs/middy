@@ -1,5 +1,6 @@
 ---
 title: SNS
+description: "Use Middy with SNS subscription Lambda trigger events for notifications."
 ---
 
 <script>

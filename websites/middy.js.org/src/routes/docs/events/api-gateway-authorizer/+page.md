@@ -1,5 +1,6 @@
 ---
 title: API Gateway Authorizer
+description: "Use Middy with API Gateway Lambda authorizer events for custom authentication."
 ---
 
 <script>

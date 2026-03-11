@@ -1,5 +1,6 @@
 ---
 title: http-cors
+description: "Add CORS headers to Lambda HTTP responses for cross-origin requests with Middy."
 ---
 
 This middleware sets HTTP CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Credentials`), necessary for making cross-origin requests, to the response object.

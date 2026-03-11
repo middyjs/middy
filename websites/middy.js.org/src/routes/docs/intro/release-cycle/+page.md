@@ -1,5 +1,6 @@
 ---
 title: Release Cycle
+description: "Middy release cycle, version support timeline, and Node.js runtime compatibility."
 ---
 
 Each major release has a two (2) month `Alpha` period, one (1) month `Beta`, before a full release and becomes `Stable`.

@@ -1,5 +1,6 @@
 ---
 title: ws-router
+description: "Route WebSocket messages to nested handlers based on route key with Middy."
 ---
 
 This handler can route to requests to one of a nested handler based on `routeKey` of an WebSocket event from API Gateway (WebSocket).

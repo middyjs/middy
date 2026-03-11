@@ -1,5 +1,6 @@
 ---
 title: AWS Relational Database Service (RDS)
+description: "Connect to AWS RDS from Lambda using Middy with IAM authentication and connection pooling."
 ---
 
 <script>
