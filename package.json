@@ -80,7 +80,6 @@
 	},
 	"overrides": {
 		"@sveltejs/kit": {
-			".": "file:/Users/willfarrell/Development/github/kit/packages/kit",
 			"cookie": "0.7.2"
 		},
 		"license-check-and-add": {
