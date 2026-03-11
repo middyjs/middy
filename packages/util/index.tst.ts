@@ -349,5 +349,5 @@ test("lambdaContext", () => {
 
 test("httpErrorCodes", () => {
 	expect(util.httpErrorCodes).type.toBe<Record<number, string>>();
-	expect(util.httpErrorCodes[404]).type.toBe<string>();
+	expect(util.httpErrorCodes[404]).type.toBe<string | undefined>();
 });
