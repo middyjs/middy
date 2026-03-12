@@ -1,9 +1,10 @@
 ---
 title: Lex
+description: "Use Middy with Amazon Lex fulfillment Lambda events for chatbots."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

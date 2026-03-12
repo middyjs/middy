@@ -1,9 +1,10 @@
 ---
 title: Secrets Manager
+description: "Use Middy with Secrets Manager rotation Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

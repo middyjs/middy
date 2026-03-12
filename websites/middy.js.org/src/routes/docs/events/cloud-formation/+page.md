@@ -1,9 +1,10 @@
 ---
 title: CloudFormation
+description: "Use Middy with CloudFormation Custom Resource Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

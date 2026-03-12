@@ -1,5 +1,6 @@
 ---
 title: Powertools for AWS Lambda
+description: "Use Middy with Powertools for AWS Lambda for logging, tracing, and metrics."
 ---
 
 Powertools for AWS is a developer toolkit to implement Serverless [best practices and increase developer velocity](https://s12d.com/middy-intro).
@@ -7,7 +8,7 @@ Powertools for AWS is a developer toolkit to implement Serverless [best practice
 You can use Powertools for AWS in both TypeScript and JavaScript code bases.
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

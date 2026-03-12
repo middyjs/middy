@@ -1,12 +1,10 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import httpContentNegotiationMiddleware, { type Context } from "./index.js";
+import httpContentNegotiationMiddleware from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpContentNegotiationMiddleware();
-	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, unknown, Error, Context>
-	>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -25,7 +23,5 @@ test("use with all options", () => {
 		defaultToFirstMediaType: true,
 		failOnMismatch: true,
 	});
-	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, unknown, Error, Context>
-	>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

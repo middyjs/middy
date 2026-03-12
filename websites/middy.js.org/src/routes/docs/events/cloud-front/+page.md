@@ -1,9 +1,10 @@
 ---
 title: CloudFront Lambda@Edge
+description: "Use Middy with CloudFront Lambda@Edge events for edge computing."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

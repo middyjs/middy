@@ -1,9 +1,10 @@
 ---
 title: Code Commit
+description: "Use Middy with CodeCommit Lambda trigger events for repository automation."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

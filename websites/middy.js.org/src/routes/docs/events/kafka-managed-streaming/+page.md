@@ -1,9 +1,10 @@
 ---
 title: Kafka, Managed Streaming (MSK)
+description: "Use Middy with Amazon MSK (Managed Streaming for Kafka) Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

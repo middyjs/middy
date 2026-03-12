@@ -1,9 +1,10 @@
 ---
 title: Kinesis Streams
+description: "Use Middy with Kinesis Data Streams Lambda trigger events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

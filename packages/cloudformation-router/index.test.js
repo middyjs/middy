@@ -22,7 +22,7 @@ test("It should route to a static route", async (t) => {
 	ok(response);
 });
 
-test("It should thrown FAILURE when route not found", async (t) => {
+test("It should throw FAILURE when route not found", async (t) => {
 	const event = {
 		RequestType: "Update",
 	};
@@ -39,7 +39,7 @@ test("It should thrown FAILURE when route not found", async (t) => {
 	}
 });
 
-test("It should thrown FAILURE when route not found, using notFoundResponse", async (t) => {
+test("It should throw FAILURE when route not found, using notFoundResponse", async (t) => {
 	const event = {
 		RequestType: "Update",
 	};

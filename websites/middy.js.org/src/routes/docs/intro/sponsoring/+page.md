@@ -1,5 +1,6 @@
 ---
 title: Sponsoring
+description: "Support Middy development by becoming a sponsor through GitHub Sponsors."
 ---
 
 If Middy is adding value to your project or organization and you would like to support its long term maintenance, becoming a sponsor is a great way to do that.

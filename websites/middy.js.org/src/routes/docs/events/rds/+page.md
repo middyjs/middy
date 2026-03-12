@@ -1,9 +1,10 @@
 ---
 title: RDS
+description: "Use Middy with RDS Proxy and Aurora Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

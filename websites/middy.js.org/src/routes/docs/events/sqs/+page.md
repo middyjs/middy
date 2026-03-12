@@ -1,9 +1,10 @@
 ---
 title: SQS
+description: "Use Middy with SQS Lambda trigger events for queue message processing."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

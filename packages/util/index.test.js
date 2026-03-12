@@ -294,6 +294,26 @@ describe("getInternal", () => {
 		const values = await getInternal("promiseObject.key", getInternalRequest);
 		deepStrictEqual(values, { promiseObject_key: "value" });
 	});
+
+	test("getInternal should get from internal store a nested value (sync)", async (t) => {
+		const syncRequest = {
+			internal: {
+				object: { key: "value" },
+			},
+		};
+		const values = await getInternal("object.key", syncRequest);
+		deepStrictEqual(values, { object_key: "value" });
+	});
+
+	test("getInternal should return undefined for missing nested path (sync)", async (t) => {
+		const syncRequest = {
+			internal: {
+				object: null,
+			},
+		};
+		const values = await getInternal("object.key", syncRequest);
+		deepStrictEqual(values, { object_key: undefined });
+	});
 });
 
 describe("sanitizeKey", () => {

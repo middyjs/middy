@@ -175,6 +175,105 @@ test("Should handle non-function logger", async (t) => {
 	});
 });
 
+test("Should use default logger without error", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "reject",
+					},
+				},
+				body: "",
+			},
+		],
+	});
+
+	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+});
+
+test("Should handle logger set to false", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "reject",
+					},
+				},
+				body: "",
+			},
+		],
+	});
+
+	const handler = middy(lambdaHandler).use(
+		sqsPartialBatchFailure({ logger: false }),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+});
+
+test("Should handle onError with undefined Records", async (t) => {
+	const event = {};
+	const logger = t.mock.fn();
+
+	const handler = middy(async () => {
+		throw new Error("handler error");
+	}).use(sqsPartialBatchFailure({ logger }));
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, { batchItemFailures: [] });
+	strictEqual(logger.mock.callCount(), 0);
+});
+
+test("Should reject all records in onError with multiple records", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "resolve",
+					},
+				},
+				body: "",
+			},
+			{
+				messageAttributes: {
+					resolveOrReject: {
+						stringValue: "resolve",
+					},
+				},
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	const handler = middy(async () => {
+		throw new Error("handler error");
+	}).use(sqsPartialBatchFailure({ logger }));
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+	strictEqual(logger.mock.callCount(), 2);
+});
+
 test("Should not override response in onError if response already exists", async (t) => {
 	const event = createEvent.default("aws:sqs", {
 		Records: [

@@ -1,5 +1,6 @@
 ---
 title: Contributing
+description: "Contribute to Middy by raising issues, submitting pull requests, and following the code of conduct."
 ---
 
 

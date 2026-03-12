@@ -1,5 +1,6 @@
 ---
 title: http-error-handler
+description: "Convert errors with statusCode and message into proper HTTP responses automatically."
 ---
 
 Automatically handles uncaught errors that contain the properties `statusCode` (number) and `message` (string) and creates a proper HTTP response

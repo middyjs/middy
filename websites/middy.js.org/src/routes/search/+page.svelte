@@ -1,14 +1,14 @@
 <script>
-import Card from "@design-system/svelte/Card.svelte";
-import A from "@design-system/svelte/element/a.svelte";
-import Li from "@design-system/svelte/element/li.svelte";
-import P from "@design-system/svelte/element/p.svelte";
-import Section from "@design-system/svelte/element/section.svelte";
-import Span from "@design-system/svelte/element/span.svelte";
-import Ul from "@design-system/svelte/element/ul.svelte";
-import H1 from "@design-system/svelte/Heading1.svelte";
-import H3 from "@design-system/svelte/Heading3.svelte";
-import LayoutCenter from "@design-system/svelte/LayoutCenter.svelte";
+import Card from "@design-system/components/Card.svelte";
+import H1 from "@design-system/components/Heading1.svelte";
+import H2 from "@design-system/components/Heading2.svelte";
+import LayoutCenter from "@design-system/components/LayoutCenter.svelte";
+import A from "@design-system/elements/a.svelte";
+import Li from "@design-system/elements/li.svelte";
+import P from "@design-system/elements/p.svelte";
+import Section from "@design-system/elements/section.svelte";
+import Span from "@design-system/elements/span.svelte";
+import Ul from "@design-system/elements/ul.svelte";
 import { page } from "$app/state";
 
 const { data } = page;
@@ -17,7 +17,7 @@ const { results } = data;
 
 <svelte:head>
     <title>Search | Middy.js</title>
-    <!-- <meta name="description" content="" /> -->
+    <meta name="description" content="Search the Middy.js documentation for middlewares, events, and guides." />
 </svelte:head>
 <LayoutCenter>
     <Section>
@@ -26,10 +26,10 @@ const { results } = data;
             <Ul class="grid">
                 {#each results as card}
                     <Card id={card.id}>
-                        <H3
+                        <H2
                             ><A href={card.href} aria-describedby={card.id}
                                 >{card.title}</A
-                            ></H3
+                            ></H2
                         >
                         {#if card.description}
                             <P>{@html card.description}</P>

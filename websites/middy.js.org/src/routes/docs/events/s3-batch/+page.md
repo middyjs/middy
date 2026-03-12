@@ -1,9 +1,10 @@
 ---
 title: S3 Batch
+description: "Use Middy with S3 Batch Operations Lambda events for bulk processing."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

@@ -1,9 +1,10 @@
 ---
 title: API Gateway (REST)
+description: "Use Middy with API Gateway REST API (v1) events for building REST APIs."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

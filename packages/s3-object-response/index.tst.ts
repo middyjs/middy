@@ -1,15 +1,12 @@
 import { S3Client } from "@aws-sdk/client-s3";
-import middy from "@middy/core";
-import type { Context as LambdaContext } from "aws-lambda";
+import type middy from "@middy/core";
 import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
-import s3ObjectResponse, { type Context } from "./index.js";
+import s3ObjectResponse from "./index.js";
 
 test("use with default options", () => {
 	const middleware = s3ObjectResponse();
-	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, unknown, Error, Context>
-	>();
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
@@ -18,27 +15,5 @@ test("use with all options", () => {
 		awsClientCapture: captureAWSv3Client,
 		disablePrefetch: true,
 	});
-	expect(middleware).type.toBe<
-		middy.MiddlewareObj<unknown, unknown, Error, Context>
-	>();
-});
-
-const handler = middy(async (event: {}, context: LambdaContext) => {
-	return await Promise.resolve({});
-});
-
-test("use with s3ObjectFetch context", () => {
-	handler
-		.use(
-			s3ObjectResponse({
-				AwsClient: S3Client,
-				awsClientCapture: captureAWSv3Client,
-				disablePrefetch: true,
-			}),
-		)
-		.before(async (request) => {
-			expect(request.context.s3ObjectFetch).type.toBe<
-				Promise<Response> | undefined
-			>();
-		});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });

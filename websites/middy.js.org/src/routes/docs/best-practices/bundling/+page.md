@@ -1,9 +1,10 @@
 ---
 title: Bundling Lambda packages
+description: "Bundle AWS SDK and dependencies with your Lambda for faster cold starts and reliability."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

@@ -1,5 +1,6 @@
 ---
 title: http-response-serializer
+description: "Serialize HTTP responses based on content negotiation with custom serializers."
 ---
 
 The Http Serializer middleware lets you define serialization mechanisms based on the current content negotiation.

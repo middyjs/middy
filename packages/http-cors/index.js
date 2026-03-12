@@ -126,8 +126,7 @@ const httpCorsMiddleware = (opts = {}) => {
 	}
 
 	const modifyHeaders = (headers, options, request) => {
-		const existingHeaders = Object.keys(headers);
-		if (existingHeaders.includes("Access-Control-Allow-Credentials")) {
+		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
 			options.credentials =
 				headers["Access-Control-Allow-Credentials"] === "true";
 		}
@@ -136,19 +135,19 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 		if (
 			options.headers &&
-			!existingHeaders.includes("Access-Control-Allow-Headers")
+			!Object.hasOwn(headers, "Access-Control-Allow-Headers")
 		) {
 			headers["Access-Control-Allow-Headers"] = options.headers;
 		}
 		if (
 			options.methods &&
-			!existingHeaders.includes("Access-Control-Allow-Methods")
+			!Object.hasOwn(headers, "Access-Control-Allow-Methods")
 		) {
 			headers["Access-Control-Allow-Methods"] = options.methods;
 		}
 
 		let newOrigin;
-		if (!existingHeaders.includes("Access-Control-Allow-Origin")) {
+		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
 			const eventHeaders = request.event.headers ?? {};
 			const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin;
 			newOrigin = options.getOrigin(incomingOrigin, options);
@@ -171,11 +170,11 @@ const httpCorsMiddleware = (opts = {}) => {
 
 		if (
 			options.exposeHeaders &&
-			!existingHeaders.includes("Access-Control-Expose-Headers")
+			!Object.hasOwn(headers, "Access-Control-Expose-Headers")
 		) {
 			headers["Access-Control-Expose-Headers"] = options.exposeHeaders;
 		}
-		if (options.maxAge && !existingHeaders.includes("Access-Control-Max-Age")) {
+		if (options.maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
 			headers["Access-Control-Max-Age"] = String(options.maxAge);
 		}
 		const httpMethod = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
@@ -184,13 +183,13 @@ const httpCorsMiddleware = (opts = {}) => {
 		if (
 			httpMethod === "OPTIONS" &&
 			options.cacheControl &&
-			!existingHeaders.includes("Cache-Control")
+			!Object.hasOwn(headers, "Cache-Control")
 		) {
 			headers["Cache-Control"] = options.cacheControl;
 		}
 	};
 
-	const httpCorsMiddlewareBefore = async (request) => {
+	const httpCorsMiddlewareBefore = (request) => {
 		if (options.disableBeforePreflightResponse) return;
 
 		const method = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
@@ -240,15 +239,15 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 	};
 
-	const httpCorsMiddlewareAfter = async (request) => {
+	const httpCorsMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		const headers = structuredClone(request.response.headers);
+		const headers = { ...request.response.headers };
 		modifyHeaders(headers, options, request);
 		request.response.headers = headers;
 	};
-	const httpCorsMiddlewareOnError = async (request) => {
-		if (request.response === undefined) return;
-		await httpCorsMiddlewareAfter(request);
+	const httpCorsMiddlewareOnError = (request) => {
+		if (typeof request.response === "undefined") return;
+		httpCorsMiddlewareAfter(request);
 	};
 	return {
 		before: httpCorsMiddlewareBefore,

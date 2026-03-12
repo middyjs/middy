@@ -1,5 +1,6 @@
 ---
 title: History
+description: "A brief history of the Middy project from its origins in 2016 to the latest releases."
 ---
 
 ## A brief history of Middy

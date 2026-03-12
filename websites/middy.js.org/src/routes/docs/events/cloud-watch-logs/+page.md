@@ -1,9 +1,10 @@
 ---
 title: CloudWatch Logs
+description: "Use Middy with CloudWatch Logs subscription filter Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

@@ -1,5 +1,6 @@
 ---
 title: http-header-normalizer
+description: "Normalize HTTP header names to lowercase or canonical form for consistent access."
 ---
 
 This middleware normalizes HTTP header names. By default, it normalizes to lowercase. It

@@ -1,9 +1,10 @@
 ---
 title: CloudWatch Alarm
+description: "Use Middy with CloudWatch Alarm Lambda events for automated alerting."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

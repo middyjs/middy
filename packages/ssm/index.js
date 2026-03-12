@@ -35,11 +35,12 @@ const defaults = {
 const ssmMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
+	const fetchDataKeys = Object.keys(options.fetchData);
+	const fetchDataValues = Object.values(options.fetchData);
 	const fetchRequest = (request, cachedValues) => {
-		return {
-			...fetchSingleRequest(request, cachedValues),
-			...fetchByPathRequest(request, cachedValues),
-		};
+		const single = fetchSingleRequest(request, cachedValues);
+		const path = fetchByPathRequest(request, cachedValues);
+		return Object.assign(single, path);
 	};
 
 	const fetchSingleRequest = (request, cachedValues = {}) => {
@@ -48,8 +49,8 @@ const ssmMiddleware = (opts = {}) => {
 		const batchKeys = new Map();
 		const namedKeys = [];
 
-		const internalKeys = Object.keys(options.fetchData);
-		const fetchKeys = Object.values(options.fetchData);
+		const internalKeys = fetchDataKeys;
+		const fetchKeys = fetchDataValues;
 		for (const internalKey of internalKeys) {
 			if (cachedValues[internalKey]) continue;
 			if (options.fetchData[internalKey].endsWith("/")) continue; // Skip path passed in
@@ -77,25 +78,22 @@ const ssmMiddleware = (opts = {}) => {
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
-					return Object.assign(
-						{},
-						...(resp.InvalidParameters ?? []).map((fetchKey) => {
-							return {
-								[fetchKey]: new Promise(() => {
-									const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-									const value = getCache(options.cacheKey).value ?? {};
-									value[internalKey] = undefined;
-									modifyCache(options.cacheKey, value);
-									throw new Error(`InvalidParameter ${fetchKey}`, {
-										cause: { package: "@middy/ssm" },
-									});
-								}),
-							};
-						}),
-						...(resp.Parameters ?? []).map((param) => {
-							return { [param.Name]: parseValue(param) };
-						}),
-					);
+					const result = {};
+					for (const fetchKey of resp.InvalidParameters ?? []) {
+						result[fetchKey] = new Promise(() => {
+							const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
+							const value = getCache(options.cacheKey).value ?? {};
+							value[internalKey] = undefined;
+							modifyCache(options.cacheKey, value);
+							throw new Error(`InvalidParameter ${fetchKey}`, {
+								cause: { package: "@middy/ssm" },
+							});
+						});
+					}
+					for (const param of resp.Parameters ?? []) {
+						result[param.Name] = parseValue(param);
+					}
+					return result;
 				})
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
@@ -127,7 +125,7 @@ const ssmMiddleware = (opts = {}) => {
 
 	const fetchByPathRequest = (request, cachedValues = {}) => {
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			const fetchKey = options.fetchData[internalKey];
 			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
@@ -152,14 +150,9 @@ const ssmMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((resp) => {
-				Object.assign(
-					values,
-					...resp.Parameters.map((param) => {
-						return {
-							[sanitizeKey(param.Name.replace(path, ""))]: parseValue(param),
-						};
-					}),
-				);
+				for (const param of resp.Parameters) {
+					values[sanitizeKey(param.Name.replace(path, ""))] = parseValue(param);
+				}
 				if (resp.NextToken) {
 					return fetchPathRequest(path, resp.NextToken, values);
 				}
@@ -190,7 +183,7 @@ const ssmMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 
 		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
+			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
 		}
 	};

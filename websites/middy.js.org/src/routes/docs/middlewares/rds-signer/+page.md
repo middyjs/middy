@@ -1,5 +1,6 @@
 ---
 title: rds-signer
+description: "Generate RDS IAM authentication tokens for secure database connections in Lambda."
 ---
 
 Fetches RDS credentials to be used when connecting to RDS with IAM roles.

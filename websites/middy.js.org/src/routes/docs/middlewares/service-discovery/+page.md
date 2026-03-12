@@ -1,5 +1,6 @@
 ---
 title: service-discovery
+description: "Fetch AWS Cloud Map service discovery instances for connecting to other services."
 ---
 
 Fetches Service Discovery instances to be used when connecting to other AWS services.

@@ -7,7 +7,7 @@ const defaults = {
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };
 
-	const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
+	const sqsPartialBatchFailureMiddlewareAfter = (request) => {
 		const {
 			event: { Records },
 			response,
@@ -31,9 +31,9 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	};
 
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
-		if (request.response !== undefined) return;
+		if (typeof request.response !== "undefined") return;
 
-		request.response = new Array(request.event.Records?.length).fill({
+		request.response = new Array(request.event.Records?.length ?? 0).fill({
 			status: "rejected",
 			reason: request.error,
 		});

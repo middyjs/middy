@@ -1,5 +1,6 @@
 ---
 title: cloudformation-router
+description: "Route CloudFormation Custom Resource requests by request type with Middy."
 ---
 
 This handler can route to requests to one of a nested handler based on `requestType` of a CloudFormation Custom Response event.

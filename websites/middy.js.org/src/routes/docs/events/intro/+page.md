@@ -1,5 +1,6 @@
 ---
 title: All AWS Events
+description: "Overview of all AWS event types supported by Middy middlewares for Lambda."
 position: 1
 ---
 

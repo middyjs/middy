@@ -1,9 +1,10 @@
 ---
 title: SES
+description: "Use Middy with SES receipt rule Lambda events for email processing."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

@@ -5,9 +5,13 @@ import { Readable } from "node:stream";
 import { ReadableStream } from "node:stream/web";
 import {
 	createBrotliCompress as brotliCompressStream,
+	brotliCompressSync,
 	createDeflate as deflateCompressStream,
+	deflateSync,
 	createGzip as gzipCompressStream,
+	gzipSync,
 	createZstdCompress as zstdCompressStream,
+	zstdCompressSync,
 } from "node:zlib";
 import { normalizeHttpResponse } from "@middy/util";
 
@@ -16,6 +20,13 @@ const contentEncodingStreams = {
 	deflate: deflateCompressStream,
 	gzip: gzipCompressStream,
 	zstd: zstdCompressStream,
+};
+
+const contentEncodingSync = {
+	br: brotliCompressSync,
+	deflate: deflateSync,
+	gzip: gzipSync,
+	zstd: zstdCompressSync,
 };
 
 const defaults = {
@@ -67,21 +78,19 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			return;
 		}
 
-		let contentEncodingStream = contentEncodingStreams[preferredEncoding](
-			options[preferredEncoding],
-		);
+		// Resolve encoding choice before creating any stream
 		let contentEncoding = preferredEncoding;
 		for (const encoding of options.overridePreferredEncoding) {
 			if (!preferredEncodings.includes(encoding)) continue;
-			contentEncodingStream = contentEncodingStreams[encoding](
-				options[encoding],
-			);
 			contentEncoding = encoding;
 			break;
 		}
 
 		// Support streamifyResponse
 		if (isNodeStream || isWebStream) {
+			const contentEncodingStream = contentEncodingStreams[contentEncoding](
+				options[contentEncoding],
+			);
 			request.response.headers["Content-Encoding"] = contentEncoding;
 			if (isNodeStream) {
 				request.response.body = request.response.body.pipe(
@@ -95,15 +104,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			addHeaderPart(response, "Vary", "Accept-Encoding");
 			return;
 		}
-		// isString
-		const stream = Readable.from(response.body).pipe(contentEncodingStream);
-
-		const chunks = [];
-		for await (const chunk of stream) {
-			chunks.push(chunk);
-		}
-
-		const body = Buffer.concat(chunks).toString("base64");
+		// isString/isBuffer — use sync compression (avoids stream overhead)
+		const inputBuffer = Buffer.isBuffer(response.body)
+			? response.body
+			: Buffer.from(response.body);
+		const compressed = contentEncodingSync[contentEncoding](inputBuffer);
+		const body = compressed.toString("base64");
 
 		// Only apply encoding if it's smaller
 		if (body.length < response.body.length) {

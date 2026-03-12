@@ -1,9 +1,10 @@
 ---
 title: S3 Object
+description: "Use Middy with S3 Object Lambda events for transforming object responses."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

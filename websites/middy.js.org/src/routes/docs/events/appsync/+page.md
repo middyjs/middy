@@ -1,9 +1,10 @@
 ---
 title: AppSync
+description: "Use Middy with AWS AppSync GraphQL resolver Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

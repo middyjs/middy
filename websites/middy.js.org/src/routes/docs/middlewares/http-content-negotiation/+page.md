@@ -1,5 +1,6 @@
 ---
 title: http-content-negotiation
+description: "Parse Accept headers and negotiate HTTP content type, encoding, charset, and language."
 ---
 
 This middleware parses `Accept-*` headers and provides utilities for [HTTP content negotiation](https://tools.ietf.org/html/rfc7231#section-5.3) (charset, encoding, language and media type).

@@ -1,9 +1,10 @@
 ---
 title: WorkMail
+description: "Use Middy with Amazon WorkMail Lambda events for email flow rules."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

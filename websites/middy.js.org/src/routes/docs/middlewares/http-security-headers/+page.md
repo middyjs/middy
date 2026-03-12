@@ -1,5 +1,6 @@
 ---
 title: http-security-headers
+description: "Apply security headers like HSTS, CSP, and X-Frame-Options to Lambda HTTP responses."
 ---
 
 Applies best practice security headers to responses. It's a simplified port of HelmetJS. See [HelmetJS](https://helmetjs.github.io/) documentation for more details.

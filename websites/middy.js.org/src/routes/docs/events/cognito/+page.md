@@ -1,9 +1,10 @@
 ---
 title: Cognito
+description: "Use Middy with Cognito User Pool Lambda trigger events for auth workflows."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

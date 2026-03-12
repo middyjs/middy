@@ -1,5 +1,6 @@
 ---
 title: More Examples
+description: "Browse existing Middy middleware source code for more implementation examples."
 position: 6
 ---
 

@@ -1,6 +1,4 @@
-import pkg from "../../../package.json" with { type: "json" };
-
-const hostname = pkg.name;
+import { getDocsFiles } from "$lib/docs-content.js";
 
 function extractTitle(content) {
 	// Try to extract title from frontmatter
@@ -19,33 +17,6 @@ function extractTitle(content) {
 	}
 
 	return "Untitled";
-}
-
-function parseLlmsTxt(llmsContent) {
-	const files = [];
-	// Split by the file separator pattern: \n\n// File:
-	const parts = llmsContent.split(/\n\n\/\/ File: /);
-
-	// Skip the first part (it's before the first file marker)
-	for (let i = 1; i < parts.length; i++) {
-		const block = parts[i];
-		if (!block.trim()) continue;
-
-		// The format is: "path/to/file.md\n\nactual content here"
-		// First line is the file path, then \n\n, then content
-		const lines = block.split("\n");
-		if (lines.length < 3) continue;
-
-		const filePath = lines[0].trim();
-		// Skip the empty line and join the rest as content
-		const content = lines.slice(2).join("\n").trim();
-
-		if (filePath && content) {
-			files.push({ filePath, content });
-		}
-	}
-
-	return files;
 }
 
 function cleanContentForSearch(content) {
@@ -122,8 +93,7 @@ function extractDescription(content, query, maxLength = 150) {
 	return snippet;
 }
 
-let llmsContent;
-export async function load({ url, fetch }) {
+export function load({ url }) {
 	const query = url.searchParams.get("q");
 
 	if (!query || query.trim() === "") {
@@ -133,52 +103,37 @@ export async function load({ url, fetch }) {
 		};
 	}
 
-	try {
-		// Get llms.txt content using the imported GET function
-		llmsContent ??= await fetch(`https://${hostname}/llms.txt`).then((res) =>
-			res.text(),
-		);
+	const files = getDocsFiles();
+	const results = [];
+	const maxResults = 10;
 
-		const files = parseLlmsTxt(llmsContent);
+	for (const { filePath, content } of files) {
+		// Stop if we've reached the max number of results
+		if (results.length >= maxResults) break;
 
-		const results = [];
-		const maxResults = 10;
+		// Check if query matches content
+		if (searchContent(content, query)) {
+			// Convert file path to href
+			const relativePath = filePath
+				.replace(/\+page\.md$/, "")
+				.replace(/^\//, "");
 
-		for (const { filePath, content } of files) {
-			// Stop if we've reached the max number of results
-			if (results.length >= maxResults) break;
+			const href = `/docs/${relativePath}`;
+			const title = extractTitle(content);
+			const description = extractDescription(content, query);
+			const id = relativePath.replace(/\//g, "-") || "home";
 
-			// Check if query matches content
-			if (searchContent(content, query)) {
-				// Convert file path to href
-				const relativePath = filePath
-					.replace(/\+page\.md$/, "")
-					.replace(/^\//, "");
-
-				const href = `/docs/${relativePath}`;
-				const title = extractTitle(content);
-				const description = extractDescription(content, query);
-				const id = relativePath.replace(/\//g, "-") || "home";
-
-				results.push({
-					id,
-					href,
-					title,
-					description,
-				});
-			}
+			results.push({
+				id,
+				href,
+				title,
+				description,
+			});
 		}
-
-		return {
-			results,
-			query: query.trim(),
-		};
-	} catch (error) {
-		console.error("Error searching:", error);
-		return {
-			results: [],
-			query: query.trim(),
-			error: error.message,
-		};
 	}
+
+	return {
+		results,
+		query: query.trim(),
+	};
 }

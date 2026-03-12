@@ -10,14 +10,17 @@ const defaults = {
 const httpErrorHandlerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	const httpErrorHandlerMiddlewareOnError = async (request) => {
-		if (request.response !== undefined) return;
+	const httpErrorHandlerMiddlewareOnError = (request) => {
+		if (typeof request.response !== "undefined") return;
 		if (typeof options.logger === "function") {
 			options.logger(request.error);
 		}
 
 		// Set default expose value, only passes in when there is an override
-		if (request.error.statusCode && request.error.expose === undefined) {
+		if (
+			request.error.statusCode &&
+			typeof request.error.expose === "undefined"
+		) {
 			request.error.expose = request.error.statusCode < 500;
 		}
 
@@ -34,14 +37,10 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 			normalizeHttpResponse(request);
 			const { statusCode, message, headers } = request.error;
 
-			request.response = {
-				...request.response,
-				statusCode,
-				headers: {
-					...request.response.headers,
-					...headers,
-				},
-			};
+			request.response.statusCode = statusCode;
+			if (headers) {
+				Object.assign(request.response.headers, headers);
+			}
 
 			if (message) {
 				const headerContentType =

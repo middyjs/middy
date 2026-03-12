@@ -1,5 +1,6 @@
 ---
 title: appconfig
+description: "Fetch and parse AWS AppConfig configuration values in your Lambda with Middy."
 ---
 
 Fetches AppConfig stored configuration and parses out JSON.
@@ -77,6 +78,7 @@ The following example illustrates how to use `appConfigParam`:
 
 ```typescript
 import middy from '@middy/core'
+import { getInternal } from '@middy/util'
 import appConfig, { appConfigParam } from '@middy/appconfig'
 
 const lambdaHandler = (event, context) => {
@@ -85,18 +87,18 @@ const lambdaHandler = (event, context) => {
     headers: {},
     body: JSON.stringify({ message: 'hello world' })
   }
-})
+}
 
 export const handler = middy()
   .use(
     appConfig({
       fetchData: {
-        config: {
+        config: appConfigParam<{field1: string, field2: string, field3: number}>({
           Application: '...',
           ClientId: '...',
           Configuration: '...',
           Environment: '...'
-        }
+        })
       }
     })
   )
@@ -106,5 +108,5 @@ export const handler = middy()
     // data.config.field2 (string)
     // data.config.field3 (number)
   })
-.handler(lambdaHandler)
+  .handler(lambdaHandler)
 ```

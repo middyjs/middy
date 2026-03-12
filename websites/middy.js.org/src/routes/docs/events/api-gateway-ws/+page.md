@@ -1,9 +1,10 @@
 ---
 title: API Gateway (WebSocket)
+description: "Use Middy with API Gateway WebSocket events for real-time communication."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

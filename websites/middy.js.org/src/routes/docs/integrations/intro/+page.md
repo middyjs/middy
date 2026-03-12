@@ -1,10 +1,11 @@
 ---
 title: Integrations
+description: "Integrate Middy with popular tools and frameworks for AWS Lambda development."
 position: 1
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

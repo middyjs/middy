@@ -253,7 +253,7 @@ test("It should populate pathParameters to a dynamic route even if they already 
 	ok(response);
 });
 
-test("It should thrown 404 when route not found", async (t) => {
+test("It should throw 404 when route not found", async (t) => {
 	const event = {
 		httpMethod: "GET",
 		path: "/notfound",
@@ -273,7 +273,7 @@ test("It should thrown 404 when route not found", async (t) => {
 	}
 });
 
-test("It should thrown 200 when route not found, using notFoundResponse", async (t) => {
+test("It should throw200 when route not found, using notFoundResponse", async (t) => {
 	const event = {
 		httpMethod: "GET",
 		path: "/notfound",

@@ -1,9 +1,10 @@
 ---
 title: MQ
+description: "Use Middy with Amazon MQ (ActiveMQ/RabbitMQ) Lambda trigger events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

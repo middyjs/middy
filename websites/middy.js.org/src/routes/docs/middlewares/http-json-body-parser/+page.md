@@ -1,5 +1,6 @@
 ---
 title: http-json-body-parser
+description: "Parse JSON HTTP request bodies automatically and handle malformed JSON gracefully."
 ---
 
 This middleware automatically parses HTTP requests with a JSON body and converts the body into an

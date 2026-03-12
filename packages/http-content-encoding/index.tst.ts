@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
 import httpContentEncodingMiddleware from "./index.js";

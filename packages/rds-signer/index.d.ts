@@ -23,7 +23,7 @@ export type Context<TOptions extends RdsSignerOptions | undefined> =
 			? LambdaContext & {
 					[Key in keyof TFetchData]: string;
 				}
-			: LambdaContext
+			: never
 		: LambdaContext;
 
 export type Internal<TOptions extends RdsSignerOptions | undefined> =

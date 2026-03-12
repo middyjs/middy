@@ -1,19 +1,17 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
-import type { ErrorObject } from "ajv";
-
-export interface ValidateFunction<T = unknown> {
-	(data: unknown): data is T;
-	errors?: ErrorObject[] | undefined;
-}
+import type { Ajv, ErrorObject } from "ajv";
 
 export interface Options {
-	eventSchema?: ValidateFunction;
-	contextSchema?: ValidateFunction;
-	responseSchema?: ValidateFunction;
+	eventSchema?: Ajv;
+	contextSchema?: Ajv;
+	responseSchema?: Ajv;
 	defaultLanguage?: string;
-	languages?: Record<string, (errors: ErrorObject[] | undefined) => void>;
+	languages?: Record<
+		string,
+		(errors: ErrorObject[] | null | undefined) => void
+	>;
 }
 
 declare function validator(

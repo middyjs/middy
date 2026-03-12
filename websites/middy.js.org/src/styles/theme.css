@@ -1,10 +1,10 @@
 :root {
-	--hex-main: #522e9a; /*#f90;*/
+	--hex-main: #522e9a; /* #f90; */
 }
 
 header input {
 	/*--border-width: 1px;*/
-	--border-color: var(--color-l5);
+	--border-color: var(--color-main-bold);
 }
 .grid:has(.stat) {
 	--grid-min-width: 15ch;
@@ -34,7 +34,7 @@ section.grid:has(.feature) {
 .grid > .feature {
 	--border-width: 0;
 	--border-radius: 2em;
-	background-color: var(--color-l1);
+	padding: var(--border-radius);
 }
 
 .grid > .event {
@@ -90,7 +90,7 @@ section.grid:has(.feature) {
 /* Hero shader background */
 .hero {
 	position: relative;
-	overflow: visible;
+	overflow: clip;
 }
 
 .hero::before {
@@ -106,7 +106,9 @@ section.grid:has(.feature) {
 		radial-gradient(circle at 50% 60%, var(--hex-main) 0%, transparent 25%),
 		radial-gradient(circle at 30% 50%, var(--hex-main) 0%, transparent 25%);
 	filter: blur(25px);
-	animation: hero-shader 20s ease-in-out infinite;
+	@media (prefers-reduced-motion: no-preference) {
+		animation: hero-shader 20s ease-in-out infinite;
+	}
 	opacity: 0.6;
 	@media (prefers-color-scheme: dark) {
 		opacity: 0.4;

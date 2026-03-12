@@ -1,5 +1,6 @@
 ---
 title: Configurable Middlewares
+description: "Create reusable, configurable middlewares that accept options for flexible behavior."
 position: 2
 ---
 
@@ -29,7 +30,7 @@ const customMiddleware = (opts) => {
   }
 
   const customMiddlewareOnError = async (request) => {
-    if (request.response === undefined) return
+    if (typeof request.response === 'undefined') return
     await customMiddlewareAfter(request)
   }
 

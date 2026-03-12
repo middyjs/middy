@@ -1,9 +1,10 @@
 ---
 title: Alexa
+description: "Use Middy with Alexa Skills Kit Lambda triggers for voice application development."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

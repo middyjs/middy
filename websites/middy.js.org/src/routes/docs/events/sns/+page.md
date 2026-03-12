@@ -1,9 +1,10 @@
 ---
 title: SNS
+description: "Use Middy with SNS subscription Lambda trigger events for notifications."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

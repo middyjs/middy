@@ -1,9 +1,10 @@
 ---
 title: Internet of things (IoT)
+description: "Use Middy with AWS IoT rule Lambda action events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

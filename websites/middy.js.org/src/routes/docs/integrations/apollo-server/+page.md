@@ -1,9 +1,10 @@
 ---
 title: Apollo Server
+description: "Use Middy with Apollo Server for GraphQL API Lambda handlers."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

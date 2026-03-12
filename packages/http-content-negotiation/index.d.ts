@@ -32,6 +32,6 @@ export type Context = LambdaContext & {
 
 declare function httpContentNegotiation(
 	options?: Options,
-): middy.MiddlewareObj<unknown, unknown, Error, Context>;
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
 export default httpContentNegotiation;

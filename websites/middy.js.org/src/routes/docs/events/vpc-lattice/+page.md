@@ -1,9 +1,10 @@
 ---
 title: VPC Lattice
+description: "Use Middy with VPC Lattice Lambda target events for service networking."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

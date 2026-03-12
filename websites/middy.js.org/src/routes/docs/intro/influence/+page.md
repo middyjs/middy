@@ -1,5 +1,6 @@
 ---
 title: Influence
+description: "Projects inspired by Middy that bring the middleware pattern to other ecosystems."
 ---
 
 Middy has been one of the first projects to encourage the adoption of middlewares to simplify code reuse and best practices within the context of Lambda.

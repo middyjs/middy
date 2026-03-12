@@ -21,7 +21,7 @@
   <a href="https://biomejs.dev"><img alt="Checked with Biome" src="https://img.shields.io/badge/Checked_with-Biome-60a5fa?style=flat&logo=biome"></a>
   <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white"></a>
   <a href="https://github.com/middyjs/middy/blob/main/package.json#L32">
-  <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-99%25-brightgreen"></a>
+  <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-100%25-brightgreen"></a>
   <br/>
   <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
   <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
@@ -31,13 +31,9 @@
 
 ## Sponsors
 
-<a href="https://fourtheorem.com"><img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/website/static/img/logo/fourtheorem.svg" style="max-width:50%" width="380"/></a>
-<a href="https://github.com/aws"><img alt="Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)" src="https://raw.githubusercontent.com/middyjs/middy/main/website/static/img/logo/amazon-web-services.svg" style="max-width:50%" width="380"/></a>
+<a href="https://fourtheorem.com"><img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/logo/fourtheorem.svg" style="max-width:50%" width="380"/></a>
+<a href="https://github.com/aws"><img alt="Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/logo/amazon-web-services.svg" style="max-width:50%" width="380"/></a>
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2025 [Luciano Mammino](https://github.com/lmammino), [will Farrell](https://github.com/willfarrell) and the [Middy team](https://github.com/middyjs/middy/graphs/contributors).
-
-<a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy?ref=badge_large">
-  <img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fmiddyjs%2Fmiddy.svg?type=large" alt="FOSSA Status"  style="max-width:100%;">
-</a>
+Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino),  and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).

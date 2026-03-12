@@ -1,5 +1,6 @@
 ---
 title: event-normalizer
+description: "Normalize nested AWS event records by parsing and standardizing event data structures."
 ---
 
 Middleware for iterating through an AWS event records, parsing and normalizing nested events.

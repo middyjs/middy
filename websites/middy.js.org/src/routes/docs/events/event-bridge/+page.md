@@ -1,9 +1,10 @@
 ---
 title: EventBridge
+description: "Use Middy with Amazon EventBridge rule Lambda target events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

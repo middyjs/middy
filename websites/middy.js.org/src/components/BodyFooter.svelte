@@ -1,7 +1,7 @@
 <script>
-import BodyFooter from "@design-system/svelte/BodyFooter.svelte";
-import A from "@design-system/svelte/element/a.svelte";
-import Image from "@design-system/svelte/Image.svelte";
+import BodyFooter from "@design-system/components/BodyFooter.svelte";
+import Image from "@design-system/components/Image.svelte";
+import A from "@design-system/elements/a.svelte";
 import { page } from "$app/state";
 
 const { children } = $props();
@@ -12,7 +12,7 @@ const navLinks = {
 		Documentation: "/docs",
 		Middlewares: "/docs/middlewares/intro",
 		"AWS Events": "/docs/events/intro",
-		LLMs: "/llms.txt",
+		"LLMs (Large Language Models)": "/llms.txt",
 	},
 	"Community & support": {
 		GitHub: "https://github.com/middyjs/middy",
@@ -35,7 +35,7 @@ const navLinks = {
         <A href="/">
           <Image
             src="/img/middy-logo.svg"
-            alt="Home"
+            alt="Middy logo, to the homepage"
             width="160"
 			height="180"
           />

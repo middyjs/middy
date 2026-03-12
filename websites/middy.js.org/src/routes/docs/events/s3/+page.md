@@ -1,9 +1,10 @@
 ---
 title: S3
+description: "Use Middy with S3 notification Lambda trigger events for object processing."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

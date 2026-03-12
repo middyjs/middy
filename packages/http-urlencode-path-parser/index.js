@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { createError } from "@middy/util";
 
-const httpUrlencodePathParserMiddlewareBefore = async (request) => {
+const httpUrlencodePathParserMiddlewareBefore = (request) => {
 	if (!request.event.pathParameters) return;
 	for (const key of Object.keys(request.event.pathParameters)) {
 		try {

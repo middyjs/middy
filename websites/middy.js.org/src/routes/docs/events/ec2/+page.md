@@ -1,9 +1,10 @@
 ---
 title: EC2
+description: "Use Middy with EC2 lifecycle hook and state change Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

@@ -1,9 +1,10 @@
 ---
 title: AWS Relational Database Service (RDS)
+description: "Connect to AWS RDS from Lambda using Middy with IAM authentication and connection pooling."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

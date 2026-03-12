@@ -1,9 +1,10 @@
 ---
 title: Connect
+description: "Use Middy with Amazon Connect contact flow Lambda events."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 

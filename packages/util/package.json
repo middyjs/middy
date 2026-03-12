@@ -1,6 +1,6 @@
 {
 	"name": "@middy/util",
-	"version": "7.1.2",
+	"version": "7.1.4",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
 	"type": "module",
 	"engines": {
@@ -60,7 +60,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-ssm": "^3.0.0",
-		"@middy/core": "7.1.2",
+		"@middy/core": "7.1.4",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.3.3"
@@ -69,6 +69,5 @@
 	"funding": {
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
-	},
-	"gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	}
 }

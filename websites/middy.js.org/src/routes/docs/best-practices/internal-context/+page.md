@@ -1,5 +1,6 @@
 ---
 title: Internal Context
+description: "Store and resolve async values between middlewares using Middy internal context."
 ---
 
 Middy is built to be async even at it's core. Middlewares can set promises to `internal`.

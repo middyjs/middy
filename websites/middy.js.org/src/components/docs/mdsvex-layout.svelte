@@ -1,22 +1,21 @@
 <script>
-import A from "@design-system/svelte/element/a.svelte";
-import Header from "@design-system/svelte/element/header.svelte";
-import Hgroup from "@design-system/svelte/element/hgroup.svelte";
-import Li from "@design-system/svelte/element/li.svelte";
-import Ol from "@design-system/svelte/element/ol.svelte";
-import Section from "@design-system/svelte/element/section.svelte";
-import H1 from "@design-system/svelte/Heading1.svelte";
-import H2 from "@design-system/svelte/Heading2.svelte";
-import LayoutAside from "@design-system/svelte/LayoutAside.svelte";
-import LayoutTableOfContents from "@design-system/svelte/LayoutTableOfContents.svelte";
-import NavScrollspy from "@design-system/svelte/NavScrollspy.svelte";
+import H1 from "@design-system/components/Heading1.svelte";
+import LayoutAside from "@design-system/components/LayoutAside.svelte";
+import LayoutTableOfContents from "@design-system/components/LayoutTableOfContents.svelte";
+import NavScrollspy from "@design-system/components/NavScrollspy.svelte";
+import A from "@design-system/elements/a.svelte";
+import Hgroup from "@design-system/elements/hgroup.svelte";
+import Li from "@design-system/elements/li.svelte";
+import Ol from "@design-system/elements/ol.svelte";
 import AsideNav from "./AsideNav.svelte";
 
-const { title = "Documentation", headings = [], children } = $props();
+const { title = "Documentation", description = "", headings = [], children } = $props();
 </script>
 <svelte:head>
 	<title>{title} | Middy.js</title>
-	<!-- <meta name="description" content="" /> -->
+	{#if description}
+		<meta name="description" content={description} />
+	{/if}
 </svelte:head>
 <LayoutAside>
     {#snippet aside()}
@@ -30,16 +29,13 @@ const { title = "Documentation", headings = [], children } = $props();
     {/snippet}
     {#snippet aside()}
 		<NavScrollspy>
-			<Section>
-				<Header><H2>On this page</H2></Header>
-				<Ol>
-					{#if headings.length > 0}
-						{#each headings as heading}
-							<Li><A href="#{heading.id}">{heading.text}</A></Li>
-						{/each}
-					{/if}
-				</Ol>
-			</Section>
+			<Ol>
+				{#if headings.length > 0}
+					{#each headings as heading}
+						<Li><A href="#{heading.id}">{heading.text}</A></Li>
+					{/each}
+				{/if}
+			</Ol>
 		</NavScrollspy>
     {/snippet}
 	{@render children?.()}

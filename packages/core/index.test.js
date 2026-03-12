@@ -880,6 +880,34 @@ test("Should not invoke timeoutEarlyResponse on success", async (t) => {
 	ok(!timeoutCalled);
 });
 
+test("Should handle handler without timeout (no getRemainingTimeInMillis)", async (t) => {
+	const handler = middy(() => {
+		return "response";
+	});
+
+	const response = await handler(defaultEvent, {});
+	strictEqual(response, "response");
+});
+
+test("Should use lambdaContext.getRemainingTimeInMillis as fallback", async (t) => {
+	const plugin = {
+		timeoutEarlyInMillis: 1,
+		timeoutEarlyResponse: () => true,
+	};
+	const context = {
+		lambdaContext: {
+			getRemainingTimeInMillis: () => 100,
+		},
+	};
+
+	const handler = middy(async () => {
+		return "response";
+	}, plugin);
+
+	const response = await handler(defaultEvent, context);
+	strictEqual(response, "response");
+});
+
 test("Should use default timeoutEarlyResponse when timeout expires", async (t) => {
 	t.mock.timers.reset();
 	const context = {

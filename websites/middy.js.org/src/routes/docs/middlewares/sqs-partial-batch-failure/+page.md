@@ -1,5 +1,6 @@
 ---
 title: sqs-partial-batch-failure
+description: "Handle partially failed SQS batch processing with automatic failure reporting."
 ---
 
 Middleware for handling partially failed SQS batches.
@@ -42,6 +43,7 @@ With TypeScript:
 ```typescript
 import middy from '@middy/core'
 import sqsBatch from '@middy/sqs-partial-batch-failure'
+import type { SQSEvent } from 'aws-lambda'
 
 const lambdaHandler = async (event: SQSEvent): Promise<PromiseSettledResult<unknown>[]> => {
     return Promise.allSettled(

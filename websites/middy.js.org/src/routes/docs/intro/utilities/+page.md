@@ -1,9 +1,10 @@
 ---
 title: Utilities
+description: "Explore Middy utility functions for internal storage, caching, and middleware development."
 ---
 
 <script>
-import Callout from '@design-system/svelte/Callout.svelte'
+import Callout from '@design-system/components/Callout.svelte'
 </script>
 
 
