@@ -5,7 +5,7 @@ import type middy from "@middy/core";
 export interface SerializerHandler {
 	regex: RegExp;
 	serializer: (
-		response: unknown,
+		response: any,
 	) => string | { body: string; [key: string]: unknown };
 }
 

@@ -20,6 +20,19 @@ test("use with all options", () => {
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
+test("serializer with destructured response", () => {
+	const middleware = httpResponseSerializer({
+		serializers: [
+			{
+				regex: /^application\/json$/,
+				serializer: ({ body }) => JSON.stringify(body),
+			},
+		],
+		defaultContentType: "application/json",
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
 test("SerializerHandler type is exported", () => {
 	const handler: SerializerHandler = {
 		regex: /^application\/json$/,
