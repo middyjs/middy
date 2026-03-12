@@ -1,5 +1,6 @@
 ---
 title: sts
+description: "Assume IAM roles and fetch STS credentials for cross-account access in Lambda."
 ---
 
 Fetches STS credentials to be used when connecting to other AWS services.

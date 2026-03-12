@@ -1,5 +1,6 @@
 ---
 title: CloudFront Lambda@Edge
+description: "Use Middy with CloudFront Lambda@Edge events for edge computing."
 ---
 
 <script>

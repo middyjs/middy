@@ -1,5 +1,6 @@
 ---
 title: Secrets Manager
+description: "Use Middy with Secrets Manager rotation Lambda events."
 ---
 
 <script>

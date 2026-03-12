@@ -1,5 +1,6 @@
 ---
 title: RDS
+description: "Use Middy with RDS Proxy and Aurora Lambda events."
 ---
 
 <script>

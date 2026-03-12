@@ -1,5 +1,6 @@
 ---
 title: S3
+description: "Use Middy with S3 notification Lambda trigger events for object processing."
 ---
 
 <script>

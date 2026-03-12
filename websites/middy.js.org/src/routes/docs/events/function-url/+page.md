@@ -1,5 +1,6 @@
 ---
 title: Function URL
+description: "Use Middy with Lambda Function URL events, including response streaming."
 ---
 
 Same as API Gateway (HTTP), but with support for response streams.

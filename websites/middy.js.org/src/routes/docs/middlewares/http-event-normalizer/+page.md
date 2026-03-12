@@ -1,5 +1,6 @@
 ---
 title: http-event-normalizer
+description: "Normalize API Gateway and ALB events to ensure query string and path parameters are always objects."
 ---
 
 If you need to access the query string or path parameters in an API Gateway event you

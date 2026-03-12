@@ -1,5 +1,6 @@
 ---
 title: CodePipeline
+description: "Use Middy with CodePipeline Lambda action events for CI/CD pipelines."
 ---
 
 <script>

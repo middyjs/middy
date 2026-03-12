@@ -1,5 +1,6 @@
 ---
 title: Upgrade 2.x -> 3.x
+description: "Migrate from Middy 2.x to 3.x with ESM support, routers, and improved error handling."
 ---
 
 aka "The onError Reversal Update"

@@ -1,5 +1,6 @@
 ---
 title: Upgrade 0.x -> 1.x
+description: "Migrate from Middy 0.x to 1.x with independent packages and stable API."
 ---
 
 aka "The It's Stable Update"

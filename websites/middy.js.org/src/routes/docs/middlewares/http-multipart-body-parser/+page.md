@@ -1,5 +1,6 @@
 ---
 title: http-multipart-body-parser
+description: "Parse multipart/form-data HTTP request bodies for file uploads in Lambda."
 ---
 
 Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an

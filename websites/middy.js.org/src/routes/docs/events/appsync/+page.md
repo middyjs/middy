@@ -1,5 +1,6 @@
 ---
 title: AppSync
+description: "Use Middy with AWS AppSync GraphQL resolver Lambda events."
 ---
 
 <script>

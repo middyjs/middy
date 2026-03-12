@@ -1,5 +1,6 @@
 ---
 title: WorkMail
+description: "Use Middy with Amazon WorkMail Lambda events for email flow rules."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: Configurable Middlewares
+description: "Create reusable, configurable middlewares that accept options for flexible behavior."
 position: 2
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: 'input-output-logger'
+description: "Log incoming Lambda events and outgoing responses with customizable loggers."
 ---
 
 Logs the incoming request (input) and the response (output).

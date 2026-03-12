@@ -1,5 +1,6 @@
 ---
 title: S3 Batch
+description: "Use Middy with S3 Batch Operations Lambda events for bulk processing."
 ---
 
 <script>

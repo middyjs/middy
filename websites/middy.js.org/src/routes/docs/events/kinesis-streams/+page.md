@@ -1,5 +1,6 @@
 ---
 title: Kinesis Streams
+description: "Use Middy with Kinesis Data Streams Lambda trigger events."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: Handle Timeouts
+description: "Handle Lambda timeouts gracefully using Middy AbortController signals."
 position: 5
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: secrets-manager
+description: "Fetch and cache AWS Secrets Manager secrets in your Lambda handler context."
 ---
 
 This middleware fetches secrets from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html).

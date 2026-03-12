@@ -1,5 +1,6 @@
 ---
 title: Third-party middlewares
+description: "Community-maintained Middy middlewares for logging, validation, idempotency, and more."
 ---
 
 The following middlewares are created and maintained outside this project. We cannot guarantee for its functionality.

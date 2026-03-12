@@ -1,5 +1,6 @@
 ---
 title: Upgrade 5.x -> 6.x
+description: "Migrate from Middy 5.x to 6.x with CJS compatibility via experimental-require-module."
 ---
 
 aka "The return of CJS, kinda"

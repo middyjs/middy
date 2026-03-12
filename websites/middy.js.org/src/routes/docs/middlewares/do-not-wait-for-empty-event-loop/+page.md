@@ -1,5 +1,6 @@
 ---
 title: do-not-wait-for-empty-event-loop
+description: "Prevent Lambda timeouts from open connections by setting callbackWaitsForEmptyEventLoop to false."
 ---
 
 This middleware sets `context.callbackWaitsForEmptyEventLoop` property to `false`.

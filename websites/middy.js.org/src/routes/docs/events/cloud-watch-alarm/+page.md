@@ -1,5 +1,6 @@
 ---
 title: CloudWatch Alarm
+description: "Use Middy with CloudWatch Alarm Lambda events for automated alerting."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: s3-object-response
+description: "Fetch S3 objects as streams and write back transformed S3 Object Lambda responses."
 ---
 
 ** This middleware is a Proof of Concept and requires real world testing before use, not recommended for production **

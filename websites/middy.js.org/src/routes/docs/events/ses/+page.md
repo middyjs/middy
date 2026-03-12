@@ -1,5 +1,6 @@
 ---
 title: SES
+description: "Use Middy with SES receipt rule Lambda events for email processing."
 ---
 
 <script>

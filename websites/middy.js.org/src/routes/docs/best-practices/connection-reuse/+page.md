@@ -1,5 +1,6 @@
 ---
 title: Connection reuse
+description: "Reuse TCP connections to AWS services with keep-alive for better Lambda performance."
 ---
 
 Be sure to set the following environment variable when connecting to AWS services:

@@ -1,5 +1,6 @@
 ---
 title: Small node_modules
+description: "Reduce Lambda package size by cleaning unnecessary files from node_modules."
 ---
 
 Using a bundler is the optimal solution, but can be complex depending on your setup.

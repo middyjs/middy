@@ -1,5 +1,6 @@
 ---
 title: Utilities
+description: "Explore Middy utility functions for internal storage, caching, and middleware development."
 ---
 
 <script>

@@ -413,6 +413,27 @@ test("It should skip override encodings not in preferredEncodings", async (t) =>
 	});
 });
 
+test("It should encode Buffer body", async (t) => {
+	const body = Buffer.from(compressibleBody);
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		httpContentEncoding(),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "gzip",
+	});
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: gzipSync(body).toString("base64"),
+		headers: { "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
 test("It should not encode when compressed body is larger than original", async (t) => {
 	// Very short body - compression overhead makes it larger
 	const body = "x";
@@ -465,6 +486,31 @@ test("It should append no-transform when event has Cache-Control: no-transform a
 	deepStrictEqual(response, {
 		statusCode: 200,
 		headers: { "Cache-Control": "max-age=3600, no-transform" },
+		body: "body",
+	});
+});
+
+test("It should handle lowercase cache-control in event headers", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body: "body",
+	}));
+	handler.use(httpContentEncoding());
+
+	const event = {
+		headers: {
+			"cache-control": "no-transform",
+		},
+	};
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "br",
+	});
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: { "Cache-Control": "no-transform" },
 		body: "body",
 	});
 });

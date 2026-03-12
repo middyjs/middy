@@ -1,5 +1,6 @@
 ---
 title: Application Load Balancer
+description: "Use Middy with Application Load Balancer Lambda target group events."
 ---
 
 <script>

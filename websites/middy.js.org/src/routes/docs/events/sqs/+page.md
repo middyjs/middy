@@ -1,5 +1,6 @@
 ---
 title: SQS
+description: "Use Middy with SQS Lambda trigger events for queue message processing."
 ---
 
 <script>

@@ -9,11 +9,13 @@ import Li from "@design-system/elements/li.svelte";
 import Ol from "@design-system/elements/ol.svelte";
 import AsideNav from "./AsideNav.svelte";
 
-const { title = "Documentation", headings = [], children } = $props();
+const { title = "Documentation", description = "", headings = [], children } = $props();
 </script>
 <svelte:head>
 	<title>{title} | Middy.js</title>
-	<!-- <meta name="description" content="" /> -->
+	{#if description}
+		<meta name="description" content={description} />
+	{/if}
 </svelte:head>
 <LayoutAside>
     {#snippet aside()}

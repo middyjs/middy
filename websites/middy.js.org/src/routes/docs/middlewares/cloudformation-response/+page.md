@@ -1,5 +1,6 @@
 ---
 title: cloudformation-response
+description: "Manage CloudFormation Custom Resource responses automatically with Middy."
 ---
 
 Manage CloudFormation Custom Resource responses.

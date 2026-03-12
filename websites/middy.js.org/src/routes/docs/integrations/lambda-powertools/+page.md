@@ -1,5 +1,6 @@
 ---
 title: Powertools for AWS Lambda
+description: "Use Middy with Powertools for AWS Lambda for logging, tracing, and metrics."
 ---
 
 Powertools for AWS is a developer toolkit to implement Serverless [best practices and increase developer velocity](https://s12d.com/middy-intro).

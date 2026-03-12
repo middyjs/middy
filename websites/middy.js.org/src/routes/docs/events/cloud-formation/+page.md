@@ -1,5 +1,6 @@
 ---
 title: CloudFormation
+description: "Use Middy with CloudFormation Custom Resource Lambda events."
 ---
 
 <script>

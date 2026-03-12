@@ -1,5 +1,6 @@
 ---
 title: http-urlencode-path-parser
+description: "Decode URL-encoded path parameters automatically in API Gateway Lambda handlers."
 ---
 
 This middleware automatically parses HTTP requests with URL-encoded paths. This can happen when using path variables (ie `/{name}/`) for an endpoint and the UI `encodeURIComponent` the values before making the request.

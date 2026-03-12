@@ -1,5 +1,6 @@
 ---
 title: ws-json-body-parser
+description: "Parse WebSocket request bodies as JSON automatically in API Gateway WebSocket handlers."
 ---
 
 This middleware automatically parses WebSocket requests with a JSON body and converts the body into an

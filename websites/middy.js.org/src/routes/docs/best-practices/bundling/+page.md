@@ -1,5 +1,6 @@
 ---
 title: Bundling Lambda packages
+description: "Bundle AWS SDK and dependencies with your Lambda for faster cold starts and reliability."
 ---
 
 <script>

@@ -1,5 +1,6 @@
 ---
 title: VPC Lattice
+description: "Use Middy with VPC Lattice Lambda target events for service networking."
 ---
 
 <script>

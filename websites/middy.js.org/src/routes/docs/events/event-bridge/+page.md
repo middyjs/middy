@@ -1,5 +1,6 @@
 ---
 title: EventBridge
+description: "Use Middy with Amazon EventBridge rule Lambda target events."
 ---
 
 <script>

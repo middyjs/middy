@@ -1,5 +1,6 @@
 ---
 title: Testing
+description: "Test Middy-wrapped Lambda handlers with abort signals and timeout handling."
 position: 5
 ---
 

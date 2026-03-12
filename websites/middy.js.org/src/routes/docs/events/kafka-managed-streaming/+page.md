@@ -1,5 +1,6 @@
 ---
 title: Kafka, Managed Streaming (MSK)
+description: "Use Middy with Amazon MSK (Managed Streaming for Kafka) Lambda events."
 ---
 
 <script>

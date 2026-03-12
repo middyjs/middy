@@ -1,5 +1,6 @@
 ---
 title: FAQ
+description: "Frequently asked questions about Middy, including timeout troubleshooting and common issues."
 ---
 
 ### My lambda keep timing out without responding, what do I do?

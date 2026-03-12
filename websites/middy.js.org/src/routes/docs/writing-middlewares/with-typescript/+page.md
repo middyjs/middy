@@ -1,5 +1,6 @@
 ---
 title: With TypeScript
+description: "Write type-safe custom Middy middlewares using TypeScript with full type inference."
 position: 7
 ---
 

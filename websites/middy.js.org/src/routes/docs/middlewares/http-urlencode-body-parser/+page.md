@@ -1,5 +1,6 @@
 ---
 title: http-urlencode-body-parser
+description: "Parse URL-encoded HTTP request bodies from form submissions in Lambda."
 ---
 
 This middleware automatically parses HTTP requests with URL-encoded body (typically the result

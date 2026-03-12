@@ -1,5 +1,6 @@
 ---
 title: s3
+description: "Fetch and cache S3 stored configuration as JSON in your Lambda with Middy."
 ---
 
 Fetches S3 stored configuration and parses out JSON.

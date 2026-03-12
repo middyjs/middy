@@ -1,5 +1,6 @@
 ---
 title: Upgrade 1.x -> 2.x
+description: "Migrate from Middy 1.x to 2.x with async/await support and removed callbacks."
 ---
 
 aka "The async/await Update"

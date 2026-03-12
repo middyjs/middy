@@ -1,5 +1,6 @@
 ---
 title: EC2
+description: "Use Middy with EC2 lifecycle hook and state change Lambda events."
 ---
 
 <script>

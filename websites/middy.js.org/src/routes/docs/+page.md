@@ -1,5 +1,6 @@
 ---
 title: Introduction
+description: "Learn what Middy is and how this middleware engine simplifies AWS Lambda development with Node.js."
 slug: /
 ---
 

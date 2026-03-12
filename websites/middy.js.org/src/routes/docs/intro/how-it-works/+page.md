@@ -1,5 +1,6 @@
 ---
 title: How it works
+description: "Understand how Middy implements the onion-like middleware pattern for AWS Lambda handlers."
 position: 3
 ---
 

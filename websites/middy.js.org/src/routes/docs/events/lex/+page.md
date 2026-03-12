@@ -1,5 +1,6 @@
 ---
 title: Lex
+description: "Use Middy with Amazon Lex fulfillment Lambda events for chatbots."
 ---
 
 <script>

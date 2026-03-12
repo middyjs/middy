@@ -1,5 +1,6 @@
 ---
 title: API Gateway (HTTP)
+description: "Use Middy with API Gateway HTTP API (v2) events for building REST APIs."
 ---
 
 <script>

@@ -1,7 +1,7 @@
 <script>
 import Card from "@design-system/components/Card.svelte";
 import H1 from "@design-system/components/Heading1.svelte";
-import H3 from "@design-system/components/Heading3.svelte";
+import H2 from "@design-system/components/Heading2.svelte";
 import LayoutCenter from "@design-system/components/LayoutCenter.svelte";
 import A from "@design-system/elements/a.svelte";
 import Li from "@design-system/elements/li.svelte";
@@ -17,7 +17,7 @@ const { results } = data;
 
 <svelte:head>
     <title>Search | Middy.js</title>
-    <!-- <meta name="description" content="" /> -->
+    <meta name="description" content="Search the Middy.js documentation for middlewares, events, and guides." />
 </svelte:head>
 <LayoutCenter>
     <Section>
@@ -26,10 +26,10 @@ const { results } = data;
             <Ul class="grid">
                 {#each results as card}
                     <Card id={card.id}>
-                        <H3
+                        <H2
                             ><A href={card.href} aria-describedby={card.id}
                                 >{card.title}</A
-                            ></H3
+                            ></H2
                         >
                         {#if card.description}
                             <P>{@html card.description}</P>

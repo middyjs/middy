@@ -1,5 +1,6 @@
 ---
 title: Custom Middlewares
+description: "Write custom Middy middlewares with before, after, and onError lifecycle phases."
 position: 1
 ---
 

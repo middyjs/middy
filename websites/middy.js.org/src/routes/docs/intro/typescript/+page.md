@@ -1,5 +1,6 @@
 ---
 title: Use with TypeScript
+description: "Use Middy with TypeScript, including built-in typings and AWS Lambda event types."
 position: 6
 ---
 

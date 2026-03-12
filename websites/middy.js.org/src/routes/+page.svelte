@@ -269,7 +269,6 @@ export const handler = middy(lambdaHandler)
         </Div>
         <Ul class="grid">
             <Card
-                href="/docs/events/api-gateway-http"
                 class="event"
                 id="api-gateway-http"
             >
@@ -281,7 +280,6 @@ export const handler = middy(lambdaHandler)
                 <P>Build APIs with API Gateway v2.</P>
             </Card>
             <Card
-                href="/docs/events/api-gateway-rest"
                 class="event"
                 id="api-gateway-rest"
             >
@@ -293,7 +291,6 @@ export const handler = middy(lambdaHandler)
                 <P>Classic REST API integration with API Gateway v1.</P>
             </Card>
             <Card
-                href="/docs/events/api-gateway-ws"
                 class="event"
                 id="api-gateway-ws"
             >
@@ -305,14 +302,13 @@ export const handler = middy(lambdaHandler)
                 <P>Real-time bi-directional communication via WebSockets.</P>
             </Card>
             <Card
-                href="/docs/events/function-url"
                 class="event"
                 id="function-url"
             >
                 <H3><A href="/docs/events/function-url">Function URL</A></H3>
                 <P>Build APIs with API Gateway v2.</P>
             </Card>
-            <Card href="/docs/events/sqs" class="event" id="sqs">
+            <Card class="event" id="sqs">
                 <H3><A href="/docs/events/sqs">SQS</A></H3>
                 <P>Process messages from SQS queues reliably.</P>
             </Card>
