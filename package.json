@@ -10,7 +10,6 @@
 	"engineStrict": true,
 	"scripts": {
 		"prepare": "husky",
-		"preinstall": "npm link --workspaces",
 		"git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
 		"git:commit-msg": "commitlint --config commitlint.config.cjs --edit",
 		"git:lint-staged": "npm run test:lint",
@@ -42,7 +41,7 @@
 		"audit": "npm audit fix --workspaces",
 		"release:license:add": "license-check-and-add add -f license.json",
 		"release:license:remove": "license-check-and-add remove -f license.json",
-		"release:sync": "npm version $npm_package_version --workspaces && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run lint",
+		"release:sync": "npm version $npm_package_version --workspaces; find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm link --workspaces && npm install && npm run lint",
 		"release:tag": "git tag $npm_package_version"
 	},
 	"repository": {
@@ -83,8 +82,7 @@
 			"cookie": "0.7.2"
 		},
 		"license-check-and-add": {
-			"globby": "14.1.0",
-			"minimatch": "10.2.2"
+			"minimatch": "^10.2.4"
 		}
 	},
 	"devEngines": {
