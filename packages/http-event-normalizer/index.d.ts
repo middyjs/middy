@@ -6,6 +6,7 @@ import type {
 	APIGatewayProxyEventMultiValueQueryStringParameters,
 	APIGatewayProxyEventPathParameters,
 	APIGatewayProxyEventQueryStringParameters,
+	APIGatewayProxyEventV2,
 } from "aws-lambda";
 
 // TODO: Import from 'aws-lambda' when @types/aws-lambda adds VPC Lattice types
@@ -22,16 +23,24 @@ export interface VPCLatticeEvent {
 	queryStringParameters: APIGatewayProxyEventQueryStringParameters;
 }
 
-export type Event = APIGatewayEvent & {
-	multiValueQueryStringParameters: APIGatewayProxyEventMultiValueQueryStringParameters;
-	pathParameters: APIGatewayProxyEventPathParameters;
-	queryStringParameters: APIGatewayProxyEventQueryStringParameters;
-};
+export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2;
 
-declare function httpEventNormalizer(): middy.MiddlewareObj<
-	Event,
-	unknown,
-	Error
->;
+export type Event<T extends RequestEvent = RequestEvent> =
+	T extends APIGatewayEvent
+		? APIGatewayEvent & {
+				multiValueQueryStringParameters: APIGatewayProxyEventMultiValueQueryStringParameters;
+				pathParameters: APIGatewayProxyEventPathParameters;
+				queryStringParameters: APIGatewayProxyEventQueryStringParameters;
+			}
+		: T extends APIGatewayProxyEventV2
+			? APIGatewayProxyEventV2 & {
+					pathParameters: Record<string, string>;
+					queryStringParameters: Record<string, string>;
+				}
+			: never;
+
+declare function httpEventNormalizer<
+	EventType extends RequestEvent = RequestEvent,
+>(): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
 
 export default httpEventNormalizer;
