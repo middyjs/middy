@@ -1,6 +1,6 @@
 {
 	"name": "@middy/service-discovery",
-	"version": "7.1.5",
+	"version": "7.1.6",
 	"description": "Service Discovery (Cloud Map) instances middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -73,11 +73,11 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.1.5"
+		"@middy/util": "7.1.6"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-servicediscovery": "^3.0.0",
-		"@middy/core": "7.1.5",
+		"@middy/core": "7.1.6",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.3.3"

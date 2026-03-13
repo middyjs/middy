@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-partial-response",
-	"version": "7.1.5",
+	"version": "7.1.6",
 	"description": "HTTP partial response middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -66,11 +66,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.1.5",
+		"@middy/util": "7.1.6",
 		"json-mask": "2.0.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.5",
+		"@middy/core": "7.1.6",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}
