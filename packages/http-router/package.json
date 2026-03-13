@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-router",
-	"version": "7.1.5",
+	"version": "7.1.6",
 	"description": "HTTP event router for the middy framework",
 	"type": "module",
 	"engines": {
@@ -65,10 +65,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.1.5"
+		"@middy/util": "7.1.6"
 	},
 	"devDependencies": {
-		"@middy/core": "7.1.5",
+		"@middy/core": "7.1.6",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

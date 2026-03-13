@@ -22,7 +22,6 @@ export default defineConfig({
 	plugins: [
 		sveltekit(),
 		mkcert({ mkcertPath: "/opt/homebrew/bin/mkcert" }),
-		//sriServerSideRendered(),
 		sriPrerendered(),
 		//llms(),
 		sitemap({ hostname: "https://middy.js.org", outDir: sitemapOutDir }),
@@ -30,7 +29,7 @@ export default defineConfig({
 	build: {
 		assetsInlineLimit: 0,
 	},
-	customLogger: logger,
+	// customLogger: logger,
 	ssr: {
 		// Required for codeblock SSR
 		noExternal: ["prismjs"],

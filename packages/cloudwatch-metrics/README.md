@@ -23,9 +23,6 @@
     <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white"></a>
     <a href="https://github.com/middyjs/middy/blob/main/package.json#L32">
     <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-95%25-brightgreen"></a>
-    <br/>
-    <a href="https://gitter.im/middyjs/Lobby"><img src="https://badges.gitter.im/gitterHQ/gitter.svg" alt="Chat on Gitter" style="max-width:100%;"></a>
-    <a href="https://stackoverflow.com/questions/tagged/middy?sort=Newest&uqlId=35052"><img src="https://img.shields.io/badge/StackOverflow-[middy]-yellow" alt="Ask questions on StackOverflow" style="max-width:100%;"></a>
 </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/cloudwatch-metrics">https://middy.js.org/docs/middlewares/cloudwatch-metrics</a></p>
 </div>
