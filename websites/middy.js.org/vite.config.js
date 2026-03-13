@@ -22,7 +22,6 @@ export default defineConfig({
 	plugins: [
 		sveltekit(),
 		mkcert({ mkcertPath: "/opt/homebrew/bin/mkcert" }),
-		//sriServerSideRendered(),
 		sriPrerendered(),
 		//llms(),
 		sitemap({ hostname: "https://middy.js.org", outDir: sitemapOutDir }),
