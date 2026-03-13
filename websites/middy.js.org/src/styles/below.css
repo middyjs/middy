@@ -1,7 +1,6 @@
 @import "@willfarrell-ds/vanilla/elements/blockquote.css";
 @import "@willfarrell-ds/vanilla/elements/code.css";
 @import "@willfarrell-ds/vanilla/elements/details.css";
-@import "@willfarrell-ds/vanilla/elements/fieldset.css";
 @import "@willfarrell-ds/vanilla/elements/form.css";
 @import "@willfarrell-ds/vanilla/elements/h2.css";
 @import "@willfarrell-ds/vanilla/elements/h3.css";
@@ -16,7 +15,6 @@
 @import "@willfarrell-ds/vanilla/elements/s.css";
 @import "@willfarrell-ds/vanilla/elements/select.css";
 @import "@willfarrell-ds/vanilla/elements/table.css";
-@import "@willfarrell-ds/vanilla/elements/textarea.css";
 @import "@willfarrell-ds/vanilla/classes/li.card.css";
 @import "@willfarrell-ds/vanilla/classes/select.chevron.css";
 @import "@willfarrell-ds/vanilla/classes/.grid.css";
