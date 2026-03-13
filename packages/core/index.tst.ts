@@ -564,6 +564,21 @@ middy<unknown, string>()
 const s3MiddyHandler = middy().handler(s3Handler);
 expect(s3MiddyHandler).type.toBe<middy.MiddyfiedHandler<unknown, any>>();
 
+// Issue #1594 Backwards compatibility: middleware using null for response/error
+const nullResponseMiddleware: middy.MiddlewareObj<
+	APIGatewayProxyEvent,
+	APIGatewayProxyResult,
+	Error
+> = {
+	after: (request) => {
+		request.response = null;
+	},
+	onError: (request) => {
+		request.error = null;
+	},
+};
+handler = handler.use(nullResponseMiddleware);
+
 // Issue #1289 .use() does not intersect Typescript types appropriately for an array of middleware
 const middleware1 = { before: (req: middy.Request<{ foo: string }>) => {} };
 const middleware2 = { before: (req: middy.Request<{ bar: string }>) => {} };
