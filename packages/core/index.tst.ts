@@ -579,6 +579,48 @@ const nullResponseMiddleware: middy.MiddlewareObj<
 };
 handler = handler.use(nullResponseMiddleware);
 
+// Issue #1594 Third-party middleware (e.g. Powertools) with own Request type using null (not undefined)
+// Simulates @aws-lambda-powertools/commons MiddlewareLikeObj
+type ThirdPartyRequest<
+	TEvent = unknown,
+	TResult = unknown,
+	TErr = Error,
+	TContext extends Context = Context,
+> = {
+	event: TEvent;
+	context: TContext;
+	response: TResult | null;
+	error: TErr | null;
+	internal: { [key: string]: unknown };
+};
+type ThirdPartyMiddlewareFn<
+	TEvent = unknown,
+	TResult = unknown,
+	TErr = Error,
+	TContext extends Context = Context,
+> = (request: ThirdPartyRequest<TEvent, TResult, TErr, TContext>) => unknown;
+type ThirdPartyMiddlewareLikeObj<
+	TEvent = unknown,
+	TResult = unknown,
+	TErr = Error,
+	TContext extends Context = Context,
+> = {
+	before?: ThirdPartyMiddlewareFn<TEvent, TResult, TErr, TContext>;
+	after?: ThirdPartyMiddlewareFn<TEvent, TResult, TErr, TContext>;
+	onError?: ThirdPartyMiddlewareFn<TEvent, TResult, TErr, TContext>;
+};
+const thirdPartyMiddleware: ThirdPartyMiddlewareLikeObj = {
+	before: (request) => {
+		console.log("Third party before", request.event);
+	},
+};
+// Verify .use() return type is not never (never is assignable to any type, so test directly)
+expect(handler.use(thirdPartyMiddleware)).type.toBeAssignableTo<Handler>();
+expect(handler.use([thirdPartyMiddleware])).type.toBeAssignableTo<Handler>();
+// Also verify assignment works (the actual user scenario)
+handler = handler.use(thirdPartyMiddleware);
+handler = handler.use([thirdPartyMiddleware]);
+
 // Issue #1289 .use() does not intersect Typescript types appropriately for an array of middleware
 const middleware1 = { before: (req: middy.Request<{ foo: string }>) => {} };
 const middleware2 = { before: (req: middy.Request<{ bar: string }>) => {} };
