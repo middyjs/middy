@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.1.6",
+	"version": "7.1.7",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -87,6 +87,9 @@
 		},
 		"license-check-and-add": {
 			"minimatch": "^10.2.4"
+		},
+		"wrangler": {
+			"undici": "$undici"
 		}
 	},
 	"devEngines": {

@@ -13,6 +13,7 @@ const defaultEvent = {
 };
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
+	logStreamName: "2026/03/14/[$LATEST]abcdef1234567890",
 };
 
 test("It should return SUCCESS when empty response", async (t) => {
@@ -27,6 +28,7 @@ test("It should return SUCCESS when empty response", async (t) => {
 		RequestId: "RequestId",
 		LogicalResourceId: "LogicalResourceId",
 		StackId: "StackId",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
 	});
 });
 
@@ -44,6 +46,7 @@ test("It should return SUCCESS when empty object", async (t) => {
 		RequestId: "RequestId",
 		LogicalResourceId: "LogicalResourceId",
 		StackId: "StackId",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
 	});
 });
 
@@ -62,6 +65,7 @@ test("It should return FAILURE when error thrown", async (t) => {
 		RequestId: "RequestId",
 		LogicalResourceId: "LogicalResourceId",
 		StackId: "StackId",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
 	});
 });
 
@@ -84,5 +88,6 @@ test("It should not override response values", async (t) => {
 		RequestId: "RequestId*",
 		LogicalResourceId: "LogicalResourceId*",
 		StackId: "StackId*",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
 	});
 });

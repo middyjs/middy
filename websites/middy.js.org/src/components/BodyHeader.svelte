@@ -9,7 +9,7 @@ import Div from "@design-system/elements/div.svelte";
 import Form from "@design-system/elements/form.svelte";
 import Search from "@design-system/elements/search.svelte";
 import Span from "@design-system/elements/span.svelte";
-import webComponentUrl from "@willfarrell-ds/vanilla/components/ds-input-focus.js?url&worker";
+import webComponentUrl from "@willfarrell-ds/vanilla/components/ds-input-focus.js?worker&url";
 
 import { page } from "$app/state";
 

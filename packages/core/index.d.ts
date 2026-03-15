@@ -149,14 +149,14 @@ declare type UseFn<
 	TInternal extends Record<string, unknown> = {},
 > = <
 	TMiddlewares extends
-		| MiddlewareObj<any, any, Error, any, any>
-		| MiddlewareObj<any, any, Error, any, any>[],
+		| MiddlewareObj<any, any, any, any, any>
+		| MiddlewareObj<any, any, any, any, any>[],
 >(
 	middlewares: TMiddlewares,
 ) => TMiddlewares extends MiddlewareObj<
 	infer TMiddlewareEvent,
 	any,
-	Error,
+	any,
 	infer TMiddlewareContext,
 	infer TMiddlewareInternal
 >
@@ -170,7 +170,7 @@ declare type UseFn<
 	: TMiddlewares extends MiddlewareObj<
 				infer TMiddlewareEvent,
 				any,
-				Error,
+				any,
 				infer TMiddlewareContext,
 				infer TMiddlewareInternal
 			>[]
