@@ -29,15 +29,14 @@ At a given point in time, if you want to draft a new release, you need to follow
   - You can optionally have suffixes such as `-alpha` or `-beta` for pre-releases of upcoming major versions.
   - If you need to have multiple versions of pre-releases, those should have a `.X` suffix, where `X` is an increasing number (e.g. `1.0.0-beta.15`).
 
-### 1. Changelog
+### 1. Prepare release
 
 - Releases should always be done from the `master` branch (unless working on a future/past major version branch like `0.x` or `2.0`).
 - You can create a `release-vX.Y.Z` branch if you want to do all the necessary changes in multiple commits and/or if you wish to have a review from the other maintainers
-- Update the [CHANGELOG](/CHANGELOG.md) creating a new entry for the new version and indicating with bullet points the major changes in the new version. There's no standard format agreed right now, but make sure to call out eventual breaking changes and, where possible, link to the various PRs contributing to the release and give credit to the authors of those changes.
 
 ### 2. Version bump
 
-- Update the `version` field of the main [`package.json`](/package.json) with the new version.
+- Update the `version` field of the main [`package.json`](../package.json) with the new version.
 - Run the command `npm run sync` to make sure every package will have the same version.
 - Commit all the changes so far.
 
@@ -47,7 +46,7 @@ At a given point in time, if you want to draft a new release, you need to follow
 - Create a [new release on GitHub](https://github.com/middyjs/middy/releases/new), with the following attributes:
   - **Tag version**: `X.Y.Z` as per the target version. Note: don't use a `v` prefix for the version.
   - **Release title**: same as above
-  - **Release description**: copy the changes from the [CHANGELOG.md](/CHANGELOG.md)
+  - **Release description**: summarize the changes in the new version
 - Publish release
 
 ### 4. Publish release on NPM

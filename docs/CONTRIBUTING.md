@@ -2,7 +2,7 @@
 
 In the spirit of Open Source Software, everyone is very welcome to contribute to this repository. Feel free to [raise issues](https://github.com/middyjs/middy/issues) or to [submit Pull Requests](https://github.com/middyjs/middy/pulls).
 
-Before contributing to the project, make sure to have a look at our [Code of Conduct](/docs/CODE_OF_CONDUCT.md).
+Before contributing to the project, make sure to have a look at our [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 Want to help, but finding new features and bugs a little daunting to tackle. Improving documentation (grammar, spelling, examples, internationalization), improving unit test coverage, and refactoring to use newer native APIs are great places to add value.
 
@@ -25,7 +25,7 @@ docker pull ghcr.io/oss-review-toolkit/ort
 
 ## 3. Implementation
 
-When necessary ensure changes follow secure design principles. See [SECURITY.md](/SECURITY.md)
+When necessary ensure changes follow secure design principles. See [SECURITY.md](../SECURITY.md)
 
 ## 4. Testing
 
@@ -83,8 +83,8 @@ Submit a PR to the `develop` branch. Keep PR in draft mode until all automated t
 
 ## 7. Release
 
-If you are a maintainer and want to release a new version, consult the [RELEASE manual](/docs/RELEASE.md).
+If you are a maintainer and want to release a new version, consult the [RELEASE manual](./RELEASE.md).
 
 ## License
 
-Licensed under [MIT License](LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).
+Licensed under [MIT License](../LICENSE). Copyright (c) 2017-2026 [will Farrell](https://github.com/willfarrell), [Luciano Mammino](https://github.com/lmammino), and [Middy contributors](https://github.com/middyjs/middy/graphs/contributors).

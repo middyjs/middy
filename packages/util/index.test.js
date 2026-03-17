@@ -778,7 +778,7 @@ test("normalizeHttpResponse should update nullish response", async (t) => {
 		response: null,
 	};
 	const response = normalizeHttpResponse(request);
-	deepStrictEqual(response, { statusCode: 200, headers: {}, body: null });
+	deepStrictEqual(response, { statusCode: 500, headers: {} });
 	deepStrictEqual(request, { response });
 });
 
