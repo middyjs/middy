@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.1.7",
+	"version": "7.1.8",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -97,7 +97,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.1.7"
+		"@middy/util": "7.1.8"
 	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"
