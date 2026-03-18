@@ -773,7 +773,7 @@ test("normalizeHttpResponse should update incomplete response", async (t) => {
 	deepStrictEqual(request, { response });
 });
 
-test("normalizeHttpResponse should update nullish response", async (t) => {
+test("normalizeHttpResponse should update null response", async (t) => {
 	const request = {
 		response: null,
 	};
