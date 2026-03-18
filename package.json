@@ -79,18 +79,15 @@
 	},
 	"overrides": {
 		"@sveltejs/kit": {
-			"cookie": "^0.7.2",
-			"devalue": "^5.6.4"
-		},
-		"svelte": {
-			"devalue": "^5.6.4"
+			"cookie": "^0.7.2"
 		},
 		"license-check-and-add": {
 			"minimatch": "^10.2.4"
 		},
 		"wrangler": {
 			"undici": "$undici"
-		}
+		},
+		"fast-xml-parser": "^5.5.6"
 	},
 	"devEngines": {
 		"runtime": {
