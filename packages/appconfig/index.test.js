@@ -240,6 +240,59 @@ test("It should keep previous configuration value if getLatestConfiguration retu
 	strictEqual(configTwo, "value");
 });
 
+test("It should keep previous configuration value if getLatestConfiguration returns undefined Configuration (SDK >= 3.929.0)", async (t) => {
+	mockClient(AppConfigDataClient)
+		.on(StartConfigurationSessionCommand)
+		.resolvesOnce({
+			ContentType: "application/json",
+			InitialConfigurationToken: "InitialToken...",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "InitialToken...",
+		})
+		.resolvesOnce({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "NextConfigToken",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "NextConfigToken",
+		})
+		.resolvesOnce({
+			ContentType: "application/json",
+			Configuration: undefined,
+			NextPollConfigurationToken: "NextConfigToken",
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		return values.key?.option;
+	};
+
+	const handler = middy(() => {})
+		.use(
+			appConfig({
+				AwsClient: AppConfigDataClient,
+				cacheExpiry: 0,
+				disablePrefetch: true,
+				fetchData: {
+					key: {
+						ApplicationIdentifier: "...",
+						ConfigurationProfileIdentifier: "...",
+						EnvironmentIdentifier: "...",
+					},
+				},
+			}),
+		)
+		.before(middleware);
+
+	const configOne = await handler(defaultEvent, defaultContext);
+	const configTwo = await handler(defaultEvent, defaultContext);
+
+	strictEqual(configOne, "value");
+	strictEqual(configTwo, "value");
+});
+
 test("It should set AppConfig param value to internal storage without prefetch", async (t) => {
 	mockClient(AppConfigDataClient)
 		.on(StartConfigurationSessionCommand)

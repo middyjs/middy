@@ -49,7 +49,7 @@ const appConfigMiddleware = (opts = {}) => {
 				configurationTokenCache[internalKey] =
 					configResp.NextPollConfigurationToken;
 
-				if (configResp.Configuration.length === 0) {
+				if (!configResp.Configuration?.length) {
 					return configurationCache[internalKey];
 				}
 
