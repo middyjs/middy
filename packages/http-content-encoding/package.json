@@ -71,7 +71,7 @@
 		"@middy/util": "7.1.8"
 	},
 	"devDependencies": {
-		"@datastream/core": "0.1.4",
+		"@datastream/core": "0.1.5",
 		"@middy/core": "7.1.8",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
