@@ -8,7 +8,8 @@ const cloudformationCustomResourceMiddleware = () => {
 		response.RequestId ??= request.event.RequestId;
 		response.LogicalResourceId ??= request.event.LogicalResourceId;
 		response.StackId ??= request.event.StackId;
-		response.PhysicalResourceId ??= request.context.logStreamName;
+		response.PhysicalResourceId ??=
+			request.event.PhysicalResourceId ?? request.context.logStreamName;
 		request.response = response;
 	};
 	const cloudformationCustomResourceMiddlewareOnError = (request) => {

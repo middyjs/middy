@@ -69,6 +69,91 @@ test("It should return FAILURE when error thrown", async (t) => {
 	});
 });
 
+test("It should use event.PhysicalResourceId on Update", async (t) => {
+	const handler = middy((event, context) => {});
+
+	handler.use(cloudformationResponse());
+
+	const event = {
+		...defaultEvent,
+		RequestType: "Update",
+		PhysicalResourceId: "custom-physical-id",
+	};
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		Status: "SUCCESS",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "custom-physical-id",
+	});
+});
+
+test("It should use event.PhysicalResourceId on Delete", async (t) => {
+	const handler = middy((event, context) => {});
+
+	handler.use(cloudformationResponse());
+
+	const event = {
+		...defaultEvent,
+		RequestType: "Delete",
+		PhysicalResourceId: "custom-physical-id",
+	};
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		Status: "SUCCESS",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "custom-physical-id",
+	});
+});
+
+test("It should prefer handler-set PhysicalResourceId over event", async (t) => {
+	const handler = middy((event, context) => {
+		return { PhysicalResourceId: "handler-id" };
+	});
+
+	handler.use(cloudformationResponse());
+
+	const event = {
+		...defaultEvent,
+		RequestType: "Update",
+		PhysicalResourceId: "event-id",
+	};
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		Status: "SUCCESS",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "handler-id",
+	});
+});
+
+test("It should use event.PhysicalResourceId on error during Update", async (t) => {
+	const handler = middy((event, context) => {
+		throw new Error("Update Error");
+	});
+
+	handler.use(cloudformationResponse());
+
+	const event = {
+		...defaultEvent,
+		RequestType: "Update",
+		PhysicalResourceId: "custom-physical-id",
+	};
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		Status: "FAILED",
+		Reason: "Update Error",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "custom-physical-id",
+	});
+});
+
 test("It should not override response values", async (t) => {
 	const handler = middy((event, context) => {
 		return {

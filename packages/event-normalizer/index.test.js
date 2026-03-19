@@ -424,6 +424,48 @@ test("It should parse MQ event", async (t) => {
 	deepStrictEqual(response.messages[0].data, "ABC:AAAA");
 });
 
+// MQ (RabbitMQ)
+test("It should parse RabbitMQ event", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		eventSource: "aws:rmq",
+		eventSourceArn:
+			"arn:aws:mq:us-west-2:112556298976:broker:pizzaBroker:b-9bcfa592-423a-4942-879d-eb284b418fc8",
+		rmqMessagesByQueue: {
+			"pizzaQueue::/": [
+				{
+					basicProperties: {
+						contentType: "text/plain",
+						contentEncoding: null,
+						headers: {},
+						deliveryMode: 1,
+						priority: 34,
+						correlationId: null,
+						replyTo: null,
+						expiration: "60000",
+						messageId: null,
+						timestamp: "Jan 1, 1970, 12:33:41 AM",
+						type: null,
+						userId: "AIDACKCEVSQ6C2EXAMPLE",
+						appId: null,
+						clusterId: null,
+						bodySize: 80,
+					},
+					redelivered: false,
+					data: "QUJDOkFBQUE=",
+				},
+			],
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response.rmqMessagesByQueue["pizzaQueue::/"][0].data,
+		"ABC:AAAA",
+	);
+});
+
 // MSK
 test("It should parse MSK event", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());
@@ -452,6 +494,62 @@ test("It should parse MSK event", async (t) => {
 	};
 	const response = await handler(event, defaultContext);
 
+	deepStrictEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
+});
+
+// Kafka key decoding
+test("It should parse Kafka event key and value", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		eventSource: "aws:kafka",
+		eventSourceArn:
+			"arn:aws:kafka:sa-east-1:123456789012:cluster/vpc-2priv-2pub/751d2973-a626-431c-9d4e-d7975eb44dd7-2",
+		records: {
+			mytopic0: [
+				{
+					topic: "mytopic",
+					partition: "0",
+					offset: 15,
+					timestamp: 1545084650987,
+					timestampType: "CREATE_TIME",
+					key: "bXlLZXk=",
+					value: "SGVsbG8sIHRoaXMgaXMgYSB0ZXN0Lg==",
+					headers: [],
+				},
+			],
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.records.mytopic0[0].key, "myKey");
+	deepStrictEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
+});
+
+test("It should parse Kafka event without a key", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		eventSource: "aws:kafka",
+		eventSourceArn:
+			"arn:aws:kafka:sa-east-1:123456789012:cluster/vpc-2priv-2pub/751d2973-a626-431c-9d4e-d7975eb44dd7-2",
+		records: {
+			mytopic0: [
+				{
+					topic: "mytopic",
+					partition: "0",
+					offset: 15,
+					timestamp: 1545084650987,
+					timestampType: "CREATE_TIME",
+					value: "SGVsbG8sIHRoaXMgaXMgYSB0ZXN0Lg==",
+					headers: [],
+				},
+			],
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.records.mytopic0[0].key, undefined);
 	deepStrictEqual(response.records.mytopic0[0].value, "Hello, this is a test.");
 });
 

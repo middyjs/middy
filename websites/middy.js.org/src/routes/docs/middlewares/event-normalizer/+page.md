@@ -31,12 +31,13 @@ https://docs.aws.amazon.com/lambda/latest/dg/lambda-services.html
 | EventBridge        | No       | Normalization not required                      |
 | IoT                | No       | Normalization not required                      |
 | IoT Event          | No       | Normalization not required                      |
-| Kafka              | Yes      | Base64 decode and JSON parse `value`            |
-| Kafka (MSK)        | Yes      | Base64 decode and JSON parse `value`            |
+| Kafka              | Yes      | Base64 decode and JSON parse `key` and `value`  |
+| Kafka (MSK)        | Yes      | Base64 decode and JSON parse `key` and `value`  |
 | Kinesis Firehose   | Yes      | Base64 decode and JSON parse `data`             |
 | Kinesis Stream     | Yes      | Base64 decode and JSON parse `data`             |
 | Lex                | No       | Normalization not required                      |
-| MQ                 | Yes      | Base64 decode and JSON parse `data`             |
+| MQ (ActiveMQ)      | Yes      | Base64 decode and JSON parse `data`             |
+| MQ (RabbitMQ)      | Yes      | Base64 decode and JSON parse `data`             |
 | RDS                | No       | Normalization not required                      |
 | S3                 | Yes      | URI decode `key`                                |
 | S3 Batch           | Yes      | URI decode `s3Key`                              |

@@ -61,6 +61,7 @@ const parseEvent = (event, options) => {
 
 const normalizeS3KeyReplacePlus = /\+/g;
 const events = {
+	// MQ (ActiveMQ)
 	"aws:amq": (message) => {
 		message.data = base64Parse(message.data);
 	},
@@ -88,6 +89,7 @@ const events = {
 	"aws:kafka": (event) => {
 		for (const topics of Object.values(event.records)) {
 			for (const topic of topics) {
+				topic.key &&= base64Parse(topic.key);
 				topic.value &&= base64Parse(topic.value);
 			}
 		}
@@ -99,6 +101,14 @@ const events = {
 	// Kinesis Firehose
 	"aws:lambda:events": (record) => {
 		record.data = base64Parse(record.data);
+	},
+	// MQ (RabbitMQ)
+	"aws:rmq": (event) => {
+		for (const messages of Object.values(event.rmqMessagesByQueue)) {
+			for (const message of messages) {
+				message.data = base64Parse(message.data);
+			}
+		}
 	},
 	"aws:s3": (record) => {
 		record.s3.object.key = normalizeS3Key(record.s3.object.key);
