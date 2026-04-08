@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { setTimeout } from "node:timers";
-import { executionModeStandard } from "./executionModeStandard.js";
+import { executionModeStandard } from "./Standard.js";
 
 const defaultLambdaHandler = () => {};
 const noop = () => {};

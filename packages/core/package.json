@@ -19,46 +19,50 @@
 				"default": "./index.js"
 			},
 			"require": {
+				"types": "./index.d.ts",
 				"default": "./index.js"
 			}
 		},
 		"./Standard": {
 			"import": {
-				"types": "./executionModeStandard.d.ts",
-				"default": "./executionModeStandard.js"
+				"types": "./Standard.d.ts",
+				"default": "./Standard.js"
 			},
 			"require": {
-				"default": "./executionModeStandard.js"
+				"types": "./Standard.d.ts",
+				"default": "./Standard.js"
 			}
 		},
 		"./DurableContext": {
 			"import": {
-				"types": "./executionModeDurableContext.d.ts",
-				"default": "./executionModeDurableContext.js"
+				"types": "./DurableContext.d.ts",
+				"default": "./DurableContext.js"
 			},
 			"require": {
-				"default": "./executionModeDurableContext.js"
+				"types": "./DurableContext.d.ts",
+				"default": "./DurableContext.js"
 			}
 		},
 		"./StreamifyResponse": {
 			"import": {
-				"types": "./executionModeStreamifyResponse.d.ts",
-				"default": "./executionModeStreamifyResponse.js"
+				"types": "./StreamifyResponse.d.ts",
+				"default": "./StreamifyResponse.js"
 			},
 			"require": {
-				"default": "./executionModeStreamifyResponse.js"
+				"types": "./StreamifyResponse.d.ts",
+				"default": "./StreamifyResponse.js"
 			}
 		}
 	},
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
-		"executionModeStandard.js",
-		"executionModeStandard.d.ts",
-		"executionModeDurableContext.js",
-		"executionModeDurableContext.d.ts",
-		"executionModeStreamifyResponse.js",
-		"executionModeStreamifyResponse.d.ts",
+		"Standard.js",
+		"Standard.d.ts",
+		"DurableContext.js",
+		"DurableContext.d.ts",
+		"StreamifyResponse.js",
+		"StreamifyResponse.d.ts",
 		"index.d.ts"
 	],
 	"scripts": {

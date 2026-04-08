@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 import { Bench } from "tinybench";
-import { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 import middy from "./index.js";
+import { executionModeStreamifyResponse } from "./StreamifyResponse.js";
 
 const DELIMITER_LEN = 8;
 globalThis.awslambda = {

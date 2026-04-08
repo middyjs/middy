@@ -6,8 +6,8 @@ import {
 	createWritableStream,
 	pipejoin,
 } from "@datastream/core";
-import { executionModeStreamifyResponse } from "./executionModeStreamifyResponse.js";
 import middy from "./index.js";
+import { executionModeStreamifyResponse } from "./StreamifyResponse.js";
 
 const event = {};
 const context = {
