@@ -1,12 +1,12 @@
 <script>
     import H1 from "@design-system/components/Heading1.svelte";
-            import Image from "@design-system/components/Image.svelte";
-            import Div from "@design-system/elements/div.svelte";
-            import Main from "@design-system/elements/main.svelte";
-            import P from "@design-system/elements/p.svelte";
-            import { page } from "$app/state";
+                import Image from "@design-system/components/Image.svelte";
+                import Div from "@design-system/elements/div.svelte";
+                import Main from "@design-system/elements/main.svelte";
+                import P from "@design-system/elements/p.svelte";
+                import { page } from "$app/state";
 
-            const message = $derived(page.error?.message ?? "An error occurred");
+                const message = $derived(page.error?.message ?? "An error occurred");
 </script>
 
 <svelte:head>
@@ -38,25 +38,25 @@
 
 <style>
     :global(html) {
-                height: 100%;
-            }
-            :global(body) {
-                height: 100%;
-            }
-            :global(main.container-error) {
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                height: 100%;
+                    height: 100%;
+                }
+                :global(body) {
+                    height: 100%;
+                }
+                :global(main.container-error) {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100%;
 
-                & div {
-                    width: 40ch;
-                    text-align: center;
+                    & div {
+                        width: 40ch;
+                        text-align: center;
+                    }
+                    & span {
+                        padding: 0 1rem 1rem 1rem;
+                        white-space: nowrap;
+                    }
                 }
-                & span {
-                    padding: 0 1rem 1rem 1rem;
-                    white-space: nowrap;
-                }
-            }
 </style>
