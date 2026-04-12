@@ -2113,6 +2113,56 @@ test("It should match IDN origin when configured in unicode (dynamic)", async (t
 	});
 });
 
+test("It should match origin with mixed-case hostname (static)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://MyApp.example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://MyApp.example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://myapp.example.com",
+		},
+	});
+});
+
+test("It should match origin with mixed-case hostname (dynamic)", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://*.Example.COM"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://App.Example.COM" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://app.example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
 test("It should throw when requestHeaders is not an array", async (t) => {
 	try {
 		httpCors({
