@@ -95,7 +95,10 @@ test("It should set secrets to internal storage (json)", async (t) => {
 			{ username: "credentials.username", password: "credentials.password" },
 			request,
 		);
-		deepStrictEqual(values, credentials);
+		deepStrictEqual(
+			values,
+			Object.create(null, Object.getOwnPropertyDescriptors(credentials)),
+		);
 	};
 
 	handler

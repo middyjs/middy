@@ -49,6 +49,7 @@ const defaults = {
 
 const httpCorsMiddleware = (opts = {}) => {
 	const getOrigin = (incomingOrigin, options = {}) => {
+		incomingOrigin = originToPunycode(incomingOrigin);
 		if (options.origins.length > 0) {
 			if (originStatic[incomingOrigin]) {
 				return incomingOrigin;

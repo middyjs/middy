@@ -49,7 +49,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 			context,
 			response: undefined,
 			error: undefined,
-			internal: plugin.internal ?? {},
+			internal: plugin.internal ?? Object.create(null),
 		};
 	};
 

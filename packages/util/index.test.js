@@ -215,6 +215,8 @@ describe("canPrefetch", () => {
 });
 
 describe("getInternal", () => {
+	const nullObj = (obj) =>
+		Object.create(null, Object.getOwnPropertyDescriptors(obj));
 	const getInternalRequest = {
 		internal: {
 			boolean: true,
@@ -255,44 +257,47 @@ describe("getInternal", () => {
 
 	test("getInternal should get none from internal store", async (t) => {
 		const values = await getInternal(false, getInternalRequest);
-		deepStrictEqual(values, {});
+		deepStrictEqual(values, Object.create(null));
 	});
 
 	test("getInternal should get all from internal store", async (t) => {
 		const values = await getInternal(true, getInternalRequest);
-		deepStrictEqual(values, {
-			array: [],
-			boolean: true,
-			number: 1,
-			object: {
-				key: "value",
-			},
-			promise: "promise",
-			promiseObject: {
-				key: "value",
-			},
-			string: "string",
-		});
+		deepStrictEqual(
+			values,
+			nullObj({
+				array: [],
+				boolean: true,
+				number: 1,
+				object: {
+					key: "value",
+				},
+				promise: "promise",
+				promiseObject: {
+					key: "value",
+				},
+				string: "string",
+			}),
+		);
 	});
 
 	test("getInternal should get from internal store when string", async (t) => {
 		const values = await getInternal("number", getInternalRequest);
-		deepStrictEqual(values, { number: 1 });
+		deepStrictEqual(values, nullObj({ number: 1 }));
 	});
 
 	test("getInternal should get from internal store when array[string]", async (t) => {
 		const values = await getInternal(["boolean", "string"], getInternalRequest);
-		deepStrictEqual(values, { boolean: true, string: "string" });
+		deepStrictEqual(values, nullObj({ boolean: true, string: "string" }));
 	});
 
 	test("getInternal should get from internal store when object", async (t) => {
 		const values = await getInternal({ newKey: "promise" }, getInternalRequest);
-		deepStrictEqual(values, { newKey: "promise" });
+		deepStrictEqual(values, nullObj({ newKey: "promise" }));
 	});
 
 	test("getInternal should get from internal store a nested value", async (t) => {
 		const values = await getInternal("promiseObject.key", getInternalRequest);
-		deepStrictEqual(values, { promiseObject_key: "value" });
+		deepStrictEqual(values, nullObj({ promiseObject_key: "value" }));
 	});
 
 	test("getInternal should get from internal store a nested value (sync)", async (t) => {
@@ -302,7 +307,7 @@ describe("getInternal", () => {
 			},
 		};
 		const values = await getInternal("object.key", syncRequest);
-		deepStrictEqual(values, { object_key: "value" });
+		deepStrictEqual(values, nullObj({ object_key: "value" }));
 	});
 
 	test("getInternal should return undefined for missing nested path (sync)", async (t) => {
@@ -312,7 +317,7 @@ describe("getInternal", () => {
 			},
 		};
 		const values = await getInternal("object.key", syncRequest);
-		deepStrictEqual(values, { object_key: undefined });
+		deepStrictEqual(values, nullObj({ object_key: undefined }));
 	});
 });
 
