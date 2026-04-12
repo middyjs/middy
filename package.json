@@ -73,14 +73,15 @@
 		"fast-check": "^4.0.0",
 		"husky": "^9.0.0",
 		"tinybench": "^6.0.0",
-		"tstyche": "^6.0.0",
+		"tstyche": "^7.0.0",
 		"typescript": "^6.0.0",
-		"undici": "^7.0.0"
+		"undici": "^8.0.0"
 	},
 	"overrides": {
 		"@sveltejs/kit": {
 			"cookie": "^0.7.2"
-		}
+		},
+		"mathjs": ">=15.2.0"
 	},
 	"devEngines": {
 		"runtime": {
