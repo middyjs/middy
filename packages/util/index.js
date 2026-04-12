@@ -51,7 +51,7 @@ const safeGet = (obj, key) =>
 
 // Internal Context
 export const getInternal = async (variables, request) => {
-	if (!variables || !request) return {};
+	if (!variables || !request) return Object.create(null);
 	let keys = [];
 	let values = [];
 	if (variables === true) {
@@ -86,7 +86,7 @@ export const getInternal = async (variables, request) => {
 		syncResults[i] = value;
 	}
 	if (allSync) {
-		const obj = {};
+		const obj = Object.create(null);
 		for (let i = 0; i < keys.length; i++) {
 			obj[sanitizeKey(keys[i])] = syncResults[i];
 		}
@@ -110,7 +110,7 @@ export const getInternal = async (variables, request) => {
 	// ensure promise has resolved by the time it's needed
 	// If one of the promises throws it will bubble up to @middy/core
 	values = await Promise.allSettled(promises);
-	const obj = {};
+	const obj = Object.create(null);
 	let errors;
 	for (let i = 0; i < keys.length; i++) {
 		if (values[i].status === "rejected") {
