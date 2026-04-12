@@ -109,12 +109,11 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			? response.body
 			: Buffer.from(response.body);
 		const compressed = contentEncodingSync[contentEncoding](inputBuffer);
-		const body = compressed.toString("base64");
 
 		// Only apply encoding if it's smaller
-		if (body.length < response.body.length) {
+		if (compressed.length < inputBuffer.length) {
 			response.headers["Content-Encoding"] = contentEncoding;
-			response.body = body;
+			response.body = compressed.toString("base64");
 			response.isBase64Encoded = true;
 			addHeaderPart(response, "Vary", "Accept-Encoding");
 		}

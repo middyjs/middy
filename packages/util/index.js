@@ -168,6 +168,7 @@ export const processCache = (
 	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
+		clearTimeout(cache[cacheKey]?.refresh);
 		const refresh =
 			duration > 0
 				? setTimeout(

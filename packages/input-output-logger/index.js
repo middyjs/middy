@@ -179,9 +179,13 @@ const passThrough = (request, omitAndLog) => {
 		},
 	});
 	if (hasBody) {
-		request.response.body = request.response.body.pipe(listen);
+		request.response.body = request.response.body
+			.on("error", (e) => listen.destroy(e))
+			.pipe(listen);
 	} else {
-		request.response = request.response.pipe(listen);
+		request.response = request.response
+			.on("error", (e) => listen.destroy(e))
+			.pipe(listen);
 	}
 };
 
