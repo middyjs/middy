@@ -145,7 +145,12 @@ const buildPathTree = (paths) => {
 	for (let path of paths.sort().reverse()) {
 		// reverse to ensure conflicting paths don't cause issues
 		if (!Array.isArray(path)) path = path.split(".");
-		if (path.includes("__proto__")) continue;
+		if (
+			path.includes("__proto__") ||
+			path.includes("constructor") ||
+			path.includes("prototype")
+		)
+			continue;
 		path.reduce((a, b, idx) => {
 			if (idx < path.length - 1) {
 				a[b] ??= {};

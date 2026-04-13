@@ -18,7 +18,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		const batchItemFailures = [];
 		if (Array.isArray(Records)) {
 			for (const [idx, record] of Records.entries()) {
-				const { status, reason } = response[idx];
+				const { status, reason } = response[idx] ?? {};
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {

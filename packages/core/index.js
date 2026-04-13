@@ -183,7 +183,8 @@ const runRequest = async (
 			await runMiddlewares(request, onErrorMiddlewares, plugin);
 		} catch (err) {
 			// Save error that wasn't handled
-			err.originalError = request.error;
+			err.originalError = request.error; // TODO remove in v8, use cause
+			err.cause ??= request.error;
 			request.error = err;
 
 			throw request.error;

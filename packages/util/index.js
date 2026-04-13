@@ -164,7 +164,11 @@ export const processCache = (
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
-	// secrets-manager can override to unix timestamp
+	// cacheExpiry semantics:
+	//   >86400000 (24h): treated as unix timestamp (ms)
+	//   >0 && <=86400000: treated as duration (ms) from now
+	//   -1: infinite cache (never expires)
+	//   0/undefined/null: no caching
 	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
