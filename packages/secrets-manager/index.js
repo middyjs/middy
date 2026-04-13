@@ -66,18 +66,21 @@ const secretsManagerMiddleware = (opts = {}) => {
 						)
 						.then((resp) => {
 							if (options.cacheExpiry < 0) {
-								options.cacheKeyExpiry[internalKey] =
-									resp.NextRotationDate * 1000;
+								if (resp.NextRotationDate) {
+									options.cacheKeyExpiry[internalKey] =
+										resp.NextRotationDate * 1000;
+								}
 							} else {
-								options.cacheKeyExpiry[internalKey] = Math.min(
+								const lastChanged =
 									Math.max(
 										resp.LastRotationDate ?? 0,
 										resp.LastChangedDate ?? 0,
 									) *
 										1000 +
-										options.cacheExpiry,
-									resp.NextRotationDate * 1000,
-								);
+									options.cacheExpiry;
+								options.cacheKeyExpiry[internalKey] = resp.NextRotationDate
+									? Math.min(lastChanged, resp.NextRotationDate * 1000)
+									: lastChanged;
 							}
 						})
 				: undefined;

@@ -90,8 +90,9 @@ const httpRouteHandler = (opts = {}) => {
 	return handler;
 };
 
-const regExpDynamicWildcards = /\/\{(proxy)\+\}$/;
-const regExpDynamicParameters = /\/\{([^/]+)\}/g;
+const regExpEscapeChars = /[.+?^${}()|[\]\\]/g;
+const regExpDynamicWildcards = /\/\\\{(proxy)\\\+\\\}$/;
+const regExpDynamicParameters = /\/\\\{([^/]+)\\\}/g;
 
 const attachStaticRoute = (method, path, handler, routesType) => {
 	if (method === "ANY") {
@@ -114,6 +115,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	}
 	routesType[method] ??= [];
 	const pathPartialRegExp = path
+		.replace(regExpEscapeChars, "\\$&")
 		.replace(regExpDynamicWildcards, "/?(?<$1>.*)")
 		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
 	// SAST Skipped: Not accessible by users

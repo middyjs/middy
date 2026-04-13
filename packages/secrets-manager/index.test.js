@@ -397,6 +397,44 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	strictEqual(sendStub.callCount, 2);
 });
 
+test("It should use default cacheExpiry when NextRotationDate is undefined", async (t) => {
+	const now = Date.now() / 1000;
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_NoRotation" })
+		.resolves({ LastChangedDate: now - 50 })
+		.on(GetSecretValueCommand, { SecretId: "api_key_NoRotation" })
+		.resolves({ SecretString: "token" });
+	const sendStub = mockService.send;
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: -1,
+				fetchData: {
+					token: "api_key_NoRotation",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(15 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+
+	// Should cache indefinitely — only 1 Describe + 1 GetSecretValue
+	strictEqual(sendStub.callCount, 2);
+});
+
 test("It should catch if an error is returned from fetch", async (t) => {
 	const mockService = mockClient(SecretsManagerClient)
 		.on(GetSecretValueCommand, { SecretId: "api_key" })
