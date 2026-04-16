@@ -558,9 +558,10 @@ describe("processCache / clearCache", () => {
 
 	test("processCache should cache with past unix timestamp (no refresh)", async (t) => {
 		const fetchRequest = t.mock.fn(() => "value");
+		t.mock.timers.tick(86400001 * 2);
 		const options = {
 			cacheKey: "key-past-timestamp",
-			cacheExpiry: Date.now() - 100, // Past timestamp
+			cacheExpiry: Date.now() - 100, // Past timestamp, still > 86400000
 		};
 		processCache(options, fetchRequest, cacheRequest);
 		const cache = getCache("key-past-timestamp");

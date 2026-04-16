@@ -349,7 +349,10 @@ export class HttpError extends Error {
 		message ??= httpErrorCodes[code];
 		super(message, options);
 
-		const name = httpErrorCodes[code].replace(createErrorRegexp, "");
+		const name = (httpErrorCodes[code] ?? "Unknown").replace(
+			createErrorRegexp,
+			"",
+		);
 		this.name = !name.endsWith("Error") ? `${name}Error` : name;
 
 		this.status = this.statusCode = code; // setting `status` for backwards compatibility w/ `http-errors`
