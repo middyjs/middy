@@ -54,8 +54,11 @@ export const executionModeStreamifyResponse = (
 				});
 			}
 
-			await pipeline(handlerStream, responseStream);
-			await plugin.requestEnd(request);
+			try {
+				await pipeline(handlerStream, responseStream);
+			} finally {
+				await plugin.requestEnd(request);
+			}
 		},
 	);
 
