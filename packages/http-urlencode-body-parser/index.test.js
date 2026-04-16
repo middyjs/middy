@@ -184,6 +184,80 @@ test("It should not pollute prototype with constructor key in body", async (t) =
 	strictEqual(Object.getPrototypeOf(body), null);
 });
 
+test("It should decode duplicate keys into an array", async (t) => {
+	const handler = middy((event) => {
+		return event;
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+		},
+		body: "key=i&key=j",
+	};
+
+	const processedEvent = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		processedEvent.body,
+		Object.assign(Object.create(null), {
+			key: ["i", "j"],
+		}),
+	);
+});
+
+test("It should handle mix of single and duplicate keys", async (t) => {
+	const handler = middy((event) => {
+		return event;
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: "solo=one&multi=a&multi=b&another=two",
+	};
+
+	const processedEvent = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		processedEvent.body,
+		Object.assign(Object.create(null), {
+			solo: "one",
+			multi: ["a", "b"],
+			another: "two",
+		}),
+	);
+});
+
+test("It should decode triple duplicate keys into an array", async (t) => {
+	const handler = middy((event) => {
+		return event;
+	});
+
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: "a=1&a=2&a=3",
+	};
+
+	const processedEvent = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		processedEvent.body,
+		Object.assign(Object.create(null), {
+			a: ["1", "2", "3"],
+		}),
+	);
+});
+
 test("It should handle base64 body", async (t) => {
 	const handler = middy((event, context) => {
 		return event.body; // propagates the body as a response

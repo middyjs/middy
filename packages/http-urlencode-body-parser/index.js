@@ -28,7 +28,16 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		}
 
 		const data = decodeBody(request.event);
-		const parsedBody = Object.fromEntries(new URLSearchParams(data));
+		const parsedBody = {};
+		for (const [key, value] of new URLSearchParams(data)) {
+			if (Object.hasOwn(parsedBody, key)) {
+				parsedBody[key] = Array.isArray(parsedBody[key])
+					? [...parsedBody[key], value]
+					: [parsedBody[key], value];
+			} else {
+				parsedBody[key] = value;
+			}
+		}
 
 		// Check if it didn't parse
 		if (parsedBody?.[body] === "") {
