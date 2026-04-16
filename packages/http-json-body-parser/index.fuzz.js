@@ -59,13 +59,13 @@ test("fuzz `event` w/ `record`", async () => {
 
 test("fuzz roundtrip: valid JSON body is parsed correctly", async () => {
 	await fc.assert(
-		fc.asyncProperty(fc.jsonValue(), async (value) => {
+		fc.asyncProperty(fc.json(), async (jsonStr) => {
 			const event = {
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify(value),
+				body: jsonStr,
 			};
 			const result = await handler(event, defaultContext);
-			deepStrictEqual(result.body, value);
+			deepStrictEqual(result.body, JSON.parse(jsonStr));
 		}),
 		{
 			numRuns: 100_000,

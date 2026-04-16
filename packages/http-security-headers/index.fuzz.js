@@ -1,3 +1,4 @@
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -147,5 +148,16 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 
 			examples: [],
 		},
+	);
+});
+
+test("fuzz response has X-Content-Type-Options header", async () => {
+	const secHandler = middy(() => ({})).use(middleware());
+	await fc.assert(
+		fc.asyncProperty(fc.object(), async (event) => {
+			const result = await secHandler(event, defaultContext);
+			strictEqual(result.headers["X-Content-Type-Options"], "nosniff");
+		}),
+		{ numRuns: 100_000, verbose: 2, examples: [] },
 	);
 });

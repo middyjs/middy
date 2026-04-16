@@ -1,3 +1,4 @@
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -96,5 +97,22 @@ test("fuzz `event` w/ `Access-Control-Request-Headers` header", async () => {
 
 			examples: [],
 		},
+	);
+});
+
+test("fuzz response has CORS headers for matching origin", async () => {
+	const corsHandler = middy(() => ({})).use(middleware({ origin: "*" }));
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({ headers: fc.record({ Origin: fc.webUrl() }) }),
+			async (event) => {
+				const result = await corsHandler(event, defaultContext);
+				strictEqual(
+					typeof result.headers["Access-Control-Allow-Origin"],
+					"string",
+				);
+			},
+		),
+		{ numRuns: 100_000, verbose: 2, examples: [] },
 	);
 });

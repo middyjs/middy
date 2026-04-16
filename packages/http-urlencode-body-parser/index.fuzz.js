@@ -1,3 +1,4 @@
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -44,6 +45,39 @@ test("fuzz `event` w/ `record`", async () => {
 					if (e.cause?.package !== "@middy/http-urlencode-body-parser") {
 						throw e;
 					}
+				}
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz roundtrip: valid urlencoded body parsed correctly", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.dictionary(
+				fc
+					.string({ minLength: 1, maxLength: 20 })
+					.filter((s) => /^[a-zA-Z0-9_]+$/.test(s)),
+				fc.string({ maxLength: 50 }),
+			),
+			async (obj) => {
+				const body = new URLSearchParams(obj).toString();
+				if (!body) return; // skip empty
+				const event = {
+					headers: {
+						"content-type": "application/x-www-form-urlencoded",
+					},
+					body,
+				};
+				const result = await handler(event, defaultContext);
+				for (const [key, value] of Object.entries(obj)) {
+					strictEqual(result.body[key], value);
 				}
 			},
 		),
