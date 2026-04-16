@@ -44,7 +44,11 @@ function createResponseStreamMock() {
 	return responseStream;
 }
 
-const bench = new Bench({ time: 1_000 });
+const bench = new Bench({
+	time: 1_000,
+	warmupTime: 500,
+	warmupIterations: 1_000,
+});
 
 const middleware = (opts = {}) => {
 	const middlewareBefore = (request) => {};
