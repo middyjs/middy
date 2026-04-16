@@ -36,12 +36,15 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	return (event, context, abort) => {
 		const { RequestType: requestType } = event;
 		if (!requestType || !Object.hasOwn(requestTypes, requestType)) {
-			throw new Error("Unknown CloudFormation Custom Response event format", {
-				cause: {
-					package: "@middy/cloudformation-router",
-					data: { requestType },
+			throw new Error(
+				`Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: ${requestType ?? "undefined"}`,
+				{
+					cause: {
+						package: "@middy/cloudformation-router",
+						data: { requestType },
+					},
 				},
-			});
+			);
 		}
 
 		// Static

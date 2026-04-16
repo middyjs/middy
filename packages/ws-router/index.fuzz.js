@@ -1,3 +1,4 @@
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -50,6 +51,32 @@ test("fuzz `event` w/ `record`", async () => {
 			numRuns: 100_000,
 			verbose: 2,
 			examples: [[{ requestContext: { routeKey: "valueOf" } }]],
+		},
+	);
+});
+
+test("fuzz valid routeKey routes correctly", async () => {
+	const routeHandler = middy(
+		router([
+			{ routeKey: "$connect", handler: () => "connect" },
+			{ routeKey: "$disconnect", handler: () => "disconnect" },
+			{ routeKey: "message", handler: () => "message" },
+		]),
+	);
+	await fc.assert(
+		fc.asyncProperty(
+			fc.constantFrom("$connect", "$disconnect", "message"),
+			async (routeKey) => {
+				const event = { requestContext: { routeKey } };
+				const result = await routeHandler(event, defaultContext);
+				strictEqual(typeof result, "string");
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
 		},
 	);
 });

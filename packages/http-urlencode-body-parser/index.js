@@ -28,7 +28,16 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		}
 
 		const data = decodeBody(request.event);
-		const parsedBody = Object.fromEntries(new URLSearchParams(data));
+		const parsedBody = Object.create(null);
+		for (const [key, value] of new URLSearchParams(data)) {
+			if (Object.hasOwn(parsedBody, key)) {
+				parsedBody[key] = Array.isArray(parsedBody[key])
+					? [...parsedBody[key], value]
+					: [parsedBody[key], value];
+			} else {
+				parsedBody[key] = value;
+			}
+		}
 
 		// Check if it didn't parse
 		if (parsedBody?.[body] === "") {
@@ -39,7 +48,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			);
 		}
 
-		request.event.body = Object.assign(Object.create(null), parsedBody);
+		request.event.body = parsedBody;
 	};
 
 	return {

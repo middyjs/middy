@@ -18,7 +18,7 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		const batchItemFailures = [];
 		if (Array.isArray(Records)) {
 			for (const [idx, record] of Records.entries()) {
-				const { status, reason } = response[idx];
+				const { status, reason } = response[idx] ?? {};
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {
@@ -33,10 +33,11 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
 		if (typeof request.response !== "undefined") return;
 
-		request.response = new Array(request.event.Records?.length ?? 0).fill({
+		const length = request.event.Records?.length ?? 0;
+		request.response = Array.from({ length }, () => ({
 			status: "rejected",
 			reason: request.error,
-		});
+		}));
 
 		await sqsPartialBatchFailureMiddlewareAfter(request);
 	};

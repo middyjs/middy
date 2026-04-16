@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds-signer",
-	"version": "7.2.2",
+	"version": "7.2.3",
 	"description": "RDS (Relational Database Service) credentials middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -73,11 +73,11 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.2.2"
+		"@middy/util": "7.2.3"
 	},
 	"devDependencies": {
 		"@aws-sdk/rds-signer": "^3.0.0",
-		"@middy/core": "7.2.2",
+		"@middy/core": "7.2.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.3.3"

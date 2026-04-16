@@ -54,14 +54,20 @@ const httpRouteHandler = (opts = {}) => {
 		const { method, path } = getVersionRoute[pickVersion(event)](event);
 
 		if (!method) {
-			throw new Error("Unknown HTTP event format", {
-				cause: { package: "@middy/http-router", data: { method } },
-			});
+			throw new Error(
+				"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+				{
+					cause: { package: "@middy/http-router", data: { method } },
+				},
+			);
 		}
 		if (!path) {
-			throw new Error("Unknown HTTP event format", {
-				cause: { package: "@middy/http-router", data: { path } },
-			});
+			throw new Error(
+				"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
+				{
+					cause: { package: "@middy/http-router", data: { path } },
+				},
+			);
 		}
 
 		// Static
@@ -90,8 +96,9 @@ const httpRouteHandler = (opts = {}) => {
 	return handler;
 };
 
-const regExpDynamicWildcards = /\/\{(proxy)\+\}$/;
-const regExpDynamicParameters = /\/\{([^/]+)\}/g;
+const regExpEscapeChars = /[.+?^${}()|[\]\\]/g;
+const regExpDynamicWildcards = /\/\\\{(proxy)\\\+\\\}$/;
+const regExpDynamicParameters = /\/\\\{([^/]+)\\\}/g;
 
 const attachStaticRoute = (method, path, handler, routesType) => {
 	if (method === "ANY") {
@@ -101,6 +108,7 @@ const attachStaticRoute = (method, path, handler, routesType) => {
 		return;
 	}
 	routesType[method] ??= {};
+	// TODO v8 when duplicates throw error
 	routesType[method][path] = handler;
 	routesType[method][`${path}/`] = handler; // Optional `/`
 };
@@ -114,6 +122,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	}
 	routesType[method] ??= [];
 	const pathPartialRegExp = path
+		.replace(regExpEscapeChars, "\\$&")
 		.replace(regExpDynamicWildcards, "/?(?<$1>.*)")
 		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
 	// SAST Skipped: Not accessible by users

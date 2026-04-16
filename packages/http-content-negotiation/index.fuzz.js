@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -45,5 +46,27 @@ test("fuzz `event` w/ `record`", async () => {
 
 			examples: [],
 		},
+	);
+});
+
+test("fuzz context has preferredMediaType after negotiation", async () => {
+	const negHandler = middy((event, context) => ({
+		preferredMediaType: context.preferredMediaType,
+	})).use(
+		middleware({
+			availableMediaTypes: ["application/json"],
+			failOnMismatch: false,
+		}),
+	);
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({ headers: fc.record({ Accept: fc.string() }) }),
+			async (event) => {
+				const result = await negHandler(event, defaultContext);
+				const type = typeof result.preferredMediaType;
+				ok(type === "string" || type === "undefined");
+			},
+		),
+		{ numRuns: 100_000, verbose: 2, examples: [] },
 	);
 });

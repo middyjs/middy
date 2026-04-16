@@ -189,9 +189,11 @@ test("Should use default logger without error", async (t) => {
 		],
 	});
 
-	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure());
+	const logger = t.mock.fn();
+	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
 
 	const response = await handler(event, defaultContext);
+	strictEqual(logger.mock.callCount(), 1);
 	deepStrictEqual(response, {
 		batchItemFailures: event.Records.map((r) => ({
 			itemIdentifier: r.messageId,

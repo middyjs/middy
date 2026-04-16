@@ -11,17 +11,19 @@ export const executionModeStandard = (
 	const middy = async (event, context) => {
 		const request = middyRequest(event, context);
 		plugin.requestStart(request);
-
-		const response = await runRequest(
-			request,
-			beforeMiddlewares,
-			lambdaHandler,
-			afterMiddlewares,
-			onErrorMiddlewares,
-			plugin,
-		);
-		await plugin.requestEnd(request);
-		return response;
+		try {
+			const response = await runRequest(
+				request,
+				beforeMiddlewares,
+				lambdaHandler,
+				afterMiddlewares,
+				onErrorMiddlewares,
+				plugin,
+			);
+			return response;
+		} finally {
+			await plugin.requestEnd(request);
+		}
 	};
 	middy.handler = (replaceLambdaHandler) => {
 		lambdaHandler = replaceLambdaHandler;

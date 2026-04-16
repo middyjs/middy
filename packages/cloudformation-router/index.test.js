@@ -113,7 +113,7 @@ test("It should throw when not a cloudformation event", async (t) => {
 	} catch (e) {
 		strictEqual(
 			e.message,
-			"Unknown CloudFormation Custom Response event format",
+			"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
 		);
 	}
 });

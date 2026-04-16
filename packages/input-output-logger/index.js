@@ -145,7 +145,12 @@ const buildPathTree = (paths) => {
 	for (let path of paths.sort().reverse()) {
 		// reverse to ensure conflicting paths don't cause issues
 		if (!Array.isArray(path)) path = path.split(".");
-		if (path.includes("__proto__")) continue;
+		if (
+			path.includes("__proto__") ||
+			path.includes("constructor") ||
+			path.includes("prototype")
+		)
+			continue;
 		path.reduce((a, b, idx) => {
 			if (idx < path.length - 1) {
 				a[b] ??= {};
@@ -179,9 +184,13 @@ const passThrough = (request, omitAndLog) => {
 		},
 	});
 	if (hasBody) {
-		request.response.body = request.response.body.pipe(listen);
+		request.response.body = request.response.body
+			.on("error", (e) => listen.destroy(e))
+			.pipe(listen);
 	} else {
-		request.response = request.response.pipe(listen);
+		request.response = request.response
+			.on("error", (e) => listen.destroy(e))
+			.pipe(listen);
 	}
 };
 

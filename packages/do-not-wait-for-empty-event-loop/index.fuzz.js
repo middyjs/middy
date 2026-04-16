@@ -1,3 +1,4 @@
+import { strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -12,6 +13,25 @@ test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, defaultContext);
+		}),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz sets callbackWaitsForEmptyEventLoop to false", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.object(), async (event) => {
+			const ctx = {
+				getRemainingTimeInMillis: () => 1000,
+				callbackWaitsForEmptyEventLoop: true,
+			};
+			await handler(event, ctx);
+			strictEqual(ctx.callbackWaitsForEmptyEventLoop, false);
 		}),
 		{
 			numRuns: 100_000,

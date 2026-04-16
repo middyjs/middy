@@ -7,7 +7,11 @@ import {
 	processCache,
 } from "./index.js";
 
-const bench = new Bench({ time: 1_000 });
+const bench = new Bench({
+	time: 1_000,
+	warmupTime: 500,
+	warmupIterations: 1_000,
+});
 
 await bench
 	.add("getInternal", async () => {

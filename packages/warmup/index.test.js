@@ -62,3 +62,66 @@ test("Should not exit with 'warmup' if event.source !== 'serverless-plugin-warmu
 
 	strictEqual(response, undefined);
 });
+
+test("Should not exit with 'warmup' if event has no source property", async (t) => {
+	const handler = middy(() => "executed");
+
+	handler.use(warmup());
+
+	const response = await handler({}, defaultContext);
+
+	strictEqual(response, "executed");
+});
+
+test("Should execute handler normally when not warming up", async (t) => {
+	let handlerCalled = false;
+	const handler = middy(() => {
+		handlerCalled = true;
+		return "result";
+	});
+
+	handler.use(warmup());
+
+	const response = await handler({ source: "other" }, defaultContext);
+
+	strictEqual(handlerCalled, true);
+	strictEqual(response, "result");
+});
+
+test("Should not execute handler when warming up", async (t) => {
+	let handlerCalled = false;
+	const handler = middy(() => {
+		handlerCalled = true;
+		return "result";
+	});
+
+	handler.use(warmup());
+
+	const response = await handler(
+		{ source: "serverless-plugin-warmup" },
+		defaultContext,
+	);
+
+	strictEqual(handlerCalled, false);
+	strictEqual(response, "warmup");
+});
+
+test("Should pass event to custom isWarmingUp function", async (t) => {
+	let receivedEvent;
+	const handler = middy(() => {});
+
+	handler.use(
+		warmup({
+			isWarmingUp: (event) => {
+				receivedEvent = event;
+				return event.warmup === true;
+			},
+		}),
+	);
+
+	const event = { warmup: true, extra: "data" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response, "warmup");
+	strictEqual(receivedEvent, event);
+});

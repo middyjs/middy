@@ -1,3 +1,4 @@
+import { deepStrictEqual, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -51,6 +52,54 @@ test("fuzz `event` w/ `record`", async () => {
 			numRuns: 100_000,
 			verbose: 2,
 
+			examples: [],
+		},
+	);
+});
+
+test("fuzz roundtrip: valid JSON body is parsed correctly", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.json(), async (jsonStr) => {
+			const event = {
+				headers: { "content-type": "application/json" },
+				body: jsonStr,
+			};
+			const result = await handler(event, defaultContext);
+			deepStrictEqual(result.body, JSON.parse(jsonStr));
+		}),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+			examples: [],
+		},
+	);
+});
+
+test("fuzz invalid JSON always throws 422", async () => {
+	const invalidJsonArb = fc.string({ minLength: 1 }).filter((s) => {
+		try {
+			JSON.parse(s);
+			return false;
+		} catch {
+			return true;
+		}
+	});
+	await fc.assert(
+		fc.asyncProperty(invalidJsonArb, async (body) => {
+			const event = {
+				headers: { "content-type": "application/json" },
+				body,
+			};
+			try {
+				await handler(event, defaultContext);
+				throw new Error("Expected 422 error");
+			} catch (e) {
+				strictEqual(e.statusCode, 422);
+			}
+		}),
+		{
+			numRuns: 10_000,
+			verbose: 2,
 			examples: [],
 		},
 	);

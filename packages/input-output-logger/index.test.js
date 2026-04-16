@@ -1,4 +1,5 @@
 import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
 // import {
@@ -593,4 +594,38 @@ test("It should handle non-string non-Uint8Array chunks in Web Streams", async (
 	strictEqual(logged.length, 2);
 	deepStrictEqual(logged[0], { event: {} });
 	strictEqual(logged[1].response, "12345");
+});
+
+test("It should propagate Node.js stream errors instead of hanging", async (t) => {
+	const logger = t.mock.fn();
+	const streamError = new Error("stream broke");
+	const handler = middy(
+		async (event, context, { signal }) => {
+			// Create a Node.js Readable that emits some data then errors
+			const stream = new Readable({
+				read() {
+					this.push("partial");
+					this.destroy(streamError);
+				},
+			});
+			return stream;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	const responseStream = createWritableStream(() => {});
+	await t.assert.rejects(
+		handler(event, responseStream, defaultContext),
+		(err) => {
+			strictEqual(err.message, "stream broke");
+			return true;
+		},
+	);
 });

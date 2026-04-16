@@ -2,7 +2,11 @@ import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import middleware from "./index.js";
 
-const bench = new Bench({ time: 1_000 });
+const bench = new Bench({
+	time: 1_000,
+	warmupTime: 500,
+	warmupIterations: 1_000,
+});
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,

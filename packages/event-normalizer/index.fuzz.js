@@ -21,3 +21,29 @@ test("fuzz `event` w/ `object`", async () => {
 		},
 	);
 });
+
+test("fuzz `event` w/ SQS Records", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				Records: fc.array(
+					fc.record({
+						body: fc.json(),
+						messageId: fc.string(),
+						eventSource: fc.constant("aws:sqs"),
+					}),
+					{ minLength: 1 },
+				),
+			}),
+			async (event) => {
+				await handler(event, defaultContext);
+			},
+		),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});

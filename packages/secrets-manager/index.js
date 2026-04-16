@@ -66,18 +66,21 @@ const secretsManagerMiddleware = (opts = {}) => {
 						)
 						.then((resp) => {
 							if (options.cacheExpiry < 0) {
-								options.cacheKeyExpiry[internalKey] =
-									resp.NextRotationDate * 1000;
+								if (resp.NextRotationDate) {
+									options.cacheKeyExpiry[internalKey] =
+										resp.NextRotationDate * 1000;
+								}
 							} else {
-								options.cacheKeyExpiry[internalKey] = Math.min(
+								const lastChanged =
 									Math.max(
 										resp.LastRotationDate ?? 0,
 										resp.LastChangedDate ?? 0,
 									) *
 										1000 +
-										options.cacheExpiry,
-									resp.NextRotationDate * 1000,
-								);
+									options.cacheExpiry;
+								options.cacheKeyExpiry[internalKey] = resp.NextRotationDate
+									? Math.min(lastChanged, resp.NextRotationDate * 1000)
+									: lastChanged;
 							}
 						})
 				: undefined;
@@ -105,6 +108,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 	};
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -112,7 +116,8 @@ const secretsManagerMiddleware = (opts = {}) => {
 
 	const secretsManagerMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const { value } = processCache(options, fetchRequest, request);

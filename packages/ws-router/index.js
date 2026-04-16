@@ -30,9 +30,13 @@ const wsRouteHandler = (opts = {}) => {
 	const handler = (event, context, abort) => {
 		const { routeKey } = event.requestContext ?? {};
 		if (!routeKey) {
-			throw createError(400, "Unknown WebSocket event format", {
-				cause: { package: "@middy/ws-router", data: { routeKey } },
-			});
+			throw createError(
+				400,
+				"Unknown WebSocket event format: missing 'requestContext.routeKey'",
+				{
+					cause: { package: "@middy/ws-router", data: { routeKey } },
+				},
+			);
 		}
 
 		// Static

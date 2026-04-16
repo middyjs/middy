@@ -140,13 +140,30 @@ export const sanitizeKey = (key) => {
 
 // fetch Cache
 const cache = Object.create(null); // key: { value:{fetchKey:Promise}, expiry }
+const defaultCacheMaxSize = 128;
+
+const validateCacheExpiry = (cacheExpiry) => {
+	if (
+		typeof cacheExpiry === "number" &&
+		cacheExpiry < -1 &&
+		!Number.isNaN(cacheExpiry)
+	) {
+		throw new Error(
+			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive number (ms duration or unix timestamp)`,
+			{ cause: { package: "@middy/util" } },
+		);
+	}
+};
+
 export const processCache = (
 	options,
 	middlewareFetch = () => undefined,
 	middlewareFetchRequest = {},
 ) => {
-	let { cacheKey, cacheKeyExpiry, cacheExpiry } = options;
+	let { cacheKey, cacheKeyExpiry, cacheExpiry, cacheMaxSize } = options;
+	cacheMaxSize ??= defaultCacheMaxSize;
 	cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry;
+	validateCacheExpiry(cacheExpiry);
 	const now = Date.now();
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
@@ -164,10 +181,15 @@ export const processCache = (
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
-	// secrets-manager can override to unix timestamp
+	// cacheExpiry semantics:
+	//   >86400000 (24h): treated as unix timestamp (ms)
+	//   >0 && <=86400000: treated as duration (ms) from now
+	//   -1: infinite cache (never expires)
+	//   0/undefined/null: no caching
 	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
+		clearTimeout(cache[cacheKey]?.refresh);
 		const refresh =
 			duration > 0
 				? setTimeout(
@@ -177,6 +199,7 @@ export const processCache = (
 					)
 				: undefined;
 		cache[cacheKey] = { value, expiry, refresh };
+		evictCache(cacheMaxSize);
 	}
 	return { value, expiry };
 };
@@ -195,10 +218,29 @@ export const getCache = (key) => {
 
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
-	if (!cache[cacheKey]) return;
-	clearTimeout(cache[cacheKey].refresh);
-	cache[cacheKey].value = value;
-	cache[cacheKey].modified = true;
+	const entry = cache[cacheKey];
+	if (!entry) return;
+	clearTimeout(entry.refresh);
+	entry.value = value;
+	entry.modified = true;
+};
+
+const evictCache = (maxSize) => {
+	const cacheKeys = Object.keys(cache);
+	if (cacheKeys.length <= maxSize) return;
+	let oldestKey = null;
+	let oldestExpiry = Infinity;
+	for (const key of cacheKeys) {
+		const entry = cache[key];
+		if (entry && entry.expiry < oldestExpiry) {
+			oldestExpiry = entry.expiry;
+			oldestKey = key;
+		}
+	}
+	if (oldestKey) {
+		clearTimeout(cache[oldestKey]?.refresh);
+		cache[oldestKey] = undefined;
+	}
 };
 
 export const clearCache = (inputKeys = null) => {
@@ -269,6 +311,9 @@ export const jsonSafeStringify = (value, replacer, space) => {
 	}
 };
 
+export const jsonContentTypePattern =
+	/^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
+
 export const decodeBody = (event) => {
 	const { body, isBase64Encoded } = event;
 	if (typeof body === "undefined" || body === null) return body;
@@ -304,7 +349,10 @@ export class HttpError extends Error {
 		message ??= httpErrorCodes[code];
 		super(message, options);
 
-		const name = httpErrorCodes[code].replace(createErrorRegexp, "");
+		const name = (httpErrorCodes[code] ?? "Unknown").replace(
+			createErrorRegexp,
+			"",
+		);
 		this.name = !name.endsWith("Error") ? `${name}Error` : name;
 
 		this.status = this.statusCode = code; // setting `status` for backwards compatibility w/ `http-errors`

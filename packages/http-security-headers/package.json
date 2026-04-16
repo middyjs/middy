@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-security-headers",
-	"version": "7.2.2",
+	"version": "7.2.3",
 	"description": "Applies best practice security headers to responses. It's a simplified port of HelmetJS",
 	"type": "module",
 	"engines": {
@@ -68,10 +68,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.2.2"
+		"@middy/util": "7.2.3"
 	},
 	"devDependencies": {
-		"@middy/core": "7.2.2",
+		"@middy/core": "7.2.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

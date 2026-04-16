@@ -57,6 +57,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 	};
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -64,7 +65,8 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 
 	const serviceDiscoveryMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const { value } = processCache(options, fetchRequest, request);

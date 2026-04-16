@@ -1,8 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, decodeBody } from "@middy/util";
-
-const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
+import { createError, decodeBody, jsonContentTypePattern } from "@middy/util";
 
 const defaults = {
 	reviver: undefined,

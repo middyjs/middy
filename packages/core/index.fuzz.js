@@ -1,3 +1,4 @@
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "./index.js";
@@ -11,6 +12,22 @@ test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, defaultContext);
+		}),
+		{
+			numRuns: 100_000,
+			verbose: 2,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz handler return value is preserved", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.jsonValue(), async (value) => {
+			const h = middy(() => value);
+			const result = await h({}, defaultContext);
+			deepStrictEqual(result, value);
 		}),
 		{
 			numRuns: 100_000,

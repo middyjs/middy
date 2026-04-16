@@ -528,7 +528,10 @@ test("It should throw when not a http event (missing method)", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown HTTP event format");
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
 	}
 });
 
@@ -546,7 +549,10 @@ test("It should throw when not a http event (missing path)", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown HTTP event format");
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
+		);
 	}
 });
 
@@ -612,6 +618,31 @@ test("It should return 404 when dynamic route exists but path does not match", a
 		fail("Should have thrown 404");
 	} catch (e) {
 		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should escape regex metacharacters in static path segments", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/api/v1.0/{id}",
+			handler: (event) => event.pathParameters.id,
+		},
+	]);
+
+	// Should match literal dot
+	const match = await handler(
+		{ httpMethod: "GET", path: "/api/v1.0/123" },
+		defaultContext,
+	);
+	strictEqual(match, "123");
+
+	// Should NOT match non-dot character where dot is
+	try {
+		await handler({ httpMethod: "GET", path: "/api/v1X0/123" }, defaultContext);
+		fail("Should have thrown 404");
+	} catch (e) {
 		strictEqual(e.statusCode, 404);
 	}
 });

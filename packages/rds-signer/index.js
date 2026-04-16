@@ -24,16 +24,17 @@ const rdsSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const clients = {};
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
-			const client = new options.AwsClient({
+			clients[internalKey] ??= new options.AwsClient({
 				...options.awsClientOptions,
 				...options.fetchData[internalKey],
 			});
-			values[internalKey] = client
+			values[internalKey] = clients[internalKey]
 				.getAuthToken()
 				.then((token) => {
 					// Catch Missing token, this usually means there is something wrong with the credentials

@@ -20,7 +20,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		const bodyIsString = typeof body === "string";
 
 		const parsedBody = jsonSafeParse(body);
-		if (typeof parsedBody !== "object") return;
+		if (!parsedBody || typeof parsedBody !== "object") return;
 
 		const filteredBody = mask(parsedBody, fields);
 

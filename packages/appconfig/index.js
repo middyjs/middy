@@ -12,6 +12,7 @@ import {
 	createPrefetchClient,
 	getCache,
 	getInternal,
+	jsonContentTypePattern,
 	jsonSafeParse,
 	modifyCache,
 	processCache,
@@ -29,7 +30,6 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
-const jsonContentTypePattern = /^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 const appConfigMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
@@ -103,13 +103,15 @@ const appConfigMiddleware = (opts = {}) => {
 		return values;
 	};
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
 	const appConfigMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);

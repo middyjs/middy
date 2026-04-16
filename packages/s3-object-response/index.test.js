@@ -2,17 +2,11 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
-import { MockAgent, setGlobalDispatcher } from "undici";
 import middy from "../core/index.js";
 import { clearCache } from "../util/index.js";
 
 import s3ObjectResponse from "./index.js";
 
-let agent;
-test.beforeEach((t) => {
-	agent = new MockAgent();
-	setGlobalDispatcher(agent);
-});
 test.afterEach((t) => {
 	t.mock.reset();
 	clearCache();
@@ -32,17 +26,12 @@ const defaultContext = {
 
 test("It should fetch and forward Body", async (t) => {
 	const s3Data = JSON.stringify({ key: "item", value: 1 });
-	agent
-		.get(awsOrigin)
-		.intercept({
-			path: "/key?signature",
-			method: "GET",
-		})
-		.reply(200, s3Data, {
-			headers: {
-				"Content-Type": "application/json; charset=UTF-8",
-			},
+	t.mock.method(globalThis, "fetch", async () => {
+		return new Response(s3Data, {
+			status: 200,
+			headers: { "Content-Type": "application/json; charset=UTF-8" },
 		});
+	});
 
 	mockClient(S3Client)
 		.on(WriteGetObjectResponseCommand, {
@@ -72,17 +61,12 @@ test("It should fetch and forward Body", async (t) => {
 
 test("It should fetch and forward body", async (t) => {
 	const s3Data = JSON.stringify({ key: "item", value: 1 });
-	agent
-		.get(awsOrigin)
-		.intercept({
-			path: "/key?signature",
-			method: "GET",
-		})
-		.reply(200, s3Data, {
-			headers: {
-				"Content-Type": "application/json; charset=UTF-8",
-			},
+	t.mock.method(globalThis, "fetch", async () => {
+		return new Response(s3Data, {
+			status: 200,
+			headers: { "Content-Type": "application/json; charset=UTF-8" },
 		});
+	});
 	mockClient(S3Client)
 		.on(WriteGetObjectResponseCommand, {
 			RequestRoute: defaultEvent.outputRoute,
@@ -111,17 +95,12 @@ test("It should fetch and forward body", async (t) => {
 
 test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => {
 	const s3Data = JSON.stringify({ key: "item", value: 1 });
-	agent
-		.get(awsOrigin)
-		.intercept({
-			path: "/key?signature",
-			method: "GET",
-		})
-		.reply(200, s3Data, {
-			headers: {
-				"Content-Type": "application/json; charset=UTF-8",
-			},
+	t.mock.method(globalThis, "fetch", async () => {
+		return new Response(s3Data, {
+			status: 200,
+			headers: { "Content-Type": "application/json; charset=UTF-8" },
 		});
+	});
 	mockClient(S3Client)
 		.on(WriteGetObjectResponseCommand, {
 			RequestRoute: defaultEvent.outputRoute,
@@ -210,6 +189,7 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 });
 
 test("It should handle non-InvalidSignatureException error from S3", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response(""));
 	const s3Data = "test";
 	const error = new Error("SomeOtherError");
 
@@ -234,6 +214,7 @@ test("It should handle non-InvalidSignatureException error from S3", async (t) =
 });
 
 test("It should handle InvalidSignatureException and retry", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response(""));
 	const s3Data = JSON.stringify({ key: "item", value: 1 });
 	const invalidSignatureError = new Error("InvalidSignatureException");
 	invalidSignatureError.__type = "InvalidSignatureException";

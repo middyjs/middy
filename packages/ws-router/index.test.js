@@ -192,6 +192,9 @@ test("It should throw when not a ws event", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/ws-router");
-		strictEqual(e.message, "Unknown WebSocket event format");
+		strictEqual(
+			e.message,
+			"Unknown WebSocket event format: missing 'requestContext.routeKey'",
+		);
 	}
 });
