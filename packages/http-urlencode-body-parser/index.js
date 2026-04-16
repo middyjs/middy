@@ -28,7 +28,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		}
 
 		const data = decodeBody(request.event);
-		const parsedBody = {};
+		const parsedBody = Object.create(null);
 		for (const [key, value] of new URLSearchParams(data)) {
 			if (Object.hasOwn(parsedBody, key)) {
 				parsedBody[key] = Array.isArray(parsedBody[key])
@@ -48,7 +48,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			);
 		}
 
-		request.event.body = Object.assign(Object.create(null), parsedBody);
+		request.event.body = parsedBody;
 	};
 
 	return {
