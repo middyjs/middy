@@ -11,6 +11,7 @@ export declare function ssmParam<T>(path: string): ParamType<T>;
 export interface SSMOptions<AwsSSMClient = SSMClient>
 	extends Omit<MiddyOptions<AwsSSMClient, SSMClientConfig>, "fetchData"> {
 	fetchData?: { [key: string]: string | ParamType<unknown> };
+	awsRequestLimit?: number;
 }
 
 export type Context<TOptions extends SSMOptions | undefined> =

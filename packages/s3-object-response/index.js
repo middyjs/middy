@@ -20,6 +20,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 	}
@@ -32,7 +33,8 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
 	const s3ObjectResponseMiddlewareAfter = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const command = new WriteGetObjectResponseCommand({

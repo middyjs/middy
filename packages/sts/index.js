@@ -62,6 +62,7 @@ const stsMiddleware = (opts = {}) => {
 	};
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetch);
@@ -69,7 +70,8 @@ const stsMiddleware = (opts = {}) => {
 
 	const stsMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const { value } = processCache(options, fetch, request);

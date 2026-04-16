@@ -64,8 +64,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			response.headers["Cache-Control"] ?? response.headers["cache-control"];
 		const isNodeStream = response.body?._readableState;
 		const isWebStream = response.body instanceof ReadableStream;
+		const responseContentEncoding =
+			response.headers["Content-Encoding"] ??
+			response.headers["content-encoding"];
 		if (
 			response.isBase64Encoded ||
+			responseContentEncoding ||
 			!preferredEncoding ||
 			!supportedContentEncodings.includes(preferredEncoding) ||
 			!response.body ||

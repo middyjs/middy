@@ -108,6 +108,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 	};
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -115,7 +116,8 @@ const secretsManagerMiddleware = (opts = {}) => {
 
 	const secretsManagerMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const { value } = processCache(options, fetchRequest, request);

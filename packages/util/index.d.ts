@@ -21,6 +21,7 @@ export interface Options<Client, ClientOptions> {
 	cacheKey?: string;
 	cacheExpiry?: number;
 	cacheKeyExpiry?: Record<string, number>;
+	cacheMaxSize?: number;
 	setToContext?: boolean;
 }
 
@@ -156,6 +157,8 @@ declare function jsonSafeStringify(
 	replacer?: (key: string, value: unknown) => unknown,
 	space?: string | number,
 ): string | unknown;
+
+declare const jsonContentTypePattern: RegExp;
 
 declare function decodeBody(event: {
 	body?: string | null;

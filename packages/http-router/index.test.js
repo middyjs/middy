@@ -528,7 +528,10 @@ test("It should throw when not a http event (missing method)", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown HTTP event format");
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
 	}
 });
 
@@ -546,7 +549,10 @@ test("It should throw when not a http event (missing path)", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Unknown HTTP event format");
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
+		);
 	}
 });
 

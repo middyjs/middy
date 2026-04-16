@@ -18,7 +18,6 @@ import {
 	sanitizeKey,
 } from "@middy/util";
 
-const awsRequestLimit = 10;
 const defaults = {
 	AwsClient: SSMClient, // Allow for XRay
 	awsClientOptions: {},
@@ -30,6 +29,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	awsRequestLimit: 10,
 };
 
 const ssmMiddleware = (opts = {}) => {
@@ -62,7 +62,7 @@ const ssmMiddleware = (opts = {}) => {
 			batchKeys.set(internalKey, fetchKey);
 			// from the first to the batch size skip, unless it's the last entry
 			if (
-				(!idx || (idx + 1) % awsRequestLimit !== 0) &&
+				(!idx || (idx + 1) % options.awsRequestLimit !== 0) &&
 				!(idx + 1 === namedKeys.length)
 			) {
 				continue;
@@ -80,15 +80,15 @@ const ssmMiddleware = (opts = {}) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
 					for (const fetchKey of resp.InvalidParameters ?? []) {
-						result[fetchKey] = new Promise(() => {
-							const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-							const value = getCache(options.cacheKey).value ?? {};
-							value[internalKey] = undefined;
-							modifyCache(options.cacheKey, value);
-							throw new Error(`InvalidParameter ${fetchKey}`, {
+						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
+						const value = getCache(options.cacheKey).value ?? {};
+						value[internalKey] = undefined;
+						modifyCache(options.cacheKey, value);
+						result[fetchKey] = Promise.reject(
+							new Error(`InvalidParameter ${fetchKey}`, {
 								cause: { package: "@middy/ssm" },
-							});
-						});
+							}),
+						);
 					}
 					for (const param of resp.Parameters ?? []) {
 						result[param.Name] = parseValue(param);
@@ -168,6 +168,7 @@ const ssmMiddleware = (opts = {}) => {
 	};
 
 	let client;
+	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -175,7 +176,8 @@ const ssmMiddleware = (opts = {}) => {
 
 	const ssmMiddlewareBefore = async (request) => {
 		if (!client) {
-			client = await createClient(options, request);
+			clientInit ??= createClient(options, request);
+			client = await clientInit;
 		}
 
 		const { value } = processCache(options, fetchRequest, request);
