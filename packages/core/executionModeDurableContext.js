@@ -1,7 +1,13 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { withDurableExecution } from "@aws/durable-execution-sdk-js";
 import { executionContextKeys, lambdaContextKeys } from "@middy/util";
+
+let withDurableExecution;
+try {
+	({ withDurableExecution } = await import("@aws/durable-execution-sdk-js"));
+} catch {
+	withDurableExecution = undefined;
+}
 
 export const executionModeDurableContext = (
 	{ middyRequest, runRequest },
@@ -11,20 +17,22 @@ export const executionModeDurableContext = (
 	onErrorMiddlewares,
 	plugin,
 ) => {
+	if (!withDurableExecution) {
+		throw new Error(
+			"executionModeDurableContext requires @aws/durable-execution-sdk-js. " +
+				"Install it as a dependency: npm i @aws/durable-execution-sdk-js",
+		);
+	}
+
 	const middy = withDurableExecution(async (event, context) => {
 		const request = middyRequest(event, context);
 		plugin.requestStart(request);
-
-		// normalize context with executionModeStandard
-		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
-		// Idea: Use Proxy instead of copying. Faster for common use case?
 		copyKeys(
 			request.context,
 			request.context.executionContext,
 			executionContextKeys,
 		);
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
-
 		try {
 			const response = await runRequest(
 				request,
@@ -39,10 +47,12 @@ export const executionModeDurableContext = (
 			await plugin.requestEnd(request);
 		}
 	});
+
 	middy.handler = (replaceLambdaHandler) => {
 		lambdaHandler = replaceLambdaHandler;
 		return middy;
 	};
+
 	return middy;
 };
 

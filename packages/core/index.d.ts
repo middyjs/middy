@@ -13,6 +13,15 @@ declare type PluginHookPromise = (
 ) => Promise<unknown> | unknown;
 export type PluginExecutionMode = () => void;
 export declare const executionModeStandard: PluginExecutionMode;
+/**
+ * Execution mode for AWS Lambda Durable Functions.
+ *
+ * **Requires** `@aws/durable-execution-sdk-js` to be installed as
+ * a direct dependency in your project. It is an optional peer of
+ * `@middy/core` and will not be installed automatically.
+ *
+ * @throws {Error} If `@aws/durable-execution-sdk-js` is not installed.
+ */
 export declare const executionModeDurableContext: PluginExecutionMode;
 export declare const executionModeStreamifyResponse: PluginExecutionMode;
 
