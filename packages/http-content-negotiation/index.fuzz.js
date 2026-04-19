@@ -18,7 +18,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -42,7 +41,6 @@ test("fuzz `event` w/ `record`", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -67,6 +65,6 @@ test("fuzz context has preferredMediaType after negotiation", async () => {
 				ok(type === "string" || type === "undefined");
 			},
 		),
-		{ numRuns: 100_000, verbose: 2, examples: [] },
+		{ numRuns: 100_000, examples: [] },
 	);
 });

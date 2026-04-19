@@ -21,7 +21,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -49,7 +48,6 @@ test("fuzz `event` w/ `record`", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},

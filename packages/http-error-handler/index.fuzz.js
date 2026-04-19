@@ -17,7 +17,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -34,6 +33,6 @@ test("fuzz errors produce valid HTTP response", async () => {
 			strictEqual(typeof result.statusCode, "number");
 			ok(result.statusCode >= 100 && result.statusCode < 600);
 		}),
-		{ numRuns: 100_000, verbose: 2, examples: [] },
+		{ numRuns: 100_000, examples: [] },
 	);
 });

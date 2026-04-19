@@ -17,17 +17,11 @@
 			"import": {
 				"types": "./index.d.ts",
 				"default": "./index.js"
-			},
-			"require": {
-				"default": "./index.js"
 			}
 		},
 		"./Standard": {
 			"import": {
 				"types": "./executionModeStandard.d.ts",
-				"default": "./executionModeStandard.js"
-			},
-			"require": {
 				"default": "./executionModeStandard.js"
 			}
 		},
@@ -35,17 +29,11 @@
 			"import": {
 				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
-			},
-			"require": {
-				"default": "./executionModeDurableContext.js"
 			}
 		},
 		"./StreamifyResponse": {
 			"import": {
 				"types": "./executionModeStreamifyResponse.d.ts",
-				"default": "./executionModeStreamifyResponse.js"
-			},
-			"require": {
 				"default": "./executionModeStreamifyResponse.js"
 			}
 		}

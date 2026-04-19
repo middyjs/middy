@@ -16,7 +16,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -35,7 +34,6 @@ test("fuzz `event` w/ `record`", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -64,7 +62,6 @@ test("fuzz `event` w/ `Access-Control-Request-Method` header", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -93,7 +90,6 @@ test("fuzz `event` w/ `Access-Control-Request-Headers` header", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -113,6 +109,6 @@ test("fuzz response has CORS headers for matching origin", async () => {
 				);
 			},
 		),
-		{ numRuns: 100_000, verbose: 2, examples: [] },
+		{ numRuns: 100_000, examples: [] },
 	);
 });

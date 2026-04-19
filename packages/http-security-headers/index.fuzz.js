@@ -34,7 +34,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -69,7 +68,6 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -109,7 +107,6 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -144,7 +141,6 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -158,6 +154,6 @@ test("fuzz response has X-Content-Type-Options header", async () => {
 			const result = await secHandler(event, defaultContext);
 			strictEqual(result.headers["X-Content-Type-Options"], "nosniff");
 		}),
-		{ numRuns: 100_000, verbose: 2, examples: [] },
+		{ numRuns: 100_000, examples: [] },
 	);
 });

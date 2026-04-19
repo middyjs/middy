@@ -26,7 +26,6 @@ test("fuzz `event` w/ `object`", async (t) => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);

@@ -17,17 +17,11 @@
 			"import": {
 				"types": "./index.d.ts",
 				"default": "./index.js"
-			},
-			"require": {
-				"default": "./index.js"
 			}
 		},
 		"./transpile": {
 			"import": {
 				"types": "./transpile.d.ts",
-				"default": "./transpile.js"
-			},
-			"require": {
 				"default": "./transpile.js"
 			}
 		}
