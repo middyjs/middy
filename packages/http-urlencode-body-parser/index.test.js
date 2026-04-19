@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import urlEncodeBodyParser from "./index.js";
+import urlEncodeBodyParser, {
+	httpUrlencodeBodyParserValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -276,4 +278,28 @@ test("It should handle base64 body", async (t) => {
 	const body = await handler(event, defaultContext);
 
 	deepStrictEqual(body, Object.assign(Object.create(null), { a: "a", b: "b" }));
+});
+
+test("httpUrlencodeBodyParserValidateOptions accepts valid options and rejects typos", () => {
+	httpUrlencodeBodyParserValidateOptions({
+		disableContentTypeCheck: true,
+		disableContentTypeError: false,
+	});
+	httpUrlencodeBodyParserValidateOptions({});
+	try {
+		httpUrlencodeBodyParserValidateOptions({ disableContentTpyeCheck: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
+	}
+});
+
+test("httpUrlencodeBodyParserValidateOptions rejects wrong type", () => {
+	try {
+		httpUrlencodeBodyParserValidateOptions({ disableContentTypeCheck: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("disableContentTypeCheck"));
+	}
 });

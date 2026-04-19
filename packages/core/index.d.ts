@@ -229,4 +229,8 @@ declare namespace middy {
 	};
 }
 
+export declare function middyValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default middy;

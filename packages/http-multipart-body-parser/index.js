@@ -1,11 +1,21 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import BusBoy from "@fastify/busboy";
-import { createError } from "@middy/util";
+import { createError, validateOptions } from "@middy/util";
 
 const mimePattern =
 	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?charset=[\w-]+)?$/i;
 const fieldnamePattern = /(.+)\[(.*)]$/;
+
+const optionSchema = {
+	busboy: "object?",
+	charset: "string?",
+	disableContentTypeCheck: "boolean?",
+	disableContentTypeError: "boolean?",
+};
+
+export const httpMultipartBodyParserValidateOptions = (options) =>
+	validateOptions("@middy/http-multipart-body-parser", optionSchema, options);
 
 const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods

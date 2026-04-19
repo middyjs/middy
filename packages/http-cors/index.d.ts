@@ -25,4 +25,8 @@ declare function httpCors(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpCorsValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpCors;

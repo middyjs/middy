@@ -1,6 +1,36 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse } from "@middy/util";
+import { normalizeHttpResponse, validateOptions } from "@middy/util";
+
+// Each policy option accepts either a config object or a boolean (true = use
+// defaults, false = disable). See middleware body for enable/disable logic.
+const objectOrBoolean = (v) =>
+	typeof v === "boolean" ||
+	(v !== null && typeof v === "object" && !Array.isArray(v));
+
+const optionSchema = {
+	contentSecurityPolicy: objectOrBoolean,
+	contentSecurityPolicyReportOnly: "boolean?",
+	contentTypeOptions: objectOrBoolean,
+	crossOriginEmbedderPolicy: objectOrBoolean,
+	crossOriginOpenerPolicy: objectOrBoolean,
+	crossOriginResourcePolicy: objectOrBoolean,
+	dnsPrefetchControl: objectOrBoolean,
+	downloadOptions: objectOrBoolean,
+	frameOptions: objectOrBoolean,
+	originAgentCluster: objectOrBoolean,
+	permissionsPolicy: objectOrBoolean,
+	permittedCrossDomainPolicies: objectOrBoolean,
+	poweredBy: "boolean?",
+	referrerPolicy: objectOrBoolean,
+	reportingEndpoints: objectOrBoolean,
+	reportTo: objectOrBoolean,
+	strictTransportSecurity: objectOrBoolean,
+	xssProtection: objectOrBoolean,
+};
+
+export const httpSecurityHeadersValidateOptions = (options) =>
+	validateOptions("@middy/http-security-headers", optionSchema, options);
 
 // Code and Defaults heavily based off https://helmetjs.github.io/
 

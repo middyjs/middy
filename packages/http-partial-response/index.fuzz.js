@@ -16,7 +16,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -42,7 +41,6 @@ test("fuzz filtered body is subset of original", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},

@@ -1,11 +1,24 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
+import { validateOptions } from "@middy/util";
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
-const defaults = {};
+const defaults = {
+	onFlushError: undefined,
+};
+
+const optionSchema = {
+	namespace: "string?",
+	dimensions: "array?",
+	onFlushError: "function?",
+};
+
+export const cloudwatchMetricsValidateOptions = (options) =>
+	validateOptions("@middy/cloudwatch-metrics", optionSchema, options);
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
-	const { namespace, dimensions } = { ...defaults, ...opts };
+	const { namespace, dimensions, onFlushError } = { ...defaults, ...opts };
 	const cloudwatchMetricsBefore = async (request) => {
 		const metrics = awsEmbeddedMetrics.createMetricsLogger();
 
@@ -24,8 +37,11 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 	const flushMetrics = async (request) => {
 		try {
 			await request.context.metrics?.flush();
-		} catch {
-			// Swallow flush errors to prevent metrics from crashing the handler
+		} catch (err) {
+			// Flush errors are swallowed to prevent metrics from crashing the
+			// handler. Users who need visibility (e.g., to catch IAM or network
+			// misconfigurations) can pass `onFlushError` to observe them.
+			onFlushError?.(err);
 		}
 	};
 	const cloudwatchMetricsAfter = flushMetrics;

@@ -23,7 +23,6 @@ test("fuzz `jsonSafeParse` w/ `anything`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -42,7 +41,6 @@ test("fuzz `jsonSafeParse` roundtrip: parse then stringify equals original JSON"
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -59,7 +57,6 @@ test("fuzz `jsonSafeStringify` w/ `anything`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -76,7 +73,6 @@ test("fuzz `jsonSafeStringify` roundtrip: stringify(parse(json)) equals original
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -93,7 +89,6 @@ test("fuzz `sanitizeKey` w/ `string`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -108,7 +103,6 @@ test("fuzz `sanitizeKey` idempotency: sanitize(sanitize(key)) equals sanitize(ke
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -122,7 +116,6 @@ test("fuzz `sanitizeKey` output contains only valid chars", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -139,7 +132,6 @@ test("fuzz `normalizeHttpResponse` w/ `anything`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -165,7 +157,6 @@ test("fuzz `createError` w/ valid HTTP status code and `string`", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -183,7 +174,6 @@ test("fuzz `getInternal` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);

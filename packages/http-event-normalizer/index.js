@@ -1,5 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
+const optionSchema = {};
+
+export const httpEventNormalizerValidateOptions = (options) =>
+	validateOptions("@middy/http-event-normalizer", optionSchema, options);
+
 const httpEventNormalizerMiddleware = () => {
 	const httpEventNormalizerMiddlewareBefore = (request) => {
 		const { event } = request;

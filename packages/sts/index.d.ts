@@ -68,4 +68,8 @@ declare function sts<TOptions extends STSOptions | undefined>(
 	Internal<TOptions>
 >;
 
+export declare function stsValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default sts;

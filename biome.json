@@ -22,6 +22,16 @@
 			"correctness": {
 				"noUnusedFunctionParameters": "off"
 			},
+			"style": {
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"paths": {
+							"node:assert": "Use 'node:assert/strict' to get strict equality semantics by default."
+						}
+					}
+				}
+			},
 			"suspicious": {
 				"noExplicitAny": "off"
 			}

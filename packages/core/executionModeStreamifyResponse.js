@@ -54,11 +54,23 @@ export const executionModeStreamifyResponse = (
 				});
 			}
 
+			// See executionModeStandard for the .cause-chaining rationale.
+			let handlerError;
 			try {
 				await pipeline(handlerStream, responseStream);
-			} finally {
-				await plugin.requestEnd(request);
+			} catch (err) {
+				handlerError = err;
 			}
+			try {
+				await plugin.requestEnd(request);
+			} catch (hookErr) {
+				if (handlerError) {
+					handlerError.cause ??= hookErr;
+				} else {
+					throw hookErr;
+				}
+			}
+			if (handlerError) throw handlerError;
 		},
 	);
 

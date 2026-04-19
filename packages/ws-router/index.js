@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError } from "@middy/util";
+import { createError, validateOptions } from "@middy/util";
 
 const defaults = {
 	routes: [],
@@ -11,6 +11,14 @@ const defaults = {
 		throw err;
 	},
 };
+
+const optionSchema = {
+	routes: "array?",
+	notFoundResponse: "function?",
+};
+
+export const wsRouterValidateOptions = (options) =>
+	validateOptions("@middy/ws-router", optionSchema, options);
 const wsRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {

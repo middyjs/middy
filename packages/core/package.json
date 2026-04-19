@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.2.3",
+	"version": "7.3.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -17,17 +17,11 @@
 			"import": {
 				"types": "./index.d.ts",
 				"default": "./index.js"
-			},
-			"require": {
-				"default": "./index.js"
 			}
 		},
 		"./Standard": {
 			"import": {
 				"types": "./executionModeStandard.d.ts",
-				"default": "./executionModeStandard.js"
-			},
-			"require": {
 				"default": "./executionModeStandard.js"
 			}
 		},
@@ -35,17 +29,11 @@
 			"import": {
 				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
-			},
-			"require": {
-				"default": "./executionModeDurableContext.js"
 			}
 		},
 		"./StreamifyResponse": {
 			"import": {
 				"types": "./executionModeStreamifyResponse.d.ts",
-				"default": "./executionModeStreamifyResponse.js"
-			},
-			"require": {
 				"default": "./executionModeStreamifyResponse.js"
 			}
 		}
@@ -97,7 +85,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.2.3"
+		"@middy/util": "7.3.0"
 	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"
@@ -110,7 +98,7 @@
 	"devDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0",
 		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
-		"@datastream/core": "0.1.6",
+		"@datastream/core": "0.3.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

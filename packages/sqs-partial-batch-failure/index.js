@@ -1,8 +1,17 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
 const defaults = {
 	logger: console.error,
 };
+
+const optionSchema = {
+	logger: "function?",
+};
+
+export const sqsPartialBatchFailureValidateOptions = (options) =>
+	validateOptions("@middy/sqs-partial-batch-failure", optionSchema, options);
 
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };

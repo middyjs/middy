@@ -16,7 +16,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -48,7 +47,6 @@ test("fuzz decoded path parameters are properly decoded", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},

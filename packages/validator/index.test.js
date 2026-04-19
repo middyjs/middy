@@ -1,12 +1,13 @@
 import {
 	deepStrictEqual,
 	notStrictEqual,
+	ok,
 	strictEqual,
 } from "node:assert/strict";
 import { test } from "node:test";
 import localize from "ajv-ftl-i18n";
 import middy from "../core/index.js";
-import validator from "./index.js";
+import validator, { validatorValidateOptions } from "./index.js";
 import { transpileSchema } from "./transpile.js";
 
 const defaultEvent = {};
@@ -686,5 +687,30 @@ test("It should use out-of-the-box ajv-errors plugin", async (t) => {
 				message: "must be an object with an integer property foo only",
 			},
 		]);
+	}
+});
+
+test("validatorValidateOptions accepts valid options and rejects typos", () => {
+	validatorValidateOptions({
+		eventSchema: () => true,
+		defaultLanguage: "en",
+		languages: {},
+	});
+	validatorValidateOptions({});
+	try {
+		validatorValidateOptions({ evenSchema: () => true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/validator");
+	}
+});
+
+test("validatorValidateOptions rejects wrong type", () => {
+	try {
+		validatorValidateOptions({ defaultLanguage: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("defaultLanguage"));
 	}
 });

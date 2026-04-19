@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-cors",
-	"version": "7.2.3",
+	"version": "7.3.0",
 	"description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -16,9 +16,6 @@
 		".": {
 			"import": {
 				"types": "./index.d.ts",
-				"default": "./index.js"
-			},
-			"require": {
 				"default": "./index.js"
 			}
 		}
@@ -64,10 +61,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.2.3"
+		"@middy/util": "7.3.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.2.3",
+		"@middy/core": "7.3.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

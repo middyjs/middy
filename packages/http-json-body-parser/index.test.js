@@ -1,7 +1,7 @@
-import { deepStrictEqual, match, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import jsonBodyParser from "./index.js";
+import jsonBodyParser, { httpJsonBodyParserValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -249,5 +249,29 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
+	}
+});
+
+test("httpJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {
+	httpJsonBodyParserValidateOptions({
+		reviver: (_k, v) => v,
+		disableContentTypeCheck: true,
+	});
+	httpJsonBodyParserValidateOptions({});
+	try {
+		httpJsonBodyParserValidateOptions({ disableContentTpyeCheck: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
+	}
+});
+
+test("httpJsonBodyParserValidateOptions rejects wrong type", () => {
+	try {
+		httpJsonBodyParserValidateOptions({ reviver: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("reviver"));
 	}
 });

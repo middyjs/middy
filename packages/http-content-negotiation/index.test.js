@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpContentNegotiation from "./index.js";
+import httpContentNegotiation, {
+	httpContentNegotiationValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -413,4 +415,29 @@ test("It should find locale when language passed in", async (t) => {
 		preferredLanguages: ["en-ca"],
 		preferredLanguage: "en-ca",
 	});
+});
+
+test("httpContentNegotiationValidateOptions accepts valid options and rejects typos", () => {
+	httpContentNegotiationValidateOptions({
+		parseCharsets: true,
+		availableLanguages: ["en"],
+		failOnMismatch: false,
+	});
+	httpContentNegotiationValidateOptions({});
+	try {
+		httpContentNegotiationValidateOptions({ parseCharset: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-content-negotiation");
+	}
+});
+
+test("httpContentNegotiationValidateOptions rejects wrong type", () => {
+	try {
+		httpContentNegotiationValidateOptions({ availableLanguages: "en" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("availableLanguages"));
+	}
 });

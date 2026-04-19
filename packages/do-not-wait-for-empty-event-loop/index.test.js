@@ -1,7 +1,9 @@
 import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import doNotWaitForEmptyEventLoop from "./index.js";
+import doNotWaitForEmptyEventLoop, {
+	doNotWaitForEmptyEventLoopValidateOptions,
+} from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -296,4 +298,28 @@ test("callbackWaitsForEmptyEventLoop should be false in handler but true after i
 	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
+});
+
+test("doNotWaitForEmptyEventLoopValidateOptions accepts valid options and rejects typos", () => {
+	doNotWaitForEmptyEventLoopValidateOptions({
+		runOnBefore: true,
+		runOnAfter: false,
+	});
+	doNotWaitForEmptyEventLoopValidateOptions({});
+	try {
+		doNotWaitForEmptyEventLoopValidateOptions({ runBefore: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/do-not-wait-for-empty-event-loop");
+	}
+});
+
+test("doNotWaitForEmptyEventLoopValidateOptions rejects wrong type", () => {
+	try {
+		doNotWaitForEmptyEventLoopValidateOptions({ runOnBefore: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("runOnBefore"));
+	}
 });

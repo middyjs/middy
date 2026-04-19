@@ -1,9 +1,11 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 
 import middy from "../core/index.js";
-import sqsPartialBatchFailure from "./index.js";
+import sqsPartialBatchFailure, {
+	sqsPartialBatchFailureValidateOptions,
+} from "./index.js";
 
 const lambdaHandler = async (e) => {
 	const processedRecords = e.Records.map(async (r) => {
@@ -302,4 +304,56 @@ test("Should not override response in onError if response already exists", async
 	const response = await handler(event, defaultContext);
 	// The custom response should be preserved, not overridden
 	deepStrictEqual(response, { custom: "response" });
+});
+
+test("Should treat missing response entries as rejected", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	// Handler returns fewer entries than Records — second index is undefined
+	const handler = middy(async () => [{ status: "fulfilled", value: "ok" }]).use(
+		sqsPartialBatchFailure({ logger }),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [{ itemIdentifier: event.Records[1].messageId }],
+	});
+	strictEqual(logger.mock.callCount(), 1);
+});
+
+test("sqsPartialBatchFailureValidateOptions accepts valid options and rejects typos", () => {
+	sqsPartialBatchFailureValidateOptions({ logger: () => {} });
+	sqsPartialBatchFailureValidateOptions({});
+	try {
+		sqsPartialBatchFailureValidateOptions({ loger: () => {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/sqs-partial-batch-failure");
+	}
+});
+
+test("sqsPartialBatchFailureValidateOptions rejects wrong type", () => {
+	try {
+		sqsPartialBatchFailureValidateOptions({ logger: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("logger"));
+	}
 });

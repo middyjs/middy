@@ -1,10 +1,10 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import s3 from "./index.js";
+import s3, { s3ValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -461,4 +461,25 @@ test("It should export s3Param helper for TypeScript type inference", async (t) 
 	const mockRequest = { event: {}, context: {}, internal: {} };
 	const result = s3Param(mockRequest);
 	strictEqual(result, mockRequest);
+});
+
+test("s3ValidateOptions accepts valid options and rejects typos", () => {
+	s3ValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	s3ValidateOptions({});
+	try {
+		s3ValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/s3");
+	}
+});
+
+test("s3ValidateOptions rejects wrong type", () => {
+	try {
+		s3ValidateOptions({ setToContext: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("setToContext"));
+	}
 });

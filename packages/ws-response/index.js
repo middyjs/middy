@@ -6,11 +6,18 @@ import {
 } from "@aws-sdk/client-apigatewaymanagementapi";
 
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
+	validateOptions,
 } from "@middy/util";
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const wsResponseValidateOptions = (options) =>
+	validateOptions("@middy/ws-response", optionSchema, options);
 
 const defaults = {
 	AwsClient: ApiGatewayManagementApiClient,

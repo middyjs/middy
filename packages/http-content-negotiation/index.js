@@ -1,6 +1,26 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError } from "@middy/util";
+import { createError, validateOptions } from "@middy/util";
+
+const optionSchema = {
+	parseCharsets: "boolean?",
+	availableCharsets: "array?",
+	defaultToFirstCharset: "boolean?",
+	parseEncodings: "boolean?",
+	availableEncodings: "array?",
+	defaultToFirstEncoding: "boolean?",
+	parseLanguages: "boolean?",
+	availableLanguages: "array?",
+	defaultToFirstLanguage: "boolean?",
+	parseMediaTypes: "boolean?",
+	availableMediaTypes: "array?",
+	defaultToFirstMediaType: "boolean?",
+	failOnMismatch: "boolean?",
+};
+
+export const httpContentNegotiationValidateOptions = (options) =>
+	validateOptions("@middy/http-content-negotiation", optionSchema, options);
+
 import charset from "negotiator/lib/charset.js";
 import encoding from "negotiator/lib/encoding.js";
 import language from "negotiator/lib/language.js";

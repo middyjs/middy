@@ -6,6 +6,7 @@ import {
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	clearCache,
@@ -23,6 +24,7 @@ import {
 	normalizeHttpResponse,
 	processCache,
 	sanitizeKey,
+	validateOptions,
 } from "./index.js";
 
 process.env.AWS_REGION = "ca-central-1";
@@ -668,6 +670,42 @@ test("processCache should work with default middlewareFetch", async (t) => {
 	clearCache();
 });
 
+test("processCache should throw when cacheExpiry is below -1", async (t) => {
+	try {
+		processCache({ cacheKey: "bad-expiry", cacheExpiry: -5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should evict oldest entry when exceeding cacheMaxSize", async (t) => {
+	const fetchRequest = t.mock.fn(() => "value");
+	processCache(
+		{ cacheKey: "keep-1", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	processCache(
+		{ cacheKey: "keep-2", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	processCache(
+		{ cacheKey: "keep-3", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	deepStrictEqual(getCache("keep-1"), {});
+	notStrictEqual(getCache("keep-2").value, undefined);
+	notStrictEqual(getCache("keep-3").value, undefined);
+	clearCache();
+});
+
 // modifyCache
 test("modifyCache should not override value when it does not exist", async (t) => {
 	modifyCache("key");
@@ -845,6 +883,12 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.expose, false);
 });
 
+test("HttpError should default name to UnknownError for unknown status code", async (t) => {
+	const e = new HttpError(999, "message");
+	strictEqual(e.name, "UnknownError");
+	strictEqual(e.status, 999);
+});
+
 test("HttpError should create error with explicit expose", async (t) => {
 	const e = new HttpError(500, "message", { expose: true });
 	strictEqual(e.status, 500);
@@ -913,5 +957,246 @@ describe("lambdaContext", () => {
 		};
 		const value = lambdaContext(request, "functionName", context);
 		strictEqual(value, "test-function");
+	});
+});
+
+describe("validateOptions", () => {
+	const schema = {
+		name: "string",
+		count: "number?",
+		enabled: "boolean?",
+		handler: "function",
+		config: "object?",
+		tags: "array?",
+		limit: (v) => Number.isInteger(v) && v >= 1,
+	};
+
+	test("should accept valid options", () => {
+		validateOptions("@middy/test", schema, {
+			name: "foo",
+			handler: () => {},
+		});
+		validateOptions("@middy/test", schema, {
+			name: "foo",
+			count: 1,
+			enabled: true,
+			handler: () => {},
+			config: { a: 1 },
+			tags: ["x"],
+			limit: 5,
+		});
+	});
+
+	test("should accept empty options when no required fields defined", () => {
+		validateOptions("@middy/test", { x: "string?" }, {});
+	});
+
+	test("should default options to empty object", () => {
+		validateOptions("@middy/test", { x: "string?" });
+	});
+
+	test("should throw on unknown key", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				typoKey: true,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("typoKey"));
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+
+	test("should throw when required field missing", () => {
+		try {
+			validateOptions("@middy/test", schema, { handler: () => {} });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("name"));
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+
+	test("should throw when field has wrong type", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: 42,
+				handler: () => {},
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("name"));
+			ok(e.message.includes("string"));
+		}
+	});
+
+	test("should throw when optional field has wrong type", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				count: "not-a-number",
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("count"));
+		}
+	});
+
+	test("should throw when predicate returns false", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				limit: 0,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("limit"));
+		}
+	});
+
+	test("predicate should not be called for undefined", () => {
+		let calls = 0;
+		validateOptions(
+			"@middy/test",
+			{
+				value: (v) => {
+					calls++;
+					return typeof v === "number";
+				},
+			},
+			{},
+		);
+		strictEqual(calls, 0);
+	});
+
+	test("should reject array when object expected", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				config: [1, 2, 3],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("config"));
+			ok(e.message.includes("object"));
+		}
+	});
+
+	test("should reject null when object expected", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				config: null,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("config"));
+		}
+	});
+
+	test("should reject NaN when number expected", () => {
+		try {
+			validateOptions("@middy/test", schema, {
+				name: "foo",
+				handler: () => {},
+				count: Number.NaN,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("count"));
+		}
+	});
+
+	test("should reject non-object options", () => {
+		try {
+			validateOptions("@middy/test", schema, "not-an-object");
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+
+	test("should throw on unknown schema type", () => {
+		try {
+			validateOptions("@middy/test", { x: "integer" }, { x: 1 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("integer"));
+		}
+	});
+});
+
+describe("awsClientOptionSchema", () => {
+	test("should accept a typical AWS middleware options object", () => {
+		validateOptions("@middy/test", awsClientOptionSchema, {
+			AwsClient: class {},
+			awsClientOptions: { apiVersion: "2014-11-06" },
+			fetchData: { key: "/path" },
+			cacheKey: "test",
+			cacheExpiry: 0,
+			cacheMaxSize: 100,
+			setToContext: false,
+		});
+	});
+
+	test("should reject typo in AWS field", () => {
+		try {
+			validateOptions("@middy/test", awsClientOptionSchema, {
+				cachExpiry: 60,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("cachExpiry"));
+		}
+	});
+
+	test("should reject non-function AwsClient", () => {
+		try {
+			validateOptions("@middy/test", awsClientOptionSchema, {
+				AwsClient: "not-a-class",
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("AwsClient"));
+		}
+	});
+
+	test("should reject cacheExpiry below -1", () => {
+		try {
+			validateOptions("@middy/test", awsClientOptionSchema, {
+				cacheExpiry: -5,
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("cacheExpiry"));
+		}
+	});
+
+	test("can be spread into a package-specific schema", () => {
+		const schema = {
+			...awsClientOptionSchema,
+			customField: "string?",
+		};
+		validateOptions("@middy/test", schema, {
+			cacheKey: "x",
+			customField: "y",
+		});
+		try {
+			validateOptions("@middy/test", schema, { customField: 42 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("customField"));
+		}
 	});
 });

@@ -46,4 +46,8 @@ declare function ssm<TOptions extends SSMOptions>(
 	Internal<TOptions>
 >;
 
+export declare function ssmValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default ssm;

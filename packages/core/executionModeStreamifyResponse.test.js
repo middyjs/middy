@@ -377,6 +377,52 @@ test("Should trigger requestStart hook", async (t) => {
 	strictEqual(chunkResponse(), input);
 });
 
+test("Should propagate requestEnd hook error when handler succeeds in streamify mode", async (t) => {
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy(async () => "ok", {
+		executionMode: executionModeStreamifyResponse,
+		requestEnd: () => {
+			throw hookErr;
+		},
+	});
+
+	const { responseStream } = createResponseStreamMockAndCapture();
+	try {
+		await handler(event, responseStream, context);
+		throw new Error("Expected hook error to propagate");
+	} catch (e) {
+		strictEqual(e, hookErr);
+	}
+});
+
+test("Should preserve pipeline error when requestEnd hook also throws in streamify mode", async (t) => {
+	const pipelineErr = new Error("pipeline failed");
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy(
+		async () => {
+			const erroringStream = createReadableStream("x");
+			// Force pipeline to fail by emitting an error after start
+			process.nextTick(() => erroringStream.destroy(pipelineErr));
+			return erroringStream;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+			requestEnd: () => {
+				throw hookErr;
+			},
+		},
+	);
+
+	const { responseStream } = createResponseStreamMockAndCapture();
+	try {
+		await handler(event, responseStream, context);
+		throw new Error("Expected pipeline error to propagate");
+	} catch (e) {
+		strictEqual(e, pipelineErr);
+		strictEqual(e.cause, hookErr);
+	}
+});
+
 test("Should trigger requestEnd hook after stream ends", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	let streamEnd = false;

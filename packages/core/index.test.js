@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
-import middy from "./index.js";
+import middy, { middyValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -814,6 +814,66 @@ test("Should trigger all plugin hooks", async (t) => {
 	strictEqual(plugin.requestEnd.mock.callCount(), 1);
 });
 
+test("Should propagate requestEnd hook error when handler succeeds", async () => {
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy(() => "ok", {
+		requestEnd: () => {
+			throw hookErr;
+		},
+	});
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected hook error to propagate");
+	} catch (e) {
+		strictEqual(e, hookErr);
+	}
+});
+
+test("Should preserve handler error when requestEnd hook also throws, attaching hook as .cause", async () => {
+	const handlerErr = new Error("handler failed");
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy(
+		() => {
+			throw handlerErr;
+		},
+		{
+			requestEnd: () => {
+				throw hookErr;
+			},
+		},
+	);
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected handler error to propagate");
+	} catch (e) {
+		strictEqual(e, handlerErr);
+		strictEqual(e.cause, hookErr);
+	}
+});
+
+test("Should not overwrite existing .cause when requestEnd hook throws", async () => {
+	const existingCause = { package: "@middy/core" };
+	const handlerErr = new Error("handler failed", { cause: existingCause });
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy(
+		() => {
+			throw handlerErr;
+		},
+		{
+			requestEnd: () => {
+				throw hookErr;
+			},
+		},
+	);
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected handler error to propagate");
+	} catch (e) {
+		strictEqual(e, handlerErr);
+		strictEqual(e.cause, existingCause);
+	}
+});
+
 test("Should abort handler when timeout expires", async (t) => {
 	const plugin = {
 		timeoutEarlyInMillis: 1,
@@ -953,4 +1013,29 @@ test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	t.mock.timers.tick(100);
 
 	ok(!timeoutCalled);
+});
+
+test("middyValidateOptions accepts valid options and rejects typos", () => {
+	middyValidateOptions({
+		timeoutEarlyInMillis: 5,
+		timeoutEarlyResponse: () => {},
+		beforeHandler: () => {},
+	});
+	middyValidateOptions({});
+	try {
+		middyValidateOptions({ timeoutEarlyMillis: 5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/core");
+	}
+});
+
+test("middyValidateOptions rejects wrong type", () => {
+	try {
+		middyValidateOptions({ timeoutEarlyInMillis: "not-a-number" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("timeoutEarlyInMillis"));
+	}
 });

@@ -7,6 +7,7 @@ import {
 	executionContextKeys,
 	isExecutionModeDurable,
 	lambdaContextKeys,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -18,6 +19,17 @@ const defaults = {
 	omitPaths: [],
 	mask: undefined,
 };
+
+const optionSchema = {
+	logger: "function?",
+	executionContext: "boolean?",
+	lambdaContext: "boolean?",
+	omitPaths: "array?",
+	mask: "string?",
+};
+
+export const inputOutputLoggerValidateOptions = (options) =>
+	validateOptions("@middy/input-output-logger", optionSchema, options);
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
 	const { logger, executionContext, lambdaContext, omitPaths, mask } = {

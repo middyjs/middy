@@ -26,4 +26,8 @@ declare function wsRouterHandler(
 	APIGatewayProxyResultV2
 >;
 
+export declare function wsRouterValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default wsRouterHandler;

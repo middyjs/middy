@@ -10,4 +10,8 @@ declare function sqsPartialBatchFailure(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function sqsPartialBatchFailureValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default sqsPartialBatchFailure;

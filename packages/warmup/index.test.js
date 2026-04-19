@@ -1,8 +1,8 @@
-import { strictEqual } from "node:assert/strict";
+import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import middy from "../core/index.js";
-import warmup from "./index.js";
+import warmup, { warmupValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -124,4 +124,25 @@ test("Should pass event to custom isWarmingUp function", async (t) => {
 
 	strictEqual(response, "warmup");
 	strictEqual(receivedEvent, event);
+});
+
+test("warmupValidateOptions accepts valid options and rejects typos", () => {
+	warmupValidateOptions({ isWarmingUp: () => true });
+	warmupValidateOptions({});
+	try {
+		warmupValidateOptions({ isWarming: () => true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/warmup");
+	}
+});
+
+test("warmupValidateOptions rejects wrong type", () => {
+	try {
+		warmupValidateOptions({ isWarmingUp: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("isWarmingUp"));
+	}
 });

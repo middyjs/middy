@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpSecurityHeaders from "./index.js";
+import httpSecurityHeaders, {
+	httpSecurityHeadersValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -374,4 +376,29 @@ test("It should handle reportTo with falsy group value", async (t) => {
 		response.headers["Report-To"],
 		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }',
 	);
+});
+
+test("httpSecurityHeadersValidateOptions accepts valid options and rejects typos", () => {
+	httpSecurityHeadersValidateOptions({
+		poweredBy: false,
+		frameOptions: { action: "deny" },
+		xssProtection: false,
+	});
+	httpSecurityHeadersValidateOptions({});
+	try {
+		httpSecurityHeadersValidateOptions({ fraemOptions: {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-security-headers");
+	}
+});
+
+test("httpSecurityHeadersValidateOptions rejects wrong type", () => {
+	try {
+		httpSecurityHeadersValidateOptions({ frameOptions: "deny" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("frameOptions"));
+	}
 });

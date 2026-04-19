@@ -1,7 +1,9 @@
 import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import cloudformationRouter from "./index.js";
+import cloudformationRouter, {
+	cloudformationRouterValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -115,5 +117,29 @@ test("It should throw when not a cloudformation event", async (t) => {
 			e.message,
 			"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
 		);
+	}
+});
+
+test("cloudformationRouterValidateOptions accepts valid options and rejects typos", () => {
+	cloudformationRouterValidateOptions({
+		routes: [],
+		notFoundResponse: () => {},
+	});
+	cloudformationRouterValidateOptions({});
+	try {
+		cloudformationRouterValidateOptions({ rotes: [] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});
+
+test("cloudformationRouterValidateOptions rejects wrong type", () => {
+	try {
+		cloudformationRouterValidateOptions({ routes: "not-an-array" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("routes"));
 	}
 });

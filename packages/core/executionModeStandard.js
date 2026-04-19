@@ -11,8 +11,14 @@ export const executionModeStandard = (
 	const middy = async (event, context) => {
 		const request = middyRequest(event, context);
 		plugin.requestStart(request);
+		// Run requestEnd without letting a throw in the hook replace the
+		// handler's original error. If only requestEnd throws, it propagates
+		// (same as a naive finally). If both throw, the hook error is attached
+		// as `.cause` on the handler error (only if no cause is already set).
+		let handlerError;
+		let response;
 		try {
-			const response = await runRequest(
+			response = await runRequest(
 				request,
 				beforeMiddlewares,
 				lambdaHandler,
@@ -20,10 +26,20 @@ export const executionModeStandard = (
 				onErrorMiddlewares,
 				plugin,
 			);
-			return response;
-		} finally {
-			await plugin.requestEnd(request);
+		} catch (err) {
+			handlerError = err;
 		}
+		try {
+			await plugin.requestEnd(request);
+		} catch (hookErr) {
+			if (handlerError) {
+				handlerError.cause ??= hookErr;
+			} else {
+				throw hookErr;
+			}
+		}
+		if (handlerError) throw handlerError;
+		return response;
 	};
 	middy.handler = (replaceLambdaHandler) => {
 		lambdaHandler = replaceLambdaHandler;

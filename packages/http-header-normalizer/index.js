@@ -1,5 +1,16 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
+const optionSchema = {
+	canonical: "boolean?",
+	defaultHeaders: "object?",
+	normalizeHeaderKey: "function?",
+};
+
+export const httpHeaderNormalizerValidateOptions = (options) =>
+	validateOptions("@middy/http-header-normalizer", optionSchema, options);
+
 const exceptionsList = [
 	"ALPN",
 	"C-PEP",

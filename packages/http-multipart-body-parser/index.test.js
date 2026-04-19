@@ -6,7 +6,9 @@ import {
 } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpMultipartBodyParser from "./index.js";
+import httpMultipartBodyParser, {
+	httpMultipartBodyParserValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -438,4 +440,29 @@ test("It should parse form data when the charset is in the header", async (t) =>
 	const response = await handler(event, defaultContext);
 
 	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
+});
+
+test("httpMultipartBodyParserValidateOptions accepts valid options and rejects typos", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: {},
+		charset: "utf8",
+		disableContentTypeCheck: true,
+	});
+	httpMultipartBodyParserValidateOptions({});
+	try {
+		httpMultipartBodyParserValidateOptions({ bussboy: {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("httpMultipartBodyParserValidateOptions rejects wrong type", () => {
+	try {
+		httpMultipartBodyParserValidateOptions({ charset: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("charset"));
+	}
 });

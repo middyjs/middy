@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
@@ -7,7 +7,9 @@ import { createReadableStream, createWritableStream } from "@datastream/core";
 // } from "../core/executionModeDurableContext.js";
 import { executionModeStreamifyResponse } from "../core/executionModeStreamifyResponse.js";
 import middy from "../core/index.js";
-import inputOutputLogger from "./index.js";
+import inputOutputLogger, {
+	inputOutputLoggerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -628,4 +630,66 @@ test("It should propagate Node.js stream errors instead of hanging", async (t) =
 			return true;
 		},
 	);
+});
+
+test("It should propagate Node.js stream errors when response has body stream", async (t) => {
+	const logger = t.mock.fn();
+	const streamError = new Error("body stream broke");
+	const handler = middy(
+		async (event, context, { signal }) => {
+			const stream = new Readable({
+				read() {
+					this.push("partial");
+					this.destroy(streamError);
+				},
+			});
+			return {
+				statusCode: 200,
+				headers: { "Content-Type": "plain/text" },
+				body: stream,
+			};
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	const responseStream = createWritableStream(() => {});
+	await t.assert.rejects(
+		handler(event, responseStream, defaultContext),
+		(err) => {
+			strictEqual(err.message, "body stream broke");
+			return true;
+		},
+	);
+});
+
+test("inputOutputLoggerValidateOptions accepts valid options and rejects typos", () => {
+	inputOutputLoggerValidateOptions({
+		logger: () => {},
+		omitPaths: ["a.b"],
+		mask: "[REDACTED]",
+	});
+	inputOutputLoggerValidateOptions({});
+	try {
+		inputOutputLoggerValidateOptions({ omitPths: [] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/input-output-logger");
+	}
+});
+
+test("inputOutputLoggerValidateOptions rejects wrong type", () => {
+	try {
+		inputOutputLoggerValidateOptions({ omitPaths: "a.b" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("omitPaths"));
+	}
 });

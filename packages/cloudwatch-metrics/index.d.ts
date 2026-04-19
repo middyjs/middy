@@ -8,6 +8,7 @@ export { MetricsLogger } from "aws-embedded-metrics";
 export interface Options {
 	namespace?: string;
 	dimensions?: Array<Record<string, string>>;
+	onFlushError?: (error: Error) => void;
 }
 
 export type Context = LambdaContext & {
@@ -17,5 +18,9 @@ export type Context = LambdaContext & {
 declare function cloudwatchMetrics(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
+
+export declare function cloudwatchMetricsValidateOptions(
+	options?: Record<string, unknown>,
+): void;
 
 export default cloudwatchMetrics;

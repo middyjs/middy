@@ -1,10 +1,10 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import dynamodb from "./index.js";
+import dynamodb, { dynamodbValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -374,4 +374,25 @@ test("It should export dynamoDbParam helper for TypeScript type inference", asyn
 	const mockRequest = { event: {}, context: {}, internal: {} };
 	const result = dynamoDbParam(mockRequest);
 	strictEqual(result, mockRequest);
+});
+
+test("dynamodbValidateOptions accepts valid options and rejects typos", () => {
+	dynamodbValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	dynamodbValidateOptions({});
+	try {
+		dynamodbValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/dynamodb");
+	}
+});
+
+test("dynamodbValidateOptions rejects wrong type", () => {
+	try {
+		dynamodbValidateOptions({ fetchData: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchData"));
+	}
 });

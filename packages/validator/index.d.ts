@@ -18,4 +18,8 @@ declare function validator(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function validatorValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default validator;

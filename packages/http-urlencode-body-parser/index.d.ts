@@ -23,4 +23,8 @@ declare function urlEncodeBodyParser<
 	EventType extends RequestEvent = RequestEvent,
 >(options?: Options): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
 
+export declare function httpUrlencodeBodyParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default urlEncodeBodyParser;

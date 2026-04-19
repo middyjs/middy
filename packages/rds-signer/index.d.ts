@@ -45,4 +45,8 @@ declare function rdsSigner<TOptions extends RdsSignerOptions | undefined>(
 	Internal<TOptions>
 >;
 
+export declare function rdsSignerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default rdsSigner;

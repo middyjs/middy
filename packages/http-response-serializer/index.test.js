@@ -1,10 +1,12 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpContentNegotiation from "../http-content-negotiation/index.js";
 import httpErrorHandler from "../http-error-handler/index.js";
 import { createError } from "../util/index.js";
-import httpResponseSerializer from "./index.js";
+import httpResponseSerializer, {
+	httpResponseSerializerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -341,4 +343,28 @@ test("It should return false when response body is falsey", async (t) => {
 		},
 		body: false,
 	});
+});
+
+test("httpResponseSerializerValidateOptions accepts valid options and rejects typos", () => {
+	httpResponseSerializerValidateOptions({
+		serializers: [],
+		defaultContentType: "application/json",
+	});
+	httpResponseSerializerValidateOptions({});
+	try {
+		httpResponseSerializerValidateOptions({ defaulContentType: "x" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-response-serializer");
+	}
+});
+
+test("httpResponseSerializerValidateOptions rejects wrong type", () => {
+	try {
+		httpResponseSerializerValidateOptions({ serializers: "not-an-array" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("serializers"));
+	}
 });

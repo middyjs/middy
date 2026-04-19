@@ -6,6 +6,7 @@ import {
 	SSMClient,
 } from "@aws-sdk/client-ssm";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -16,6 +17,7 @@ import {
 	modifyCache,
 	processCache,
 	sanitizeKey,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -31,6 +33,14 @@ const defaults = {
 	setToContext: false,
 	awsRequestLimit: 10,
 };
+
+const optionSchema = {
+	...awsClientOptionSchema,
+	awsRequestLimit: (v) => Number.isInteger(v) && v >= 1,
+};
+
+export const ssmValidateOptions = (options) =>
+	validateOptions("@middy/ssm", optionSchema, options);
 
 const ssmMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -150,7 +160,7 @@ const ssmMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((resp) => {
-				for (const param of resp.Parameters) {
+				for (const param of resp.Parameters ?? []) {
 					values[sanitizeKey(param.Name.replace(path, ""))] = parseValue(param);
 				}
 				if (resp.NextToken) {

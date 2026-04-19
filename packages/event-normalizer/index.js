@@ -1,10 +1,17 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { jsonSafeParse } from "@middy/util";
+import { jsonSafeParse, validateOptions } from "@middy/util";
 
 const defaults = {
 	wrapNumbers: undefined,
 };
+
+const optionSchema = {
+	wrapNumbers: "boolean?",
+};
+
+export const eventNormalizerValidateOptions = (options) =>
+	validateOptions("@middy/event-normalizer", optionSchema, options);
 
 const eventNormalizerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

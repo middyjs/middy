@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	DescribeSecretCommand,
@@ -8,7 +8,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import secretsManager from "./index.js";
+import secretsManager, { secretsManagerValidateOptions } from "./index.js";
 
 test.beforeEach(async (t) => {
 	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
@@ -360,6 +360,45 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	strictEqual(sendStub.callCount, 2 * 2);
 });
 
+test("It should call aws-sdk if cache enabled using LastRotationDate when LastChangedDate is undefined", async (t) => {
+	const now = Date.now() / 1000;
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_NoLastChanged" })
+		.resolves({
+			LastRotationDate: now - 50,
+		})
+		.on(GetSecretValueCommand, { SecretId: "api_key_NoLastChanged" })
+		.resolves({ SecretString: "token" });
+	const sendStub = mockService.send;
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: 15 * 60 * 1000,
+				fetchData: {
+					token: "api_key_NoLastChanged",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(15 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(sendStub.callCount, 2 * 2);
+});
+
 test("It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate", async (t) => {
 	const now = Date.now() / 1000;
 	const mockService = mockClient(SecretsManagerClient)
@@ -604,4 +643,27 @@ test("It should export secretsManagerParam helper for TypeScript type inference"
 	const secretName = "test-secret";
 	const result = secretsManagerParam(secretName);
 	strictEqual(result, secretName);
+});
+
+test("secretsManagerValidateOptions accepts valid options and rejects typos", () => {
+	secretsManagerValidateOptions({ cacheKey: "x", fetchRotationDate: true });
+	secretsManagerValidateOptions({ fetchRotationDate: { key: true } });
+	secretsManagerValidateOptions({});
+	try {
+		secretsManagerValidateOptions({ fetchRotationData: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("fetchRotationData"));
+		strictEqual(e.cause.package, "@middy/secrets-manager");
+	}
+});
+
+test("secretsManagerValidateOptions rejects invalid fetchRotationDate type", () => {
+	try {
+		secretsManagerValidateOptions({ fetchRotationDate: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchRotationDate"));
+	}
 });

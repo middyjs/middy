@@ -8,7 +8,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import appConfig from "./index.js";
+import appConfig, { appConfigValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -764,4 +764,29 @@ test("It should export appConfigParam helper for TypeScript type inference", asy
 	const mockRequest = { event: {}, context: {}, internal: {} };
 	const result = appConfigParam(mockRequest);
 	strictEqual(result, mockRequest);
+});
+
+test("appConfigValidateOptions accepts valid options", () => {
+	appConfigValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	appConfigValidateOptions({});
+});
+
+test("appConfigValidateOptions rejects unknown key with correct cause.package", () => {
+	try {
+		appConfigValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cachExpiry"));
+		strictEqual(e.cause.package, "@middy/appconfig");
+	}
+});
+
+test("appConfigValidateOptions rejects wrong type", () => {
+	try {
+		appConfigValidateOptions({ fetchData: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchData"));
+	}
 });

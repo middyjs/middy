@@ -9,7 +9,9 @@ import {
 } from "node:zlib";
 import { createReadableStream, streamToBuffer } from "@datastream/core";
 import middy from "../core/index.js";
-import httpContentEncoding from "./index.js";
+import httpContentEncoding, {
+	httpContentEncodingValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -749,4 +751,29 @@ test("It should encode Node.js stream using zstd", async (t) => {
 		Vary: "Accept-Encoding",
 	});
 	deepStrictEqual(decompressed, body);
+});
+
+test("httpContentEncodingValidateOptions accepts valid options and rejects typos", () => {
+	httpContentEncodingValidateOptions({
+		br: {},
+		gzip: { level: 9 },
+		overridePreferredEncoding: ["br"],
+	});
+	httpContentEncodingValidateOptions({});
+	try {
+		httpContentEncodingValidateOptions({ gzpi: {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-content-encoding");
+	}
+});
+
+test("httpContentEncodingValidateOptions rejects wrong type", () => {
+	try {
+		httpContentEncodingValidateOptions({ overridePreferredEncoding: "br" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("overridePreferredEncoding"));
+	}
 });

@@ -16,7 +16,6 @@ test("fuzz `event` w/ `object`", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -35,7 +34,6 @@ test("fuzz `event` w/ `record`", async () => {
 		),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 
 			examples: [],
 		},
@@ -56,7 +54,6 @@ test("fuzz idempotency: normalizing twice equals normalizing once", async () => 
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -77,7 +74,6 @@ test("fuzz all header keys are lowercase after normalization (default mode)", as
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);
@@ -99,7 +95,6 @@ test("fuzz header values are preserved after normalization", async () => {
 		}),
 		{
 			numRuns: 100_000,
-			verbose: 2,
 			examples: [],
 		},
 	);

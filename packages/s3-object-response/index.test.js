@@ -5,7 +5,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache } from "../util/index.js";
 
-import s3ObjectResponse from "./index.js";
+import s3ObjectResponse, { s3ObjectResponseValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -242,4 +242,25 @@ test("It should handle InvalidSignatureException and retry", async (t) => {
 
 	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response.statusCode, 200);
+});
+
+test("s3ObjectResponseValidateOptions accepts valid options and rejects typos", () => {
+	s3ObjectResponseValidateOptions({ AwsClient: S3Client });
+	s3ObjectResponseValidateOptions({});
+	try {
+		s3ObjectResponseValidateOptions({ disablePrefech: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/s3-object-response");
+	}
+});
+
+test("s3ObjectResponseValidateOptions rejects wrong type", () => {
+	try {
+		s3ObjectResponseValidateOptions({ disablePrefetch: "nope" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("disablePrefetch"));
+	}
 });

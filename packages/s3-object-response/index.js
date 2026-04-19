@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: MIT
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -15,6 +17,11 @@ const defaults = {
 	awsClientCapture: undefined,
 	disablePrefetch: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const s3ObjectResponseValidateOptions = (options) =>
+	validateOptions("@middy/s3-object-response", optionSchema, options);
 
 const s3ObjectResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

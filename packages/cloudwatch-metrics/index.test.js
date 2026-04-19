@@ -1,6 +1,11 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
+// Note: `./index.js` is loaded via dynamic import inside each test so the
+// `t.mock.module('aws-embedded-metrics', ...)` call can install its mock
+// before the middleware source resolves its `import awsEmbeddedMetrics`.
+// Static top-level import here would eagerly resolve the real module.
+
 const defaultEvent = {};
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -9,6 +14,7 @@ const defaultContext = {
 test("cloudwatch-metrics", async (t) => {
 	const mockState = {
 		flushCalled: false,
+		flushError: null, // when set, flush rejects with this error
 		namespaceValue: null,
 		dimensionsValue: null,
 		setNamespaceCalled: false,
@@ -20,6 +26,7 @@ test("cloudwatch-metrics", async (t) => {
 			createMetricsLogger: () => ({
 				flush: async () => {
 					mockState.flushCalled = true;
+					if (mockState.flushError) throw mockState.flushError;
 				},
 				setNamespace: (namespace) => {
 					mockState.namespaceValue = namespace;
@@ -163,4 +170,60 @@ test("cloudwatch-metrics", async (t) => {
 			strictEqual(mockState.setDimensionsCalled, false);
 		},
 	);
+
+	await t.test("It should invoke onFlushError when flush rejects", async () => {
+		mockState.flushError = new Error("flush boom");
+		let captured;
+		const handler = middy(() => {});
+		handler.use(
+			cloudwatchMetricsMiddleware({
+				onFlushError: (err) => {
+					captured = err;
+				},
+			}),
+		);
+		await handler(defaultEvent, defaultContext);
+		ok(captured instanceof Error);
+		strictEqual(captured.message, "flush boom");
+		mockState.flushError = null;
+	});
+
+	await t.test(
+		"It should silently swallow flush errors when onFlushError is not provided",
+		async () => {
+			mockState.flushError = new Error("flush boom");
+			const handler = middy(() => "ok");
+			handler.use(cloudwatchMetricsMiddleware());
+			const result = await handler(defaultEvent, defaultContext);
+			strictEqual(result, "ok");
+			mockState.flushError = null;
+		},
+	);
+});
+
+test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos", async () => {
+	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+	cloudwatchMetricsValidateOptions({
+		namespace: "MyApp",
+		dimensions: [{ env: "prod" }],
+		onFlushError: () => {},
+	});
+	cloudwatchMetricsValidateOptions({});
+	try {
+		cloudwatchMetricsValidateOptions({ namespce: "x" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudwatch-metrics");
+	}
+});
+
+test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
+	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+	try {
+		cloudwatchMetricsValidateOptions({ onFlushError: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("onFlushError"));
+	}
 });

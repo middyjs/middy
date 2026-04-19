@@ -58,4 +58,8 @@ declare function appConfigMiddleware<TOptions extends AppConfigOptions>(
 	Internal<TOptions>
 >;
 
+export declare function appConfigValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default appConfigMiddleware;

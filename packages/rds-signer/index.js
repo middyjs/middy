@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { Signer } from "@aws-sdk/rds-signer";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	getCache,
 	getInternal,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -19,6 +21,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const rdsSignerValidateOptions = (options) =>
+	validateOptions("@middy/rds-signer", optionSchema, options);
 
 const rdsSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
