@@ -306,6 +306,37 @@ test("Should not override response in onError if response already exists", async
 	deepStrictEqual(response, { custom: "response" });
 });
 
+test("Should treat missing response entries as rejected", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	// Handler returns fewer entries than Records — second index is undefined
+	const handler = middy(async () => [{ status: "fulfilled", value: "ok" }]).use(
+		sqsPartialBatchFailure({ logger }),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [{ itemIdentifier: event.Records[1].messageId }],
+	});
+	strictEqual(logger.mock.callCount(), 1);
+});
+
 test("sqsPartialBatchFailureValidateOptions accepts valid options and rejects typos", () => {
 	sqsPartialBatchFailureValidateOptions({ logger: () => {} });
 	sqsPartialBatchFailureValidateOptions({});

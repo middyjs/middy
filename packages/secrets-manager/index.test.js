@@ -360,6 +360,45 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	strictEqual(sendStub.callCount, 2 * 2);
 });
 
+test("It should call aws-sdk if cache enabled using LastRotationDate when LastChangedDate is undefined", async (t) => {
+	const now = Date.now() / 1000;
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_NoLastChanged" })
+		.resolves({
+			LastRotationDate: now - 50,
+		})
+		.on(GetSecretValueCommand, { SecretId: "api_key_NoLastChanged" })
+		.resolves({ SecretString: "token" });
+	const sendStub = mockService.send;
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: 15 * 60 * 1000,
+				fetchData: {
+					token: "api_key_NoLastChanged",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(15 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(sendStub.callCount, 2 * 2);
+});
+
 test("It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate", async (t) => {
 	const now = Date.now() / 1000;
 	const mockService = mockClient(SecretsManagerClient)

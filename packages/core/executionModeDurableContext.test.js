@@ -114,6 +114,56 @@ test("Should trigger requestStart and requestEnd hooks with executionModeDurable
 	ok(endCalled);
 });
 
+test("Should propagate requestEnd hook error when handler succeeds in durable context", async (t) => {
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy({
+		executionMode: executionModeDurableContext,
+		requestEnd: () => {
+			throw hookErr;
+		},
+	}).handler(() => "ok");
+	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+	const execution = await runner.run({ payload: {} });
+
+	strictEqual(execution.getStatus(), "FAILED");
+	strictEqual(execution.getError().errorMessage, "requestEnd failed");
+});
+
+test("Should preserve handler error when requestEnd hook also throws in durable context", async (t) => {
+	const handlerErr = new Error("handler failed");
+	const hookErr = new Error("requestEnd failed");
+	const handler = middy({
+		executionMode: executionModeDurableContext,
+		requestEnd: () => {
+			throw hookErr;
+		},
+	}).handler(() => {
+		throw handlerErr;
+	});
+	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+	const execution = await runner.run({ payload: {} });
+
+	strictEqual(execution.getStatus(), "FAILED");
+	strictEqual(execution.getError().errorMessage, "handler failed");
+});
+
+test("Should propagate handler error with no requestEnd error in durable context", async (t) => {
+	const handlerErr = new Error("handler failed");
+	const handler = middy({
+		executionMode: executionModeDurableContext,
+	}).handler(() => {
+		throw handlerErr;
+	});
+	const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+	const execution = await runner.run({ payload: {} });
+
+	strictEqual(execution.getStatus(), "FAILED");
+	strictEqual(execution.getError().errorMessage, "handler failed");
+});
+
 test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {
 	const input = {
 		statusCode: 301,

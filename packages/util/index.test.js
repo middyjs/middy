@@ -670,6 +670,42 @@ test("processCache should work with default middlewareFetch", async (t) => {
 	clearCache();
 });
 
+test("processCache should throw when cacheExpiry is below -1", async (t) => {
+	try {
+		processCache({ cacheKey: "bad-expiry", cacheExpiry: -5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should evict oldest entry when exceeding cacheMaxSize", async (t) => {
+	const fetchRequest = t.mock.fn(() => "value");
+	processCache(
+		{ cacheKey: "keep-1", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	processCache(
+		{ cacheKey: "keep-2", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	processCache(
+		{ cacheKey: "keep-3", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	deepStrictEqual(getCache("keep-1"), {});
+	notStrictEqual(getCache("keep-2").value, undefined);
+	notStrictEqual(getCache("keep-3").value, undefined);
+	clearCache();
+});
+
 // modifyCache
 test("modifyCache should not override value when it does not exist", async (t) => {
 	modifyCache("key");
@@ -845,6 +881,12 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.name, "InternalServerError");
 	strictEqual(e.message, "Internal Server Error");
 	strictEqual(e.expose, false);
+});
+
+test("HttpError should default name to UnknownError for unknown status code", async (t) => {
+	const e = new HttpError(999, "message");
+	strictEqual(e.name, "UnknownError");
+	strictEqual(e.status, 999);
 });
 
 test("HttpError should create error with explicit expose", async (t) => {

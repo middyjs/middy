@@ -2237,6 +2237,12 @@ test("It should handle origin without protocol prefix", async (t) => {
 
 test("httpCorsValidateOptions accepts valid options and rejects typos", () => {
 	httpCorsValidateOptions({ origin: "*", credentials: true, origins: ["a"] });
+	httpCorsValidateOptions({
+		credentials: "include",
+		maxAge: 60,
+		origins: ["a"],
+	});
+	httpCorsValidateOptions({ maxAge: "60" });
 	httpCorsValidateOptions({});
 	try {
 		httpCorsValidateOptions({ origns: "typo" });
@@ -2244,6 +2250,18 @@ test("httpCorsValidateOptions accepts valid options and rejects typos", () => {
 	} catch (e) {
 		ok(e instanceof TypeError);
 		strictEqual(e.cause.package, "@middy/http-cors");
+	}
+	try {
+		httpCorsValidateOptions({ maxAge: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		httpCorsValidateOptions({ credentials: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
 	}
 });
 
