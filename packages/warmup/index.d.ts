@@ -10,4 +10,8 @@ declare function warmup(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function warmupValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default warmup;

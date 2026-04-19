@@ -1,12 +1,25 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { isExecutionModeDurable } from "@middy/util";
+import { isExecutionModeDurable, validateOptions } from "@middy/util";
 
 const defaults = {
 	runOnBefore: true,
 	runOnAfter: false,
 	runOnError: false,
 };
+
+const optionSchema = {
+	runOnBefore: "boolean?",
+	runOnAfter: "boolean?",
+	runOnError: "boolean?",
+};
+
+export const doNotWaitForEmptyEventLoopValidateOptions = (options) =>
+	validateOptions(
+		"@middy/do-not-wait-for-empty-event-loop",
+		optionSchema,
+		options,
+	);
 
 const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

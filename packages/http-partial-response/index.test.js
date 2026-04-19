@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpPartialResponse from "./index.js";
+import httpPartialResponse, {
+	httpPartialResponseValidateOptions,
+} from "./index.js";
 
 const createDefaultObjectResponse = () =>
 	Object.assign(
@@ -137,4 +139,25 @@ test("It should return the initial response if there is no queryStringParameters
 		firstname: "john",
 		lastname: "doe",
 	});
+});
+
+test("httpPartialResponseValidateOptions accepts valid options and rejects typos", () => {
+	httpPartialResponseValidateOptions({ filteringKeyName: "fields" });
+	httpPartialResponseValidateOptions({});
+	try {
+		httpPartialResponseValidateOptions({ filteringKey: "x" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-partial-response");
+	}
+});
+
+test("httpPartialResponseValidateOptions rejects wrong type", () => {
+	try {
+		httpPartialResponseValidateOptions({ filteringKeyName: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("filteringKeyName"));
+	}
 });

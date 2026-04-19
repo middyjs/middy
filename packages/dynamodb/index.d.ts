@@ -63,4 +63,8 @@ declare function dynamodbMiddleware<
 	Internal<TOptions>
 >;
 
+export declare function dynamodbValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default dynamodbMiddleware;

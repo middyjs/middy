@@ -1,7 +1,12 @@
-import { deepStrictEqual, doesNotThrow, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	doesNotThrow,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpCors from "./index.js";
+import httpCors, { httpCorsValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -2228,4 +2233,25 @@ test("It should handle origin without protocol prefix", async (t) => {
 	const response = await handler(event, defaultContext);
 
 	strictEqual(response.headers["Access-Control-Allow-Origin"], "example.com");
+});
+
+test("httpCorsValidateOptions accepts valid options and rejects typos", () => {
+	httpCorsValidateOptions({ origin: "*", credentials: true, origins: ["a"] });
+	httpCorsValidateOptions({});
+	try {
+		httpCorsValidateOptions({ origns: "typo" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-cors");
+	}
+});
+
+test("httpCorsValidateOptions rejects non-array requestHeaders", () => {
+	try {
+		httpCorsValidateOptions({ requestHeaders: "x,y" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("requestHeaders"));
+	}
 });

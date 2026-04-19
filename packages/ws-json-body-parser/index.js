@@ -1,10 +1,17 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, decodeBody } from "@middy/util";
+import { createError, decodeBody, validateOptions } from "@middy/util";
 
 const defaults = {
 	reviver: undefined,
 };
+
+const optionSchema = {
+	reviver: "function?",
+};
+
+export const wsJsonBodyParserValidateOptions = (options) =>
+	validateOptions("@middy/ws-json-body-parser", optionSchema, options);
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

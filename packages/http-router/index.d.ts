@@ -51,4 +51,8 @@ declare function httpRouterHandler<
 		  },
 ): middy.MiddyfiedHandler<TEvent, TResult>;
 
+export declare function httpRouterValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpRouterHandler;

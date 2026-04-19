@@ -60,4 +60,8 @@ declare function serviceDiscovery<
 	Internal<TOptions>
 >;
 
+export declare function serviceDiscoveryValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default serviceDiscovery;

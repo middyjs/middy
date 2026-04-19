@@ -8,7 +8,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import ssm from "./index.js";
+import ssm, { ssmValidateOptions } from "./index.js";
 
 test.beforeEach((t) => {
 	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
@@ -762,4 +762,69 @@ test("It should export ssmParam helper for TypeScript type inference", async (t)
 	const paramName = "/test/param";
 	const result = ssmParam(paramName);
 	strictEqual(result, paramName);
+});
+
+test("ssmValidateOptions should accept valid options", () => {
+	ssmValidateOptions({
+		AwsClient: SSMClient,
+		cacheExpiry: 0,
+		fetchData: { key: "/dev/param" },
+		disablePrefetch: true,
+		setToContext: false,
+		awsRequestLimit: 10,
+	});
+});
+
+test("ssmValidateOptions should accept empty options", () => {
+	ssmValidateOptions({});
+	ssmValidateOptions();
+});
+
+test("ssmValidateOptions should throw on unknown key (typo)", () => {
+	try {
+		ssmValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cachExpiry"));
+		strictEqual(e.cause.package, "@middy/ssm");
+	}
+});
+
+test("ssmValidateOptions should throw when fetchData is not an object", () => {
+	try {
+		ssmValidateOptions({ fetchData: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("fetchData"));
+		strictEqual(e.cause.package, "@middy/ssm");
+	}
+});
+
+test("ssmValidateOptions should throw when cacheExpiry is below -1", () => {
+	try {
+		ssmValidateOptions({ cacheExpiry: -5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("cacheExpiry"));
+	}
+});
+
+test("ssmValidateOptions should throw when awsRequestLimit is zero", () => {
+	try {
+		ssmValidateOptions({ awsRequestLimit: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("awsRequestLimit"));
+	}
+});
+
+test("ssmValidateOptions should throw when setToContext is not boolean", () => {
+	try {
+		ssmValidateOptions({ setToContext: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("setToContext"));
+	}
 });

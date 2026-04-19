@@ -6,6 +6,7 @@ import {
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -16,6 +17,7 @@ import {
 	jsonSafeParse,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -30,6 +32,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const appConfigValidateOptions = (options) =>
+	validateOptions("@middy/appconfig", optionSchema, options);
 const appConfigMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,

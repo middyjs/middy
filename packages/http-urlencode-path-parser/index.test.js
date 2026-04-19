@@ -1,7 +1,9 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import urlEncodePathParser from "./index.js";
+import urlEncodePathParser, {
+	httpUrlencodePathParserValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -150,5 +152,17 @@ test("It should throw error", async (t) => {
 		strictEqual(e.message, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
 		strictEqual(e.cause.data, "char");
+	}
+});
+
+test("httpUrlencodePathParserValidateOptions accepts empty options and rejects anything", () => {
+	httpUrlencodePathParserValidateOptions({});
+	httpUrlencodePathParserValidateOptions();
+	try {
+		httpUrlencodePathParserValidateOptions({ any: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
 	}
 });

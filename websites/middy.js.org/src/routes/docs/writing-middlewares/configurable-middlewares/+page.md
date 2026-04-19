@@ -64,3 +64,19 @@ export const handler = middy()
   )
   .handler(lambdaHandler)
 ```
+
+## Exporting an option validator
+
+Alongside the factory function, export a named option validator so consumers can catch typos and type mismatches in their config. Use the shared `validateOptions` helper from `@middy/util` and, for AWS-SDK-backed middlewares, the shared `awsClientOptionSchema`. See [Validating options](/docs/intro/validating-options) for the full schema format.
+
+```javascript
+import { validateOptions } from '@middy/util'
+
+const optionSchema = {
+  option1: 'string',
+  option2: 'string?',
+}
+
+export const customValidateOptions = (options) =>
+  validateOptions('custom-middleware', optionSchema, options)
+```

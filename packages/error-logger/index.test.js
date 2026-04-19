@@ -1,7 +1,7 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import errorLogger from "./index.js";
+import errorLogger, { errorLoggerValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -79,5 +79,26 @@ test("It should use default logger (console.error) when no logger is provided", 
 		// Restore console.error
 		console.error = originalError;
 		strictEqual(errorLogged, error);
+	}
+});
+
+test("errorLoggerValidateOptions accepts valid options and rejects typos", () => {
+	errorLoggerValidateOptions({ logger: () => {} });
+	errorLoggerValidateOptions({});
+	try {
+		errorLoggerValidateOptions({ loger: () => {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/error-logger");
+	}
+});
+
+test("errorLoggerValidateOptions rejects wrong type", () => {
+	try {
+		errorLoggerValidateOptions({ logger: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("logger"));
 	}
 });

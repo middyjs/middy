@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import wsRouter from "./index.js";
+import wsRouter, { wsRouterValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -196,5 +196,26 @@ test("It should throw when not a ws event", async (t) => {
 			e.message,
 			"Unknown WebSocket event format: missing 'requestContext.routeKey'",
 		);
+	}
+});
+
+test("wsRouterValidateOptions accepts valid options and rejects typos", () => {
+	wsRouterValidateOptions({ routes: [], notFoundResponse: () => {} });
+	wsRouterValidateOptions({});
+	try {
+		wsRouterValidateOptions({ rotes: [] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/ws-router");
+	}
+});
+
+test("wsRouterValidateOptions rejects wrong type", () => {
+	try {
+		wsRouterValidateOptions({ routes: "not-an-array" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("routes"));
 	}
 });

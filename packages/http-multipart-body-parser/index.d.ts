@@ -40,4 +40,8 @@ declare function multipartBodyParser<
 	EventType extends RequestEvent = RequestEvent,
 >(options?: Options): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
 
+export declare function httpMultipartBodyParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default multipartBodyParser;

@@ -1,7 +1,7 @@
-import { deepStrictEqual, match, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import jsonBodyParser from "./index.js";
+import jsonBodyParser, { wsJsonBodyParserValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -125,5 +125,26 @@ test("It should handle missing body as an UnprocessableEntity", async (t) => {
 		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		strictEqual(e.cause.data, undefined);
+	}
+});
+
+test("wsJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {
+	wsJsonBodyParserValidateOptions({ reviver: (_k, v) => v });
+	wsJsonBodyParserValidateOptions({});
+	try {
+		wsJsonBodyParserValidateOptions({ revivr: (_k, v) => v });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+	}
+});
+
+test("wsJsonBodyParserValidateOptions rejects wrong type", () => {
+	try {
+		wsJsonBodyParserValidateOptions({ reviver: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("reviver"));
 	}
 });

@@ -11,4 +11,8 @@ declare function httpErrorHandler(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpErrorHandlerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpErrorHandler;

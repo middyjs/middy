@@ -1,4 +1,4 @@
-import { deepStrictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import {
@@ -8,7 +8,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 
-import wsResponse from "./index.js";
+import wsResponse, { wsResponseValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -134,4 +134,25 @@ test("It should handle InvalidSignatureException and retry", async (t) => {
 	};
 	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, { statusCode: 200 });
+});
+
+test("wsResponseValidateOptions accepts valid options and rejects typos", () => {
+	wsResponseValidateOptions({ disablePrefetch: true });
+	wsResponseValidateOptions({});
+	try {
+		wsResponseValidateOptions({ disablePrefech: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/ws-response");
+	}
+});
+
+test("wsResponseValidateOptions rejects wrong type", () => {
+	try {
+		wsResponseValidateOptions({ AwsClient: "not-a-class" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("AwsClient"));
+	}
 });

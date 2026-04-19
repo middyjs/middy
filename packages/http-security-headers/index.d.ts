@@ -58,4 +58,8 @@ declare function httpSecurityHeaders(
 	options?: WithBoolValues<Options>,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpSecurityHeadersValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpSecurityHeaders;

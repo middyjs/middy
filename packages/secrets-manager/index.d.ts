@@ -55,4 +55,8 @@ declare function secretsManager<
 	Internal<TOptions>
 >;
 
+export declare function secretsManagerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default secretsManager;

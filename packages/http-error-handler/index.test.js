@@ -1,8 +1,8 @@
-import { deepStrictEqual, ok } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import { createError } from "../util/index.js";
-import httpErrorHandler from "./index.js";
+import httpErrorHandler, { httpErrorHandlerValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -257,4 +257,26 @@ test("It should not handle error is response is set", async (t) => {
 	const response = await handler(null, defaultContext);
 
 	ok(response);
+});
+
+test("httpErrorHandlerValidateOptions accepts valid options and rejects typos", () => {
+	httpErrorHandlerValidateOptions({ logger: () => {}, fallbackMessage: "x" });
+	httpErrorHandlerValidateOptions({ logger: false });
+	httpErrorHandlerValidateOptions({});
+	try {
+		httpErrorHandlerValidateOptions({ fallbckMessage: "x" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-error-handler");
+	}
+});
+
+test("httpErrorHandlerValidateOptions rejects wrong type", () => {
+	try {
+		httpErrorHandlerValidateOptions({ fallbackMessage: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fallbackMessage"));
+	}
 });

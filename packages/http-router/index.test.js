@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpRouter from "./index.js";
+import httpRouter, { httpRouterValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -644,5 +644,26 @@ test("It should escape regex metacharacters in static path segments", async (t) 
 		fail("Should have thrown 404");
 	} catch (e) {
 		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("httpRouterValidateOptions accepts valid options and rejects typos", () => {
+	httpRouterValidateOptions({ routes: [], notFoundResponse: () => {} });
+	httpRouterValidateOptions({});
+	try {
+		httpRouterValidateOptions({ rotes: [] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("httpRouterValidateOptions rejects wrong type", () => {
+	try {
+		httpRouterValidateOptions({ routes: "not-an-array" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("routes"));
 	}
 });

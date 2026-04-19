@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
-import middy from "./index.js";
+import middy, { middyValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -1013,4 +1013,29 @@ test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	t.mock.timers.tick(100);
 
 	ok(!timeoutCalled);
+});
+
+test("middyValidateOptions accepts valid options and rejects typos", () => {
+	middyValidateOptions({
+		timeoutEarlyInMillis: 5,
+		timeoutEarlyResponse: () => {},
+		beforeHandler: () => {},
+	});
+	middyValidateOptions({});
+	try {
+		middyValidateOptions({ timeoutEarlyMillis: 5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/core");
+	}
+});
+
+test("middyValidateOptions rejects wrong type", () => {
+	try {
+		middyValidateOptions({ timeoutEarlyInMillis: "not-a-number" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("timeoutEarlyInMillis"));
+	}
 });

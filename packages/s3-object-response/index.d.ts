@@ -26,4 +26,8 @@ declare function s3ObjectResponse(
 	options?: S3ObjectResponseOptions,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function s3ObjectResponseValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default s3ObjectResponse;

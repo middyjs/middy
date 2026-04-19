@@ -5,6 +5,7 @@ import {
 	ServiceDiscoveryClient,
 } from "@aws-sdk/client-servicediscovery";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -13,6 +14,7 @@ import {
 	getInternal,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -27,6 +29,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const serviceDiscoveryValidateOptions = (options) =>
+	validateOptions("@middy/service-discovery", optionSchema, options);
 
 const serviceDiscoveryMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

@@ -1,9 +1,11 @@
-import { deepStrictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import middy from "../core/index.js";
 
-import cloudformationResponse from "./index.js";
+import cloudformationResponse, {
+	cloudformationResponseValidateOptions,
+} from "./index.js";
 
 const defaultEvent = {
 	RequestType: "Create",
@@ -175,4 +177,16 @@ test("It should not override response values", async (t) => {
 		StackId: "StackId*",
 		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
 	});
+});
+
+test("cloudformationResponseValidateOptions accepts empty options and rejects anything", () => {
+	cloudformationResponseValidateOptions({});
+	cloudformationResponseValidateOptions();
+	try {
+		cloudformationResponseValidateOptions({ any: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-response");
+	}
 });

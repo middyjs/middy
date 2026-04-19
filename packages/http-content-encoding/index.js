@@ -13,7 +13,22 @@ import {
 	createZstdCompress as zstdCompressStream,
 	zstdCompressSync,
 } from "node:zlib";
-import { normalizeHttpResponse } from "@middy/util";
+import { normalizeHttpResponse, validateOptions } from "@middy/util";
+
+const encoderOption = (v) =>
+	typeof v === "boolean" ||
+	(v !== null && typeof v === "object" && !Array.isArray(v));
+
+const optionSchema = {
+	br: encoderOption,
+	deflate: encoderOption,
+	gzip: encoderOption,
+	zstd: encoderOption,
+	overridePreferredEncoding: "array?",
+};
+
+export const httpContentEncodingValidateOptions = (options) =>
+	validateOptions("@middy/http-content-encoding", optionSchema, options);
 
 const contentEncodingStreams = {
 	br: brotliCompressStream,

@@ -1,11 +1,19 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse } from "@middy/util";
+import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
 const defaults = {
 	serializers: [],
 	defaultContentType: undefined,
 };
+
+const optionSchema = {
+	serializers: "array?",
+	defaultContentType: "string?",
+};
+
+export const httpResponseSerializerValidateOptions = (options) =>
+	validateOptions("@middy/http-response-serializer", optionSchema, options);
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
 	const { serializers, defaultContentType } = { ...defaults, ...opts };

@@ -11,4 +11,8 @@ declare function urlEncodePathParser(): middy.MiddlewareObj<
 	Error
 >;
 
+export declare function httpUrlencodePathParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default urlEncodePathParser;

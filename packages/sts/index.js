@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -10,6 +11,7 @@ import {
 	getInternal,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -24,6 +26,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const stsValidateOptions = (options) =>
+	validateOptions("@middy/sts", optionSchema, options);
 
 const stsMiddleware = (opts = {}) => {
 	const options = {

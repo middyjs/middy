@@ -1,6 +1,11 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError } from "@middy/util";
+import { createError, validateOptions } from "@middy/util";
+
+const optionSchema = {};
+
+export const httpUrlencodePathParserValidateOptions = (options) =>
+	validateOptions("@middy/http-urlencode-path-parser", optionSchema, options);
 
 const httpUrlencodePathParserMiddlewareBefore = (request) => {
 	if (!request.event.pathParameters) return;

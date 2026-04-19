@@ -34,4 +34,8 @@ declare function httpContentNegotiation(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpContentNegotiationValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpContentNegotiation;

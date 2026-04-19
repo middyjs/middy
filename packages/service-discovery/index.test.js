@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	DiscoverInstancesCommand,
@@ -7,7 +7,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import serviceDiscovery from "./index.js";
+import serviceDiscovery, { serviceDiscoveryValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -422,4 +422,25 @@ test("It should export serviceDiscoveryParam helper for TypeScript type inferenc
 	const paramName = "test-param";
 	const result = serviceDiscoveryParam(paramName);
 	strictEqual(result, paramName);
+});
+
+test("serviceDiscoveryValidateOptions accepts valid options and rejects typos", () => {
+	serviceDiscoveryValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	serviceDiscoveryValidateOptions({});
+	try {
+		serviceDiscoveryValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/service-discovery");
+	}
+});
+
+test("serviceDiscoveryValidateOptions rejects wrong type", () => {
+	try {
+		serviceDiscoveryValidateOptions({ fetchData: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchData"));
+	}
 });

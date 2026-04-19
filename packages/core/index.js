@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { setTimeout } from "node:timers";
+import { validateOptions } from "@middy/util";
 import { executionModeStandard } from "./executionModeStandard.js";
 
 const defaultLambdaHandler = () => {};
@@ -16,6 +17,23 @@ const defaultPluginConfig = {
 	},
 	executionMode: executionModeStandard,
 };
+
+const optionSchema = {
+	internal: "object?",
+	beforePrefetch: "function?",
+	requestStart: "function?",
+	beforeMiddleware: "function?",
+	afterMiddleware: "function?",
+	beforeHandler: "function?",
+	timeoutEarlyInMillis: "number?",
+	timeoutEarlyResponse: "function?",
+	afterHandler: "function?",
+	requestEnd: "function?",
+	executionMode: "function?",
+};
+
+export const middyValidateOptions = (options) =>
+	validateOptions("@middy/core", optionSchema, options);
 
 export const middy = (setupLambdaHandler, pluginConfig) => {
 	let lambdaHandler;

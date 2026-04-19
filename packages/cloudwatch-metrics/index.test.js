@@ -1,5 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import { cloudwatchMetricsValidateOptions } from "./index.js";
 
 const defaultEvent = {};
 const defaultContext = {
@@ -194,4 +195,29 @@ test("cloudwatch-metrics", async (t) => {
 			mockState.flushError = null;
 		},
 	);
+});
+
+test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos", () => {
+	cloudwatchMetricsValidateOptions({
+		namespace: "MyApp",
+		dimensions: [{ env: "prod" }],
+		onFlushError: () => {},
+	});
+	cloudwatchMetricsValidateOptions({});
+	try {
+		cloudwatchMetricsValidateOptions({ namespce: "x" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudwatch-metrics");
+	}
+});
+
+test("cloudwatchMetricsValidateOptions rejects wrong type", () => {
+	try {
+		cloudwatchMetricsValidateOptions({ onFlushError: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("onFlushError"));
+	}
 });

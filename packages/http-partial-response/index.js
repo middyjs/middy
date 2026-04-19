@@ -1,11 +1,22 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { jsonSafeParse, normalizeHttpResponse } from "@middy/util";
+import {
+	jsonSafeParse,
+	normalizeHttpResponse,
+	validateOptions,
+} from "@middy/util";
 import mask from "json-mask";
 
 const defaults = {
 	filteringKeyName: "fields",
 };
+
+const optionSchema = {
+	filteringKeyName: "string?",
+};
+
+export const httpPartialResponseValidateOptions = (options) =>
+	validateOptions("@middy/http-partial-response", optionSchema, options);
 
 const httpPartialResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

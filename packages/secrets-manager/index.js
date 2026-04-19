@@ -6,6 +6,7 @@ import {
 	SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -15,6 +16,7 @@ import {
 	jsonSafeParse,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -30,6 +32,16 @@ const defaults = {
 	cacheExpiry: -1, // ignored when fetchRotationRules is true/object
 	setToContext: false,
 };
+
+const optionSchema = {
+	...awsClientOptionSchema,
+	fetchRotationDate: (v) =>
+		typeof v === "boolean" ||
+		(v !== null && typeof v === "object" && !Array.isArray(v)),
+};
+
+export const secretsManagerValidateOptions = (options) =>
+	validateOptions("@middy/secrets-manager", optionSchema, options);
 
 const secretsManagerMiddleware = (opts = {}) => {
 	const options = {

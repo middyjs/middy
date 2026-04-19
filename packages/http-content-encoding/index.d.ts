@@ -29,4 +29,8 @@ declare function httpContentEncoding(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpContentEncodingValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpContentEncoding;

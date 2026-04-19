@@ -43,4 +43,8 @@ declare function httpEventNormalizer<
 	EventType extends RequestEvent = RequestEvent,
 >(): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
 
+export declare function httpEventNormalizerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpEventNormalizer;

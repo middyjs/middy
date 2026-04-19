@@ -1,8 +1,8 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import rdsSigner from "./index.js";
+import rdsSigner, { rdsSignerValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -406,4 +406,25 @@ test("It should export rdsSignerParam helper for TypeScript type inference", asy
 	const paramName = "test-param";
 	const result = rdsSignerParam(paramName);
 	strictEqual(result, paramName);
+});
+
+test("rdsSignerValidateOptions accepts valid options and rejects typos", () => {
+	rdsSignerValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	rdsSignerValidateOptions({});
+	try {
+		rdsSignerValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/rds-signer");
+	}
+});
+
+test("rdsSignerValidateOptions rejects wrong type", () => {
+	try {
+		rdsSignerValidateOptions({ fetchData: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchData"));
+	}
 });

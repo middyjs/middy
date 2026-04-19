@@ -19,4 +19,8 @@ declare function cloudwatchMetrics(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function cloudwatchMetricsValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default cloudwatchMetrics;

@@ -64,4 +64,8 @@ declare function s3Middleware<TOptions extends S3Options | undefined>(
 	Internal<TOptions>
 >;
 
+export declare function s3ValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default s3Middleware;

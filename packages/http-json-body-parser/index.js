@@ -1,12 +1,26 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, decodeBody, jsonContentTypePattern } from "@middy/util";
+import {
+	createError,
+	decodeBody,
+	jsonContentTypePattern,
+	validateOptions,
+} from "@middy/util";
 
 const defaults = {
 	reviver: undefined,
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
+
+const optionSchema = {
+	reviver: "function?",
+	disableContentTypeCheck: "boolean?",
+	disableContentTypeError: "boolean?",
+};
+
+export const httpJsonBodyParserValidateOptions = (options) =>
+	validateOptions("@middy/http-json-body-parser", optionSchema, options);
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

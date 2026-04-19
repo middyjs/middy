@@ -1,11 +1,23 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { jsonSafeParse, normalizeHttpResponse } from "@middy/util";
+import {
+	jsonSafeParse,
+	normalizeHttpResponse,
+	validateOptions,
+} from "@middy/util";
 
 const defaults = {
 	logger: console.error,
 	fallbackMessage: undefined,
 };
+
+const optionSchema = {
+	logger: (v) => typeof v === "function" || typeof v === "boolean",
+	fallbackMessage: "string?",
+};
+
+export const httpErrorHandlerValidateOptions = (options) =>
+	validateOptions("@middy/http-error-handler", optionSchema, options);
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

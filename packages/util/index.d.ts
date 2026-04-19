@@ -184,3 +184,28 @@ declare function lambdaContext(
 ): unknown;
 
 declare const httpErrorCodes: Record<number, string>;
+
+export type OptionSchemaRule =
+	| "string"
+	| "number"
+	| "boolean"
+	| "function"
+	| "object"
+	| "array"
+	| "string?"
+	| "number?"
+	| "boolean?"
+	| "function?"
+	| "object?"
+	| "array?"
+	| ((value: unknown) => boolean);
+
+export type OptionSchema = Record<string, OptionSchemaRule>;
+
+export declare function validateOptions(
+	packageName: string,
+	schema: OptionSchema,
+	options?: Record<string, unknown>,
+): void;
+
+export declare const awsClientOptionSchema: OptionSchema;

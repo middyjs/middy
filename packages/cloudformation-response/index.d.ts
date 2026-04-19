@@ -8,4 +8,8 @@ declare function cloudformationResponse(): middy.MiddlewareObj<
 	Error
 >;
 
+export declare function cloudformationResponseValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default cloudformationResponse;

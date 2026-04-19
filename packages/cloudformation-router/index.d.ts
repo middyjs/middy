@@ -24,4 +24,8 @@ declare function cloudformationRouterHandler(
 	options: Options | Route[],
 ): middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>;
 
+export declare function cloudformationRouterValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default cloudformationRouterHandler;

@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	DescribeSecretCommand,
@@ -8,7 +8,7 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import secretsManager from "./index.js";
+import secretsManager, { secretsManagerValidateOptions } from "./index.js";
 
 test.beforeEach(async (t) => {
 	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
@@ -604,4 +604,27 @@ test("It should export secretsManagerParam helper for TypeScript type inference"
 	const secretName = "test-secret";
 	const result = secretsManagerParam(secretName);
 	strictEqual(result, secretName);
+});
+
+test("secretsManagerValidateOptions accepts valid options and rejects typos", () => {
+	secretsManagerValidateOptions({ cacheKey: "x", fetchRotationDate: true });
+	secretsManagerValidateOptions({ fetchRotationDate: { key: true } });
+	secretsManagerValidateOptions({});
+	try {
+		secretsManagerValidateOptions({ fetchRotationData: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("fetchRotationData"));
+		strictEqual(e.cause.package, "@middy/secrets-manager");
+	}
+});
+
+test("secretsManagerValidateOptions rejects invalid fetchRotationDate type", () => {
+	try {
+		secretsManagerValidateOptions({ fetchRotationDate: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchRotationDate"));
+	}
 });

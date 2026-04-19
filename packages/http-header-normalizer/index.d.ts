@@ -12,4 +12,8 @@ declare function httpHeaderNormalizer(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpHeaderNormalizerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpHeaderNormalizer;

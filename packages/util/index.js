@@ -1,5 +1,75 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
+// Option validation helper.
+// Schema values:
+//   'string' | 'number' | 'boolean' | 'function' | 'object' | 'array'
+//     Trailing '?' marks the field as optional (may be undefined).
+//   (value) => boolean predicate — only called when value is not undefined
+//     (i.e. predicates treat the field as optional by design).
+// Keys in `options` that are not in `schema` throw, catching typos.
+const validateOptionsTypeCheckers = {
+	string: (v) => typeof v === "string",
+	number: (v) => typeof v === "number" && !Number.isNaN(v),
+	boolean: (v) => typeof v === "boolean",
+	function: (v) => typeof v === "function",
+	object: (v) => v !== null && typeof v === "object" && !Array.isArray(v),
+	array: (v) => Array.isArray(v),
+};
+
+// Shared schema for middlewares that wrap an AWS SDK client. Spread into
+// package-specific schemas: `{ ...awsClientOptionSchema, extraField: 'type?' }`.
+export const awsClientOptionSchema = {
+	AwsClient: "function?",
+	awsClientOptions: "object?",
+	awsClientAssumeRole: "string?",
+	awsClientCapture: "function?",
+	fetchData: "object?",
+	disablePrefetch: "boolean?",
+	cacheKey: "string?",
+	cacheKeyExpiry: "object?",
+	cacheExpiry: (v) => typeof v === "number" && v >= -1,
+	cacheMaxSize: (v) => Number.isInteger(v) && v >= 1,
+	setToContext: "boolean?",
+};
+
+export const validateOptions = (packageName, schema, options = {}) => {
+	const fail = (message) => {
+		throw new TypeError(message, { cause: { package: packageName } });
+	};
+	if (
+		options === null ||
+		typeof options !== "object" ||
+		Array.isArray(options)
+	) {
+		fail("options must be an object");
+	}
+	for (const key of Object.keys(options)) {
+		if (!Object.hasOwn(schema, key)) {
+			fail(`Unknown option '${key}'`);
+		}
+	}
+	for (const key of Object.keys(schema)) {
+		const rule = schema[key];
+		const value = options[key];
+		if (typeof rule === "function") {
+			if (value !== undefined && !rule(value)) {
+				fail(`Invalid option '${key}'`);
+			}
+			continue;
+		}
+		const optional = rule.endsWith("?");
+		const type = optional ? rule.slice(0, -1) : rule;
+		const checker = validateOptionsTypeCheckers[type];
+		if (!checker) fail(`Unknown schema type '${type}' for option '${key}'`);
+		if (value === undefined) {
+			if (!optional) fail(`Missing required option '${key}' (${type})`);
+			continue;
+		}
+		if (!checker(value)) fail(`Option '${key}' must be ${type}`);
+	}
+};
+
 export const createPrefetchClient = (options) => {
 	const { awsClientOptions } = options;
 	const client = new options.AwsClient(awsClientOptions);

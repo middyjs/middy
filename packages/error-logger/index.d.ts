@@ -10,4 +10,8 @@ declare function errorLogger(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function errorLoggerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default errorLogger;

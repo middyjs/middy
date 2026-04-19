@@ -1,9 +1,11 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 
 import middy from "../core/index.js";
-import sqsPartialBatchFailure from "./index.js";
+import sqsPartialBatchFailure, {
+	sqsPartialBatchFailureValidateOptions,
+} from "./index.js";
 
 const lambdaHandler = async (e) => {
 	const processedRecords = e.Records.map(async (r) => {
@@ -302,4 +304,25 @@ test("Should not override response in onError if response already exists", async
 	const response = await handler(event, defaultContext);
 	// The custom response should be preserved, not overridden
 	deepStrictEqual(response, { custom: "response" });
+});
+
+test("sqsPartialBatchFailureValidateOptions accepts valid options and rejects typos", () => {
+	sqsPartialBatchFailureValidateOptions({ logger: () => {} });
+	sqsPartialBatchFailureValidateOptions({});
+	try {
+		sqsPartialBatchFailureValidateOptions({ loger: () => {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/sqs-partial-batch-failure");
+	}
+});
+
+test("sqsPartialBatchFailureValidateOptions rejects wrong type", () => {
+	try {
+		sqsPartialBatchFailureValidateOptions({ logger: "not-a-fn" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("logger"));
+	}
 });

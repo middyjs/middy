@@ -1,6 +1,25 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { normalizeHttpResponse } from "@middy/util";
+import { normalizeHttpResponse, validateOptions } from "@middy/util";
+
+const optionSchema = {
+	disableBeforePreflightResponse: "boolean?",
+	getOrigin: "function?",
+	credentials: (v) => typeof v === "boolean" || typeof v === "string",
+	headers: "string?",
+	methods: "string?",
+	origin: "string?",
+	origins: "array?",
+	exposeHeaders: "string?",
+	maxAge: (v) => typeof v === "number" || typeof v === "string",
+	requestHeaders: "array?",
+	requestMethods: "array?",
+	cacheControl: "string?",
+	vary: "string?",
+};
+
+export const httpCorsValidateOptions = (options) =>
+	validateOptions("@middy/http-cors", optionSchema, options);
 
 const hostnameToPunycode = (hostname) => {
 	const placeholder = "-_ANY_-";

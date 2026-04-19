@@ -1,8 +1,8 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import createEvent from "@serverless/event-mocks";
 import middy from "../core/index.js";
-import eventNormalizer from "./index.js";
+import eventNormalizer, { eventNormalizerValidateOptions } from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -662,4 +662,25 @@ test("It should handle DynamoDB event with undefined type value", async (t) => {
 			ValidKey: "valid",
 		}),
 	);
+});
+
+test("eventNormalizerValidateOptions accepts valid options and rejects typos", () => {
+	eventNormalizerValidateOptions({ wrapNumbers: true });
+	eventNormalizerValidateOptions({});
+	try {
+		eventNormalizerValidateOptions({ wrapNumber: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/event-normalizer");
+	}
+});
+
+test("eventNormalizerValidateOptions rejects wrong type", () => {
+	try {
+		eventNormalizerValidateOptions({ wrapNumbers: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("wrapNumbers"));
+	}
 });

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -12,6 +13,7 @@ import {
 	jsonSafeParse,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -26,6 +28,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const s3ValidateOptions = (options) =>
+	validateOptions("@middy/s3", optionSchema, options);
 const s3Middleware = (opts = {}) => {
 	const options = {
 		...defaults,

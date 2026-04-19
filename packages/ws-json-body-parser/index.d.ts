@@ -16,4 +16,8 @@ declare function wsJsonBodyParser(
 	options?: Options,
 ): middy.MiddlewareObj<Event, unknown, Error>;
 
+export declare function wsJsonBodyParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default wsJsonBodyParser;

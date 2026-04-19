@@ -1,10 +1,10 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
-import sts from "./index.js";
+import sts, { stsValidateOptions } from "./index.js";
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -327,4 +327,25 @@ test("It should export stsParam helper for TypeScript type inference", async (t)
 	const paramName = "test-param";
 	const result = stsParam(paramName);
 	strictEqual(result, paramName);
+});
+
+test("stsValidateOptions accepts valid options and rejects typos", () => {
+	stsValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
+	stsValidateOptions({});
+	try {
+		stsValidateOptions({ cachExpiry: 60 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/sts");
+	}
+});
+
+test("stsValidateOptions rejects wrong type", () => {
+	try {
+		stsValidateOptions({ setToContext: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("setToContext"));
+	}
 });

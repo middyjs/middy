@@ -14,4 +14,8 @@ declare function inputOutputLogger(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function inputOutputLoggerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default inputOutputLogger;

@@ -1,5 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ requestType }) => {
@@ -12,6 +14,14 @@ const defaults = {
 		throw err;
 	},
 };
+
+const optionSchema = {
+	routes: "array?",
+	notFoundResponse: "function?",
+};
+
+export const cloudformationRouterValidateOptions = (options) =>
+	validateOptions("@middy/cloudformation-router", optionSchema, options);
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {

@@ -1,10 +1,21 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
+import { validateOptions } from "@middy/util";
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
 const defaults = {
 	onFlushError: undefined,
 };
+
+const optionSchema = {
+	namespace: "string?",
+	dimensions: "array?",
+	onFlushError: "function?",
+};
+
+export const cloudwatchMetricsValidateOptions = (options) =>
+	validateOptions("@middy/cloudwatch-metrics", optionSchema, options);
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
 	const { namespace, dimensions, onFlushError } = { ...defaults, ...opts };

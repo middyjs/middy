@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError } from "@middy/util";
+import { createError, validateOptions } from "@middy/util";
 
 const defaults = {
 	eventSchema: undefined,
@@ -9,6 +9,17 @@ const defaults = {
 	defaultLanguage: "en",
 	languages: {},
 };
+
+const optionSchema = {
+	eventSchema: "function?",
+	contextSchema: "function?",
+	responseSchema: "function?",
+	defaultLanguage: "string?",
+	languages: "object?",
+};
+
+export const validatorValidateOptions = (options) =>
+	validateOptions("@middy/validator", optionSchema, options);
 
 const validatorMiddleware = (opts = {}) => {
 	const {

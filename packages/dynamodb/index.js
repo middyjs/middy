@@ -3,6 +3,7 @@
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
+	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -11,6 +12,7 @@ import {
 	getInternal,
 	modifyCache,
 	processCache,
+	validateOptions,
 } from "@middy/util";
 
 const defaults = {
@@ -25,6 +27,11 @@ const defaults = {
 	cacheExpiry: -1,
 	setToContext: false,
 };
+
+const optionSchema = { ...awsClientOptionSchema };
+
+export const dynamodbValidateOptions = (options) =>
+	validateOptions("@middy/dynamodb", optionSchema, options);
 const dynamodbMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,

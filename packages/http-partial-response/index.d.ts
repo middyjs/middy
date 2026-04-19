@@ -10,4 +10,8 @@ declare function httpPartialResponse(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function httpPartialResponseValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default httpPartialResponse;

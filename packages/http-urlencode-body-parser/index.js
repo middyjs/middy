@@ -1,12 +1,20 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, decodeBody } from "@middy/util";
+import { createError, decodeBody, validateOptions } from "@middy/util";
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
 const defaults = {
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
+
+const optionSchema = {
+	disableContentTypeCheck: "boolean?",
+	disableContentTypeError: "boolean?",
+};
+
+export const httpUrlencodeBodyParserValidateOptions = (options) =>
+	validateOptions("@middy/http-urlencode-body-parser", optionSchema, options);
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 

@@ -1,7 +1,14 @@
-import { deepStrictEqual, doesNotThrow, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	doesNotThrow,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpEventNormalizer from "./index.js";
+import httpEventNormalizer, {
+	httpEventNormalizerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -197,4 +204,16 @@ test("It should not overwrite pathParameters with HTTP API", async (t) => {
 	const normalizedEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(normalizedEvent.pathParameters, { param: "hello" });
+});
+
+test("httpEventNormalizerValidateOptions accepts empty options and rejects anything", () => {
+	httpEventNormalizerValidateOptions({});
+	httpEventNormalizerValidateOptions();
+	try {
+		httpEventNormalizerValidateOptions({ any: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-event-normalizer");
+	}
 });

@@ -1,7 +1,9 @@
-import { deepStrictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import httpHeaderNormalizer from "./index.js";
+import httpHeaderNormalizer, {
+	httpHeaderNormalizerValidateOptions,
+} from "./index.js";
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -320,4 +322,29 @@ test("It should not fail given a corrupted header key", async (t) => {
 	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.headers, expectedHeaders);
+});
+
+test("httpHeaderNormalizerValidateOptions accepts valid options and rejects typos", () => {
+	httpHeaderNormalizerValidateOptions({
+		canonical: true,
+		defaultHeaders: { X: "y" },
+		normalizeHeaderKey: (k) => k,
+	});
+	httpHeaderNormalizerValidateOptions({});
+	try {
+		httpHeaderNormalizerValidateOptions({ canonial: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-header-normalizer");
+	}
+});
+
+test("httpHeaderNormalizerValidateOptions rejects wrong type", () => {
+	try {
+		httpHeaderNormalizerValidateOptions({ canonical: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("canonical"));
+	}
 });

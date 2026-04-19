@@ -12,4 +12,8 @@ declare function doNotWaitForEmptyEventLoop(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
+export declare function doNotWaitForEmptyEventLoopValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
 export default doNotWaitForEmptyEventLoop;
