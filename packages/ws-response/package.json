@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ws-response",
-	"version": "7.2.3",
+	"version": "7.3.0",
 	"description": "WebSocket response handling middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,7 +62,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.2.3"
+		"@middy/util": "7.3.0"
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-apigatewaymanagementapi": "^3.0.0"
@@ -74,7 +74,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-apigatewaymanagementapi": "^3.0.0",
-		"@middy/core": "7.2.3",
+		"@middy/core": "7.3.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.3.3"
