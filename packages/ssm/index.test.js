@@ -88,6 +88,33 @@ test("It should set SSM param path to internal storage", async (t) => {
 	await handler(event, context);
 });
 
+test("It should handle SSM path response with missing Parameters field", async (t) => {
+	// GetParametersByPathCommand may return a response with no Parameters
+	// field when the path yields no results. Regression guard for
+	// `for (const param of resp.Parameters ?? [])` at index.js.
+	mockClient(SSMClient).on(GetParametersByPathCommand).resolvesOnce({});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		deepStrictEqual(values.key, {});
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: "/dev/service_name/",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
 test("It should set SSM param path to internal storage when nextToken is returned", async (t) => {
 	mockClient(SSMClient)
 		.on(GetParametersByPathCommand, {

@@ -25,8 +25,11 @@ export const executionModeDurableContext = (
 		);
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
 
+		// See executionModeStandard for the .cause-chaining rationale.
+		let handlerError;
+		let response;
 		try {
-			const response = await runRequest(
+			response = await runRequest(
 				request,
 				beforeMiddlewares,
 				lambdaHandler,
@@ -34,10 +37,20 @@ export const executionModeDurableContext = (
 				onErrorMiddlewares,
 				plugin,
 			);
-			return response;
-		} finally {
-			await plugin.requestEnd(request);
+		} catch (err) {
+			handlerError = err;
 		}
+		try {
+			await plugin.requestEnd(request);
+		} catch (hookErr) {
+			if (handlerError) {
+				handlerError.cause ??= hookErr;
+			} else {
+				throw hookErr;
+			}
+		}
+		if (handlerError) throw handlerError;
+		return response;
 	});
 	middy.handler = (replaceLambdaHandler) => {
 		lambdaHandler = replaceLambdaHandler;

@@ -139,7 +139,10 @@ export const sanitizeKey = (key) => {
 };
 
 // fetch Cache
-const cache = Object.create(null); // key: { value:{fetchKey:Promise}, expiry }
+// Map keyed by cacheKey; value shape: { value:{fetchKey:Promise}, expiry, refresh?, modified? }
+// Map chosen over plain object so deletion is O(1), frees the key slot, and
+// avoids the `delete` operator (biome's performance/noDelete rule).
+const cache = new Map();
 const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
@@ -173,8 +176,9 @@ export const processCache = (
 			if (cached.modified) {
 				const value = middlewareFetch(middlewareFetchRequest, cached.value);
 				Object.assign(cached.value, value);
-				cache[cacheKey] = { value: cached.value, expiry: cached.expiry };
-				return cache[cacheKey];
+				const entry = { value: cached.value, expiry: cached.expiry };
+				cache.set(cacheKey, entry);
+				return entry;
 			}
 			cached.cache = true;
 			return cached;
@@ -189,16 +193,18 @@ export const processCache = (
 	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
-		clearTimeout(cache[cacheKey]?.refresh);
+		clearTimeout(cache.get(cacheKey)?.refresh);
+		// .unref() so a pending refresh timer does not keep the Lambda event
+		// loop alive (relevant under `callbackWaitsForEmptyEventLoop: false`).
 		const refresh =
 			duration > 0
 				? setTimeout(
 						() =>
 							processCache(options, middlewareFetch, middlewareFetchRequest),
 						duration,
-					)
+					).unref()
 				: undefined;
-		cache[cacheKey] = { value, expiry, refresh };
+		cache.set(cacheKey, { value, expiry, refresh });
 		evictCache(cacheMaxSize);
 	}
 	return { value, expiry };
@@ -212,13 +218,12 @@ export const catchInvalidSignatureException = (e, client, command) => {
 };
 
 export const getCache = (key) => {
-	if (!cache[key]) return {};
-	return cache[key];
+	return cache.get(key) ?? {};
 };
 
 // Used to remove parts of a cache
 export const modifyCache = (cacheKey, value) => {
-	const entry = cache[cacheKey];
+	const entry = cache.get(cacheKey);
 	if (!entry) return;
 	clearTimeout(entry.refresh);
 	entry.value = value;
@@ -226,32 +231,30 @@ export const modifyCache = (cacheKey, value) => {
 };
 
 const evictCache = (maxSize) => {
-	const cacheKeys = Object.keys(cache);
-	if (cacheKeys.length <= maxSize) return;
+	if (cache.size <= maxSize) return;
 	let oldestKey = null;
 	let oldestExpiry = Infinity;
-	for (const key of cacheKeys) {
-		const entry = cache[key];
+	for (const [key, entry] of cache) {
 		if (entry && entry.expiry < oldestExpiry) {
 			oldestExpiry = entry.expiry;
 			oldestKey = key;
 		}
 	}
-	if (oldestKey) {
-		clearTimeout(cache[oldestKey]?.refresh);
-		cache[oldestKey] = undefined;
+	if (oldestKey !== null) {
+		clearTimeout(cache.get(oldestKey)?.refresh);
+		cache.delete(oldestKey);
 	}
 };
 
 export const clearCache = (inputKeys = null) => {
 	let keys = inputKeys;
-	keys ??= Object.keys(cache);
+	keys ??= [...cache.keys()];
 	if (!Array.isArray(keys)) {
 		keys = [keys];
 	}
 	for (const cacheKey of keys) {
-		clearTimeout(cache[cacheKey]?.refresh);
-		cache[cacheKey] = undefined;
+		clearTimeout(cache.get(cacheKey)?.refresh);
+		cache.delete(cacheKey);
 	}
 };
 

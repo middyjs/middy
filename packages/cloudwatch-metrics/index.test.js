@@ -9,6 +9,7 @@ const defaultContext = {
 test("cloudwatch-metrics", async (t) => {
 	const mockState = {
 		flushCalled: false,
+		flushError: null, // when set, flush rejects with this error
 		namespaceValue: null,
 		dimensionsValue: null,
 		setNamespaceCalled: false,
@@ -20,6 +21,7 @@ test("cloudwatch-metrics", async (t) => {
 			createMetricsLogger: () => ({
 				flush: async () => {
 					mockState.flushCalled = true;
+					if (mockState.flushError) throw mockState.flushError;
 				},
 				setNamespace: (namespace) => {
 					mockState.namespaceValue = namespace;
@@ -161,6 +163,35 @@ test("cloudwatch-metrics", async (t) => {
 			handler.use(cloudwatchMetricsMiddleware());
 			await handler(defaultEvent, defaultContext);
 			strictEqual(mockState.setDimensionsCalled, false);
+		},
+	);
+
+	await t.test("It should invoke onFlushError when flush rejects", async () => {
+		mockState.flushError = new Error("flush boom");
+		let captured;
+		const handler = middy(() => {});
+		handler.use(
+			cloudwatchMetricsMiddleware({
+				onFlushError: (err) => {
+					captured = err;
+				},
+			}),
+		);
+		await handler(defaultEvent, defaultContext);
+		ok(captured instanceof Error);
+		strictEqual(captured.message, "flush boom");
+		mockState.flushError = null;
+	});
+
+	await t.test(
+		"It should silently swallow flush errors when onFlushError is not provided",
+		async () => {
+			mockState.flushError = new Error("flush boom");
+			const handler = middy(() => "ok");
+			handler.use(cloudwatchMetricsMiddleware());
+			const result = await handler(defaultEvent, defaultContext);
+			strictEqual(result, "ok");
+			mockState.flushError = null;
 		},
 	);
 });

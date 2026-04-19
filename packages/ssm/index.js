@@ -150,7 +150,7 @@ const ssmMiddleware = (opts = {}) => {
 			.send(command)
 			.catch((e) => catchInvalidSignatureException(e, client, command))
 			.then((resp) => {
-				for (const param of resp.Parameters) {
+				for (const param of resp.Parameters ?? []) {
 					values[sanitizeKey(param.Name.replace(path, ""))] = parseValue(param);
 				}
 				if (resp.NextToken) {

@@ -32,7 +32,6 @@
 		"test:packages:unit": "node --no-warnings=ExperimentalWarning --test ./packages/**/*.test.js --test-force-exit --experimental-test-module-mocks --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100",
 		"test:packages:perf": "node --test ./packages/**/*.perf.js",
 		"test:packages:fuzz": "node --no-warnings=ExperimentalWarning --test ./packages/**/*.fuzz.js --experimental-test-module-mocks",
-		"test:llrt": "cd llrt && npm test",
 		"rm": "npm run rm:node_modules && npm run rm:lock",
 		"rm:lock": "find . -name 'package-lock.json' -type f -exec rm -f '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
