@@ -1,6 +1,10 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { cloudwatchMetricsValidateOptions } from "./index.js";
+
+// Note: `./index.js` is loaded via dynamic import inside each test so the
+// `t.mock.module('aws-embedded-metrics', ...)` call can install its mock
+// before the middleware source resolves its `import awsEmbeddedMetrics`.
+// Static top-level import here would eagerly resolve the real module.
 
 const defaultEvent = {};
 const defaultContext = {
@@ -197,7 +201,8 @@ test("cloudwatch-metrics", async (t) => {
 	);
 });
 
-test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos", () => {
+test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos", async () => {
+	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
 	cloudwatchMetricsValidateOptions({
 		namespace: "MyApp",
 		dimensions: [{ env: "prod" }],
@@ -213,7 +218,8 @@ test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos",
 	}
 });
 
-test("cloudwatchMetricsValidateOptions rejects wrong type", () => {
+test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
+	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
 	try {
 		cloudwatchMetricsValidateOptions({ onFlushError: "not-a-fn" });
 		ok(false, "expected throw");
