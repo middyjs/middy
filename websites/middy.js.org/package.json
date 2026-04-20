@@ -23,7 +23,7 @@
 		"@willfarrell-ds/vanilla": "0.0.0-alpha.6",
 		"hast-util-to-string": "3.0.1",
 		"mdast-util-to-string": "4.0.0",
-		"uuid": "13.0.0"
+		"uuid": "14.0.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.0.0",
