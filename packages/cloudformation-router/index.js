@@ -22,6 +22,7 @@ const optionSchema = {
 	properties: {
 		routes: {
 			type: "array",
+			uniqueItems: true,
 			items: {
 				type: "object",
 				required: ["requestType", "handler"],
@@ -37,24 +38,8 @@ const optionSchema = {
 	additionalProperties: false,
 };
 
-export const cloudformationRouterValidateOptions = (options) => {
+export const cloudformationRouterValidateOptions = (options) =>
 	validateOptions("@middy/cloudformation-router", optionSchema, options);
-	const routes = options?.routes;
-	if (routes === undefined) return options;
-	const seen = new Set();
-	for (const { requestType } of routes) {
-		if (seen.has(requestType)) {
-			throw new Error("Duplicate route", {
-				cause: {
-					package: "@middy/cloudformation-router",
-					data: { requestType },
-				},
-			});
-		}
-		seen.add(requestType);
-	}
-	return options;
-};
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {
