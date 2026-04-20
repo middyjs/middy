@@ -42,9 +42,11 @@ const optionSchema = {
 // Normalize a route path for duplicate detection: drop non-root trailing slash
 // and rewrite `{name}`/`{name+}` to `{_}`/`{_+}` so two routes that only
 // differ by parameter name collide (they match the same requests).
+// Inner class excludes `{` to keep matches linear (avoids polynomial
+// backtracking on pathological inputs like `{{{{...`).
 const normalizeRoutePath = (path) => {
 	if (path.endsWith("/") && path !== "/") path = path.slice(0, -1);
-	return path.replace(/\{([^/}]+?)(\+?)\}/g, "{_$2}");
+	return path.replace(/\{[^/{}]+(\+?)\}/g, "{_$1}");
 };
 
 export const httpRouterValidateOptions = (options) => {
