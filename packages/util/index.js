@@ -69,15 +69,16 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	return true;
 };
 
-// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `const`,
-// `instanceof`) is a flat object schema; anything else is a rule. Used when
-// dispatching `items` and `additionalProperties`.
+// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `allOf`,
+// `const`, `instanceof`) is a flat object schema; anything else is a rule.
+// Used when dispatching `items` and `additionalProperties`.
 const checkNestedRule = (rule, value, path, fail) => {
 	if (
 		isPlainObject(rule) &&
 		typeof rule.type !== "string" &&
 		!Array.isArray(rule.enum) &&
 		!Array.isArray(rule.oneOf) &&
+		!Array.isArray(rule.allOf) &&
 		!Object.hasOwn(rule, "const") &&
 		typeof rule.instanceof !== "string"
 	) {
@@ -126,6 +127,13 @@ const checkRule = (rule, value, path, fail) => {
 		if (value === undefined) return;
 		if (value !== rule.const) {
 			fail(`Option '${path}' must equal ${JSON.stringify(rule.const)}`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && Array.isArray(rule.allOf)) {
+		if (value === undefined) return;
+		for (const sub of rule.allOf) {
+			checkRule(sub, value, path, fail);
 		}
 		return;
 	}

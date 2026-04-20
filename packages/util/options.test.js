@@ -673,6 +673,39 @@ describe("validateOptions enum", () => {
 	});
 });
 
+describe("validateOptions allOf", () => {
+	const schema = {
+		path: {
+			allOf: [
+				{ type: "string", pattern: "^/" },
+				{ type: "string", pattern: "^(/|.*[^/])$" },
+			],
+		},
+	};
+
+	test("accepts value that matches every sub-schema", () => {
+		validateOptions("@middy/test", schema, { path: "/users" });
+	});
+
+	test("rejects value that fails a sub-schema", () => {
+		try {
+			validateOptions("@middy/test", schema, { path: "/users/" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("path"));
+		}
+	});
+
+	test("rejects value that fails the first sub-schema", () => {
+		try {
+			validateOptions("@middy/test", schema, { path: "no-slash" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("path"));
+		}
+	});
+});
+
 describe("validateOptions uniqueItems", () => {
 	test("rejects duplicate items, ignoring function-typed fields", () => {
 		const schema = {

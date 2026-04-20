@@ -219,6 +219,7 @@ export type BooleanRule = {
 export type ArrayRule = {
 	type: "array";
 	items?: OptionSchemaRule;
+	uniqueItems?: boolean;
 	examples?: readonly unknown[];
 };
 
@@ -251,6 +252,11 @@ export type OneOfRule = {
 	examples?: readonly unknown[];
 };
 
+export type AllOfRule = {
+	allOf: readonly OptionSchemaRule[];
+	examples?: readonly unknown[];
+};
+
 export type OptionSchemaRule =
 	| StringRule
 	| NumberRule
@@ -260,7 +266,8 @@ export type OptionSchemaRule =
 	| EnumRule
 	| ConstRule
 	| InstanceofRule
-	| OneOfRule;
+	| OneOfRule
+	| AllOfRule;
 
 export type OptionSchema = ObjectRule;
 
