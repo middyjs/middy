@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: MIT
 import { createError, validateOptions } from "@middy/util";
 
-const optionSchema = {};
+const optionSchema = {
+	type: "object",
+	properties: {},
+	additionalProperties: false,
+};
 
 export const httpUrlencodePathParserValidateOptions = (options) =>
 	validateOptions("@middy/http-urlencode-path-parser", optionSchema, options);

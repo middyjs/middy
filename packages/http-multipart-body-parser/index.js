@@ -8,10 +8,14 @@ const mimePattern =
 const fieldnamePattern = /(.+)\[(.*)]$/;
 
 const optionSchema = {
-	busboy: "object?",
-	charset: "string?",
-	disableContentTypeCheck: "boolean?",
-	disableContentTypeError: "boolean?",
+	type: "object",
+	properties: {
+		busboy: { type: "object" },
+		charset: { type: "string" },
+		disableContentTypeCheck: { type: "boolean" },
+		disableContentTypeError: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const httpMultipartBodyParserValidateOptions = (options) =>

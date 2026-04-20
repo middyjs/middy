@@ -4,29 +4,33 @@ import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
 // Each policy option accepts either a config object or a boolean (true = use
 // defaults, false = disable). See middleware body for enable/disable logic.
-const objectOrBoolean = (v) =>
-	typeof v === "boolean" ||
-	(v !== null && typeof v === "object" && !Array.isArray(v));
+const objectOrBoolean = {
+	oneOf: [{ type: "boolean" }, { type: "object" }],
+};
 
 const optionSchema = {
-	contentSecurityPolicy: objectOrBoolean,
-	contentSecurityPolicyReportOnly: "boolean?",
-	contentTypeOptions: objectOrBoolean,
-	crossOriginEmbedderPolicy: objectOrBoolean,
-	crossOriginOpenerPolicy: objectOrBoolean,
-	crossOriginResourcePolicy: objectOrBoolean,
-	dnsPrefetchControl: objectOrBoolean,
-	downloadOptions: objectOrBoolean,
-	frameOptions: objectOrBoolean,
-	originAgentCluster: objectOrBoolean,
-	permissionsPolicy: objectOrBoolean,
-	permittedCrossDomainPolicies: objectOrBoolean,
-	poweredBy: "boolean?",
-	referrerPolicy: objectOrBoolean,
-	reportingEndpoints: objectOrBoolean,
-	reportTo: objectOrBoolean,
-	strictTransportSecurity: objectOrBoolean,
-	xssProtection: objectOrBoolean,
+	type: "object",
+	properties: {
+		contentSecurityPolicy: objectOrBoolean,
+		contentSecurityPolicyReportOnly: { type: "boolean" },
+		contentTypeOptions: objectOrBoolean,
+		crossOriginEmbedderPolicy: objectOrBoolean,
+		crossOriginOpenerPolicy: objectOrBoolean,
+		crossOriginResourcePolicy: objectOrBoolean,
+		dnsPrefetchControl: objectOrBoolean,
+		downloadOptions: objectOrBoolean,
+		frameOptions: objectOrBoolean,
+		originAgentCluster: objectOrBoolean,
+		permissionsPolicy: objectOrBoolean,
+		permittedCrossDomainPolicies: objectOrBoolean,
+		poweredBy: { type: "boolean" },
+		referrerPolicy: objectOrBoolean,
+		reportingEndpoints: objectOrBoolean,
+		reportTo: objectOrBoolean,
+		strictTransportSecurity: objectOrBoolean,
+		xssProtection: objectOrBoolean,
+	},
+	additionalProperties: false,
 };
 
 export const httpSecurityHeadersValidateOptions = (options) =>

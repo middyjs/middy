@@ -9,9 +9,19 @@ const defaults = {
 };
 
 const optionSchema = {
-	namespace: "string?",
-	dimensions: "array?",
-	onFlushError: "function?",
+	type: "object",
+	properties: {
+		namespace: { type: "string" },
+		dimensions: {
+			type: "array",
+			items: {
+				type: "object",
+				additionalProperties: { type: "string" },
+			},
+		},
+		onFlushError: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const cloudwatchMetricsValidateOptions = (options) =>

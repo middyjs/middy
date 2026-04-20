@@ -9,9 +9,13 @@ const defaults = {
 };
 
 const optionSchema = {
-	runOnBefore: "boolean?",
-	runOnAfter: "boolean?",
-	runOnError: "boolean?",
+	type: "object",
+	properties: {
+		runOnBefore: { type: "boolean" },
+		runOnAfter: { type: "boolean" },
+		runOnError: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const doNotWaitForEmptyEventLoopValidateOptions = (options) =>

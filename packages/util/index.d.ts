@@ -185,27 +185,30 @@ declare function lambdaContext(
 
 declare const httpErrorCodes: Record<number, string>;
 
-export type OptionSchemaRule =
+export type JsonSchemaType =
 	| "string"
 	| "number"
+	| "integer"
 	| "boolean"
-	| "function"
 	| "object"
-	| "array"
-	| "string?"
-	| "number?"
-	| "boolean?"
-	| "function?"
-	| "object?"
-	| "array?"
-	| ((value: unknown) => boolean);
+	| "array";
 
-export type OptionSchema = Record<string, OptionSchemaRule>;
+export type OptionSchemaRule =
+	| { type: JsonSchemaType; [key: string]: unknown }
+	| { enum: readonly unknown[]; [key: string]: unknown }
+	| { const: unknown }
+	| { instanceof: string }
+	| { oneOf: readonly OptionSchemaRule[] };
+
+export type OptionSchema = {
+	type: "object";
+	required?: readonly string[];
+	properties?: { [key: string]: OptionSchemaRule };
+	additionalProperties?: boolean | OptionSchemaRule;
+};
 
 export declare function validateOptions(
 	packageName: string,
 	schema: OptionSchema,
 	options?: Record<string, unknown>,
 ): void;
-
-export declare const awsClientOptionSchema: OptionSchema;

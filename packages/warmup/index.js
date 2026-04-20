@@ -7,7 +7,11 @@ const defaults = {
 };
 
 const optionSchema = {
-	isWarmingUp: "function?",
+	type: "object",
+	properties: {
+		isWarmingUp: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const warmupValidateOptions = (options) =>

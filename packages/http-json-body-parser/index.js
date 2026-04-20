@@ -14,9 +14,13 @@ const defaults = {
 };
 
 const optionSchema = {
-	reviver: "function?",
-	disableContentTypeCheck: "boolean?",
-	disableContentTypeError: "boolean?",
+	type: "object",
+	properties: {
+		reviver: { instanceof: "Function" },
+		disableContentTypeCheck: { type: "boolean" },
+		disableContentTypeError: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const httpJsonBodyParserValidateOptions = (options) =>

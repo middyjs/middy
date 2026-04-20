@@ -7,7 +7,11 @@ const defaults = {
 };
 
 const optionSchema = {
-	reviver: "function?",
+	type: "object",
+	properties: {
+		reviver: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const wsJsonBodyParserValidateOptions = (options) =>

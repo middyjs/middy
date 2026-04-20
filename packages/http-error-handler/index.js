@@ -12,20 +12,24 @@ const defaults = {
 };
 
 const optionSchema = {
-	logger: (v) => typeof v === "function" || typeof v === "boolean",
-	fallbackMessage: "string?",
+	type: "object",
+	properties: {
+		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+		fallbackMessage: { type: "string" },
+	},
+	additionalProperties: false,
 };
 
 export const httpErrorHandlerValidateOptions = (options) =>
 	validateOptions("@middy/http-error-handler", optionSchema, options);
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const { logger, fallbackMessage } = { ...defaults, ...opts };
 
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;
-		if (typeof options.logger === "function") {
-			options.logger(request.error);
+		if (typeof logger === "function") {
+			logger(request.error);
 		}
 
 		// Set default expose value, only passes in when there is an override
@@ -40,7 +44,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 		if (!request.error.expose || !request.error.statusCode) {
 			request.error = {
 				statusCode: 500,
-				message: options.fallbackMessage,
+				message: fallbackMessage,
 				expose: true,
 			};
 		}

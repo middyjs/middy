@@ -11,11 +11,15 @@ const defaults = {
 };
 
 const optionSchema = {
-	eventSchema: "function?",
-	contextSchema: "function?",
-	responseSchema: "function?",
-	defaultLanguage: "string?",
-	languages: "object?",
+	type: "object",
+	properties: {
+		eventSchema: { instanceof: "Function" },
+		contextSchema: { instanceof: "Function" },
+		responseSchema: { instanceof: "Function" },
+		defaultLanguage: { type: "string" },
+		languages: { type: "object" },
+	},
+	additionalProperties: false,
 };
 
 export const validatorValidateOptions = (options) =>

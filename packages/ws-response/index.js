@@ -6,7 +6,6 @@ import {
 } from "@aws-sdk/client-apigatewaymanagementapi";
 
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -14,7 +13,17 @@ import {
 	validateOptions,
 } from "@middy/util";
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		disablePrefetch: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const wsResponseValidateOptions = (options) =>
 	validateOptions("@middy/ws-response", optionSchema, options);

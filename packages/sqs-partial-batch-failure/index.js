@@ -7,7 +7,11 @@ const defaults = {
 };
 
 const optionSchema = {
-	logger: "function?",
+	type: "object",
+	properties: {
+		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+	},
+	additionalProperties: false,
 };
 
 export const sqsPartialBatchFailureValidateOptions = (options) =>

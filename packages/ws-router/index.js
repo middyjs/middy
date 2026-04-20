@@ -13,8 +13,23 @@ const defaults = {
 };
 
 const optionSchema = {
-	routes: "array?",
-	notFoundResponse: "function?",
+	type: "object",
+	properties: {
+		routes: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["routeKey", "handler"],
+				properties: {
+					routeKey: { type: "string" },
+					handler: { instanceof: "Function" },
+				},
+				additionalProperties: false,
+			},
+		},
+		notFoundResponse: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const wsRouterValidateOptions = (options) =>

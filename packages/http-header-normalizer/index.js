@@ -3,9 +3,13 @@
 import { validateOptions } from "@middy/util";
 
 const optionSchema = {
-	canonical: "boolean?",
-	defaultHeaders: "object?",
-	normalizeHeaderKey: "function?",
+	type: "object",
+	properties: {
+		canonical: { type: "boolean" },
+		defaultHeaders: { type: "object" },
+		normalizeHeaderKey: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const httpHeaderNormalizerValidateOptions = (options) =>

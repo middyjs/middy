@@ -15,9 +15,26 @@ const defaults = {
 	},
 };
 
+const requestTypes = ["Create", "Update", "Delete"];
+
 const optionSchema = {
-	routes: "array?",
-	notFoundResponse: "function?",
+	type: "object",
+	properties: {
+		routes: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["requestType", "handler"],
+				properties: {
+					requestType: { type: "string", enum: requestTypes },
+					handler: { instanceof: "Function" },
+				},
+				additionalProperties: false,
+			},
+		},
+		notFoundResponse: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const cloudformationRouterValidateOptions = (options) =>

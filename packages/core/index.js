@@ -19,17 +19,21 @@ const defaultPluginConfig = {
 };
 
 const optionSchema = {
-	internal: "object?",
-	beforePrefetch: "function?",
-	requestStart: "function?",
-	beforeMiddleware: "function?",
-	afterMiddleware: "function?",
-	beforeHandler: "function?",
-	timeoutEarlyInMillis: "number?",
-	timeoutEarlyResponse: "function?",
-	afterHandler: "function?",
-	requestEnd: "function?",
-	executionMode: "function?",
+	type: "object",
+	properties: {
+		internal: { type: "object", additionalProperties: true },
+		beforePrefetch: { instanceof: "Function" },
+		requestStart: { instanceof: "Function" },
+		beforeMiddleware: { instanceof: "Function" },
+		afterMiddleware: { instanceof: "Function" },
+		beforeHandler: { instanceof: "Function" },
+		timeoutEarlyInMillis: { type: "integer", minimum: 0 },
+		timeoutEarlyResponse: { instanceof: "Function" },
+		afterHandler: { instanceof: "Function" },
+		requestEnd: { instanceof: "Function" },
+		executionMode: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const middyValidateOptions = (options) =>

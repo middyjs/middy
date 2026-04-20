@@ -208,17 +208,13 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 	]);
 });
 
-test("It should throw error when invalid logger", async (t) => {
-	const logger = false;
-
+test("It should reject invalid logger via option validator", async (t) => {
 	try {
-		middy((event) => event).use(
-			inputOutputLogger({
-				logger,
-			}),
-		);
+		inputOutputLoggerValidateOptions({ logger: "not-a-fn" });
+		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "logger must be a function");
+		ok(e instanceof TypeError);
+		ok(e.message.includes("logger"));
 	}
 });
 

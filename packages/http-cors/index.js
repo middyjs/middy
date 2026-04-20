@@ -3,19 +3,25 @@
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
 const optionSchema = {
-	disableBeforePreflightResponse: "boolean?",
-	getOrigin: "function?",
-	credentials: (v) => typeof v === "boolean" || typeof v === "string",
-	headers: "string?",
-	methods: "string?",
-	origin: "string?",
-	origins: "array?",
-	exposeHeaders: "string?",
-	maxAge: (v) => typeof v === "number" || typeof v === "string",
-	requestHeaders: "array?",
-	requestMethods: "array?",
-	cacheControl: "string?",
-	vary: "string?",
+	type: "object",
+	properties: {
+		disableBeforePreflightResponse: { type: "boolean" },
+		getOrigin: { instanceof: "Function" },
+		credentials: { oneOf: [{ type: "boolean" }, { type: "string" }] },
+		headers: { type: "string" },
+		methods: { type: "string" },
+		origin: { type: "string" },
+		origins: { type: "array", items: { type: "string" } },
+		exposeHeaders: { type: "string" },
+		maxAge: {
+			oneOf: [{ type: "integer", minimum: 0 }, { type: "string" }],
+		},
+		requestHeaders: { type: "array", items: { type: "string" } },
+		requestMethods: { type: "array", items: { type: "string" } },
+		cacheControl: { type: "string" },
+		vary: { type: "string" },
+	},
+	additionalProperties: false,
 };
 
 export const httpCorsValidateOptions = (options) =>

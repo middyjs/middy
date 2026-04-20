@@ -3,71 +3,226 @@
 
 // Option validation helper.
 // Schema values:
-//   'string' | 'number' | 'boolean' | 'function' | 'object' | 'array'
+//   'string' | 'number' | 'integer' | 'boolean' | 'function' | 'object' | 'array'
 //     Trailing '?' marks the field as optional (may be undefined).
 //   (value) => boolean predicate — only called when value is not undefined
 //     (i.e. predicates treat the field as optional by design).
-// Keys in `options` that are not in `schema` throw, catching typos.
+//   { type: 'array' | 'array?', items: <itemSchema> }
+//     `items` is applied to each array element. It can be a type string,
+//     a predicate function, or a plain object treated as a per-element
+//     object schema (validated recursively with the same rules).
+//   { type: '<type>' | '<type>?', minimum?: <n> }
+//     `minimum` is checked with `value < minimum`; works for number/integer.
+//   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
+//     `properties` validates known keys with the flat-schema form.
+//     `additionalProperties` validates every other key's value against the
+//     given rule (string, predicate, or nested object schema). Without it,
+//     unknown keys throw.
+//   { enum: [...values], type?: '<type>' | '<type>?' }
+//     Value must strict-equal one of the listed values. Optional by default;
+//     combine with `type` to require a specific type and/or presence.
+// Keys in `options` (or nested objects) that are not in `schema` throw,
+// catching typos.
 const validateOptionsTypeCheckers = {
 	string: (v) => typeof v === "string",
 	number: (v) => typeof v === "number" && !Number.isNaN(v),
+	integer: (v) => Number.isInteger(v),
 	boolean: (v) => typeof v === "boolean",
 	function: (v) => typeof v === "function",
 	object: (v) => v !== null && typeof v === "object" && !Array.isArray(v),
 	array: (v) => Array.isArray(v),
 };
 
-// Shared schema for middlewares that wrap an AWS SDK client. Spread into
-// package-specific schemas: `{ ...awsClientOptionSchema, extraField: 'type?' }`.
-export const awsClientOptionSchema = {
-	AwsClient: "function?",
-	awsClientOptions: "object?",
-	awsClientAssumeRole: "string?",
-	awsClientCapture: "function?",
-	fetchData: "object?",
-	disablePrefetch: "boolean?",
-	cacheKey: "string?",
-	cacheKeyExpiry: "object?",
-	cacheExpiry: (v) => typeof v === "number" && v >= -1,
-	cacheMaxSize: (v) => Number.isInteger(v) && v >= 1,
-	setToContext: "boolean?",
+const isPlainObject = (v) =>
+	v !== null && typeof v === "object" && !Array.isArray(v);
+
+const checkSchemaObject = (schema, options, path, fail) => {
+	if (!isPlainObject(options)) {
+		fail(
+			path ? `Option '${path}' must be object` : "options must be an object",
+		);
+	}
+	for (const key of Object.keys(options)) {
+		if (!Object.hasOwn(schema, key)) {
+			fail(`Unknown option '${path ? `${path}.${key}` : key}'`);
+		}
+	}
+	for (const key of Object.keys(schema)) {
+		const childPath = path ? `${path}.${key}` : key;
+		checkRule(schema[key], options[key], childPath, fail);
+	}
 };
+
+// Returns true if type check passed (and value is defined), false if the
+// caller should stop validating (value was undefined and optional).
+const checkTypeSpec = (rawType, value, path, fail) => {
+	const optional = rawType.endsWith("?");
+	const type = optional ? rawType.slice(0, -1) : rawType;
+	const checker = validateOptionsTypeCheckers[type];
+	if (!checker) fail(`Unknown schema type '${type}' for option '${path}'`);
+	if (value === undefined) {
+		if (!optional) fail(`Missing required option '${path}' (${type})`);
+		return false;
+	}
+	if (!checker(value)) fail(`Option '${path}' must be ${type}`);
+	return true;
+};
+
+// Plain object with no `type` or `enum` is a flat object schema; anything
+// else is a rule. Used when dispatching `items` and `additionalProperties`.
+const checkNestedRule = (rule, value, path, fail) => {
+	if (
+		isPlainObject(rule) &&
+		typeof rule.type !== "string" &&
+		!Array.isArray(rule.enum)
+	) {
+		checkSchemaObject(rule, value, path, fail);
+	} else {
+		checkRule(rule, value, path, fail);
+	}
+};
+
+const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
+
+const resolveInstance = (name) => {
+	const ctor = globalThis[name];
+	if (typeof ctor !== "function") {
+		throw new Error(`Unknown 'instanceof' class '${name}'`);
+	}
+	return ctor;
+};
+
+const checkRule = (rule, value, path, fail) => {
+	if (typeof rule === "function") {
+		if (value !== undefined && !rule(value)) {
+			fail(`Invalid option '${path}'`);
+		}
+		return;
+	}
+	if (typeof rule === "string") {
+		checkTypeSpec(rule, value, path, fail);
+		return;
+	}
+	if (isPlainObject(rule) && Object.hasOwn(rule, "const")) {
+		if (value === undefined) return;
+		if (value !== rule.const) {
+			fail(`Option '${path}' must equal ${JSON.stringify(rule.const)}`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && Array.isArray(rule.oneOf)) {
+		if (value === undefined) return;
+		let matches = 0;
+		for (const sub of rule.oneOf) {
+			try {
+				checkRule(sub, value, path, (msg) => {
+					throw new TypeError(msg);
+				});
+				matches++;
+			} catch {}
+		}
+		if (matches !== 1) {
+			fail(`Option '${path}' must match exactly one schema in oneOf`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && typeof rule.instanceof === "string") {
+		if (value === undefined) return;
+		const ctor = resolveInstance(rule.instanceof);
+		if (
+			!(value instanceof ctor) &&
+			!(rule.instanceof === "Function" && typeof value === "function")
+		) {
+			fail(`Option '${path}' must be instanceof ${rule.instanceof}`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && Array.isArray(rule.enum)) {
+		if (typeof rule.type === "string") {
+			if (!checkTypeSpec(rule.type, value, path, fail)) return;
+		} else if (value === undefined) {
+			return;
+		}
+		if (!rule.enum.includes(value)) {
+			fail(`Option '${path}' must be one of ${JSON.stringify(rule.enum)}`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && typeof rule.type === "string") {
+		const {
+			type: rawType,
+			items,
+			properties,
+			required,
+			additionalProperties,
+			minimum,
+		} = rule;
+		if (!checkTypeSpec(rawType, value, path, fail)) return;
+		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
+		if (minimum !== undefined && value < minimum) {
+			fail(`Option '${path}' must be >= ${minimum}`);
+		}
+		if (type === "array" && items !== undefined) {
+			for (let i = 0; i < value.length; i++) {
+				checkNestedRule(items, value[i], `${path}[${i}]`, fail);
+			}
+		}
+		if (type === "object" && Array.isArray(required)) {
+			for (const key of required) {
+				if (value[key] === undefined) {
+					fail(`Missing required option '${childPathOf(path, key)}'`);
+				}
+			}
+		}
+		if (
+			type === "object" &&
+			(properties || additionalProperties !== undefined)
+		) {
+			for (const key of Object.keys(value)) {
+				if (properties && Object.hasOwn(properties, key)) continue;
+				if (
+					additionalProperties === undefined ||
+					additionalProperties === false
+				) {
+					fail(`Unknown option '${childPathOf(path, key)}'`);
+				}
+				if (additionalProperties === true) continue;
+				checkNestedRule(
+					additionalProperties,
+					value[key],
+					childPathOf(path, key),
+					fail,
+				);
+			}
+			if (properties) {
+				for (const key of Object.keys(properties)) {
+					if (value[key] === undefined) continue;
+					checkRule(properties[key], value[key], childPathOf(path, key), fail);
+				}
+			}
+		}
+		return;
+	}
+	fail(`Invalid schema for option '${path}'`);
+};
+
+const isJsonSchemaForm = (schema) =>
+	isPlainObject(schema) &&
+	schema.type === "object" &&
+	(Object.hasOwn(schema, "properties") ||
+		Object.hasOwn(schema, "required") ||
+		Object.hasOwn(schema, "additionalProperties"));
 
 export const validateOptions = (packageName, schema, options = {}) => {
 	const fail = (message) => {
 		throw new TypeError(message, { cause: { package: packageName } });
 	};
-	if (
-		options === null ||
-		typeof options !== "object" ||
-		Array.isArray(options)
-	) {
-		fail("options must be an object");
+	if (isJsonSchemaForm(schema)) {
+		checkRule(schema, options, "", fail);
+	} else {
+		checkSchemaObject(schema, options, "", fail);
 	}
-	for (const key of Object.keys(options)) {
-		if (!Object.hasOwn(schema, key)) {
-			fail(`Unknown option '${key}'`);
-		}
-	}
-	for (const key of Object.keys(schema)) {
-		const rule = schema[key];
-		const value = options[key];
-		if (typeof rule === "function") {
-			if (value !== undefined && !rule(value)) {
-				fail(`Invalid option '${key}'`);
-			}
-			continue;
-		}
-		const optional = rule.endsWith("?");
-		const type = optional ? rule.slice(0, -1) : rule;
-		const checker = validateOptionsTypeCheckers[type];
-		if (!checker) fail(`Unknown schema type '${type}' for option '${key}'`);
-		if (value === undefined) {
-			if (!optional) fail(`Missing required option '${key}' (${type})`);
-			continue;
-		}
-		if (!checker(value)) fail(`Option '${key}' must be ${type}`);
-	}
+	return options;
 };
 
 export const createPrefetchClient = (options) => {

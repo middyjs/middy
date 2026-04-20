@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
-const optionSchema = {};
+const optionSchema = {
+	type: "object",
+	properties: {},
+	additionalProperties: false,
+};
 
 export const cloudformationResponseValidateOptions = (options) =>
 	validateOptions("@middy/cloudformation-response", optionSchema, options);
