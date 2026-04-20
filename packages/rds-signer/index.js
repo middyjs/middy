@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 import { Signer } from "@aws-sdk/rds-signer";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	getCache,
 	getInternal,
@@ -22,7 +21,35 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				properties: {
+					hostname: { type: "string" },
+					port: { type: "integer", minimum: 1, maximum: 65535 },
+					username: { type: "string" },
+				},
+				required: ["hostname", "port", "username"],
+				additionalProperties: true,
+			},
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const rdsSignerValidateOptions = (options) =>
 	validateOptions("@middy/rds-signer", optionSchema, options);

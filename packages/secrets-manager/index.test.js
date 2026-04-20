@@ -667,3 +667,12 @@ test("secretsManagerValidateOptions rejects invalid fetchRotationDate type", () 
 		ok(e.message.includes("fetchRotationDate"));
 	}
 });
+
+test("secretsManagerValidateOptions rejects non-boolean values in fetchRotationDate object", () => {
+	try {
+		secretsManagerValidateOptions({ fetchRotationDate: { key: "yes" } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("fetchRotationDate"));
+	}
+});

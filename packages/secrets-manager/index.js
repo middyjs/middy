@@ -6,7 +6,6 @@ import {
 	SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -34,10 +33,32 @@ const defaults = {
 };
 
 const optionSchema = {
-	...awsClientOptionSchema,
-	fetchRotationDate: (v) =>
-		typeof v === "boolean" ||
-		(v !== null && typeof v === "object" && !Array.isArray(v)),
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: { type: "string" },
+		},
+		fetchRotationDate: {
+			oneOf: [
+				{ type: "boolean" },
+				{ type: "object", additionalProperties: { type: "boolean" } },
+			],
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const secretsManagerValidateOptions = (options) =>

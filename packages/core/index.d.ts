@@ -8,9 +8,11 @@ import type { DurableContext as LambdaContextDurable } from "@aws/durable-execut
 
 declare type PluginHook = () => void;
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
+declare type PluginHookWithRequest = (request: Request) => void;
 declare type PluginHookPromise = (
 	request: Request,
 ) => Promise<unknown> | unknown;
+declare type PluginTimeoutEarlyResponse = () => unknown;
 export type PluginExecutionMode = () => void;
 export declare const executionModeStandard: PluginExecutionMode;
 export declare const executionModeDurableContext: PluginExecutionMode;
@@ -19,14 +21,14 @@ export declare const executionModeStreamifyResponse: PluginExecutionMode;
 interface PluginObject {
 	internal?: Record<string, unknown>;
 	beforePrefetch?: PluginHook;
-	requestStart?: PluginHook;
+	requestStart?: PluginHookWithRequest;
 	beforeMiddleware?: PluginHookWithMiddlewareName;
 	afterMiddleware?: PluginHookWithMiddlewareName;
 	beforeHandler?: PluginHook;
-	timeoutEarlyInMillis?: number;
-	timeoutEarlyResponse?: PluginHook;
 	afterHandler?: PluginHook;
 	requestEnd?: PluginHookPromise;
+	timeoutEarlyInMillis?: number;
+	timeoutEarlyResponse?: PluginTimeoutEarlyResponse;
 	executionMode?: PluginExecutionMode;
 }
 

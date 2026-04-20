@@ -12,15 +12,66 @@ const defaults = {
 	},
 };
 
+const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
+
 const optionSchema = {
-	routes: "array?",
-	notFoundResponse: "function?",
+	type: "object",
+	properties: {
+		routes: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["method", "path", "handler"],
+				properties: {
+					method: { type: "string", enum: [...methods, "ANY"] },
+					path: {
+						type: "string",
+						pattern: "^/",
+						examples: ["/", "/users", "/users/{id}"],
+					},
+					handler: { instanceof: "Function" },
+				},
+				additionalProperties: false,
+			},
+		},
+		notFoundResponse: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
-export const httpRouterValidateOptions = (options) =>
-	validateOptions("@middy/http-router", optionSchema, options);
+// Normalize a route path for duplicate detection: drop non-root trailing slash
+// and rewrite `{name}`/`{name+}` to `{_}`/`{_+}` so two routes that only
+// differ by parameter name collide (they match the same requests).
+// Inner class excludes `{` to keep matches linear (avoids polynomial
+// backtracking on pathological inputs like `{{{{...`).
+const normalizeRoutePath = (path) => {
+	if (path.endsWith("/") && path !== "/") path = path.slice(0, -1);
+	return path.replace(/\{[^/{}]+(\+?)\}/g, "{_$1}");
+};
 
-const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
+export const httpRouterValidateOptions = (options) => {
+	validateOptions("@middy/http-router", optionSchema, options);
+	const routes = options?.routes;
+	if (routes === undefined) return;
+	const seen = new Set();
+	for (const { method, path } of routes) {
+		const expanded = method === "ANY" ? methods : [method];
+		const normalized = normalizeRoutePath(path);
+		for (const m of expanded) {
+			const key = `${m} ${normalized}`;
+			if (seen.has(key)) {
+				throw new Error("Duplicate route", {
+					cause: {
+						package: "@middy/http-router",
+						data: { method: m, path },
+					},
+				});
+			}
+			seen.add(key);
+		}
+	}
+	return options;
+};
 
 const httpRouteHandler = (opts = {}) => {
 	let options;

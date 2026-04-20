@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -29,7 +28,44 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: ["Bucket", "Key"],
+				properties: {
+					Bucket: { type: "string" },
+					Key: { type: "string" },
+					IfMatch: { type: "string" },
+					IfNoneMatch: { type: "string" },
+					Range: { type: "string" },
+					ResponseContentType: { type: "string" },
+					VersionId: { type: "string" },
+					RequestPayer: { type: "string", enum: ["requester"] },
+					PartNumber: { type: "integer", minimum: 1 },
+					ChecksumMode: { type: "string", enum: ["ENABLED"] },
+				},
+				additionalProperties: true,
+			},
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const s3ValidateOptions = (options) =>
 	validateOptions("@middy/s3", optionSchema, options);

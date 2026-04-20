@@ -5,7 +5,6 @@ import {
 	ServiceDiscoveryClient,
 } from "@aws-sdk/client-servicediscovery";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -30,7 +29,49 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: ["NamespaceName", "ServiceName"],
+				properties: {
+					NamespaceName: { type: "string" },
+					ServiceName: { type: "string" },
+					MaxResults: { type: "integer", minimum: 1 },
+					QueryParameters: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
+					OptionalParameters: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
+					HealthStatus: {
+						type: "string",
+						enum: ["HEALTHY", "UNHEALTHY", "ALL", "HEALTHY_OR_ELSE_ALL"],
+					},
+				},
+				additionalProperties: true,
+			},
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const serviceDiscoveryValidateOptions = (options) =>
 	validateOptions("@middy/service-discovery", optionSchema, options);

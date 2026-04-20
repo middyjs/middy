@@ -12,7 +12,11 @@ const defaults = {
 };
 
 const optionSchema = {
-	filteringKeyName: "string?",
+	type: "object",
+	properties: {
+		filteringKeyName: { type: "string" },
+	},
+	additionalProperties: false,
 };
 
 export const httpPartialResponseValidateOptions = (options) =>

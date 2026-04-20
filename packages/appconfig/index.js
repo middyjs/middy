@@ -6,7 +6,6 @@ import {
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -33,7 +32,45 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: [
+					"ApplicationIdentifier",
+					"ConfigurationProfileIdentifier",
+					"EnvironmentIdentifier",
+				],
+				properties: {
+					ApplicationIdentifier: { type: "string" },
+					ConfigurationProfileIdentifier: { type: "string" },
+					EnvironmentIdentifier: { type: "string" },
+					RequiredMinimumPollIntervalInSeconds: {
+						type: "number",
+						minimum: 15,
+					},
+				},
+				additionalProperties: true,
+			},
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const appConfigValidateOptions = (options) =>
 	validateOptions("@middy/appconfig", optionSchema, options);

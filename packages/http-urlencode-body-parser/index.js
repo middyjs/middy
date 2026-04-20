@@ -9,8 +9,12 @@ const defaults = {
 };
 
 const optionSchema = {
-	disableContentTypeCheck: "boolean?",
-	disableContentTypeError: "boolean?",
+	type: "object",
+	properties: {
+		disableContentTypeCheck: { type: "boolean" },
+		disableContentTypeError: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const httpUrlencodeBodyParserValidateOptions = (options) =>

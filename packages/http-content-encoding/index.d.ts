@@ -14,11 +14,11 @@ import type {
 export type ContentEncoding = "br" | "deflate" | "gzip" | "zstd";
 
 export interface Options {
-	br?: BrotliOptions;
-	gzip?: ZlibOptions;
-	deflate?: ZlibOptions;
-	zstd?: ZstdOptions;
-	overridePreferredEncoding?: string[];
+	br?: boolean | BrotliOptions;
+	gzip?: boolean | ZlibOptions;
+	deflate?: boolean | ZlibOptions;
+	zstd?: boolean | ZstdOptions;
+	overridePreferredEncoding?: ContentEncoding[];
 }
 
 export declare function getContentEncodingStream(

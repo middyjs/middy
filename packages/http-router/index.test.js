@@ -667,3 +667,74 @@ test("httpRouterValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("routes"));
 	}
 });
+
+test("httpRouterValidateOptions throws on duplicate static route", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [
+				{ method: "GET", path: "/a", handler: () => {} },
+				{ method: "GET", path: "/a", handler: () => {} },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/http-router");
+		strictEqual(e.cause.data.method, "GET");
+	}
+});
+
+test("httpRouterValidateOptions treats trailing slash as duplicate", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [
+				{ method: "GET", path: "/a", handler: () => {} },
+				{ method: "GET", path: "/a/", handler: () => {} },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+	}
+});
+
+test("httpRouterValidateOptions treats param-name-only differences as duplicate", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [
+				{ method: "GET", path: "/users/{id}", handler: () => {} },
+				{ method: "GET", path: "/users/{name}", handler: () => {} },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+	}
+});
+
+test("httpRouterValidateOptions ANY collides with specific method", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [
+				{ method: "ANY", path: "/a", handler: () => {} },
+				{ method: "GET", path: "/a", handler: () => {} },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.data.method, "GET");
+	}
+});
+
+test("httpRouterValidateOptions allows distinct routes", () => {
+	httpRouterValidateOptions({
+		routes: [
+			{ method: "GET", path: "/a", handler: () => {} },
+			{ method: "POST", path: "/a", handler: () => {} },
+			{ method: "GET", path: "/b", handler: () => {} },
+			{ method: "GET", path: "/users/{id}", handler: () => {} },
+			{ method: "GET", path: "/users/{id}/posts", handler: () => {} },
+		],
+	});
+});

@@ -185,27 +185,87 @@ declare function lambdaContext(
 
 declare const httpErrorCodes: Record<number, string>;
 
-export type OptionSchemaRule =
+export type JsonSchemaType =
 	| "string"
 	| "number"
+	| "integer"
 	| "boolean"
-	| "function"
 	| "object"
-	| "array"
-	| "string?"
-	| "number?"
-	| "boolean?"
-	| "function?"
-	| "object?"
-	| "array?"
-	| ((value: unknown) => boolean);
+	| "array";
 
-export type OptionSchema = Record<string, OptionSchemaRule>;
+export type StringRule = {
+	type: "string";
+	pattern?: string;
+	minLength?: number;
+	maxLength?: number;
+	enum?: readonly string[];
+	examples?: readonly string[];
+};
+
+export type NumberRule = {
+	type: "number" | "integer";
+	minimum?: number;
+	maximum?: number;
+	enum?: readonly number[];
+	examples?: readonly number[];
+};
+
+export type BooleanRule = {
+	type: "boolean";
+	enum?: readonly boolean[];
+	examples?: readonly boolean[];
+};
+
+export type ArrayRule = {
+	type: "array";
+	items?: OptionSchemaRule;
+	examples?: readonly unknown[];
+};
+
+export type ObjectRule = {
+	type: "object";
+	required?: readonly string[];
+	properties?: { [key: string]: OptionSchemaRule };
+	additionalProperties?: boolean | OptionSchemaRule;
+	examples?: readonly object[];
+};
+
+export type EnumRule = {
+	enum: readonly unknown[];
+	type?: JsonSchemaType;
+	examples?: readonly unknown[];
+};
+
+export type ConstRule = {
+	const: unknown;
+	examples?: readonly unknown[];
+};
+
+export type InstanceofRule = {
+	instanceof: string;
+	examples?: readonly unknown[];
+};
+
+export type OneOfRule = {
+	oneOf: readonly OptionSchemaRule[];
+	examples?: readonly unknown[];
+};
+
+export type OptionSchemaRule =
+	| StringRule
+	| NumberRule
+	| BooleanRule
+	| ArrayRule
+	| ObjectRule
+	| EnumRule
+	| ConstRule
+	| InstanceofRule
+	| OneOfRule;
+
+export type OptionSchema = ObjectRule;
 
 export declare function validateOptions(
 	packageName: string,
 	schema: OptionSchema,
 	options?: Record<string, unknown>,
 ): void;
-
-export declare const awsClientOptionSchema: OptionSchema;

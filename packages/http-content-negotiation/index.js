@@ -3,19 +3,29 @@
 import { createError, validateOptions } from "@middy/util";
 
 const optionSchema = {
-	parseCharsets: "boolean?",
-	availableCharsets: "array?",
-	defaultToFirstCharset: "boolean?",
-	parseEncodings: "boolean?",
-	availableEncodings: "array?",
-	defaultToFirstEncoding: "boolean?",
-	parseLanguages: "boolean?",
-	availableLanguages: "array?",
-	defaultToFirstLanguage: "boolean?",
-	parseMediaTypes: "boolean?",
-	availableMediaTypes: "array?",
-	defaultToFirstMediaType: "boolean?",
-	failOnMismatch: "boolean?",
+	type: "object",
+	properties: {
+		parseCharsets: { type: "boolean" },
+		availableCharsets: { type: "array", items: { type: "string" } },
+		defaultToFirstCharset: { type: "boolean" },
+		parseEncodings: { type: "boolean" },
+		availableEncodings: {
+			type: "array",
+			items: {
+				type: "string",
+				enum: ["br", "deflate", "gzip", "zstd", "identity"],
+			},
+		},
+		defaultToFirstEncoding: { type: "boolean" },
+		parseLanguages: { type: "boolean" },
+		availableLanguages: { type: "array", items: { type: "string" } },
+		defaultToFirstLanguage: { type: "boolean" },
+		parseMediaTypes: { type: "boolean" },
+		availableMediaTypes: { type: "array", items: { type: "string" } },
+		defaultToFirstMediaType: { type: "boolean" },
+		failOnMismatch: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const httpContentNegotiationValidateOptions = (options) =>

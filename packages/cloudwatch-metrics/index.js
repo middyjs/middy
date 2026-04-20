@@ -8,10 +8,24 @@ const defaults = {
 	onFlushError: undefined,
 };
 
+// `dimensions` accepts either a single dimension set (object of
+// string->string) or an array of dimension sets, matching the documented
+// API and aws-embedded-metrics' `setDimensions(dimensionSets)` signature.
+const dimensionSetSchema = {
+	type: "object",
+	additionalProperties: { type: "string", minLength: 1, maxLength: 1024 },
+};
+
 const optionSchema = {
-	namespace: "string?",
-	dimensions: "array?",
-	onFlushError: "function?",
+	type: "object",
+	properties: {
+		namespace: { type: "string", minLength: 1, maxLength: 256 },
+		dimensions: {
+			oneOf: [dimensionSetSchema, { type: "array", items: dimensionSetSchema }],
+		},
+		onFlushError: { instanceof: "Function" },
+	},
+	additionalProperties: false,
 };
 
 export const cloudwatchMetricsValidateOptions = (options) =>

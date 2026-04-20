@@ -7,7 +7,11 @@ const defaults = {
 };
 
 const optionSchema = {
-	wrapNumbers: "boolean?",
+	type: "object",
+	properties: {
+		wrapNumbers: { type: "boolean" },
+	},
+	additionalProperties: false,
 };
 
 export const eventNormalizerValidateOptions = (options) =>

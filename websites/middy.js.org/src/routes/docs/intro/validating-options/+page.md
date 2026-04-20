@@ -38,11 +38,11 @@ try {
 ## What the validator checks
 
 - **Unknown keys** — any key in your options that isn't in the schema throws, catching typos like `cachExpiry` or `requestHedaers`.
-- **Required fields** — fields that must be present throw when missing.
-- **Types** — each field is checked against its declared type (`string`, `number`, `boolean`, `function`, `object`, `array`).
-- **Custom constraints** — fields with bounded values (e.g. `cacheExpiry >= -1`, `awsRequestLimit >= 1`) use predicate checks declared by each package.
+- **Required fields** — fields listed in `required` throw when missing.
+- **Types** — each field is checked against its declared type (`string`, `number`, `integer`, `boolean`, `object`, `array`).
+- **Constraints** — `minimum`, `enum`, `const`, `instanceof`, and `oneOf` let schemas express bounded values, whitelists, class instances, and type unions.
 
-What it **does not** check: the inner shape of nested configuration objects, validity of values that depend on runtime conditions, or anything the middleware would discover only while running. The validator is a fast, static contract check at the boundary.
+What it **does not** check: validity of values that depend on runtime conditions, or anything the middleware would discover only while running. The validator is a fast, static contract check at the boundary.
 
 ## Where to call it
 
@@ -79,34 +79,38 @@ export const handler = middy(baseHandler, pluginConfig)
 
 ## Writing validators for custom middlewares
 
-If you publish your own Middy middleware, export a matching validator built on the shared `validateOptions` helper from `@middy/util`:
+If you publish your own Middy middleware, export a matching validator built on the shared `validateOptions` helper from `@middy/util`. Schemas use a JSON-Schema-compatible subset:
 
 ```js
 // my-middleware/index.js
 import { validateOptions } from '@middy/util'
 
 const optionSchema = {
-  apiKey: 'string',
-  retries: (v) => Number.isInteger(v) && v >= 0,
-  logger: 'function?',
+  type: 'object',
+  required: ['apiKey'],
+  properties: {
+    apiKey: { type: 'string' },
+    retries: { type: 'integer', minimum: 0 },
+    logger: { instanceof: 'Function' },
+  },
+  additionalProperties: false,
 }
 
 export const myMiddlewareValidateOptions = (options) =>
   validateOptions('my-middleware', optionSchema, options)
 ```
 
-The schema format:
+Supported keywords:
 
-- **Type strings** — `string`, `number`, `boolean`, `function`, `object`, `array`. Required by default. Append `?` to mark a field optional (`'string?'`).
-- **Predicate functions** — `(value) => boolean` for custom constraints. Predicates are only invoked when the value is defined, so they're treated as optional.
+- **`type`** — `string`, `number`, `integer`, `boolean`, `object`, `array`.
+- **`required`** — array of property names that must be present (object only).
+- **`properties`** — per-key sub-schemas (object only).
+- **`additionalProperties`** — `false` to reject unknown keys, `true` to allow them, or a sub-schema to validate them (object only).
+- **`items`** — sub-schema applied to every element (array only).
+- **`minimum`** — lower bound for numbers/integers.
+- **`enum`** — array of allowed values.
+- **`const`** — single allowed value (useful with `oneOf`, e.g. `{ const: false }`).
+- **`instanceof`** — class name resolved via `globalThis` (`Function`, `RegExp`, etc.). Middy's extension for JS constructs JSON Schema has no native type for.
+- **`oneOf`** — array of sub-schemas; value must match exactly one. Use for type unions like `{ oneOf: [{ type: 'boolean' }, { type: 'object' }] }`.
 
-For middlewares that wrap an AWS SDK client, `@middy/util` also exports `awsClientOptionSchema` with the common fields (`AwsClient`, `awsClientOptions`, `cacheKey`, `cacheExpiry`, etc.). Spread it into your package schema:
-
-```js
-import { awsClientOptionSchema, validateOptions } from '@middy/util'
-
-const optionSchema = {
-  ...awsClientOptionSchema,
-  myExtraField: 'string?',
-}
-```
+AWS-SDK-wrapping middlewares inline the shared fields (`AwsClient`, `awsClientOptions`, `cacheKey`, `cacheExpiry`, etc.) directly in their schemas — see any of `@middy/ssm`, `@middy/s3`, `@middy/dynamodb`, etc. for the pattern.

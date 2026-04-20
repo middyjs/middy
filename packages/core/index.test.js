@@ -1039,3 +1039,70 @@ test("middyValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("timeoutEarlyInMillis"));
 	}
 });
+
+test("middyValidateOptions accepts full valid plugin config", () => {
+	middyValidateOptions({
+		internal: { foo: "bar" },
+		beforePrefetch: () => {},
+		requestStart: () => {},
+		beforeMiddleware: (_name) => {},
+		afterMiddleware: (_name) => {},
+		beforeHandler: () => {},
+		afterHandler: () => {},
+		requestEnd: async () => {},
+		timeoutEarlyInMillis: 5,
+		timeoutEarlyResponse: () => {},
+		executionMode: () => {},
+	});
+});
+
+test("middyValidateOptions rejects non-function hooks", () => {
+	for (const key of [
+		"beforePrefetch",
+		"requestStart",
+		"beforeMiddleware",
+		"afterMiddleware",
+		"beforeHandler",
+		"afterHandler",
+		"requestEnd",
+		"timeoutEarlyResponse",
+		"executionMode",
+	]) {
+		try {
+			middyValidateOptions({ [key]: "not-a-function" });
+			ok(false, `expected throw for ${key}`);
+		} catch (e) {
+			ok(e instanceof TypeError, `${key} should throw TypeError`);
+			ok(
+				e.message.includes(key),
+				`${key} error should mention key, got: ${e.message}`,
+			);
+		}
+	}
+});
+
+test("middyValidateOptions rejects negative timeoutEarlyInMillis", () => {
+	try {
+		middyValidateOptions({ timeoutEarlyInMillis: -1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("timeoutEarlyInMillis"));
+	}
+});
+
+test("middyValidateOptions rejects non-object internal", () => {
+	try {
+		middyValidateOptions({ internal: "not-an-object" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("internal"));
+	}
+});
+
+test("middyValidateOptions accepts arbitrary nested keys in internal", () => {
+	middyValidateOptions({
+		internal: { anything: 1, nested: { value: true }, arr: [1, 2] },
+	});
+});

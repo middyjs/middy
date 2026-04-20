@@ -790,3 +790,48 @@ test("appConfigValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("fetchData"));
 	}
 });
+
+test("appConfigValidateOptions accepts RequiredMinimumPollIntervalInSeconds", () => {
+	appConfigValidateOptions({
+		fetchData: {
+			key: {
+				ApplicationIdentifier: "a",
+				ConfigurationProfileIdentifier: "c",
+				EnvironmentIdentifier: "e",
+				RequiredMinimumPollIntervalInSeconds: 30,
+			},
+		},
+	});
+});
+
+test("appConfigValidateOptions rejects RequiredMinimumPollIntervalInSeconds below minimum", () => {
+	try {
+		appConfigValidateOptions({
+			fetchData: {
+				key: {
+					ApplicationIdentifier: "a",
+					ConfigurationProfileIdentifier: "c",
+					EnvironmentIdentifier: "e",
+					RequiredMinimumPollIntervalInSeconds: 5,
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("RequiredMinimumPollIntervalInSeconds"));
+	}
+});
+
+test("appConfigValidateOptions rejects fetchData entry missing required identifiers", () => {
+	try {
+		appConfigValidateOptions({
+			fetchData: {
+				key: { ApplicationIdentifier: "a" },
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("ConfigurationProfileIdentifier"));
+	}
+});

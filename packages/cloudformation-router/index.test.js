@@ -143,3 +143,41 @@ test("cloudformationRouterValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("routes"));
 	}
 });
+
+test("cloudformationRouterValidateOptions rejects invalid requestType", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [{ requestType: "Patch", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});
+
+test("cloudformationRouterValidateOptions rejects non-function handler", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [{ requestType: "Create", handler: "not-a-fn" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
+
+test("cloudformationRouterValidateOptions rejects duplicate requestType", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [
+				{ requestType: "Create", handler: () => {} },
+				{ requestType: "Create", handler: () => {} },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});

@@ -8,7 +8,7 @@ export interface Options {
 	availableCharsets?: string[];
 	defaultToFirstCharset?: boolean;
 	parseEncodings?: boolean;
-	availableEncodings?: string[];
+	availableEncodings?: Array<"br" | "deflate" | "gzip" | "zstd" | "identity">;
 	defaultToFirstEncoding?: boolean;
 	parseLanguages?: boolean;
 	availableLanguages?: string[];

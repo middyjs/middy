@@ -396,3 +396,53 @@ test("dynamodbValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("fetchData"));
 	}
 });
+
+test("dynamodbValidateOptions accepts optional GetItemCommand fields", () => {
+	dynamodbValidateOptions({
+		fetchData: {
+			key: {
+				TableName: "t",
+				Key: { pk: { S: "0" } },
+				AttributesToGet: ["a", "b"],
+				ConsistentRead: true,
+				ReturnConsumedCapacity: "TOTAL",
+				ProjectionExpression: "#a, #b",
+				ExpressionAttributeNames: { "#a": "a", "#b": "b" },
+			},
+		},
+	});
+});
+
+test("dynamodbValidateOptions rejects invalid ReturnConsumedCapacity", () => {
+	try {
+		dynamodbValidateOptions({
+			fetchData: {
+				key: {
+					TableName: "t",
+					Key: { pk: { S: "0" } },
+					ReturnConsumedCapacity: "BOGUS",
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
+
+test("dynamodbValidateOptions rejects non-string AttributesToGet entry", () => {
+	try {
+		dynamodbValidateOptions({
+			fetchData: {
+				key: {
+					TableName: "t",
+					Key: { pk: { S: "0" } },
+					AttributesToGet: ["ok", 42],
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});

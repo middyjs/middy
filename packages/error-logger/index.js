@@ -7,21 +7,25 @@ const defaults = {
 };
 
 const optionSchema = {
-	logger: "function?",
+	type: "object",
+	properties: {
+		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+	},
+	additionalProperties: false,
 };
 
 export const errorLoggerValidateOptions = (options) =>
 	validateOptions("@middy/error-logger", optionSchema, options);
 
 const errorLoggerMiddleware = (opts = {}) => {
-	let { logger } = { ...defaults, ...opts };
-	if (typeof logger !== "function") logger = null;
+	const { logger } = { ...defaults, ...opts };
 
 	const errorLoggerMiddlewareOnError = (request) => {
 		logger(request);
 	};
 	return {
-		onError: logger ? errorLoggerMiddlewareOnError : undefined,
+		onError:
+			typeof logger === "function" ? errorLoggerMiddlewareOnError : undefined,
 	};
 };
 export default errorLoggerMiddleware;

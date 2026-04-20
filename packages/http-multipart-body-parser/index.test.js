@@ -466,3 +466,59 @@ test("httpMultipartBodyParserValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("charset"));
 	}
 });
+
+test("httpMultipartBodyParserValidateOptions accepts known busboy keys", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: {
+			headers: { "content-type": "multipart/form-data" },
+			highWaterMark: 16384,
+			fileHwm: 16384,
+			defCharset: "utf8",
+			defParamCharset: "latin1",
+			preservePath: false,
+			isPartAFile: () => true,
+			limits: {
+				fieldNameSize: 100,
+				fieldSize: 1024,
+				fields: 10,
+				fileSize: 1024,
+				files: 5,
+				parts: 20,
+				headerPairs: 50,
+			},
+		},
+	});
+});
+
+test("httpMultipartBodyParserValidateOptions allows unknown busboy keys (version drift)", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: { futureOption: "value" },
+	});
+});
+
+test("httpMultipartBodyParserValidateOptions rejects bad busboy field types", () => {
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { highWaterMark: "big" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { limits: { fileSize: -1 } },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { isPartAFile: "nope" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});

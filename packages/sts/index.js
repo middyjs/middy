@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -27,7 +26,45 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: ["RoleArn"],
+				properties: {
+					RoleArn: { type: "string" },
+					RoleSessionName: { type: "string" },
+					DurationSeconds: { type: "integer", minimum: 900, maximum: 43200 },
+					ExternalId: { type: "string" },
+					Policy: { type: "string" },
+					SerialNumber: { type: "string" },
+					TokenCode: { type: "string" },
+					TransitiveTagKeys: {
+						type: "array",
+						items: { type: "string" },
+					},
+				},
+				additionalProperties: true,
+			},
+		},
+	},
+	additionalProperties: false,
+};
 
 export const stsValidateOptions = (options) =>
 	validateOptions("@middy/sts", optionSchema, options);

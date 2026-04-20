@@ -6,7 +6,6 @@ import {
 	SSMClient,
 } from "@aws-sdk/client-ssm";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -35,8 +34,27 @@ const defaults = {
 };
 
 const optionSchema = {
-	...awsClientOptionSchema,
-	awsRequestLimit: (v) => Number.isInteger(v) && v >= 1,
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: { type: "string" },
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
+	},
+	additionalProperties: false,
 };
 
 export const ssmValidateOptions = (options) =>

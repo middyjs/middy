@@ -67,16 +67,23 @@ export const handler = middy()
 
 ## Exporting an option validator
 
-Alongside the factory function, export a named option validator so consumers can catch typos and type mismatches in their config. Use the shared `validateOptions` helper from `@middy/util` and, for AWS-SDK-backed middlewares, the shared `awsClientOptionSchema`. See [Validating options](/docs/intro/validating-options) for the full schema format.
+Alongside the factory function, export a named option validator so consumers can catch typos and type mismatches in their config. Use the shared `validateOptions` helper from `@middy/util`. Schemas use a JSON-Schema-compatible subset — see [Validating options](/docs/intro/validating-options) for the full list of supported keywords.
 
 ```javascript
 import { validateOptions } from '@middy/util'
 
 const optionSchema = {
-  option1: 'string',
-  option2: 'string?',
+  type: 'object',
+  required: ['option1'],
+  properties: {
+    option1: { type: 'string' },
+    option2: { type: 'string' },
+  },
+  additionalProperties: false,
 }
 
 export const customValidateOptions = (options) =>
   validateOptions('custom-middleware', optionSchema, options)
 ```
+
+For AWS-SDK-backed middlewares, inline the common fields (`AwsClient`, `awsClientOptions`, `cacheKey`, `cacheExpiry`, etc.) directly in your `properties` — see `@middy/ssm`, `@middy/s3`, `@middy/dynamodb` for the pattern.

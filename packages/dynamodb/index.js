@@ -3,7 +3,6 @@
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-	awsClientOptionSchema,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
@@ -28,7 +27,50 @@ const defaults = {
 	setToContext: false,
 };
 
-const optionSchema = { ...awsClientOptionSchema };
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: ["TableName", "Key"],
+				properties: {
+					TableName: { type: "string" },
+					Key: { type: "object", additionalProperties: true },
+					AttributesToGet: {
+						type: "array",
+						items: { type: "string" },
+					},
+					ConsistentRead: { type: "boolean" },
+					ReturnConsumedCapacity: {
+						type: "string",
+						enum: ["INDEXES", "TOTAL", "NONE"],
+					},
+					ProjectionExpression: { type: "string" },
+					ExpressionAttributeNames: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
+				},
+				additionalProperties: true,
+			},
+		},
+		disablePrefetch: { type: "boolean" },
+		cacheKey: { type: "string" },
+		cacheKeyExpiry: {
+			type: "object",
+			additionalProperties: { type: "number", minimum: -1 },
+		},
+		cacheExpiry: { type: "number", minimum: -1 },
+		setToContext: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
 
 export const dynamodbValidateOptions = (options) =>
 	validateOptions("@middy/dynamodb", optionSchema, options);

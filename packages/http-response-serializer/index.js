@@ -8,8 +8,23 @@ const defaults = {
 };
 
 const optionSchema = {
-	serializers: "array?",
-	defaultContentType: "string?",
+	type: "object",
+	properties: {
+		serializers: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["regex", "serializer"],
+				properties: {
+					regex: { instanceof: "RegExp" },
+					serializer: { instanceof: "Function" },
+				},
+				additionalProperties: false,
+			},
+		},
+		defaultContentType: { type: "string" },
+	},
+	additionalProperties: false,
 };
 
 export const httpResponseSerializerValidateOptions = (options) =>

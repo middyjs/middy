@@ -25,7 +25,9 @@ test("use with all options", () => {
 			highWaterMark: 1024,
 			fileHwm: 1024,
 			defCharset: "utf-8",
+			defParamCharset: "latin1",
 			preservePath: false,
+			isPartAFile: (_fieldName, _contentType, _fileName) => true,
 			limits: {
 				fieldNameSize: 256,
 				fieldSize: 1024 * 1024 * 10,

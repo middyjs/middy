@@ -441,3 +441,16 @@ test("httpContentNegotiationValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("availableLanguages"));
 	}
 });
+
+test("httpContentNegotiationValidateOptions accepts known encodings and rejects unknown", () => {
+	httpContentNegotiationValidateOptions({
+		availableEncodings: ["br", "deflate", "gzip", "zstd", "identity"],
+	});
+	try {
+		httpContentNegotiationValidateOptions({ availableEncodings: ["compress"] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("availableEncodings"));
+	}
+});

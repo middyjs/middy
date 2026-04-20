@@ -208,6 +208,11 @@ test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos",
 		dimensions: [{ env: "prod" }],
 		onFlushError: () => {},
 	});
+	// `dimensions` also accepts a single dimension set (plain object),
+	// matching the documented `Record<string, string>` form.
+	cloudwatchMetricsValidateOptions({
+		dimensions: { env: "prod", region: "us-east-1" },
+	});
 	cloudwatchMetricsValidateOptions({});
 	try {
 		cloudwatchMetricsValidateOptions({ namespce: "x" });
@@ -225,5 +230,19 @@ test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("onFlushError"));
+	}
+	// Non-string dimension values are rejected (EMF dimension values must
+	// be strings).
+	try {
+		cloudwatchMetricsValidateOptions({ dimensions: { Version: 2 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		cloudwatchMetricsValidateOptions({ dimensions: [{ Version: 2 }] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
 	}
 });

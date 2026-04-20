@@ -21,11 +21,15 @@ const defaults = {
 };
 
 const optionSchema = {
-	logger: "function?",
-	executionContext: "boolean?",
-	lambdaContext: "boolean?",
-	omitPaths: "array?",
-	mask: "string?",
+	type: "object",
+	properties: {
+		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+		executionContext: { type: "boolean" },
+		lambdaContext: { type: "boolean" },
+		omitPaths: { type: "array", items: { type: "string" } },
+		mask: { type: "string" },
+	},
+	additionalProperties: false,
 };
 
 export const inputOutputLoggerValidateOptions = (options) =>
@@ -36,14 +40,6 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		...defaults,
 		...opts,
 	};
-
-	if (typeof logger !== "function") {
-		throw new Error("logger must be a function", {
-			cause: {
-				package: "@middy/input-output-logger",
-			},
-		});
-	}
 
 	const omitPathTree = buildPathTree(omitPaths);
 	// needs `omitPathTree`, `logger`
@@ -131,9 +127,18 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 	};
 
 	return {
-		before: inputOutputLoggerMiddlewareBefore,
-		after: inputOutputLoggerMiddlewareAfter,
-		onError: inputOutputLoggerMiddlewareOnError,
+		before:
+			typeof logger === "function"
+				? inputOutputLoggerMiddlewareBefore
+				: undefined,
+		after:
+			typeof logger === "function"
+				? inputOutputLoggerMiddlewareAfter
+				: undefined,
+		onError:
+			typeof logger === "function"
+				? inputOutputLoggerMiddlewareOnError
+				: undefined,
 	};
 };
 

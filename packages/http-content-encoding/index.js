@@ -15,16 +15,23 @@ import {
 } from "node:zlib";
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
-const encoderOption = (v) =>
-	typeof v === "boolean" ||
-	(v !== null && typeof v === "object" && !Array.isArray(v));
+const encoderOption = {
+	oneOf: [{ type: "boolean" }, { type: "object" }],
+};
 
 const optionSchema = {
-	br: encoderOption,
-	deflate: encoderOption,
-	gzip: encoderOption,
-	zstd: encoderOption,
-	overridePreferredEncoding: "array?",
+	type: "object",
+	properties: {
+		br: encoderOption,
+		deflate: encoderOption,
+		gzip: encoderOption,
+		zstd: encoderOption,
+		overridePreferredEncoding: {
+			type: "array",
+			items: { type: "string", enum: ["br", "deflate", "gzip", "zstd"] },
+		},
+	},
+	additionalProperties: false,
 };
 
 export const httpContentEncodingValidateOptions = (options) =>
