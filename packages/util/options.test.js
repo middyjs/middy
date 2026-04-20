@@ -439,6 +439,184 @@ describe("validateOptions minimum", () => {
 	});
 });
 
+describe("validateOptions instanceof error paths", () => {
+	test("throws when instanceof name is not a global function", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ h: { instanceof: "NotARealGlobalClass" } },
+				{ h: () => {} },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("NotARealGlobalClass"));
+		}
+	});
+});
+
+describe("validateOptions undefined-value short-circuits", () => {
+	test("const rule allows undefined", () => {
+		validateOptions("@middy/test", { flag: { const: false } }, {});
+	});
+
+	test("oneOf rule allows undefined", () => {
+		validateOptions(
+			"@middy/test",
+			{ v: { oneOf: [{ type: "string" }, { type: "number" }] } },
+			{},
+		);
+	});
+
+	test("instanceof rule allows undefined", () => {
+		validateOptions("@middy/test", { h: { instanceof: "Function" } }, {});
+	});
+
+	test("enum with optional type allows undefined", () => {
+		validateOptions(
+			"@middy/test",
+			{ m: { type: "string?", enum: ["a", "b"] } },
+			{},
+		);
+	});
+});
+
+describe("validateOptions additionalProperties: true allows unknown", () => {
+	test("accepts unknown keys when additionalProperties is true", () => {
+		validateOptions(
+			"@middy/test",
+			{
+				cfg: {
+					type: "object",
+					properties: { name: { type: "string" } },
+					additionalProperties: true,
+				},
+			},
+			{ cfg: { name: "foo", anything: "goes" } },
+		);
+	});
+});
+
+describe("validateOptions properties allows undefined value", () => {
+	test("skips validating properties whose value is undefined", () => {
+		validateOptions(
+			"@middy/test",
+			{
+				cfg: {
+					type: "object",
+					properties: { name: { type: "string" } },
+					additionalProperties: false,
+				},
+			},
+			{ cfg: {} },
+		);
+	});
+});
+
+describe("validateOptions JSON-Schema form detection", () => {
+	test("accepts schema using only required (no properties)", () => {
+		validateOptions(
+			"@middy/test",
+			{ type: "object", required: [], additionalProperties: false },
+			{},
+		);
+	});
+
+	test("accepts schema using only additionalProperties", () => {
+		validateOptions(
+			"@middy/test",
+			{ type: "object", additionalProperties: true },
+			{ anything: 1 },
+		);
+	});
+});
+
+describe("validateOptions invalid rule fallthrough", () => {
+	test("throws when rule is an unrecognized shape", () => {
+		try {
+			validateOptions("@middy/test", { x: 42 }, { x: 1 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("Invalid schema"));
+			ok(e.message.includes("x"));
+		}
+	});
+});
+
+describe("validateOptions maximum", () => {
+	test("accepts value at maximum boundary", () => {
+		validateOptions(
+			"@middy/test",
+			{ n: { type: "integer", maximum: 10 } },
+			{ n: 10 },
+		);
+	});
+
+	test("rejects value above maximum", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "integer", maximum: 10 } },
+				{ n: 11 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("n"));
+			ok(e.message.includes("10"));
+		}
+	});
+});
+
+describe("validateOptions pattern", () => {
+	test("accepts string matching pattern", () => {
+		validateOptions(
+			"@middy/test",
+			{ path: { type: "string", pattern: "^/" } },
+			{ path: "/foo" },
+		);
+	});
+
+	test("rejects string not matching pattern", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ path: { type: "string", pattern: "^/" } },
+				{ path: "foo" },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("path"));
+		}
+	});
+});
+
+describe("validateOptions minLength/maxLength", () => {
+	test("rejects string above maxLength", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ s: { type: "string", maxLength: 3 } },
+				{ s: "four" },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("s"));
+		}
+	});
+
+	test("rejects string below minLength", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ s: { type: "string", minLength: 1 } },
+				{ s: "" },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("s"));
+		}
+	});
+});
+
 describe("validateOptions enum", () => {
 	test("accepts a value that matches the enum list", () => {
 		validateOptions(
@@ -605,6 +783,31 @@ describe("validateOptions additionalProperties", () => {
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(e.message.includes("routes./a.handler"));
+		}
+	});
+
+	test("supports additionalProperties as oneOf rule", () => {
+		const schema = {
+			headers: {
+				type: "object",
+				additionalProperties: {
+					oneOf: [
+						{ type: "string" },
+						{ type: "array", items: { type: "string" } },
+					],
+				},
+			},
+		};
+		validateOptions("@middy/test", schema, {
+			headers: { a: "x", b: ["y", "z"] },
+		});
+		try {
+			validateOptions("@middy/test", schema, {
+				headers: { a: 42 },
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("headers.a"));
 		}
 	});
 

@@ -24,7 +24,11 @@ const optionSchema = {
 				required: ["method", "path", "handler"],
 				properties: {
 					method: { type: "string", enum: [...methods, "ANY"] },
-					path: { type: "string" },
+					path: {
+						type: "string",
+						pattern: "^/",
+						examples: ["/", "/users", "/users/{id}"],
+					},
 					handler: { instanceof: "Function" },
 				},
 				additionalProperties: false,
@@ -46,11 +50,9 @@ const normalizeRoutePath = (path) => {
 export const httpRouterValidateOptions = (options) => {
 	validateOptions("@middy/http-router", optionSchema, options);
 	const routes = options?.routes;
-	if (!Array.isArray(routes)) return;
+	if (routes === undefined) return;
 	const seen = new Set();
-	for (const route of routes) {
-		const { method, path } = route ?? {};
-		if (typeof method !== "string" || typeof path !== "string") continue;
+	for (const { method, path } of routes) {
 		const expanded = method === "ANY" ? methods : [method];
 		const normalized = normalizeRoutePath(path);
 		for (const m of expanded) {

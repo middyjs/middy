@@ -14,7 +14,13 @@ export interface Options {
 		highWaterMark?: number;
 		fileHwm?: number;
 		defCharset?: string;
+		defParamCharset?: string;
 		preservePath?: boolean;
+		isPartAFile?: (
+			fieldName: string | undefined,
+			contentType: string | undefined,
+			fileName: string | undefined,
+		) => boolean;
 		limits?: {
 			fieldNameSize?: number;
 			fieldSize?: number;

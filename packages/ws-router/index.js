@@ -32,8 +32,24 @@ const optionSchema = {
 	additionalProperties: false,
 };
 
-export const wsRouterValidateOptions = (options) =>
+export const wsRouterValidateOptions = (options) => {
 	validateOptions("@middy/ws-router", optionSchema, options);
+	const routes = options?.routes;
+	if (routes === undefined) return options;
+	const seen = new Set();
+	for (const { routeKey } of routes) {
+		if (seen.has(routeKey)) {
+			throw new Error("Duplicate route", {
+				cause: {
+					package: "@middy/ws-router",
+					data: { routeKey },
+				},
+			});
+		}
+		seen.add(routeKey);
+	}
+	return options;
+};
 const wsRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {

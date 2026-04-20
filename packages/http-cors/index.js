@@ -9,7 +9,11 @@ const optionSchema = {
 		getOrigin: { instanceof: "Function" },
 		credentials: { oneOf: [{ type: "boolean" }, { type: "string" }] },
 		headers: { type: "string" },
-		methods: { type: "string" },
+		methods: {
+			type: "string",
+			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
+			examples: ["*", "GET", "GET,POST"],
+		},
 		origin: { type: "string" },
 		origins: { type: "array", items: { type: "string" } },
 		exposeHeaders: { type: "string" },
@@ -17,7 +21,13 @@ const optionSchema = {
 			oneOf: [{ type: "integer", minimum: 0 }, { type: "string" }],
 		},
 		requestHeaders: { type: "array", items: { type: "string" } },
-		requestMethods: { type: "array", items: { type: "string" } },
+		requestMethods: {
+			type: "array",
+			items: {
+				type: "string",
+				enum: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+			},
+		},
 		cacheControl: { type: "string" },
 		vary: { type: "string" },
 	},

@@ -208,6 +208,13 @@ test("It should log with Web Streams API using body ReadableStream", async (t) =
 	]);
 });
 
+test("It should return no-op middleware when logger is false", async (t) => {
+	const middleware = inputOutputLogger({ logger: false });
+	strictEqual(middleware.before, undefined);
+	strictEqual(middleware.after, undefined);
+	strictEqual(middleware.onError, undefined);
+});
+
 test("It should reject invalid logger via option validator", async (t) => {
 	try {
 		inputOutputLoggerValidateOptions({ logger: "not-a-fn" });
@@ -216,6 +223,24 @@ test("It should reject invalid logger via option validator", async (t) => {
 		ok(e instanceof TypeError);
 		ok(e.message.includes("logger"));
 	}
+});
+
+test("It should skip prototype-pollution paths in omitPaths", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: [
+				"event.__proto__.bad",
+				"event.constructor.bad",
+				"event.prototype.bad",
+				"event.ok",
+			],
+		}),
+	);
+	const event = { ok: "ok", bad: "keep" };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { bad: "keep" } }]);
 });
 
 test("It should omit paths", async (t) => {

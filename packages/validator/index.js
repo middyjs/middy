@@ -17,7 +17,10 @@ const optionSchema = {
 		contextSchema: { instanceof: "Function" },
 		responseSchema: { instanceof: "Function" },
 		defaultLanguage: { type: "string" },
-		languages: { type: "object" },
+		languages: {
+			type: "object",
+			additionalProperties: { instanceof: "Function" },
+		},
 	},
 	additionalProperties: false,
 };

@@ -51,9 +51,8 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
-		awsRequestLimit: { type: "integer", minimum: 1 },
+		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
 	},
 	additionalProperties: false,
 };

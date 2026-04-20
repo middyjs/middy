@@ -714,3 +714,14 @@ test("validatorValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("defaultLanguage"));
 	}
 });
+
+test("validatorValidateOptions rejects non-function localizer in languages", () => {
+	validatorValidateOptions({ languages: { en: () => {}, fr: () => {} } });
+	try {
+		validatorValidateOptions({ languages: { en: "not-a-function" } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("languages.en"));
+	}
+});

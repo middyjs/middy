@@ -10,7 +10,32 @@ const fieldnamePattern = /(.+)\[(.*)]$/;
 const optionSchema = {
 	type: "object",
 	properties: {
-		busboy: { type: "object" },
+		busboy: {
+			type: "object",
+			properties: {
+				headers: { type: "object", additionalProperties: true },
+				highWaterMark: { type: "integer", minimum: 1 },
+				fileHwm: { type: "integer", minimum: 1 },
+				defCharset: { type: "string" },
+				defParamCharset: { type: "string" },
+				preservePath: { type: "boolean" },
+				isPartAFile: { instanceof: "Function" },
+				limits: {
+					type: "object",
+					properties: {
+						fieldNameSize: { type: "integer", minimum: 0 },
+						fieldSize: { type: "integer", minimum: 0 },
+						fields: { type: "integer", minimum: 0 },
+						fileSize: { type: "integer", minimum: 0 },
+						files: { type: "integer", minimum: 0 },
+						parts: { type: "integer", minimum: 0 },
+						headerPairs: { type: "integer", minimum: 0 },
+					},
+					additionalProperties: true,
+				},
+			},
+			additionalProperties: true,
+		},
 		charset: { type: "string" },
 		disableContentTypeCheck: { type: "boolean" },
 		disableContentTypeError: { type: "boolean" },

@@ -26,11 +26,18 @@ const optionSchema = {
 	properties: {
 		AwsClient: { instanceof: "Function" },
 		awsClientOptions: { type: "object" },
-		awsClientAssumeRole: { type: "string" },
-		awsClientCapture: { instanceof: "Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: { type: "object" },
+			additionalProperties: {
+				type: "object",
+				properties: {
+					hostname: { type: "string" },
+					port: { type: "integer", minimum: 1, maximum: 65535 },
+					username: { type: "string" },
+				},
+				required: ["hostname", "port", "username"],
+				additionalProperties: true,
+			},
 		},
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
@@ -39,7 +46,6 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,

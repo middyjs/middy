@@ -38,7 +38,28 @@ const optionSchema = {
 		awsClientCapture: { instanceof: "Function" },
 		fetchData: {
 			type: "object",
-			additionalProperties: { type: "object" },
+			additionalProperties: {
+				type: "object",
+				required: ["NamespaceName", "ServiceName"],
+				properties: {
+					NamespaceName: { type: "string" },
+					ServiceName: { type: "string" },
+					MaxResults: { type: "integer", minimum: 1 },
+					QueryParameters: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
+					OptionalParameters: {
+						type: "object",
+						additionalProperties: { type: "string" },
+					},
+					HealthStatus: {
+						type: "string",
+						enum: ["HEALTHY", "UNHEALTHY", "ALL", "HEALTHY_OR_ELSE_ALL"],
+					},
+				},
+				additionalProperties: true,
+			},
 		},
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
@@ -47,7 +68,6 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,

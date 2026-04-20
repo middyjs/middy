@@ -52,6 +52,10 @@ const optionSchema = {
 					ApplicationIdentifier: { type: "string" },
 					ConfigurationProfileIdentifier: { type: "string" },
 					EnvironmentIdentifier: { type: "string" },
+					RequiredMinimumPollIntervalInSeconds: {
+						type: "number",
+						minimum: 15,
+					},
 				},
 				additionalProperties: true,
 			},
@@ -63,7 +67,6 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,

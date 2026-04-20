@@ -16,13 +16,14 @@ npm install --save-dev @aws-sdk/client-appconfigdata
 
 ## Options
 
-- `AwsClient` (object) (default `AppConfigClient`): AppConfigClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-appconfig`.
-- `awsClientOptions` (object) (default `undefined`): Options to pass to AppConfigClient class constructor.
+- `AwsClient` (object) (default `AppConfigDataClient`): AppConfigDataClient class constructor (i.e. that has been instrumented with AWS XRay). Must be from `@aws-sdk/client-appconfigdata`.
+- `awsClientOptions` (object) (default `undefined`): Options to pass to AppConfigDataClient class constructor.
 - `awsClientAssumeRole` (string) (default `undefined`): Internal key where secrets are stored. See [@middy/sts](/docs/middlewares/sts) on to set this.
 - `awsClientCapture` (function) (default `undefined`): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
-- `fetchData` (object) (required): Mapping of internal key name to API request parameters.
+- `fetchData` (object) (required): Mapping of internal key name to `StartConfigurationSessionCommand` input. Each entry requires `ApplicationIdentifier`, `ConfigurationProfileIdentifier`, and `EnvironmentIdentifier` (all strings), and optionally `RequiredMinimumPollIntervalInSeconds` (number, minimum `15`).
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `appconfig`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
 
@@ -41,10 +42,9 @@ const handler = middy()
     appConfig({
       fetchData: {
         config: {
-          Application: '...',
-          ClientId: '...',
-          Configuration: '...',
-          Environment: '...'
+          ApplicationIdentifier: '...',
+          ConfigurationProfileIdentifier: '...',
+          EnvironmentIdentifier: '...'
         }
       }
     })
@@ -62,7 +62,7 @@ const handler = middy()
 
 ## Bundling
 
-To exclude `@aws-sdk` add `@aws-sdk/client-appconfig` to the exclude list.
+To exclude `@aws-sdk` add `@aws-sdk/client-appconfigdata` to the exclude list.
 
 ## Usage with TypeScript
 
@@ -94,10 +94,9 @@ export const handler = middy()
     appConfig({
       fetchData: {
         config: appConfigParam<{field1: string, field2: string, field3: number}>({
-          Application: '...',
-          ClientId: '...',
-          Configuration: '...',
-          Environment: '...'
+          ApplicationIdentifier: '...',
+          ConfigurationProfileIdentifier: '...',
+          EnvironmentIdentifier: '...'
         })
       }
     })

@@ -37,8 +37,24 @@ const optionSchema = {
 	additionalProperties: false,
 };
 
-export const cloudformationRouterValidateOptions = (options) =>
+export const cloudformationRouterValidateOptions = (options) => {
 	validateOptions("@middy/cloudformation-router", optionSchema, options);
+	const routes = options?.routes;
+	if (routes === undefined) return options;
+	const seen = new Set();
+	for (const { requestType } of routes) {
+		if (seen.has(requestType)) {
+			throw new Error("Duplicate route", {
+				cause: {
+					package: "@middy/cloudformation-router",
+					data: { requestType },
+				},
+			});
+		}
+		seen.add(requestType);
+	}
+	return options;
+};
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {
@@ -55,14 +71,11 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 		routesStatic[requestType] = handler;
 	}
 
-	const requestTypes = {
-		Create: true,
-		Update: true,
-		Delete: true,
-	};
 	return (event, context, abort) => {
 		const { RequestType: requestType } = event;
-		if (!requestType || !Object.hasOwn(requestTypes, requestType)) {
+		// Schema `enum` only validates route config at setup; this guard
+		// validates the incoming AWS event shape at invocation time.
+		if (!requestType || !requestTypes.includes(requestType)) {
 			throw new Error(
 				`Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: ${requestType ?? "undefined"}`,
 				{

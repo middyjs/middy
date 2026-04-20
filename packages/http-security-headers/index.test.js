@@ -402,3 +402,31 @@ test("httpSecurityHeadersValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("frameOptions"));
 	}
 });
+
+test("httpSecurityHeadersValidateOptions rejects unknown referrerPolicy value", () => {
+	try {
+		httpSecurityHeadersValidateOptions({
+			referrerPolicy: { policy: "bogus" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
+
+test("httpSecurityHeadersValidateOptions accepts known referrerPolicy value", () => {
+	httpSecurityHeadersValidateOptions({
+		referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+	});
+});
+
+test("httpSecurityHeadersValidateOptions rejects unknown nested property", () => {
+	try {
+		httpSecurityHeadersValidateOptions({
+			strictTransportSecurity: { maxAge: 10, includeSubDomians: true },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});

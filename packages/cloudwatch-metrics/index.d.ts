@@ -7,7 +7,7 @@ export { MetricsLogger } from "aws-embedded-metrics";
 
 export interface Options {
 	namespace?: string;
-	dimensions?: Array<Record<string, string>>;
+	dimensions?: Record<string, string> | Array<Record<string, string>>;
 	onFlushError?: (error: Error) => void;
 }
 

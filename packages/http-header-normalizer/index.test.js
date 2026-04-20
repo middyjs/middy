@@ -327,7 +327,7 @@ test("It should not fail given a corrupted header key", async (t) => {
 test("httpHeaderNormalizerValidateOptions accepts valid options and rejects typos", () => {
 	httpHeaderNormalizerValidateOptions({
 		canonical: true,
-		defaultHeaders: { X: "y" },
+		defaultHeaders: { X: "y", Accept: ["application/json", "*/*"] },
 		normalizeHeaderKey: (k) => k,
 	});
 	httpHeaderNormalizerValidateOptions({});
@@ -346,5 +346,24 @@ test("httpHeaderNormalizerValidateOptions rejects wrong type", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("canonical"));
+	}
+});
+
+test("httpHeaderNormalizerValidateOptions rejects non-string defaultHeaders values", () => {
+	try {
+		httpHeaderNormalizerValidateOptions({ defaultHeaders: { X: 42 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("defaultHeaders.X"));
+	}
+	try {
+		httpHeaderNormalizerValidateOptions({
+			defaultHeaders: { X: ["ok", 42] },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("defaultHeaders.X"));
 	}
 });

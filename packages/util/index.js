@@ -11,8 +11,9 @@
 //     `items` is applied to each array element. It can be a type string,
 //     a predicate function, or a plain object treated as a per-element
 //     object schema (validated recursively with the same rules).
-//   { type: '<type>' | '<type>?', minimum?: <n> }
-//     `minimum` is checked with `value < minimum`; works for number/integer.
+//   { type: '<type>' | '<type>?', minimum?, maximum?, minLength?, maxLength?, pattern? }
+//     Numeric: `minimum`/`maximum` (number/integer).
+//     String: `minLength`/`maxLength` (string length), `pattern` (regex source).
 //   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
 //     `properties` validates known keys with the flat-schema form.
 //     `additionalProperties` validates every other key's value against the
@@ -68,13 +69,17 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	return true;
 };
 
-// Plain object with no `type` or `enum` is a flat object schema; anything
-// else is a rule. Used when dispatching `items` and `additionalProperties`.
+// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `const`,
+// `instanceof`) is a flat object schema; anything else is a rule. Used when
+// dispatching `items` and `additionalProperties`.
 const checkNestedRule = (rule, value, path, fail) => {
 	if (
 		isPlainObject(rule) &&
 		typeof rule.type !== "string" &&
-		!Array.isArray(rule.enum)
+		!Array.isArray(rule.enum) &&
+		!Array.isArray(rule.oneOf) &&
+		!Object.hasOwn(rule, "const") &&
+		typeof rule.instanceof !== "string"
 	) {
 		checkSchemaObject(rule, value, path, fail);
 	} else {
@@ -129,10 +134,7 @@ const checkRule = (rule, value, path, fail) => {
 	if (isPlainObject(rule) && typeof rule.instanceof === "string") {
 		if (value === undefined) return;
 		const ctor = resolveInstance(rule.instanceof);
-		if (
-			!(value instanceof ctor) &&
-			!(rule.instanceof === "Function" && typeof value === "function")
-		) {
+		if (!(value instanceof ctor)) {
 			fail(`Option '${path}' must be instanceof ${rule.instanceof}`);
 		}
 		return;
@@ -156,11 +158,27 @@ const checkRule = (rule, value, path, fail) => {
 			required,
 			additionalProperties,
 			minimum,
+			maximum,
+			pattern,
+			minLength,
+			maxLength,
 		} = rule;
 		if (!checkTypeSpec(rawType, value, path, fail)) return;
 		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
 		if (minimum !== undefined && value < minimum) {
 			fail(`Option '${path}' must be >= ${minimum}`);
+		}
+		if (maximum !== undefined && value > maximum) {
+			fail(`Option '${path}' must be <= ${maximum}`);
+		}
+		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
+			fail(`Option '${path}' must match pattern ${pattern}`);
+		}
+		if (minLength !== undefined && value.length < minLength) {
+			fail(`Option '${path}' must have length >= ${minLength}`);
+		}
+		if (maxLength !== undefined && value.length > maxLength) {
+			fail(`Option '${path}' must have length <= ${maxLength}`);
 		}
 		if (type === "array" && items !== undefined) {
 			for (let i = 0; i < value.length; i++) {

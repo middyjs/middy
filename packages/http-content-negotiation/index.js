@@ -9,7 +9,13 @@ const optionSchema = {
 		availableCharsets: { type: "array", items: { type: "string" } },
 		defaultToFirstCharset: { type: "boolean" },
 		parseEncodings: { type: "boolean" },
-		availableEncodings: { type: "array", items: { type: "string" } },
+		availableEncodings: {
+			type: "array",
+			items: {
+				type: "string",
+				enum: ["br", "deflate", "gzip", "zstd", "identity"],
+			},
+		},
 		defaultToFirstEncoding: { type: "boolean" },
 		parseLanguages: { type: "boolean" },
 		availableLanguages: { type: "array", items: { type: "string" } },

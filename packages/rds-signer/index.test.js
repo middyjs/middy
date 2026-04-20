@@ -428,3 +428,45 @@ test("rdsSignerValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("fetchData"));
 	}
 });
+
+test("rdsSignerValidateOptions accepts valid fetchData entry", () => {
+	rdsSignerValidateOptions({
+		fetchData: {
+			token: {
+				region: "us-east-1",
+				hostname: "db.example.com",
+				port: 5432,
+				username: "user",
+			},
+		},
+	});
+});
+
+test("rdsSignerValidateOptions rejects fetchData entry missing required fields", () => {
+	try {
+		rdsSignerValidateOptions({
+			fetchData: { token: { hostname: "db.example.com" } },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/rds-signer");
+	}
+});
+
+test("rdsSignerValidateOptions rejects fetchData entry with non-integer port", () => {
+	try {
+		rdsSignerValidateOptions({
+			fetchData: {
+				token: {
+					hostname: "db.example.com",
+					port: "5432",
+					username: "user",
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});

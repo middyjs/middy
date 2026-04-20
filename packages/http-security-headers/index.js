@@ -4,31 +4,95 @@ import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
 // Each policy option accepts either a config object or a boolean (true = use
 // defaults, false = disable). See middleware body for enable/disable logic.
-const objectOrBoolean = {
-	oneOf: [{ type: "boolean" }, { type: "object" }],
+
+const booleanOr = (objectSchema) => ({
+	oneOf: [{ type: "boolean" }, objectSchema],
+});
+
+const policyObject = (policyEnum) => ({
+	type: "object",
+	properties: {
+		policy: policyEnum
+			? { type: "string", enum: policyEnum }
+			: { type: "string" },
+	},
+	additionalProperties: false,
+});
+
+const actionObject = {
+	type: "object",
+	properties: {
+		action: { type: "string" },
+	},
+	additionalProperties: false,
 };
+
+const referrerPolicyValues = [
+	"no-referrer",
+	"no-referrer-when-downgrade",
+	"origin",
+	"origin-when-cross-origin",
+	"same-origin",
+	"strict-origin",
+	"strict-origin-when-cross-origin",
+	"unsafe-url",
+];
+
+const permittedCrossDomainPoliciesValues = [
+	"none",
+	"master-only",
+	"by-content-type",
+	"by-ftp-filename",
+	"all",
+];
 
 const optionSchema = {
 	type: "object",
 	properties: {
-		contentSecurityPolicy: objectOrBoolean,
+		// CSP directives are an open-ended string map; keep permissive.
+		contentSecurityPolicy: booleanOr({ type: "object" }),
 		contentSecurityPolicyReportOnly: { type: "boolean" },
-		contentTypeOptions: objectOrBoolean,
-		crossOriginEmbedderPolicy: objectOrBoolean,
-		crossOriginOpenerPolicy: objectOrBoolean,
-		crossOriginResourcePolicy: objectOrBoolean,
-		dnsPrefetchControl: objectOrBoolean,
-		downloadOptions: objectOrBoolean,
-		frameOptions: objectOrBoolean,
-		originAgentCluster: objectOrBoolean,
-		permissionsPolicy: objectOrBoolean,
-		permittedCrossDomainPolicies: objectOrBoolean,
+		contentTypeOptions: booleanOr(actionObject),
+		crossOriginEmbedderPolicy: booleanOr(policyObject()),
+		crossOriginOpenerPolicy: booleanOr(policyObject()),
+		crossOriginResourcePolicy: booleanOr(policyObject()),
+		dnsPrefetchControl: booleanOr({
+			type: "object",
+			properties: {
+				allow: { type: "boolean" },
+			},
+			additionalProperties: false,
+		}),
+		downloadOptions: booleanOr(actionObject),
+		frameOptions: booleanOr(actionObject),
+		originAgentCluster: booleanOr({
+			type: "object",
+			additionalProperties: false,
+		}),
+		// Permissions-Policy features are an open-ended string map.
+		permissionsPolicy: booleanOr({ type: "object" }),
+		permittedCrossDomainPolicies: booleanOr(
+			policyObject(permittedCrossDomainPoliciesValues),
+		),
 		poweredBy: { type: "boolean" },
-		referrerPolicy: objectOrBoolean,
-		reportingEndpoints: objectOrBoolean,
-		reportTo: objectOrBoolean,
-		strictTransportSecurity: objectOrBoolean,
-		xssProtection: objectOrBoolean,
+		referrerPolicy: booleanOr(policyObject(referrerPolicyValues)),
+		// Reporting-Endpoints is an open-ended group->url map.
+		reportingEndpoints: booleanOr({ type: "object" }),
+		// Report-To groups are open-ended; maxAge/includeSubdomains are known.
+		reportTo: booleanOr({ type: "object" }),
+		strictTransportSecurity: booleanOr({
+			type: "object",
+			properties: {
+				maxAge: { type: "number", minimum: 0 },
+				includeSubDomains: { type: "boolean" },
+				preload: { type: "boolean" },
+			},
+			additionalProperties: false,
+		}),
+		xssProtection: booleanOr({
+			type: "object",
+			additionalProperties: false,
+		}),
 	},
 	additionalProperties: false,
 };

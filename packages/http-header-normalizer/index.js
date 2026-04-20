@@ -6,7 +6,15 @@ const optionSchema = {
 	type: "object",
 	properties: {
 		canonical: { type: "boolean" },
-		defaultHeaders: { type: "object" },
+		defaultHeaders: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [
+					{ type: "string" },
+					{ type: "array", items: { type: "string" } },
+				],
+			},
+		},
 		normalizeHeaderKey: { instanceof: "Function" },
 	},
 	additionalProperties: false,

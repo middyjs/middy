@@ -44,7 +44,10 @@ const optionSchema = {
 			additionalProperties: { type: "string" },
 		},
 		fetchRotationDate: {
-			oneOf: [{ type: "boolean" }, { type: "object" }],
+			oneOf: [
+				{ type: "boolean" },
+				{ type: "object", additionalProperties: { type: "boolean" } },
+			],
 		},
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
@@ -53,7 +56,6 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,

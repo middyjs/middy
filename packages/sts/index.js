@@ -33,17 +33,6 @@ const optionSchema = {
 		awsClientOptions: { type: "object" },
 		awsClientAssumeRole: { type: "string" },
 		awsClientCapture: { instanceof: "Function" },
-		fetchData: {
-			type: "object",
-			additionalProperties: {
-				type: "object",
-				required: ["RoleArn"],
-				properties: {
-					RoleArn: { type: "string" },
-				},
-				additionalProperties: true,
-			},
-		},
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
@@ -51,8 +40,28 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
-		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
+		fetchData: {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				required: ["RoleArn"],
+				properties: {
+					RoleArn: { type: "string" },
+					RoleSessionName: { type: "string" },
+					DurationSeconds: { type: "integer", minimum: 900, maximum: 43200 },
+					ExternalId: { type: "string" },
+					Policy: { type: "string" },
+					SerialNumber: { type: "string" },
+					TokenCode: { type: "string" },
+					TransitiveTagKeys: {
+						type: "array",
+						items: { type: "string" },
+					},
+				},
+				additionalProperties: true,
+			},
+		},
 	},
 	additionalProperties: false,
 };

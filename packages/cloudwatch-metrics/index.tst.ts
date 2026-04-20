@@ -14,3 +14,10 @@ test("use with all options", () => {
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
+
+test("use with dimensions as a single dimension set", () => {
+	const middleware = cloudwatchMetrics({
+		dimensions: { Action: "Buy" },
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});

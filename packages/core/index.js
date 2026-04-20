@@ -18,21 +18,31 @@ const defaultPluginConfig = {
 	executionMode: executionModeStandard,
 };
 
+// JSON-Schema for `pluginConfig` passed to `middy(handler, pluginConfig)`.
+// All options are optional; `additionalProperties: false` catches typos
+// (e.g. `timeoutEarlyMillis` instead of `timeoutEarlyInMillis`).
+// Properties listed in hook execution order.
 const optionSchema = {
 	type: "object",
 	properties: {
+		// Pre-computed request state seeded into `request.internal`.
 		internal: { type: "object", additionalProperties: true },
+		// Lifecycle hooks (see docs/intro/hooks).
 		beforePrefetch: { instanceof: "Function" },
 		requestStart: { instanceof: "Function" },
 		beforeMiddleware: { instanceof: "Function" },
 		afterMiddleware: { instanceof: "Function" },
 		beforeHandler: { instanceof: "Function" },
-		timeoutEarlyInMillis: { type: "integer", minimum: 0 },
-		timeoutEarlyResponse: { instanceof: "Function" },
 		afterHandler: { instanceof: "Function" },
 		requestEnd: { instanceof: "Function" },
+		// Early-timeout configuration. `timeoutEarlyInMillis` reserves N ms
+		// before Lambda timeout for `timeoutEarlyResponse` to run.
+		timeoutEarlyInMillis: { type: "integer", minimum: 0 },
+		timeoutEarlyResponse: { instanceof: "Function" },
+		// Execution mode (standard, durable-context, streamify-response, or custom).
 		executionMode: { instanceof: "Function" },
 	},
+	required: [],
 	additionalProperties: false,
 };
 
