@@ -1,6 +1,6 @@
 {
 	"name": "@middy/appconfig",
-	"version": "7.3.1",
+	"version": "7.3.2",
 	"description": "AppConfig middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -68,11 +68,11 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.3.1"
+		"@middy/util": "7.3.2"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-appconfigdata": "^3.0.0",
-		"@middy/core": "7.3.1",
+		"@middy/core": "7.3.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.3.3"
