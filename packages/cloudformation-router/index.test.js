@@ -177,7 +177,8 @@ test("cloudformationRouterValidateOptions rejects duplicate requestType", () => 
 		});
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "Duplicate route");
+		ok(e instanceof TypeError);
+		ok(e.message.includes("routes[1]"));
 		strictEqual(e.cause.package, "@middy/cloudformation-router");
 	}
 });

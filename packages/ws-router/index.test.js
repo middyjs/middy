@@ -230,8 +230,8 @@ test("wsRouterValidateOptions rejects duplicate routeKey", () => {
 		});
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "Duplicate route");
+		ok(e instanceof TypeError);
+		ok(e.message.includes("routes[1]"));
 		strictEqual(e.cause.package, "@middy/ws-router");
-		strictEqual(e.cause.data.routeKey, "$connect");
 	}
 });

@@ -28,8 +28,8 @@
 
 ## Sponsors
 
-<a href="https://fourtheorem.com"><img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/logo/fourtheorem.svg" style="max-width:50%" width="380"/></a>
-<a href="https://github.com/aws"><img alt="Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/logo/amazon-web-services.svg" style="max-width:50%" width="380"/></a>
+<a href="https://fourtheorem.com"><img alt="fourTheorem" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/sponsor/fourtheorem.svg" style="max-width:50%" width="380"/></a>
+<a href="https://github.com/aws"><img alt="Amazon Web Services Free and Open Source Software Fund (AWS FOSS Fund)" src="https://raw.githubusercontent.com/middyjs/middy/main/websites/middy.js.org/static/img/sponsor/amazon-web-services.svg" style="max-width:50%" width="380"/></a>
 
 ## License
 

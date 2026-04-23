@@ -673,6 +673,147 @@ describe("validateOptions enum", () => {
 	});
 });
 
+describe("validateOptions allOf", () => {
+	const schema = {
+		path: {
+			allOf: [
+				{ type: "string", pattern: "^/" },
+				{ type: "string", pattern: "^(/|.*[^/])$" },
+			],
+		},
+	};
+
+	test("accepts value that matches every sub-schema", () => {
+		validateOptions("@middy/test", schema, { path: "/users" });
+	});
+
+	test("rejects value that fails a sub-schema", () => {
+		try {
+			validateOptions("@middy/test", schema, { path: "/users/" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("path"));
+		}
+	});
+
+	test("rejects value that fails the first sub-schema", () => {
+		try {
+			validateOptions("@middy/test", schema, { path: "no-slash" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("path"));
+		}
+	});
+});
+
+describe("validateOptions uniqueItems", () => {
+	test("rejects duplicate items, ignoring function-typed fields", () => {
+		const schema = {
+			routes: {
+				type: "array",
+				uniqueItems: true,
+				items: {
+					type: "object",
+					properties: {
+						method: { type: "string" },
+						path: { type: "string" },
+						handler: { instanceof: "Function" },
+					},
+					required: ["method", "path", "handler"],
+					additionalProperties: false,
+				},
+			},
+		};
+		try {
+			validateOptions("@middy/test", schema, {
+				routes: [
+					{ method: "GET", path: "/a", handler: () => 1 },
+					{ method: "GET", path: "/a", handler: () => 2 },
+				],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("routes"));
+		}
+	});
+
+	test("detects duplicates regardless of key order", () => {
+		const schema = {
+			routes: {
+				type: "array",
+				uniqueItems: true,
+				items: {
+					type: "object",
+					properties: {
+						method: { type: "string" },
+						path: { type: "string" },
+					},
+					required: ["method", "path"],
+					additionalProperties: false,
+				},
+			},
+		};
+		try {
+			validateOptions("@middy/test", schema, {
+				routes: [
+					{ method: "GET", path: "/a" },
+					{ path: "/a", method: "GET" },
+				],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("routes"));
+		}
+	});
+
+	test("detects duplicate items containing nested arrays", () => {
+		const schema = {
+			rows: {
+				type: "array",
+				uniqueItems: true,
+				items: {
+					type: "object",
+					properties: { tags: { type: "array" } },
+					additionalProperties: false,
+				},
+			},
+		};
+		try {
+			validateOptions("@middy/test", schema, {
+				rows: [{ tags: ["a", "b"] }, { tags: ["a", "b"] }],
+			});
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("rows[1]"));
+		}
+	});
+
+	test("accepts items that differ by a non-function field", () => {
+		const schema = {
+			routes: {
+				type: "array",
+				uniqueItems: true,
+				items: {
+					type: "object",
+					properties: {
+						method: { type: "string" },
+						path: { type: "string" },
+						handler: { instanceof: "Function" },
+					},
+					required: ["method", "path", "handler"],
+					additionalProperties: false,
+				},
+			},
+		};
+		validateOptions("@middy/test", schema, {
+			routes: [
+				{ method: "GET", path: "/a", handler: () => {} },
+				{ method: "POST", path: "/a", handler: () => {} },
+			],
+		});
+	});
+});
+
 describe("validateOptions additionalProperties", () => {
 	test("accepts arbitrary keys when additionalProperties rule provided", () => {
 		validateOptions(

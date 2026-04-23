@@ -69,15 +69,16 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	return true;
 };
 
-// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `const`,
-// `instanceof`) is a flat object schema; anything else is a rule. Used when
-// dispatching `items` and `additionalProperties`.
+// Plain object with no rule-marker key (`type`, `enum`, `oneOf`, `allOf`,
+// `const`, `instanceof`) is a flat object schema; anything else is a rule.
+// Used when dispatching `items` and `additionalProperties`.
 const checkNestedRule = (rule, value, path, fail) => {
 	if (
 		isPlainObject(rule) &&
 		typeof rule.type !== "string" &&
 		!Array.isArray(rule.enum) &&
 		!Array.isArray(rule.oneOf) &&
+		!Array.isArray(rule.allOf) &&
 		!Object.hasOwn(rule, "const") &&
 		typeof rule.instanceof !== "string"
 	) {
@@ -88,6 +89,20 @@ const checkNestedRule = (rule, value, path, fail) => {
 };
 
 const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
+
+// Stable JSON form: recursively sorts object keys, skips function-typed
+// values. Used for `uniqueItems` so items that differ only by handler
+// identity or key ordering collide.
+const stableStringify = (value) => {
+	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (Array.isArray(value)) {
+		return `[${value.map(stableStringify).join(",")}]`;
+	}
+	const keys = Object.keys(value)
+		.filter((k) => typeof value[k] !== "function")
+		.sort();
+	return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+};
 
 const resolveInstance = (name) => {
 	const ctor = globalThis[name];
@@ -112,6 +127,13 @@ const checkRule = (rule, value, path, fail) => {
 		if (value === undefined) return;
 		if (value !== rule.const) {
 			fail(`Option '${path}' must equal ${JSON.stringify(rule.const)}`);
+		}
+		return;
+	}
+	if (isPlainObject(rule) && Array.isArray(rule.allOf)) {
+		if (value === undefined) return;
+		for (const sub of rule.allOf) {
+			checkRule(sub, value, path, fail);
 		}
 		return;
 	}
@@ -154,6 +176,7 @@ const checkRule = (rule, value, path, fail) => {
 		const {
 			type: rawType,
 			items,
+			uniqueItems,
 			properties,
 			required,
 			additionalProperties,
@@ -183,6 +206,16 @@ const checkRule = (rule, value, path, fail) => {
 		if (type === "array" && items !== undefined) {
 			for (let i = 0; i < value.length; i++) {
 				checkNestedRule(items, value[i], `${path}[${i}]`, fail);
+			}
+		}
+		if (type === "array" && uniqueItems === true) {
+			const seen = new Set();
+			for (let i = 0; i < value.length; i++) {
+				const key = stableStringify(value[i]);
+				if (seen.has(key)) {
+					fail(`Duplicate item at '${path}[${i}]'`);
+				}
+				seen.add(key);
 			}
 		}
 		if (type === "object" && Array.isArray(required)) {
