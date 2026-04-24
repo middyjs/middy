@@ -1,10 +1,11 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
+import type { DurableContext as LambdaContextDurable } from "@aws/durable-execution-sdk-js";
 import type {
 	Context as LambdaContext,
 	Handler as LambdaHandler,
 } from "aws-lambda";
-import type { DurableContext as LambdaContextDurable } from "@aws/durable-execution-sdk-js";
 
 declare type PluginHook = () => void;
 declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
@@ -221,13 +222,13 @@ declare function middy<
 
 declare namespace middy {
 	export type {
-		Request,
-		PluginHook,
-		PluginHookWithMiddlewareName,
-		PluginObject,
 		MiddlewareFn,
 		MiddlewareObj,
 		MiddyfiedHandler,
+		PluginHook,
+		PluginHookWithMiddlewareName,
+		PluginObject,
+		Request,
 	};
 }
 
