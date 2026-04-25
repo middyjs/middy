@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type { Ajv, ErrorObject, Options as AjvOptions } from "ajv";
+import type { Ajv, Options as AjvOptions, ErrorObject } from "ajv";
 
 export type LocalizeFunction = (
 	errors: ErrorObject[] | null | undefined,
