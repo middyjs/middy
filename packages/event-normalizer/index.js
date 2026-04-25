@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { gunzipSync } from "node:zlib";
 import { jsonSafeParse, validateOptions } from "@middy/util";
 
 const defaults = {
@@ -77,7 +78,9 @@ const events = {
 		message.data = base64Parse(message.data);
 	},
 	"aws:cloudwatch": (event) => {
-		event.awslogs.data = base64Parse(event.awslogs.data);
+		event.awslogs.data = jsonSafeParse(
+			gunzipSync(base64Decode(event.awslogs.data)).toString("utf-8"),
+		);
 	},
 	"aws:codepipeline": (event) => {
 		event[
@@ -91,7 +94,10 @@ const events = {
 		event.invokingEvent = jsonSafeParse(event.invokingEvent);
 		event.ruleParameters = jsonSafeParse(event.ruleParameters);
 	},
-	// 'aws:docdb': (record) => {},
+	// Pass-through: records-shape sources with no encoded fields.
+	"aws:codecommit": () => {},
+	"aws:docdb": () => {},
+	"aws:ses": () => {},
 	"aws:dynamodb": (record, options) => {
 		record.dynamodb.Keys = unmarshall(record.dynamodb.Keys, options);
 		record.dynamodb.NewImage = unmarshall(record.dynamodb.NewImage, options);
@@ -148,8 +154,9 @@ const events = {
 		}
 	},
 };
+const base64Decode = (data) => Buffer.from(data, "base64");
 const base64Parse = (data) =>
-	jsonSafeParse(Buffer.from(data, "base64").toString("utf-8"));
+	jsonSafeParse(base64Decode(data).toString("utf-8"));
 const normalizeS3Key = (key) =>
 	decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, " ")); // decodeURIComponent(key.replaceAll('+', ' '))
 
