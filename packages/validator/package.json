@@ -83,6 +83,6 @@
 		"@types/http-errors": "^2.0.0",
 		"@types/node": "^22.0.0",
 		"ajv-bsontype": "^1.0.7",
-		"ajv-cmd": "^0.12.0"
+		"ajv-cmd": "^0.13.0"
 	}
 }
