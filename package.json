@@ -80,7 +80,7 @@
 		"@sveltejs/kit": {
 			"cookie": "^0.7.2"
 		},
-		"fast-xml-parser": ">=5.7.0",
+		"fast-xml-parser": ">=5.7.2",
 		"mathjs": ">=15.2.0"
 	},
 	"devEngines": {
