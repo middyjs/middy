@@ -3,6 +3,7 @@
 import type middy from "@middy/core";
 import type { MetricsLogger } from "aws-embedded-metrics";
 import type { Context as LambdaContext } from "aws-lambda";
+
 export { MetricsLogger } from "aws-embedded-metrics";
 
 export interface Options {
