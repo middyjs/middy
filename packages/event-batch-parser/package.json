@@ -1,0 +1,92 @@
+{
+	"name": "@middy/event-batch-parser",
+	"version": "7.3.3",
+	"description": "Event batch parser middleware for the middy framework — Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"Kafka",
+		"MSK",
+		"Kinesis",
+		"Firehose",
+		"SQS",
+		"Avro",
+		"Protobuf",
+		"Glue Schema Registry"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/event-batch-parser"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"dependencies": {
+		"@middy/util": "7.3.3"
+	},
+	"peerDependencies": {
+		"avro-js": "^1.0.0",
+		"protobufjs": "^7.0.0"
+	},
+	"peerDependenciesMeta": {
+		"avro-js": {
+			"optional": true
+		},
+		"protobufjs": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@middy/core": "7.3.3",
+		"@middy/glue-schema-registry": "7.3.3",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0",
+		"avro-js": "^1.0.0",
+		"protobufjs": "^7.0.0"
+	}
+}

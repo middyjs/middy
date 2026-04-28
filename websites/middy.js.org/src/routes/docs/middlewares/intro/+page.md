@@ -42,8 +42,8 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-security-headers`](/docs/middlewares/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/docs/middlewares/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/docs/middlewares/http-response-serializer): HTTP response serializer.
-- [`event-partial-batch-failure`](/docs/middlewares/event-partial-batch-failure): Shapes Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch Operations, Kinesis Firehose).
-- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches (superseded by `event-partial-batch-failure`).
+- [`event-batch-response`](/docs/middlewares/event-batch-response): Shapes Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch Operations, Kinesis Firehose).
+- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches (superseded by `event-batch-response`).
 - [`ws-response`](/docs/middlewares/ws-response): Forwards response to WebSocket endpoint.
 
 ## Fetch Data
