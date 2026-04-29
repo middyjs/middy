@@ -23,6 +23,7 @@ export interface RunnerOptions<TEvent = unknown, TResult = unknown> {
 
 declare function ecsBatchRunner<TEvent = unknown, TResult = unknown>(
 	options: RunnerOptions<TEvent, TResult>,
+	deps?: Record<string, unknown>,
 ): Promise<unknown>;
 
 export { ecsBatchRunner };

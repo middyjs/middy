@@ -15,6 +15,7 @@ export interface EcsTaskRunnerOptions<TEvent = unknown, TResult = unknown> {
 
 declare function ecsTaskRunner<TEvent = unknown, TResult = unknown>(
 	options: EcsTaskRunnerOptions<TEvent, TResult>,
+	deps?: Record<string, unknown>,
 ): Promise<unknown>;
 
 export { ecsTaskRunner };

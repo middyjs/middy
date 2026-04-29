@@ -39,7 +39,10 @@ export interface EcsHttpRunnerOptions<
 declare function ecsHttpRunner<
 	TEvent extends EcsHttpEvent = APIGatewayProxyEventV2,
 	TResult extends EcsHttpResult = APIGatewayProxyResultV2,
->(options: EcsHttpRunnerOptions<TEvent, TResult>): Promise<unknown>;
+>(
+	options: EcsHttpRunnerOptions<TEvent, TResult>,
+	deps?: Record<string, unknown>,
+): Promise<unknown>;
 
 export { ecsHttpRunner };
 
