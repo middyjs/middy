@@ -27,8 +27,8 @@ const optionSchema = {
 					method: { type: "string", enum: [...methods, "ANY"] },
 					path: {
 						allOf: [
-							{ type: "string", pattern: "^/" },
-							{ type: "string", pattern: "^(/|.*[^/])$" },
+							{ type: "string", pattern: /^\// },
+							{ type: "string", pattern: /^(\/|.*[^/])$/ },
 						],
 						examples: ["/", "/users", "/users/{id}"],
 					},
