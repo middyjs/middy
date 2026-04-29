@@ -9,7 +9,7 @@ export interface ParseProtobufOptions {
 		};
 	};
 	messageType?: string;
-	contextKey?: string;
+	internalKey?: string;
 }
 
 export declare function parseProtobuf(

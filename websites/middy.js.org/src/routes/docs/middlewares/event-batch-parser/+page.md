@@ -45,19 +45,19 @@ npm install --save-dev @aws-sdk/client-glue
 
 Parses each record body as JSON. Equivalent to `JSON.parse(buffer.toString('utf-8'), reviver)`.
 
-### `parseAvro({ schema?, contextKey? })`
+### `parseAvro({ schema?, internalKey? })`
 
 Decodes Avro-encoded payloads using `avro-js`.
 
 - `schema`: a static Avro schema (string or object).
-- `contextKey`: name of a `request.context` entry populated by `@middy/glue-schema-registry` running with `setToContext: true`. The entry's `schemaDefinition` is used.
+- `internalKey`: name of a `request.internal` entry populated by `@middy/glue-schema-registry`'s `fetchData`. The entry's `schemaDefinition` is used.
 
-### `parseProtobuf({ root?, messageType?, contextKey? })`
+### `parseProtobuf({ root?, messageType?, internalKey? })`
 
 Decodes Protobuf-encoded payloads using `protobufjs`.
 
 - `root` and `messageType`: a loaded `protobuf.Root` and the fully-qualified type name. Static path.
-- `contextKey`: name of a `request.context` entry containing `{ root, messageType }`.
+- `internalKey`: name of a `request.internal` entry containing `{ root, messageType }`.
 
 ## Sample usage
 
@@ -84,7 +84,7 @@ export const handler = middy()
   })
 ```
 
-### Kinesis with Glue Schema Registry (schema fetched at startup, exposed on context)
+### Kinesis with Glue Schema Registry (schema fetched at startup, exposed on internal)
 
 ```javascript
 import middy from '@middy/core'
@@ -95,10 +95,9 @@ import parseAvro from '@middy/event-batch-parser/parseAvro'
 export const handler = middy()
   .use(glueSchemaRegistry({
     fetchData: { userSchema: { SchemaVersionId: '...' } },
-    setToContext: true,
   }))
   .use(eventBatchParser({
-    data: parseAvro({ contextKey: 'userSchema' }),
+    data: parseAvro({ internalKey: 'userSchema' }),
   }))
   .handler(async (event) => {
     for (const record of event.Records) {

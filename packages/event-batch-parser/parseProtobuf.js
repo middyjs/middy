@@ -7,14 +7,16 @@ export const parseProtobuf = (parserOpts = {}) => {
 		return (buffer, _record, _request, framing) =>
 			Type.decode(framing?.payload ?? buffer).toJSON();
 	}
-	const contextKey = parserOpts.contextKey;
-	return (buffer, _record, request, framing) => {
-		const slot = contextKey ? request.context?.[contextKey] : undefined;
-		const root = parserOpts.root ?? slot?.root;
-		const messageType = parserOpts.messageType ?? slot?.messageType;
+	const internalKey = parserOpts.internalKey;
+	return async (buffer, _record, request, framing) => {
+		const entry = internalKey
+			? await request.internal?.[internalKey]
+			: undefined;
+		const root = parserOpts.root ?? entry?.root;
+		const messageType = parserOpts.messageType ?? entry?.messageType;
 		if (!root || !messageType) {
 			throw new TypeError(
-				`parseProtobuf: requires { root, messageType } either as factory options or on request.context["${contextKey}"]`,
+				`parseProtobuf: requires { root, messageType } either as factory options or on request.internal["${internalKey}"]`,
 			);
 		}
 		return root

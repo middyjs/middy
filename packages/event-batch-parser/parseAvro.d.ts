@@ -4,7 +4,7 @@ import type { RecordParser } from "./index.js";
 
 export interface ParseAvroOptions {
 	schema?: unknown;
-	contextKey?: string;
+	internalKey?: string;
 }
 
 export declare function parseAvro(options?: ParseAvroOptions): RecordParser;

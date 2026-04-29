@@ -231,13 +231,13 @@ test("parseProtobuf({ root, messageType }) decodes Kafka value", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-3", name: "Carol" });
 });
 
-// ---------- contextKey fallback (glue-schema-registry setToContext) ----------
+// ---------- internalKey fallback (glue-schema-registry fetchData entry) ----------
 
-test("parseAvro({ contextKey }) reads schemaDefinition from context", async () => {
+test("parseAvro({ internalKey }) reads schemaDefinition from internal", async () => {
 	const buf = buildAvroBuffer({ id: "u-4", name: "Dave" });
 	const stubRegistry = () => ({
 		before: (request) => {
-			request.context.userSchema = {
+			request.internal.userSchema = {
 				schemaVersionId: "00000000-0000-0000-0000-000000000000",
 				schemaDefinition: AVRO_USER_SCHEMA,
 				dataFormat: "AVRO",
@@ -247,7 +247,7 @@ test("parseAvro({ contextKey }) reads schemaDefinition from context", async () =
 
 	const handler = middy()
 		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseAvro({ contextKey: "userSchema" }) }));
+		.use(eventBatchParser({ value: parseAvro({ internalKey: "userSchema" }) }));
 	handler.handler((event) => event);
 
 	const event = {
@@ -458,7 +458,7 @@ test("Glue framing: unsupported compression byte throws", async () => {
 	await rejects(() => handler(event, defaultContext), /0x99/);
 });
 
-test("parseAvro() throws TypeError when no schema and no contextKey supplied", async () => {
+test("parseAvro() throws TypeError when no schema and no internalKey supplied", async () => {
 	let caught;
 	try {
 		parseAvro();
@@ -467,7 +467,7 @@ test("parseAvro() throws TypeError when no schema and no contextKey supplied", a
 	}
 	ok(caught instanceof TypeError);
 	ok(
-		caught.message.includes("schema") || caught.message.includes("contextKey"),
+		caught.message.includes("schema") || caught.message.includes("internalKey"),
 	);
 });
 
@@ -494,21 +494,21 @@ test("parseProtobuf({ root, messageType }) decodes a record", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-9", name: "Ivy" });
 });
 
-test("parseProtobuf({ contextKey }) reads { root, messageType } from context", async () => {
+test("parseProtobuf({ internalKey }) reads { root, messageType } from internal", async () => {
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
 	const buf = Type.encode(Type.create({ id: "u-10", name: "Jay" })).finish();
 
 	const stubRegistry = () => ({
 		before: (request) => {
-			request.context.userProto = { root, messageType: "test.User" };
+			request.internal.userProto = { root, messageType: "test.User" };
 		},
 	});
 
 	const handler = middy()
 		.use(stubRegistry())
 		.use(
-			eventBatchParser({ value: parseProtobuf({ contextKey: "userProto" }) }),
+			eventBatchParser({ value: parseProtobuf({ internalKey: "userProto" }) }),
 		);
 	handler.handler((event) => event);
 
@@ -521,13 +521,13 @@ test("parseProtobuf({ contextKey }) reads { root, messageType } from context", a
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-10", name: "Jay" });
 });
 
-test("parseProtobuf() throws when neither factory nor context supplies root+messageType", async () => {
+test("parseProtobuf() throws when neither factory nor internal supplies root+messageType", async () => {
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
 	const buf = Type.encode(Type.create({ id: "u-11", name: "Kim" })).finish();
 
 	const handler = middy().use(
-		eventBatchParser({ value: parseProtobuf({ contextKey: "missing" }) }),
+		eventBatchParser({ value: parseProtobuf({ internalKey: "missing" }) }),
 	);
 	handler.handler((event) => event);
 
@@ -727,7 +727,7 @@ test("Records with missing parser field are skipped (raw == null)", async () => 
 	deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
 });
 
-test("End-to-end: glueSchemaRegistry({ setToContext }) feeds parseAvro({ contextKey })", async () => {
+test("End-to-end: glueSchemaRegistry feeds parseAvro({ internalKey })", async () => {
 	mockClient(GlueClient)
 		.on(GetSchemaVersionCommand)
 		.resolves({
@@ -747,12 +747,11 @@ test("End-to-end: glueSchemaRegistry({ setToContext }) feeds parseAvro({ context
 				fetchData: { userSchema: { SchemaVersionId: uuid } },
 				disablePrefetch: true,
 				cacheExpiry: 0,
-				setToContext: true,
 			}),
 		)
 		.use(
 			eventBatchParser({
-				value: parseAvro({ contextKey: "userSchema" }),
+				value: parseAvro({ internalKey: "userSchema" }),
 			}),
 		);
 	handler.handler((event) => event);

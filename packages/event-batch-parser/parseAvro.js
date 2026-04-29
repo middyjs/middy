@@ -8,17 +8,18 @@ export const parseAvro = (parserOpts = {}) => {
 		return (buffer, _record, _request, framing) =>
 			type.fromBuffer(framing?.payload ?? buffer);
 	}
-	const contextKey = parserOpts.contextKey;
-	if (!contextKey) {
+	const internalKey = parserOpts.internalKey;
+	if (!internalKey) {
 		throw new TypeError(
-			"parseAvro: requires `schema` or `contextKey` (matching a fetchData key on @middy/glue-schema-registry with `setToContext: true`)",
+			"parseAvro: requires `schema` or `internalKey` (matching a fetchData key on @middy/glue-schema-registry)",
 		);
 	}
-	return (buffer, _record, request, framing) => {
-		const schemaDefinition = request.context?.[contextKey]?.schemaDefinition;
+	return async (buffer, _record, request, framing) => {
+		const entry = await request.internal?.[internalKey];
+		const schemaDefinition = entry?.schemaDefinition;
 		if (!schemaDefinition) {
 			throw new TypeError(
-				`parseAvro: request.context["${contextKey}"] is unset — did glue-schema-registry run with setToContext: true?`,
+				`parseAvro: request.internal["${internalKey}"] is unset — did glue-schema-registry run with a matching fetchData key?`,
 			);
 		}
 		return avro.parse(schemaDefinition).fromBuffer(framing?.payload ?? buffer);
