@@ -25,13 +25,31 @@
 				"default": "./executionModeStandard.js"
 			}
 		},
+		"./executionModeStandard": {
+			"import": {
+				"types": "./executionModeStandard.d.ts",
+				"default": "./executionModeStandard.js"
+			}
+		},
 		"./DurableContext": {
 			"import": {
 				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
 			}
 		},
+		"./executionModeDurableContext": {
+			"import": {
+				"types": "./executionModeDurableContext.d.ts",
+				"default": "./executionModeDurableContext.js"
+			}
+		},
 		"./StreamifyResponse": {
+			"import": {
+				"types": "./executionModeStreamifyResponse.d.ts",
+				"default": "./executionModeStreamifyResponse.js"
+			}
+		},
+		"./executionModeStreamifyResponse": {
 			"import": {
 				"types": "./executionModeStreamifyResponse.d.ts",
 				"default": "./executionModeStreamifyResponse.js"
