@@ -19,6 +19,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "appconfig";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: AppConfigDataClient,
 	awsClientOptions: {},
@@ -26,7 +29,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {},
 	disablePrefetch: false,
-	cacheKey: "appconfig",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -73,7 +76,7 @@ const optionSchema = {
 };
 
 export const appConfigValidateOptions = (options) =>
-	validateOptions("@middy/appconfig", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const appConfigMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,

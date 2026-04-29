@@ -206,6 +206,9 @@ export type NumberRule = {
 	type: "number" | "integer";
 	minimum?: number;
 	maximum?: number;
+	exclusiveMinimum?: number;
+	exclusiveMaximum?: number;
+	multipleOf?: number;
 	enum?: readonly number[];
 	examples?: readonly number[];
 };

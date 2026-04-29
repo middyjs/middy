@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "error-logger";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	logger: ({ error }) => console.error(error),
 };
@@ -15,7 +18,7 @@ const optionSchema = {
 };
 
 export const errorLoggerValidateOptions = (options) =>
-	validateOptions("@middy/error-logger", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const errorLoggerMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };

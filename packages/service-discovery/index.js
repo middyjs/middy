@@ -16,6 +16,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "service-discovery";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: ServiceDiscoveryClient,
 	awsClientOptions: {},
@@ -23,7 +26,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {}, // { contextKey: {NamespaceName, ServiceName, HealthStatus} }
 	disablePrefetch: false,
-	cacheKey: "service-discovery",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -74,7 +77,7 @@ const optionSchema = {
 };
 
 export const serviceDiscoveryValidateOptions = (options) =>
-	validateOptions("@middy/service-discovery", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const serviceDiscoveryMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

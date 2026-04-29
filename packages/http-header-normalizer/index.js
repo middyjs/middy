@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "http-header-normalizer";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -21,7 +24,7 @@ const optionSchema = {
 };
 
 export const httpHeaderNormalizerValidateOptions = (options) =>
-	validateOptions("@middy/http-header-normalizer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const exceptionsList = [
 	"ALPN",

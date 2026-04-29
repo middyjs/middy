@@ -6,6 +6,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "http-error-handler";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	logger: console.error,
 	fallbackMessage: undefined,
@@ -21,7 +24,7 @@ const optionSchema = {
 };
 
 export const httpErrorHandlerValidateOptions = (options) =>
-	validateOptions("@middy/http-error-handler", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
 	const { logger, fallbackMessage } = { ...defaults, ...opts };

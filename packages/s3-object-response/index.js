@@ -9,6 +9,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "s3-object-response";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: S3Client,
 	awsClientOptions: {},
@@ -30,7 +33,7 @@ const optionSchema = {
 };
 
 export const s3ObjectResponseValidateOptions = (options) =>
-	validateOptions("@middy/s3-object-response", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const s3ObjectResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

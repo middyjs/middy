@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
+const name = "http-cors";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -35,7 +38,7 @@ const optionSchema = {
 };
 
 export const httpCorsValidateOptions = (options) =>
-	validateOptions("@middy/http-cors", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const hostnameToPunycode = (hostname) => {
 	const placeholder = "-_ANY_-";
@@ -117,7 +120,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		!Array.isArray(options.requestHeaders)
 	) {
 		throw new Error("requestHeaders must be an array", {
-			cause: { package: "@middy/http-cors" },
+			cause: { package: pkg },
 		});
 	}
 	if (
@@ -125,7 +128,7 @@ const httpCorsMiddleware = (opts = {}) => {
 		!Array.isArray(options.requestMethods)
 	) {
 		throw new Error("requestMethods must be an array", {
-			cause: { package: "@middy/http-cors" },
+			cause: { package: pkg },
 		});
 	}
 	options.requestHeaders = options.requestHeaders?.map((v) => v.toLowerCase());

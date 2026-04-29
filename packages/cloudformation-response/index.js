@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "cloudformation-response";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {},
@@ -9,7 +12,7 @@ const optionSchema = {
 };
 
 export const cloudformationResponseValidateOptions = (options) =>
-	validateOptions("@middy/cloudformation-response", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const cloudformationCustomResourceMiddleware = () => {
 	const cloudformationCustomResourceMiddlewareAfter = (request) => {

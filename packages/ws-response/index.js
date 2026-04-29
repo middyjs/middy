@@ -13,6 +13,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "ws-response";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -26,7 +29,7 @@ const optionSchema = {
 };
 
 export const wsResponseValidateOptions = (options) =>
-	validateOptions("@middy/ws-response", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const defaults = {
 	AwsClient: ApiGatewayManagementApiClient,

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "warmup";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	isWarmingUp: (event) => event.source === "serverless-plugin-warmup",
 };
@@ -15,7 +18,7 @@ const optionSchema = {
 };
 
 export const warmupValidateOptions = (options) =>
-	validateOptions("@middy/warmup", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const warmupMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

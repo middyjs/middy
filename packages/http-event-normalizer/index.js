@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "http-event-normalizer";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {},
@@ -9,7 +12,7 @@ const optionSchema = {
 };
 
 export const httpEventNormalizerValidateOptions = (options) =>
-	validateOptions("@middy/http-event-normalizer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpEventNormalizerMiddleware = () => {
 	const httpEventNormalizerMiddlewareBefore = (request) => {

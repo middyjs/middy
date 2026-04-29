@@ -3,6 +3,9 @@
 import BusBoy from "@fastify/busboy";
 import { createError, validateOptions } from "@middy/util";
 
+const name = "http-multipart-body-parser";
+const pkg = `@middy/${name}`;
+
 const mimePattern =
 	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?charset=[\w-]+)?$/i;
 const fieldnamePattern = /(.+)\[(.*)]$/;
@@ -44,7 +47,7 @@ const optionSchema = {
 };
 
 export const httpMultipartBodyParserValidateOptions = (options) =>
-	validateOptions("@middy/http-multipart-body-parser", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
@@ -68,7 +71,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 			}
 			throw createError(415, "Unsupported Media Type", {
 				cause: {
-					package: "@middy/http-multipart-body-parser",
+					package: pkg,
 					data: contentType,
 				},
 			});
@@ -78,7 +81,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 			throw createError(
 				422,
 				"Invalid or malformed multipart/form-data was provided",
-				{ cause: { package: "@middy/http-multipart-body-parser", data: body } },
+				{ cause: { package: pkg, data: body } },
 			);
 		}
 
@@ -93,7 +96,7 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 					"Invalid or malformed multipart/form-data was provided",
 					{
 						cause: {
-							package: "@middy/http-multipart-body-parser",
+							package: pkg,
 							data: body,
 							message: err.message,
 						},

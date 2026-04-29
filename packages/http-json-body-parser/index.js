@@ -7,6 +7,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "http-json-body-parser";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	reviver: undefined,
 	disableContentTypeCheck: false,
@@ -24,7 +27,7 @@ const optionSchema = {
 };
 
 export const httpJsonBodyParserValidateOptions = (options) =>
-	validateOptions("@middy/http-json-body-parser", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -40,13 +43,13 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 				return;
 			}
 			throw createError(415, "Unsupported Media Type", {
-				cause: { package: "@middy/http-json-body-parser", data: contentType },
+				cause: { package: pkg, data: contentType },
 			});
 		}
 
 		if (typeof body === "undefined") {
 			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: "@middy/http-json-body-parser", data: body },
+				cause: { package: pkg, data: body },
 			});
 		}
 
@@ -57,7 +60,7 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		} catch (err) {
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
-					package: "@middy/http-json-body-parser",
+					package: pkg,
 					data: body,
 					message: err.message,
 				},
