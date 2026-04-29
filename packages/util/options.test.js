@@ -570,7 +570,7 @@ describe("validateOptions pattern", () => {
 	test("accepts string matching pattern", () => {
 		validateOptions(
 			"@middy/test",
-			{ path: { type: "string", pattern: "^/" } },
+			{ path: { type: "string", pattern: /^\// } },
 			{ path: "/foo" },
 		);
 	});
@@ -579,7 +579,7 @@ describe("validateOptions pattern", () => {
 		try {
 			validateOptions(
 				"@middy/test",
-				{ path: { type: "string", pattern: "^/" } },
+				{ path: { type: "string", pattern: /^\// } },
 				{ path: "foo" },
 			);
 			ok(false, "expected throw");
@@ -677,8 +677,8 @@ describe("validateOptions allOf", () => {
 	const schema = {
 		path: {
 			allOf: [
-				{ type: "string", pattern: "^/" },
-				{ type: "string", pattern: "^(/|.*[^/])$" },
+				{ type: "string", pattern: /^\// },
+				{ type: "string", pattern: /^(\/|.*[^/])$/ },
 			],
 		},
 	};

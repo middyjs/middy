@@ -11,7 +11,7 @@ const optionSchema = {
 		headers: { type: "string" },
 		methods: {
 			type: "string",
-			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
+			pattern: /^\s*(\*|[A-Z]+)(\s*,\s*(\*|[A-Z]+))*\s*$/,
 			examples: ["*", "GET", "GET,POST"],
 		},
 		origin: { type: "string" },

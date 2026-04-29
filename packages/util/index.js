@@ -194,7 +194,7 @@ const checkRule = (rule, value, path, fail) => {
 		if (maximum !== undefined && value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
-		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
+		if (pattern !== undefined && !pattern.test(value)) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (minLength !== undefined && value.length < minLength) {
