@@ -1,0 +1,162 @@
+{
+	"name": "@middy/ecs-batch",
+	"version": "7.3.3",
+	"description": "ECS/Fargate batch event runtime for the middy framework — polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, RabbitMQ and dispatches to a Lambda-shaped handler",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		},
+		"./pollSqs": {
+			"import": {
+				"types": "./pollSqs.d.ts",
+				"default": "./pollSqs.js"
+			}
+		},
+		"./pollKinesis": {
+			"import": {
+				"types": "./pollKinesis.d.ts",
+				"default": "./pollKinesis.js"
+			}
+		},
+		"./pollDynamoDBStreams": {
+			"import": {
+				"types": "./pollDynamoDBStreams.d.ts",
+				"default": "./pollDynamoDBStreams.js"
+			}
+		},
+		"./pollKafka": {
+			"import": {
+				"types": "./pollKafka.d.ts",
+				"default": "./pollKafka.js"
+			}
+		},
+		"./pollAmq": {
+			"import": {
+				"types": "./pollAmq.d.ts",
+				"default": "./pollAmq.js"
+			}
+		},
+		"./pollRmq": {
+			"import": {
+				"types": "./pollRmq.d.ts",
+				"default": "./pollRmq.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"pollSqs.js",
+		"pollSqs.d.ts",
+		"pollKinesis.js",
+		"pollKinesis.d.ts",
+		"pollDynamoDBStreams.js",
+		"pollDynamoDBStreams.d.ts",
+		"pollKafka.js",
+		"pollKafka.d.ts",
+		"pollAmq.js",
+		"pollAmq.d.ts",
+		"pollRmq.js",
+		"pollRmq.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"ECS",
+		"Fargate",
+		"Batch",
+		"SQS",
+		"Kinesis",
+		"DynamoDB Streams",
+		"Kafka",
+		"MSK",
+		"ActiveMQ",
+		"RabbitMQ"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/ecs-batch"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"dependencies": {
+		"@middy/util": "7.3.3"
+	},
+	"peerDependencies": {
+		"@aws-sdk/client-sqs": "^3.0.0",
+		"@aws-sdk/client-kinesis": "^3.0.0",
+		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
+		"kafkajs": "^2.0.0",
+		"stompit": "^1.0.0",
+		"amqplib": "^0.10.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-sqs": {
+			"optional": true
+		},
+		"@aws-sdk/client-kinesis": {
+			"optional": true
+		},
+		"@aws-sdk/client-dynamodb-streams": {
+			"optional": true
+		},
+		"kafkajs": {
+			"optional": true
+		},
+		"stompit": {
+			"optional": true
+		},
+		"amqplib": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
+		"@aws-sdk/client-kinesis": "^3.0.0",
+		"@aws-sdk/client-sqs": "^3.0.0",
+		"@middy/core": "7.3.3",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0",
+		"amqplib": "^0.10.0",
+		"aws-sdk-client-mock": "^4.0.0",
+		"kafkajs": "^2.0.0",
+		"stompit": "^1.0.0"
+	}
+}
