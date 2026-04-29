@@ -74,7 +74,7 @@ test("It should resolve a schema by SchemaVersionId into request.internal", asyn
 	await handler(defaultEvent, defaultContext);
 });
 
-test("It should populate the consolidated glue-schema-registry slot", async () => {
+test("It should populate request.internal entries keyed by fetchData", async () => {
 	mockClient(GlueClient).on(GetSchemaVersionCommand).resolvesOnce({
 		SchemaVersionId: "v-1",
 		SchemaDefinition: AVRO_SCHEMA,
@@ -91,15 +91,13 @@ test("It should populate the consolidated glue-schema-registry slot", async () =
 				disablePrefetch: true,
 			}),
 		)
-		.before((request) => {
-			const slot = request.internal["glue-schema-registry"];
-			ok(slot, "consolidated slot should exist");
-			ok(slot.schemas instanceof Map, ".schemas should be a Map");
-			deepStrictEqual(slot.schemas.get("v-1"), {
+		.before(async (request) => {
+			const entry = await request.internal.user;
+			deepStrictEqual(entry, {
+				schemaVersionId: "v-1",
 				schemaDefinition: AVRO_SCHEMA,
 				dataFormat: "AVRO",
 			});
-			strictEqual(slot.schema, AVRO_SCHEMA);
 		});
 
 	await handler(defaultEvent, defaultContext);
@@ -176,10 +174,7 @@ test("resolveSchemaVersion fetches and caches dynamically", async () => {
 	const first = await resolveSchemaVersion("dyn-1", opts, request);
 	strictEqual(first.schemaVersionId, "dyn-1");
 	strictEqual(first.dataFormat, "AVRO");
-
-	const slot = request.internal["glue-schema-registry"];
-	ok(slot.schemas.get("dyn-1"));
-	strictEqual(slot.schema, AVRO_SCHEMA);
+	strictEqual(first.schemaDefinition, AVRO_SCHEMA);
 
 	await resolveSchemaVersion("dyn-1", opts, request);
 	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
@@ -216,10 +211,14 @@ test("middleware: caches undefined and rethrows on fetch failure", async () => {
 			cacheExpiry: 0,
 			fetchData: { user: { SchemaVersionId: "v-x" } },
 			disablePrefetch: true,
+			setToContext: true,
 		}),
 	);
 
-	await rejects(() => handler(defaultEvent, defaultContext), /glue boom/);
+	await rejects(
+		() => handler(defaultEvent, defaultContext),
+		/Failed to resolve internal values/,
+	);
 });
 
 test("resolveSchemaVersion: prefetch path (canPrefetch true)", async () => {
@@ -291,7 +290,7 @@ test("middleware: skips refetch when modified-cache already has truthy entry", a
 	await handler(defaultEvent, defaultContext);
 });
 
-test("middleware: buildSlot skips entries without schemaVersionId", async () => {
+test("middleware: entries without schemaVersionId still land on internal", async () => {
 	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
 		SchemaVersionId: undefined,
 		SchemaDefinition: AVRO_SCHEMA,
@@ -308,9 +307,10 @@ test("middleware: buildSlot skips entries without schemaVersionId", async () => 
 				disablePrefetch: true,
 			}),
 		)
-		.before((request) => {
-			const slot = request.internal["glue-schema-registry"];
-			strictEqual(slot.schemas.size, 0);
+		.before(async (request) => {
+			const entry = await request.internal.user;
+			strictEqual(entry.schemaVersionId, undefined);
+			strictEqual(entry.schemaDefinition, AVRO_SCHEMA);
 		});
 
 	await handler(defaultEvent, defaultContext);

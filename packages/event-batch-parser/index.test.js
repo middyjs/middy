@@ -6,13 +6,12 @@ import avro from "avro-js";
 import { mockClient } from "aws-sdk-client-mock";
 import protobuf from "protobufjs";
 import middy from "../core/index.js";
+import glueSchemaRegistry from "../glue-schema-registry/index.js";
 import { clearCache } from "../util/index.js";
-import eventBatchParser, {
-	eventBatchParserValidateOptions,
-	parseAvro,
-	parseJson,
-	parseProtobuf,
-} from "./index.js";
+import eventBatchParser, { eventBatchParserValidateOptions } from "./index.js";
+import { parseAvro } from "./parseAvro.js";
+import { parseJson } from "./parseJson.js";
+import { parseProtobuf } from "./parseProtobuf.js";
 
 test.afterEach(() => clearCache());
 
@@ -232,22 +231,23 @@ test("parseProtobuf({ root, messageType }) decodes Kafka value", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-3", name: "Carol" });
 });
 
-// ---------- internalKey fallback ----------
+// ---------- contextKey fallback (glue-schema-registry setToContext) ----------
 
-test('parseAvro() falls back to request.internal["glue-schema-registry"].schema', async () => {
+test("parseAvro({ contextKey }) reads schemaDefinition from context", async () => {
 	const buf = buildAvroBuffer({ id: "u-4", name: "Dave" });
 	const stubRegistry = () => ({
 		before: (request) => {
-			request.internal["glue-schema-registry"] = {
-				schemas: new Map(),
-				schema: AVRO_USER_SCHEMA,
+			request.context.userSchema = {
+				schemaVersionId: "00000000-0000-0000-0000-000000000000",
+				schemaDefinition: AVRO_USER_SCHEMA,
+				dataFormat: "AVRO",
 			};
 		},
 	});
 
 	const handler = middy()
 		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseAvro() }));
+		.use(eventBatchParser({ value: parseAvro({ contextKey: "userSchema" }) }));
 	handler.handler((event) => event);
 
 	const event = {
@@ -259,34 +259,6 @@ test('parseAvro() falls back to request.internal["glue-schema-registry"].schema'
 	deepStrictEqual(plain(out.records["t-0"][0].value), {
 		id: "u-4",
 		name: "Dave",
-	});
-});
-
-test("parseAvro({ internalKey: 'custom' }) reads from custom slot", async () => {
-	const buf = buildAvroBuffer({ id: "u-5", name: "Eve" });
-	const stubRegistry = () => ({
-		before: (request) => {
-			request.internal.custom = {
-				schemas: new Map(),
-				schema: AVRO_USER_SCHEMA,
-			};
-		},
-	});
-
-	const handler = middy()
-		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseAvro({ internalKey: "custom" }) }));
-	handler.handler((event) => event);
-
-	const event = {
-		eventSource: "aws:kafka",
-		records: { "t-0": [{ value: buf.toString("base64") }] },
-	};
-
-	const out = await handler(event, defaultContext);
-	deepStrictEqual(plain(out.records["t-0"][0].value), {
-		id: "u-5",
-		name: "Eve",
 	});
 });
 
@@ -303,25 +275,14 @@ const glueFramedBuffer = (uuid, payload, compressionByte = 0x00) => {
 	]);
 };
 
-test("Glue framing: parses _schemaVersionId and _payload", async () => {
+test("Glue framing: parses framing and uses static schema", async () => {
 	const inner = buildAvroBuffer({ id: "u-6", name: "Faye" });
 	const uuid = "12345678-1234-1234-1234-1234567890ab";
 	const framed = glueFramedBuffer(uuid, inner);
 
-	const stubRegistry = () => ({
-		before: (request) => {
-			const schemas = new Map();
-			schemas.set(uuid, {
-				schemaDefinition: AVRO_USER_SCHEMA,
-				dataFormat: "AVRO",
-			});
-			request.internal["glue-schema-registry"] = { schemas, schema: undefined };
-		},
-	});
-
-	const handler = middy()
-		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseAvro() }));
+	const handler = middy().use(
+		eventBatchParser({ value: parseAvro({ schema: AVRO_USER_SCHEMA }) }),
+	);
 	handler.handler((event) => event);
 
 	const event = {
@@ -341,20 +302,9 @@ test("Glue framing: zlib-compressed (0x05) payload is inflated", async () => {
 	const uuid = "abcdef01-1234-1234-1234-1234567890ab";
 	const framed = glueFramedBuffer(uuid, inner, 0x05);
 
-	const stubRegistry = () => ({
-		before: (request) => {
-			const schemas = new Map();
-			schemas.set(uuid, {
-				schemaDefinition: AVRO_USER_SCHEMA,
-				dataFormat: "AVRO",
-			});
-			request.internal["glue-schema-registry"] = { schemas, schema: undefined };
-		},
-	});
-
-	const handler = middy()
-		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseAvro() }));
+	const handler = middy().use(
+		eventBatchParser({ value: parseAvro({ schema: AVRO_USER_SCHEMA }) }),
+	);
 	handler.handler((event) => event);
 
 	const event = {
@@ -432,6 +382,60 @@ test("Unknown event source throws", async () => {
 	strictEqual(caught.cause.package, "@middy/event-batch-parser");
 });
 
+test("Glue framing: decompressed payload over cap throws 413", async () => {
+	const uuid = "11112222-1234-1234-1234-1234567890ab";
+	// 1 MiB of zeros deflates to ~1 KiB; with a 1 KiB cap it must reject.
+	const inner = Buffer.alloc(1024 * 1024, 0);
+	const framed = glueFramedBuffer(uuid, inner, 0x05);
+
+	const handler = middy().use(
+		eventBatchParser({
+			value: parseJson(),
+			maxDecompressedBytes: 1024,
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 413);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+	strictEqual(caught.cause.maxDecompressedBytes, 1024);
+});
+
+test("Glue framing: decompressed payload under cap succeeds", async () => {
+	const uuid = "22223333-1234-1234-1234-1234567890ab";
+	const inner = Buffer.from("hello");
+	const framed = glueFramedBuffer(uuid, inner, 0x05);
+
+	const handler = middy().use(
+		eventBatchParser({
+			value: (_buffer, _record, _request, framing) =>
+				framing.payload.toString("utf-8"),
+			maxDecompressedBytes: 64 * 1024,
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, "hello");
+});
+
 test("Glue framing: unsupported compression byte throws", async () => {
 	const uuid = "fedcba98-1234-1234-1234-1234567890ab";
 	const hex = uuid.replace(/-/g, "");
@@ -454,45 +458,29 @@ test("Glue framing: unsupported compression byte throws", async () => {
 	await rejects(() => handler(event, defaultContext), /0x99/);
 });
 
-test("parseAvro() throws TypeError when no schema and no internal slot", async () => {
-	const buf = buildAvroBuffer({ id: "u-x", name: "X" });
-	const handler = middy().use(eventBatchParser({ value: parseAvro() }));
-	handler.handler((event) => event);
-
-	const event = {
-		eventSource: "aws:kafka",
-		records: { "t-0": [{ value: buf.toString("base64") }] },
-	};
-
+test("parseAvro() throws TypeError when no schema and no contextKey supplied", async () => {
 	let caught;
 	try {
-		await handler(event, defaultContext);
+		parseAvro();
 	} catch (e) {
 		caught = e;
 	}
-	ok(caught);
-	strictEqual(caught.statusCode, 422);
-	ok(caught.cause.message.includes("glue-schema-registry"));
+	ok(caught instanceof TypeError);
+	ok(
+		caught.message.includes("schema") || caught.message.includes("contextKey"),
+	);
 });
 
-test("parseProtobuf() falls back to request.internal slot", async () => {
+test("parseProtobuf({ root, messageType }) decodes a record", async () => {
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
 	const buf = Type.encode(Type.create({ id: "u-9", name: "Ivy" })).finish();
 
-	const stubRegistry = () => ({
-		before: (request) => {
-			request.internal["glue-schema-registry"] = {
-				schemas: new Map(),
-				root,
-				messageType: "test.User",
-			};
-		},
-	});
-
-	const handler = middy()
-		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseProtobuf() }));
+	const handler = middy().use(
+		eventBatchParser({
+			value: parseProtobuf({ root, messageType: "test.User" }),
+		}),
+	);
 	handler.handler((event) => event);
 
 	const event = {
@@ -506,48 +494,46 @@ test("parseProtobuf() falls back to request.internal slot", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-9", name: "Ivy" });
 });
 
-test("parseProtobuf() resolves messageType from per-uuid schemas Map", async () => {
+test("parseProtobuf({ contextKey }) reads { root, messageType } from context", async () => {
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
-	const inner = Type.encode(Type.create({ id: "u-10", name: "Jay" })).finish();
-	const uuid = "11111111-2222-3333-4444-555555555555";
-	const framed = glueFramedBuffer(uuid, Buffer.from(inner));
+	const buf = Type.encode(Type.create({ id: "u-10", name: "Jay" })).finish();
 
 	const stubRegistry = () => ({
 		before: (request) => {
-			const schemas = new Map();
-			schemas.set(uuid, { messageType: "test.User", dataFormat: "PROTOBUF" });
-			request.internal["glue-schema-registry"] = { schemas, root };
+			request.context.userProto = { root, messageType: "test.User" };
 		},
 	});
 
 	const handler = middy()
 		.use(stubRegistry())
-		.use(eventBatchParser({ value: parseProtobuf() }));
+		.use(
+			eventBatchParser({ value: parseProtobuf({ contextKey: "userProto" }) }),
+		);
 	handler.handler((event) => event);
 
 	const event = {
 		eventSource: "aws:kafka",
-		records: { "t-0": [{ value: framed.toString("base64") }] },
+		records: { "t-0": [{ value: Buffer.from(buf).toString("base64") }] },
 	};
 
 	const out = await handler(event, defaultContext);
 	deepStrictEqual(out.records["t-0"][0].value, { id: "u-10", name: "Jay" });
 });
 
-test("parseProtobuf() throws TypeError when neither factory nor slot supplies root+messageType", async () => {
+test("parseProtobuf() throws when neither factory nor context supplies root+messageType", async () => {
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
 	const buf = Type.encode(Type.create({ id: "u-11", name: "Kim" })).finish();
 
-	const handler = middy().use(eventBatchParser({ value: parseProtobuf() }));
+	const handler = middy().use(
+		eventBatchParser({ value: parseProtobuf({ contextKey: "missing" }) }),
+	);
 	handler.handler((event) => event);
 
 	const event = {
 		eventSource: "aws:kafka",
-		records: {
-			"t-0": [{ value: Buffer.from(buf).toString("base64") }],
-		},
+		records: { "t-0": [{ value: Buffer.from(buf).toString("base64") }] },
 	};
 
 	let caught;
@@ -558,7 +544,7 @@ test("parseProtobuf() throws TypeError when neither factory nor slot supplies ro
 	}
 	ok(caught);
 	strictEqual(caught.statusCode, 422);
-	ok(caught.cause.message.includes("glue-schema-registry"));
+	ok(caught.cause.message.includes("missing"));
 });
 
 test("Kafka event with no records falls back to empty iterator", async () => {
@@ -670,24 +656,10 @@ test("parseAvro({ schema }) decodes a Glue-framed payload via _payload", async (
 	});
 });
 
-test("parseAvro/parseProtobuf accept buffer-only call (no record arg)", async () => {
+test("parseAvro/parseProtobuf accept buffer-only call (no record/framing args)", () => {
 	const avroBuf = buildAvroBuffer({ id: "z", name: "Z" });
 	const fnAvroStatic = parseAvro({ schema: AVRO_USER_SCHEMA });
-	deepStrictEqual(plain(await fnAvroStatic(avroBuf)), { id: "z", name: "Z" });
-
-	const fnAvroDyn = parseAvro();
-	const dynRequest = {
-		internal: {
-			"glue-schema-registry": {
-				schemas: new Map(),
-				schema: AVRO_USER_SCHEMA,
-			},
-		},
-	};
-	deepStrictEqual(plain(await fnAvroDyn(avroBuf, undefined, dynRequest)), {
-		id: "z",
-		name: "Z",
-	});
+	deepStrictEqual(plain(fnAvroStatic(avroBuf)), { id: "z", name: "Z" });
 
 	const root = buildProtobufRoot();
 	const Type = root.lookupType("test.User");
@@ -696,29 +668,6 @@ test("parseAvro/parseProtobuf accept buffer-only call (no record arg)", async ()
 	);
 	const fnProtoStatic = parseProtobuf({ root, messageType: "test.User" });
 	deepStrictEqual(fnProtoStatic(protoBuf), { id: "p", name: "P" });
-
-	const fnProtoDyn = parseProtobuf();
-	const protoDynRequest = {
-		internal: {
-			"glue-schema-registry": {
-				schemas: new Map(),
-				root,
-				messageType: "test.User",
-			},
-		},
-	};
-	deepStrictEqual(fnProtoDyn(protoBuf, undefined, protoDynRequest), {
-		id: "p",
-		name: "P",
-	});
-
-	let caught;
-	try {
-		parseProtobuf()(protoBuf, undefined, { internal: {} });
-	} catch (e) {
-		caught = e;
-	}
-	ok(caught instanceof TypeError);
 });
 
 test("Unknown source with no eventSource (data: null) throws", async () => {
@@ -778,7 +727,7 @@ test("Records with missing parser field are skipped (raw == null)", async () => 
 	deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
 });
 
-test("glueSchemaRegistry option resolves UUIDs via @middy/glue-schema-registry", async () => {
+test("End-to-end: glueSchemaRegistry({ setToContext }) feeds parseAvro({ contextKey })", async () => {
 	mockClient(GlueClient)
 		.on(GetSchemaVersionCommand)
 		.resolves({
@@ -791,16 +740,21 @@ test("glueSchemaRegistry option resolves UUIDs via @middy/glue-schema-registry",
 	const uuid = "22222222-3333-4444-5555-666666666666";
 	const framed = glueFramedBuffer(uuid, inner);
 
-	const handler = middy().use(
-		eventBatchParser({
-			value: parseAvro(),
-			glueSchemaRegistry: {
+	const handler = middy()
+		.use(
+			glueSchemaRegistry({
 				AwsClient: GlueClient,
+				fetchData: { userSchema: { SchemaVersionId: uuid } },
 				disablePrefetch: true,
 				cacheExpiry: 0,
-			},
-		}),
-	);
+				setToContext: true,
+			}),
+		)
+		.use(
+			eventBatchParser({
+				value: parseAvro({ contextKey: "userSchema" }),
+			}),
+		);
 	handler.handler((event) => event);
 
 	const event = {

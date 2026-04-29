@@ -1,11 +1,9 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import eventBatchParser, {
-	parseAvro,
-	parseJson,
-	parseProtobuf,
-	type RecordParser,
-} from "./index.js";
+import eventBatchParser, { type RecordParser } from "./index.js";
+import { parseAvro } from "./parseAvro.js";
+import { parseJson } from "./parseJson.js";
+import { parseProtobuf } from "./parseProtobuf.js";
 
 test("default export returns a MiddlewareObj", () => {
 	expect(eventBatchParser()).type.toBe<middy.MiddlewareObj>();
@@ -44,6 +42,13 @@ test("middleware accepts key/value/body/data parsers", () => {
 	expect(
 		eventBatchParser({
 			data: parseJson(),
+		}),
+	).type.toBe<middy.MiddlewareObj>();
+
+	expect(
+		eventBatchParser({
+			value: parseJson(),
+			maxDecompressedBytes: 1024,
 		}),
 	).type.toBe<middy.MiddlewareObj>();
 });

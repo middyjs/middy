@@ -1,6 +1,7 @@
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
-import middleware, { parseJson } from "./index.js";
+import middleware from "./index.js";
+import { parseJson } from "./parseJson.js";
 
 const bench = new Bench({
 	time: 1_000,

@@ -81,20 +81,6 @@ const optionSchema = {
 export const glueSchemaRegistryValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const buildSlot = (resolvedEntries) => {
-	const schemas = new Map();
-	let schema;
-	for (const entry of resolvedEntries) {
-		if (!entry?.schemaVersionId) continue;
-		schemas.set(entry.schemaVersionId, {
-			schemaDefinition: entry.schemaDefinition,
-			dataFormat: entry.dataFormat,
-		});
-		schema = entry.schemaDefinition;
-	}
-	return { schemas, schema };
-};
-
 const glueSchemaRegistryMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
@@ -144,17 +130,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 		}
 
 		const { value } = processCache(options, fetch, request);
-
-		// Sts/s3-style: each fetchData key as its own request.internal entry
 		Object.assign(request.internal, value);
-
-		// Resolve all entries (warm cache: synchronous; cold: awaited) and
-		// build the consolidated slot for event-batch-parser parser fallback.
-		const resolved = await Promise.all(
-			fetchDataKeys.map((k) => Promise.resolve(value[k])),
-		);
-		request.internal[pkg] = buildSlot(resolved);
-
 		if (options.setToContext) {
 			const data = await getInternal(fetchDataKeys, request);
 			Object.assign(request.context, data);
@@ -219,16 +195,7 @@ export const resolveSchemaVersion = async (
 	};
 
 	const { value } = processCache(cacheOptions, fetch);
-	const resolved = await value[schemaVersionId];
-
-	request.internal[pkg] ??= { schemas: new Map(), schema: undefined };
-	const slot = request.internal[pkg];
-	slot.schemas.set(resolved.schemaVersionId, {
-		schemaDefinition: resolved.schemaDefinition,
-		dataFormat: resolved.dataFormat,
-	});
-	slot.schema = resolved.schemaDefinition;
-	return resolved;
+	return value[schemaVersionId];
 };
 
 // Used for TS type inference (see index.d.ts)

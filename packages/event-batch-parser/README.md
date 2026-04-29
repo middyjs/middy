@@ -17,8 +17,8 @@
 npm install --save @middy/event-batch-parser
 
 # Pick the format(s) you actually use
-npm install --save avro-js        # for parseAvro
-npm install --save protobufjs     # for parseProtobuf
+npm install --save avro-js        # for @middy/event-batch-parser/parseAvro
+npm install --save protobufjs     # for @middy/event-batch-parser/parseProtobuf
 
 # Optional: dynamic schema lookup from AWS Glue Schema Registry
 npm install --save @middy/glue-schema-registry @aws-sdk/client-glue

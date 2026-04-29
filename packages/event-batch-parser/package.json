@@ -18,12 +18,36 @@
 				"types": "./index.d.ts",
 				"default": "./index.js"
 			}
+		},
+		"./parseJson": {
+			"import": {
+				"types": "./parseJson.d.ts",
+				"default": "./parseJson.js"
+			}
+		},
+		"./parseAvro": {
+			"import": {
+				"types": "./parseAvro.d.ts",
+				"default": "./parseAvro.js"
+			}
+		},
+		"./parseProtobuf": {
+			"import": {
+				"types": "./parseProtobuf.d.ts",
+				"default": "./parseProtobuf.js"
+			}
 		}
 	},
 	"types": "index.d.ts",
 	"files": [
 		"index.js",
-		"index.d.ts"
+		"index.d.ts",
+		"parseJson.js",
+		"parseJson.d.ts",
+		"parseAvro.js",
+		"parseAvro.d.ts",
+		"parseProtobuf.js",
+		"parseProtobuf.d.ts"
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",

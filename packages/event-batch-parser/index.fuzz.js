@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
-import middleware, { parseJson } from "./index.js";
+import middleware from "./index.js";
+import { parseJson } from "./parseJson.js";
 
 const handler = middy((event) => event).use(
 	middleware({ value: parseJson(), disableEventSourceError: true }),
