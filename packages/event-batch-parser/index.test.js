@@ -436,6 +436,37 @@ test("Glue framing: decompressed payload under cap succeeds", async () => {
 	strictEqual(out.records["t-0"][0].value, "hello");
 });
 
+test("Glue framing: malformed deflate stream rethrows underlying zlib error", async () => {
+	const uuid = "33334444-1234-1234-1234-1234567890ab";
+	const hex = uuid.replace(/-/g, "");
+	const uuidBytes = Buffer.from(hex, "hex");
+	// 0x05 marks zlib but the bytes that follow are not a valid deflate stream.
+	const framed = Buffer.concat([
+		Buffer.from([0x03, 0x05]),
+		uuidBytes,
+		Buffer.from([0xff, 0xff, 0xff, 0xff]),
+	]);
+	const handler = middy().use(
+		eventBatchParser({ value: parseAvro({ schema: AVRO_USER_SCHEMA }) }),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	// Not an HTTP 413; the cap wasn't breached, the stream was malformed.
+	strictEqual(caught.statusCode, undefined);
+});
+
 test("Glue framing: unsupported compression byte throws", async () => {
 	const uuid = "fedcba98-1234-1234-1234-1234567890ab";
 	const hex = uuid.replace(/-/g, "");
@@ -656,7 +687,7 @@ test("parseAvro({ schema }) decodes a Glue-framed payload via _payload", async (
 	});
 });
 
-test("parseAvro/parseProtobuf accept buffer-only call (no record/framing args)", () => {
+test("parseAvro/parseProtobuf/parseJson accept buffer-only call (no record/framing args)", () => {
 	const avroBuf = buildAvroBuffer({ id: "z", name: "Z" });
 	const fnAvroStatic = parseAvro({ schema: AVRO_USER_SCHEMA });
 	deepStrictEqual(plain(fnAvroStatic(avroBuf)), { id: "z", name: "Z" });
@@ -668,6 +699,120 @@ test("parseAvro/parseProtobuf accept buffer-only call (no record/framing args)",
 	);
 	const fnProtoStatic = parseProtobuf({ root, messageType: "test.User" });
 	deepStrictEqual(fnProtoStatic(protoBuf), { id: "p", name: "P" });
+
+	const fnJson = parseJson();
+	deepStrictEqual(fnJson(Buffer.from('{"j":1}')), { j: 1 });
+});
+
+test("parseAvro({ internalKey }) async-throws when entry missing on request.internal", async () => {
+	const buf = buildAvroBuffer({ id: "u-na", name: "NA" });
+	const handler = middy().use(
+		eventBatchParser({ value: parseAvro({ internalKey: "missingSchema" }) }),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: buf.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 422);
+	ok(caught.cause.message.includes("missingSchema"));
+});
+
+test("parseAvro({ internalKey }) direct call covers buffer-only and missing-internal branches", async () => {
+	const buf = buildAvroBuffer({ id: "u-d", name: "D" });
+	const fn = parseAvro({ internalKey: "k" });
+
+	// request.internal absent (?. short-circuit) → throws TypeError mentioning k
+	let caught;
+	try {
+		await fn(buf, undefined, {});
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	ok(caught.message.includes('"k"'));
+
+	// entry present without schemaDefinition → throws
+	let caught2;
+	try {
+		await fn(buf, undefined, { internal: { k: { foo: 1 } } });
+	} catch (e) {
+		caught2 = e;
+	}
+	ok(caught2 instanceof TypeError);
+
+	// entry has schemaDefinition, no framing arg → uses `?? buffer` branch
+	const out = await fn(buf, undefined, {
+		internal: { k: { schemaDefinition: AVRO_USER_SCHEMA } },
+	});
+	deepStrictEqual(plain(out), { id: "u-d", name: "D" });
+});
+
+test("parseProtobuf() direct call covers buffer-only and missing branches", async () => {
+	const root = buildProtobufRoot();
+	const Type = root.lookupType("test.User");
+	const protoBuf = Buffer.from(
+		Type.encode(Type.create({ id: "x", name: "X" })).finish(),
+	);
+
+	// internalKey set but request.internal missing → throws
+	const fn = parseProtobuf({ internalKey: "k" });
+	let caught;
+	try {
+		await fn(protoBuf, undefined, {});
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+
+	// entry has root but no messageType → still throws
+	const fn2 = parseProtobuf({ internalKey: "k" });
+	let caught2;
+	try {
+		await fn2(protoBuf, undefined, { internal: { k: { root } } });
+	} catch (e) {
+		caught2 = e;
+	}
+	ok(caught2 instanceof TypeError);
+
+	// entry has both → succeeds, exercises buffer-only (no framing) path
+	const fn3 = parseProtobuf({ internalKey: "k" });
+	const out = await fn3(protoBuf, undefined, {
+		internal: { k: { root, messageType: "test.User" } },
+	});
+	deepStrictEqual(out, { id: "x", name: "X" });
+});
+
+test("parseProtobuf() with no internalKey and no static config async-throws", async () => {
+	const root = buildProtobufRoot();
+	const Type = root.lookupType("test.User");
+	const buf = Type.encode(Type.create({ id: "u-q", name: "Q" })).finish();
+
+	const handler = middy().use(eventBatchParser({ value: parseProtobuf() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: Buffer.from(buf).toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 422);
 });
 
 test("Unknown source with no eventSource (data: null) throws", async () => {

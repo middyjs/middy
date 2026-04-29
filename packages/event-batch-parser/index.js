@@ -63,8 +63,8 @@ const eventBatchParserMiddleware = (opts = {}) => {
 		// receive it as a fourth arg.
 		for (const record of source.iterate(request.event)) {
 			for (const field of parserFields) {
-				const recordPath = source.fields[field];
-				const raw = getAtPath(record, recordPath);
+				const accessor = source.fields[field];
+				const raw = accessor.get(record);
 				if (raw == null) continue;
 				const buffer = Buffer.from(raw, "base64");
 				const framing = parseGlueFraming(buffer, maxDecompressedBytes);
@@ -82,7 +82,7 @@ const eventBatchParserMiddleware = (opts = {}) => {
 						},
 					});
 				}
-				setAtPath(record, recordPath, parsed);
+				accessor.set(record, parsed);
 			}
 		}
 	};
@@ -114,45 +114,77 @@ const rmqIter = function* (event) {
 	}
 };
 
-// Each entry: how to iterate records and which logical fields → record paths.
+// Each entry: how to iterate records and per-logical-field accessor pairs.
 // `value`, `body`, and `data` are internal aliases for the same payload field
 // on every source — undocumented, but accepted so users can use whichever name
-// reads naturally for their source without us repeating mappings in three places.
+// reads naturally for their source. Accessors are fixed functions (not string
+// paths) to keep property access static and avoid dynamic-key pollution risks.
+const accKey = {
+	get: (r) => r.key,
+	set: (r, v) => {
+		r.key = v;
+	},
+};
+const accValue = {
+	get: (r) => r.value,
+	set: (r, v) => {
+		r.value = v;
+	},
+};
+const accBody = {
+	get: (r) => r.body,
+	set: (r, v) => {
+		r.body = v;
+	},
+};
+const accData = {
+	get: (r) => r.data,
+	set: (r, v) => {
+		r.data = v;
+	},
+};
+const accKinesisData = {
+	get: (r) => r.kinesis?.data,
+	set: (r, v) => {
+		r.kinesis.data = v;
+	},
+};
+
 const sources = {
 	"aws:kafka": {
 		iterate: (event) => kafkaIter(event),
-		fields: { key: "key", value: "value", body: "value", data: "value" },
+		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
 	},
 	SelfManagedKafka: {
 		iterate: (event) => kafkaIter(event),
-		fields: { key: "key", value: "value", body: "value", data: "value" },
+		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
 	},
 	"aws:kinesis": {
 		iterate: (event) => arrayIter(event, "Records"),
 		fields: {
-			value: "kinesis.data",
-			body: "kinesis.data",
-			data: "kinesis.data",
+			value: accKinesisData,
+			body: accKinesisData,
+			data: accKinesisData,
 		},
 	},
 	// Kinesis Firehose
 	"aws:lambda:events": {
 		iterate: (event) => arrayIter(event, "records"),
-		fields: { value: "data", body: "data", data: "data" },
+		fields: { value: accData, body: accData, data: accData },
 	},
 	"aws:sqs": {
 		iterate: (event) => arrayIter(event, "Records"),
-		fields: { value: "body", body: "body", data: "body" },
+		fields: { value: accBody, body: accBody, data: accBody },
 	},
 	// MQ (ActiveMQ)
 	"aws:amq": {
 		iterate: (event) => arrayIter(event, "messages"),
-		fields: { value: "data", body: "data", data: "data" },
+		fields: { value: accData, body: accData, data: accData },
 	},
 	// MQ (RabbitMQ)
 	"aws:rmq": {
 		iterate: (event) => rmqIter(event),
-		fields: { value: "data", body: "data", data: "data" },
+		fields: { value: accData, body: accData, data: accData },
 	},
 };
 
@@ -164,29 +196,6 @@ const detectEventSource = (event) => {
 	}
 	if (event?.rmqMessagesByQueue) return "aws:rmq";
 	return undefined;
-};
-
-const getAtPath = (obj, path) => {
-	if (!path.includes(".")) return obj[path];
-	let cur = obj;
-	for (const part of path.split(".")) {
-		if (cur == null) return undefined;
-		cur = cur[part];
-	}
-	return cur;
-};
-
-const setAtPath = (obj, path, value) => {
-	if (!path.includes(".")) {
-		obj[path] = value;
-		return;
-	}
-	const parts = path.split(".");
-	let cur = obj;
-	for (let i = 0; i < parts.length - 1; i++) {
-		cur = cur[parts[i]];
-	}
-	cur[parts[parts.length - 1]] = value;
 };
 
 const decompress = (compressionByte, payload, maxOutputLength) => {

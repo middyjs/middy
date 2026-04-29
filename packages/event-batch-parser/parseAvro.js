@@ -19,7 +19,7 @@ export const parseAvro = (parserOpts = {}) => {
 		const schemaDefinition = entry?.schemaDefinition;
 		if (!schemaDefinition) {
 			throw new TypeError(
-				`parseAvro: request.internal["${internalKey}"] is unset — did glue-schema-registry run with a matching fetchData key?`,
+				`parseAvro: request.internal["${internalKey}"] is unset; did glue-schema-registry run with a matching fetchData key?`,
 			);
 		}
 		return avro.parse(schemaDefinition).fromBuffer(framing?.payload ?? buffer);
