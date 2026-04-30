@@ -1,4 +1,5 @@
 <script>
+import Seo from "@components/Seo.svelte";
 import H1 from "@design-system/components/Heading1.svelte";
 import LayoutAside from "@design-system/components/LayoutAside.svelte";
 import LayoutTableOfContents from "@design-system/components/LayoutTableOfContents.svelte";
@@ -11,12 +12,12 @@ import AsideNav from "./AsideNav.svelte";
 
 const { title = "Documentation", description = "", headings = [], children } = $props();
 </script>
-<svelte:head>
-	<title>{title} | Middy.js</title>
-	{#if description}
-		<meta name="description" content={description} />
-	{/if}
-</svelte:head>
+<Seo
+	{title}
+	{description}
+	type="article"
+	schemaType="TechArticle"
+/>
 <LayoutAside>
     {#snippet aside()}
       <AsideNav />

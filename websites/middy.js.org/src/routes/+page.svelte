@@ -1,4 +1,5 @@
 <script>
+import Seo from "@components/Seo.svelte";
 import Card from "@design-system/components/Card.svelte";
 import Codeblock from "@design-system/components/Codeblock.svelte";
 import H1 from "@design-system/components/Heading1.svelte";
@@ -51,13 +52,11 @@ export const handler = middy(lambdaHandler)
   .use(/* other behaviour */)`;
 </script>
 
-<svelte:head>
-    <title>Middy.js</title>
-    <meta
-        name="description"
-        content="The stylish Node.js middleware engine for AWS Lambda"
-    />
-</svelte:head>
+<Seo
+    title="Middy.js"
+    description="The stylish Node.js middleware engine for AWS Lambda"
+    schemaType="WebSite"
+/>
 <LayoutSlices>
     <Section class="slice hero vertical">
         <Div class="inline-center">
