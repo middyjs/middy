@@ -123,8 +123,22 @@ test("resolveRequestId honors X-Amzn-Trace-Id", () => {
 	);
 });
 
-test("resolveRequestId returns empty string when no trace header (no UUID generation)", () => {
+test("resolveRequestId returns empty string when no trace header and no override", () => {
 	strictEqual(resolveRequestId({}), "");
+});
+
+test("resolveRequestId calls override when no trace header", () => {
+	strictEqual(
+		resolveRequestId({}, () => "custom-id"),
+		"custom-id",
+	);
+});
+
+test("resolveRequestId prefers trace header over override", () => {
+	strictEqual(
+		resolveRequestId({ "x-amzn-trace-id": "Root=1-abc" }, () => "custom-id"),
+		"Root=1-abc",
+	);
 });
 
 test("buildContext exposes Lambda-shaped fields", () => {
@@ -375,6 +389,19 @@ const startWith = (overrides = {}) =>
 			...overrides,
 		}),
 	);
+
+test("integration: contextOverride.awsRequestId overrides resolved requestId", async () => {
+	let calls = 0;
+	const { url, close } = await startWith({
+		contextOverride: {
+			awsRequestId: () => `custom-${++calls}`,
+		},
+	});
+	const res = await fetch(`${url}/`);
+	const body = await res.json();
+	strictEqual(body.requestContext.requestId, "custom-1");
+	await close();
+});
 
 test("integration: GET v2 returns event with merged requestContext", async () => {
 	const { url, close } = await startWith();

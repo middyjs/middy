@@ -34,6 +34,11 @@ export interface EcsHttpRunnerOptions<
 	workers?: number;
 	timeout?: number;
 	bodyLimit?: number;
+	contextOverride?: {
+		awsRequestId?: (
+			headers: Record<string, string | string[] | undefined>,
+		) => string;
+	};
 }
 
 declare function ecsHttpRunner<

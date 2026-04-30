@@ -11,6 +11,9 @@ export interface EcsTaskRunnerOptions<TEvent = unknown, TResult = unknown> {
 	stopTimeout?: number;
 	onSuccess?: (result: TResult, context: Context) => void | Promise<void>;
 	onFailure?: (error: unknown, context: Context) => void | Promise<void>;
+	contextOverride?: {
+		awsRequestId?: (event: TEvent) => string;
+	};
 }
 
 declare function ecsTaskRunner<TEvent = unknown, TResult = unknown>(

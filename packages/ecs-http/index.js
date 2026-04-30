@@ -26,6 +26,13 @@ const optionSchema = {
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		bodyLimit: { type: "integer", minimum: 0 },
+		contextOverride: {
+			type: "object",
+			properties: {
+				awsRequestId: { instanceof: "Function" },
+			},
+			additionalProperties: false,
+		},
 	},
 	required: ["handler"],
 	additionalProperties: false,
@@ -125,10 +132,8 @@ export const resolveSourceIp = (headers, socketAddress) => {
 // Behind ALB / API Gateway, every request carries `X-Amzn-Trace-Id`. We use it
 // as the request ID for free correlation with X-Ray and CloudWatch logs.
 // When absent (typically only in local dev or behind a non-AWS load balancer),
-// we deliberately do not generate a UUID: minting one per request burns
-// ~500 ns of CPU that real handlers can use, and any operator that wants a
-// requestId can wire one in via middleware.
-export const resolveRequestId = (headers) => headers["x-amzn-trace-id"] ?? "";
+export const resolveRequestId = (headers, override) =>
+	headers["x-amzn-trace-id"] ?? override?.(headers) ?? "";
 
 const parseCookies = (cookieHeader) => {
 	if (!cookieHeader) return undefined;
@@ -387,8 +392,10 @@ export const createRequestHandler = ({
 	timeout,
 	bodyLimit,
 	invokedFunctionArn,
+	contextOverride,
 }) => {
 	const buildEvent = eventBuilders[eventVersion];
+	const requestIdOverride = contextOverride?.awsRequestId;
 	return async (req, res) => {
 		const requestStart = Date.now();
 		try {
@@ -400,7 +407,7 @@ export const createRequestHandler = ({
 			const isBase64Encoded =
 				hasBody && !isTextContentType(headers["content-type"]);
 			const sourceIp = resolveSourceIp(headers, req.socket?.remoteAddress);
-			const requestId = resolveRequestId(headers);
+			const requestId = resolveRequestId(headers, requestIdOverride);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
 				req,
@@ -448,6 +455,7 @@ export const runWorker = async (options, deps = {}) => {
 		timeout: options.timeout,
 		bodyLimit: options.bodyLimit,
 		invokedFunctionArn,
+		contextOverride: options.contextOverride,
 	});
 	const server = httpImpl.createServer(requestHandler);
 	// Tune keep-alive so behind-ALB sockets aren't recycled prematurely. ALB's

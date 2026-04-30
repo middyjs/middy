@@ -19,6 +19,9 @@ export interface RunnerOptions<TEvent = unknown, TResult = unknown> {
 	timeout?: number;
 	gracefulShutdownMs?: number;
 	onError?: (error: Error, event: TEvent) => void;
+	contextOverride?: {
+		awsRequestId?: () => string;
+	};
 }
 
 declare function ecsBatchRunner<TEvent = unknown, TResult = unknown>(

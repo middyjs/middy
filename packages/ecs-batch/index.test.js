@@ -173,6 +173,39 @@ test("fetchEcsMetadata handles missing TaskARN and Revision", async () => {
 
 // --- runPollLoop ------------------------------------------------------------
 
+test("runPollLoop uses contextOverride.awsRequestId when provided", async () => {
+	const events = [{ Records: [1] }];
+	const poller = stubPoller(events);
+	let captured;
+	await runPollLoop({
+		poller,
+		handler: async (_event, context) => {
+			captured = context;
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+		contextOverride: { awsRequestId: () => "custom-id" },
+	});
+	strictEqual(captured.awsRequestId, "custom-id");
+});
+
+test("runPollLoop tolerates contextOverride without awsRequestId", async () => {
+	const poller = stubPoller([{ Records: [1] }]);
+	let captured;
+	await runPollLoop({
+		poller,
+		handler: async (_e, ctx) => {
+			captured = ctx;
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+		contextOverride: {},
+	});
+	strictEqual(captured.awsRequestId, "");
+});
+
 test("runPollLoop invokes handler then acknowledge per event", async () => {
 	const events = [{ Records: [1] }, { Records: [2] }];
 	const poller = stubPoller(events);
@@ -192,6 +225,38 @@ test("runPollLoop invokes handler then acknowledge per event", async () => {
 	deepStrictEqual(calls, events);
 	strictEqual(poller.acked.length, 2);
 	deepStrictEqual(poller.acked[0].response, { batchItemFailures: [] });
+});
+
+test("runPollLoop awsRequestId is empty string by default", async () => {
+	const poller = stubPoller([{ Records: [1] }]);
+	let captured;
+	await runPollLoop({
+		poller,
+		handler: async (_event, context) => {
+			captured = context;
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+	});
+	strictEqual(captured.awsRequestId, "");
+});
+
+test("runPollLoop uses contextOverride.awsRequestId when provided", async () => {
+	const poller = stubPoller([{ Records: [1] }]);
+	let n = 0;
+	let captured;
+	await runPollLoop({
+		poller,
+		handler: async (_event, context) => {
+			captured = context;
+			return { batchItemFailures: [] };
+		},
+		timeout: 1000,
+		signal: new AbortController().signal,
+		contextOverride: { awsRequestId: () => `id-${++n}` },
+	});
+	strictEqual(captured.awsRequestId, "id-1");
 });
 
 test("runPollLoop skips acknowledge on handler throw", async () => {

@@ -321,7 +321,7 @@ test("ecsTaskRunner SIGTERM forces exit(124) after stopTimeout when handler hang
 	await runPromise;
 });
 
-test("ecsTaskRunner falls back to randomUUID when taskArn has no slash", async () => {
+test("ecsTaskRunner awsRequestId is empty string when taskArn has no slash and no override", async () => {
 	let captured;
 	const { deps } = makeDeps({
 		env: {
@@ -337,11 +337,10 @@ test("ecsTaskRunner falls back to randomUUID when taskArn has no slash", async (
 		},
 		deps,
 	);
-	// taskIdFromArn returns undefined when no slash, so randomUUID is used.
-	ok(captured.awsRequestId.length >= 36);
+	strictEqual(captured.awsRequestId, "");
 });
 
-test("ecsTaskRunner generates randomUUID when no ECS metadata", async () => {
+test("ecsTaskRunner awsRequestId is empty string when no ECS metadata and no override", async () => {
 	let captured;
 	const { deps } = makeDeps({
 		env: { MIDDY_ECS_TASK_EVENT: "{}" },
@@ -354,8 +353,27 @@ test("ecsTaskRunner generates randomUUID when no ECS metadata", async () => {
 		},
 		deps,
 	);
-	ok(captured.awsRequestId.length >= 36);
+	strictEqual(captured.awsRequestId, "");
 	strictEqual(captured.invokedFunctionArn, undefined);
+});
+
+test("ecsTaskRunner uses contextOverride.awsRequestId when no taskArn id", async () => {
+	let captured;
+	const { deps } = makeDeps({
+		env: { MIDDY_ECS_TASK_EVENT: '{"foo":"bar"}' },
+	});
+	await ecsTaskRunner(
+		{
+			handler: async (_event, context) => {
+				captured = context;
+			},
+			contextOverride: {
+				awsRequestId: (event) => `req-${event.foo}`,
+			},
+		},
+		deps,
+	);
+	strictEqual(captured.awsRequestId, "req-bar");
 });
 
 test("ecsTaskRunner uses default deps when none provided", async () => {

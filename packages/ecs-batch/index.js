@@ -1,7 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import cluster from "node:cluster";
-import { randomUUID } from "node:crypto";
 import { availableParallelism } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { validateOptions } from "@middy/util";
@@ -31,6 +30,13 @@ const optionSchema = {
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		gracefulShutdownMs: { type: "integer", minimum: 0 },
+		contextOverride: {
+			type: "object",
+			properties: {
+				awsRequestId: { instanceof: "Function" },
+			},
+			additionalProperties: false,
+		},
 	},
 	required: ["handler", "poller"],
 	additionalProperties: false,
@@ -110,11 +116,12 @@ export const runPollLoop = async ({
 	invokedFunctionArn,
 	signal,
 	onError,
+	contextOverride,
 }) => {
 	for await (const event of poller.poll(signal)) {
 		if (signal.aborted) break;
 		const batchStart = Date.now();
-		const awsRequestId = randomUUID();
+		const awsRequestId = contextOverride?.awsRequestId?.() ?? "";
 		const context = buildContext({
 			timeout,
 			batchStart,
@@ -174,6 +181,7 @@ export const runWorker = async (options, deps = {}) => {
 		invokedFunctionArn,
 		signal: abortController.signal,
 		onError: options.onError,
+		contextOverride: options.contextOverride,
 	});
 	const onSigterm = () =>
 		drainAndExit({
