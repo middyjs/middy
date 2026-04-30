@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { createError, validateOptions } from "@middy/util";
 
+const name = "validator";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	eventSchema: undefined,
 	contextSchema: undefined,
@@ -26,7 +29,7 @@ const optionSchema = {
 };
 
 export const validatorValidateOptions = (options) =>
-	validateOptions("@middy/validator", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const validatorMiddleware = (opts = {}) => {
 	const {
@@ -50,7 +53,7 @@ const validatorMiddleware = (opts = {}) => {
 				// Bad Request
 				throw createError(400, "Event object failed validation", {
 					cause: {
-						package: "@middy/validator",
+						package: pkg,
 						data: eventSchema.errors,
 					},
 				});
@@ -64,7 +67,7 @@ const validatorMiddleware = (opts = {}) => {
 				// Internal Server Error
 				throw createError(500, "Context object failed validation", {
 					cause: {
-						package: "@middy/validator",
+						package: pkg,
 						data: contextSchema.errors,
 					},
 				});
@@ -79,7 +82,7 @@ const validatorMiddleware = (opts = {}) => {
 			// Internal Server Error
 			throw createError(500, "Response object failed validation", {
 				cause: {
-					package: "@middy/validator",
+					package: pkg,
 					data: responseSchema.errors,
 				},
 			});

@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: MIT
 import { createError, validateOptions } from "@middy/util";
 
+const name = "ws-router";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ routeKey }) => {
 		const err = createError(404, "Route does not exist", {
-			cause: { package: "@middy/ws-router", data: { routeKey } },
+			cause: { package: pkg, data: { routeKey } },
 		});
 		throw err;
 	},
@@ -34,7 +37,7 @@ const optionSchema = {
 };
 
 export const wsRouterValidateOptions = (options) =>
-	validateOptions("@middy/ws-router", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const wsRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {
@@ -58,7 +61,7 @@ const wsRouteHandler = (opts = {}) => {
 				400,
 				"Unknown WebSocket event format: missing 'requestContext.routeKey'",
 				{
-					cause: { package: "@middy/ws-router", data: { routeKey } },
+					cause: { package: pkg, data: { routeKey } },
 				},
 			);
 		}

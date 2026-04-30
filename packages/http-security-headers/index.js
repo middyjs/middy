@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
+const name = "http-security-headers";
+const pkg = `@middy/${name}`;
+
 // Each policy option accepts either a config object or a boolean (true = use
 // defaults, false = disable). See middleware body for enable/disable logic.
 
@@ -98,7 +101,7 @@ const optionSchema = {
 };
 
 export const httpSecurityHeadersValidateOptions = (options) =>
-	validateOptions("@middy/http-security-headers", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 // Code and Defaults heavily based off https://helmetjs.github.io/
 

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/input-output-logger",
-	"version": "7.3.3",
+	"version": "7.3.4",
 	"description": "Input and output logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,11 +62,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.3.3"
+		"@middy/util": "7.3.4"
 	},
 	"devDependencies": {
 		"@datastream/core": "0.4.0",
-		"@middy/core": "7.3.3",
+		"@middy/core": "7.3.4",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

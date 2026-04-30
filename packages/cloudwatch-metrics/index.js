@@ -4,6 +4,9 @@
 import { validateOptions } from "@middy/util";
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
+const name = "cloudwatch-metrics";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	onFlushError: undefined,
 };
@@ -29,7 +32,7 @@ const optionSchema = {
 };
 
 export const cloudwatchMetricsValidateOptions = (options) =>
-	validateOptions("@middy/cloudwatch-metrics", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
 	const { namespace, dimensions, onFlushError } = { ...defaults, ...opts };

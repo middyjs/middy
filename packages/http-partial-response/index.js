@@ -7,6 +7,9 @@ import {
 } from "@middy/util";
 import mask from "json-mask";
 
+const name = "http-partial-response";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	filteringKeyName: "fields",
 };
@@ -20,7 +23,7 @@ const optionSchema = {
 };
 
 export const httpPartialResponseValidateOptions = (options) =>
-	validateOptions("@middy/http-partial-response", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpPartialResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

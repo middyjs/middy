@@ -13,6 +13,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "sts";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: STSClient,
 	awsClientOptions: {},
@@ -20,7 +23,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
 	disablePrefetch: false,
-	cacheKey: "sts",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -67,7 +70,7 @@ const optionSchema = {
 };
 
 export const stsValidateOptions = (options) =>
-	validateOptions("@middy/sts", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const stsMiddleware = (opts = {}) => {
 	const options = {

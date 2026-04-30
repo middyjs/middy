@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { createError, decodeBody, validateOptions } from "@middy/util";
 
+const name = "http-urlencode-body-parser";
+const pkg = `@middy/${name}`;
+
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
 const defaults = {
 	disableContentTypeCheck: false,
@@ -18,7 +21,7 @@ const optionSchema = {
 };
 
 export const httpUrlencodeBodyParserValidateOptions = (options) =>
-	validateOptions("@middy/http-urlencode-body-parser", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
@@ -33,7 +36,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			}
 			throw createError(415, "Unsupported Media Type", {
 				cause: {
-					package: "@middy/http-urlencode-body-parser",
+					package: pkg,
 					data: contentType,
 				},
 			});
@@ -56,7 +59,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			throw createError(
 				422,
 				"Invalid or malformed URL encoded form was provided",
-				{ cause: { package: "@middy/http-urlencode-body-parser", data: body } },
+				{ cause: { package: pkg, data: body } },
 			);
 		}
 

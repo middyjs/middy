@@ -1,5 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import { gzipSync } from "node:zlib";
 import createEvent from "@serverless/event-mocks";
 import middy from "../core/index.js";
 import eventNormalizer, { eventNormalizerValidateOptions } from "./index.js";
@@ -28,8 +29,8 @@ test("It should skip when unknown event", async (t) => {
 
 // Events //
 
-// CloudWatch Logs
-test("It should parse CloudWatch logs event", async (t) => {
+// CodePipeline
+test("It should parse CodePipeline event", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());
 
 	const userParameters = { key: "value" };
@@ -89,8 +90,8 @@ test("It should parse CloudWatch logs event", async (t) => {
 	);
 });
 
-// CodePipeline
-test("It should parse CodePipeline event", async (t) => {
+// CloudWatch Logs
+test("It should parse CloudWatch Logs event (gzip + base64)", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());
 
 	const eventJSON = {
@@ -110,7 +111,7 @@ test("It should parse CodePipeline event", async (t) => {
 	};
 	const event = {
 		awslogs: {
-			data: Buffer.from(JSON.stringify(eventJSON), "utf-8").toString("base64"),
+			data: gzipSync(JSON.stringify(eventJSON)).toString("base64"),
 		},
 	};
 
@@ -274,6 +275,118 @@ test("It should catch DynamoDB event with unknown type", async (t) => {
 		strictEqual(e.message, "Unsupported type passed: J");
 		strictEqual(e.cause.package, "@middy/event-normalizer");
 	}
+});
+
+// CodeCommit
+test("It should pass CodeCommit event through unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:codecommit",
+				eventVersion: "1.0",
+				eventTime: "2016-01-01T23:59:59.000+0000",
+				eventTriggerName: "my-trigger",
+				eventPartNumber: 1,
+				codecommit: {
+					references: [
+						{
+							commit: "5c4ef1049f1d4a3290a88caf58c1d2c5e98e3a1e",
+							ref: "refs/heads/main",
+						},
+					],
+				},
+				eventName: "ReferenceChanges",
+				eventTotalParts: 1,
+				eventSourceARN: "arn:aws:codecommit:us-east-1:123456789012:my-repo",
+				awsRegion: "us-east-1",
+			},
+		],
+	};
+	const original = JSON.parse(JSON.stringify(event));
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, original);
+});
+
+// SES
+test("It should pass SES event through unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventVersion: "1.0",
+				ses: {
+					mail: {
+						commonHeaders: {
+							from: ["sender@example.com"],
+							to: ["recipient@example.com"],
+							subject: "Test",
+						},
+						source: "sender@example.com",
+						timestamp: "1970-01-01T00:00:00.000Z",
+						destination: ["recipient@example.com"],
+						headers: [],
+						headersTruncated: false,
+						messageId: "o3vrnil0e2ic28trm7dfhrc2v0clambda4nbp0g1",
+					},
+					receipt: {
+						recipients: ["recipient@example.com"],
+						timestamp: "1970-01-01T00:00:00.000Z",
+						spamVerdict: { status: "PASS" },
+						dkimVerdict: { status: "PASS" },
+						processingTimeMillis: 574,
+						action: { type: "Lambda", invocationType: "Event" },
+						spfVerdict: { status: "PASS" },
+						virusVerdict: { status: "PASS" },
+					},
+				},
+				eventSource: "aws:ses",
+			},
+		],
+	};
+	const original = JSON.parse(JSON.stringify(event));
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, original);
+});
+
+// DocumentDB
+test("It should pass DocumentDB change event through unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		eventSourceArn:
+			"arn:aws:rds:us-east-1:123456789012:cluster:my-docdb-cluster",
+		events: [
+			{
+				event: {
+					_id: { _data: "0163eeb6e7000000090100000009000041e1" },
+					clusterTime: { $timestamp: { t: 1676588775, i: 9 } },
+					documentKey: {
+						_id: { $oid: "63eeb6e7d418cd98afb1c1d7" },
+						_id_copy: 1,
+					},
+					fullDocument: {
+						_id: { $oid: "63eeb6e7d418cd98afb1c1d7" },
+						value: "Hello world",
+					},
+					ns: { db: "test", coll: "products" },
+					operationType: "insert",
+				},
+				eventSource: "aws:docdb",
+				eventSourceArn:
+					"arn:aws:rds:us-east-1:123456789012:cluster:my-docdb-cluster",
+				eventVersion: "1.0",
+			},
+		],
+	};
+	const original = JSON.parse(JSON.stringify(event));
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, original);
 });
 
 // Apache Kafka

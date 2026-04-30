@@ -10,12 +10,15 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "rds-signer";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: Signer,
 	awsClientOptions: {},
 	fetchData: {},
 	disablePrefetch: false,
-	cacheKey: "rds-signer",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -52,7 +55,7 @@ const optionSchema = {
 };
 
 export const rdsSignerValidateOptions = (options) =>
-	validateOptions("@middy/rds-signer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const rdsSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -74,7 +77,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 					// Catch Missing token, this usually means there is something wrong with the credentials
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: "@middy/rds-signer" },
+							cause: { package: pkg },
 						});
 					}
 					return token;

@@ -18,6 +18,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "secrets-manager";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: SecretsManagerClient,
 	awsClientOptions: {},
@@ -26,7 +29,7 @@ const defaults = {
 	fetchData: {},
 	fetchRotationDate: false, // true: apply to all or {key: true} for individual
 	disablePrefetch: false,
-	cacheKey: "secrets-manager",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1, // ignored when fetchRotationRules is true/object
 	setToContext: false,
@@ -62,7 +65,7 @@ const optionSchema = {
 };
 
 export const secretsManagerValidateOptions = (options) =>
-	validateOptions("@middy/secrets-manager", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const secretsManagerMiddleware = (opts = {}) => {
 	const options = {

@@ -10,6 +10,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "input-output-logger";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	logger: (message) => {
 		console.log(JSON.stringify(message));
@@ -33,7 +36,7 @@ const optionSchema = {
 };
 
 export const inputOutputLoggerValidateOptions = (options) =>
-	validateOptions("@middy/input-output-logger", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const inputOutputLoggerMiddleware = (opts = {}) => {
 	const { logger, executionContext, lambdaContext, omitPaths, mask } = {

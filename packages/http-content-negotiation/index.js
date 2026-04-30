@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { createError, validateOptions } from "@middy/util";
 
+const name = "http-content-negotiation";
+const pkg = `@middy/${name}`;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -29,7 +32,7 @@ const optionSchema = {
 };
 
 export const httpContentNegotiationValidateOptions = (options) =>
-	validateOptions("@middy/http-content-negotiation", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 import charset from "negotiator/lib/charset.js";
 import encoding from "negotiator/lib/encoding.js";
@@ -141,7 +144,7 @@ const parseHeader = (
 				`Unsupported ${type}. Acceptable values: ${availableValues.join(", ")}`,
 				{
 					cause: {
-						package: "@middy/http-content-negotiation",
+						package: pkg,
 						data: { [headerName]: headerValue },
 					},
 				},

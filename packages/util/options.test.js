@@ -566,11 +566,91 @@ describe("validateOptions maximum", () => {
 	});
 });
 
+describe("validateOptions exclusiveMinimum", () => {
+	test("accepts value above exclusiveMinimum", () => {
+		validateOptions(
+			"@middy/test",
+			{ n: { type: "integer", exclusiveMinimum: 0 } },
+			{ n: 1 },
+		);
+	});
+
+	test("rejects value at exclusiveMinimum boundary", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "integer", exclusiveMinimum: 0 } },
+				{ n: 0 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("n"));
+			ok(e.message.includes("0"));
+		}
+	});
+});
+
+describe("validateOptions exclusiveMaximum", () => {
+	test("accepts value below exclusiveMaximum", () => {
+		validateOptions(
+			"@middy/test",
+			{ n: { type: "integer", exclusiveMaximum: 10 } },
+			{ n: 9 },
+		);
+	});
+
+	test("rejects value at exclusiveMaximum boundary", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "integer", exclusiveMaximum: 10 } },
+				{ n: 10 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("n"));
+			ok(e.message.includes("10"));
+		}
+	});
+});
+
+describe("validateOptions multipleOf", () => {
+	test("accepts integer multiple", () => {
+		validateOptions(
+			"@middy/test",
+			{ n: { type: "integer", multipleOf: 5 } },
+			{ n: 15 },
+		);
+	});
+
+	test("accepts fractional multiple", () => {
+		validateOptions(
+			"@middy/test",
+			{ n: { type: "number", multipleOf: 0.5 } },
+			{ n: 1.5 },
+		);
+	});
+
+	test("rejects non-multiple", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "integer", multipleOf: 5 } },
+				{ n: 7 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("n"));
+			ok(e.message.includes("5"));
+		}
+	});
+});
+
 describe("validateOptions pattern", () => {
 	test("accepts string matching pattern", () => {
 		validateOptions(
 			"@middy/test",
-			{ path: { type: "string", pattern: "^/" } },
+			{ path: { type: "string", pattern: /^\// } },
 			{ path: "/foo" },
 		);
 	});
@@ -579,7 +659,7 @@ describe("validateOptions pattern", () => {
 		try {
 			validateOptions(
 				"@middy/test",
-				{ path: { type: "string", pattern: "^/" } },
+				{ path: { type: "string", pattern: /^\// } },
 				{ path: "foo" },
 			);
 			ok(false, "expected throw");
@@ -677,8 +757,8 @@ describe("validateOptions allOf", () => {
 	const schema = {
 		path: {
 			allOf: [
-				{ type: "string", pattern: "^/" },
-				{ type: "string", pattern: "^(/|.*[^/])$" },
+				{ type: "string", pattern: /^\// },
+				{ type: "string", pattern: /^(\/|.*[^/])$/ },
 			],
 		},
 	};

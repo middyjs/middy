@@ -9,12 +9,15 @@ These middleware focus on common use cases when using Lambda with other AWS serv
 
 Each middleware should do a single task. We try to balance each to be as performant as possible while meeting the majority of developer needs.
 
-## Misc
+## Observability
 
 - [`cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics): Hydrates lambda's `context.metrics` property with an instance of AWS MetricLogger
-- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`error-logger`](/docs/middlewares/error-logger): Logs errors
 - [`input-output-logger`](/docs/middlewares/input-output-logger): Logs request and response
+
+## Lifecycle
+
+- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
 - [`warmup`](/docs/middlewares/warmup): Used to pre-warm a lambda function
 
 ## Request Transformation
@@ -39,7 +42,8 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-security-headers`](/docs/middlewares/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/docs/middlewares/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/docs/middlewares/http-response-serializer): HTTP response serializer.
-- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches.
+- [`event-partial-batch-failure`](/docs/middlewares/event-partial-batch-failure): Shapes Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch Operations, Kinesis Firehose).
+- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches (superseded by `event-partial-batch-failure`).
 - [`ws-response`](/docs/middlewares/ws-response): Forwards response to WebSocket endpoint.
 
 ## Fetch Data
