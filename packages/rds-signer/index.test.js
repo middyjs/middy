@@ -323,7 +323,7 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 		strictEqual(e.message, "Failed to resolve internal values");
 		deepStrictEqual(e.cause.data, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer" },
+				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
 			}),
 		]);
 	}

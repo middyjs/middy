@@ -49,6 +49,7 @@ Each middleware should do a single task. We try to balance each to be as perform
 ## Fetch Data
 
 - [`appconfig`](/docs/middlewares/appconfig): Fetch JSON configurations from AppConfig.
+- [`dsql-signer`](/docs/middlewares/dsql-signer): Fetches token for connecting to Aurora DSQL with IAM users.
 - [`dynamodb`](/docs/middlewares/dynamodb): Fetch configurations from DynamoDB.
 - [`rds-signer`](/docs/middlewares/rds-signer): Fetches token for connecting to RDS with IAM users.
 - [`s3`](/docs/middlewares/s3): Fetch JSON configurations from S3.
