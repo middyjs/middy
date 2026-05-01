@@ -15,6 +15,9 @@ import {
 } from "node:zlib";
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
+const name = "http-content-encoding";
+const pkg = `@middy/${name}`;
+
 const encoderOption = {
 	oneOf: [{ type: "boolean" }, { type: "object" }],
 };
@@ -35,7 +38,7 @@ const optionSchema = {
 };
 
 export const httpContentEncodingValidateOptions = (options) =>
-	validateOptions("@middy/http-content-encoding", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const contentEncodingStreams = {
 	br: brotliCompressStream,

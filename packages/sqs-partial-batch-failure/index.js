@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "sqs-partial-batch-failure";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	logger: console.error,
 };
@@ -15,7 +18,7 @@ const optionSchema = {
 };
 
 export const sqsPartialBatchFailureValidateOptions = (options) =>
-	validateOptions("@middy/sqs-partial-batch-failure", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger } = { ...defaults, ...opts };

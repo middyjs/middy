@@ -1,4 +1,5 @@
 <script>
+import Seo from "@components/Seo.svelte";
 import Card from "@design-system/components/Card.svelte";
 import H1 from "@design-system/components/Heading1.svelte";
 import H2 from "@design-system/components/Heading2.svelte";
@@ -15,10 +16,10 @@ const { data } = page;
 const { results } = data;
 </script>
 
-<svelte:head>
-    <title>Search | Middy.js</title>
-    <meta name="description" content="Search the Middy.js documentation for middlewares, events, and guides." />
-</svelte:head>
+<Seo
+    title="Search"
+    description="Search the Middy.js documentation for middlewares, events, and guides."
+/>
 <LayoutCenter>
     <Section>
         <H1>Search results</H1>

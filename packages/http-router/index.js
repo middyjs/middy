@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: MIT
 import { createError, validateOptions } from "@middy/util";
 
+const name = "http-router";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ method, path }) => {
 		const err = createError(404, "Route does not exist", {
-			cause: { package: "@middy/http-router", data: { method, path } },
+			cause: { package: pkg, data: { method, path } },
 		});
 		throw err;
 	},
@@ -43,7 +46,7 @@ const optionSchema = {
 };
 
 export const httpRouterValidateOptions = (options) =>
-	validateOptions("@middy/http-router", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpRouteHandler = (opts = {}) => {
 	let options;
@@ -62,7 +65,7 @@ const httpRouteHandler = (opts = {}) => {
 		// Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
 		if (!enumMethods.includes(method)) {
 			throw new Error("Method not allowed", {
-				cause: { package: "@middy/http-router", data: { method } },
+				cause: { package: pkg, data: { method } },
 			});
 		}
 
@@ -88,7 +91,7 @@ const httpRouteHandler = (opts = {}) => {
 			throw new Error(
 				"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
 				{
-					cause: { package: "@middy/http-router", data: { method } },
+					cause: { package: pkg, data: { method } },
 				},
 			);
 		}
@@ -96,7 +99,7 @@ const httpRouteHandler = (opts = {}) => {
 			throw new Error(
 				"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
 				{
-					cause: { package: "@middy/http-router", data: { path } },
+					cause: { package: pkg, data: { path } },
 				},
 			);
 		}

@@ -10,12 +10,15 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "rds-signer";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: Signer,
 	awsClientOptions: {},
 	fetchData: {},
 	disablePrefetch: false,
-	cacheKey: "rds-signer",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -35,7 +38,7 @@ const optionSchema = {
 					port: { type: "integer", minimum: 1, maximum: 65535 },
 					username: { type: "string" },
 				},
-				required: ["hostname", "port", "username"],
+				required: [],
 				additionalProperties: true,
 			},
 		},
@@ -52,10 +55,22 @@ const optionSchema = {
 };
 
 export const rdsSignerValidateOptions = (options) =>
-	validateOptions("@middy/rds-signer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const rdsSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+
+	const defaultFetchData = {
+		hostname: process.env.PGHOST ?? process.env.DBHOST,
+		port: Number.parseInt(
+			process.env.PGPORT ?? process.env.DBPORT ?? "5432",
+			10,
+		),
+		username: process.env.PGUSER ?? process.env.DBUSER,
+	};
+	for (const key of Object.keys(options.fetchData)) {
+		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const clients = {};
@@ -64,17 +79,19 @@ const rdsSignerMiddleware = (opts = {}) => {
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
+			const signerConfig = options.fetchData[internalKey];
 			clients[internalKey] ??= new options.AwsClient({
 				...options.awsClientOptions,
-				...options.fetchData[internalKey],
+				...signerConfig,
 			});
+			const method = "getAuthToken";
 			values[internalKey] = clients[internalKey]
-				.getAuthToken()
+				[method]()
 				.then((token) => {
 					// Catch Missing token, this usually means there is something wrong with the credentials
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: "@middy/rds-signer" },
+							cause: { package: pkg, method },
 						});
 					}
 					return token;

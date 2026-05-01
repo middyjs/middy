@@ -15,6 +15,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "s3";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: S3Client,
 	awsClientOptions: {},
@@ -22,7 +25,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {},
 	disablePrefetch: false,
-	cacheKey: "s3",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -68,7 +71,7 @@ const optionSchema = {
 };
 
 export const s3ValidateOptions = (options) =>
-	validateOptions("@middy/s3", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const s3Middleware = (opts = {}) => {
 	const options = {
 		...defaults,

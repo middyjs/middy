@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: MIT
 import { validateOptions } from "@middy/util";
 
+const name = "cloudformation-router";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ requestType }) => {
 		const err = new Error("Route does not exist", {
 			cause: {
-				package: "@middy/cloudformation-router",
+				package: pkg,
 				data: { requestType },
 			},
 		});
@@ -39,7 +42,7 @@ const optionSchema = {
 };
 
 export const cloudformationRouterValidateOptions = (options) =>
-	validateOptions("@middy/cloudformation-router", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 	let options;
 	if (Array.isArray(opts)) {
@@ -65,7 +68,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 				`Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: ${requestType ?? "undefined"}`,
 				{
 					cause: {
-						package: "@middy/cloudformation-router",
+						package: pkg,
 						data: { requestType },
 					},
 				},

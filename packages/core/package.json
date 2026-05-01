@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.3.3",
+	"version": "7.4.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -25,13 +25,31 @@
 				"default": "./executionModeStandard.js"
 			}
 		},
+		"./executionModeStandard": {
+			"import": {
+				"types": "./executionModeStandard.d.ts",
+				"default": "./executionModeStandard.js"
+			}
+		},
 		"./DurableContext": {
 			"import": {
 				"types": "./executionModeDurableContext.d.ts",
 				"default": "./executionModeDurableContext.js"
 			}
 		},
+		"./executionModeDurableContext": {
+			"import": {
+				"types": "./executionModeDurableContext.d.ts",
+				"default": "./executionModeDurableContext.js"
+			}
+		},
 		"./StreamifyResponse": {
+			"import": {
+				"types": "./executionModeStreamifyResponse.d.ts",
+				"default": "./executionModeStreamifyResponse.js"
+			}
+		},
+		"./executionModeStreamifyResponse": {
 			"import": {
 				"types": "./executionModeStreamifyResponse.d.ts",
 				"default": "./executionModeStreamifyResponse.js"
@@ -85,7 +103,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.3.3"
+		"@middy/util": "7.4.0"
 	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"

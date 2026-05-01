@@ -11,9 +11,12 @@
 //     `items` is applied to each array element. It can be a type string,
 //     a predicate function, or a plain object treated as a per-element
 //     object schema (validated recursively with the same rules).
-//   { type: '<type>' | '<type>?', minimum?, maximum?, minLength?, maxLength?, pattern? }
-//     Numeric: `minimum`/`maximum` (number/integer).
-//     String: `minLength`/`maxLength` (string length), `pattern` (regex source).
+//   { type: '<type>' | '<type>?', minimum?, maximum?, exclusiveMinimum?,
+//     exclusiveMaximum?, multipleOf?, minLength?, maxLength?, pattern? }
+//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`/
+//     `exclusiveMaximum` (exclusive), `multipleOf` (number/integer).
+//     String: `minLength`/`maxLength` (string length), `pattern` (regex
+//     source string per JSON Schema).
 //   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
 //     `properties` validates known keys with the flat-schema form.
 //     `additionalProperties` validates every other key's value against the
@@ -24,6 +27,10 @@
 //     combine with `type` to require a specific type and/or presence.
 // Keys in `options` (or nested objects) that are not in `schema` throw,
 // catching typos.
+
+const name = "util";
+const pkg = `@middy/${name}`;
+
 const validateOptionsTypeCheckers = {
 	string: (v) => typeof v === "string",
 	number: (v) => typeof v === "number" && !Number.isNaN(v),
@@ -182,6 +189,9 @@ const checkRule = (rule, value, path, fail) => {
 			additionalProperties,
 			minimum,
 			maximum,
+			exclusiveMinimum,
+			exclusiveMaximum,
+			multipleOf,
 			pattern,
 			minLength,
 			maxLength,
@@ -194,7 +204,19 @@ const checkRule = (rule, value, path, fail) => {
 		if (maximum !== undefined && value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
-		if (pattern !== undefined && !pattern.test(value)) {
+		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
+			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
+		}
+		if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) {
+			fail(`Option '${path}' must be < ${exclusiveMaximum}`);
+		}
+		if (multipleOf !== undefined) {
+			const quotient = value / multipleOf;
+			if (!Number.isFinite(quotient) || Math.floor(quotient) !== quotient) {
+				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
+			}
+		}
+		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (minLength !== undefined && value.length < minLength) {
@@ -298,7 +320,7 @@ export const createClient = async (options, request) => {
 	if (options.awsClientAssumeRole) {
 		if (!request) {
 			throw new Error("Request required when assuming role", {
-				cause: { package: "@middy/util" },
+				cause: { package: pkg },
 			});
 		}
 		awsClientCredentials = await getInternal(
@@ -398,7 +420,7 @@ export const getInternal = async (variables, request) => {
 	}
 	if (errors) {
 		throw new Error("Failed to resolve internal values", {
-			cause: { package: "@middy/util", data: errors },
+			cause: { package: pkg, data: errors },
 		});
 	}
 	return obj;
@@ -429,7 +451,7 @@ const validateCacheExpiry = (cacheExpiry) => {
 	) {
 		throw new Error(
 			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive number (ms duration or unix timestamp)`,
-			{ cause: { package: "@middy/util" } },
+			{ cause: { package: pkg } },
 		);
 	}
 };

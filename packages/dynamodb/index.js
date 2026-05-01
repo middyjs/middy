@@ -14,6 +14,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "dynamodb";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: DynamoDBClient,
 	awsClientOptions: {},
@@ -21,7 +24,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {},
 	disablePrefetch: false,
-	cacheKey: "dynamodb",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -73,7 +76,7 @@ const optionSchema = {
 };
 
 export const dynamodbValidateOptions = (options) =>
-	validateOptions("@middy/dynamodb", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 const dynamodbMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,

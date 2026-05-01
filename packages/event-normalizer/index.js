@@ -3,15 +3,12 @@
 import { gunzipSync } from "node:zlib";
 import { jsonSafeParse, validateOptions } from "@middy/util";
 
-// Cap on the decompressed size of an `aws:cloudwatch` `awslogs.data` payload.
-// CloudWatch Logs subscription records are AWS-internal and capped server-side,
-// but bound the gunzip output anyway to defend against bombs from re-played or
-// cross-account-misconfigured events.
-const DEFAULT_MAX_DECOMPRESSED_BYTES = 10 * 1024 * 1024; // 10 MiB
+const name = "event-normalizer";
+const pkg = `@middy/${name}`;
 
 const defaults = {
 	wrapNumbers: undefined,
-	maxDecompressedBytes: DEFAULT_MAX_DECOMPRESSED_BYTES,
+	maxDecompressedBytes: 10 * 1024 * 1024, // 10 MiB
 };
 
 const optionSchema = {
@@ -24,7 +21,7 @@ const optionSchema = {
 };
 
 export const eventNormalizerValidateOptions = (options) =>
-	validateOptions("@middy/event-normalizer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const eventNormalizerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -195,7 +192,7 @@ const convertValue = {
 					`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
 					{
 						cause: {
-							package: "@middy/event-normalizer",
+							package: pkg,
 							value,
 						},
 					},
@@ -223,7 +220,7 @@ const convertToNative = (data, options) => {
 	for (const key in data) {
 		if (!convertValue[key]) {
 			throw new Error(`Unsupported type passed: ${key}`, {
-				cause: { package: "@middy/event-normalizer" },
+				cause: { package: pkg },
 			});
 		}
 		if (typeof data[key] === "undefined") continue;

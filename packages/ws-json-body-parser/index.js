@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { createError, decodeBody, validateOptions } from "@middy/util";
 
+const name = "ws-json-body-parser";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	reviver: undefined,
 };
@@ -15,7 +18,7 @@ const optionSchema = {
 };
 
 export const wsJsonBodyParserValidateOptions = (options) =>
-	validateOptions("@middy/ws-json-body-parser", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -23,7 +26,7 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 		const { body } = request.event;
 		if (typeof body === "undefined") {
 			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: "@middy/ws-json-body-parser", data: body },
+				cause: { package: pkg, data: body },
 			});
 		}
 
@@ -35,7 +38,7 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 			// UnprocessableEntity
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
-					package: "@middy/ws-json-body-parser",
+					package: pkg,
 					data: body,
 					message: err.message,
 				},

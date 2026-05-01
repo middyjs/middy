@@ -4,13 +4,16 @@ import { setTimeout } from "node:timers";
 import { validateOptions } from "@middy/util";
 import { executionModeStandard } from "./executionModeStandard.js";
 
+const name = "core";
+const pkg = `@middy/${name}`;
+
 const defaultLambdaHandler = () => {};
 const noop = () => {};
 const defaultPluginConfig = {
 	timeoutEarlyInMillis: 5,
 	timeoutEarlyResponse: () => {
 		const err = new Error("[AbortError]: The operation was aborted.", {
-			cause: { package: "@middy/core" },
+			cause: { package: pkg },
 		});
 		err.name = "TimeoutError";
 		throw err;
@@ -47,7 +50,7 @@ const optionSchema = {
 };
 
 export const middyValidateOptions = (options) =>
-	validateOptions("@middy/core", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 export const middy = (setupLambdaHandler, pluginConfig) => {
 	let lambdaHandler;
@@ -109,7 +112,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 				throw new Error(
 					'Middleware must be an object containing at least one key among "before", "after", "onError"',
 					{
-						cause: { package: "@middy/core" },
+						cause: { package: pkg },
 					},
 				);
 			}

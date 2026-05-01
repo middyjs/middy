@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
+const name = "http-response-serializer";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	serializers: [],
 	defaultContentType: undefined,
@@ -28,7 +31,7 @@ const optionSchema = {
 };
 
 export const httpResponseSerializerValidateOptions = (options) =>
-	validateOptions("@middy/http-response-serializer", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const httpResponseSerializerMiddleware = (opts = {}) => {
 	const { serializers, defaultContentType } = { ...defaults, ...opts };

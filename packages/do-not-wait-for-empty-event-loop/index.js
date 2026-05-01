@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 import { isExecutionModeDurable, validateOptions } from "@middy/util";
 
+const name = "do-not-wait-for-empty-event-loop";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	runOnBefore: true,
 	runOnAfter: false,
@@ -19,11 +22,7 @@ const optionSchema = {
 };
 
 export const doNotWaitForEmptyEventLoopValidateOptions = (options) =>
-	validateOptions(
-		"@middy/do-not-wait-for-empty-event-loop",
-		optionSchema,
-		options,
-	);
+	validateOptions(pkg, optionSchema, options);
 
 const doNotWaitForEmptyEventLoopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };

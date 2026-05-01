@@ -19,6 +19,9 @@ import {
 	validateOptions,
 } from "@middy/util";
 
+const name = "ssm";
+const pkg = `@middy/${name}`;
+
 const defaults = {
 	AwsClient: SSMClient, // Allow for XRay
 	awsClientOptions: {},
@@ -26,7 +29,7 @@ const defaults = {
 	awsClientCapture: undefined,
 	fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
 	disablePrefetch: false,
-	cacheKey: "ssm",
+	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
@@ -58,7 +61,7 @@ const optionSchema = {
 };
 
 export const ssmValidateOptions = (options) =>
-	validateOptions("@middy/ssm", optionSchema, options);
+	validateOptions(pkg, optionSchema, options);
 
 const ssmMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
@@ -114,7 +117,7 @@ const ssmMiddleware = (opts = {}) => {
 						modifyCache(options.cacheKey, value);
 						result[fetchKey] = Promise.reject(
 							new Error(`InvalidParameter ${fetchKey}`, {
-								cause: { package: "@middy/ssm" },
+								cause: { package: pkg },
 							}),
 						);
 					}
