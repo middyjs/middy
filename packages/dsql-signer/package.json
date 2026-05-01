@@ -1,0 +1,82 @@
+{
+	"name": "@middy/dsql-signer",
+	"version": "7.3.4",
+	"description": "Aurora DSQL credentials middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"DSQL",
+		"Aurora DSQL",
+		"Credentials"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/dsql-signer"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"peerDependencies": {
+		"@aws-sdk/dsql-signer": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/dsql-signer": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@middy/util": "7.3.4"
+	},
+	"devDependencies": {
+		"@aws-sdk/dsql-signer": "^3.0.0",
+		"@middy/core": "7.3.4",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0",
+		"aws-xray-sdk": "^3.3.3"
+	}
+}
