@@ -2,7 +2,7 @@
 	"name": "middy.js.org",
 	"description": "SvelteKit SSR",
 	"private": true,
-	"version": "7.3.4",
+	"version": "7.4.0",
 	"type": "module",
 	"scripts": {
 		"start": "vite dev",
