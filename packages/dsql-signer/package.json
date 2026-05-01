@@ -1,7 +1,7 @@
 {
-	"name": "@middy/ws-json-body-parser",
+	"name": "@middy/dsql-signer",
 	"version": "7.4.0",
-	"description": "WebSocket JSON body parser middleware for the middy framework",
+	"description": "Aurora DSQL credentials middleware for the middy framework",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -40,11 +40,9 @@
 		"AWS",
 		"AWS Lambda",
 		"Middy",
-		"WebSocket",
-		"WS",
-		"JSON",
-		"Body Parser",
-		"JSON Body Parser"
+		"DSQL",
+		"Aurora DSQL",
+		"Credentials"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -53,7 +51,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/ws-json-body-parser"
+		"directory": "packages/dsql-signer"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
@@ -63,13 +61,22 @@
 		"type": "github",
 		"url": "https://github.com/sponsors/willfarrell"
 	},
+	"peerDependencies": {
+		"@aws-sdk/dsql-signer": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/dsql-signer": {
+			"optional": true
+		}
+	},
 	"dependencies": {
 		"@middy/util": "7.4.0"
 	},
 	"devDependencies": {
+		"@aws-sdk/dsql-signer": "^3.0.0",
 		"@middy/core": "7.4.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
-		"type-fest": "^5.0.0"
+		"aws-xray-sdk": "^3.3.3"
 	}
 }

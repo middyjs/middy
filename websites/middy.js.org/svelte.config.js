@@ -63,7 +63,7 @@ const config = {
 	prerender: {
 		concurrency: 5,
 		crawl: false,
-		entries: ["/", "/rss.xml", "/atom.xml", "/sitemap.xml"],
+		entries: ["/", "/sitemap.xml", "/llms.txt", "/llms-full.txt"],
 		handleHttpError: "warn", // 'fail'
 		handleMissingId: "warn", // 'fail'
 		handleEntryGeneratorMismatch: "warn", // 'fail'

@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { Signer } from "@aws-sdk/rds-signer";
+import { DsqlSigner } from "@aws-sdk/dsql-signer";
 import {
 	canPrefetch,
 	getCache,
@@ -10,11 +10,11 @@ import {
 	validateOptions,
 } from "@middy/util";
 
-const name = "rds-signer";
+const name = "dsql-signer";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	AwsClient: Signer,
+	AwsClient: DsqlSigner,
 	awsClientOptions: {},
 	fetchData: {},
 	disablePrefetch: false,
@@ -34,8 +34,11 @@ const optionSchema = {
 			additionalProperties: {
 				type: "object",
 				properties: {
-					hostname: { type: "string" },
-					port: { type: "integer", minimum: 1, maximum: 65535 },
+					hostname: {
+						type: "string",
+						pattern:
+							"^[a-z0-9]+\\.dsql(-[a-z]+)?\\.[a-z]{2}(-[a-z]+){1,2}-\\d+\\.on\\.aws$",
+					},
 					username: { type: "string" },
 				},
 				required: [],
@@ -54,18 +57,14 @@ const optionSchema = {
 	additionalProperties: false,
 };
 
-export const rdsSignerValidateOptions = (options) =>
+export const dsqlSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const rdsSignerMiddleware = (opts = {}) => {
+const dsqlSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const defaultFetchData = {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
-		port: Number.parseInt(
-			process.env.PGPORT ?? process.env.DBPORT ?? "5432",
-			10,
-		),
 		username: process.env.PGUSER ?? process.env.DBUSER,
 	};
 	for (const key of Object.keys(options.fetchData)) {
@@ -79,12 +78,15 @@ const rdsSignerMiddleware = (opts = {}) => {
 		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 
-			const signerConfig = options.fetchData[internalKey];
+			const { username, ...signerConfig } = options.fetchData[internalKey];
 			clients[internalKey] ??= new options.AwsClient({
 				...options.awsClientOptions,
 				...signerConfig,
 			});
-			const method = "getAuthToken";
+			const method =
+				username === "admin"
+					? "getDbConnectAdminAuthToken"
+					: "getDbConnectAuthToken";
 			values[internalKey] = clients[internalKey]
 				[method]()
 				.then((token) => {
@@ -111,7 +113,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const rdsSignerMiddlewareBefore = async (request) => {
+	const dsqlSignerMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
@@ -123,12 +125,12 @@ const rdsSignerMiddleware = (opts = {}) => {
 	};
 
 	return {
-		before: rdsSignerMiddlewareBefore,
+		before: dsqlSignerMiddlewareBefore,
 	};
 };
-export default rdsSignerMiddleware;
+export default dsqlSignerMiddleware;
 
 // used for TS type inference (see index.d.ts)
-export function rdsSignerParam(name) {
+export function dsqlSignerParam(name) {
 	return name;
 }

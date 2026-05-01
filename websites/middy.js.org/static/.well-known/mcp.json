@@ -1,0 +1,20 @@
+{
+	"name": "middy",
+	"description": "Middy - The stylish Node.js middleware engine for AWS Lambda",
+	"documentation": "https://middy.js.org/",
+	"endpoint": "https://middy.js.org/.well-known/mcp.json",
+	"resources": [
+		{
+			"name": "llms.txt",
+			"description": "Concise, LLM-friendly index of Middy documentation",
+			"url": "https://middy.js.org/llms.txt",
+			"mediaType": "text/plain"
+		},
+		{
+			"name": "llms-full.txt",
+			"description": "Full Middy documentation in a single LLM-friendly text file",
+			"url": "https://middy.js.org/llms-full.txt",
+			"mediaType": "text/plain"
+		}
+	]
+}
