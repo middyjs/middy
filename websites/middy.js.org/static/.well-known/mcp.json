@@ -2,6 +2,7 @@
 	"name": "middy",
 	"description": "Middy - The stylish Node.js middleware engine for AWS Lambda",
 	"documentation": "https://middy.js.org/",
+	"endpoint": "https://middy.js.org/.well-known/mcp.json",
 	"resources": [
 		{
 			"name": "llms.txt",
