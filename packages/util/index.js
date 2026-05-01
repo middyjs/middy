@@ -16,7 +16,7 @@
 //     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`/
 //     `exclusiveMaximum` (exclusive), `multipleOf` (number/integer).
 //     String: `minLength`/`maxLength` (string length), `pattern` (regex
-//     source string per JSON Schema, or a RegExp object).
+//     source string per JSON Schema).
 //   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
 //     `properties` validates known keys with the flat-schema form.
 //     `additionalProperties` validates every other key's value against the
@@ -216,11 +216,8 @@ const checkRule = (rule, value, path, fail) => {
 				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
 			}
 		}
-		if (pattern !== undefined) {
-			const re = typeof pattern === "string" ? new RegExp(pattern) : pattern;
-			if (!re.test(value)) {
-				fail(`Option '${path}' must match pattern ${re}`);
-			}
+		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
+			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (minLength !== undefined && value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
