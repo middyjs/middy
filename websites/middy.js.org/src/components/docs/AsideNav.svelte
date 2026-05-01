@@ -31,6 +31,8 @@ const nav = {
 		"cloudwatch-metrics": "/docs/middlewares/cloudwatch-metrics",
 		"do-not-wait-for-empty-event-loop":
 			"/docs/middlewares/do-not-wait-for-empty-event-loop",
+		dsql: "/docs/middlewares/dsql",
+		"dsql-signer": "/docs/middlewares/dsql-signer",
 		dynamodb: "/docs/middlewares/dynamodb",
 		"error-logger": "/docs/middlewares/error-logger",
 		"event-normalizer": "/docs/middlewares/event-normalizer",
