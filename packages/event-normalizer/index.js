@@ -8,12 +8,14 @@ const pkg = `@middy/${name}`;
 
 const defaults = {
 	wrapNumbers: undefined,
+	maxDecompressedBytes: 10 * 1024 * 1024, // 10 MiB
 };
 
 const optionSchema = {
 	type: "object",
 	properties: {
 		wrapNumbers: { type: "boolean" },
+		maxDecompressedBytes: { type: "integer", minimum: 1 },
 	},
 	additionalProperties: false,
 };
@@ -80,9 +82,11 @@ const events = {
 	"aws:amq": (message) => {
 		message.data = base64Parse(message.data);
 	},
-	"aws:cloudwatch": (event) => {
+	"aws:cloudwatch": (event, options) => {
 		event.awslogs.data = jsonSafeParse(
-			gunzipSync(base64Decode(event.awslogs.data)).toString("utf-8"),
+			gunzipSync(base64Decode(event.awslogs.data), {
+				maxOutputLength: options.maxDecompressedBytes,
+			}).toString("utf-8"),
 		);
 	},
 	"aws:codepipeline": (event) => {

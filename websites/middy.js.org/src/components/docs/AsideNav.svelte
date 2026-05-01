@@ -34,7 +34,10 @@ const nav = {
 		"dsql-signer": "/docs/middlewares/dsql-signer",
 		dynamodb: "/docs/middlewares/dynamodb",
 		"error-logger": "/docs/middlewares/error-logger",
+		"event-batch-parser": "/docs/middlewares/event-batch-parser",
+		"event-batch-response": "/docs/middlewares/event-batch-response",
 		"event-normalizer": "/docs/middlewares/event-normalizer",
+		"glue-schema-registry": "/docs/middlewares/glue-schema-registry",
 		"http-content-encoding": "/docs/middlewares/http-content-encoding",
 		"http-content-negotiation": "/docs/middlewares/http-content-negotiation",
 		"http-cors": "/docs/middlewares/http-cors",
@@ -74,6 +77,9 @@ const nav = {
 		"Handle Timeouts": "/docs/writing-middlewares/timeouts",
 		"More Examples": "/docs/writing-middlewares/more-examples",
 		"With TypeScript": "/docs/writing-middlewares/with-typescript",
+	},
+	Handlers: {
+		"event-batch-handler": "/docs/handlers/event-batch-handler",
 	},
 	Routers: {
 		"cloudformation-router": "/docs/routers/cloudformation-router",
