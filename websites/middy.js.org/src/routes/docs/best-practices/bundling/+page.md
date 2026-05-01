@@ -83,6 +83,7 @@ export default (input) => ({
   external: [
     // AWS SDK
     '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/dsql-signer', // @middy/dsql-signer
     '@aws-sdk/client-rds', // @middy/rds-signer
     '@aws-sdk/client-s3', // @middy/s3-object-response
     '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager
@@ -140,6 +141,7 @@ export default {
     'zlib', // @middy/http-content-encoding
     // AWS SDK
     '@aws-sdk/client-apigatewaymanagementapi', // @middy/ws-response
+    '@aws-sdk/dsql-signer', // @middy/dsql-signer
     '@aws-sdk/client-rds', // @middy/rds-signer
     '@aws-sdk/client-s3', // @middy/s3-object-response
     '@aws-sdk/client-secretsmanager', // @middy/sercrets-manager

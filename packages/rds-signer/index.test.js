@@ -1,8 +1,20 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
 import rdsSigner, { rdsSignerValidateOptions } from "./index.js";
+
+before(() => {
+	process.env.PGHOST = "hostname";
+	process.env.PGPORT = "5432";
+	process.env.PGUSER = "username";
+});
+
+after(() => {
+	delete process.env.PGHOST;
+	delete process.env.PGPORT;
+	delete process.env.PGUSER;
+});
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -37,12 +49,7 @@ test("It should set token to internal storage (token)", async (t) => {
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "hostname",
-						username: "username",
-						port: 5432,
-					},
+					token: { region: "us-east-1" },
 				},
 				disablePrefetch: true,
 			}),
@@ -82,18 +89,8 @@ test("It should set tokens to internal storage (token)", async (t) => {
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token1: {
-						region: "us-east-1",
-						hostname: "hostname-reader",
-						username: "username",
-						port: 5432,
-					},
-					token2: {
-						region: "us-east-1",
-						hostname: "hostname-writer",
-						username: "username",
-						port: 5432,
-					},
+					token1: { region: "us-east-1", hostname: "hostname-reader" },
+					token2: { region: "us-east-1", hostname: "hostname-writer" },
 				},
 				disablePrefetch: true,
 			}),
@@ -126,12 +123,7 @@ test("It should set Signer token to internal storage without prefetch", async (t
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "hostname",
-						username: "username",
-						port: 5432,
-					},
+					token: { region: "us-east-1" },
 				},
 				disablePrefetch: true,
 			}),
@@ -163,12 +155,7 @@ test("It should set Signer token to context", async (t) => {
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "hostname",
-						username: "username",
-						port: 5432,
-					},
+					token: { region: "us-east-1" },
 				},
 				setToContext: true,
 				disablePrefetch: true,
@@ -202,12 +189,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 				AwsClient,
 				cacheExpiry: -1,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "hostname",
-						username: "username",
-						port: 5432,
-					},
+					token: { region: "us-east-1" },
 				},
 			}),
 		)
@@ -243,12 +225,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "hostname",
-						username: "username",
-						port: 5432,
-					},
+					token: { region: "us-east-1" },
 				},
 				disablePrefetch: true,
 			}),
@@ -273,12 +250,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 			AwsClient,
 			cacheExpiry: 0,
 			fetchData: {
-				token: {
-					region: "us-east-1",
-					hostname: "hostname",
-					username: "username",
-					port: 5432,
-				},
+				token: { region: "us-east-1" },
 			},
 			setToContext: true,
 			disablePrefetch: true,
@@ -304,12 +276,7 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 			AwsClient,
 			cacheExpiry: 0,
 			fetchData: {
-				token: {
-					region: "us-east-1",
-					hostname: "hostname",
-					username: "username",
-					port: 5432,
-				},
+				token: { region: "us-east-1" },
 			},
 			setToContext: true,
 			disablePrefetch: true,
@@ -323,7 +290,7 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 		strictEqual(e.message, "Failed to resolve internal values");
 		deepStrictEqual(e.cause.data, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer" },
+				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
 			}),
 		]);
 	}
@@ -370,18 +337,8 @@ test("It should skip fetching already cached values when fetching multiple keys"
 				AwsClient,
 				cacheExpiry: 1000,
 				fetchData: {
-					token1: {
-						region: "us-east-1",
-						hostname: "hostname-reader",
-						username: "username",
-						port: 5432,
-					},
-					token2: {
-						region: "us-east-1",
-						hostname: "hostname-writer",
-						username: "username",
-						port: 5432,
-					},
+					token1: { region: "us-east-1", hostname: "hostname-reader" },
+					token2: { region: "us-east-1", hostname: "hostname-writer" },
 				},
 			}),
 		)
@@ -406,6 +363,109 @@ test("It should export rdsSignerParam helper for TypeScript type inference", asy
 	const paramName = "test-param";
 	const result = rdsSignerParam(paramName);
 	strictEqual(result, paramName);
+});
+
+test("It should use DBHOST/DBPORT/DBUSER env var defaults as fallback", async (t) => {
+	const savedPGHOST = process.env.PGHOST;
+	const savedPGPORT = process.env.PGPORT;
+	const savedPGUSER = process.env.PGUSER;
+	delete process.env.PGHOST;
+	delete process.env.PGPORT;
+	delete process.env.PGUSER;
+	process.env.DBHOST = "db.example.com";
+	process.env.DBPORT = "5434";
+	process.env.DBUSER = "dbuser";
+	t.after(() => {
+		delete process.env.DBHOST;
+		delete process.env.DBPORT;
+		delete process.env.DBUSER;
+		process.env.PGHOST = savedPGHOST;
+		process.env.PGPORT = savedPGPORT;
+		process.env.PGUSER = savedPGUSER;
+	});
+
+	let receivedConfig;
+	class AwsClient {
+		constructor(config) {
+			receivedConfig = config;
+		}
+		getAuthToken = t.mock.fn(
+			async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+		);
+	}
+	const handler = middy(() => {}).use(
+		rdsSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: { token: {} },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(receivedConfig.hostname, "db.example.com");
+	strictEqual(receivedConfig.port, 5434);
+	strictEqual(receivedConfig.username, "dbuser");
+});
+
+test("It should use default port 5432 when no PGPORT/DBPORT env var is set", async (t) => {
+	const savedPGPORT = process.env.PGPORT;
+	delete process.env.PGPORT;
+	t.after(() => {
+		process.env.PGPORT = savedPGPORT;
+	});
+
+	let receivedConfig;
+	class AwsClient {
+		constructor(config) {
+			receivedConfig = config;
+		}
+		getAuthToken = t.mock.fn(
+			async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+		);
+	}
+	const handler = middy(() => {}).use(
+		rdsSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: { token: {} },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(receivedConfig.port, 5432);
+});
+
+test("It should prefer explicit fetchData values over env var defaults", async (t) => {
+	let receivedConfig;
+	class AwsClient {
+		constructor(config) {
+			receivedConfig = config;
+		}
+		getAuthToken = t.mock.fn(
+			async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+		);
+	}
+	const handler = middy(() => {}).use(
+		rdsSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: {
+				token: {
+					hostname: "explicit.example.com",
+					port: 9999,
+					username: "explicit",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(receivedConfig.hostname, "explicit.example.com");
+	strictEqual(receivedConfig.port, 9999);
+	strictEqual(receivedConfig.username, "explicit");
 });
 
 test("rdsSignerValidateOptions accepts valid options and rejects typos", () => {
@@ -442,16 +502,11 @@ test("rdsSignerValidateOptions accepts valid fetchData entry", () => {
 	});
 });
 
-test("rdsSignerValidateOptions rejects fetchData entry missing required fields", () => {
-	try {
-		rdsSignerValidateOptions({
-			fetchData: { token: { hostname: "db.example.com" } },
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/rds-signer");
-	}
+test("rdsSignerValidateOptions accepts fetchData entry relying on env var defaults", () => {
+	rdsSignerValidateOptions({ fetchData: { token: {} } });
+	rdsSignerValidateOptions({
+		fetchData: { token: { hostname: "db.example.com" } },
+	});
 });
 
 test("rdsSignerValidateOptions rejects fetchData entry with non-integer port", () => {
