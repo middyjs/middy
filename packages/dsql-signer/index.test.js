@@ -1,8 +1,16 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
 import dsqlSigner, { dsqlSignerValidateOptions } from "./index.js";
+
+before(() => {
+	process.env.PGHOST = "cluster.dsql.us-east-1.on.aws";
+});
+
+after(() => {
+	delete process.env.PGHOST;
+});
 
 test.afterEach((t) => {
 	t.mock.reset();
@@ -38,10 +46,7 @@ test("It should set token to internal storage (token)", async (t) => {
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-					},
+					token: { region: "us-east-1" },
 				},
 				disablePrefetch: true,
 			}),
@@ -76,11 +81,7 @@ test("It should call admin token method when username is 'admin'", async (t) => 
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-						username: "admin",
-					},
+					token: { region: "us-east-1", username: "admin" },
 				},
 				disablePrefetch: true,
 			}),
@@ -116,11 +117,7 @@ test("It should call non-admin token method when username is a custom role", asy
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-						username: "app_reader",
-					},
+					token: { region: "us-east-1", username: "app_reader" },
 				},
 				disablePrefetch: true,
 			}),
@@ -150,10 +147,7 @@ test("It should not pass `username` to the signer constructor", async (t) => {
 			AwsClient,
 			cacheExpiry: 0,
 			fetchData: {
-				token: {
-					hostname: "cluster.dsql.us-east-1.on.aws",
-					username: "admin",
-				},
+				token: { username: "admin" },
 			},
 			disablePrefetch: true,
 		}),
@@ -225,10 +219,7 @@ test("It should set DSQL token to context", async (t) => {
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-					},
+					token: { region: "us-east-1" },
 				},
 				setToContext: true,
 				disablePrefetch: true,
@@ -259,10 +250,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 				AwsClient,
 				cacheExpiry: -1,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-					},
+					token: { region: "us-east-1" },
 				},
 			}),
 		)
@@ -295,10 +283,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 				AwsClient,
 				cacheExpiry: 0,
 				fetchData: {
-					token: {
-						region: "us-east-1",
-						hostname: "cluster.dsql.us-east-1.on.aws",
-					},
+					token: { region: "us-east-1" },
 				},
 				disablePrefetch: true,
 			}),
@@ -323,10 +308,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 			AwsClient,
 			cacheExpiry: 0,
 			fetchData: {
-				token: {
-					region: "us-east-1",
-					hostname: "cluster.dsql.us-east-1.on.aws",
-				},
+				token: { region: "us-east-1" },
 			},
 			setToContext: true,
 			disablePrefetch: true,
@@ -352,10 +334,7 @@ test("It should catch if a token without X-Amz-Security-Token is returned from f
 			AwsClient,
 			cacheExpiry: 0,
 			fetchData: {
-				token: {
-					region: "us-east-1",
-					hostname: "cluster.dsql.us-east-1.on.aws",
-				},
+				token: { region: "us-east-1" },
 			},
 			setToContext: true,
 			disablePrefetch: true,
@@ -433,6 +412,71 @@ test("It should export dsqlSignerParam helper for TypeScript type inference", as
 	strictEqual(result, paramName);
 });
 
+test("It should use DBHOST/DBUSER env var defaults as fallback", async (t) => {
+	const savedPGHOST = process.env.PGHOST;
+	delete process.env.PGHOST;
+	process.env.DBHOST = "cluster.dsql.us-east-1.on.aws";
+	process.env.DBUSER = "app_reader";
+	t.after(() => {
+		delete process.env.DBHOST;
+		delete process.env.DBUSER;
+		process.env.PGHOST = savedPGHOST;
+	});
+
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=role-token",
+	);
+	let receivedConfig;
+	class AwsClient {
+		constructor(config) {
+			receivedConfig = config;
+		}
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: { token: {} },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(receivedConfig.hostname, "cluster.dsql.us-east-1.on.aws");
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+});
+
+test("It should prefer explicit fetchData values over env var defaults", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=role-token",
+	);
+	let receivedConfig;
+	class AwsClient {
+		constructor(config) {
+			receivedConfig = config;
+		}
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: {
+				token: {
+					hostname: "explicit.dsql.us-east-1.on.aws",
+					username: "app_reader",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(receivedConfig.hostname, "explicit.dsql.us-east-1.on.aws");
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+});
+
 test("dsqlSignerValidateOptions accepts valid options and rejects typos", () => {
 	dsqlSignerValidateOptions({ cacheKey: "x", cacheExpiry: 0 });
 	dsqlSignerValidateOptions({});
@@ -465,16 +509,9 @@ test("dsqlSignerValidateOptions accepts valid fetchData entry", () => {
 	});
 });
 
-test("dsqlSignerValidateOptions rejects fetchData entry missing hostname", () => {
-	try {
-		dsqlSignerValidateOptions({
-			fetchData: { token: { username: "admin" } },
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/dsql-signer");
-	}
+test("dsqlSignerValidateOptions accepts fetchData entry relying on env var defaults", () => {
+	dsqlSignerValidateOptions({ fetchData: { token: {} } });
+	dsqlSignerValidateOptions({ fetchData: { token: { username: "admin" } } });
 });
 
 test("dsqlSignerValidateOptions rejects fetchData entry with non-string username", () => {

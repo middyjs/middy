@@ -38,7 +38,7 @@ const optionSchema = {
 					port: { type: "integer", minimum: 1, maximum: 65535 },
 					username: { type: "string" },
 				},
-				required: ["hostname", "port", "username"],
+				required: [],
 				additionalProperties: true,
 			},
 		},
@@ -59,6 +59,18 @@ export const rdsSignerValidateOptions = (options) =>
 
 const rdsSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+
+	const defaultFetchData = {
+		hostname: process.env.PGHOST ?? process.env.DBHOST,
+		port: Number.parseInt(
+			process.env.PGPORT ?? process.env.DBPORT ?? "5432",
+			10,
+		),
+		username: process.env.PGUSER ?? process.env.DBUSER,
+	};
+	for (const key of Object.keys(options.fetchData)) {
+		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const clients = {};

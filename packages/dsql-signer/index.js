@@ -41,7 +41,7 @@ const optionSchema = {
 					},
 					username: { type: "string" },
 				},
-				required: ["hostname"],
+				required: [],
 				additionalProperties: true,
 			},
 		},
@@ -62,6 +62,14 @@ export const dsqlSignerValidateOptions = (options) =>
 
 const dsqlSignerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+
+	const defaultFetchData = {
+		hostname: process.env.PGHOST ?? process.env.DBHOST,
+		username: process.env.PGUSER ?? process.env.DBUSER,
+	};
+	for (const key of Object.keys(options.fetchData)) {
+		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const clients = {};
