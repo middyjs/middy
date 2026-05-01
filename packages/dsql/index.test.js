@@ -105,6 +105,7 @@ test("It should not call end() when cacheExpiry is not 0", async (t) => {
 			client,
 			config: { host: validHost },
 			cacheExpiry: -1,
+			cacheKey: "test-no-end",
 		}),
 	);
 	await handler(defaultEvent, newContext());
@@ -154,6 +155,7 @@ test("It should reuse cached client across invocations when cacheExpiry is -1", 
 		dsqlMiddleware({
 			client,
 			config: { host: validHost },
+			cacheKey: "test-reuse",
 		}),
 	);
 	await handler(defaultEvent, newContext());
