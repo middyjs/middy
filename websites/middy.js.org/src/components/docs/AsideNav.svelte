@@ -80,6 +80,11 @@ const nav = {
 		"http-router": "/docs/routers/http-router",
 		"ws-router": "/docs/routers/ws-router",
 	},
+	Runners: {
+		"ecs-batch": "/docs/runners/ecs-batch",
+		"ecs-http": "/docs/runners/ecs-http",
+		"ecs-task": "/docs/runners/ecs-task",
+	},
 	Upgrade: {
 		"Upgrade 6.x -> 7.x": "/docs/upgrade/6-7",
 		"Upgrade 5.x -> 6.x": "/docs/upgrade/5-6",
