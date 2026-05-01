@@ -1,0 +1,108 @@
+{
+	"name": "@middy/rds",
+	"version": "7.3.4",
+	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		},
+		"./clientPg": {
+			"import": {
+				"types": "./clientPg.d.ts",
+				"default": "./clientPg.js"
+			}
+		},
+		"./clientPgPool": {
+			"import": {
+				"types": "./clientPgPool.d.ts",
+				"default": "./clientPgPool.js"
+			}
+		},
+		"./clientPostgres": {
+			"import": {
+				"types": "./clientPostgres.d.ts",
+				"default": "./clientPostgres.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"clientPg.js",
+		"clientPg.d.ts",
+		"clientPgPool.js",
+		"clientPgPool.d.ts",
+		"clientPostgres.js",
+		"clientPostgres.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"RDS",
+		"Relational Database Service",
+		"PostgreSQL"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/rds"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"peerDependencies": {
+		"pg": "^8.0.0",
+		"postgres": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"pg": {
+			"optional": true
+		},
+		"postgres": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@middy/util": "7.3.4"
+	},
+	"devDependencies": {
+		"@middy/core": "7.3.4",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0"
+	}
+}
