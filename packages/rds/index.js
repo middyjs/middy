@@ -38,6 +38,8 @@ export const rdsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const defaults = {
+	client: undefined,
+	config: undefined,
 	contextKey: name,
 	internalKey: undefined,
 	disablePrefetch: false,
@@ -57,7 +59,7 @@ const rdsMiddleware = (opts = {}) => {
 		const token = request?.internal?.[options.internalKey];
 		if (token === undefined) {
 			throw new Error(
-				`internal key '${options.internalKey}' missing; ensure @middy/rds-signer runs before @middy/rds`,
+				`internalKey '${options.internalKey}' not found; ensure @middy/rds-signer runs before @middy/rds`,
 				{ cause: { package: pkg } },
 			);
 		}

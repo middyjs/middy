@@ -149,6 +149,7 @@ test("It should not call end() when cacheExpiry is not 0", async (t) => {
 			client,
 			config: { host: validHost },
 			cacheExpiry: -1,
+			cacheKey: "rds-no-end-test",
 		}),
 	);
 	await handler(defaultEvent, newContext());
@@ -198,6 +199,7 @@ test("It should reuse cached client across invocations when cacheExpiry is -1", 
 		rdsMiddleware({
 			client,
 			config: { host: validHost },
+			cacheKey: "rds-reuse-test",
 		}),
 	);
 	await handler(defaultEvent, newContext());

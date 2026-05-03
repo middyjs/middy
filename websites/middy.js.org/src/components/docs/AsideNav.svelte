@@ -52,6 +52,7 @@ const nav = {
 		"http-urlencode-path-parser":
 			"/docs/middlewares/http-urlencode-path-parser",
 		"input-output-logger": "/docs/middlewares/input-output-logger",
+		rds: "/docs/middlewares/rds",
 		"rds-signer": "/docs/middlewares/rds-signer",
 		s3: "/docs/middlewares/s3",
 		"s3-object-response": "/docs/middlewares/s3-object-response",

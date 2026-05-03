@@ -36,6 +36,187 @@
 				"types": "./clientPostgres.d.ts",
 				"default": "./clientPostgres.js"
 			}
+		},
+		"./ca": {
+			"import": {
+				"types": "./ca.d.ts",
+				"default": "./ca.js"
+			}
+		},
+		"./certificates/global": {
+			"import": {
+				"default": "./certificates/global.js"
+			}
+		},
+		"./certificates/us-east-1": {
+			"import": {
+				"default": "./certificates/us-east-1.js"
+			}
+		},
+		"./certificates/us-east-2": {
+			"import": {
+				"default": "./certificates/us-east-2.js"
+			}
+		},
+		"./certificates/us-west-1": {
+			"import": {
+				"default": "./certificates/us-west-1.js"
+			}
+		},
+		"./certificates/us-west-2": {
+			"import": {
+				"default": "./certificates/us-west-2.js"
+			}
+		},
+		"./certificates/af-south-1": {
+			"import": {
+				"default": "./certificates/af-south-1.js"
+			}
+		},
+		"./certificates/ap-east-1": {
+			"import": {
+				"default": "./certificates/ap-east-1.js"
+			}
+		},
+		"./certificates/ap-south-2": {
+			"import": {
+				"default": "./certificates/ap-south-2.js"
+			}
+		},
+		"./certificates/ap-southeast-3": {
+			"import": {
+				"default": "./certificates/ap-southeast-3.js"
+			}
+		},
+		"./certificates/ap-southeast-4": {
+			"import": {
+				"default": "./certificates/ap-southeast-4.js"
+			}
+		},
+		"./certificates/ap-southeast-5": {
+			"import": {
+				"default": "./certificates/ap-southeast-5.js"
+			}
+		},
+		"./certificates/ap-southeast-7": {
+			"import": {
+				"default": "./certificates/ap-southeast-7.js"
+			}
+		},
+		"./certificates/ap-south-1": {
+			"import": {
+				"default": "./certificates/ap-south-1.js"
+			}
+		},
+		"./certificates/ap-northeast-3": {
+			"import": {
+				"default": "./certificates/ap-northeast-3.js"
+			}
+		},
+		"./certificates/ap-northeast-1": {
+			"import": {
+				"default": "./certificates/ap-northeast-1.js"
+			}
+		},
+		"./certificates/ap-northeast-2": {
+			"import": {
+				"default": "./certificates/ap-northeast-2.js"
+			}
+		},
+		"./certificates/ap-southeast-1": {
+			"import": {
+				"default": "./certificates/ap-southeast-1.js"
+			}
+		},
+		"./certificates/ap-southeast-2": {
+			"import": {
+				"default": "./certificates/ap-southeast-2.js"
+			}
+		},
+		"./certificates/ca-central-1": {
+			"import": {
+				"default": "./certificates/ca-central-1.js"
+			}
+		},
+		"./certificates/ca-west-1": {
+			"import": {
+				"default": "./certificates/ca-west-1.js"
+			}
+		},
+		"./certificates/eu-central-1": {
+			"import": {
+				"default": "./certificates/eu-central-1.js"
+			}
+		},
+		"./certificates/eu-west-1": {
+			"import": {
+				"default": "./certificates/eu-west-1.js"
+			}
+		},
+		"./certificates/eu-west-2": {
+			"import": {
+				"default": "./certificates/eu-west-2.js"
+			}
+		},
+		"./certificates/eu-south-1": {
+			"import": {
+				"default": "./certificates/eu-south-1.js"
+			}
+		},
+		"./certificates/eu-west-3": {
+			"import": {
+				"default": "./certificates/eu-west-3.js"
+			}
+		},
+		"./certificates/eu-south-2": {
+			"import": {
+				"default": "./certificates/eu-south-2.js"
+			}
+		},
+		"./certificates/eu-north-1": {
+			"import": {
+				"default": "./certificates/eu-north-1.js"
+			}
+		},
+		"./certificates/eu-central-2": {
+			"import": {
+				"default": "./certificates/eu-central-2.js"
+			}
+		},
+		"./certificates/il-central-1": {
+			"import": {
+				"default": "./certificates/il-central-1.js"
+			}
+		},
+		"./certificates/me-south-1": {
+			"import": {
+				"default": "./certificates/me-south-1.js"
+			}
+		},
+		"./certificates/me-central-1": {
+			"import": {
+				"default": "./certificates/me-central-1.js"
+			}
+		},
+		"./certificates/mx-central-1": {
+			"import": {
+				"default": "./certificates/mx-central-1.js"
+			}
+		},
+		"./certificates/sa-east-1": {
+			"import": {
+				"default": "./certificates/sa-east-1.js"
+			}
+		},
+		"./certificates/us-gov-east-1": {
+			"import": {
+				"default": "./certificates/us-gov-east-1.js"
+			}
+		},
+		"./certificates/us-gov-west-1": {
+			"import": {
+				"default": "./certificates/us-gov-west-1.js"
+			}
 		}
 	},
 	"types": "index.d.ts",
@@ -47,9 +228,13 @@
 		"clientPgPool.js",
 		"clientPgPool.d.ts",
 		"clientPostgres.js",
-		"clientPostgres.d.ts"
+		"clientPostgres.d.ts",
+		"ca.js",
+		"ca.d.ts",
+		"certificates/"
 	],
 	"scripts": {
+		"certificates": "./bin/certificates",
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
