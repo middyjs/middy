@@ -1,12 +1,21 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface Options {
-  logger?: (message: any) => void
-  awsContext?: boolean
-  omitPaths?: string[]
-  mask?: string
+export interface Options {
+	logger?: (message: unknown) => void;
+	executionContext?: boolean;
+	lambdaContext?: boolean;
+	omitPaths?: string[];
+	mask?: string;
 }
 
-declare function inputOutputLogger (options?: Options): middy.MiddlewareObj
+declare function inputOutputLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default inputOutputLogger
+export declare function inputOutputLoggerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default inputOutputLogger;

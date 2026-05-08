@@ -1,11 +1,19 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface Options {
-  runOnBefore?: boolean
-  runOnAfter?: boolean
-  runOnError?: boolean
+export interface Options {
+	runOnBefore?: boolean;
+	runOnAfter?: boolean;
+	runOnError?: boolean;
 }
 
-declare function doNotWaitForEmptyEventLoop (options?: Options): middy.MiddlewareObj
+declare function doNotWaitForEmptyEventLoop(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default doNotWaitForEmptyEventLoop
+export declare function doNotWaitForEmptyEventLoopValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default doNotWaitForEmptyEventLoop;

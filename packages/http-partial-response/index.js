@@ -1,34 +1,54 @@
-import mask from 'json-mask'
-import { normalizeHttpResponse, jsonSafeParse } from '@middy/util'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import {
+	jsonSafeParse,
+	normalizeHttpResponse,
+	validateOptions,
+} from "@middy/util";
+import mask from "json-mask";
+
+const name = "http-partial-response";
+const pkg = `@middy/${name}`;
 
 const defaults = {
-  filteringKeyName: 'fields'
-}
+	filteringKeyName: "fields",
+};
+
+const optionSchema = {
+	type: "object",
+	properties: {
+		filteringKeyName: { type: "string" },
+	},
+	additionalProperties: false,
+};
+
+export const httpPartialResponseValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
 const httpPartialResponseMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
-  const { filteringKeyName } = options
+	const options = { ...defaults, ...opts };
+	const { filteringKeyName } = options;
 
-  const httpPartialResponseMiddlewareAfter = async (request) => {
-    const fields = request.event?.queryStringParameters?.[filteringKeyName]
-    if (!fields) return
+	const httpPartialResponseMiddlewareAfter = (request) => {
+		const fields = request.event?.queryStringParameters?.[filteringKeyName];
+		if (!fields) return;
 
-    normalizeHttpResponse(request)
-    const body = request.response.body
-    const bodyIsString = typeof body === 'string'
+		normalizeHttpResponse(request);
+		const body = request.response.body;
+		const bodyIsString = typeof body === "string";
 
-    const parsedBody = jsonSafeParse(body)
-    if (typeof parsedBody !== 'object') return
+		const parsedBody = jsonSafeParse(body);
+		if (!parsedBody || typeof parsedBody !== "object") return;
 
-    const filteredBody = mask(parsedBody, fields)
+		const filteredBody = mask(parsedBody, fields);
 
-    request.response.body = bodyIsString
-      ? JSON.stringify(filteredBody)
-      : filteredBody
-  }
+		request.response.body = bodyIsString
+			? JSON.stringify(filteredBody)
+			: filteredBody;
+	};
 
-  return {
-    after: httpPartialResponseMiddlewareAfter
-  }
-}
-export default httpPartialResponseMiddleware
+	return {
+		after: httpPartialResponseMiddlewareAfter,
+	};
+};
+export default httpPartialResponseMiddleware;

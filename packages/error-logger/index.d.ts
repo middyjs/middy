@@ -1,9 +1,17 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface Options {
-  logger?: (request: any) => void
+export interface Options {
+	logger?: (request: middy.Request) => void;
 }
 
-declare function errorLogger (options?: Options): middy.MiddlewareObj
+declare function errorLogger(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default errorLogger
+export declare function errorLoggerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default errorLogger;

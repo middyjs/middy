@@ -1,0 +1,50 @@
+{
+	"$schema": "https://schema.tardisec.com/0.0.0-alpha.0",
+	"raw": {
+		"Content-Security-Policy": null,
+		"Content-Security-Policy-Report-Only": "base-uri 'none';default-src 'report-sample' 'report-sha256';form-action 'none';frame-ancestors 'none';report-to default;report-uri https://middy.js.org.report-to.org;require-trusted-types-for 'script'",
+		"Cross-Origin-Embedder-Policy": "require-corp;report-to=default",
+		"Cross-Origin-Embedder-Policy-Report-Only": null,
+		"Cross-Origin-Opener-Policy": "same-origin;report-to=default",
+		"Cross-Origin-Opener-Policy-Report-Only": null,
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Document-Isolation-Policy": "isolate-and-require-corp;report-to=default",
+		"Document-Policy": null,
+		"Document-Policy-Report-Only": "*;report-to=default",
+		"Integrity-Policy": "blocked-destinations=(),endpoints=(default)",
+		"Integrity-Policy-Report-Only": "blocked-destinations=(script style),endpoints=(default)",
+		"NEL": "{\"failure_fraction\":1,\"include_subdomains\":true,\"max_age\":31536000,\"report_to\":\"default\",\"success_fraction\":0}",
+		"Origin-Agent-Cluster": "?1",
+		"Permissions-Policy": null,
+		"Permissions-Policy-Report-Only": "accelerometer=(),all-screens-capture=(),ambient-light-sensor=(),aria-notify=(),attribution-reporting=(),autoplay=(),battery=(),bluetooth=(),browsing-topics=(),camera=(),captured-surface-control=(),ch-ua=(),ch-ua-arch=(),ch-ua-bitness=(),ch-ua-full-version=(),ch-ua-full-version-list=(),ch-ua-high-entropy-values=(),ch-ua-mobile=(),ch-ua-model=(),ch-ua-platform=(),ch-ua-platform-version=(),compute-pressure=(),cross-origin-isolated=(),digital-credentials-create=(),digital-credentials-get=(),direct-sockets=(),display-capture=(),encrypted-media=(),execution-while-not-rendered=(),execution-while-out-of-viewport=(),focus-without-user-activation=(),fullscreen=(),gamepad=(),geolocation=(),gyroscope=(),hid=(),identity-credentials-get=(),idle-detection=(),interest-cohort=(),join-ad-interest-group=(),keyboard-map=(),language-detector=(),local-fonts=(),magnetometer=(),mediasession=(),microphone=(),midi=(),monetization=(),navigation-override=(),on-device-speech-recognition=(),otp-credentials=(),payment=(),picture-in-picture=(),private-state-token-issuance=(),private-state-token-redemption=(),publickey-credentials-create=(),publickey-credentials-get=(),run-ad-auction=(),screen-wake-lock=(),serial=(),smart-card=(),speaker-selection=(),storage-access=(),summarizer=(),sync-script=(),sync-xhr=(),translator=(),trust-token-redemption=(),unload=(),usb=(),vertical-scroll=(),web-share=(),window-management=(),xr-spatial-tracking=()",
+		"Referrer-Policy": "no-referrer",
+		"Report-To": "{\"endpoints\":[{\"url\":\"https://middy.js.org.report-to.org\"}],\"group\":\"default\",\"include_subdomains\":true,\"max_age\":31536000}",
+		"Reporting-Endpoints": "default=\"https://middy.js.org.report-to.org\"",
+		"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+		"X-Content-Type-Options": "nosniff",
+		"X-Download-Options": "noopen",
+		"X-Frame-Options": "DENY",
+		"X-Permitted-Cross-Domain-Policies": "none"
+	},
+	"svelte.config.js": {
+		"Content-Security-Policy": {
+			"mode": "hash",
+			"directives": {
+				"default-src": ["none"],
+				"base-uri": ["none"],
+				"connect-src": ["self"],
+				"form-action": ["self"],
+				"frame-ancestors": ["none"],
+				"img-src": ["self"],
+				"manifest-src": ["self"],
+				"script-src": ["self"],
+				"script-src-attr": ["report-sample"],
+				"style-src": ["self"],
+				"style-src-attr": ["report-sample"],
+				"upgrade-insecure-requests": true,
+				"worker-src": ["self"],
+				"report-to": ["default"]
+			}
+		}
+	}
+}

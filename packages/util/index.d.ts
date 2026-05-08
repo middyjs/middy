@@ -1,147 +1,281 @@
-import middy from '@middy/core'
-import { Context as LambdaContext } from 'aws-lambda'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
+import type { Context as LambdaContext } from "aws-lambda";
 import type {
-  ArrayValues,
-  Choose,
-  DeepAwaited,
-  IsUnknown,
-  SanitizeKey,
-  SanitizeKeys
-} from './type-utils.d.ts'
+	ArrayValues,
+	Choose,
+	DeepAwaited,
+	IsUnknown,
+	SanitizeKey,
+	SanitizeKeys,
+} from "./type-utils.d.ts";
 
-interface Options<Client, ClientOptions> {
-  AwsClient?: new (...[config]: [any] | any) => Client
-  awsClientOptions?: Partial<ClientOptions>
-  awsClientAssumeRole?: string
-  awsClientCapture?: (service: Client) => Client
-  fetchData?: { [key: string]: string }
-  disablePrefetch?: boolean
-  cacheKey?: string
-  cacheExpiry?: number
-  setToContext?: boolean
+export interface Options<Client, ClientOptions> {
+	AwsClient?: new (config: ClientOptions) => Client;
+	awsClientOptions?: Partial<ClientOptions>;
+	awsClientAssumeRole?: string;
+	awsClientCapture?: (service: Client) => Client;
+	fetchData?: { [key: string]: string };
+	disablePrefetch?: boolean;
+	cacheKey?: string;
+	cacheExpiry?: number;
+	cacheKeyExpiry?: Record<string, number>;
+	cacheMaxSize?: number;
+	setToContext?: boolean;
 }
 
-declare class HttpError extends Error {
-  status: number
-  statusCode: number
-  expose: boolean;
-  [key: string]: any
-  [key: number]: any
+export declare class HttpError extends Error {
+	status: number;
+	statusCode: number;
+	expose: boolean;
+	[key: string]: unknown;
+	[key: number]: unknown;
 }
 
-declare function createPrefetchClient<Client, ClientOptions> (
-  options: Options<Client, ClientOptions>
-): Client
+declare function createPrefetchClient<Client, ClientOptions>(
+	options: Options<Client, ClientOptions>,
+): Client;
 
-declare function createClient<Client, ClientOptions> (
-  options: Options<Client, ClientOptions>,
-  request: middy.Request
-): Promise<Client>
+declare function createClient<Client, ClientOptions>(
+	options: Options<Client, ClientOptions>,
+	request: middy.Request,
+): Promise<Client>;
 
-declare function canPrefetch<Client, ClientOptions> (
-  options: Options<Client, ClientOptions>
-): boolean
-
-type InternalOutput<TVariables> = TVariables extends string[]
-  ? { [key in TVariables[number]]: unknown }
-  : never
+declare function canPrefetch<Client, ClientOptions>(
+	options: Options<Client, ClientOptions>,
+): boolean;
 
 // get an empty object if false is passed
 declare function getInternal<
-  TContext extends LambdaContext,
-  TInternal extends Record<string, unknown>
-> (
-  variables: false,
-  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
-): Promise<{}>
+	TContext extends LambdaContext,
+	TInternal extends Record<string, unknown>,
+>(
+	variables: false,
+	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+): Promise<{}>;
 
 // get all internal values if true is passed (with promises resolved)
 declare function getInternal<
-  TContext extends LambdaContext,
-  TInternal extends Record<string, unknown>
-> (
-  variables: true,
-  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
-): Promise<DeepAwaited<TInternal>>
+	TContext extends LambdaContext,
+	TInternal extends Record<string, unknown>,
+>(
+	variables: true,
+	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
+): Promise<DeepAwaited<TInternal>>;
 
 // get a single value
 declare function getInternal<
-  TContext extends LambdaContext,
-  TInternal extends Record<string, unknown>,
-  TVars extends keyof TInternal | string
-> (
-  variables: TVars,
-  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+	TContext extends LambdaContext,
+	TInternal extends Record<string, unknown>,
+	TVars extends keyof TInternal | string,
+>(
+	variables: TVars,
+	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
 ): TVars extends keyof TInternal
-  ? Promise<DeepAwaited<{ [_ in SanitizeKey<TVars>]: TInternal[TVars] }>>
-  : TVars extends string
-    ? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
-      ? unknown // could not find the path
-      : Promise<{
-        [_ in SanitizeKey<TVars>]: Choose<DeepAwaited<TInternal>, TVars>
-      }>
-    : unknown // path is not a string or a keyof TInternal
+	? Promise<DeepAwaited<{ [_ in SanitizeKey<TVars>]: TInternal[TVars] }>>
+	: TVars extends string
+		? IsUnknown<Choose<DeepAwaited<TInternal>, TVars>> extends true
+			? unknown // could not find the path
+			: Promise<{
+					[_ in SanitizeKey<TVars>]: Choose<DeepAwaited<TInternal>, TVars>;
+				}>
+		: unknown; // path is not a string or a keyof TInternal
 
 // get multiple values
 declare function getInternal<
-  TContext extends LambdaContext,
-  TInternal extends Record<string, unknown>,
-  TVars extends Array<keyof TInternal | string>
-> (
-  variables: TVars,
-  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+	TContext extends LambdaContext,
+	TInternal extends Record<string, unknown>,
+	TVars extends Array<keyof TInternal | string>,
+>(
+	variables: TVars,
+	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<
-SanitizeKeys<{
-  [TVar in ArrayValues<TVars>]: TVar extends keyof TInternal
-    ? DeepAwaited<TInternal[TVar]>
-    : TVar extends string
-      ? Choose<DeepAwaited<TInternal>, TVar>
-      : unknown // path is not a string or a keyof TInternal
-}>
->
+	SanitizeKeys<{
+		[TVar in ArrayValues<TVars>]: TVar extends keyof TInternal
+			? DeepAwaited<TInternal[TVar]>
+			: TVar extends string
+				? Choose<DeepAwaited<TInternal>, TVar>
+				: unknown; // path is not a string or a keyof TInternal
+	}>
+>;
 
 // remap object
 declare function getInternal<
-  TContext extends LambdaContext,
-  TInternal extends Record<string, unknown>,
-  TMap extends Record<string, keyof TInternal | string>
-> (
-  variables: TMap,
-  request: middy.Request<unknown, unknown, unknown, TContext, TInternal>
+	TContext extends LambdaContext,
+	TInternal extends Record<string, unknown>,
+	TMap extends Record<string, keyof TInternal | string>,
+>(
+	variables: TMap,
+	request: middy.Request<unknown, unknown, unknown, TContext, TInternal>,
 ): Promise<{
-  [P in keyof TMap]: TMap[P] extends keyof TInternal
-    ? DeepAwaited<TInternal[TMap[P]]>
-    : TMap[P] extends string
-      ? Choose<DeepAwaited<TInternal>, TMap[P]>
-      : unknown // path is not a string or a keyof TInternal
-}>
+	[P in keyof TMap]: TMap[P] extends keyof TInternal
+		? DeepAwaited<TInternal[TMap[P]]>
+		: TMap[P] extends string
+			? Choose<DeepAwaited<TInternal>, TMap[P]>
+			: unknown; // path is not a string or a keyof TInternal
+}>;
 
-declare function sanitizeKey<T extends string> (key: T): SanitizeKey<T>
+declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
-declare function processCache<Client, ClientOptions> (
-  options: Options<Client, ClientOptions>,
-  fetch: (request: middy.Request, cachedValues: any) => any,
-  request?: middy.Request
-): { value: any, expiry: number }
+declare function processCache<Client, ClientOptions>(
+	options: Options<Client, ClientOptions>,
+	fetch: (request: middy.Request, cachedValues: unknown) => unknown,
+	request?: middy.Request,
+): { value: unknown; expiry: number };
 
-declare function getCache (keys: string): any
+declare function getCache(keys: string): unknown;
 
-declare function clearCache (keys?: string | string[] | null): void
+declare function clearCache(keys?: string | string[] | null): void;
 
-declare function jsonSafeParse (
-  string: string,
-  reviver?: (key: string, value: any) => any
-): any
+declare function jsonSafeParse(
+	string: string,
+	reviver?: (key: string, value: unknown) => unknown,
+): unknown;
 
-declare function normalizeHttpResponse (
-  request: any,
-  fallbackResponse?: any
-): any
+declare function normalizeHttpResponse(
+	request: middy.Request,
+	fallbackResponse?: Record<string, unknown>,
+): Record<string, unknown>;
 
-declare function createError (
-  code: number,
-  message: string,
-  properties?: Record<string, any>
-): HttpError
+declare function createError(
+	code: number,
+	message: string,
+	properties?: Record<string, unknown>,
+): HttpError;
 
-declare function modifyCache (cacheKey: string, value: any): void
+declare function modifyCache(cacheKey: string, value: unknown): void;
+
+declare function catchInvalidSignatureException<Client, Command>(
+	e: Error & { __type?: string },
+	client: Client,
+	command: Command,
+): Promise<unknown>;
+
+declare function jsonSafeStringify(
+	value: unknown,
+	replacer?: (key: string, value: unknown) => unknown,
+	space?: string | number,
+): string | unknown;
+
+declare const jsonContentTypePattern: RegExp;
+
+declare function decodeBody(event: {
+	body?: string | null;
+	isBase64Encoded?: boolean;
+}): string | null | undefined;
+
+declare const lambdaContextKeys: string[];
+
+declare const executionContextKeys: string[];
+
+declare function isExecutionModeDurable(context: LambdaContext): boolean;
+
+declare function executionContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): unknown;
+
+declare function lambdaContext(
+	request: middy.Request,
+	key: string,
+	context: LambdaContext,
+): unknown;
+
+declare const httpErrorCodes: Record<number, string>;
+
+export type JsonSchemaType =
+	| "string"
+	| "number"
+	| "integer"
+	| "boolean"
+	| "object"
+	| "array";
+
+export type StringRule = {
+	type: "string";
+	pattern?: string;
+	minLength?: number;
+	maxLength?: number;
+	enum?: readonly string[];
+	examples?: readonly string[];
+};
+
+export type NumberRule = {
+	type: "number" | "integer";
+	minimum?: number;
+	maximum?: number;
+	exclusiveMinimum?: number;
+	exclusiveMaximum?: number;
+	multipleOf?: number;
+	enum?: readonly number[];
+	examples?: readonly number[];
+};
+
+export type BooleanRule = {
+	type: "boolean";
+	enum?: readonly boolean[];
+	examples?: readonly boolean[];
+};
+
+export type ArrayRule = {
+	type: "array";
+	items?: OptionSchemaRule;
+	uniqueItems?: boolean;
+	examples?: readonly unknown[];
+};
+
+export type ObjectRule = {
+	type: "object";
+	required?: readonly string[];
+	properties?: { [key: string]: OptionSchemaRule };
+	additionalProperties?: boolean | OptionSchemaRule;
+	examples?: readonly object[];
+};
+
+export type EnumRule = {
+	enum: readonly unknown[];
+	type?: JsonSchemaType;
+	examples?: readonly unknown[];
+};
+
+export type ConstRule = {
+	const: unknown;
+	examples?: readonly unknown[];
+};
+
+export type InstanceofRule = {
+	instanceof: string;
+	examples?: readonly unknown[];
+};
+
+export type OneOfRule = {
+	oneOf: readonly OptionSchemaRule[];
+	examples?: readonly unknown[];
+};
+
+export type AllOfRule = {
+	allOf: readonly OptionSchemaRule[];
+	examples?: readonly unknown[];
+};
+
+export type OptionSchemaRule =
+	| StringRule
+	| NumberRule
+	| BooleanRule
+	| ArrayRule
+	| ObjectRule
+	| EnumRule
+	| ConstRule
+	| InstanceofRule
+	| OneOfRule
+	| AllOfRule;
+
+export type OptionSchema = ObjectRule;
+
+export declare function validateOptions(
+	packageName: string,
+	schema: OptionSchema,
+	options?: Record<string, unknown>,
+): void;

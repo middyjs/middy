@@ -1,52 +1,67 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
+const name = "sqs-partial-batch-failure";
+const pkg = `@middy/${name}`;
+
 const defaults = {
-  logger: console.error
-}
+	logger: console.error,
+};
+
+const optionSchema = {
+	type: "object",
+	properties: {
+		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+	},
+	additionalProperties: false,
+};
+
+export const sqsPartialBatchFailureValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
-  const { logger } = { ...defaults, ...opts }
+	const { logger } = { ...defaults, ...opts };
 
-  const sqsPartialBatchFailureMiddlewareAfter = async (request) => {
-    const {
-      event: { Records },
-      response
-    } = request
+	const sqsPartialBatchFailureMiddlewareAfter = (request) => {
+		const {
+			event: { Records },
+			response,
+		} = request;
 
-    // https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
-    // Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
-    const batchItemFailures = []
-    if (Array.isArray(Records)) {
-      for (const [idx, record] of Object.entries(Records)) {
-        const { status, reason } = response[idx]
-        if (status === 'fulfilled') continue
-        batchItemFailures.push({ itemIdentifier: record.messageId })
-        if (typeof logger === 'function') {
-          logger(reason, record)
-        }
-      }
-    }
+		// https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
+		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
+		const batchItemFailures = [];
+		if (Array.isArray(Records)) {
+			for (const [idx, record] of Records.entries()) {
+				const { status, reason } = response[idx] ?? {};
+				if (status === "fulfilled") continue;
+				batchItemFailures.push({ itemIdentifier: record.messageId });
+				if (typeof logger === "function") {
+					logger(reason, record);
+				}
+			}
+		}
 
-    request.response = { batchItemFailures }
-  }
+		request.response = { batchItemFailures };
+	};
 
-  const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
-    if (request.response !== undefined) return
+	const sqsPartialBatchFailureMiddlewareOnError = async (request) => {
+		if (typeof request.response !== "undefined") return;
 
-    // Force all to be sent to DLQ
-    // const recordPromises = request.event.Records.map(async (record, index) => {
-    //   throw request.error
-    // })
-    request.response = new Array(request.event.Records?.length).fill({
-      status: 'rejected',
-      reason: request.error
-    })
+		const length = request.event.Records?.length ?? 0;
+		request.response = Array.from({ length }, () => ({
+			status: "rejected",
+			reason: request.error,
+		}));
 
-    await sqsPartialBatchFailureMiddlewareAfter(request)
-  }
+		await sqsPartialBatchFailureMiddlewareAfter(request);
+	};
 
-  return {
-    after: sqsPartialBatchFailureMiddlewareAfter,
-    onError: sqsPartialBatchFailureMiddlewareOnError
-  }
-}
+	return {
+		after: sqsPartialBatchFailureMiddlewareAfter,
+		onError: sqsPartialBatchFailureMiddlewareOnError,
+	};
+};
 
-export default sqsPartialBatchFailureMiddleware
+export default sqsPartialBatchFailureMiddleware;

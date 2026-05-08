@@ -1,19 +1,37 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
+const name = "warmup";
+const pkg = `@middy/${name}`;
+
 const defaults = {
-  isWarmingUp: (event) => event.source === 'serverless-plugin-warmup'
-}
+	isWarmingUp: (event) => event.source === "serverless-plugin-warmup",
+};
 
-const warmupMiddleware = (opt) => {
-  const options = { ...defaults, ...opt }
+const optionSchema = {
+	type: "object",
+	properties: {
+		isWarmingUp: { instanceof: "Function" },
+	},
+	additionalProperties: false,
+};
 
-  const warmupMiddlewareBefore = (request) => {
-    if (options.isWarmingUp(request.event)) {
-      return 'warmup'
-    }
-  }
+export const warmupValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
-  return {
-    before: warmupMiddlewareBefore
-  }
-}
+const warmupMiddleware = (opts = {}) => {
+	const options = { ...defaults, ...opts };
 
-export default warmupMiddleware
+	const warmupMiddlewareBefore = (request) => {
+		if (options.isWarmingUp(request.event)) {
+			return "warmup";
+		}
+	};
+
+	return {
+		before: warmupMiddlewareBefore,
+	};
+};
+
+export default warmupMiddleware;

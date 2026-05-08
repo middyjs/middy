@@ -1,9 +1,17 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface Options {
-  filteringKeyName?: string
+export interface Options {
+	filteringKeyName?: string;
 }
 
-declare function httpPartialResponse (options?: Options): middy.MiddlewareObj
+declare function httpPartialResponse(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default httpPartialResponse
+export declare function httpPartialResponseValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default httpPartialResponse;

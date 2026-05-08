@@ -1,0 +1,82 @@
+import { strictEqual } from "node:assert/strict";
+import { test } from "node:test";
+import fc from "fast-check";
+import middy from "../core/index.js";
+import router from "./index.js";
+
+const handler = middy(router());
+const defaultContext = {
+	getRemainingTimeInMillis: () => 1000,
+};
+
+test("fuzz `event` w/ `object`", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.object(), async (event) => {
+			try {
+				await handler(event, defaultContext);
+			} catch (e) {
+				if (e.cause?.package !== "@middy/cloudformation-router") {
+					throw e;
+				}
+			}
+		}),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `record`", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				RequestType: fc.string(),
+				RequestId: fc.string(),
+				LogicalResourceId: fc.string(),
+				StackId: fc.string(),
+			}),
+			async (event) => {
+				try {
+					await handler(event, defaultContext);
+				} catch (e) {
+					if (e.cause?.package !== "@middy/cloudformation-router") {
+						throw e;
+					}
+				}
+			},
+		),
+		{
+			numRuns: 100_000,
+			examples: [[{ requestContext: { routeKey: "valueOf" } }]],
+		},
+	);
+});
+
+test("fuzz valid RequestType routes correctly", async () => {
+	const routeHandler = middy(
+		router([
+			{ requestType: "Create", handler: () => "create" },
+			{ requestType: "Update", handler: () => "update" },
+			{ requestType: "Delete", handler: () => "delete" },
+		]),
+	);
+	await fc.assert(
+		fc.asyncProperty(
+			fc.constantFrom("Create", "Update", "Delete"),
+			async (requestType) => {
+				const result = await routeHandler(
+					{ RequestType: requestType },
+					defaultContext,
+				);
+				strictEqual(result, requestType.toLowerCase());
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});

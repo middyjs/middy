@@ -1,160 +1,200 @@
-import {
-  Context as LambdaContext,
-  Handler as LambdaHandler
-} from 'aws-lambda'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 
-declare type PluginHook = () => void
-declare type PluginHookWithMiddlewareName = (middlewareName: string) => void
+import type { DurableContext as LambdaContextDurable } from "@aws/durable-execution-sdk-js";
+import type {
+	Context as LambdaContext,
+	Handler as LambdaHandler,
+} from "aws-lambda";
+
+declare type PluginHook = () => void;
+declare type PluginHookWithMiddlewareName = (middlewareName: string) => void;
+declare type PluginHookWithRequest = (request: Request) => void;
 declare type PluginHookPromise = (
-  request: Request
-) => Promise<unknown> | unknown
+	request: Request,
+) => Promise<unknown> | unknown;
+declare type PluginTimeoutEarlyResponse = () => unknown;
+export type PluginExecutionMode = () => void;
+export declare const executionModeStandard: PluginExecutionMode;
+export declare const executionModeDurableContext: PluginExecutionMode;
+export declare const executionModeStreamifyResponse: PluginExecutionMode;
 
 interface PluginObject {
-  internal?: any
-  beforePrefetch?: PluginHook
-  requestStart?: PluginHook
-  beforeMiddleware?: PluginHookWithMiddlewareName
-  afterMiddleware?: PluginHookWithMiddlewareName
-  beforeHandler?: PluginHook
-  timeoutEarlyInMillis?: number
-  timeoutEarlyResponse?: PluginHook
-  afterHandler?: PluginHook
-  requestEnd?: PluginHookPromise
-  streamifyResponse?: Boolean
+	internal?: Record<string, unknown>;
+	beforePrefetch?: PluginHook;
+	requestStart?: PluginHookWithRequest;
+	beforeMiddleware?: PluginHookWithMiddlewareName;
+	afterMiddleware?: PluginHookWithMiddlewareName;
+	beforeHandler?: PluginHook;
+	afterHandler?: PluginHook;
+	requestEnd?: PluginHookPromise;
+	timeoutEarlyInMillis?: number;
+	timeoutEarlyResponse?: PluginTimeoutEarlyResponse;
+	executionMode?: PluginExecutionMode;
 }
 
 export interface Request<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
 > {
-  event: TEvent
-  context: TContext
-  response: TResult | null
-  error: TErr | null
-  internal: TInternal
+	event: TEvent;
+	context: TContext;
+	response: TResult | null | undefined;
+	earlyResponse?: TResult | null | undefined;
+	error: TErr | null | undefined;
+	internal: TInternal;
 }
 
 declare type MiddlewareFn<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
-> = (request: Request<TEvent, TResult, TErr, TContext, TInternal>) => any
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
+> = (request: Request<TEvent, TResult, TErr, TContext, TInternal>) => any;
 
 export interface MiddlewareObj<
-  TEvent = unknown,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
 > {
-  before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  after?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  onError?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  name?: string
+	before?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	after?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	onError?: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	name?: string;
 }
 
 export interface MiddyHandlerObject {
-  /**
-   * An abort signal that will be canceled just before the lambda times out.
-   * @see timeoutEarlyInMillis
-   */
-  signal: AbortSignal
+	/**
+	 * An abort signal that will be canceled just before the lambda times out.
+	 * @see timeoutEarlyInMillis
+	 */
+	signal: AbortSignal;
 }
 
 // The AWS provided Handler type uses void | Promise<TResult> so we have no choice but to follow and suppress the linter warning
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
 type MiddyInputHandler<
-  TEvent,
-  TResult,
-  TContext extends LambdaContext = LambdaContext
+	TEvent,
+	TResult,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
 > = (
-  event: TEvent,
-  context: TContext,
-  opts: MiddyHandlerObject,
-) => // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-void | Promise<TResult> | TResult
+	event: TEvent,
+	context: TContext,
+	opts: MiddyHandlerObject,
+) => undefined | Promise<TResult> | TResult;
 type MiddyInputPromiseHandler<
-  TEvent,
-  TResult,
-  TContext extends LambdaContext = LambdaContext
-> = (event: TEvent, context: TContext) => Promise<TResult>
+	TEvent,
+	TResult,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+> = (event: TEvent, context: TContext) => Promise<TResult>;
 
 export interface MiddyfiedHandler<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
 > extends MiddyInputHandler<TEvent, TResult, TContext>,
-  MiddyInputPromiseHandler<TEvent, TResult, TContext> {
-  use: UseFn<TEvent, TResult, TErr, TContext, TInternal>
-  before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-  handler: <TInputHandlerEventProps = TEvent, TInputHandlerResultProps = TResult>(
-    handler: MiddlewareHandler<
-    LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
-    TContext, TResult
-    >
-  ) => MiddyfiedHandler<TInputHandlerEventProps, TInputHandlerResultProps, TErr, TContext, TInternal>
+		MiddyInputPromiseHandler<TEvent, TResult, TContext> {
+	use: UseFn<TEvent, TResult, TErr, TContext, TInternal>;
+	before: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	after: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	onError: AttachMiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>;
+	handler: <
+		TInputHandlerEventProps = TEvent,
+		TInputHandlerResultProps = TResult,
+	>(
+		handler: MiddlewareHandler<
+			LambdaHandler<TInputHandlerEventProps, TInputHandlerResultProps>,
+			TContext,
+			TResult,
+			TEvent
+		>,
+	) => MiddyfiedHandler<
+		TInputHandlerEventProps,
+		TInputHandlerResultProps,
+		TErr,
+		TContext,
+		TInternal
+	>;
 }
 
 declare type AttachMiddlewareFn<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
 > = (
-  middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>
-) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
+	middleware: MiddlewareFn<TEvent, TResult, TErr, TContext, TInternal>,
+) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare type AttachMiddlewareObj<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
 > = (
-  middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>
-) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
+	middleware: MiddlewareObj<TEvent, TResult, TErr, TContext, TInternal>,
+) => MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare type UseFn<
-  TEvent = any,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
-> = <TMiddleware extends MiddlewareObj<any, any, Error, any, any>>(
-  middlewares: TMiddleware | TMiddleware[]
-) => TMiddleware extends MiddlewareObj<
-infer TMiddlewareEvent,
-any,
-Error,
-infer TMiddlewareContext,
-infer TMiddlewareInternal
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
+> = <
+	TMiddlewares extends
+		| MiddlewareObj<any, any, any, any, any>
+		| MiddlewareObj<any, any, any, any, any>[],
+>(
+	middlewares: TMiddlewares,
+) => TMiddlewares extends MiddlewareObj<
+	infer TMiddlewareEvent,
+	any,
+	any,
+	infer TMiddlewareContext,
+	infer TMiddlewareInternal
 >
-  ? MiddyfiedHandler<
-  TMiddlewareEvent & TEvent,
-  TResult,
-  TErr,
-  TMiddlewareContext & TContext,
-  TMiddlewareInternal & TInternal
-  > // always true
-  : never
+	? MiddyfiedHandler<
+			TMiddlewareEvent & TEvent,
+			TResult,
+			TErr,
+			TMiddlewareContext & TContext,
+			TMiddlewareInternal & TInternal
+		>
+	: TMiddlewares extends MiddlewareObj<
+				infer TMiddlewareEvent,
+				any,
+				any,
+				infer TMiddlewareContext,
+				infer TMiddlewareInternal
+			>[]
+		? MiddyfiedHandler<
+				TEvent & TMiddlewareEvent,
+				TResult,
+				TErr,
+				TContext & TMiddlewareContext,
+				TInternal & TMiddlewareInternal
+			>
+		: never;
 
 declare type MiddlewareHandler<
-  THandler extends LambdaHandler<any, any>,
-  TContext extends LambdaContext = LambdaContext,
-  TResult = any
-> = THandler extends LambdaHandler<infer TEvent, TResult> // always true
-  ? MiddyInputHandler<TEvent, TResult, TContext>
-  : never
+	THandler extends LambdaHandler<any, any>,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TResult = any,
+	TEvent = unknown,
+> =
+	THandler extends LambdaHandler<TEvent, TResult> // always true
+		? MiddyInputHandler<TEvent, TResult, TContext>
+		: never;
 
 /**
  * Middy factory function. Use it to wrap your existing handler to enable middlewares on it.
@@ -162,29 +202,38 @@ declare type MiddlewareHandler<
  * @param plugin wraps around each middleware and handler to add custom lifecycle behaviours (e.g. to profile performance)
  */
 declare function middy<
-  TEvent = unknown,
-  TResult = any,
-  TErr = Error,
-  TContext extends LambdaContext = LambdaContext,
-  TInternal extends Record<string, unknown> = {}
-> (
-  handler?:
-  | LambdaHandler<TEvent, TResult>
-  | MiddlewareHandler<LambdaHandler<TEvent, TResult>, TContext, TResult>
-  | PluginObject,
-  plugin?: PluginObject
-): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>
+	TEvent = unknown,
+	TResult = any,
+	TErr = Error,
+	TContext extends LambdaContext | LambdaContextDurable = LambdaContext,
+	TInternal extends Record<string, unknown> = {},
+>(
+	handler?:
+		| LambdaHandler<TEvent, TResult>
+		| MiddlewareHandler<
+				LambdaHandler<TEvent, TResult>,
+				TContext,
+				TResult,
+				TEvent
+		  >
+		| PluginObject,
+	plugin?: PluginObject,
+): MiddyfiedHandler<TEvent, TResult, TErr, TContext, TInternal>;
 
 declare namespace middy {
-  export {
-    Request,
-    PluginHook,
-    PluginHookWithMiddlewareName,
-    PluginObject,
-    MiddlewareFn,
-    MiddlewareObj,
-    MiddyfiedHandler
-  }
+	export type {
+		MiddlewareFn,
+		MiddlewareObj,
+		MiddyfiedHandler,
+		PluginHook,
+		PluginHookWithMiddlewareName,
+		PluginObject,
+		Request,
+	};
 }
 
-export default middy
+export declare function middyValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default middy;

@@ -2,7 +2,7 @@
 
 This document outlines security procedures and general policies for the Middy Open Source projects as found on https://github.com/middyjs.
 
-* [Security Goalss](#security-goals)
+* [Security Goals](#security-goals)
 * [Supported Versions](#supported-versions)
 * [Reporting a Vulnerability](#reporting-a-vulnerability)
 * [Disclosure Policy](#disclosure-policy)
@@ -15,8 +15,26 @@ Our goal is to ensure Middy meets security best practices as outlined by the fol
 - [NIST SP 800-53 Rev. 5](https://docs.aws.amazon.com/securityhub/latest/userguide/nist-standard.html)
 - [OWASP ASVS v5.0 Level 3](https://github.com/OWASP/ASVS/tree/master/5.0/en)
 
+Core maintainers use Middy extensively within their own organizations that meet the above standards tested using SecurityHub and penetration testing.
+
+## Secure design principles
+
+- secure by default
+- use white lists
+- no backdoors
+- follow least privilege
+- keep it simple
+
 ## Supported Versions
 Only the latest version is supported for security updates.
+
+## Threat model
+
+All options and configuration are assume to be trusted as we are configured by the implementing developer. It's up the implement IAM properly.
+
+## Trust Boundaries
+
+Middy is implemented within AWS Lambda. The Lambda execution and configuration of middy is trusted. It's up to the implementing developer to apply input validation to ensure the event is properly structured and safe to use for the handler. User inputs to all packages are fuzzed.
 
 ## Reporting a Vulnerability
 
@@ -32,7 +50,7 @@ willfarrell@proton.me
 The lead maintainer will acknowledge your email within 24 hours, and will
 send a more detailed response within 48 hours indicating the next steps in
 handling your report. After the initial reply to your report, the security
-team will endeavor to keep you informed of the progress towards a fix and
+team will endeavour to keep you informed of the progress towards a fix and
 full announcement, and may ask for additional information or guidance.
 
 Report security vulnerabilities in third-party modules to the person or

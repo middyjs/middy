@@ -1,0 +1,97 @@
+code {
+	--hex-neutral: #000000;
+	--hex-red: #c52f21;
+	--hex-cerise-red: #d81b60;
+	--hex-cinnabar: #e53935;
+	--hex-pomegranate: #f4511e;
+	--hex-pizazz: #fb8c00;
+	--hex-selective-yellow: #ffb300;
+	--hex-bright-yellow: #fdd835;
+	--hex-key-lime-pie: #c0ca33;
+	--hex-sushi: #7cb342;
+	--hex-apple: #43a047;
+	--hex-elf-green: #00897b;
+	--hex-pelorous: #00acc1;
+	--hex-curious-blue: #039be5;
+	--hex-cornflower-blue: #1e88e5;
+	--hex-cobalt: #3949ab;
+	--hex-daisy-bush: #5e35b1;
+	--hex-violet-eggplant: #8e24aa;
+
+	--lightness-code: var(--lightness-main-bold);
+
+	--code-comment: light-dark(
+		oklch(from #000 0.6 c h),
+		oklch(from #000 0.5 c h)
+	);
+	--code-punctuation: oklch(from var(--hex-neutral) var(--lightness-code) c h);
+	--code-deleted: oklch(from var(--hex-red) var(--lightness-code) c h);
+	--code-inserted: oklch(
+		from var(--hex-key-lime-pie) var(--lightness-code) c h
+	);
+	--code-operator: oklch(from var(--hex-cobalt) var(--lightness-code) c h);
+	--code-keyword: oklch(from var(--hex-pelorous) var(--lightness-code) c h);
+	--code-function: oklch(from var(--hex-cinnabar) var(--lightness-code) c h);
+	--code-variable: oklch(from var(--hex-pizazz) var(--lightness-code) c h);
+
+	/* prismjs */
+	.comment,
+	.prolog,
+	.doctype,
+	.cdata {
+		color: var(--code-comment, --color-text);
+	}
+	.punctuation {
+		color: var(--code-punctuation, --color-text);
+	}
+	.namespace {
+		opacity: 0.7;
+	}
+	.property,
+	.tag,
+	.boolean,
+	.number,
+	.constant,
+	.symbol,
+	.deleted {
+		color: var(--code-deleted, --color-del, --color-text);
+	}
+	.selector,
+	.attr-name,
+	.string,
+	.char,
+	.builtin,
+	.inserted {
+		color: var(--code-inserted, --color-ins, --color-text);
+	}
+	.operator,
+	.entity,
+	.url,
+	.style .string {
+		color: var(--code-operator, --color-text);
+		background: hsla(0, 0, 100%, 0.5);
+	}
+	.atrule,
+	.attr-value,
+	.keyword {
+		color: var(--code-keyword, --color-text);
+	}
+	.function {
+		color: var(--code-function, --color-text);
+	}
+	.regex,
+	.important,
+	.variable {
+		color: var(--code-variable, --color-text);
+	}
+	.important,
+	.bold {
+		font-weight: bold;
+	}
+	.italic {
+		font-style: italic;
+	}
+	.entity {
+		cursor: help;
+	}
+}

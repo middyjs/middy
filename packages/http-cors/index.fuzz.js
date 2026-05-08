@@ -1,0 +1,114 @@
+import { strictEqual } from "node:assert/strict";
+import { test } from "node:test";
+import fc from "fast-check";
+import middy from "../core/index.js";
+import middleware from "./index.js";
+
+const handler = middy((event) => event).use(middleware());
+const defaultContext = {
+	getRemainingTimeInMillis: () => 1000,
+};
+
+test("fuzz `event` w/ `object`", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.object(), async (event) => {
+			await handler(event, defaultContext);
+		}),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `record`", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				headers: fc.object(),
+			}),
+			async (event) => {
+				await handler(event, defaultContext);
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `Access-Control-Request-Method` header", async () => {
+	const handlerWithRequestMethods = middy((event) => event).use(
+		middleware({ requestMethods: ["GET", "POST"] }),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constant("OPTIONS"),
+				headers: fc.record({
+					"Access-Control-Request-Method": fc.oneof(
+						fc.constant(undefined),
+						fc.constantFrom("GET", "POST", "PUT", "DELETE", "PATCH"),
+					),
+				}),
+			}),
+			async (event) => {
+				await handlerWithRequestMethods(event, defaultContext);
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `Access-Control-Request-Headers` header", async () => {
+	const handlerWithRequestHeaders = middy((event) => event).use(
+		middleware({ requestHeaders: ["authorization", "x-custom-header"] }),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constant("OPTIONS"),
+				headers: fc.record({
+					"Access-Control-Request-Headers": fc.oneof(
+						fc.constant(undefined),
+						fc.string(),
+					),
+				}),
+			}),
+			async (event) => {
+				await handlerWithRequestHeaders(event, defaultContext);
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz response has CORS headers for matching origin", async () => {
+	const corsHandler = middy(() => ({})).use(middleware({ origin: "*" }));
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({ headers: fc.record({ Origin: fc.webUrl() }) }),
+			async (event) => {
+				const result = await corsHandler(event, defaultContext);
+				strictEqual(
+					typeof result.headers["Access-Control-Allow-Origin"],
+					"string",
+				);
+			},
+		),
+		{ numRuns: 100_000, examples: [] },
+	);
+});

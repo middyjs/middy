@@ -1,0 +1,12 @@
+{
+	"name": "@middy/github-workflows",
+	"version": "7.5.0",
+	"private": true,
+	"engines": {
+		"node": ">=24.0"
+	},
+	"devDependencies": {
+		"license-check-and-add": "4.0.5",
+		"lockfile-lint": "5.0.0"
+	}
+}

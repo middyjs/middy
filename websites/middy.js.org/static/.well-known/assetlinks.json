@@ -1,0 +1,9 @@
+[
+	{
+		"relation": [],
+		"target": {
+			"namespace": "web",
+			"site": "https://middy.js.org"
+		}
+	}
+]

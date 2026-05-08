@@ -1,0 +1,15 @@
+name: Tests (dco)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: Tests (dco)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Developer Certificate of Origin (DCO) compiance
+        uses: KineticCafe/actions-dco@6e1652ef3027ce128e65e6edd215ae053350bd16 # v2.1.1

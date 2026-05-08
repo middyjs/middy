@@ -1,0 +1,4 @@
+sitemap: https://middy.js.org/sitemap.xml
+
+User-agent: *
+Disallow:

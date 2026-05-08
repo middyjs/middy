@@ -1,72 +1,82 @@
 {
-  "name": "@middy/s3-object-response",
-  "version": "6.0.0",
-  "description": "S3 object response handling middleware for the middy framework",
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "engineStrict": true,
-  "publishConfig": {
-    "access": "public"
-  },
-  "module": "./index.js",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./index.d.ts",
-        "default": "./index.js"
-      },
-      "require": {
-        "default": "./index.js"
-      }
-    }
-  },
-  "types": "index.d.ts",
-  "files": [
-    "index.js",
-    "index.d.ts"
-  ],
-  "scripts": {
-    "test": "npm run test:unit && npm run test:fuzz",
-    "test:unit": "node --test __tests__/index.js",
-    "test:fuzz": "node --test __tests__/fuzz.js",
-    "test:benchmark": "node __benchmarks__/index.js"
-  },
-  "license": "MIT",
-  "keywords": [
-    "Lambda",
-    "Middleware",
-    "Serverless",
-    "Framework",
-    "AWS",
-    "AWS Lambda",
-    "Middy",
-    "S3",
-    "GetObjectResponse",
-    "WriteObjectREsponse"
-  ],
-  "author": {
-    "name": "Middy contributors",
-    "url": "https://github.com/middyjs/middy/graphs/contributors"
-  },
-  "repository": {
-    "type": "git",
-    "url": "github:middyjs/middy",
-    "directory": "packages/sts"
-  },
-  "bugs": {
-    "url": "https://github.com/middyjs/middy/issues"
-  },
-  "homepage": "https://middy.js.org",
-  "funding": {
-    "type": "github",
-    "url": "https://github.com/sponsors/willfarrell"
-  },
-  "devDependencies": {
-    "@aws-sdk/client-s3": "^3.0.0",
-    "@types/aws-lambda": "^8.10.101",
-    "aws-xray-sdk": "^3.3.3"
-  },
-  "gitHead": "7a6c0fbb8ab71d6a2171e678697de9f237568431"
+	"name": "@middy/s3-object-response",
+	"version": "7.5.0",
+	"description": "S3 object response handling middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"S3",
+		"GetObjectResponse",
+		"WriteObjectResponse"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/s3-object-response"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"peerDependencies": {
+		"@aws-sdk/client-s3": "^3.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@aws-sdk/client-s3": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@middy/util": "7.5.0"
+	},
+	"devDependencies": {
+		"@aws-sdk/client-s3": "^3.0.0",
+		"@middy/core": "7.5.0",
+		"@types/aws-lambda": "^8.0.0",
+		"@types/node": "^22.0.0",
+		"aws-xray-sdk": "^3.3.3"
+	}
 }
