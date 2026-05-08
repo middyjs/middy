@@ -43,6 +43,8 @@ export const dsqlValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const defaults = {
+	client: undefined,
+	config: undefined,
 	contextKey: name,
 	disablePrefetch: false,
 	cacheKey: pkg,
