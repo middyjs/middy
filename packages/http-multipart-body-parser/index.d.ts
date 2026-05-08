@@ -1,34 +1,53 @@
-import middy from '@middy/core'
-import { APIGatewayEvent } from 'aws-lambda'
-import { JsonValue } from 'type-fest'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
+import type {
+	ALBEvent,
+	APIGatewayEvent,
+	APIGatewayProxyEventV2,
+} from "aws-lambda";
+import type { JsonValue } from "type-fest";
 
-interface Options {
-  busboy?: {
-    headers?: any
-    highWaterMark?: number
-    fileHwm?: number
-    defCharset?: string
-    preservePath?: boolean
-    limits?: {
-      fieldNameSize?: number
-      fieldSize?: number
-      fields?: number
-      fileSize?: number
-      files?: number
-      parts?: number
-      headerPairs?: number
-    }
-  }
-  charset?: string
-  disableContentTypeError?: boolean
+export interface Options {
+	busboy?: {
+		headers?: Record<string, string>;
+		highWaterMark?: number;
+		fileHwm?: number;
+		defCharset?: string;
+		defParamCharset?: string;
+		preservePath?: boolean;
+		isPartAFile?: (
+			fieldName: string | undefined,
+			contentType: string | undefined,
+			fileName: string | undefined,
+		) => boolean;
+		limits?: {
+			fieldNameSize?: number;
+			fieldSize?: number;
+			fields?: number;
+			fileSize?: number;
+			files?: number;
+			parts?: number;
+			headerPairs?: number;
+		};
+	};
+	charset?: string;
+	disableContentTypeCheck?: boolean;
+	disableContentTypeError?: boolean;
 }
 
-export type Event = Omit<APIGatewayEvent, 'body'> & {
-  body: JsonValue
-}
+export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;
 
-declare function multipartBodyParser (
-  options?: Options
-): middy.MiddlewareObj<Event>
+export type Event<T extends RequestEvent = RequestEvent> = Omit<T, "body"> & {
+	body: JsonValue;
+};
 
-export default multipartBodyParser
+declare function multipartBodyParser<
+	EventType extends RequestEvent = RequestEvent,
+>(options?: Options): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
+
+export declare function httpMultipartBodyParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default multipartBodyParser;

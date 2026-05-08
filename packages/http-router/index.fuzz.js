@@ -1,0 +1,191 @@
+import { strictEqual } from "node:assert/strict";
+import { test } from "node:test";
+import fc from "fast-check";
+import middy from "../core/index.js";
+import router from "./index.js";
+
+const webPathWithQuery = fc
+	.webUrl({
+		authoritySettings: {
+			host: fc.constant("example.com"),
+			port: fc.constant(undefined),
+		},
+		withQueryParameters: true,
+		withFragments: false,
+	})
+	.map((url) => {
+		try {
+			const parsed = new URL(url);
+			return parsed.pathname + parsed.search;
+		} catch {
+			return "/";
+		}
+	});
+
+const handler = middy(router());
+const defaultContext = {
+	getRemainingTimeInMillis: () => 1000,
+};
+
+test("fuzz `event` w/ `object`", async () => {
+	await fc.assert(
+		fc.asyncProperty(fc.object(), async (event) => {
+			try {
+				await handler(event, defaultContext);
+			} catch (e) {
+				if (e.cause?.package !== "@middy/http-router") {
+					throw e;
+				}
+			}
+		}),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});
+
+test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				httpMethod: fc.constantFrom(
+					"HEAD",
+					"OPTIONS",
+					"GET",
+					"POST",
+					"PATCH",
+					"DELETE",
+					"TRACE",
+					"CONNECT",
+				),
+				path: fc.webPath(),
+			}),
+			async (event) => {
+				try {
+					await handler(event, defaultContext);
+				} catch (e) {
+					if (e.cause?.package !== "@middy/http-router") {
+						throw e;
+					}
+				}
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [
+				[{ httpMethod: "valueOf", path: "/" }],
+				[{ httpMethod: "GET", path: "valueOf" }],
+			],
+		},
+	);
+});
+
+test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				version: fc.constant("2.0"),
+				requestContext: fc.record({
+					http: fc.record({
+						method: fc.constantFrom(
+							"HEAD",
+							"OPTIONS",
+							"GET",
+							"POST",
+							"PATCH",
+							"DELETE",
+							"TRACE",
+							"CONNECT",
+						),
+						path: fc.webPath(),
+					}),
+				}),
+			}),
+			async (event) => {
+				try {
+					await handler(event, defaultContext);
+				} catch (e) {
+					if (e.cause?.package !== "@middy/http-router") {
+						throw e;
+					}
+				}
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [
+				[{ requestContext: { http: { method: "valueOf", path: "/" } } }],
+				[{ requestContext: { http: { method: "GET", path: "valueOf" } } }],
+			],
+		},
+	);
+});
+
+test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
+	await fc.assert(
+		fc.asyncProperty(
+			fc.record({
+				method: fc.constantFrom(
+					"HEAD",
+					"OPTIONS",
+					"GET",
+					"POST",
+					"PATCH",
+					"DELETE",
+					"TRACE",
+					"CONNECT",
+				),
+				raw_path: webPathWithQuery,
+			}),
+			async (event) => {
+				try {
+					await handler(event, defaultContext);
+				} catch (e) {
+					if (e.cause?.package !== "@middy/http-router") {
+						throw e;
+					}
+				}
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [
+				[{ method: "valueOf", raw_path: "?/" }],
+				[{ method: "GET", raw_path: "?valueOf" }],
+			],
+		},
+	);
+});
+
+test("fuzz static routes match correctly", async () => {
+	const routeHandler = middy(
+		router([
+			{ method: "GET", path: "/users", handler: () => "users" },
+			{ method: "POST", path: "/users", handler: () => "created" },
+			{ method: "GET", path: "/health", handler: () => "ok" },
+		]),
+	);
+	await fc.assert(
+		fc.asyncProperty(
+			fc.constantFrom(
+				{ httpMethod: "GET", path: "/users", expected: "users" },
+				{ httpMethod: "POST", path: "/users", expected: "created" },
+				{ httpMethod: "GET", path: "/health", expected: "ok" },
+			),
+			async ({ httpMethod, path, expected }) => {
+				const result = await routeHandler({ httpMethod, path }, defaultContext);
+				strictEqual(result, expected);
+			},
+		),
+		{
+			numRuns: 100_000,
+
+			examples: [],
+		},
+	);
+});

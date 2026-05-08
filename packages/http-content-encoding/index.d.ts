@@ -1,12 +1,37 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 
-interface Options {
-  br?: any
-  gzip?: any
-  deflate?: any
-  overridePreferredEncoding?: string[]
+import type {
+	BrotliCompress,
+	BrotliOptions,
+	Deflate,
+	Gzip,
+	ZlibOptions,
+	ZstdCompress,
+	ZstdOptions,
+} from "node:zlib";
+import type middy from "@middy/core";
+
+export type ContentEncoding = "br" | "deflate" | "gzip" | "zstd";
+
+export interface Options {
+	br?: boolean | BrotliOptions;
+	gzip?: boolean | ZlibOptions;
+	deflate?: boolean | ZlibOptions;
+	zstd?: boolean | ZstdOptions;
+	overridePreferredEncoding?: ContentEncoding[];
 }
 
-declare function httpContentEncoding (options?: Options): middy.MiddlewareObj
+export declare function getContentEncodingStream(
+	preferredEncoding: ContentEncoding,
+): BrotliCompress | Deflate | Gzip | ZstdCompress;
 
-export default httpContentEncoding
+declare function httpContentEncoding(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
+
+export declare function httpContentEncodingValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default httpContentEncoding;

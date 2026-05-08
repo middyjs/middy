@@ -1,10 +1,17 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface Options {
-  isWarmingUp?: (event: any) => boolean
-  onWarmup?: (event: any) => void
+export interface Options {
+	isWarmingUp?: (event: unknown) => boolean;
 }
 
-declare function warmup (options?: Options): middy.MiddlewareObj
+declare function warmup(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default warmup
+export declare function warmupValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default warmup;

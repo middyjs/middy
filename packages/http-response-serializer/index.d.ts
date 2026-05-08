@@ -1,15 +1,25 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
 
-interface SerializerHandler {
-  regex: RegExp
-  serializer: (response: any) => string | { body: any, [key: string]: any }
+export interface SerializerHandler {
+	regex: RegExp;
+	serializer: (
+		response: any,
+	) => string | { body: string; [key: string]: unknown };
 }
 
-interface Options {
-  serializers: SerializerHandler[]
-  defaultContentType?: string
+export interface Options {
+	serializers?: SerializerHandler[];
+	defaultContentType?: string;
 }
 
-declare function httpResponseSerializer (options?: Options): middy.MiddlewareObj
+declare function httpResponseSerializer(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default httpResponseSerializer
+export declare function httpResponseSerializerValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default httpResponseSerializer;

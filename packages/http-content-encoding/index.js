@@ -1,129 +1,174 @@
-import { Readable } from 'node:stream'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 
+import { Readable } from "node:stream";
+import { ReadableStream } from "node:stream/web";
 import {
-  createBrotliCompress as brotliCompressStream,
-  createGzip as gzipCompressStream,
-  createDeflate as deflateCompressStream
-} from 'node:zlib'
+	createBrotliCompress as brotliCompressStream,
+	brotliCompressSync,
+	createDeflate as deflateCompressStream,
+	deflateSync,
+	createGzip as gzipCompressStream,
+	gzipSync,
+	createZstdCompress as zstdCompressStream,
+	zstdCompressSync,
+} from "node:zlib";
+import { normalizeHttpResponse, validateOptions } from "@middy/util";
 
-import { normalizeHttpResponse } from '@middy/util'
+const name = "http-content-encoding";
+const pkg = `@middy/${name}`;
+
+const encoderOption = {
+	oneOf: [{ type: "boolean" }, { type: "object" }],
+};
+
+const optionSchema = {
+	type: "object",
+	properties: {
+		br: encoderOption,
+		deflate: encoderOption,
+		gzip: encoderOption,
+		zstd: encoderOption,
+		overridePreferredEncoding: {
+			type: "array",
+			items: { type: "string", enum: ["br", "deflate", "gzip", "zstd"] },
+		},
+	},
+	additionalProperties: false,
+};
+
+export const httpContentEncodingValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
 const contentEncodingStreams = {
-  br: brotliCompressStream,
-  gzip: gzipCompressStream,
-  deflate: deflateCompressStream
-}
+	br: brotliCompressStream,
+	deflate: deflateCompressStream,
+	gzip: gzipCompressStream,
+	zstd: zstdCompressStream,
+};
+
+const contentEncodingSync = {
+	br: brotliCompressSync,
+	deflate: deflateSync,
+	gzip: gzipSync,
+	zstd: zstdCompressSync,
+};
 
 const defaults = {
-  br: undefined,
-  // zstd: undefined,
-  gzip: undefined,
-  deflate: undefined,
-  overridePreferredEncoding: []
-}
+	br: undefined,
+	deflate: undefined,
+	gzip: undefined,
+	zstd: undefined,
+	overridePreferredEncoding: [],
+};
 
-export const getStream = (preferredEncoding) => {
-  return contentEncodingStreams[preferredEncoding]()
-}
+export const getContentEncodingStream = (preferredEncoding) => {
+	return contentEncodingStreams[preferredEncoding]();
+};
 
-/*
- * `zstd` disabled due to lack of support in nodejs
- * https://github.com/andrew-aladev/brotli-vs-zstd
- */
+const httpContentEncodingMiddleware = (opts = {}) => {
+	const options = { ...defaults, ...opts };
 
-const httpContentEncodingMiddleware = (opts) => {
-  const options = { ...defaults, ...opts }
+	const supportedContentEncodings = Object.keys(contentEncodingStreams);
 
-  const supportedContentEncodings = Object.keys(contentEncodingStreams)
+	const httpContentEncodingMiddlewareAfter = async (request) => {
+		normalizeHttpResponse(request);
+		const {
+			context: { preferredEncoding, preferredEncodings },
+			response,
+		} = request;
 
-  const httpContentEncodingMiddlewareAfter = async (request) => {
-    normalizeHttpResponse(request)
-    const {
-      context: { preferredEncoding, preferredEncodings },
-      response
-    } = request
+		// Encoding not supported, already encoded, or doesn't need to
+		const eventCacheControl =
+			request.event?.headers?.["cache-control"] ??
+			request.event?.headers?.["Cache-Control"];
+		if (eventCacheControl?.includes("no-transform")) {
+			addHeaderPart(response, "Cache-Control", "no-transform");
+		}
+		const responseCacheControl =
+			response.headers["Cache-Control"] ?? response.headers["cache-control"];
+		const isNodeStream = response.body?._readableState;
+		const isWebStream = response.body instanceof ReadableStream;
+		const responseContentEncoding =
+			response.headers["Content-Encoding"] ??
+			response.headers["content-encoding"];
+		if (
+			response.isBase64Encoded ||
+			responseContentEncoding ||
+			!preferredEncoding ||
+			!supportedContentEncodings.includes(preferredEncoding) ||
+			!response.body ||
+			(typeof response.body !== "string" &&
+				!Buffer.isBuffer(response.body) &&
+				!isNodeStream &&
+				!isWebStream) ||
+			responseCacheControl?.includes("no-transform")
+		) {
+			return;
+		}
 
-    // Encoding not supported, already encoded, or doesn't need to'
-    const eventCacheControl =
-      request.event?.headers?.['cache-control'] ??
-      request.event?.headers?.['Cache-Control']
-    if (eventCacheControl?.includes('no-transform')) {
-      addHeaderPart(response, 'Cache-Control', 'no-transform')
-    }
-    const responseCacheControl =
-      response.headers['Cache-Control'] ?? response.headers['cache-control']
-    if (
-      response.isBase64Encoded ||
-      !preferredEncoding ||
-      !supportedContentEncodings.includes(preferredEncoding) ||
-      !response.body ||
-      (typeof response.body !== 'string' &&
-        !Buffer.isBuffer(response.body) &&
-        !response.body?._readableState) ||
-      responseCacheControl?.includes('no-transform')
-    ) {
-      return
-    }
+		// Resolve encoding choice before creating any stream
+		let contentEncoding = preferredEncoding;
+		for (const encoding of options.overridePreferredEncoding) {
+			if (!preferredEncodings.includes(encoding)) continue;
+			contentEncoding = encoding;
+			break;
+		}
 
-    let contentEncodingStream = contentEncodingStreams[preferredEncoding](
-      options[preferredEncoding]
-    )
-    let contentEncoding = preferredEncoding
-    for (const encoding of options.overridePreferredEncoding) {
-      if (!preferredEncodings.includes(encoding)) continue
-      contentEncodingStream = contentEncodingStreams[encoding](
-        options[encoding]
-      )
-      contentEncoding = encoding
-      break
-    }
+		// Support streamifyResponse
+		if (isNodeStream || isWebStream) {
+			const contentEncodingStream = contentEncodingStreams[contentEncoding](
+				options[contentEncoding],
+			);
+			request.response.headers["Content-Encoding"] = contentEncoding;
+			if (isNodeStream) {
+				request.response.body = request.response.body.pipe(
+					contentEncodingStream,
+				);
+			} else if (isWebStream) {
+				request.response.body = Readable.toWeb(
+					Readable.fromWeb(response.body).pipe(contentEncodingStream),
+				);
+			}
+			addHeaderPart(response, "Vary", "Accept-Encoding");
+			return;
+		}
+		// isString/isBuffer — use sync compression (avoids stream overhead)
+		const inputBuffer = Buffer.isBuffer(response.body)
+			? response.body
+			: Buffer.from(response.body);
+		const compressed = contentEncodingSync[contentEncoding](inputBuffer);
 
-    // Support streamifyResponse
-    if (response.body?._readableState) {
-      request.response.headers['Content-Encoding'] = contentEncoding
-      request.response.body = request.response.body.pipe(contentEncodingStream)
-      addHeaderPart(response, 'Vary', 'Accept-Encoding')
-      return
-    }
+		// Only apply encoding if it's smaller
+		if (compressed.length < inputBuffer.length) {
+			response.headers["Content-Encoding"] = contentEncoding;
+			response.body = compressed.toString("base64");
+			response.isBase64Encoded = true;
+			addHeaderPart(response, "Vary", "Accept-Encoding");
+		}
 
-    const stream = Readable.from(response.body).pipe(contentEncodingStream)
+		request.response = response;
+	};
 
-    const chunks = []
-    for await (const chunk of stream) {
-      chunks.push(chunk)
-    }
+	const httpContentEncodingMiddlewareOnError = async (request) => {
+		if (typeof request.response === "undefined") return;
+		await httpContentEncodingMiddlewareAfter(request);
+	};
 
-    const body = Buffer.concat(chunks).toString('base64')
+	return {
+		after: httpContentEncodingMiddlewareAfter,
+		onError: httpContentEncodingMiddlewareOnError,
+	};
+};
 
-    // Only apply encoding if it's smaller
-    if (body.length < response.body.length) {
-      response.headers['Content-Encoding'] = contentEncoding
-      response.body = body
-      response.isBase64Encoded = true
-      addHeaderPart(response, 'Vary', 'Accept-Encoding')
-    }
-
-    request.response = response
-  }
-
-  const httpContentEncodingMiddlewareOnError = async (request) => {
-    if (typeof request.response === 'undefined') return
-    await httpContentEncodingMiddlewareAfter(request)
-  }
-
-  return {
-    after: httpContentEncodingMiddlewareAfter,
-    onError: httpContentEncodingMiddlewareOnError
-  }
-}
-
-// header in offical name, lowercase varient handeled
+// header in official name, lowercase variant handled
 const addHeaderPart = (response, header, value) => {
-  const headerLower = header.toLowerCase()
-  header = response.headers[headerLower] ? headerLower : header
-  response.headers[header] ??= ''
-  response.headers[header] &&= response.headers[header] + ', '
-  response.headers[header] += value
-}
+	const headerLower = header.toLowerCase();
+	const sanitizedHeader = response.headers[headerLower] ? headerLower : header;
+	response.headers[sanitizedHeader] ??= "";
+	response.headers[sanitizedHeader] &&=
+		`${response.headers[sanitizedHeader]}, `;
+	response.headers[sanitizedHeader] += value;
+};
 
-export default httpContentEncodingMiddleware
+export default httpContentEncodingMiddleware;

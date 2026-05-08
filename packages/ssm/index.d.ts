@@ -1,40 +1,53 @@
-import middy from '@middy/core'
-import { Options as MiddyOptions } from '@middy/util'
-import { Context as LambdaContext } from 'aws-lambda'
-import { SSMClient, SSMClientConfig } from '@aws-sdk/client-ssm'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type { SSMClient, SSMClientConfig } from "@aws-sdk/client-ssm";
+import type middy from "@middy/core";
+import type { Options as MiddyOptions } from "@middy/util";
+import type { Context as LambdaContext } from "aws-lambda";
 
-export type ParamType<T> = string & { __returnType?: T }
-export declare function ssmParam<T> (path: string): ParamType<T>
+export type ParamType<T> = string & { __returnType?: T };
+export declare function ssmParam<T>(path: string): ParamType<T>;
 
 export interface SSMOptions<AwsSSMClient = SSMClient>
-  extends Omit<MiddyOptions<AwsSSMClient, SSMClientConfig>, 'fetchData'> {
-  fetchData?: { [key: string]: string | ParamType<unknown> }
+	extends Omit<MiddyOptions<AwsSSMClient, SSMClientConfig>, "fetchData"> {
+	fetchData?: { [key: string]: string | ParamType<unknown> };
+	awsRequestLimit?: number;
 }
 
 export type Context<TOptions extends SSMOptions | undefined> =
-TOptions extends { setToContext: true }
-  ? TOptions extends { fetchData: infer TFetchData }
-    ? LambdaContext & {
-      [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-        ? T
-        : unknown
-    }
-    : never
-  : LambdaContext
+	TOptions extends { setToContext: true }
+		? TOptions extends { fetchData: infer TFetchData }
+			? LambdaContext & {
+					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+						? T
+						: unknown;
+				}
+			: never
+		: LambdaContext;
 
 export type Internal<TOptions extends SSMOptions | undefined> =
-TOptions extends SSMOptions
-  ? TOptions extends { fetchData: infer TFetchData }
-    ? {
-        [Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-          ? T
-          : unknown
-      }
-    : {}
-  : {}
+	TOptions extends SSMOptions
+		? TOptions extends { fetchData: infer TFetchData }
+			? {
+					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+						? T
+						: unknown;
+				}
+			: {}
+		: {};
 
-declare function ssm<TOptions extends SSMOptions> (
-  options?: TOptions
-): middy.MiddlewareObj<unknown, any, Error, Context<TOptions>, Internal<TOptions>>
+declare function ssm<TOptions extends SSMOptions>(
+	options?: TOptions,
+): middy.MiddlewareObj<
+	unknown,
+	unknown,
+	Error,
+	Context<TOptions>,
+	Internal<TOptions>
+>;
 
-export default ssm
+export declare function ssmValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default ssm;

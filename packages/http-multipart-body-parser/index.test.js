@@ -1,0 +1,524 @@
+import {
+	deepStrictEqual,
+	notStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
+import { test } from "node:test";
+import middy from "../core/index.js";
+import httpMultipartBodyParser, {
+	httpMultipartBodyParserValidateOptions,
+} from "./index.js";
+
+const defaultContext = {
+	getRemainingTimeInMillis: () => 1000,
+};
+
+test("It should parse a non-file field from a multipart/form-data request", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// invokes the handler
+	// Base64 encoded form data with field 'foo' of value 'bar'
+	const event = {
+		headers: {
+			"content-type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
+});
+
+test("parseMultipartData should resolve with valid data", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
+});
+
+test("It should parse a file field from a multipart/form-data request", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// Base64 encoded form data with a file with fieldname 'attachment', filename 'test.txt', and contents 'hello world!'
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=------------------------4f0e69e6c2513684",
+		},
+		body: "LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImF0dGFjaG1lbnQiOyBmaWxlbmFtZT0idGVzdC50eHQiDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KaGVsbG8gd29ybGQhCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS00ZjBlNjllNmMyNTEzNjg0LS0NCg==",
+		isBase64Encoded: true,
+	};
+
+	const response = await handler(event, defaultContext);
+
+	notStrictEqual(response.attachment, undefined);
+	notStrictEqual(response.attachment.content, undefined);
+});
+
+test("It should handle invalid form data (undefined) as an UnprocessableEntity", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// invokes the handler
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=------WebKitFormBoundaryfdmza9FgfefwkQzA",
+		},
+		body: undefined,
+		isBase64Encoded: true,
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.data, undefined);
+	}
+});
+
+test("It should handle invalid form data (null) as an UnprocessableEntity", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// invokes the handler
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=------WebKitFormBoundaryfdmza9FgfefwkQzA",
+		},
+		body: null,
+		isBase64Encoded: true,
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.message, "May not write null values to stream");
+	}
+});
+
+test("It should handle more invalid form data as an UnprocessableEntity", async (t) => {
+	// Body contains LF instead of CRLF line endings, which cant be processed
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+		isBase64Encoded: true,
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.message, "Unexpected end of multipart data");
+	}
+});
+
+test("It shouldn't process the body if no headers are passed", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeError: false }));
+
+	// invokes the handler
+	const event = {
+		headers: {},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.cause.data, undefined);
+	}
+});
+
+test("It shouldn't process the body if the content type is not multipart/form-data", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeError: false }));
+
+	// invokes the handler
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, "application/json");
+	}
+});
+
+test("It shouldn't process the body if headers are passed without content type", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeError: true }));
+
+	// invokes the handler
+	const event = {
+		headers: {
+			accept: "application/json",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+	};
+
+	const response = await handler(event, defaultContext);
+	strictEqual(
+		response,
+		"LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+	);
+});
+
+test("It shouldn't process the body and throw error if no header is passed", async (t) => {
+	const handler = middy((event) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeError: false }));
+
+	// invokes the handler
+	const event = {
+		headers: {
+			accept: "application/json",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvbyIKCmJhcgotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNLS0=",
+	};
+
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
+	}
+});
+
+test("It should parse an array from a multipart/form-data request (base64)", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ charset: "base64" }));
+
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb29bXSINCg0Kb25lDQotLS0tLS1XZWJLaXRGb3JtQm91bmRhcnlwcHNRRXdmMkJWSmVDZTBNDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZvb1tdIg0KDQp0d28NCi0tLS0tLVdlYktpdEZvcm1Cb3VuZGFyeXBwc1FFd2YyQlZKZUNlME0tLQ==",
+		isBase64Encoded: true,
+	};
+	const response = await handler(event, defaultContext);
+
+	notStrictEqual(response.foo, undefined);
+	strictEqual(response.foo.length, 2);
+});
+
+test("It should parse an array from a multipart/form-data request with ASCII dash (utf8)", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ charset: "utf8" }));
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar-"}\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { PartName: '{"foo":"bar-"}' }),
+	);
+});
+
+test("It should parse an array from a multipart/form-data request (binary)", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ charset: "binary" }));
+
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="file.bat"\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), {
+			file: {
+				content: Buffer.from(""),
+				encoding: "binary",
+				filename: "file.bat",
+				mimetype: "application/octet-stream",
+				truncated: false,
+			},
+		}),
+	);
+});
+
+test("It should parse an array from a multipart/form-data request en dash (utf8)", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name=PartName\r\nContent-Type: application/json; charset=utf-8\r\n\r\n{"foo":"bar–"}\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { PartName: '{"foo":"bar–"}' }),
+	);
+});
+
+test("It should parse a field with multiple files successfully", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type":
+				"multipart/form-data; boundary=---------------------------237588144631607450464127370583",
+		},
+		body: "LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDIudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDEudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmlsZXMiOyBmaWxlbmFtZT0idDMudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0yMzc1ODgxNDQ2MzE2MDc0NTA0NjQxMjczNzA1ODMtLQ0K",
+		isBase64Encoded: true,
+	};
+	const response = await handler(event, defaultContext);
+	ok(Object.keys(response).includes("files"));
+	strictEqual(response.files.length, 3);
+});
+
+// Security: Prototype pollution via __proto__ fieldname
+test("It should not pollute prototype with __proto__ fieldname", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="__proto__"\r\n\r\npolluted\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	// Should store the value on the null-prototype object without polluting Object.prototype
+	strictEqual(response.__proto__, "polluted");
+	strictEqual({}.polluted, undefined);
+	strictEqual(Object.getPrototypeOf(response), null);
+});
+
+test("It should not pollute prototype with constructor fieldname", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="constructor"\r\n\r\npolluted\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+	const response = await handler(event, defaultContext);
+
+	// Should store the value without shadowing Object.prototype.constructor on other objects
+	strictEqual(response.constructor, "polluted");
+	strictEqual({}.constructor, Object);
+});
+
+test("It should parse form data when the charset is in the header", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// invokes the handler
+	// Base64 encoded form data with field 'foo' of value 'bar'
+	const event = {
+		headers: {
+			"content-type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M; charset=UTF-8",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
+});
+
+test("httpMultipartBodyParserValidateOptions accepts valid options and rejects typos", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: {},
+		charset: "utf8",
+		disableContentTypeCheck: true,
+	});
+	httpMultipartBodyParserValidateOptions({});
+	try {
+		httpMultipartBodyParserValidateOptions({ bussboy: {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("httpMultipartBodyParserValidateOptions rejects wrong type", () => {
+	try {
+		httpMultipartBodyParserValidateOptions({ charset: 42 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("charset"));
+	}
+});
+
+test("httpMultipartBodyParserValidateOptions accepts known busboy keys", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: {
+			headers: { "content-type": "multipart/form-data" },
+			highWaterMark: 16384,
+			fileHwm: 16384,
+			defCharset: "utf8",
+			defParamCharset: "latin1",
+			preservePath: false,
+			isPartAFile: () => true,
+			limits: {
+				fieldNameSize: 100,
+				fieldSize: 1024,
+				fields: 10,
+				fileSize: 1024,
+				files: 5,
+				parts: 20,
+				headerPairs: 50,
+			},
+		},
+	});
+});
+
+test("httpMultipartBodyParserValidateOptions allows unknown busboy keys (version drift)", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: { futureOption: "value" },
+	});
+});
+
+test("httpMultipartBodyParserValidateOptions rejects bad busboy field types", () => {
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { highWaterMark: "big" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { limits: { fileSize: -1 } },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+	try {
+		httpMultipartBodyParserValidateOptions({
+			busboy: { isPartAFile: "nope" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});

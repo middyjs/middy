@@ -1,17 +1,30 @@
-import middy from '@middy/core'
-import { APIGatewayEvent } from 'aws-lambda'
-import { JsonValue } from 'type-fest'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
+import type {
+	ALBEvent,
+	APIGatewayEvent,
+	APIGatewayProxyEventV2,
+} from "aws-lambda";
+import type { JsonValue } from "type-fest";
 
-interface Options {
-  disableContentTypeError?: boolean
+export interface Options {
+	disableContentTypeCheck?: boolean;
+	disableContentTypeError?: boolean;
 }
 
-export type Event = APIGatewayEvent & {
-  body: JsonValue
-}
+export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;
 
-declare function urlEncodeBodyParser (
-  options?: Options
-): middy.MiddlewareObj<Event>
+export type Event<T extends RequestEvent = RequestEvent> = T & {
+	body: JsonValue;
+};
 
-export default urlEncodeBodyParser
+declare function urlEncodeBodyParser<
+	EventType extends RequestEvent = RequestEvent,
+>(options?: Options): middy.MiddlewareObj<Event<EventType>, unknown, Error>;
+
+export declare function httpUrlencodeBodyParserValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default urlEncodeBodyParser;

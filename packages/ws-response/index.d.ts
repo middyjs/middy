@@ -1,21 +1,32 @@
-import { ApiGatewayManagementApiClient, ApiGatewayManagementApiClientConfig } from '@aws-sdk/client-apigatewaymanagementapi'
-import middy from '@middy/core'
-import { Options as MiddyOptions } from '@middy/util'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type {
+	ApiGatewayManagementApiClient,
+	ApiGatewayManagementApiClientConfig,
+} from "@aws-sdk/client-apigatewaymanagementapi";
+import type middy from "@middy/core";
+import type { Options as MiddyOptions } from "@middy/util";
 
-interface Options<
-  AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient
+export interface Options<
+	AwsApiGatewayManagementApiClient = ApiGatewayManagementApiClient,
 > extends Pick<
-  MiddyOptions<
-  AwsApiGatewayManagementApiClient,
-  ApiGatewayManagementApiClientConfig
-  >,
-  | 'AwsClient'
-  | 'awsClientOptions'
-  | 'awsClientAssumeRole'
-  | 'awsClientCapture'
-  | 'disablePrefetch'
-  > {}
+		MiddyOptions<
+			AwsApiGatewayManagementApiClient,
+			ApiGatewayManagementApiClientConfig
+		>,
+		| "AwsClient"
+		| "awsClientOptions"
+		| "awsClientAssumeRole"
+		| "awsClientCapture"
+		| "disablePrefetch"
+	> {}
 
-declare function wsResponse (options?: Options): middy.MiddlewareObj
+declare function wsResponse(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export default wsResponse
+export declare function wsResponseValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default wsResponse;

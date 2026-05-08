@@ -1,104 +1,148 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import { validateOptions } from "@middy/util";
+
+const name = "http-header-normalizer";
+const pkg = `@middy/${name}`;
+
+const optionSchema = {
+	type: "object",
+	properties: {
+		canonical: { type: "boolean" },
+		defaultHeaders: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [
+					{ type: "string" },
+					{ type: "array", items: { type: "string" } },
+				],
+			},
+		},
+		normalizeHeaderKey: { instanceof: "Function" },
+	},
+	additionalProperties: false,
+};
+
+export const httpHeaderNormalizerValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
+
 const exceptionsList = [
-  'ALPN',
-  'C-PEP',
-  'C-PEP-Info',
-  'CalDAV-Timezones',
-  'Content-ID',
-  'Content-MD5',
-  'DASL',
-  'DAV',
-  'DNT',
-  'ETag',
-  'GetProfile',
-  'HTTP2-Settings',
-  'Last-Event-ID',
-  'MIME-Version',
-  'Optional-WWW-Authenticate',
-  'Sec-WebSocket-Accept',
-  'Sec-WebSocket-Extensions',
-  'Sec-WebSocket-Key',
-  'Sec-WebSocket-Protocol',
-  'Sec-WebSocket-Version',
-  'SLUG',
-  'TCN',
-  'TE',
-  'TTL',
-  'WWW-Authenticate',
-  'X-ATT-DeviceId',
-  'X-DNSPrefetch-Control',
-  'X-UIDH'
-]
+	"ALPN",
+	"C-PEP",
+	"C-PEP-Info",
+	"CalDAV-Timezones",
+	"Content-ID",
+	"Content-MD5",
+	"DASL",
+	"DAV",
+	"DNT",
+	"ETag",
+	"GetProfile",
+	"HTTP2-Settings",
+	"Last-Event-ID",
+	"MIME-Version",
+	"NEL",
+	"Optional-WWW-Authenticate",
+	"Sec-WebSocket-Accept",
+	"Sec-WebSocket-Extensions",
+	"Sec-WebSocket-Key",
+	"Sec-WebSocket-Protocol",
+	"Sec-WebSocket-Version",
+	"SLUG",
+	"TCN",
+	"TE",
+	"TTL",
+	"WWW-Authenticate",
+	"X-ATT-DeviceId",
+	"X-DNSPrefetch-Control",
+	"X-UIDH",
+];
 
 const exceptions = exceptionsList.reduce((acc, curr) => {
-  acc[curr.toLowerCase()] = curr
-  return acc
-}, {})
+	acc[curr.toLowerCase()] = curr;
+	return acc;
+}, {});
 
 const normalizeHeaderKey = (key, canonical) => {
-  const lowerCaseKey = key.toLowerCase()
-  if (!canonical) {
-    return lowerCaseKey
-  }
+	const lowerCaseKey = key.toLowerCase();
+	if (!canonical) {
+		return lowerCaseKey;
+	}
 
-  if (exceptions[lowerCaseKey]) {
-    return exceptions[lowerCaseKey]
-  }
+	if (Object.hasOwn(exceptions, lowerCaseKey)) {
+		return exceptions[lowerCaseKey];
+	}
 
-  return lowerCaseKey
-    .split('-')
-    .map((text) => (text[0] || '').toUpperCase() + text.substr(1))
-    .join('-')
-}
+	return lowerCaseKey
+		.split("-")
+		.map((text) => (text[0] || "").toUpperCase() + text.substring(1))
+		.join("-");
+};
 
 const defaults = {
-  canonical: false,
-  defaultHeaders: {},
-  normalizeHeaderKey
-}
+	canonical: false,
+	defaultHeaders: {},
+	normalizeHeaderKey,
+};
 
 const httpHeaderNormalizerMiddleware = (opts = {}) => {
-  const options = { ...defaults, ...opts }
+	const options = { ...defaults, ...opts };
 
-  const defaultHeaders = {}
-  const defaultMultiValueHeaders = {}
-  for (const key of Object.keys(options.defaultHeaders)) {
-    const newKey = options.normalizeHeaderKey(key, options.canonical)
-    const isArray = Array.isArray(options.defaultHeaders[key])
-    defaultHeaders[newKey] = isArray
-      ? options.defaultHeaders[key].join(',')
-      : options.defaultHeaders[key]
-    defaultMultiValueHeaders[newKey] = isArray
-      ? options.defaultHeaders[key]
-      : options.defaultHeaders[key].split(',')
-  }
+	// Cache for normalized header keys to avoid repeated split/map/join
+	const normalizedKeyCache = new Map();
+	const cachedNormalizeKey = (key) => {
+		let normalized = normalizedKeyCache.get(key);
+		if (normalized === undefined) {
+			normalized = options.normalizeHeaderKey(key, options.canonical);
+			normalizedKeyCache.set(key, normalized);
+		}
+		return normalized;
+	};
 
-  const httpHeaderNormalizerMiddlewareBefore = async (request) => {
-    if (request.event.headers) {
-      const headers = { ...defaultHeaders }
+	const defaultHeaders = {};
+	const defaultMultiValueHeaders = {};
+	for (const key of Object.keys(options.defaultHeaders)) {
+		const newKey = cachedNormalizeKey(key);
+		const isArray = Array.isArray(options.defaultHeaders[key]);
+		defaultHeaders[newKey] = isArray
+			? options.defaultHeaders[key].join(",")
+			: options.defaultHeaders[key];
+		defaultMultiValueHeaders[newKey] = isArray
+			? options.defaultHeaders[key]
+			: options.defaultHeaders[key].split(",");
+	}
 
-      for (const key of Object.keys(request.event.headers)) {
-        headers[options.normalizeHeaderKey(key, options.canonical)] =
-          request.event.headers[key]
-      }
+	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	const hasDefaultMultiValueHeaders =
+		Object.keys(defaultMultiValueHeaders).length > 0;
 
-      request.event.headers = headers
-    }
+	const httpHeaderNormalizerMiddlewareBefore = (request) => {
+		if (request.event.headers) {
+			const headers = hasDefaultHeaders ? { ...defaultHeaders } : {};
 
-    if (request.event.multiValueHeaders) {
-      const headers = { ...defaultMultiValueHeaders }
+			for (const key in request.event.headers) {
+				headers[cachedNormalizeKey(key)] = request.event.headers[key];
+			}
 
-      for (const key of Object.keys(request.event.multiValueHeaders)) {
-        headers[options.normalizeHeaderKey(key, options.canonical)] =
-          request.event.multiValueHeaders[key]
-      }
+			request.event.headers = headers;
+		}
 
-      request.event.multiValueHeaders = headers
-    }
-  }
+		if (request.event.multiValueHeaders) {
+			const headers = hasDefaultMultiValueHeaders
+				? { ...defaultMultiValueHeaders }
+				: {};
 
-  return {
-    before: httpHeaderNormalizerMiddlewareBefore
-  }
-}
+			for (const key in request.event.multiValueHeaders) {
+				headers[cachedNormalizeKey(key)] = request.event.multiValueHeaders[key];
+			}
 
-export default httpHeaderNormalizerMiddleware
+			request.event.multiValueHeaders = headers;
+		}
+	};
+
+	return {
+		before: httpHeaderNormalizerMiddlewareBefore,
+	};
+};
+
+export default httpHeaderNormalizerMiddleware;

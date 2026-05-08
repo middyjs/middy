@@ -1,33 +1,41 @@
-import middy from '@middy/core'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
+import type { Context as LambdaContext } from "aws-lambda";
 
-interface Options {
-  parseCharsets?: boolean
-  availableCharsets?: string[]
-  parseEncodings?: boolean
-  availableEncodings?: string[]
-  parseLanguages?: boolean
-  availableLanguages?: string[]
-  parseMediaTypes?: boolean
-  availableMediaTypes?: string[]
-  failOnMismatch?: boolean
+export interface Options {
+	parseCharsets?: boolean;
+	availableCharsets?: string[];
+	defaultToFirstCharset?: boolean;
+	parseEncodings?: boolean;
+	availableEncodings?: Array<"br" | "deflate" | "gzip" | "zstd" | "identity">;
+	defaultToFirstEncoding?: boolean;
+	parseLanguages?: boolean;
+	availableLanguages?: string[];
+	defaultToFirstLanguage?: boolean;
+	parseMediaTypes?: boolean;
+	availableMediaTypes?: string[];
+	defaultToFirstMediaType?: boolean;
+	failOnMismatch?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface Event {}
+export type Context = LambdaContext & {
+	preferredCharsets: string[];
+	preferredCharset: string;
+	preferredEncodings: string[];
+	preferredEncoding: string;
+	preferredLanguages: string[];
+	preferredLanguage: string;
+	preferredMediaTypes: string[];
+	preferredMediaType: string;
+};
 
-export interface Context {
-  preferredCharsets: string[]
-  preferredCharset: string
-  preferredEncodings: string[]
-  preferredEncoding: string
-  preferredLanguages: string[]
-  preferredLanguage: string
-  preferredMediaTypes: string[]
-  preferredMediaType: string
-}
+declare function httpContentNegotiation(
+	options?: Options,
+): middy.MiddlewareObj<unknown, unknown, Error>;
 
-declare function httpContentNegotiation (
-  options?: Options
-): middy.MiddlewareObj<Event>
+export declare function httpContentNegotiationValidateOptions(
+	options?: Record<string, unknown>,
+): void;
 
-export default httpContentNegotiation
+export default httpContentNegotiation;

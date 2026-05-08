@@ -1,0 +1,4 @@
+Contact: mailto:willfarrell@proton.me
+Expires: 2026-12-31T00:00:00z
+Policy: https://github.com/middyjs/middy/security/policy
+Preferred-Languages: en

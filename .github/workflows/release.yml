@@ -1,46 +1,126 @@
 name: Release
 
 on:
-  workflow_dispatch:
-  release:
-    types:
-      - published
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'package.json'
+
+env:
+  NODE_VERSION: 24.x
 
 permissions:
   contents: read
 
 jobs:
-  release:
-    name: release
+  build:
+    name: Build
+    if: ${{ github.event.pull_request.merged }}
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
 
     permissions:
       contents: read
-      id-token: write
+      id-token: write # actions/attest-build-provenance
+      attestations: write # actions/attest-build-provenance
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: ${{ matrix.node-version }}
-          registry-url: 'https://registry.npmjs.org'
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Set env
+        run: |
+          tag=$(npm pkg get version | xargs)
+          echo "tag=${tag}" >> "$GITHUB_ENV"
+          echo "prerelease=$([ ${tag##*-*} ] && echo false || echo true)" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
-          npm ci
-
-      #- name: Pre-Release
-      #  if: contains(${{GITHUB_REF}}, 'alpha') || contains(${{GITHUB_REF}}, 'beta') || contains(${{GITHUB_REF}}, 'rc')
-      #  run: |
-      #    npm run publish:next
-      - name: Release
-        #  if: contains(${{GITHUB_REF}}, 'alpha') == false && contains(${{GITHUB_REF}}, 'beta') == false && contains(${{GITHUB_REF}}, 'rc') == false
+          npm ci --ignore-scripts
+      - name: Build
         run: |
-          npm run release:publish
-        env:
-          NPM_CONFIG_PROVENANCE: 'true'
-          NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm run build --if-present
+      - name: Pack
+        id: pack
+        run: |
+          {
+            echo "packages<<EOF"
+            npm pack --workspaces --json
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+      - name: Build Attestations
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            **/*.tgz
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.tag }}
+          path: |
+            **/package.json
+            **/*.tgz
+    outputs:
+      tag: ${{ env.tag }}
+      prerelease: ${{ env.prerelease }}
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # softprops/action-gh-release
+    steps:
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Download artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 8.0.1
+        with:
+          name: ${{ needs.build.outputs.tag }}
+      - name: Release
+        # Replaces actions/create-release & actions/upload-release-asset (deprecated)
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          draft: true
+          prerelease: ${{ needs.build.outputs.prerelease }}
+          tag_name: ${{ needs.build.outputs.tag }}
+          generate_release_notes: true
+          # Disabled, covered by GitHub Attestations & npm
+          #files: |
+          #  **/*.tgz
+    outputs:
+      tag: ${{ needs.build.outputs.tag }}
+      prerelease: ${{ needs.build.outputs.prerelease }}
+
+  publish:
+    name: Publish
+    needs: release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write # npm publish
+    steps:
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Download artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # 8.0.1
+        with:
+          name: ${{ needs.release.outputs.tag }}
+      - name: npm publish (next)
+        if: ${{ needs.release.outputs.prerelease == 'true' }}
+        run: |
+          find . -name '*.tgz' -exec npm publish --tag next --provenance --access public {} \;
+      - name: npm publish (latest)
+        if: ${{ needs.release.outputs.prerelease == 'false' }}
+        run: |
+          find . -name '*.tgz' -exec npm publish --tag latest --provenance --access public {} \;

@@ -1,11 +1,33 @@
-import middy from '@middy/core'
-import { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda'
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
+import type middy from "@middy/core";
+import type {
+	APIGatewayProxyResultV2,
+	APIGatewayProxyWebsocketEventV2,
+	APIGatewayProxyWebsocketHandlerV2,
+} from "aws-lambda";
 
-interface Route<T = never> {
-  routeKey: string
-  handler: APIGatewayProxyWebsocketHandlerV2<T>
+export interface Route<TResult = never> {
+	routeKey: string;
+	handler: APIGatewayProxyWebsocketHandlerV2<TResult>;
 }
 
-declare function wsRouterHandler (routes: Route[]): middy.MiddyfiedHandler
+export type RouteNotFoundResponseFn = (input: { routeKey: string }) => unknown;
 
-export default wsRouterHandler
+export interface Options {
+	routes: Route[];
+	notFoundResponse?: RouteNotFoundResponseFn;
+}
+
+declare function wsRouterHandler(
+	options: Options | Route[],
+): middy.MiddyfiedHandler<
+	APIGatewayProxyWebsocketEventV2,
+	APIGatewayProxyResultV2
+>;
+
+export declare function wsRouterValidateOptions(
+	options?: Record<string, unknown>,
+): void;
+
+export default wsRouterHandler;

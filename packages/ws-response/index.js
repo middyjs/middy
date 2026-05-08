@@ -1,73 +1,92 @@
+// Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+// SPDX-License-Identifier: MIT
 import {
-  ApiGatewayManagementApiClient,
-  PostToConnectionCommand
-} from '@aws-sdk/client-apigatewaymanagementapi'
+	ApiGatewayManagementApiClient,
+	PostToConnectionCommand,
+} from "@aws-sdk/client-apigatewaymanagementapi";
 
 import {
-  canPrefetch,
-  createClient,
-  createPrefetchClient,
-  catchInvalidSignatureException
-} from '@middy/util'
+	canPrefetch,
+	catchInvalidSignatureException,
+	createClient,
+	createPrefetchClient,
+	validateOptions,
+} from "@middy/util";
+
+const name = "ws-response";
+const pkg = `@middy/${name}`;
+
+const optionSchema = {
+	type: "object",
+	properties: {
+		AwsClient: { instanceof: "Function" },
+		awsClientOptions: { type: "object" },
+		awsClientAssumeRole: { type: "string" },
+		awsClientCapture: { instanceof: "Function" },
+		disablePrefetch: { type: "boolean" },
+	},
+	additionalProperties: false,
+};
+
+export const wsResponseValidateOptions = (options) =>
+	validateOptions(pkg, optionSchema, options);
 
 const defaults = {
-  AwsClient: ApiGatewayManagementApiClient,
-  awsClientOptions: {}, // { endpoint }
-  awsClientAssumeRole: undefined,
-  awsClientCapture: undefined,
-  disablePrefetch: false
-}
+	AwsClient: ApiGatewayManagementApiClient,
+	awsClientOptions: {}, // { endpoint }
+	awsClientAssumeRole: undefined,
+	awsClientCapture: undefined,
+	disablePrefetch: false,
+};
 
-const wsResponseMiddleware = (opts) => {
-  const options = { ...defaults, ...opts }
+const wsResponseMiddleware = (opts = {}) => {
+	const options = { ...defaults, ...opts };
 
-  let client
-  if (canPrefetch(options) && options.awsClientOptions.endpoint) {
-    client = createPrefetchClient(options)
-  }
+	let client;
+	if (canPrefetch(options) && options.awsClientOptions.endpoint) {
+		client = createPrefetchClient(options);
+	}
 
-  const wsResponseMiddlewareAfter = async (request) => {
-    const normalizedResponse = normalizeWsResponse(request)
+	const wsResponseMiddlewareAfter = async (request) => {
+		const normalizedResponse = normalizeWsResponse(request);
 
-    if (!normalizedResponse.ConnectionId) return
+		if (!normalizedResponse.ConnectionId) return;
 
-    if (!options.awsClientOptions.endpoint && request.event.requestContext) {
-      options.awsClientOptions.endpoint =
-        'https://' +
-        request.event.requestContext.domainName +
-        '/' +
-        request.event.requestContext.stage
-    }
-    if (!client) {
-      client = await createClient(options, request)
-    }
+		if (request.event.requestContext) {
+			options.awsClientOptions.endpoint ??= `https://${
+				request.event.requestContext.domainName
+			}/${request.event.requestContext.stage}`;
+		}
 
-    const command = new PostToConnectionCommand(normalizedResponse)
-    await client
-      .send(command)
-      .catch((e) => catchInvalidSignatureException(e, client, command))
+		if (!client) {
+			client = await createClient(options, request);
+		}
 
-    request.response = { statusCode: 200 }
-  }
+		const command = new PostToConnectionCommand(normalizedResponse);
+		await client
+			.send(command)
+			.catch((e) => catchInvalidSignatureException(e, client, command));
 
-  return {
-    after: wsResponseMiddlewareAfter
-  }
-}
+		request.response = { statusCode: 200 };
+	};
 
-// TODO move to @middy/util?
+	return {
+		after: wsResponseMiddlewareAfter,
+	};
+};
+
 const normalizeWsResponse = (request) => {
-  let { response } = request
-  if (typeof response === 'undefined') {
-    response = {}
-  } else if (
-    typeof response?.Data === 'undefined' &&
-    typeof response?.ConnectionId === 'undefined'
-  ) {
-    response = { Data: response }
-  }
-  response.ConnectionId ??= request.event.requestContext?.connectionId
-  return response
-}
+	let { response } = request;
+	if (typeof response === "undefined") {
+		response = {};
+	} else if (
+		typeof response?.Data === "undefined" &&
+		typeof response?.ConnectionId === "undefined"
+	) {
+		response = { Data: response };
+	}
+	response.ConnectionId ??= request.event.requestContext?.connectionId;
+	return response;
+};
 
-export default wsResponseMiddleware
+export default wsResponseMiddleware;
