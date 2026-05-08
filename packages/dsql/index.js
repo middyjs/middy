@@ -55,7 +55,12 @@ const defaults = {
 const dsqlMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	if (typeof options.client !== "function") {
-		throw new Error("client option missing", { cause: { package: pkg } });
+		throw new Error(
+			options.client === undefined
+				? "client option missing"
+				: "client must be a function",
+			{ cause: { package: pkg } },
+		);
 	}
 
 	const fetch = () => options.client(options.config);

@@ -9,7 +9,7 @@ export default (ca) => ({
 		ca,
 		checkServerIdentity: (host, cert) => {
 			const error = checkServerIdentity(host, cert);
-			if (error && !cert.subject.CN.endsWith(".rds.amazonaws.com")) {
+			if (error && !cert.subject?.CN?.endsWith(".rds.amazonaws.com")) {
 				return error;
 			}
 		},
