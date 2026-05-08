@@ -58,3 +58,13 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`service-discovery`](/docs/middlewares/service-discovery): Fetches Service Discovery instances to be used when connecting to other AWS services.
 - [`ssm`](/docs/middlewares/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 - [`sts`](/docs/middlewares/sts): Fetches credentials to assumes IAM roles for connection to other AWS services.
+
+## Lambda Extensions
+
+[AWS Lambda Extensions](https://docs.aws.amazon.com/lambda/latest/dg/lambda-extensions.html) run as sidecar processes inside the Lambda execution environment and expose a local HTTP API. Middleware in this category talk to that local API instead of calling AWS service endpoints directly, trading AWS SDK overhead for a Lambda Layer dependency.
+
+**Incompatible with AWS Lambda Code Signing.** Extensions are deployed as AWS-published Lambda Layers. If your function restricts layers to your own signing profiles, use the SDK-direct alternatives in the Fetch Data section instead.
+
+- [`appconfig-extension`](/docs/middlewares/appconfig-extension): Fetch AppConfig feature flags and configuration via the AppConfig Lambda Extension. Alternative to `appconfig`.
+- [`secrets-manager-extension`](/docs/middlewares/secrets-manager-extension): Fetch Secrets Manager secrets via the Parameters and Secrets Lambda Extension. Alternative to `secrets-manager`.
+- [`ssm-extension`](/docs/middlewares/ssm-extension): Fetch SSM Parameter Store values via the Parameters and Secrets Lambda Extension. Alternative to `ssm`.
