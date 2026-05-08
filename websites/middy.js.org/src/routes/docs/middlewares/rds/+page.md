@@ -37,7 +37,7 @@ npm install --save @middy/rds postgres
 
 ## Secure connections (TLS)
 
-RDS requires TLS. Two approaches for supplying the CA bundle:
+RDS requires TLS. Use `@middy/rds/ssl` to build the SSL config - it enables certificate verification, pins to the RDS hostname pattern via a custom `checkServerIdentity`, and enforces `sslmode: require`. Spread the result into your client config.
 
 ### Per-region import (recommended)
 
@@ -46,6 +46,7 @@ Run `npm run certificates` once to download [per-region AWS RDS CA bundles](http
 ```javascript
 import rds from '@middy/rds'
 import clientPgPool from '@middy/rds/clientPgPool'
+import ssl from '@middy/rds/ssl'
 import ca from '@middy/rds/certificates/us-east-1'
 
 export const handler = middy()
@@ -54,7 +55,7 @@ export const handler = middy()
       client: clientPgPool,
       config: {
         host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        ssl: { rejectUnauthorized: true, ca },
+        ...ssl(ca),
       },
     })
   )
@@ -73,7 +74,8 @@ ENV NODE_EXTRA_CA_CERTS=/var/task/global-bundle.pem
 ```javascript
 import rds from '@middy/rds'
 import clientPgPool from '@middy/rds/clientPgPool'
-import ca from '@middy/rds/ca'
+import ssl from '@middy/rds/ssl'
+import getCa from '@middy/rds/ca'
 
 export const handler = middy()
   .use(
@@ -81,14 +83,14 @@ export const handler = middy()
       client: clientPgPool,
       config: {
         host: 'db.cluster-id.us-east-1.rds.amazonaws.com',
-        ssl: { rejectUnauthorized: true, ca: ca() },
+        ...ssl(getCa()),
       },
     })
   )
   .handler(lambdaHandler)
 ```
 
-`ca()` throws if `NODE_EXTRA_CA_CERTS` is not set, so misconfiguration surfaces at cold start rather than silently skipping certificate verification.
+`getCa()` throws if `NODE_EXTRA_CA_CERTS` is not set, so misconfiguration surfaces at cold start rather than silently skipping certificate verification.
 
 ## Sample usage
 
@@ -99,6 +101,7 @@ import middy from '@middy/core'
 import rdsSigner from '@middy/rds-signer'
 import rds from '@middy/rds'
 import clientPgPool from '@middy/rds/clientPgPool'
+import ssl from '@middy/rds/ssl'
 import ca from '@middy/rds/certificates/us-east-1'
 
 const lambdaHandler = async (event, context) => {
@@ -134,7 +137,7 @@ export const handler = middy()
         user: 'iam_role',
         database: 'mydb',
         port: 5432,
-        ssl: { rejectUnauthorized: true, ca },
+        ...ssl(ca),
       },
     })
   )

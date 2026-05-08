@@ -43,6 +43,12 @@
 				"default": "./ca.js"
 			}
 		},
+		"./ssl": {
+			"import": {
+				"types": "./ssl.d.ts",
+				"default": "./ssl.js"
+			}
+		},
 		"./certificates/global": {
 			"import": {
 				"default": "./certificates/global.js"
@@ -231,10 +237,13 @@
 		"clientPostgres.d.ts",
 		"ca.js",
 		"ca.d.ts",
+		"ssl.js",
+		"ssl.d.ts",
 		"certificates/"
 	],
 	"scripts": {
-		"certificates": "./bin/certificates",
+		"prepublishOnly": "npm run build",
+		"build": "./bin/certificates",
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
