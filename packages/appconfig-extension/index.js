@@ -78,10 +78,9 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 			values[internalKey] = fetch(url)
 				.then((res) => {
 					if (!res.ok) {
-						throw new Error(
-							`appconfig-extension ${res.status} ${res.statusText}`,
-							{ cause: { package: pkg } },
-						);
+						throw new Error(`${pkg} ${res.status} ${res.statusText}`, {
+							cause: { package: pkg },
+						});
 					}
 					const contentType = res.headers.get("Content-Type") ?? "";
 					return jsonContentTypePattern.test(contentType)

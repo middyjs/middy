@@ -35,6 +35,7 @@ npm install --save @middy/secrets-manager-extension
 - Lambda is required to have IAM permission for `secretsmanager:GetSecretValue`.
 - The extension listens on port `2773` by default. Override with the `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT` environment variable.
 - Secret string values containing JSON are automatically parsed into objects.
+- Both simple names (`my-secret`), path-style IDs (`prod/service/token`), and full ARNs (`arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/db`) are supported as secret IDs.
 
 ## Sample usage (string secret)
 

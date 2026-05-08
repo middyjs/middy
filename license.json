@@ -23,6 +23,8 @@
 		"**/*.tst.ts",
 		"**/*.md",
 		"**/*.yml",
+		"**/certificates",
+		"**/certificates/*.js",
 		"test/**/*",
 		"websites/**/*",
 		".DS_Store"

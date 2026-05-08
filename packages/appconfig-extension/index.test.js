@@ -226,7 +226,7 @@ test("It should call extension again after cache expires", async (_t) => {
 	const handler = middy(() => {})
 		.use(
 			appConfigExtension({
-				cacheExpiry: 4,
+				cacheExpiry: 50,
 				fetchData: { config: fetchParam },
 				disablePrefetch: true,
 			}),
@@ -236,7 +236,7 @@ test("It should call extension again after cache expires", async (_t) => {
 		});
 
 	await handler(event, context);
-	await setTimeout(5);
+	await setTimeout(60);
 	await handler(event, context);
 	clearCache(); // cancel any pending refresh timers before asserting
 
@@ -264,6 +264,36 @@ test("It should throw if extension returns a non-2xx response", async (_t) => {
 		equal(true, false, "should have thrown");
 	} catch (_e) {
 		equal(fetchCount, 1);
+	}
+});
+
+test("It should update cache to undefined on error when prior cache values exist", async (_t) => {
+	const configUrl = `${baseUrl}/my_config`;
+	const handler = middy(() => {}).use(
+		appConfigExtension({
+			cacheExpiry: 50,
+			fetchData: { config: fetchParam },
+			disablePrefetch: true,
+		}),
+	);
+	await handler(event, context);
+
+	await setTimeout(60);
+
+	const savedMock = mockFetchCache[configUrl];
+	mockFetchCache[configUrl] = {
+		body: null,
+		contentType: "application/json",
+		status: 500,
+	};
+	try {
+		await handler(event, context);
+		ok(false, "should have thrown");
+	} catch (_e) {
+		equal(fetchCount, 2);
+	} finally {
+		clearCache();
+		mockFetchCache[configUrl] = savedMock;
 	}
 });
 

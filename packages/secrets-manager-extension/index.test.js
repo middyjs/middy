@@ -32,6 +32,11 @@ const baseUrl = "http://localhost:2773/secretsmanager/get?secretId=";
 mockFetch(`${baseUrl}api_key`, { SecretString: "token" });
 mockFetch(`${baseUrl}api_key1`, { SecretString: "token1" });
 mockFetch(`${baseUrl}api_key2`, { SecretString: "token2" });
+mockFetch(`${baseUrl}prod/service/token`, { SecretString: "slash-token" });
+mockFetch(
+	`${baseUrl}arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/db`,
+	{ SecretString: "arn-token" },
+);
 mockFetch(`${baseUrl}rds_login`, {
 	SecretString: JSON.stringify({ username: "admin", password: "secret" }),
 });
@@ -322,6 +327,40 @@ test("It should work with no options (all defaults)", async (_t) => {
 	equal(fetchCount, 0);
 });
 
+test("It should fetch secret with ARN ID (colons and slashes)", async (_t) => {
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: {
+					token: "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/db",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			equal(values.token, "arn-token");
+		});
+	await handler(event, context);
+});
+
+test("It should fetch secret with slash-containing ID", async (_t) => {
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "prod/service/token" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			equal(values.token, "slash-token");
+		});
+	await handler(event, context);
+});
+
 test("secretsManagerExtensionParam returns the secret ID", () => {
 	equal(
 		secretsManagerExtensionParam("prod/service/secret"),
@@ -362,5 +401,14 @@ test("secretsManagerExtensionValidateOptions rejects wrong type", () => {
 	} catch (e) {
 		ok(e instanceof TypeError);
 		ok(e.message.includes("cacheExpiry"));
+	}
+});
+
+test("secretsManagerExtensionValidateOptions rejects non-string fetchData value", () => {
+	try {
+		secretsManagerExtensionValidateOptions({ fetchData: { key: 123 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
 	}
 });

@@ -25,7 +25,7 @@ const defaults = {
 const optionSchema = {
 	type: "object",
 	properties: {
-		fetchData: { type: "object" },
+		fetchData: { type: "object", additionalProperties: { type: "string" } },
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
@@ -45,24 +45,26 @@ const secretsManagerExtensionMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const port = process.env.PARAMETERS_SECRETS_EXTENSION_HTTP_PORT ?? 2773;
 	const baseUrl = `http://localhost:${port}/secretsmanager/get?secretId=`;
-	const headers = {
-		"X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
-	};
 
 	const fetchRequest = (request, cachedValues = {}) => {
+		const headers = {
+			"X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
+		};
 		const values = {};
 		for (const internalKey of Object.keys(options.fetchData)) {
 			if (cachedValues[internalKey]) continue;
 			values[internalKey] = fetch(
-				baseUrl + encodeURIComponent(options.fetchData[internalKey]),
+				baseUrl +
+					encodeURIComponent(options.fetchData[internalKey])
+						.replaceAll("%2F", "/")
+						.replaceAll("%3A", ":"),
 				{ headers },
 			)
 				.then((res) => {
 					if (!res.ok) {
-						throw new Error(
-							`/secretsmanager/get ${res.status} ${res.statusText}`,
-							{ cause: { package: pkg } },
-						);
+						throw new Error(`${pkg} ${res.status} ${res.statusText}`, {
+							cause: { package: pkg },
+						});
 					}
 					return res.json();
 				})

@@ -342,3 +342,12 @@ test("ssmExtensionValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("cacheExpiry"));
 	}
 });
+
+test("ssmExtensionValidateOptions rejects non-string fetchData value", () => {
+	try {
+		ssmExtensionValidateOptions({ fetchData: { key: 123 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
