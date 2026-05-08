@@ -297,6 +297,8 @@
 	"devDependencies": {
 		"@middy/core": "7.5.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^22.0.0",
+		"pg": "^8.0.0",
+		"postgres": "^3.0.0"
 	}
 }
