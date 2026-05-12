@@ -1,6 +1,7 @@
 ---
 title: secrets-manager-extension
 description: "Fetch Secrets Manager secrets via the AWS Parameters and Secrets Lambda Extension — no SDK, lower latency, automatic caching."
+status: alpha
 ---
 
 Fetches secrets from [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html) using the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html). The extension runs as a Lambda layer and exposes a local HTTP server (port 2773), so no AWS SDK is required and latency is lower than direct API calls.

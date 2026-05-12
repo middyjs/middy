@@ -1,6 +1,7 @@
 ---
 title: appconfig-extension
 description: "Fetch AWS AppConfig feature flags and configuration data via the AppConfig Lambda Extension."
+status: alpha
 ---
 
 Fetches AppConfig configuration and feature flags via the [AWS AppConfig Lambda Extension](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html). The extension runs as a sidecar process and handles polling, caching, and session token management internally, with no AWS SDK required.

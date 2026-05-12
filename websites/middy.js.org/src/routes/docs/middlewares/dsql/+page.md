@@ -1,6 +1,7 @@
 ---
 title: dsql
 description: "Connect Lambda handlers to Amazon Aurora DSQL using AWS Labs' connectors with built-in IAM auth and token refresh."
+status: alpha
 ---
 
 Attaches an Aurora DSQL connection (`pg.Client`, `pg.Pool`, or `postgres.js` `sql`) to `request.context` using the official AWS Labs DSQL connectors. The connectors handle IAM auth and token rotation internally, so this middleware does **not** need `@middy/dsql-signer` or any external signer.

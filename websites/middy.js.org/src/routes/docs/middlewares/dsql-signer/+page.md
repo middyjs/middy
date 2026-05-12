@@ -1,6 +1,7 @@
 ---
 title: dsql-signer
 description: "Generate Aurora DSQL IAM authentication tokens for secure database connections in Lambda."
+status: alpha
 ---
 
 Fetches Aurora DSQL credentials to be used when connecting to a DSQL cluster with IAM roles.

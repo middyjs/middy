@@ -1,6 +1,7 @@
 ---
 title: ssm-extension
 description: "Fetch SSM Parameter Store values via the AWS Parameters and Secrets Lambda Extension — no SDK, lower latency, automatic caching."
+status: alpha
 ---
 
 Fetches values from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html) using the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html). The extension runs as a Lambda layer and exposes a local HTTP server (port 2773), so no AWS SDK is required and latency is lower than direct API calls.
