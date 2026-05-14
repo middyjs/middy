@@ -3,7 +3,6 @@
 import { checkServerIdentity } from "node:tls";
 
 export default (ca) => ({
-	sslmode: "require",
 	ssl: {
 		rejectUnauthorized: true,
 		ca,

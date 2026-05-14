@@ -4,8 +4,8 @@ import getSsl from "./ssl.js";
 
 const ca = "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----";
 
-test("ssl returns sslmode require", () => {
-	strictEqual(getSsl(ca).sslmode, "require");
+test("ssl does not include sslmode", () => {
+	strictEqual("sslmode" in getSsl(ca), false);
 });
 
 test("ssl returns rejectUnauthorized true", () => {

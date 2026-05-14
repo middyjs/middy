@@ -1,4 +1,6 @@
-import cloudformationRouterHandler from "@middy/cloudformation-router";
+import cloudformationRouterHandler, {
+	type Route,
+} from "@middy/cloudformation-router";
 import type middy from "@middy/core";
 import type {
 	CloudFormationCustomResourceEvent,
@@ -72,4 +74,16 @@ test("use with returning notFoundResponse", () => {
 	expect(middlewareWithReturnResponse).type.toBe<
 		middy.MiddyfiedHandler<CloudFormationCustomResourceEvent, void>
 	>();
+});
+
+test("Route requestType accepts all three valid values", () => {
+	expect<"Create">().type.toBeAssignableTo<Route["requestType"]>();
+	expect<"Update">().type.toBeAssignableTo<Route["requestType"]>();
+	expect<"Delete">().type.toBeAssignableTo<Route["requestType"]>();
+});
+
+test("Route requestType rejects unknown strings", () => {
+	expect<"Invalid">().type.not.toBeAssignableTo<Route["requestType"]>();
+	expect<"create">().type.not.toBeAssignableTo<Route["requestType"]>();
+	expect<string>().type.not.toBeAssignableTo<Route["requestType"]>();
 });

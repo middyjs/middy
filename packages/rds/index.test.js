@@ -239,6 +239,7 @@ test("It should throw if client is not a function", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.message, "client must be a function");
+		strictEqual(e.cause?.package, "@middy/rds");
 	}
 });
 
