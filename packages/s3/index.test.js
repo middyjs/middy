@@ -483,3 +483,31 @@ test("s3ValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("setToContext"));
 	}
 });
+
+test("It should throw when S3 response is missing Body", async (t) => {
+	mockClient(S3Client).on(GetObjectCommand).resolvesOnce({
+		ContentType: "application/json",
+	});
+
+	const handler = middy(() => {})
+		.use(
+			s3({
+				AwsClient: S3Client,
+				cacheExpiry: 0,
+				fetchData: {
+					key: { Bucket: "...", Key: "..." },
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+
+	try {
+		await handler(defaultEvent, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.cause.data[0].message.includes("missing Body"));
+	}
+});

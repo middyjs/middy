@@ -10,6 +10,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: npm
+    target-branch: develop
     directory: "/"
     ignore:
       - dependency-name: "@types/node" # Needs to be oldest LTS version

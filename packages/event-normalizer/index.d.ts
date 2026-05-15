@@ -4,6 +4,7 @@ import type middy from "@middy/core";
 
 export interface Options {
 	wrapNumbers?: boolean;
+	maxDecompressedBytes?: number;
 }
 
 declare function eventNormalizer(

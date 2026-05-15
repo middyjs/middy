@@ -530,6 +530,23 @@ test("dsqlSignerValidateOptions rejects fetchData entry with non-string username
 	}
 });
 
+test("It should throw at creation when hostname is missing and no env var is set", (t) => {
+	const savedPGHOST = process.env.PGHOST;
+	delete process.env.PGHOST;
+	delete process.env.DBHOST;
+	t.after(() => {
+		process.env.PGHOST = savedPGHOST;
+	});
+
+	try {
+		dsqlSigner({ fetchData: { token: {} } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("hostname is required"));
+		strictEqual(e.cause?.package, "@middy/dsql-signer");
+	}
+});
+
 test("dsqlSignerValidateOptions rejects fetchData entry with non-DSQL hostname", () => {
 	try {
 		dsqlSignerValidateOptions({

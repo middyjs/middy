@@ -34,13 +34,13 @@ Pick the adapter that matches your driver and install the matching peer deps.
 
 ```bash
 # pg.Client / pg.Pool
-npm install --save @middy/dsql @aws/aurora-dsql-node-postgres-connector pg
+npm install --save @middy/dsql @middy/dsql-signer pg
 
 # postgres.js
-npm install --save @middy/dsql @aws/aurora-dsql-postgresjs-connector postgres
+npm install --save @middy/dsql @middy/dsql-signer postgres
 ```
 
-The AWS Aurora DSQL connectors generate and refresh IAM tokens internally, so this middleware does not need `@middy/dsql-signer` or any manual signing setup.
+Use `@middy/dsql-signer` before this middleware to generate IAM auth tokens and inject them via `internalKey`.
 
 
 ## Documentation and examples

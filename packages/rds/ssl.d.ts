@@ -3,7 +3,6 @@
 import type { PeerCertificate } from "node:tls";
 
 declare const ssl: (ca: string) => {
-	sslmode: "require";
 	ssl: {
 		rejectUnauthorized: boolean;
 		ca: string;

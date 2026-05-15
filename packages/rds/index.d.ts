@@ -11,7 +11,7 @@ export interface RdsBaseConfig {
 	username?: string;
 	database?: string;
 	port?: number;
-	password?: string | (() => string | Promise<string>);
+	password?: string;
 	[key: string]: unknown;
 }
 

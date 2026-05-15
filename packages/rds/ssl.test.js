@@ -4,8 +4,8 @@ import getSsl from "./ssl.js";
 
 const ca = "-----BEGIN CERTIFICATE-----\nMIID...\n-----END CERTIFICATE-----";
 
-test("ssl returns sslmode require", () => {
-	strictEqual(getSsl(ca).sslmode, "require");
+test("ssl does not include sslmode", () => {
+	strictEqual("sslmode" in getSsl(ca), false);
 });
 
 test("ssl returns rejectUnauthorized true", () => {
@@ -44,6 +44,16 @@ test("checkServerIdentity suppresses TLS error when cert CN is an RDS endpoint",
 test("checkServerIdentity returns TLS error when cert CN is not an RDS endpoint", () => {
 	const { checkServerIdentity } = getSsl(ca).ssl;
 	const cert = { subject: { CN: "evil.example.com" } };
+	const result = checkServerIdentity(
+		"db.cluster.us-east-1.rds.amazonaws.com",
+		cert,
+	);
+	ok(result instanceof Error);
+});
+
+test("checkServerIdentity returns TLS error without throwing when cert has no CN", () => {
+	const { checkServerIdentity } = getSsl(ca).ssl;
+	const cert = { subject: {} };
 	const result = checkServerIdentity(
 		"db.cluster.us-east-1.rds.amazonaws.com",
 		cert,

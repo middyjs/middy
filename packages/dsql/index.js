@@ -19,14 +19,13 @@ const optionSchema = {
 				},
 				username: { type: "string" },
 				database: { type: "string" },
-				region: { type: "string" },
 				port: { type: "integer", minimum: 1, maximum: 65535 },
-				tokenDurationSecs: { type: "integer", minimum: 1 },
 			},
 			required: ["host"],
 			additionalProperties: true,
 		},
 		contextKey: { type: "string" },
+		internalKey: { type: "string" },
 		disablePrefetch: { type: "boolean" },
 		cacheKey: { type: "string" },
 		cacheKeyExpiry: {
@@ -46,6 +45,7 @@ const defaults = {
 	client: undefined,
 	config: undefined,
 	contextKey: name,
+	internalKey: undefined,
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
@@ -55,22 +55,40 @@ const defaults = {
 const dsqlMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	if (typeof options.client !== "function") {
-		throw new Error("client option missing", { cause: { package: pkg } });
+		throw new Error(
+			options.client === undefined
+				? "client option missing"
+				: "client must be a function",
+			{ cause: { package: pkg } },
+		);
 	}
 
-	const fetch = () => options.client(options.config);
+	const buildConfig = (request) => {
+		const config = { ssl: true, ...options.config };
+		if (!options.internalKey) return config;
+		const token = request?.internal?.[options.internalKey];
+		if (token === undefined) {
+			throw new Error(
+				`internalKey '${options.internalKey}' not found; ensure @middy/dsql-signer runs before @middy/dsql`,
+				{ cause: { package: pkg } },
+			);
+		}
+		return { ...config, password: token };
+	};
+
+	const fetch = (request) => options.client(buildConfig(request));
 
 	let prefetch;
-	if (canPrefetch(options)) {
+	if (!options.internalKey && canPrefetch(options)) {
 		prefetch = processCache(options, fetch);
 	}
 
 	const dsqlMiddlewareBefore = async (request) => {
-		const { value } = prefetch ?? processCache(options, fetch, request);
+		const { value } =
+			prefetch ?? processCache(options, () => fetch(request), request);
 		Object.assign(request.context, { [options.contextKey]: await value });
 	};
 	const dsqlMiddlewareAfter = async (request) => {
-		// try/catch for if an error is thrown after this ran the first time
 		try {
 			if (options.cacheExpiry === 0) {
 				await request.context[options.contextKey].end();

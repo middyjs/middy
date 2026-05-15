@@ -509,6 +509,23 @@ test("rdsSignerValidateOptions accepts fetchData entry relying on env var defaul
 	});
 });
 
+test("It should throw at creation when hostname is missing and no env var is set", (t) => {
+	const savedPGHOST = process.env.PGHOST;
+	delete process.env.PGHOST;
+	delete process.env.DBHOST;
+	t.after(() => {
+		process.env.PGHOST = savedPGHOST;
+	});
+
+	try {
+		rdsSigner({ fetchData: { token: {} } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("hostname is required"));
+		strictEqual(e.cause?.package, "@middy/rds-signer");
+	}
+});
+
 test("rdsSignerValidateOptions rejects fetchData entry with non-integer port", () => {
 	try {
 		rdsSignerValidateOptions({

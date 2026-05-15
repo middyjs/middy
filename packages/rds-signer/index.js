@@ -70,6 +70,12 @@ const rdsSignerMiddleware = (opts = {}) => {
 	};
 	for (const key of Object.keys(options.fetchData)) {
 		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+		if (!options.fetchData[key].hostname) {
+			throw new Error(
+				`fetchData.${key}.hostname is required; set PGHOST, DBHOST, or pass hostname explicitly`,
+				{ cause: { package: pkg } },
+			);
+		}
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
@@ -88,7 +94,9 @@ const rdsSignerMiddleware = (opts = {}) => {
 			values[internalKey] = clients[internalKey]
 				[method]()
 				.then((token) => {
-					// Catch Missing token, this usually means there is something wrong with the credentials
+					// Pre-signed token URLs always include X-Amz-Security-Token when temporary
+					// credentials (IAM role) are used, which is always the case in Lambda.
+					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
 							cause: { package: pkg, method },

@@ -238,7 +238,8 @@ test("It should throw if client is not a function", () => {
 		rdsMiddleware({ client: {}, config: { host: validHost } });
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "client option missing");
+		strictEqual(e.message, "client must be a function");
+		strictEqual(e.cause?.package, "@middy/rds");
 	}
 });
 
