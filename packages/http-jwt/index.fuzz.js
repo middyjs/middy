@@ -17,9 +17,14 @@ const validToken = await new SignJWT({ sub: "fuzz" })
 	.setExpirationTime("1h")
 	.sign(Buffer.from(secret));
 
-const handler = middy((event) => event).use(
-	httpJwt({ secretKey: secret, algorithm: "HS256" }),
-);
+const internalKey = "hmacSecret";
+const real = httpJwt({ internalKey, algorithm: "HS256" });
+const handler = middy((event) => event).use({
+	before: async (request) => {
+		request.internal[internalKey] = secret;
+		return real.before(request);
+	},
+});
 
 const safeRun = async (event) => {
 	try {
