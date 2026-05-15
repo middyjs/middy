@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-x402",
-	"version": "7.3.4",
+	"version": "7.5.0",
 	"description": "x402 payment middleware for the middy framework",
 	"type": "module",
 	"engines": {
