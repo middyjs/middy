@@ -28,7 +28,9 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-header-normalizer`](/docs/middlewares/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/docs/middlewares/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
+- [`http-jwt`](/docs/middlewares/http-jwt): Verifies a JWT on incoming HTTP requests using a shared secret or a public key fetched from `kms`.
 - [`http-multipart-body-parser`](/docs/middlewares/http-multipart-body-parser): Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an object.
+- [`http-paseto`](/docs/middlewares/http-paseto): Verifies a PASETO v4.public token on incoming HTTP requests using a public key fetched from `kms`.
 - [`http-urlencode-body-parser`](/docs/middlewares/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/docs/middlewares/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
 - [`validator`](/docs/middlewares/validator): Automatically validates incoming events and outgoing responses against custom schemas.
@@ -51,6 +53,7 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`appconfig`](/docs/middlewares/appconfig): Fetch JSON configurations from AppConfig.
 - [`dsql-signer`](/docs/middlewares/dsql-signer): Fetches token for connecting to Aurora DSQL with IAM users.
 - [`dynamodb`](/docs/middlewares/dynamodb): Fetch configurations from DynamoDB.
+- [`kms`](/docs/middlewares/kms): Fetches asymmetric public keys from AWS KMS for signature verification (e.g. `http-jwt`, `http-paseto`).
 - [`rds-signer`](/docs/middlewares/rds-signer): Fetches token for connecting to RDS with IAM users.
 - [`s3`](/docs/middlewares/s3): Fetch JSON configurations from S3.
 - [`s3-object-response`](/docs/middlewares/s3-object-response): Gets and write S3 object response.

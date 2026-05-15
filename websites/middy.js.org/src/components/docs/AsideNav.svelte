@@ -44,9 +44,11 @@ const nav = {
 		"http-event-normalizer": "/docs/middlewares/http-event-normalizer",
 		"http-header-normalizer": "/docs/middlewares/http-header-normalizer",
 		"http-json-body-parser": "/docs/middlewares/http-json-body-parser",
+		"http-jwt": "/docs/middlewares/http-jwt",
 		"http-multipart-body-parser":
 			"/docs/middlewares/http-multipart-body-parser",
 		"http-partial-response": "/docs/middlewares/http-partial-response",
+		"http-paseto": "/docs/middlewares/http-paseto",
 		"http-response-serializer": "/docs/middlewares/http-response-serializer",
 		"http-security-headers": "/docs/middlewares/http-security-headers",
 		"http-urlencode-body-parser":
@@ -54,6 +56,7 @@ const nav = {
 		"http-urlencode-path-parser":
 			"/docs/middlewares/http-urlencode-path-parser",
 		"input-output-logger": "/docs/middlewares/input-output-logger",
+		kms: "/docs/middlewares/kms",
 		rds: "/docs/middlewares/rds",
 		"rds-signer": "/docs/middlewares/rds-signer",
 		s3: "/docs/middlewares/s3",
