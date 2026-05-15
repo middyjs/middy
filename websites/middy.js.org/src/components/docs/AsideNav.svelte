@@ -58,6 +58,7 @@ const nav = {
 			"/docs/middlewares/http-urlencode-body-parser",
 		"http-urlencode-path-parser":
 			"/docs/middlewares/http-urlencode-path-parser",
+		"http-x402": "/docs/middlewares/http-x402",
 		"input-output-logger": "/docs/middlewares/input-output-logger",
 		kms: "/docs/middlewares/kms",
 		rds: "/docs/middlewares/rds",
