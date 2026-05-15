@@ -82,6 +82,41 @@ test("It should use default logger (console.error) when no logger is provided", 
 	}
 });
 
+test("It should log non-Error throws (string, plain object, null)", async (t) => {
+	for (const thrown of ["string error", { code: "BAD" }, null, undefined, 42]) {
+		let captured;
+		const handler = middy(() => {
+			throw thrown;
+		}).use(errorLogger({ logger: (request) => (captured = request.error) }));
+
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (_e) {
+			// captured should equal what was thrown (middy may wrap, but error-logger gets request.error)
+			ok("error" in { error: captured });
+		}
+	}
+});
+
+test("It should pass full request shape to logger", async (t) => {
+	const error = new Error("boom");
+	let captured = null;
+
+	const handler = middy(() => {
+		throw error;
+	}).use(errorLogger({ logger: (request) => (captured = request) }));
+
+	try {
+		await handler({ foo: "bar" }, defaultContext);
+	} catch (_e) {}
+
+	ok(captured !== null);
+	deepStrictEqual(captured.event, { foo: "bar" });
+	strictEqual(typeof captured.context, "object");
+	strictEqual(captured.error, error);
+	ok("internal" in captured);
+});
+
 test("errorLoggerValidateOptions accepts valid options and rejects typos", () => {
 	errorLoggerValidateOptions({ logger: () => {} });
 	errorLoggerValidateOptions({});

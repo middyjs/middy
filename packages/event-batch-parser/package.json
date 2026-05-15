@@ -95,7 +95,7 @@
 	},
 	"peerDependencies": {
 		"avro-js": "^1.0.0",
-		"protobufjs": "^7.0.0"
+		"protobufjs": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
 		"avro-js": {
@@ -113,6 +113,6 @@
 		"@types/node": "^22.0.0",
 		"avro-js": "^1.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
-		"protobufjs": "^7.0.0"
+		"protobufjs": "^8.0.0"
 	}
 }
