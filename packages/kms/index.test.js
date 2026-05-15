@@ -157,7 +157,7 @@ test("It should handle concurrent invocations safely (clientInit reuse)", async 
 });
 
 test("It should skip cached keys and cover non-null cache branch on retry after partial error", async (t) => {
-	const mock = mockClient(KMSClient)
+	mockClient(KMSClient)
 		.on(GetPublicKeyCommand, { KeyId: "alias/signing-key" })
 		.resolves({ PublicKey: publicKeyDer, KeySpec: keySpec })
 		.on(GetPublicKeyCommand, { KeyId: "alias/verify-key" })
