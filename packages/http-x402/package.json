@@ -1,0 +1,76 @@
+{
+	"name": "@middy/http-x402",
+	"version": "7.3.4",
+	"description": "x402 payment middleware for the middy framework",
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	},
+	"engineStrict": true,
+	"publishConfig": {
+		"access": "public"
+	},
+	"module": "./index.js",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		}
+	},
+	"types": "index.d.ts",
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"scripts": {
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js",
+		"test:perf": "node --test index.perf.js"
+	},
+	"license": "MIT",
+	"keywords": [
+		"Lambda",
+		"Middleware",
+		"Serverless",
+		"Framework",
+		"AWS",
+		"AWS Lambda",
+		"Middy",
+		"HTTP",
+		"x402",
+		"Payments",
+		"Web3"
+	],
+	"author": {
+		"name": "Middy contributors",
+		"url": "https://github.com/middyjs/middy/graphs/contributors"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/middyjs/middy.git",
+		"directory": "packages/http-x402"
+	},
+	"bugs": {
+		"url": "https://github.com/middyjs/middy/issues"
+	},
+	"homepage": "https://middy.js.org",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/willfarrell"
+	},
+	"peerDependencies": {
+		"@x402/core": "^2.0.0"
+	},
+	"dependencies": {
+		"@middy/util": "7.3.4"
+	},
+	"devDependencies": {
+		"@middy/core": "7.3.4",
+		"@x402/core": "^2.0.0",
+		"@types/node": "^22.0.0"
+	}
+}
