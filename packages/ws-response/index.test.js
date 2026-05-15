@@ -136,6 +136,55 @@ test("It should handle InvalidSignatureException and retry", async (t) => {
 	deepStrictEqual(response, { statusCode: 200 });
 });
 
+test("It should wrap a scalar response as Data and inject connectionId", async (t) => {
+	const client = mockClient(ApiGatewayManagementApiClient);
+	let sentInput;
+	client.on(PostToConnectionCommand).callsFake(async (input) => {
+		sentInput = input;
+		return { statusCode: 200 };
+	});
+
+	const handler = middy(() => "payload-string").use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "xxxxxx.execute-api.region.amazonaws.com",
+			stage: "production",
+			connectionId: "conn-1",
+		},
+	};
+	await handler(event, defaultContext);
+
+	strictEqual(sentInput.Data, "payload-string");
+	strictEqual(sentInput.ConnectionId, "conn-1");
+});
+
+test("It should respect a pre-shaped { Data, ConnectionId } response", async (t) => {
+	const client = mockClient(ApiGatewayManagementApiClient);
+	let sentInput;
+	client.on(PostToConnectionCommand).callsFake(async (input) => {
+		sentInput = input;
+		return { statusCode: 200 };
+	});
+
+	const handler = middy(() => ({
+		Data: "explicit-data",
+		ConnectionId: "explicit-conn",
+	})).use(
+		wsResponse({
+			AwsClient: ApiGatewayManagementApiClient,
+			awsClientOptions: { endpoint: "https://example/prod" },
+		}),
+	);
+
+	await handler({}, defaultContext);
+
+	strictEqual(sentInput.Data, "explicit-data");
+	strictEqual(sentInput.ConnectionId, "explicit-conn");
+});
+
 test("wsResponseValidateOptions accepts valid options and rejects typos", () => {
 	wsResponseValidateOptions({ disablePrefetch: true });
 	wsResponseValidateOptions({});
