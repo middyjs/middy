@@ -34,13 +34,6 @@
 npm install --save @middy/ssm-extension
 ```
 
-## Required Lambda Layer
-
-This middleware talks to the **AWS Parameters and Secrets Lambda Extension** over `http://localhost:2773` (override with `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT`). The layer must be attached to your function for this middleware to work.
-
-- Layer ARNs (per region and architecture): see [AWS docs: Use Parameter Store parameters in AWS Lambda](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html).
-- Required IAM permission on the function role: `ssm:GetParameter` for each parameter you fetch (plus `kms:Decrypt` for `SecureString` parameters).
-
 
 ## Documentation and examples
 

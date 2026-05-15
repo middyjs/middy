@@ -41,6 +41,13 @@ npm install --save @middy/appconfig-extension
 - The extension polls AppConfig on a schedule controlled by `AWS_APPCONFIG_EXTENSION_POLL_INTERVAL_SECONDS`. Set `cacheExpiry` to match this interval to avoid serving stale configuration.
 - The extension listens on port `2772` by default. Override with the `AWS_APPCONFIG_EXTENSION_HTTP_PORT` environment variable.
 
+## Troubleshooting
+
+- **`ECONNREFUSED 127.0.0.1:2772`** at invocation time means the AppConfig Lambda Extension layer is not attached to your function. Add the layer ARN (region- and architecture-specific) from the AWS docs linked under Prerequisites.
+- **`HTTP 400` / `BadRequestException`** typically means the `application`, `environment`, or `configuration` value in `fetchData` does not match an existing AppConfig resource. Use the resource name or ID exactly as defined in AppConfig.
+- **`HTTP 403`** means the layer reached AppConfig but IAM denied the call. Grant `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration` for the specific configuration profile ARNs your function reads.
+- The layer ARN is regional. A function deployed to `us-east-1` cannot reuse the `eu-west-1` ARN; pick the matching row from the [AWS layer list](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html#appconfig-integration-lambda-extensions-enabling).
+
 ## Sample usage (JSON configuration)
 
 ```javascript

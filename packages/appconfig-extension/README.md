@@ -34,13 +34,6 @@
 npm install --save @middy/appconfig-extension
 ```
 
-## Required Lambda Layer
-
-This middleware talks to the **AWS AppConfig Agent Lambda Extension** over `http://localhost:2772` (override with `AWS_APPCONFIG_EXTENSION_HTTP_PORT`). The layer must be attached to your function for this middleware to work.
-
-- Layer ARNs (per region and architecture): see [AWS docs: AWS AppConfig Agent Lambda extension](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-integration-lambda-extensions.html).
-- Required IAM permission on the function role: `appconfig:StartConfigurationSession` and `appconfig:GetLatestConfiguration` for each configuration profile you fetch.
-
 
 ## Documentation and examples
 
