@@ -28,7 +28,9 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-header-normalizer`](/docs/middlewares/http-header-normalizer): Normalizes HTTP header names to their canonical format
 - [`http-json-body-parser`](/docs/middlewares/http-json-body-parser): Automatically parses HTTP requests with JSON body and converts the body into an object. Also handles gracefully broken JSON if used in combination of
   `httpErrorHandler`.
+- [`http-jwt`](/docs/middlewares/http-jwt): Verifies a JWT on incoming HTTP requests using a shared secret or a public key fetched from `kms`.
 - [`http-multipart-body-parser`](/docs/middlewares/http-multipart-body-parser): Automatically parses HTTP requests with content type `multipart/form-data` and converts the body into an object.
+- [`http-paseto`](/docs/middlewares/http-paseto): Verifies a PASETO v4.public token on incoming HTTP requests using a public key fetched from `kms`.
 - [`http-urlencode-body-parser`](/docs/middlewares/http-urlencode-body-parser): Automatically parses HTTP requests with URL encoded body (typically the result of a form submit).
 - [`http-urlencode-path-parser`](/docs/middlewares/http-urlencode-path-parser): Automatically parses HTTP requests with URL encoded path.
 - [`validator`](/docs/middlewares/validator): Automatically validates incoming events and outgoing responses against custom schemas.
@@ -42,8 +44,8 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`http-security-headers`](/docs/middlewares/http-security-headers): Applies best practice security headers to responses. It's a simplified port of HelmetJS.
 - [`http-partial-response`](/docs/middlewares/http-partial-response): Filter response objects attributes based on query string parameters.
 - [`http-response-serializer`](/docs/middlewares/http-response-serializer): HTTP response serializer.
-- [`event-partial-batch-failure`](/docs/middlewares/event-partial-batch-failure): Shapes Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch Operations, Kinesis Firehose).
-- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches (superseded by `event-partial-batch-failure`).
+- [`event-batch-response`](/docs/middlewares/event-batch-response): Shapes Lambda batch responses per event source (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch Operations, Kinesis Firehose).
+- [`sqs-partial-batch-failure`](/docs/middlewares/sqs-partial-batch-failure): Handles partially failed SQS batches (superseded by `event-batch-response`).
 - [`ws-response`](/docs/middlewares/ws-response): Forwards response to WebSocket endpoint.
 
 ## Fetch Data
@@ -51,6 +53,7 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`appconfig`](/docs/middlewares/appconfig): Fetch JSON configurations from AppConfig.
 - [`dsql-signer`](/docs/middlewares/dsql-signer): Fetches token for connecting to Aurora DSQL with IAM users.
 - [`dynamodb`](/docs/middlewares/dynamodb): Fetch configurations from DynamoDB.
+- [`kms`](/docs/middlewares/kms): Fetches asymmetric public keys from AWS KMS for signature verification (e.g. `http-jwt`, `http-paseto`).
 - [`rds-signer`](/docs/middlewares/rds-signer): Fetches token for connecting to RDS with IAM users.
 - [`s3`](/docs/middlewares/s3): Fetch JSON configurations from S3.
 - [`s3-object-response`](/docs/middlewares/s3-object-response): Gets and write S3 object response.
@@ -58,3 +61,13 @@ Each middleware should do a single task. We try to balance each to be as perform
 - [`service-discovery`](/docs/middlewares/service-discovery): Fetches Service Discovery instances to be used when connecting to other AWS services.
 - [`ssm`](/docs/middlewares/ssm): Fetches parameters from [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html).
 - [`sts`](/docs/middlewares/sts): Fetches credentials to assumes IAM roles for connection to other AWS services.
+
+## Lambda Extensions
+
+[AWS Lambda Extensions](https://docs.aws.amazon.com/lambda/latest/dg/lambda-extensions.html) run as sidecar processes inside the Lambda execution environment and expose a local HTTP API. Middleware in this category talk to that local API instead of calling AWS service endpoints directly, trading AWS SDK overhead for a Lambda Layer dependency.
+
+**Incompatible with AWS Lambda Code Signing.** Extensions are deployed as AWS-published Lambda Layers. If your function restricts layers to your own signing profiles, use the SDK-direct alternatives in the Fetch Data section instead.
+
+- [`appconfig-extension`](/docs/middlewares/appconfig-extension): Fetch AppConfig feature flags and configuration via the AppConfig Lambda Extension. Alternative to `appconfig`.
+- [`secrets-manager-extension`](/docs/middlewares/secrets-manager-extension): Fetch Secrets Manager secrets via the Parameters and Secrets Lambda Extension. Alternative to `secrets-manager`.
+- [`ssm-extension`](/docs/middlewares/ssm-extension): Fetch SSM Parameter Store values via the Parameters and Secrets Lambda Extension. Alternative to `ssm`.

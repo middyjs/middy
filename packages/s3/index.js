@@ -52,7 +52,7 @@ const optionSchema = {
 					ResponseContentType: { type: "string" },
 					VersionId: { type: "string" },
 					RequestPayer: { type: "string", enum: ["requester"] },
-					PartNumber: { type: "integer", minimum: 1 },
+					PartNumber: { type: "integer", minimum: 1, maximum: 10000 },
 					ChecksumMode: { type: "string", enum: ["ENABLED"] },
 				},
 				additionalProperties: true,
@@ -87,6 +87,7 @@ const s3Middleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
+					if (!resp.Body) throw new Error("S3 GetObject response missing Body");
 					let value = await resp.Body.transformToString();
 					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);

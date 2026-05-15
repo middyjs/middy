@@ -1,5 +1,6 @@
 <script>
 import Seo from "@components/Seo.svelte";
+import Callout from "@design-system/components/Callout.svelte";
 import H1 from "@design-system/components/Heading1.svelte";
 import LayoutAside from "@design-system/components/LayoutAside.svelte";
 import LayoutTableOfContents from "@design-system/components/LayoutTableOfContents.svelte";
@@ -10,7 +11,7 @@ import Li from "@design-system/elements/li.svelte";
 import Ol from "@design-system/elements/ol.svelte";
 import AsideNav from "./AsideNav.svelte";
 
-const { title = "Documentation", description = "", headings = [], children } = $props();
+const { title = "Documentation", description = "", headings = [], status, children } = $props();
 </script>
 <Seo
 	{title}
@@ -39,6 +40,11 @@ const { title = "Documentation", description = "", headings = [], children } = $
 			</Ol>
 		</NavScrollspy>
     {/snippet}
+	{#if status === 'alpha'}
+		<Callout label="Alpha">
+			This is a new middleware with limited real-world testing. Your feedback is valuable. Please <A href="https://github.com/middyjs/middy/issues">report any issues</A> you encounter. Not recommended for production use just yet.
+		</Callout>
+	{/if}
 	{@render children?.()}
 </LayoutTableOfContents>
 </LayoutAside>

@@ -16,6 +16,7 @@ const defaults = {
 // API and aws-embedded-metrics' `setDimensions(dimensionSets)` signature.
 const dimensionSetSchema = {
 	type: "object",
+	maxProperties: 30,
 	additionalProperties: { type: "string", minLength: 1, maxLength: 1024 },
 };
 

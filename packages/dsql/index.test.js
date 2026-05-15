@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import { clearCache } from "../util/index.js";
@@ -42,13 +42,12 @@ test("It should instantiate the client and attach it to context", async (t) => {
 	strictEqual(captured?.mark, "client");
 });
 
-test("It should pass config straight to the client function", async (t) => {
+test("It should pass config to the client with ssl:true default", async (t) => {
 	const { client } = buildClient(t);
 	const config = {
 		host: validHost,
 		username: "admin",
 		database: "postgres",
-		region: "us-east-1",
 	};
 	const handler = middy(() => {}).use(
 		dsqlMiddleware({
@@ -59,7 +58,68 @@ test("It should pass config straight to the client function", async (t) => {
 		}),
 	);
 	await handler(defaultEvent, newContext());
-	strictEqual(client.mock.calls[0].arguments[0], config);
+	deepStrictEqual(client.mock.calls[0].arguments[0], { ssl: true, ...config });
+});
+
+test("It should allow ssl to be overridden in config", async (t) => {
+	const { client } = buildClient(t);
+	const config = { host: validHost, ssl: false };
+	const handler = middy(() => {}).use(
+		dsqlMiddleware({
+			client,
+			config,
+			cacheExpiry: 0,
+			disablePrefetch: true,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	deepStrictEqual(client.mock.calls[0].arguments[0], {
+		ssl: false,
+		host: validHost,
+	});
+});
+
+test("It should merge token from internalKey into config.password", async (t) => {
+	const { client } = buildClient(t);
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.dsqlToken = "iam-token-abc";
+		})
+		.use(
+			dsqlMiddleware({
+				client,
+				config: { host: validHost, username: "admin" },
+				internalKey: "dsqlToken",
+				cacheExpiry: 0,
+				disablePrefetch: true,
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	const arg = client.mock.calls[0].arguments[0];
+	strictEqual(arg.password, "iam-token-abc");
+	strictEqual(arg.host, validHost);
+	strictEqual(arg.ssl, true);
+});
+
+test("It should throw when internalKey is set but token is missing", async (t) => {
+	const { client } = buildClient(t);
+	const handler = middy(() => {}).use(
+		dsqlMiddleware({
+			client,
+			config: { host: validHost },
+			internalKey: "dsqlToken",
+			cacheExpiry: 0,
+			disablePrefetch: true,
+		}),
+	);
+	let captured;
+	try {
+		await handler(defaultEvent, newContext());
+	} catch (e) {
+		captured = e;
+	}
+	ok(captured);
+	strictEqual(captured.cause?.package, "@middy/dsql");
 });
 
 test("It should honour custom contextKey", async (t) => {
@@ -194,7 +254,7 @@ test("It should throw if client is not a function", () => {
 		dsqlMiddleware({ client: {}, config: { host: validHost } });
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "client option missing");
+		strictEqual(e.message, "client must be a function");
 	}
 });
 
@@ -212,11 +272,10 @@ test("dsqlValidateOptions accepts the full surface", () => {
 			host: validHost,
 			username: "admin",
 			database: "postgres",
-			region: "us-east-1",
 			port: 5432,
-			tokenDurationSecs: 900,
 		},
 		contextKey: "dsql",
+		internalKey: "dsqlToken",
 		disablePrefetch: false,
 		cacheKey: "k",
 		cacheKeyExpiry: { k: 60_000 },

@@ -15,14 +15,72 @@ This page is a work in progress. If you want to help us to make this page better
 ## AWS Documentation
 - [Using AWS Lambda with Amazon Kinesis Data Firehose](https://docs.aws.amazon.com/lambda/latest/dg/services-kinesisfirehose.html)
 
-## Example
+## Example JSON
+
 ```javascript
 import middy from '@middy/core'
-import eventNormalizerMiddleware from '@middy/event-normalizer'
+import eventBatchParser, { parseJson } from '@middy/event-batch-parser'
+import eventBatchResponse from '@middy/event-batch-response'
+import eventBatchHandler from '@middy/event-batch-handler'
+
+const recordHandler = async (record, context) => {
+  // record.data is the parsed JSON payload; return the transformed payload
+  // (auto-base64-encoded) or { result: 'Dropped', data: '' } to drop a record;
+  // throw to mark it as ProcessingFailed
+}
+const lambdaHandler = eventBatchHandler(recordHandler)
 
 export const handler = middy()
-  .use(eventNormalizerMiddleware())
-  .handler((event, context, {signal}) => {
-    // ...
-  })
+  .use(eventBatchParser({ body: parseJson() }))
+  .use(eventBatchResponse())
+  .handler(lambdaHandler)
+```
+
+## Example Avro
+
+```javascript
+import middy from '@middy/core'
+import eventBatchParser, { parseAvro } from '@middy/event-batch-parser'
+import eventBatchResponse from '@middy/event-batch-response'
+import eventBatchHandler from '@middy/event-batch-handler'
+
+const schema = { type: 'record', name: 'Record', fields: [
+  { name: 'id', type: 'string' },
+  { name: 'payload', type: 'string' },
+] }
+
+const recordHandler = async (record, context) => {
+  // record.data is the decoded Avro object
+}
+const lambdaHandler = eventBatchHandler(recordHandler)
+
+export const handler = middy()
+  .use(eventBatchParser({ body: parseAvro({ schema }) }))
+  .use(eventBatchResponse())
+  .handler(lambdaHandler)
+```
+
+For dynamic schemas resolved via [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry), omit `schema` and chain the registry middleware.
+
+## Example Protobuf
+
+Per-record schemas are resolved dynamically from the [AWS Glue Schema Registry](/docs/middlewares/glue-schema-registry). Each Glue-framed record carries a `SchemaVersionId` that the registry middleware fetches (and caches) before `parseProtobuf` runs.
+
+```javascript
+import middy from '@middy/core'
+import glueSchemaRegistry from '@middy/glue-schema-registry'
+import eventBatchParser, { parseProtobuf } from '@middy/event-batch-parser'
+import eventBatchResponse from '@middy/event-batch-response'
+import eventBatchHandler from '@middy/event-batch-handler'
+
+const recordHandler = async (record, context) => {
+  // record.data is the decoded Protobuf message (as JSON)
+}
+const lambdaHandler = eventBatchHandler(recordHandler)
+
+export const handler = middy()
+  .use(glueSchemaRegistry())
+  .use(eventBatchParser({ body: parseProtobuf(), glueSchemaRegistry: {} }))
+  .use(eventBatchResponse())
+  .handler(lambdaHandler)
 ```

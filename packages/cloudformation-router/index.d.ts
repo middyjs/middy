@@ -7,7 +7,7 @@ import type {
 } from "aws-lambda";
 
 export interface Route<TResult = never> {
-	requestType: string;
+	requestType: "Create" | "Update" | "Delete";
 	handler: CloudFormationCustomResourceHandler<TResult>;
 }
 

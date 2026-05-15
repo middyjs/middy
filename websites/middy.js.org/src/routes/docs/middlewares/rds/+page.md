@@ -1,6 +1,7 @@
 ---
 title: rds
 description: "Manage RDS connection lifecycle in Lambda with connection pooling, IAM token injection, and TLS certificate support."
+status: alpha
 ---
 
 Manages an RDS (or Aurora) database connection for each Lambda invocation, injecting it into `request.context`. Supports `pg.Client`, `pg.Pool`, and `postgres.js` via interchangeable client adapters. Pairs with `@middy/rds-signer` for IAM token authentication.
