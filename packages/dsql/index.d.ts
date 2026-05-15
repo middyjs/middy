@@ -10,9 +10,9 @@ export interface DsqlBaseConfig {
 	host: string;
 	username?: string;
 	database?: string;
-	region?: string;
 	port?: number;
-	tokenDurationSecs?: number;
+	password?: string;
+	ssl?: boolean | object;
 	[key: string]: unknown;
 }
 
@@ -23,6 +23,7 @@ export interface DsqlOptions<
 	client: DsqlClient<TClient, TConfig>;
 	config: TConfig;
 	contextKey?: string;
+	internalKey?: string;
 	disablePrefetch?: boolean;
 	cacheKey?: string;
 	cacheKeyExpiry?: { [key: string]: number };

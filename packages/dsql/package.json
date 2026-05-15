@@ -86,18 +86,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"peerDependencies": {
-		"@aws/aurora-dsql-node-postgres-connector": "^0.1.0",
-		"@aws/aurora-dsql-postgresjs-connector": "^0.2.0",
 		"pg": "^8.0.0",
 		"postgres": "^3.0.0"
 	},
 	"peerDependenciesMeta": {
-		"@aws/aurora-dsql-node-postgres-connector": {
-			"optional": true
-		},
-		"@aws/aurora-dsql-postgresjs-connector": {
-			"optional": true
-		},
 		"pg": {
 			"optional": true
 		},
@@ -109,8 +101,6 @@
 		"@middy/util": "7.5.0"
 	},
 	"devDependencies": {
-		"@aws/aurora-dsql-node-postgres-connector": "^0.1.0",
-		"@aws/aurora-dsql-postgresjs-connector": "^0.2.0",
 		"@middy/core": "7.5.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
