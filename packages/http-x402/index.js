@@ -31,7 +31,7 @@ const optionSchema = {
 		asset: { type: "string" },
 		description: { type: "string" },
 		mimeType: { type: "string" },
-		human: (v) => typeof v === "function",
+		human: { instanceof: "Function" },
 	},
 	required: ["price", "payTo", "asset"],
 	additionalProperties: false,

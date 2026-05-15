@@ -34,6 +34,13 @@
 npm install --save @middy/secrets-manager-extension
 ```
 
+## Required Lambda Layer
+
+This middleware talks to the **AWS Parameters and Secrets Lambda Extension** over `http://localhost:2773` (override with `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT`). The layer must be attached to your function for this middleware to work.
+
+- Layer ARNs (per region and architecture): see [AWS docs: Use AWS Secrets Manager secrets in AWS Lambda](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html).
+- Required IAM permission on the function role: `secretsmanager:GetSecretValue` for each secret you fetch (plus `kms:Decrypt` if the secret is encrypted with a customer-managed KMS key).
+
 
 ## Documentation and examples
 

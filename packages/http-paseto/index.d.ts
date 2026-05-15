@@ -20,7 +20,9 @@ export interface PasetoPayload {
 
 export interface Options {
 	internalKey?: string;
-	cookieName?: string;
+	tokenCookieName?: string;
+	tokenHeaderName?: string;
+	tokenQueryStringName?: string;
 	audience?: string;
 	issuer?: string;
 	clockTolerance?: string;

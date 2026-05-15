@@ -26,8 +26,9 @@
 		"index.d.ts"
 	],
 	"scripts": {
-		"test": "npm run test:unit",
-		"test:unit": "node --test"
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js"
 	},
 	"license": "MIT",
 	"keywords": [

@@ -26,8 +26,9 @@
 		"index.d.ts"
 	],
 	"scripts": {
-		"test": "npm run test:unit",
-		"test:unit": "node --test"
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -64,7 +65,7 @@
 		"@middy/util": "7.6.0"
 	},
 	"peerDependencies": {
-		"jose": "^5.0.0"
+		"jose": "^6.0.0"
 	},
 	"peerDependenciesMeta": {
 		"jose": {
@@ -75,6 +76,6 @@
 		"@middy/core": "7.6.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
-		"jose": "5.10.0"
+		"jose": "6.2.3"
 	}
 }
