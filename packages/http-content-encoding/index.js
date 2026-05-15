@@ -137,7 +137,10 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		const inputBuffer = Buffer.isBuffer(response.body)
 			? response.body
 			: Buffer.from(response.body);
-		const compressed = contentEncodingSync[contentEncoding](inputBuffer);
+		const compressed = contentEncodingSync[contentEncoding](
+			inputBuffer,
+			options[contentEncoding],
+		);
 
 		// Only apply encoding if it's smaller
 		if (compressed.length < inputBuffer.length) {

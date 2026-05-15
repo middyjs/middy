@@ -38,6 +38,13 @@ npm install --save @middy/secrets-manager-extension
 - Secret string values containing JSON are automatically parsed into objects.
 - Both simple names (`my-secret`), path-style IDs (`prod/service/token`), and full ARNs (`arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/db`) are supported as secret IDs.
 
+## Troubleshooting
+
+- **`ECONNREFUSED 127.0.0.1:2773`** at invocation time means the Parameters and Secrets Lambda Extension layer is not attached to your function. Add the layer ARN (region- and architecture-specific) from the AWS docs linked under Prerequisites.
+- **`HTTP 400`** typically means the secret ID in `fetchData` is malformed for the layer's URL routing, or the function's IAM role is missing `secretsmanager:GetSecretValue`.
+- **`HTTP 403`** means the layer reached Secrets Manager but IAM denied the call. Grant `secretsmanager:GetSecretValue` for the specific secret ARNs your function reads (plus `kms:Decrypt` if the secret is encrypted with a customer-managed KMS key).
+- The layer ARN is regional. A function deployed to `us-east-1` cannot reuse the `eu-west-1` ARN; pick the matching row from the [AWS layer list](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html#retrieving-secrets_lambda_enable).
+
 ## Sample usage (string secret)
 
 ```javascript

@@ -37,6 +37,13 @@ npm install --save @middy/ssm-extension
 - The extension listens on port `2773` by default. Override with the `PARAMETERS_SECRETS_EXTENSION_HTTP_PORT` environment variable.
 - String values containing JSON are automatically parsed into objects.
 
+## Troubleshooting
+
+- **`ECONNREFUSED 127.0.0.1:2773`** at invocation time means the Parameters and Secrets Lambda Extension layer is not attached to your function. Add the layer ARN (region- and architecture-specific) from the AWS docs linked under Prerequisites.
+- **`HTTP 400` with `"Bad Request"`** typically means the parameter name in `fetchData` is malformed (must start with `/` for hierarchical names) or the function's IAM role is missing `ssm:GetParameter`.
+- **`HTTP 403`** means the layer reached SSM but IAM denied the call. Add `ssm:GetParameter` (and `kms:Decrypt` for SecureString) for the specific parameter ARNs your function reads.
+- The layer ARN is regional. A function deployed to `us-east-1` cannot reuse the `eu-west-1` ARN; pick the matching row from the [AWS layer list](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html#ps-integration-lambda-extensions-add).
+
 ## Sample usage
 
 ```javascript

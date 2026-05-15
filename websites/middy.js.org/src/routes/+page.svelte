@@ -95,7 +95,7 @@ export const handler = middy(lambdaHandler)
                 <Li class="stat">
                     <H3
                         ><Icon src="/img/icons.svg#download" />
-                        <Span>2M+</Span></H3
+                        <Span>3M+</Span></H3
                     >
                     <P>Monthly downloads</P>
                 </Li>

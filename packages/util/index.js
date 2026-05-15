@@ -5,7 +5,7 @@
 // Schema values:
 //   'string' | 'number' | 'integer' | 'boolean' | 'function' | 'object' | 'array'
 //     Trailing '?' marks the field as optional (may be undefined).
-//   (value) => boolean predicate — only called when value is not undefined
+//   (value) => boolean predicate - only called when value is not undefined
 //     (i.e. predicates treat the field as optional by design).
 //   { type: 'array' | 'array?', items: <itemSchema> }
 //     `items` is applied to each array element. It can be a type string,
