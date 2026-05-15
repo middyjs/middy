@@ -1,6 +1,6 @@
 {
 	"name": "@middy/dsql",
-	"version": "7.6.0",
+	"version": "7.6.1",
 	"description": "Aurora DSQL connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -98,10 +98,10 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.6.0"
+		"@middy/util": "7.6.1"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.0",
+		"@middy/core": "7.6.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"pg": "^8.0.0",
