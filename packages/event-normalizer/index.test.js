@@ -120,6 +120,28 @@ test("It should parse CloudWatch Logs event (gzip + base64)", async (t) => {
 	deepStrictEqual(response.awslogs.data, eventJSON);
 });
 
+test("CloudWatch Logs: decompressed payload over cap throws", async () => {
+	const handler = middy((event) => event).use(
+		eventNormalizer({ maxDecompressedBytes: 1024 }),
+	);
+
+	// 1 MiB of zeros deflates small, but decompresses past a 1 KiB cap.
+	const event = {
+		awslogs: {
+			data: gzipSync(Buffer.alloc(1024 * 1024, 0)).toString("base64"),
+		},
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.code, "ERR_BUFFER_TOO_LARGE");
+});
+
 // Config
 test("It should parse Config event", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());

@@ -76,6 +76,7 @@ npm install --save @middy/event-normalizer
 ## Options
 
 - `wrapNumbers` (boolean) (default `undefined`): Whether to return numbers as a string instead of converting them to native JavaScript numbers. This allows for the safe round-trip transport of numbers of arbitrary size. For DynamoDB Events only.
+- `maxDecompressedBytes` (integer) (default `10485760` — 10 MiB): Cap on the decompressed size of a CloudWatch Logs (`awslogs.data`) gzip payload. Bounds gunzip output to defend against compression-bomb DoS. A breach throws `ERR_BUFFER_TOO_LARGE`.
 
 ## Sample usage
 
