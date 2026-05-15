@@ -16,6 +16,7 @@ const defaults = {
 	issuer: undefined,
 	clockTolerance: undefined,
 	payloadKey: "paseto",
+	setToContext: false,
 };
 
 const optionSchema = {
@@ -29,6 +30,7 @@ const optionSchema = {
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		payloadKey: { type: "string" },
+		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,
 };
@@ -156,7 +158,9 @@ const httpPasetoMiddleware = (opts = {}) => {
 		try {
 			const payload = await V4.verify(token, key, baseVerifyOptions);
 			request.internal[options.payloadKey] = payload;
-			request.context[options.payloadKey] = payload;
+			if (options.setToContext) {
+				request.context[options.payloadKey] = payload;
+			}
 		} catch (e) {
 			throw createError(401, "Unauthorized", {
 				cause: { package: pkg, data: e.message },

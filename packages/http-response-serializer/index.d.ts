@@ -4,9 +4,10 @@ import type middy from "@middy/core";
 
 export interface SerializerHandler {
 	regex: RegExp;
-	serializer: (
-		response: any,
-	) => string | { body: string; [key: string]: unknown };
+	serializer: (response: {
+		body?: unknown;
+		[key: string]: unknown;
+	}) => string | { body: string; [key: string]: unknown };
 }
 
 export interface Options {

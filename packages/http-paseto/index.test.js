@@ -3,7 +3,14 @@ import { createPublicKey } from "node:crypto";
 import { test } from "node:test";
 import { V4 } from "paseto";
 import middy from "../core/index.js";
-import httpPaseto, { httpPasetoValidateOptions } from "./index.js";
+import realHttpPaseto, { httpPasetoValidateOptions } from "./index.js";
+
+// Tests below assume the verified payload is exposed on request.context for
+// assertion convenience. The middleware default is internal-only (matches
+// `ssm`/`secrets-manager`), so we wrap with `setToContext: true` here. Tests
+// that exercise the default behavior call `realHttpPaseto` directly.
+const httpPaseto = (opts = {}) =>
+	realHttpPaseto({ setToContext: true, ...opts });
 
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
@@ -575,6 +582,34 @@ test("It should fall through to query when cookie and header are absent for PASE
 	);
 
 	strictEqual(result.paseto.sub, "from-query");
+});
+
+test("setToContext: false (default) writes only to internal, not context for PASETO", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-internal-only" }, privateKey, {
+		expiresIn: "1h",
+	});
+	const spkiDer = publicKey.export({ type: "spki", format: "der" });
+
+	const seen = {};
+	const handler = middy((event, context) => context)
+		.before((request) => {
+			request.internal.pubKey = new Uint8Array(spkiDer);
+		})
+		.use(realHttpPaseto({ internalKey: "pubKey" }))
+		.before((request) => {
+			seen.internal = request.internal.paseto?.sub;
+			seen.context = request.context.paseto?.sub;
+		});
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(seen.internal, "user-internal-only");
+	strictEqual(seen.context, undefined);
+	strictEqual(result.paseto, undefined);
 });
 
 test("httpPasetoValidateOptions accepts valid options and rejects typos", () => {

@@ -4,7 +4,9 @@ description: "Verify PASETO v4.public tokens on incoming HTTP requests using a p
 status: alpha
 ---
 
-Verifies a [PASETO](https://paseto.io) `v4.public` token on incoming HTTP requests and attaches the decoded payload to `request.internal` and `request.context`. The token can be read from the `Authorization: Bearer ...` header (default) or from a cookie.
+Verifies a [PASETO](https://paseto.io) `v4.public` token on incoming HTTP requests. The verified payload is written to `request.internal[payloadKey]` (and optionally to `request.context[payloadKey]` when `setToContext: true`).
+
+The token is resolved from the first available source in this order: cookie, header, query string. When no source is configured the middleware falls back to the `Authorization: Bearer ...` header.
 
 The verification key is read from `request.internal` under `internalKey`, typically populated by [`@middy/kms`](/docs/middlewares/kms) when the Ed25519 signing key lives in AWS KMS.
 
@@ -24,11 +26,14 @@ npm install --save paseto
 ## Options
 
 - `internalKey` (string) (required): Key on `request.internal` holding the verification key. Typically the key populated by `@middy/kms` (`{ publicKey, keySpec }` where `keySpec` is `ECC_NIST_ED25519`).
-- `cookieName` (string) (optional): When set, the token is read from this cookie name instead of the `Authorization` header.
+- `tokenCookieName` (string) (optional): Cookie name to read the token from.
+- `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
+- `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
-- `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored on both `request.internal` and `request.context`.
+- `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
 
 NOTES:
 
@@ -45,9 +50,10 @@ import kms from '@middy/kms'
 import httpPaseto from '@middy/http-paseto'
 import httpErrorHandler from '@middy/http-error-handler'
 
-const lambdaHandler = (event, context) => {
-  // context.paseto holds the decoded payload
-  return { statusCode: 200, body: JSON.stringify({ sub: context.paseto.sub }) }
+const lambdaHandler = async (event) => {
+  // The verified payload is on request.internal.paseto by default.
+  // To use context.paseto as below, pass setToContext: true to httpPaseto.
+  return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 
 export const handler = middy()
@@ -75,13 +81,13 @@ export const handler = middy()
 ```javascript
 httpPaseto({
   internalKey: 'pasetoKey',
-  cookieName: 'session',
+  tokenCookieName: 'session',
 })
 ```
 
 ## Validating roles
 
-`@middy/http-paseto` only verifies the signature and standard claims (`iss`, `aud`, `exp`, `nbf`). Role / scope / permission claims are application-specific. The following inline middleware reads the decoded payload from `request.context` (under `payloadKey`) and rejects the request when the required role is missing.
+`@middy/http-paseto` only verifies the signature and standard claims (`iss`, `aud`, `exp`, `nbf`). Role / scope / permission claims are application-specific. The following inline middleware reads the decoded payload from `request.internal` (under `payloadKey`) and rejects the request when the required role is missing.
 
 ```javascript
 import middy from '@middy/core'
@@ -92,7 +98,7 @@ import { createError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = {}) => ({
   before: (request) => {
-    const payload = request.context[payloadKey]
+    const payload = request.internal[payloadKey]
     const roles = payload?.[claim]
     const has = Array.isArray(roles)
       ? roles.includes(requiredRole)
@@ -117,7 +123,7 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
-Order matters: `requireRole` must run **after** `httpPaseto` so the decoded payload is already on the context.
+Order matters: `requireRole` must run **after** `httpPaseto` so the decoded payload is already on `request.internal`.
 
 ## Bundling
 

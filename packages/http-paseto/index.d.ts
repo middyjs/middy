@@ -27,6 +27,7 @@ export interface Options {
 	issuer?: string;
 	clockTolerance?: string;
 	payloadKey?: string;
+	setToContext?: boolean;
 }
 
 export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;
