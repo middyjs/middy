@@ -8,6 +8,7 @@ const nav = {
 	"Intro to Middy": {
 		Introduction: "/docs",
 		"Getting Started": "/docs/intro/getting-started",
+		"When to use Middy": "/docs/intro/when-to-use",
 		"How It Works": "/docs/intro/how-it-works",
 		"Early Response": "/docs/intro/early-interrupt",
 		"Handling Errors": "/docs/intro/handling-errors",
