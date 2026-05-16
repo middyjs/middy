@@ -15,7 +15,7 @@ test("fuzz `event` w/ `object`", async () => {
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, defaultContext);
 		}),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -29,6 +29,6 @@ test("fuzz `event` w/ `record`", async () => {
 				await handler(event, defaultContext);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });

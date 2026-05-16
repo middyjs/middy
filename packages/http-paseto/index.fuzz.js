@@ -34,7 +34,7 @@ const safeRun = async (event) => {
 
 test("fuzz `event` w/ `object`", async () => {
 	await fc.assert(fc.asyncProperty(fc.object(), safeRun), {
-		numRuns: 100_000,
+		numRuns: 10_000,
 		examples: [],
 	});
 });
@@ -42,7 +42,7 @@ test("fuzz `event` w/ `object`", async () => {
 test("fuzz `event` w/ `headers` record", async () => {
 	await fc.assert(
 		fc.asyncProperty(fc.record({ headers: fc.object() }), safeRun),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 

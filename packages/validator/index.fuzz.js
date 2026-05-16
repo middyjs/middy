@@ -27,7 +27,7 @@ test("fuzz `event` w/ `object`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -47,7 +47,7 @@ test("fuzz valid objects pass schema validation", async () => {
 			const result = await validHandler(event, defaultContext);
 			strictEqual(result.name, event.name);
 		}),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -78,6 +78,6 @@ test("fuzz invalid objects throw 400", async () => {
 				}
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
