@@ -1,6 +1,6 @@
 {
 	"name": "@middy/event-batch-handler",
-	"version": "7.6.2",
+	"version": "7.6.3",
 	"description": "Per-record handler wrapper for Lambda batch events. Auto-checkpoints under Durable Functions. Pairs with @middy/event-batch-response.",
 	"type": "module",
 	"engines": {
@@ -66,11 +66,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/event-batch-response": "7.6.2",
-		"@middy/util": "7.6.2"
+		"@middy/event-batch-response": "7.6.3",
+		"@middy/util": "7.6.3"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.2",
+		"@middy/core": "7.6.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}
