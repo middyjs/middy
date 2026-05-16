@@ -1,4 +1,5 @@
 import { ok, strictEqual } from "node:assert/strict";
+import { Writable } from "node:stream";
 import { test } from "node:test";
 import {
 	createPassThroughStream,
@@ -295,6 +296,50 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 	const response = await handler(event, responseStream, context);
 	strictEqual(response, undefined);
 	strictEqual(content(), input);
+});
+
+test("Should honor backpressure when writing large string body", async (t) => {
+	// 256KB body, 16KB chunks => at least 16 writes
+	const input = "x".repeat(256 * 1024);
+	const chunks = [];
+	let pendingDrain = false;
+	const writes = { count: 0, backpressureHits: 0 };
+
+	const responseStream = new Writable({
+		highWaterMark: 16 * 1024,
+		write(chunk, encoding, callback) {
+			writes.count += 1;
+			chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+			// Simulate a slow consumer: defer callback so internal buffer fills
+			// and write() returns false to the producer.
+			setImmediate(callback);
+		},
+	});
+
+	// Track when the producer actually had to wait for drain.
+	const origWrite = responseStream.write.bind(responseStream);
+	responseStream.write = (...args) => {
+		const ok = origWrite(...args);
+		if (!ok) writes.backpressureHits += 1;
+		return ok;
+	};
+	responseStream.on("drain", () => {
+		pendingDrain = false;
+	});
+
+	const handler = middy({
+		executionMode: executionModeStreamifyResponse,
+	}).handler(() => input);
+
+	await handler(event, responseStream, context);
+
+	strictEqual(chunks.join(""), input, "all bytes delivered in order");
+	ok(writes.count > 1, "body was chunked (got more than one write)");
+	ok(
+		writes.backpressureHits > 0,
+		"producer observed backpressure (write returned false at least once)",
+	);
+	strictEqual(pendingDrain, false);
 });
 
 test("Should handle large string using stringIterator", async (t) => {
