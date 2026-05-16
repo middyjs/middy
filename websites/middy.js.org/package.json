@@ -8,6 +8,7 @@
 		"start": "vite dev",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
+		"prebuild": "node src/scripts/build-docs-mtimes.mjs",
 		"build": "npm run build:svelte && npm run build:svg && npm run build:styles:extract && npm run build:styles:optimize",
 		"build:svelte": "vite build",
 		"build:svg": "npx svgo --multipass --recursive ./.svelte-kit/ -o ./.svelte-kit/",

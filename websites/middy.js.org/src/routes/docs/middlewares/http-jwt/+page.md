@@ -310,3 +310,15 @@ Order matters: `requireRole` must run **after** `httpJwt` so the decoded payload
 ## Bundling
 
 `jose` is a peer dependency. To keep it out of your Lambda bundle, add `jose` to your bundler's exclude list and provide it via a Lambda Layer.
+
+
+## Pairs well with
+
+- [`@middy/http-header-normalizer`](/docs/middlewares/http-header-normalizer) - normalize the `Authorization` header casing before this middleware reads it.
+- [`@middy/kms`](/docs/middlewares/kms) - source the public key for JWT signature verification.
+- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - map the thrown 401 into a clean HTTP response.
+
+## See also
+
+- [`@middy/http-paseto`](/docs/middlewares/http-paseto) - same surface, PASETO v4.public tokens instead of JWT.
+- [JWT authentication recipe](/docs/recipes/jwt-auth).

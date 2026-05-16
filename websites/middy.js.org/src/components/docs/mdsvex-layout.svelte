@@ -9,15 +9,22 @@ import A from "@design-system/elements/a.svelte";
 import Hgroup from "@design-system/elements/hgroup.svelte";
 import Li from "@design-system/elements/li.svelte";
 import Ol from "@design-system/elements/ol.svelte";
+import P from "@design-system/elements/p.svelte";
+import { page } from "$app/state";
+import { getLastUpdated } from "$lib/docs-content.js";
 import AsideNav from "./AsideNav.svelte";
 
 const { title = "Documentation", description = "", headings = [], status, children } = $props();
+
+const dateModified = $derived(getLastUpdated(page.url?.pathname ?? ""));
+const dateModifiedDisplay = $derived(dateModified ? new Date(dateModified).toISOString().slice(0, 10) : null);
 </script>
 <Seo
 	{title}
 	{description}
 	type="article"
 	schemaType="TechArticle"
+	{dateModified}
 />
 <LayoutAside>
     {#snippet aside()}
@@ -46,5 +53,8 @@ const { title = "Documentation", description = "", headings = [], status, childr
 		</Callout>
 	{/if}
 	{@render children?.()}
+	{#if dateModifiedDisplay}
+		<P class="last-updated"><small>Last updated: <time datetime={dateModified}>{dateModifiedDisplay}</time></small></P>
+	{/if}
 </LayoutTableOfContents>
 </LayoutAside>

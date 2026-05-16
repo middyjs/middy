@@ -71,3 +71,15 @@ If every record's step succeeds (within retry budget), the wrapper returns `{ st
 - **SQS / Firehose** — durable adds less here; SQS messages are redelivered independently anyway, and Firehose transforms are typically short-lived.
 
 See [examples in the AWS event docs](/docs/events/intro) for full per-source patterns.
+
+
+## Pairs well with
+
+- [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) - shape the `batchItemFailures` response for SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch.
+- [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser) - parse per-record bodies (JSON / Avro / Protobuf) before this wrapper runs.
+- [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) - unwrap nested envelopes and unmarshal DynamoDB images.
+
+## See also
+
+- [SQS partial batch failures recipe](/docs/recipes/sqs-partial-batch).
+- [DynamoDB Streams processor recipe](/docs/recipes/dynamodb-stream-processor).

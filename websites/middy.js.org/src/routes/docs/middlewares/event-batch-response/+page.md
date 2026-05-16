@@ -162,3 +162,15 @@ See [Amazon Data Firehose data transformation](https://docs.aws.amazon.com/fireh
 ## SQS: per-message redrive
 
 SQS does not have stream checkpoints. Each `itemIdentifier` is independently returned to the queue and redelivered up to `maxReceiveCount` times before going to the configured DLQ. There is no ordering caveat for standard queues; for FIFO queues, see the [SQS docs](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html) on partial-failure interaction with message-group ordering.
+
+
+## Pairs well with
+
+- [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) - per-record handler wrapper that turns thrown errors into `batchItemFailures`.
+- [`@middy/event-batch-parser`](/docs/middlewares/event-batch-parser) - parse each `record.body` before the per-record handler runs.
+- [`@middy/event-normalizer`](/docs/middlewares/event-normalizer) - unwrap nested SNS/S3 envelopes and unmarshal DynamoDB images.
+
+## See also
+
+- [SQS partial batch failures recipe](/docs/recipes/sqs-partial-batch).
+- [DynamoDB Streams processor recipe](/docs/recipes/dynamodb-stream-processor).

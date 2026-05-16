@@ -43,3 +43,19 @@ handler({}, {}, (_, response) => {
   })
 })
 ```
+
+## Ordering
+
+`httpErrorHandler` should be the **last** middleware registered with `.use()`. Middy runs `onError` from innermost-out, so being last in registration means being first to handle errors. Placing it earlier means logging or response-shaping middlewares will see `request.response` as `undefined` and may misbehave.
+
+## Pairs well with
+
+- [`@middy/http-cors`](/docs/middlewares/http-cors) - apply CORS headers to error responses too (register `httpCors` before `httpErrorHandler`).
+- [`@middy/http-security-headers`](/docs/middlewares/http-security-headers) - apply security headers to error responses.
+- [`@middy/error-logger`](/docs/middlewares/error-logger) - log the error before this middleware shapes the response.
+- [`@middy/validator`](/docs/middlewares/validator) - throws structured `http-errors` validation errors that this middleware maps to 400 responses.
+
+## See also
+
+- [`http-errors`](https://www.npmjs.com/package/http-errors) - `createError(400, 'message')` style error constructors.
+- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

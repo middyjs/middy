@@ -76,14 +76,23 @@
 	},
 	"license": "MIT",
 	"keywords": [
+		"Middy",
+		"middleware",
+		"middleware engine",
 		"Lambda",
-		"Middleware",
-		"Serverless",
-		"Framework",
 		"AWS",
 		"AWS Lambda",
+		"Serverless",
+		"Framework",
+		"Node.js",
+		"TypeScript",
+		"ESM",
+		"API Gateway",
 		"Function URL",
-		"Durable function"
+		"streamify-response",
+		"Durable function",
+		"event-driven",
+		"observability"
 	],
 	"author": {
 		"name": "Middy contributors",

@@ -40,7 +40,12 @@
 		"AWS",
 		"AWS Lambda",
 		"Middy",
-		"Secrets Manager"
+		"Secrets Manager",
+		"secrets",
+		"credentials",
+		"rotation",
+		"Node.js",
+		"TypeScript"
 	],
 	"author": {
 		"name": "Middy contributors",
