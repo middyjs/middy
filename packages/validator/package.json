@@ -1,6 +1,6 @@
 {
 	"name": "@middy/validator",
-	"version": "7.6.0",
+	"version": "7.6.3",
 	"description": "Validator middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -49,7 +49,13 @@
 		"AWS Lambda",
 		"Middy",
 		"Validator",
-		"JSON Schema"
+		"validation",
+		"JSON Schema",
+		"Ajv",
+		"request validation",
+		"response validation",
+		"Node.js",
+		"TypeScript"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -69,7 +75,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.0",
+		"@middy/util": "7.6.3",
 		"ajv": "8.20.0",
 		"ajv-errors": "3.0.0",
 		"ajv-formats": "3.0.1",
@@ -78,7 +84,7 @@
 		"ajv-keywords": "5.1.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.0",
+		"@middy/core": "7.6.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/http-errors": "^2.0.0",
 		"@types/node": "^22.0.0",

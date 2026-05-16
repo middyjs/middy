@@ -1,6 +1,6 @@
 {
 	"name": "@middy/event-batch-parser",
-	"version": "7.6.0",
+	"version": "7.6.3",
 	"description": "Event batch parser middleware for the middy framework — Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support",
 	"type": "module",
 	"engines": {
@@ -91,11 +91,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.0"
+		"@middy/util": "7.6.3"
 	},
 	"peerDependencies": {
 		"avro-js": "^1.0.0",
-		"protobufjs": "^7.0.0"
+		"protobufjs": "^8.0.0"
 	},
 	"peerDependenciesMeta": {
 		"avro-js": {
@@ -107,12 +107,12 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-glue": "^3.0.0",
-		"@middy/core": "7.6.0",
-		"@middy/glue-schema-registry": "7.6.0",
+		"@middy/core": "7.6.3",
+		"@middy/glue-schema-registry": "7.6.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"avro-js": "^1.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
-		"protobufjs": "^7.0.0"
+		"protobufjs": "^8.0.0"
 	}
 }

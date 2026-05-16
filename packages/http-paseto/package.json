@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-paseto",
-	"version": "7.6.0",
+	"version": "7.6.3",
 	"description": "HTTP PASETO authentication middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -26,8 +26,9 @@
 		"index.d.ts"
 	],
 	"scripts": {
-		"test": "npm run test:unit",
-		"test:unit": "node --test"
+		"test": "npm run test:unit && npm run test:fuzz",
+		"test:unit": "node --test",
+		"test:fuzz": "node --test index.fuzz.js"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -61,7 +62,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.0"
+		"@middy/util": "7.6.3"
 	},
 	"peerDependencies": {
 		"paseto": "^3.0.0"
@@ -72,7 +73,7 @@
 		}
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.0",
+		"@middy/core": "7.6.3",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"paseto": "3.1.4"

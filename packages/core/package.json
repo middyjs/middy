@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.6.0",
+	"version": "7.6.3",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -76,14 +76,23 @@
 	},
 	"license": "MIT",
 	"keywords": [
+		"Middy",
+		"middleware",
+		"middleware engine",
 		"Lambda",
-		"Middleware",
-		"Serverless",
-		"Framework",
 		"AWS",
 		"AWS Lambda",
+		"Serverless",
+		"Framework",
+		"Node.js",
+		"TypeScript",
+		"ESM",
+		"API Gateway",
 		"Function URL",
-		"Durable function"
+		"streamify-response",
+		"Durable function",
+		"event-driven",
+		"observability"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -103,7 +112,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.0"
+		"@middy/util": "7.6.3"
 	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"

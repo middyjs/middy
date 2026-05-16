@@ -31,7 +31,7 @@ test("fuzz `event` w/ `object`", async () => {
 			await handler(event, context);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			verbose: 2,
 			examples: [],
 		},

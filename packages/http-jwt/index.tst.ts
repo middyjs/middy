@@ -20,7 +20,7 @@ test("use with default options", () => {
 
 test("use with all options", () => {
 	const middleware = httpJwt({
-		secretKey: "my-secret",
+		internalKey: "hmacKey",
 		algorithm: "HS256",
 		audience: "https://api.example.com",
 		issuer: "https://auth.example.com",
@@ -40,6 +40,35 @@ test("use with internalKey option", () => {
 	const middleware = httpJwt({
 		internalKey: "signingKey",
 		algorithm: "RS256",
+	});
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<
+			APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent,
+			unknown,
+			Error
+		>
+	>();
+});
+
+test("use with issuers map (single + multi entry, array algorithms, per-issuer override)", () => {
+	const middleware = httpJwt({
+		issuers: {
+			"https://cognito-idp.us-east-1.amazonaws.com/POOL_A": {
+				jwksUri:
+					"https://cognito-idp.us-east-1.amazonaws.com/POOL_A/.well-known/jwks.json",
+				audience: "clientA",
+			},
+			"https://cognito-idp.us-east-1.amazonaws.com/POOL_B": {
+				jwksUri:
+					"https://cognito-idp.us-east-1.amazonaws.com/POOL_B/.well-known/jwks.json",
+				audience: ["clientB1", "clientB2"],
+				algorithm: ["RS256", "ES256"],
+			},
+		},
+		algorithm: "RS256",
+		cacheExpiry: 600_000,
+		cooldownDuration: 30_000,
+		disablePrefetch: false,
 	});
 	expect(middleware).type.toBe<
 		middy.MiddlewareObj<

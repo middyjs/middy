@@ -52,3 +52,16 @@ handler(event, {}, (_, body) => {
   strictEqual(body, { foo: 'bar' })
 })
 ```
+
+## Pairs well with
+
+- [`@middy/http-header-normalizer`](/docs/middlewares/http-header-normalizer) - register **before** this middleware so the Content-Type check sees lowercase keys.
+- [`@middy/validator`](/docs/middlewares/validator) - register **after** so it can validate the parsed object.
+- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - maps the thrown 415 / 400 errors to a clean HTTP response.
+
+## See also
+
+- [`@middy/http-urlencode-body-parser`](/docs/middlewares/http-urlencode-body-parser) - for `application/x-www-form-urlencoded` bodies.
+- [`@middy/http-multipart-body-parser`](/docs/middlewares/http-multipart-body-parser) - for `multipart/form-data` (file uploads).
+- [`@middy/ws-json-body-parser`](/docs/middlewares/ws-json-body-parser) - for WebSocket payloads.
+- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

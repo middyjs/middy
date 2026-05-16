@@ -69,3 +69,14 @@ handler({}, {}, (_, response) => {
   strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
 })
 ```
+
+
+## Pairs well with
+
+- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - register CORS **before** the error handler so errors also carry CORS headers.
+- [`@middy/http-security-headers`](/docs/middlewares/http-security-headers) - register CORS **after** security headers; CORS values override on cross-origin responses.
+
+## See also
+
+- API Gateway HTTP API can handle CORS at the gateway level. If you configure it there, do not also `.use(httpCors())` or you will double-set headers.
+- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

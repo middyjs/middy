@@ -107,6 +107,16 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
+## Pairs well with
+
+- [`@middy/sts`](/docs/middlewares/sts) - assume a role in a different account before fetching parameters (`awsClientAssumeRole`).
+- [`@middy/secrets-manager`](/docs/middlewares/secrets-manager) - layer both in one handler for credential + non-credential config; each stays in its own `internalKey` namespace.
+
+## See also
+
+- [`@middy/ssm-extension`](/docs/middlewares/ssm-extension) - same surface, fetched via the Parameters & Secrets Lambda Extension layer.
+- [Internal context](/docs/best-practices/internal-context) - how `internalKey` and `getInternal` work.
+
 ## Bundling
 
 To exclude `@aws-sdk` add `@aws-sdk/client-ssm` to the exclude list.

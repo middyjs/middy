@@ -288,3 +288,15 @@ export const handler = middy()
   )
   .handler(lambdaHandler)
 ```
+
+
+## Pairs well with
+
+- [`@middy/http-json-body-parser`](/docs/middlewares/http-json-body-parser) - parse `event.body` before this middleware can validate it.
+- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - convert the thrown `BadRequest` / `InternalServerError` into a clean HTTP response.
+- [`@middy/http-content-negotiation`](/docs/middlewares/http-content-negotiation) - select the locale for validation error messages.
+
+## See also
+
+- Pre-compile schemas with `transpileSchema` at module load time, not inside the handler.
+- [CORS and error handling recipe](/docs/recipes/cors-and-errors).

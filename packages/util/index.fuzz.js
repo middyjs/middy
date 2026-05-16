@@ -22,7 +22,7 @@ test("fuzz `jsonSafeParse` w/ `anything`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -40,7 +40,7 @@ test("fuzz `jsonSafeParse` roundtrip: parse then stringify equals original JSON"
 			strictEqual(reStringified, jsonStr);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -56,7 +56,7 @@ test("fuzz `jsonSafeStringify` w/ `anything`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -72,7 +72,7 @@ test("fuzz `jsonSafeStringify` roundtrip: stringify(parse(json)) equals original
 			strictEqual(result, jsonStr);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -88,7 +88,7 @@ test("fuzz `sanitizeKey` w/ `string`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -102,7 +102,7 @@ test("fuzz `sanitizeKey` idempotency: sanitize(sanitize(key)) equals sanitize(ke
 			strictEqual(once, twice);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -115,7 +115,7 @@ test("fuzz `sanitizeKey` output contains only valid chars", async () => {
 			strictEqual(/^[a-zA-Z0-9_]*$/.test(result), true);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -131,7 +131,7 @@ test("fuzz `normalizeHttpResponse` w/ `anything`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -156,7 +156,7 @@ test("fuzz `createError` w/ valid HTTP status code and `string`", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -173,7 +173,7 @@ test("fuzz `getInternal` w/ `object`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);

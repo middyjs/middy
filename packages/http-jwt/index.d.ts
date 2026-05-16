@@ -8,15 +8,27 @@ import type {
 } from "aws-lambda";
 import type { JWTPayload } from "jose";
 
+export interface IssuerConfig {
+	jwksUri: string;
+	audience?: string | string[];
+	algorithm?: string | string[];
+}
+
 export interface Options {
-	secretKey?: string;
 	internalKey?: string;
-	cookieName?: string;
-	algorithm?: string;
+	issuers?: Record<string, IssuerConfig>;
+	tokenCookieName?: string;
+	tokenHeaderName?: string;
+	tokenQueryStringName?: string;
+	algorithm?: string | string[];
 	audience?: string | string[];
 	issuer?: string | string[];
 	clockTolerance?: number;
 	payloadKey?: string;
+	setToContext?: boolean;
+	cacheExpiry?: number;
+	cooldownDuration?: number;
+	disablePrefetch?: boolean;
 }
 
 export type RequestEvent = APIGatewayEvent | APIGatewayProxyEventV2 | ALBEvent;

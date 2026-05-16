@@ -5,6 +5,8 @@ const DEFAULT_IMAGE = "/img/middy-og.png";
 const DEFAULT_LOGO = "/img/middy-logo.svg";
 const AUTHOR_NAME = "Middy contributors";
 const AUTHOR_URL = "https://github.com/middyjs";
+const REPO_URL = "https://github.com/middyjs/middy";
+const NPM_URL = "https://www.npmjs.com/package/@middy/core";
 
 const absolute = (path) => {
 	return new URL(path, SITE_ORIGIN).href;
@@ -26,13 +28,14 @@ const {
 	schemaType = "WebPage",
 	datePublished,
 	dateModified,
+	includeSoftwareApplication = false,
 } = $props();
 
 const fullTitle = title === SITE_NAME ? title : `${title} | ${SITE_NAME}`;
 const url = absolute(page.url?.pathname ?? "/");
 const imageUrl = absolute(image);
 
-const jsonLd = {
+const pageJsonLd = {
 	"@context": "https://schema.org",
 	"@type": schemaType,
 	name: title,
@@ -46,7 +49,7 @@ const jsonLd = {
 		url: SITE_ORIGIN,
 	},
 	author: {
-		"@type": "Person",
+		"@type": "Organization",
 		name: AUTHOR_NAME,
 		url: AUTHOR_URL,
 	},
@@ -60,9 +63,60 @@ const jsonLd = {
 		},
 	},
 };
-if (description) jsonLd.description = description;
-if (datePublished) jsonLd.datePublished = datePublished;
-if (dateModified) jsonLd.dateModified = dateModified;
+if (description) pageJsonLd.description = description;
+if (datePublished) pageJsonLd.datePublished = datePublished;
+if (dateModified) pageJsonLd.dateModified = dateModified;
+
+const softwareJsonLd = includeSoftwareApplication
+	? {
+		"@context": "https://schema.org",
+		"@type": "SoftwareApplication",
+		"@id": `${SITE_ORIGIN}#middy`,
+		name: "Middy",
+		alternateName: ["@middy/core", "middy.js"],
+		applicationCategory: "DeveloperApplication",
+		applicationSubCategory: "AWS Lambda middleware engine",
+		operatingSystem: "AWS Lambda (Node.js)",
+		runtimePlatform: "Node.js >= 22",
+		programmingLanguage: ["JavaScript", "TypeScript"],
+		url: SITE_ORIGIN,
+		downloadUrl: NPM_URL,
+		codeRepository: REPO_URL,
+		license: "https://opensource.org/licenses/MIT",
+		isAccessibleForFree: true,
+		offers: {
+			"@type": "Offer",
+			price: "0",
+			priceCurrency: "USD",
+		},
+		author: {
+			"@type": "Organization",
+			name: AUTHOR_NAME,
+			url: AUTHOR_URL,
+		},
+		image: imageUrl,
+		description:
+			"Middy is a stylish Node.js middleware engine for AWS Lambda. Compose reusable middlewares for parsing, validation, auth, observability, error handling, and AWS service integration. 38 official packages, first-class TypeScript types, ESM, streamify-response and durable-function compatible.",
+		keywords: [
+			"AWS Lambda",
+			"middleware",
+			"serverless",
+			"Node.js",
+			"TypeScript",
+			"API Gateway",
+			"SQS",
+			"DynamoDB",
+			"S3",
+			"SNS",
+			"EventBridge",
+			"WebSocket",
+			"JWT",
+			"validation",
+			"observability",
+			"Powertools",
+		],
+	}
+	: null;
 </script>
 
 <svelte:head>
@@ -90,5 +144,8 @@ if (dateModified) jsonLd.dateModified = dateModified;
 	{/if}
 	<meta name="twitter:image" content={imageUrl} />
 
-	{@html `<script type="application/ld+json">${safeJsonLd(jsonLd)}</script>`}
+	{@html `<script type="application/ld+json">${safeJsonLd(pageJsonLd)}</script>`}
+	{#if softwareJsonLd}
+		{@html `<script type="application/ld+json">${safeJsonLd(softwareJsonLd)}</script>`}
+	{/if}
 </svelte:head>

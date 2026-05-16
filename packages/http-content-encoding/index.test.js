@@ -3,6 +3,7 @@ import { ReadableStream } from "node:stream/web";
 import { test } from "node:test";
 import {
 	brotliCompressSync,
+	constants,
 	deflateSync,
 	gzipSync,
 	zstdDecompressSync,
@@ -38,6 +39,68 @@ test("It should encode string using br", async (t) => {
 		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
 		isBase64Encoded: true,
 	});
+});
+
+test("It should pass br options to sync encoder for string body", async (t) => {
+	const body = compressibleBody;
+	const brOptions = {
+		params: { [constants.BROTLI_PARAM_QUALITY]: 3 },
+	};
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		httpContentEncoding({ br: brOptions }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "br",
+	});
+
+	const expected = brotliCompressSync(body, brOptions).toString("base64");
+	strictEqual(response.body, expected);
+	// Sanity: with quality=3 the output differs from default quality=11,
+	// so this assertion would have caught the dropped-options bug.
+	ok(response.body !== brotliCompressSync(body).toString("base64"));
+});
+
+test("It should pass gzip options to sync encoder for string body", async (t) => {
+	const body = compressibleBody;
+	const gzipOptions = { level: 1 };
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		httpContentEncoding({ gzip: gzipOptions }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "gzip",
+	});
+
+	const expected = gzipSync(body, gzipOptions).toString("base64");
+	strictEqual(response.body, expected);
+	ok(response.body !== gzipSync(body).toString("base64"));
+});
+
+test("It should pass br options to sync encoder for Buffer body", async (t) => {
+	const body = Buffer.from(compressibleBody);
+	const brOptions = {
+		params: { [constants.BROTLI_PARAM_QUALITY]: 3 },
+	};
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		httpContentEncoding({ br: brOptions }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "br",
+	});
+
+	const expected = brotliCompressSync(body, brOptions).toString("base64");
+	strictEqual(response.body, expected);
 });
 
 test("It should encode stream using br", async (t) => {

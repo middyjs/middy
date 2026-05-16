@@ -135,3 +135,10 @@ bytes 18+  : payload (Avro/Protobuf/JSON-Schema-encoded)
 ```
 
 The middleware sets `record._schemaVersionId` (canonical UUID with dashes) and `record._payload` (decompressed bytes after the prefix). Parsers read these properties when present and fall back to the full buffer otherwise.
+
+
+## Pairs well with
+
+- [`@middy/event-batch-response`](/docs/middlewares/event-batch-response) - shape `batchItemFailures` from the parsed batch.
+- [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) - per-record handler wrapper.
+- [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry) - resolve per-record Avro/Protobuf schemas dynamically from AWS Glue.

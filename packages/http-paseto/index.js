@@ -9,22 +9,28 @@ const pkg = `@middy/${name}`;
 
 const defaults = {
 	internalKey: undefined,
-	cookieName: undefined,
+	tokenCookieName: undefined,
+	tokenHeaderName: undefined,
+	tokenQueryStringName: undefined,
 	audience: undefined,
 	issuer: undefined,
 	clockTolerance: undefined,
 	payloadKey: "paseto",
+	setToContext: false,
 };
 
 const optionSchema = {
 	type: "object",
 	properties: {
 		internalKey: { type: "string" },
-		cookieName: { type: "string" },
+		tokenCookieName: { type: "string" },
+		tokenHeaderName: { type: "string" },
+		tokenQueryStringName: { type: "string" },
 		audience: { type: "string" },
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		payloadKey: { type: "string" },
+		setToContext: { type: "boolean" },
 	},
 	additionalProperties: false,
 };
@@ -32,33 +38,45 @@ const optionSchema = {
 export const httpPasetoValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const parseBearerToken = (headers) => {
-	const authorization = headers?.authorization ?? headers?.Authorization;
-	if (!authorization) {
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "Missing Authorization header" },
-		});
-	}
-	const parts = authorization.split(" ");
-	if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "Invalid Authorization header format" },
-		});
-	}
-	return parts[1];
-};
-
-const makeCookieParser = (cookieName) => (headers) => {
-	const cookieHeader = headers?.cookie ?? headers?.Cookie ?? "";
+const readCookieValue = (event, cookieName) => {
+	const headers = event?.headers;
+	const cookieHeader = headers?.cookie ?? headers?.Cookie;
+	if (!cookieHeader) return undefined;
 	const match = cookieHeader
 		.split(";")
 		.find((c) => c.trim().startsWith(`${cookieName}=`));
-	if (!match) {
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: `Missing cookie: ${cookieName}` },
-		});
+	if (!match) return undefined;
+	let value = match.trim().slice(cookieName.length + 1);
+	// RFC 6265 quoted-string cookie value
+	if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+		value = value.slice(1, -1);
 	}
-	return match.trim().slice(cookieName.length + 1);
+	return value;
+};
+
+const readHeaderValue = (event, headerName) => {
+	const headers = event?.headers;
+	if (!headers) return undefined;
+	const lowerName = headerName.toLowerCase();
+	const rawValue = headers[headerName] ?? headers[lowerName];
+	// Proxies (ALB multiValueHeaders, repeated headers) can deliver arrays.
+	const raw = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+	if (!raw) return undefined;
+	// Authorization header carries the `Bearer <token>` scheme; strip it.
+	// Any other scheme means the token isn't here, fall through.
+	if (lowerName === "authorization") {
+		const parts = raw.split(" ");
+		if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+			return undefined;
+		}
+		return parts[1];
+	}
+	return raw;
+};
+
+const readQueryValue = (event, paramName) => {
+	const value = event?.queryStringParameters?.[paramName];
+	return value || undefined;
 };
 
 const httpPasetoMiddleware = (opts = {}) => {
@@ -70,9 +88,29 @@ const httpPasetoMiddleware = (opts = {}) => {
 		});
 	}
 
-	const parseToken = options.cookieName
-		? makeCookieParser(options.cookieName)
-		: parseBearerToken;
+	const cookieName = options.tokenCookieName;
+	const headerName = options.tokenHeaderName;
+	const queryStringName = options.tokenQueryStringName;
+
+	const sources = [];
+	if (cookieName) sources.push((e) => readCookieValue(e, cookieName));
+	if (headerName) {
+		sources.push((e) => readHeaderValue(e, headerName));
+	}
+	if (queryStringName) sources.push((e) => readQueryValue(e, queryStringName));
+	if (sources.length === 0) {
+		sources.push((e) => readHeaderValue(e, "Authorization"));
+	}
+
+	const parseToken = (event) => {
+		for (const source of sources) {
+			const token = source(event);
+			if (token) return token;
+		}
+		throw createError(401, "Unauthorized", {
+			cause: { package: pkg, data: "No token found in configured sources" },
+		});
+	};
 
 	const baseVerifyOptions = {};
 	if (options.audience !== undefined)
@@ -82,7 +120,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
 
 	const httpPasetoMiddlewareBefore = async (request) => {
-		const token = parseToken(request.event.headers);
+		const token = parseToken(request.event);
 
 		if (!token.startsWith("v4.public.")) {
 			throw createError(401, "Unauthorized", {
@@ -120,7 +158,9 @@ const httpPasetoMiddleware = (opts = {}) => {
 		try {
 			const payload = await V4.verify(token, key, baseVerifyOptions);
 			request.internal[options.payloadKey] = payload;
-			request.context[options.payloadKey] = payload;
+			if (options.setToContext) {
+				request.context[options.payloadKey] = payload;
+			}
 		} catch (e) {
 			throw createError(401, "Unauthorized", {
 				cause: { package: pkg, data: e.message },
