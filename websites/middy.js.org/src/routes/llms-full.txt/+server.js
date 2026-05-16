@@ -57,7 +57,9 @@ export const GET = () => {
 		parts.push("");
 		parts.push(`## ${heading}`);
 		parts.push("");
-		parts.push(`Path: /docs/${filePath.replace(/\/\+page\.md$/, "").replace(/^\+page\.md$/, "")}`);
+		parts.push(
+			`Path: /docs/${filePath.replace(/\/\+page\.md$/, "").replace(/^\+page\.md$/, "")}`,
+		);
 		if (description) {
 			parts.push(`Summary: ${description}`);
 		}

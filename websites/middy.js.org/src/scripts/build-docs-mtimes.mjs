@@ -26,17 +26,18 @@ const walk = (dir, acc = []) => {
 };
 
 const fileToHref = (file) => {
-	const rel = relative(docsRoot, file).replace(/\\/g, "/").replace(/\/?\+page\.md$/, "");
+	const rel = relative(docsRoot, file)
+		.replace(/\\/g, "/")
+		.replace(/\/?\+page\.md$/, "");
 	return rel === "" ? "/docs" : `/docs/${rel}`;
 };
 
 const gitDate = (file) => {
 	try {
-		const out = execFileSync(
-			"git",
-			["log", "-1", "--format=%aI", "--", file],
-			{ cwd: repoRoot, stdio: ["ignore", "pipe", "ignore"] },
-		)
+		const out = execFileSync("git", ["log", "-1", "--format=%aI", "--", file], {
+			cwd: repoRoot,
+			stdio: ["ignore", "pipe", "ignore"],
+		})
 			.toString()
 			.trim();
 		return out || null;
@@ -64,4 +65,6 @@ const homeDate = dateFor(homeRoute);
 if (homeDate) map["/"] = homeDate;
 
 writeFileSync(outFile, `${JSON.stringify(map, null, 2)}\n`);
-console.log(`Wrote ${Object.keys(map).length} entries to ${relative(process.cwd(), outFile)}`);
+console.log(
+	`Wrote ${Object.keys(map).length} entries to ${relative(process.cwd(), outFile)}`,
+);

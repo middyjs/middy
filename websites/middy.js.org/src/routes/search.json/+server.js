@@ -38,7 +38,11 @@ export const GET = () => {
 	const routes = getDocsRoutes();
 	const filesByHref = new Map();
 	for (const file of getDocsFiles()) {
-		const href = `/docs/${file.filePath.replace(/\/?\+page\.md$/, "")}`.replace(/\/$/, "") || "/docs";
+		const href =
+			`/docs/${file.filePath.replace(/\/?\+page\.md$/, "")}`.replace(
+				/\/$/,
+				"",
+			) || "/docs";
 		filesByHref.set(href, file.content);
 	}
 
