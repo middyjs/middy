@@ -5,8 +5,8 @@ export const prerender = true;
 const SITE = "https://middy.js.org";
 
 const FRONTMATTER_RE = /^---\s*\n[\s\S]*?\n---\s*\n?/;
-const SCRIPT_BLOCK_RE = /<script\b[\s\S]*?<\/script>\s*/gi;
-const STYLE_BLOCK_RE = /<style\b[\s\S]*?<\/style>\s*/gi;
+const SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>\s*/gi;
+const STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style\s*>\s*/gi;
 const SVELTE_TAG_RE = /<\/?([A-Z][A-Za-z0-9]*)(?:\s[^>]*)?>\s*/g;
 const CODE_FENCE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]+`/g;
