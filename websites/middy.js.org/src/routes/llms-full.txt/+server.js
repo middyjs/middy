@@ -3,8 +3,8 @@ import { getDocsFiles } from "$lib/docs-content.js";
 export const prerender = true;
 
 const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
-const SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>\s*/gi;
-const STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style\s*>\s*/gi;
+const SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>\s*/gi;
+const STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>\s*/gi;
 const SVELTE_TAG_RE = /<\/?([A-Z][A-Za-z0-9]*)(?:\s[^>]*)?>\s*/g;
 const BLANK_LINES_RE = /\n{3,}/g;
 
