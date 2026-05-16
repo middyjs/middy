@@ -5,8 +5,8 @@ export const prerender = true;
 const SITE = "https://middy.js.org";
 
 const FRONTMATTER_RE = /^---\s*\n[\s\S]*?\n---\s*\n?/;
-const SCRIPT_BLOCK_RE = /<script\b[\s\S]*?<\/script>\s*/g;
-const STYLE_BLOCK_RE = /<style\b[\s\S]*?<\/style>\s*/g;
+const SCRIPT_BLOCK_RE = /<script\b[\s\S]*?<\/script>\s*/gi;
+const STYLE_BLOCK_RE = /<style\b[\s\S]*?<\/style>\s*/gi;
 const SVELTE_TAG_RE = /<\/?([A-Z][A-Za-z0-9]*)(?:\s[^>]*)?>\s*/g;
 const CODE_FENCE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]+`/g;
@@ -16,12 +16,23 @@ const HEADING_RE = /^\s*#{1,6}\s+/gm;
 const LIST_RE = /^\s*[-*+]\s+/gm;
 const WHITESPACE_RE = /\s+/g;
 
+const stripUntilStable = (str, regexes) => {
+	let prev;
+	do {
+		prev = str;
+		for (const re of regexes) str = str.replace(re, "");
+	} while (str !== prev);
+	return str;
+};
+
 const excerpt = (raw, maxLength = 280) => {
-	const body = raw
-		.replace(FRONTMATTER_RE, "")
-		.replace(SCRIPT_BLOCK_RE, "")
-		.replace(STYLE_BLOCK_RE, "")
-		.replace(SVELTE_TAG_RE, "")
+	let body = raw.replace(FRONTMATTER_RE, "");
+	body = stripUntilStable(body, [
+		SCRIPT_BLOCK_RE,
+		STYLE_BLOCK_RE,
+		SVELTE_TAG_RE,
+	]);
+	body = body
 		.replace(CODE_FENCE_RE, "")
 		.replace(INLINE_CODE_RE, "")
 		.replace(MD_LINK_RE, "$1")
