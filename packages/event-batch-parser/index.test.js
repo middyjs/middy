@@ -112,16 +112,39 @@ test("parseJson on Firehose data", async () => {
 	deepStrictEqual(out.records[0].data, { f: 1 });
 });
 
-test("parseJson on SQS body", async () => {
+test("parseJson on SQS body (plain text per AWS contract)", async () => {
+	// SQS bodies are delivered as plain text by Lambda — see
+	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html. The parser must
+	// NOT base64-decode SQS bodies.
 	const handler = middy().use(eventBatchParser({ body: parseJson() }));
 	handler.handler((event) => event);
 
 	const event = {
-		Records: [{ eventSource: "aws:sqs", body: b64('{"s":1}') }],
+		Records: [{ eventSource: "aws:sqs", body: '{"s":1}' }],
 	};
 
 	const out = await handler(event, defaultContext);
 	deepStrictEqual(out.Records[0].body, { s: 1 });
+});
+
+test("parseJson on SQS body with characters that would mis-decode as base64", async () => {
+	// Regression guard for the previous bug: `Buffer.from(body, "base64")` on
+	// plain text was lenient (silently produced garbage). Ensures bodies
+	// containing whitespace/punctuation parse intact.
+	const handler = middy().use(eventBatchParser({ body: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: '{ "user_id": "abc-123", "amount": 42.5 }',
+			},
+		],
+	};
+
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out.Records[0].body, { user_id: "abc-123", amount: 42.5 });
 });
 
 test("parseJson on SelfManagedKafka", async () => {
