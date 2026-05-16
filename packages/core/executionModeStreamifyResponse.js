@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 /* global awslambda */
-import { Readable } from "node:stream";
+import { once } from "node:events";
 import { pipeline } from "node:stream/promises";
 import { ReadableStream } from "node:stream/web";
 
@@ -36,28 +36,21 @@ export const executionModeStreamifyResponse = (
 				);
 			}
 
-			let handlerStream;
-			if (handlerBody._readableState || handlerBody instanceof ReadableStream) {
-				handlerStream = handlerBody;
-			} else if (typeof handlerBody === "string") {
-				// #1189
-				handlerStream = Readable.from(
-					handlerBody.length < stringIteratorSize
-						? handlerBody
-						: stringIterator(handlerBody),
-				);
-			}
-
-			if (!handlerStream) {
-				throw new Error("handler response not a Readable or ReadableStream", {
-					cause: { package: "@middy/core" },
-				});
-			}
-
 			// See executionModeStandard for the .cause-chaining rationale.
 			let handlerError;
 			try {
-				await pipeline(handlerStream, responseStream);
+				if (typeof handlerBody === "string") {
+					await writeString(responseStream, handlerBody);
+				} else if (
+					handlerBody._readableState ||
+					handlerBody instanceof ReadableStream
+				) {
+					await pipeline(handlerBody, responseStream);
+				} else {
+					throw new Error("handler response not a Readable or ReadableStream", {
+						cause: { package: "@middy/core" },
+					});
+				}
 			} catch (err) {
 				handlerError = err;
 			}
@@ -81,12 +74,32 @@ export const executionModeStreamifyResponse = (
 	return middy;
 };
 
-const stringIteratorSize = 16384; // 16 * 1024 // Node.js default
-function* stringIterator(input) {
-	let position = 0;
-	const length = input.length;
-	while (position < length) {
-		yield input.substring(position, position + stringIteratorSize);
-		position += stringIteratorSize;
+// #1189 Streams the string body directly into the AWS Lambda response stream,
+// bypassing Readable.from + pipeline. For sub-chunk strings this is a single
+// write+end; for larger strings we slice and respect backpressure via `drain`.
+const chunkSize = 16384; // 16 * 1024, matches Node.js default highWaterMark
+const writeString = async (stream, body) => {
+	if (body.length <= chunkSize) {
+		// Single-shot: write triggers HttpResponseStream's prelude+delimiter
+		// on first write, then our body, then end(). Always write (even empty)
+		// so the prelude is flushed for zero-length bodies.
+		stream.write(body);
+	} else {
+		let position = 0;
+		const length = body.length;
+		while (position < length) {
+			const next = position + chunkSize;
+			const ok = stream.write(body.substring(position, next));
+			position = next;
+			if (!ok && position < length) {
+				await once(stream, "drain");
+			}
+		}
 	}
-}
+	// stream.end(cb) calls cb on 'finish'; cb has no arg. Separate 'error'
+	// listener handles any late write errors so we don't hang on failure.
+	await new Promise((resolve, reject) => {
+		stream.once("error", reject);
+		stream.end(resolve);
+	});
+};

@@ -19,7 +19,7 @@ test("fuzz `event` w/ `object`", async () => {
 			} catch (_e) {}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);

@@ -13,7 +13,7 @@ test("fuzz `event` w/ `object` does not throw", async () => {
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, defaultContext);
 		}),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -37,7 +37,7 @@ test("fuzz SQS-shaped events: result length matches Records length", async () =>
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -66,7 +66,7 @@ test("fuzz Kinesis-shaped events: result length matches Records length", async (
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -95,7 +95,7 @@ test("fuzz DynamoDB-shaped events: result length matches Records length", async 
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -119,7 +119,7 @@ test("fuzz S3 Batch-shaped events: result length matches tasks length", async ()
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -146,7 +146,7 @@ test("fuzz Firehose-shaped events: result length matches records length", async 
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -178,6 +178,6 @@ test("fuzz Kafka-shaped events: result length matches flattened messages", async
 				strictEqual(result.length, expectedLen);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });

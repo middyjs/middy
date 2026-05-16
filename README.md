@@ -23,8 +23,89 @@
   <a href="https://github.com/middyjs/middy/blob/main/package.json#L32">
   <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-100%25-brightgreen"></a>
 </p>
-<p>You can read the documentation at: <a href="https://middy.js.org">https://middy.js.org</a></p>
+<p>Full documentation: <a href="https://middy.js.org">https://middy.js.org</a> &middot; LLM-friendly: <a href="https://middy.js.org/llms.txt">llms.txt</a> / <a href="https://middy.js.org/llms-full.txt">llms-full.txt</a></p>
 </div>
+
+## What is Middy
+
+Middy is a middleware engine for AWS Lambda on Node.js. It lets you keep your handler focused on business logic while attaching reusable steps for parsing, validation, auth, observability, error handling, and AWS service integration.
+
+- 38 official packages covering API Gateway, SQS, S3, DynamoDB, SNS, EventBridge, Kinesis, Kafka, WebSockets, App Runner, and more
+- Built-in TypeScript types, Node.js >= 22, ESM
+- Tiny core (zero dependencies beyond `@middy/util`), no AWS SDK in core
+- Routers for HTTP, WebSocket, and CloudFormation custom resources
+- First-class support for AWS Lambda response streaming and durable functions
+
+## Install
+
+```bash
+npm install --save @middy/core
+# add only the middlewares you need
+npm install --save @middy/http-json-body-parser @middy/http-error-handler @middy/validator
+```
+
+## Example
+
+```javascript
+import middy from '@middy/core'
+import httpJsonBodyParser from '@middy/http-json-body-parser'
+import httpErrorHandler from '@middy/http-error-handler'
+import validator from '@middy/validator'
+import { transpileSchema } from '@middy/validator/transpile'
+
+const schema = {
+  type: 'object',
+  properties: {
+    body: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number' },
+        currency: { type: 'string' }
+      },
+      required: ['amount', 'currency']
+    }
+  }
+}
+
+const lambdaHandler = async (event) => {
+  const { amount, currency } = event.body
+  // ... business logic
+  return { statusCode: 200, body: JSON.stringify({ ok: true, amount, currency }) }
+}
+
+export const handler = middy()
+  .use(httpJsonBodyParser())
+  .use(validator({ eventSchema: transpileSchema(schema) }))
+  .use(httpErrorHandler())
+  .handler(lambdaHandler)
+```
+
+## When to use Middy
+
+**Use Middy for every production Lambda.** Production handlers always need the same set of non-functional concerns:
+
+- **Input validation** at every trust boundary (HTTP body / headers / query, event-source payloads).
+- **Structured logging** and consistent **error reporting**.
+- **Mapped HTTP error responses** instead of stack traces.
+- **Secrets and config** fetched from a secure store with caching + cold-start prefetch.
+- **CORS, security headers, response shaping** for HTTP APIs.
+- **Authentication** for anything exposed to the internet.
+- **Partial-batch failure handling** for SQS / Kinesis / DynamoDB Streams / Kafka / S3 Batch.
+- **Graceful pre-timeout responses** so clients see 408, not 504.
+
+Middy is how you compose those without copy-pasting them into every handler. The "tiny single handler" exception is a trap - production handlers grow, and you do not want to add validation and error mapping under pressure later.
+
+See [When to use Middy](https://middy.js.org/docs/intro/when-to-use), [Middy vs raw Lambda](https://middy.js.org/docs/compare/raw-lambda), and [Middy + AWS Lambda Powertools](https://middy.js.org/docs/compare/powertools).
+
+## Documentation
+
+- [Getting started](https://middy.js.org/docs/intro/getting-started)
+- [Official middlewares](https://middy.js.org/docs/middlewares/intro)
+- [Event types and event-source recipes](https://middy.js.org/docs/events/intro)
+- [Routers (HTTP, WebSocket, CloudFormation)](https://middy.js.org/docs/routers/http-router)
+- [Writing custom middlewares](https://middy.js.org/docs/writing-middlewares/intro)
+- [Recipes](https://middy.js.org/docs/recipes/jwt-auth)
+- [FAQ](https://middy.js.org/docs/faq)
 
 ## Sponsors
 

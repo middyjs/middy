@@ -81,6 +81,24 @@ const baseHandlerAsync = async () => {};
 const streamHandler = (event, context) => {
 	return "chunk1chunk2chunk3";
 };
+const streamBodySmall = "x".repeat(256);
+const streamBodyMedium = "x".repeat(16 * 1024);
+const streamBodyLarge = "x".repeat(1024 * 1024);
+const streamBodyHuge = "x".repeat(10 * 1024 * 1024);
+const streamHandlerSmall = () => streamBodySmall;
+const streamHandlerMedium = () => streamBodyMedium;
+const streamHandlerLarge = () => streamBodyLarge;
+const streamHandlerHuge = () => streamBodyHuge;
+const streamHandlerPreludeSmall = () => ({
+	statusCode: 200,
+	headers: { "Content-Type": "text/plain" },
+	body: streamBodySmall,
+});
+const streamHandlerPreludeLarge = () => ({
+	statusCode: 200,
+	headers: { "Content-Type": "text/plain" },
+	body: streamBodyLarge,
+});
 const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
@@ -101,6 +119,24 @@ const warmDisableTimeoutHandler = middy({ timeoutEarlyInMillis: 0 }).handler(
 const warmStreamHandler = middy({
 	executionMode: executionModeStreamifyResponse,
 }).handler(streamHandler);
+const warmStreamHandlerSmall = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerSmall);
+const warmStreamHandlerMedium = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerMedium);
+const warmStreamHandlerLarge = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerLarge);
+const warmStreamHandlerHuge = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerHuge);
+const warmStreamHandlerPreludeSmall = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerPreludeSmall);
+const warmStreamHandlerPreludeLarge = middy({
+	executionMode: executionModeStreamifyResponse,
+}).handler(streamHandlerPreludeLarge);
 
 const defaultEvent = {};
 await bench
@@ -147,6 +183,48 @@ await bench
 			executionMode: executionModeStreamifyResponse,
 		}).handler(streamHandler);
 		await coldStreamHandler(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse string 256B", async () => {
+		await warmStreamHandlerSmall(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse string 16KB", async () => {
+		await warmStreamHandlerMedium(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse string 1MB", async () => {
+		await warmStreamHandlerLarge(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse string 10MB", async () => {
+		await warmStreamHandlerHuge(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse prelude+string 256B", async () => {
+		await warmStreamHandlerPreludeSmall(
+			defaultEvent,
+			createResponseStreamMock(),
+			defaultContext,
+		);
+	})
+	.add("streamifyResponse prelude+string 1MB", async () => {
+		await warmStreamHandlerPreludeLarge(
 			defaultEvent,
 			createResponseStreamMock(),
 			defaultContext,

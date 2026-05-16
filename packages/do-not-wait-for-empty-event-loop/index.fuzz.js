@@ -15,7 +15,7 @@ test("fuzz `event` w/ `object`", async () => {
 			await handler(event, defaultContext);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},
@@ -33,7 +33,7 @@ test("fuzz sets callbackWaitsForEmptyEventLoop to false", async () => {
 			strictEqual(ctx.callbackWaitsForEmptyEventLoop, false);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},

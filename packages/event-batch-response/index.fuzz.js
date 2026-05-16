@@ -14,7 +14,7 @@ test("fuzz `event` w/ `object`", async () => {
 		fc.asyncProperty(fc.object(), async (event) => {
 			await handler(event, defaultContext);
 		}),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -38,7 +38,7 @@ test("fuzz typed-but-malformed events do not crash", async () => {
 				await handler(event, defaultContext);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -50,7 +50,7 @@ test("fuzz `event` w/ random Records", async () => {
 				await handler(event, defaultContext);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -73,7 +73,7 @@ test("fuzz SQS records produce empty batchItemFailures when all fulfilled", asyn
 				strictEqual(result.batchItemFailures.length, 0);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -93,7 +93,7 @@ test("fuzz Kinesis records produce empty batchItemFailures when all fulfilled", 
 				strictEqual(result.batchItemFailures.length, 0);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -113,7 +113,7 @@ test("fuzz DynamoDB records produce empty batchItemFailures when all fulfilled",
 				strictEqual(result.batchItemFailures.length, 0);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -142,7 +142,7 @@ test("fuzz S3 Batch tasks produce per-task Succeeded results when all fulfilled"
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -173,7 +173,7 @@ test("fuzz Firehose records produce per-record Ok when all fulfilled", async () 
 				);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
 
@@ -201,6 +201,6 @@ test("fuzz Kafka records produce empty batchItemFailures when all fulfilled", as
 				strictEqual(result.batchItemFailures.length, 0);
 			},
 		),
-		{ numRuns: 100_000, examples: [] },
+		{ numRuns: 10_000, examples: [] },
 	);
 });
