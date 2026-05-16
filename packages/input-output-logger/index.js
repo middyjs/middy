@@ -183,21 +183,16 @@ const pick = (source, keys) => {
 // option wins on key collisions, matching historical behaviour).
 const buildContext = (context, withExec, withLambda) => {
 	if (isExecutionModeDurable(context)) {
-		let out = null;
-		if (withExec) {
-			const picked = pick(context.executionContext, executionContextKeys);
-			if (picked) {
-				if (out === null) out = {};
-				out.executionContext = picked;
-			}
-		}
-		if (withLambda) {
-			const picked = pick(context.lambdaContext, lambdaContextKeys);
-			if (picked) {
-				if (out === null) out = {};
-				out.lambdaContext = picked;
-			}
-		}
+		const exec = withExec
+			? pick(context.executionContext, executionContextKeys)
+			: null;
+		const lambda = withLambda
+			? pick(context.lambdaContext, lambdaContextKeys)
+			: null;
+		if (!exec && !lambda) return null;
+		const out = {};
+		if (exec) out.executionContext = exec;
+		if (lambda) out.lambdaContext = lambda;
 		return out;
 	}
 	// Caller guards entry on `withExec || withLambda`, so the other branch

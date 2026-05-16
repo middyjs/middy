@@ -491,6 +491,30 @@ test("It should include the AWS lambda durable context", async (t) => {
 	]);
 });
 
+test("It should include only the execution context (durable mode, no lambdaContext requested)", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+		}),
+	);
+	await handler(
+		{ foo: "bar" },
+		{
+			executionContext: { tenantId: "alpha" },
+			lambdaContext: { functionName: "test" },
+			constructor: { name: "DurableContextImpl" },
+		},
+	);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event: { foo: "bar" },
+			context: { executionContext: { tenantId: "alpha" } },
+		},
+	]);
+});
+
 test("It should include only the lambda context (durable mode, no executionContext requested)", async (t) => {
 	const logger = t.mock.fn();
 
