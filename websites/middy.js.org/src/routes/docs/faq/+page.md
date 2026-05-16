@@ -12,7 +12,7 @@ Likely the event loop is not empty. This happens when an open database connectio
 Middy's core is a few kilobytes and adds microseconds-level overhead per request. Cold-start cost comes from what you `use()`, not from the engine. Two practical levers:
 
 - Tree-shake by importing only the middlewares you need; never re-export "everything" from a barrel file.
-- Exclude the AWS SDK from your bundle when using AWS service middlewares (the Lambda runtime ships it). See [Bundling](/docs/best-practices/bundling) and [Small node_modules](/docs/best-practices/small-node-modules).
+- **Bundle the AWS SDK with your function.** A bundled, tree-shaken SDK loads faster than the full copy preloaded by the Node.js runtime. Counter-intuitive, but measured. See [Bundling](/docs/best-practices/bundling) and [Small node_modules](/docs/best-practices/small-node-modules).
 
 ## How big is `@middy/core`?
 
@@ -32,7 +32,7 @@ Place `httpErrorHandler` **last** in your chain. Because `onError` fires from in
 
 ## How do I handle partial batch failures from SQS, Kinesis, or DynamoDB Streams?
 
-Use [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) plus [`@middy/event-batch-response`](/docs/middlewares/event-batch-response). Throw inside your per-record handler to mark that record failed; everything else gets reported successful via `batchItemFailures`. Configure `ReportBatchItemFailures` on the event source mapping in your IaC. See the [SQS partial batch recipe](/docs/recipes/sqs-partial-batch).
+Use [`@middy/event-batch-handler`](/docs/handlers/event-batch-handler) plus [`@middy/event-batch-response`](/docs/middlewares/event-batch-response). Throw inside your per-record handler to mark that record failed; everything else gets reported successful via `batchItemFailures`. Configure `ReportBatchItemFailures` on the event source mapping in your IaC.
 
 ## Can I use Middy with response streaming?
 
@@ -78,9 +78,9 @@ Yes, and they are complementary. Middy is the middleware engine that composes ev
 
 `@middy/http-json-body-parser` throws 415 when the `Content-Type` header is missing or not `application/json`. Either set the header correctly on the client, pass `disableContentTypeCheck: true`, or pair the parser with [`@middy/http-header-normalizer`](/docs/middlewares/http-header-normalizer) if the header arrives in mixed case.
 
-## How do I validate request and response with one middleware?
+## Can I validate requests and responses?
 
-[`@middy/validator`](/docs/middlewares/validator) accepts `eventSchema` and `responseSchema`. Use `transpileSchema` from `@middy/validator/transpile` to pre-compile JSON Schemas at module load (do not transpile on every invocation).
+Yes, both in the same middleware. [`@middy/validator`](/docs/middlewares/validator) accepts `eventSchema` and `responseSchema`. Use `transpileSchema` from `@middy/validator/transpile` to pre-compile JSON Schemas at module load (do not transpile on every invocation).
 
 ## Can I use Middy with frameworks like Serverless Framework, SAM, or CDK?
 
