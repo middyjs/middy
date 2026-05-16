@@ -22,8 +22,10 @@ export const wsJsonBodyParserValidateOptions = (options) =>
 
 const wsJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	const reviver = options.reviver;
 	const wsJsonBodyParserMiddlewareBefore = (request) => {
-		const { body } = request.event;
+		const event = request.event;
+		const { body, isBase64Encoded } = event;
 		if (typeof body === "undefined") {
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: { package: pkg, data: body },
@@ -31,9 +33,10 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		try {
-			const data = decodeBody(request.event);
-
-			request.event.body = JSON.parse(data, options.reviver);
+			const data = decodeBody(body, isBase64Encoded);
+			// Branch on `reviver` so the common no-reviver path hits V8's
+			// 1-arg JSON.parse fast lane.
+			event.body = reviver ? JSON.parse(data, reviver) : JSON.parse(data);
 		} catch (err) {
 			// UnprocessableEntity
 			throw createError(422, "Invalid or malformed JSON was provided", {

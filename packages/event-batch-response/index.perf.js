@@ -52,6 +52,14 @@ const firehoseEvent = {
 	invocationId: "i",
 	records: [{ recordId: "r-0", data: "" }],
 };
+const sqsEvent100 = {
+	eventSource: "aws:sqs",
+	Records: Array.from({ length: 100 }, (_, i) => ({ messageId: `m-${i}` })),
+};
+const sqsEvent1000 = {
+	eventSource: "aws:sqs",
+	Records: Array.from({ length: 1000 }, (_, i) => ({ messageId: `m-${i}` })),
+};
 
 await bench
 	.add("sqs", async () => {
@@ -71,6 +79,12 @@ await bench
 	})
 	.add("firehose", async () => {
 		await warmHandler(firehoseEvent, defaultContext);
+	})
+	.add("sqs N=100", async () => {
+		await warmHandler(sqsEvent100, defaultContext);
+	})
+	.add("sqs N=1000", async () => {
+		await warmHandler(sqsEvent1000, defaultContext);
 	})
 	.run();
 

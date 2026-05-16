@@ -6,12 +6,13 @@ import {
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonContentTypePattern,
 	jsonSafeParse,
 	modifyCache,
@@ -116,6 +117,7 @@ const appConfigMiddleware = (opts = {}) => {
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
@@ -162,9 +164,9 @@ const appConfigMiddleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 	return {

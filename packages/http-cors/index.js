@@ -51,8 +51,18 @@ const hostnameToPunycode = (hostname) => {
 	}
 };
 
+// ASCII (no IDN), no port-stripping needed, no `*` wildcard. Hot path: most
+// Origin headers in production are plain ASCII URLs that this matches.
+const asciiOriginFast = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
+
 const originToPunycode = (origin) => {
 	if (!origin || origin === "*") return origin;
+	// Fast-path: ASCII origin without wildcard — just canonicalize case.
+	// `new URL().host` lowercases the host portion; reproduce that here.
+	if (asciiOriginFast.test(origin)) {
+		// Lowercase only the scheme+host portion (which is all of it for this regex).
+		return origin.toLowerCase();
+	}
 	const match = origin.match(/^(https?:\/\/)(.+)$/);
 	if (!match) return origin;
 	const [, protocol, host] = match;

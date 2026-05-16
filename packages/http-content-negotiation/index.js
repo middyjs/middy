@@ -117,6 +117,36 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
 	};
 };
 
+// Precomputed header descriptors: result names + lowercased header lookup
+// keys are constant per type, but were built via template literals on every
+// invocation. Hoisting them to module scope removes per-call string ops.
+const headerDescriptors = {
+	Charset: {
+		header: "Accept-Charset",
+		lower: "accept-charset",
+		resultsName: "preferredCharsets",
+		resultName: "preferredCharset",
+	},
+	Encoding: {
+		header: "Accept-Encoding",
+		lower: "accept-encoding",
+		resultsName: "preferredEncodings",
+		resultName: "preferredEncoding",
+	},
+	Language: {
+		header: "Accept-Language",
+		lower: "accept-language",
+		resultsName: "preferredLanguages",
+		resultName: "preferredLanguage",
+	},
+	MediaType: {
+		header: "Accept",
+		lower: "accept",
+		resultsName: "preferredMediaTypes",
+		resultName: "preferredMediaType",
+	},
+};
+
 const parseHeader = (
 	headerName,
 	type,
@@ -126,17 +156,16 @@ const parseHeader = (
 	event,
 	context,
 ) => {
-	const resultsName = `preferred${type}s`;
-	const resultName = `preferred${type}`;
-	const headerValue =
-		event.headers[headerName] ?? event.headers[headerName.toLowerCase()];
+	const desc = headerDescriptors[type];
+	const headerValue = event.headers[headerName] ?? event.headers[desc.lower];
 
-	context[resultsName] = parseFn[type](headerValue, availableValues);
-	context[resultName] = context[resultsName][0];
+	const results = parseFn[type](headerValue, availableValues);
+	context[desc.resultsName] = results;
+	context[desc.resultName] = results[0];
 
-	if (typeof context[resultName] === "undefined") {
+	if (typeof context[desc.resultName] === "undefined") {
 		if (defaultToFirstValue) {
-			context[resultName] = availableValues[0];
+			context[desc.resultName] = availableValues[0];
 		} else if (failOnMismatch) {
 			// NotAcceptable
 			throw createError(

@@ -120,6 +120,86 @@ test("It should throw when not a cloudformation event", async (t) => {
 	}
 });
 
+// Optimization regression guards: lock semantics of valid-event-format check
+// and dispatch-map lookup so Set/single-read swaps can't change behavior.
+test("It should route to each of Create / Update / Delete when all registered", async (t) => {
+	const handler = cloudformationRouter([
+		{ requestType: "Create", handler: () => "c" },
+		{ requestType: "Update", handler: () => "u" },
+		{ requestType: "Delete", handler: () => "d" },
+	]);
+	strictEqual(await handler({ RequestType: "Create" }, defaultContext), "c");
+	strictEqual(await handler({ RequestType: "Update" }, defaultContext), "u");
+	strictEqual(await handler({ RequestType: "Delete" }, defaultContext), "d");
+});
+
+test("It should reject prototype-pollution attempts in RequestType", async (t) => {
+	const handler = cloudformationRouter([
+		{ requestType: "Create", handler: () => true },
+	]);
+	for (const malicious of [
+		"__proto__",
+		"constructor",
+		"toString",
+		"hasOwnProperty",
+	]) {
+		try {
+			await handler({ RequestType: malicious }, defaultContext);
+			ok(false, `expected throw for ${malicious}`);
+		} catch (e) {
+			ok(
+				e.message.startsWith(
+					"Unknown CloudFormation Custom Resource event format",
+				),
+				`got: ${e.message}`,
+			);
+		}
+	}
+});
+
+test("It should reject case-variant RequestType (enum is case-sensitive)", async (t) => {
+	const handler = cloudformationRouter([
+		{ requestType: "Create", handler: () => true },
+	]);
+	for (const bad of ["create", "CREATE", "Created", "Pdate"]) {
+		try {
+			await handler({ RequestType: bad }, defaultContext);
+			ok(false, `expected throw for ${bad}`);
+		} catch (e) {
+			ok(
+				e.message.includes("'RequestType' must be one of"),
+				`got: ${e.message}`,
+			);
+		}
+	}
+});
+
+test("It should call notFoundResponse only when valid RequestType has no route", async (t) => {
+	let calls = 0;
+	const handler = cloudformationRouter({
+		routes: [{ requestType: "Create", handler: () => "registered" }],
+		notFoundResponse: ({ requestType }) => {
+			calls += 1;
+			return `nf:${requestType}`;
+		},
+	});
+	strictEqual(
+		await handler({ RequestType: "Create" }, defaultContext),
+		"registered",
+	);
+	strictEqual(calls, 0);
+	strictEqual(
+		await handler({ RequestType: "Update" }, defaultContext),
+		"nf:Update",
+	);
+	strictEqual(calls, 1);
+	strictEqual(
+		await handler({ RequestType: "Delete" }, defaultContext),
+		"nf:Delete",
+	);
+	strictEqual(calls, 2);
+});
+
 test("cloudformationRouterValidateOptions accepts valid options and rejects typos", () => {
 	cloudformationRouterValidateOptions({
 		routes: [],

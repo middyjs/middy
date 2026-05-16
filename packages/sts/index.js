@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -80,6 +81,7 @@ const stsMiddleware = (opts = {}) => {
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetch = (request, cachedValues = {}) => {
 		const values = {};
 
@@ -125,9 +127,9 @@ const stsMiddleware = (opts = {}) => {
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 

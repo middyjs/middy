@@ -288,6 +288,12 @@ const httpJwtMiddleware = (opts = {}) => {
 	if (options.clockTolerance)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
 
+	// Cache imported keys per-middleware-instance. `importJWK` and
+	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
+	// these results are stable across warm invocations.
+	const jwkKeyCache = new Map(); // key: `${kid}\0${alg}`; value: imported key
+	const publicKeyCache = new WeakMap(); // key: keyData ref; value: KeyObject
+
 	const httpJwtMiddlewareBefore = async (request) => {
 		const token = parseToken(request.event);
 
@@ -356,15 +362,20 @@ const httpJwtMiddleware = (opts = {}) => {
 					},
 				});
 			}
-			try {
-				key = await importJWK(jwk, alg);
-			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: {
-						package: pkg,
-						data: `JWK import failed: ${e.message}`,
-					},
-				});
+			const jwkCacheKey = `${header.kid}\0${alg}`;
+			key = jwkKeyCache.get(jwkCacheKey);
+			if (!key) {
+				try {
+					key = await importJWK(jwk, alg);
+				} catch (e) {
+					throw createError(401, "Unauthorized", {
+						cause: {
+							package: pkg,
+							data: `JWK import failed: ${e.message}`,
+						},
+					});
+				}
+				jwkKeyCache.set(jwkCacheKey, key);
 			}
 			verifyOptions = {
 				issuer: payload.iss,
@@ -404,17 +415,25 @@ const httpJwtMiddleware = (opts = {}) => {
 						});
 					}
 				}
-				key = createPublicKey({
-					key: Buffer.from(keyData.publicKey),
-					format: "der",
-					type: "spki",
-				});
+				key = publicKeyCache.get(keyData);
+				if (!key) {
+					key = createPublicKey({
+						key: Buffer.from(keyData.publicKey),
+						format: "der",
+						type: "spki",
+					});
+					publicKeyCache.set(keyData, key);
+				}
 			} else if (keyData instanceof Uint8Array) {
-				key = createPublicKey({
-					key: Buffer.from(keyData),
-					format: "der",
-					type: "spki",
-				});
+				key = publicKeyCache.get(keyData);
+				if (!key) {
+					key = createPublicKey({
+						key: Buffer.from(keyData),
+						format: "der",
+						type: "spki",
+					});
+					publicKeyCache.set(keyData, key);
+				}
 			} else {
 				key = Buffer.from(keyData);
 			}

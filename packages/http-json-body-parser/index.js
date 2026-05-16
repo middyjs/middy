@@ -32,7 +32,8 @@ export const httpJsonBodyParserValidateOptions = (options) =>
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const httpJsonBodyParserMiddlewareBefore = (request) => {
-		const { headers, body } = request.event;
+		const event = request.event;
+		const { headers, body, isBase64Encoded } = event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
 		if (
@@ -54,9 +55,10 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		try {
-			const data = decodeBody(request.event);
-
-			request.event.body = JSON.parse(data, options.reviver);
+			event.body = JSON.parse(
+				decodeBody(body, isBase64Encoded),
+				options.reviver,
+			);
 		} catch (err) {
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {

@@ -1,9 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	getCache,
-	getInternal,
 	jsonSafeParse,
 	modifyCache,
 	processCache,
@@ -46,12 +47,15 @@ const ssmExtensionMiddleware = (opts = {}) => {
 	const port = process.env.PARAMETERS_SECRETS_EXTENSION_HTTP_PORT ?? 2773;
 	const baseUrl = `http://localhost:${port}/systemsmanager/parameters/get/?withDecryption=true&name=`;
 
+	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
+
 	const fetchRequest = (request, cachedValues = {}) => {
 		const headers = {
 			"X-Aws-Parameters-Secrets-Token": process.env.AWS_SESSION_TOKEN,
 		};
 		const values = {};
-		for (const internalKey of Object.keys(options.fetchData)) {
+		for (const internalKey of fetchDataKeys) {
 			if (cachedValues[internalKey]) continue;
 			values[internalKey] = fetch(
 				baseUrl +
@@ -86,9 +90,9 @@ const ssmExtensionMiddleware = (opts = {}) => {
 	const ssmExtensionMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(Object.keys(options.fetchData), request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 

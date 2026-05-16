@@ -158,12 +158,14 @@ declare function jsonSafeStringify(
 	space?: string | number,
 ): string | unknown;
 
+declare function isJsonStructured(text: unknown): boolean;
+
 declare const jsonContentTypePattern: RegExp;
 
-declare function decodeBody(event: {
-	body?: string | null;
-	isBase64Encoded?: boolean;
-}): string | null | undefined;
+declare function decodeBody(
+	body: string | null | undefined,
+	isBase64Encoded?: boolean,
+): string | null | undefined;
 
 declare const lambdaContextKeys: string[];
 

@@ -5,12 +5,11 @@ import { isExecutionModeDurable } from "@middy/util";
 const name = "event-batch-response";
 const pkg = `@middy/${name}`;
 
-const buildBatchItemFailures = ({ items, settled }) => {
+const buildBatchItemFailures = ({ records, source, settled }) => {
 	const batchItemFailures = [];
-	for (let idx = 0; idx < items.length; idx += 1) {
-		const entry = settled[idx] ?? {};
-		if (entry.status === "fulfilled") continue;
-		batchItemFailures.push({ itemIdentifier: items[idx].identifier });
+	for (let idx = 0; idx < records.length; idx += 1) {
+		if (settled[idx]?.status === "fulfilled") continue;
+		batchItemFailures.push({ itemIdentifier: source.identify(records[idx]) });
 	}
 	return { batchItemFailures };
 };
@@ -35,17 +34,18 @@ const toS3BatchResult = (taskId, value, defaultCode, reason) => {
 	};
 };
 
-const buildS3BatchResponse = ({ items, settled, request }) => {
-	const results = items.map((item, idx) => {
-		const entry = settled[idx] ?? {};
-		if (entry.status === "fulfilled") {
-			return toS3BatchResult(item.identifier, entry.value, "Succeeded");
+const buildS3BatchResponse = ({ records, source, settled, request }) => {
+	const results = records.map((record, idx) => {
+		const entry = settled[idx];
+		const identifier = source.identify(record);
+		if (entry?.status === "fulfilled") {
+			return toS3BatchResult(identifier, entry.value, "Succeeded");
 		}
 		return toS3BatchResult(
-			item.identifier,
-			entry.value,
+			identifier,
+			entry?.value,
 			"TemporaryFailure",
-			entry.reason,
+			entry?.reason,
 		);
 	});
 	return {
@@ -79,20 +79,21 @@ const toFirehoseRecord = (recordId, inputData, value, defaultResult) => {
 	};
 };
 
-const buildFirehoseResponse = ({ items, settled }) => {
-	const records = items.map((item, idx) => {
-		const entry = settled[idx] ?? {};
-		const inputData = item.record?.data;
-		if (entry.status === "fulfilled") {
-			return toFirehoseRecord(item.identifier, inputData, entry.value, "Ok");
+const buildFirehoseResponse = ({ records, source, settled }) => {
+	const out = records.map((record, idx) => {
+		const entry = settled[idx];
+		const inputData = record?.data;
+		const identifier = source.identify(record);
+		if (entry?.status === "fulfilled") {
+			return toFirehoseRecord(identifier, inputData, entry.value, "Ok");
 		}
 		return {
-			recordId: item.identifier,
+			recordId: identifier,
 			result: "ProcessingFailed",
 			data: inputData,
 		};
 	});
-	return { records };
+	return { records: out };
 };
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
@@ -166,19 +167,16 @@ export const flattenBatchRecords = (event) => {
 	return source.getRecords(event);
 };
 
-const buildItems = (source, event) =>
-	source.getRecords(event).map((record) => ({
-		record,
-		identifier: source.identify(record),
-	}));
-
 const eventBatchResponseMiddleware = () => {
 	const eventBatchResponseMiddlewareBefore = (request) => {
 		const source = sources[detectEventSource(request.event)];
 		if (!source) return;
+		// Store records as-is; identifiers are derived lazily by buildResponse
+		// only for the entries that actually need them. Avoids the per-record
+		// `{ record, identifier }` allocation that dominated large-batch GC.
 		request.internal[pkg] = {
 			source,
-			items: buildItems(source, request.event),
+			records: source.getRecords(request.event),
 		};
 	};
 
@@ -188,7 +186,8 @@ const eventBatchResponseMiddleware = () => {
 		if (!Array.isArray(request.response)) return;
 
 		request.response = cached.source.buildResponse({
-			items: cached.items,
+			records: cached.records,
+			source: cached.source,
 			settled: request.response,
 			request,
 		});
@@ -201,7 +200,7 @@ const eventBatchResponseMiddleware = () => {
 		const cached = request.internal[pkg];
 		if (!cached) return;
 
-		request.response = Array.from({ length: cached.items.length }, () => ({
+		request.response = Array.from({ length: cached.records.length }, () => ({
 			status: "rejected",
 			reason: request.error,
 		}));

@@ -71,8 +71,13 @@ const parseEvent = (event, options) => {
 		records[0].eventSource ??
 		records[0].EventSource ??
 		(records[0].s3Key && "aws:s3:batch");
-	for (const record of records) {
-		events[eventSource]?.(record, options);
+	// Hoist the dispatch fn out of the loop so we look it up once per batch
+	// instead of once per record.
+	const fn = events[eventSource];
+	if (fn) {
+		for (const record of records) {
+			fn(record, options);
+		}
 	}
 };
 
@@ -218,13 +223,15 @@ const convertValue = {
 
 const convertToNative = (data, options) => {
 	for (const key in data) {
-		if (!convertValue[key]) {
+		const fn = convertValue[key];
+		if (!fn) {
 			throw new Error(`Unsupported type passed: ${key}`, {
 				cause: { package: pkg },
 			});
 		}
-		if (typeof data[key] === "undefined") continue;
-		return convertValue[key](data[key], options);
+		const v = data[key];
+		if (typeof v === "undefined") continue;
+		return fn(v, options);
 	}
 };
 // End: AWS SDK unmarshall

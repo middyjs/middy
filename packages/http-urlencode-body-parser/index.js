@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { parse as parseQuery } from "node:querystring";
 import { createError, decodeBody, validateOptions } from "@middy/util";
 
 const name = "http-urlencode-body-parser";
@@ -26,7 +27,8 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const httpUrlencodeBodyParserMiddlewareBefore = (request) => {
-		const { headers, body } = request.event;
+		const event = request.event;
+		const { headers, body, isBase64Encoded } = event;
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
@@ -42,17 +44,10 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			});
 		}
 
-		const data = decodeBody(request.event);
-		const parsedBody = Object.create(null);
-		for (const [key, value] of new URLSearchParams(data)) {
-			if (Object.hasOwn(parsedBody, key)) {
-				parsedBody[key] = Array.isArray(parsedBody[key])
-					? [...parsedBody[key], value]
-					: [parsedBody[key], value];
-			} else {
-				parsedBody[key] = value;
-			}
-		}
+		// `querystring.parse` returns a null-prototype object and represents
+		// duplicates as arrays — matches the previous URLSearchParams loop's
+		// semantics in one native call.
+		const parsedBody = parseQuery(decodeBody(body, isBase64Encoded));
 
 		// Check if it didn't parse
 		if (parsedBody?.[body] === "") {
@@ -63,7 +58,7 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			);
 		}
 
-		request.event.body = parsedBody;
+		event.body = parsedBody;
 	};
 
 	return {

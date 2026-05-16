@@ -71,7 +71,14 @@ const eventBatchParserMiddleware = (opts = {}) => {
 				const parser = options[field];
 				let parsed;
 				try {
-					parsed = await parser(buffer, record, request, framing);
+					// Skip `await` for sync parsers (parseJson, schema-bound
+					// parseAvro/parseProtobuf bindings) — saves a microtask per
+					// record across the batch. Only awaits when the parser
+					// actually returns a thenable.
+					parsed = parser(buffer, record, request, framing);
+					if (parsed !== null && typeof parsed?.then === "function") {
+						parsed = await parsed;
+					}
 				} catch (err) {
 					throw createError(422, "Invalid record payload", {
 						cause: {

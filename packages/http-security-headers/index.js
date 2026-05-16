@@ -376,10 +376,13 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 
 	const httpSecurityHeadersMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		Object.assign(request.response.headers, precomputedHeaders);
+		const headers = request.response.headers;
+		Object.assign(headers, precomputedHeaders);
 		if (options.poweredBy) {
-			delete request.response.headers.Server;
-			delete request.response.headers["X-Powered-By"];
+			// Guard `delete` to avoid V8 hidden-class transitions when the key
+			// was never set (the typical Lambda handler case).
+			if ("Server" in headers) delete headers.Server;
+			if ("X-Powered-By" in headers) delete headers["X-Powered-By"];
 		}
 	};
 	const httpSecurityHeadersMiddlewareOnError = (request) => {

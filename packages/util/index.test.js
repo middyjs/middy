@@ -6,6 +6,8 @@ import {
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	clearCache,
@@ -16,6 +18,7 @@ import {
 	getCache,
 	getInternal,
 	HttpError,
+	isJsonStructured,
 	jsonSafeParse,
 	jsonSafeStringify,
 	lambdaContext,
@@ -741,6 +744,34 @@ describe("jsonSafeParse", () => {
 	});
 });
 
+// isJsonStructured
+describe("isJsonStructured", () => {
+	test("returns true for JSON objects", () => {
+		strictEqual(isJsonStructured("{}"), true);
+		strictEqual(isJsonStructured('{"foo":"bar"}'), true);
+	});
+	test("returns true for JSON arrays", () => {
+		strictEqual(isJsonStructured("[]"), true);
+		strictEqual(isJsonStructured("[1,2,3]"), true);
+	});
+	test("returns false for JSON strings (leading quote)", () => {
+		strictEqual(isJsonStructured('"hello"'), false);
+	});
+	test("returns false for plain text", () => {
+		strictEqual(isJsonStructured("hello world"), false);
+		strictEqual(isJsonStructured("Error: not found"), false);
+	});
+	test("returns false for empty string, null, undefined", () => {
+		strictEqual(isJsonStructured(""), false);
+		strictEqual(isJsonStructured(null), false);
+		strictEqual(isJsonStructured(undefined), false);
+	});
+	test("returns false for non-strings without throwing", () => {
+		strictEqual(isJsonStructured(42), false);
+		strictEqual(isJsonStructured({}), false);
+	});
+});
+
 // jsonSafeStringify
 test("jsonSafeStringify should stringify valid json", async (t) => {
 	const value = jsonSafeStringify({ hello: ["world"] });
@@ -760,23 +791,22 @@ test("jsonSafeStringify should not stringify if throws error", async (t) => {
 
 // decodeBody
 test("decodeBody should return body unchanged if not base64 encoded", async (t) => {
-	const event = { body: '{"foo":"bar"}', isBase64Encoded: false };
-	strictEqual(decodeBody(event), '{"foo":"bar"}');
+	strictEqual(decodeBody('{"foo":"bar"}', false), '{"foo":"bar"}');
 });
 test("decodeBody should decode base64 body", async (t) => {
-	const event = {
-		body: Buffer.from('{"foo":"bar"}').toString("base64"),
-		isBase64Encoded: true,
-	};
-	strictEqual(decodeBody(event), '{"foo":"bar"}');
+	const encoded = Buffer.from('{"foo":"bar"}').toString("base64");
+	strictEqual(decodeBody(encoded, true), '{"foo":"bar"}');
 });
 test("decodeBody should return undefined for undefined body", async (t) => {
-	const event = { body: undefined, isBase64Encoded: false };
-	strictEqual(decodeBody(event), undefined);
+	strictEqual(decodeBody(undefined, false), undefined);
 });
 test("decodeBody should return null for null body", async (t) => {
-	const event = { body: null, isBase64Encoded: false };
-	strictEqual(decodeBody(event), null);
+	strictEqual(decodeBody(null, false), null);
+});
+test("decodeBody should return undefined for undefined body even when isBase64Encoded is true", async (t) => {
+	// Guards against Buffer.from(undefined) throwing when callers haven't
+	// validated body presence yet.
+	strictEqual(decodeBody(undefined, true), undefined);
 });
 
 // normalizeHttpResponse
@@ -955,5 +985,63 @@ describe("lambdaContext", () => {
 		};
 		const value = lambdaContext(request, "functionName", context);
 		strictEqual(value, "test-function");
+	});
+});
+
+describe("buildSetToContextSpec", () => {
+	test("returns null when setToContext is false", () => {
+		const spec = buildSetToContextSpec({
+			setToContext: false,
+			fetchData: { foo: "bar" },
+		});
+		strictEqual(spec, null);
+	});
+	test("returns null when setToContext is omitted", () => {
+		strictEqual(buildSetToContextSpec({ fetchData: { foo: "bar" } }), null);
+	});
+	test("returns [original, sanitized] pairs when setToContext is true", () => {
+		const spec = buildSetToContextSpec({
+			setToContext: true,
+			fetchData: { token: "x", "my-key": "y", "0num": "z" },
+		});
+		deepStrictEqual(spec, [
+			["token", "token"],
+			["my-key", "my_key"],
+			["0num", "_0num"],
+		]);
+	});
+});
+
+describe("assignSetToContext", () => {
+	test("warm path: copies sync values directly using sanitized keys", () => {
+		const spec = [
+			["token", "token"],
+			["my-key", "my_key"],
+		];
+		const value = { token: "tok", "my-key": "val" };
+		const request = { context: {} };
+		const result = assignSetToContext(spec, value, request);
+		strictEqual(result, undefined);
+		deepStrictEqual(request.context, { token: "tok", my_key: "val" });
+	});
+	test("cold path: awaits getInternal when any value is a Promise", async () => {
+		const spec = [["token", "token"]];
+		const tokenPromise = Promise.resolve("tok-async");
+		const value = { token: tokenPromise };
+		const request = {
+			context: {},
+			internal: { token: tokenPromise },
+		};
+		const pending = assignSetToContext(spec, value, request);
+		ok(pending && typeof pending.then === "function");
+		await pending;
+		strictEqual(request.context.token, "tok-async");
+	});
+	test("ignores null values (treated as resolved, not promise)", () => {
+		const spec = [["token", "token"]];
+		const request = { context: {} };
+		const result = assignSetToContext(spec, { token: null }, request);
+		strictEqual(result, undefined);
+		strictEqual(request.context.token, null);
 	});
 });

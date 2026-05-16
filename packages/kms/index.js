@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { GetPublicKeyCommand, KMSClient } from "@aws-sdk/client-kms";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -59,6 +60,7 @@ const kmsMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
@@ -95,9 +97,9 @@ const kmsMiddleware = (opts = {}) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 

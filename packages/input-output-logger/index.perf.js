@@ -40,33 +40,42 @@ const deepHandler = setupHandler({
 	omitPaths: ["event.hoo", "response.foo.[].foo"],
 });
 
+const smallEvent = {
+	foo: [{ foo: "bar", fuu: { boo: "baz" } }],
+	hoo: false,
+};
+const bigEvent = {
+	headers: Object.fromEntries(
+		Array.from({ length: 30 }, (_, i) => [`h${i}`, `v${i}`]),
+	),
+	body: {
+		items: Array.from({ length: 100 }, (_, i) => ({
+			id: i,
+			name: `item-${i}`,
+			meta: { tag: "x", nested: { deeper: i } },
+		})),
+	},
+	hoo: false,
+};
+
 await bench
-	.add(
-		"log objects as is",
-		async (
-			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
-		) => {
-			try {
-				await warmHandler(event, defaultContext);
-			} catch (_e) {}
-		},
-	)
-	.add(
-		"omit shallow values",
-		async (
-			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
-		) => {
-			await shallowHandler(event, defaultContext);
-		},
-	)
-	.add(
-		"omit deep values",
-		async (
-			event = { foo: [{ foo: "bar", fuu: { boo: "baz" } }], hoo: false },
-		) => {
-			await deepHandler(event, defaultContext);
-		},
-	)
+	.add("log objects as is", async (event = smallEvent) => {
+		try {
+			await warmHandler(event, defaultContext);
+		} catch (_e) {}
+	})
+	.add("omit shallow values (small)", async (event = smallEvent) => {
+		await shallowHandler(event, defaultContext);
+	})
+	.add("omit deep values (small)", async (event = smallEvent) => {
+		await deepHandler(event, defaultContext);
+	})
+	.add("omit shallow values (big event)", async (event = bigEvent) => {
+		await shallowHandler(event, defaultContext);
+	})
+	.add("omit deep values (big event)", async (event = bigEvent) => {
+		await deepHandler(event, defaultContext);
+	})
 	.run();
 
 console.table(bench.table());
