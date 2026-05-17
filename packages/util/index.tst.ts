@@ -299,19 +299,16 @@ test("jsonSafeStringify", () => {
 });
 
 test("decodeBody", () => {
-	const decoded = util.decodeBody({ body: "hello", isBase64Encoded: false });
+	const decoded = util.decodeBody("hello", false);
 	expect(decoded).type.toBe<string | null | undefined>();
 
-	const decodedBase64 = util.decodeBody({
-		body: "aGVsbG8=",
-		isBase64Encoded: true,
-	});
+	const decodedBase64 = util.decodeBody("aGVsbG8=", true);
 	expect(decodedBase64).type.toBe<string | null | undefined>();
 
-	const decodedNull = util.decodeBody({ body: null });
+	const decodedNull = util.decodeBody(null);
 	expect(decodedNull).type.toBe<string | null | undefined>();
 
-	const decodedUndefined = util.decodeBody({});
+	const decodedUndefined = util.decodeBody(undefined);
 	expect(decodedUndefined).type.toBe<string | null | undefined>();
 });
 

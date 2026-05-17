@@ -111,8 +111,25 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Dynamic
-		if (Object.hasOwn(routesDynamic, method)) {
-			for (const route of routesDynamic[method]) {
+		const dynamicRoutes = routesDynamic[method];
+		if (dynamicRoutes) {
+			// Count slashes in request path, ignoring a single trailing slash so
+			// `/user/1` and `/user/1/` produce the same count and match the same
+			// fixed-depth route. Wildcard routes carry segmentCount=-1 and match
+			// regardless.
+			let reqSegments = 0;
+			const pathLen = path.length;
+			const stop =
+				pathLen > 1 && path.charCodeAt(pathLen - 1) === 47
+					? pathLen - 1
+					: pathLen;
+			for (let i = 0; i < stop; i++) {
+				if (path.charCodeAt(i) === 47) reqSegments++;
+			}
+			for (const route of dynamicRoutes) {
+				if (route.segmentCount !== -1 && route.segmentCount !== reqSegments) {
+					continue;
+				}
 				const match = path.match(route.path);
 				if (match) {
 					event.pathParameters = {
@@ -162,7 +179,18 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`
-	routesType[method].push({ path: pathRegExp, handler });
+	// `{proxy+}` matches across slashes so its depth is unconstrained; mark -1.
+	// All other dynamic params capture a single segment, so depth == slash count.
+	const segmentCount = path.includes("{proxy+}") ? -1 : countSlashes(path);
+	routesType[method].push({ path: pathRegExp, handler, segmentCount });
+};
+
+const countSlashes = (s) => {
+	let n = 0;
+	for (let i = 0; i < s.length; i++) {
+		if (s.charCodeAt(i) === 47) n++;
+	}
+	return n;
 };
 
 const pickVersion = (event) => {
@@ -179,10 +207,14 @@ const getVersionRoute = {
 		method: event.requestContext.http.method,
 		path: event.requestContext.http.path,
 	}),
-	vpc: (event) => ({
-		method: event.method,
-		path: event.raw_path.split("?")[0],
-	}),
+	vpc: (event) => {
+		const rawPath = event.raw_path;
+		const q = rawPath.indexOf("?");
+		return {
+			method: event.method,
+			path: q < 0 ? rawPath : rawPath.substring(0, q),
+		};
+	},
 };
 
 export default httpRouteHandler;

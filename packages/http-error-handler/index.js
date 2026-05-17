@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	jsonSafeParse,
+	isJsonStructured,
 	normalizeHttpResponse,
 	validateOptions,
 } from "@middy/util";
@@ -62,12 +62,10 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 			}
 
 			if (message) {
-				const headerContentType =
-					typeof jsonSafeParse(message) === "string"
-						? "text/plain"
-						: "application/json";
 				request.response.body = message;
-				request.response.headers["Content-Type"] = headerContentType;
+				request.response.headers["Content-Type"] = isJsonStructured(message)
+					? "application/json"
+					: "text/plain";
 			}
 		}
 	};

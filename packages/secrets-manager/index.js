@@ -6,12 +6,13 @@ import {
 	SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonSafeParse,
 	modifyCache,
 	processCache,
@@ -75,6 +76,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
@@ -160,9 +162,9 @@ const secretsManagerMiddleware = (opts = {}) => {
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 

@@ -15,23 +15,35 @@ const defaultContext = {
 
 const handler = middy(() => undefined).use(middleware({ value: parseJson() }));
 
-const event = {
+const makeKafkaEvent = (n) => ({
 	eventSource: "aws:kafka",
 	records: {
-		"my-topic-0": [
-			{
-				topic: "my-topic",
-				partition: 0,
-				value: Buffer.from('{"hello":"world"}').toString("base64"),
-			},
-		],
+		"my-topic-0": Array.from({ length: n }, (_, i) => ({
+			topic: "my-topic",
+			partition: 0,
+			offset: i,
+			value: Buffer.from(`{"hello":"world","i":${i}}`).toString("base64"),
+		})),
 	},
-};
+});
+const event1 = makeKafkaEvent(1);
+const event10 = makeKafkaEvent(10);
+const event100 = makeKafkaEvent(100);
 
 await bench
-	.add("kafka json parse", async () => {
+	.add("kafka json N=1", async () => {
 		try {
-			await handler(event, defaultContext);
+			await handler(event1, defaultContext);
+		} catch (_e) {}
+	})
+	.add("kafka json N=10", async () => {
+		try {
+			await handler(event10, defaultContext);
+		} catch (_e) {}
+	})
+	.add("kafka json N=100", async () => {
+		try {
+			await handler(event100, defaultContext);
 		} catch (_e) {}
 	})
 	.run();

@@ -66,9 +66,11 @@ const wsRouteHandler = (opts = {}) => {
 			);
 		}
 
-		// Static
-		if (Object.hasOwn(routesStatic, routeKey)) {
-			const handler = routesStatic[routeKey];
+		// Static. `routesStatic` is `Object.create(null)`; handlers are
+		// validated as Functions at setup, so `!== undefined` is sufficient
+		// (no prototype walk, no inherited keys to confuse the check).
+		const handler = routesStatic[routeKey];
+		if (handler !== undefined) {
 			return handler(event, context, abort);
 		}
 

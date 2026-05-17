@@ -17,14 +17,18 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler();
 
+const smallBody = '{ "action": "message", "message":"hello" }';
+const base64Body = Buffer.from(smallBody, "utf8").toString("base64");
+
 await bench
+	.add("parse small JSON", async (event = { body: smallBody }) => {
+		try {
+			await warmHandler(event, defaultContext);
+		} catch (_e) {}
+	})
 	.add(
-		"Parse body",
-		async (
-			event = {
-				body: '{ "action": "message", "message":"hello" }',
-			},
-		) => {
+		"parse base64 JSON",
+		async (event = { body: base64Body, isBase64Encoded: true }) => {
 			try {
 				await warmHandler(event, defaultContext);
 			} catch (_e) {}

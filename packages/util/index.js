@@ -436,6 +436,48 @@ export const sanitizeKey = (key) => {
 		.replace(sanitizeKeyRemoveDisallowedChar, "_");
 };
 
+// setToContext fast-path
+//
+// Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
+// same pattern: after `processCache` resolves `value`, when `setToContext`
+// is set they re-`await getInternal(fetchDataKeys, request)` solely to copy
+// the same values to `request.context` under sanitized key names. On warm
+// invocations every entry in `value` is already resolved, so the extra
+// await + per-key regex + null-prototype-object allocation in `getInternal`
+// is dead work.
+//
+// `buildSetToContextSpec(options)` is called once at factory time and
+// returns either `null` (when `setToContext` is false) or the precomputed
+// `[[originalKey, sanitizedKey], …]` pairs.
+//
+// `assignSetToContext(spec, value, request)` is called once per invocation.
+// Returns `undefined` synchronously when all entries are resolved (the
+// common warm path), or a Promise when at least one is still pending. The
+// caller should `if (p) await p` so the sync path keeps zero microtask hops.
+export const buildSetToContextSpec = (options) =>
+	options.setToContext
+		? Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)])
+		: null;
+
+export const assignSetToContext = (spec, value, request) => {
+	for (let i = 0; i < spec.length; i++) {
+		const v = value[spec[i][0]];
+		if (v !== null && typeof v?.then === "function") {
+			// Cold path: at least one value still pending; defer to
+			// `getInternal` for the standard await+sanitize+assign flow.
+			const keys = new Array(spec.length);
+			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
+			return getInternal(keys, request).then((data) => {
+				Object.assign(request.context, data);
+			});
+		}
+	}
+	const ctx = request.context;
+	for (let i = 0; i < spec.length; i++) {
+		ctx[spec[i][1]] = value[spec[i][0]];
+	}
+};
+
 // fetch Cache
 // Map keyed by cacheKey; value shape: { value:{fetchKey:Promise}, expiry, refresh?, modified? }
 // Map chosen over plain object so deletion is O(1), frees the key slot, and
@@ -604,6 +646,20 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
+// Cheap structural-JSON heuristic: returns true if `text` starts with `{`
+// or `[`, indicating a JSON object/array body. Use as a Content-Type
+// guard where:
+//   - `{...}` / `[...]`  → `application/json`
+//   - everything else    → `text/plain`
+// Deliberately excludes leading `"`: a JSON string `"hi"` parses to a JS
+// string, which callers consistently treat as `text/plain`. Avoids running
+// a full JSON.parse just to inspect the result's type.
+export const isJsonStructured = (text) => {
+	if (typeof text !== "string") return false;
+	const c = text.charCodeAt(0);
+	return c === 123 || c === 91; // 123='{' 91='['
+};
+
 export const jsonSafeStringify = (value, replacer, space) => {
 	try {
 		return JSON.stringify(value, replacer, space);
@@ -615,9 +671,13 @@ export const jsonSafeStringify = (value, replacer, space) => {
 export const jsonContentTypePattern =
 	/^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 
-export const decodeBody = (event) => {
-	const { body, isBase64Encoded } = event;
-	if (typeof body === "undefined" || body === null) return body;
+// Decode a request body, transparently handling base64-encoded payloads.
+// Takes `body` and `isBase64Encoded` directly so callers (which already
+// destructure them from `request.event`) don't pay for a second destructure
+// inside this helper. Returns `body` unchanged when it's nullish so callers
+// can decide whether absence is an error.
+export const decodeBody = (body, isBase64Encoded) => {
+	if (body == null) return body;
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { DsqlSigner } from "@aws-sdk/dsql-signer";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -78,6 +79,7 @@ const dsqlSignerMiddleware = (opts = {}) => {
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const clients = {};
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
@@ -126,9 +128,9 @@ const dsqlSignerMiddleware = (opts = {}) => {
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 

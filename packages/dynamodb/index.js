@@ -3,12 +3,13 @@
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -85,6 +86,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	// force marshall of Key during cold start
 	for (const internalKey of fetchDataKeys) {
 		options.fetchData[internalKey].Key = marshall(
@@ -125,9 +127,9 @@ const dynamodbMiddleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 	return {

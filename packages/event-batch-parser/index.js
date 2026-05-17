@@ -58,20 +58,29 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			}
 		}
 
-		// Decode base64, strip Glue framing (if present), then run parsers.
-		// Framing is kept off the record so it doesn't leak downstream; parsers
-		// receive it as a fourth arg.
+		// Decode the field bytes (encoding is source-specific per AWS docs;
+		// see the per-source `encoding` notes below), strip Glue framing if
+		// present, then run parsers. Framing is kept off the record so it
+		// doesn't leak downstream; parsers receive it as a fourth arg.
+		const encoding = source.encoding;
 		for (const record of source.iterate(request.event)) {
 			for (const field of parserFields) {
 				const accessor = source.fields[field];
 				const raw = accessor.get(record);
 				if (raw == null) continue;
-				const buffer = Buffer.from(raw, "base64");
+				const buffer = Buffer.from(raw, encoding);
 				const framing = parseGlueFraming(buffer, maxDecompressedBytes);
 				const parser = options[field];
 				let parsed;
 				try {
-					parsed = await parser(buffer, record, request, framing);
+					// Skip `await` for sync parsers (parseJson, schema-bound
+					// parseAvro/parseProtobuf bindings) — saves a microtask per
+					// record across the batch. Only awaits when the parser
+					// actually returns a thenable.
+					parsed = parser(buffer, record, request, framing);
+					if (parsed !== null && typeof parsed?.then === "function") {
+						parsed = await parsed;
+					}
 				} catch (err) {
 					throw createError(422, "Invalid record payload", {
 						cause: {
@@ -150,15 +159,26 @@ const accKinesisData = {
 	},
 };
 
+// Each source declares its payload `encoding` so callers don't have to know
+// the AWS contract. See AWS docs cited per entry:
+//   base64 → `key`/`value`/`data` is a base64-encoded BLOB.
+//   utf8   → the field is plain text as delivered by AWS.
 const sources = {
+	// MSK: "The event payload contains an array of messages…
+	// base64-encoded message."
+	// docs.aws.amazon.com/lambda/latest/dg/with-msk.html
 	"aws:kafka": {
 		iterate: (event) => kafkaIter(event),
 		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
+		encoding: "base64",
 	},
 	SelfManagedKafka: {
 		iterate: (event) => kafkaIter(event),
 		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
+		encoding: "base64",
 	},
+	// Kinesis: `data` is base64.
+	// docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html
 	"aws:kinesis": {
 		iterate: (event) => arrayIter(event, "Records"),
 		fields: {
@@ -166,25 +186,37 @@ const sources = {
 			body: accKinesisData,
 			data: accKinesisData,
 		},
+		encoding: "base64",
 	},
-	// Kinesis Firehose
+	// Kinesis Firehose: transform-records `data` is base64.
+	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	"aws:lambda:events": {
 		iterate: (event) => arrayIter(event, "records"),
 		fields: { value: accData, body: accData, data: accData },
+		encoding: "base64",
 	},
+	// SQS: `body` is a plain string, delivered as-is by Lambda.
+	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
+	//   example: { "body": "Test message.", … }
 	"aws:sqs": {
 		iterate: (event) => arrayIter(event, "Records"),
 		fields: { value: accBody, body: accBody, data: accBody },
+		encoding: "utf8",
 	},
-	// MQ (ActiveMQ)
+	// MQ (ActiveMQ): "retrieves the messages as a BLOB of bytes,
+	// base64-encodes them into a single JSON payload."
+	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:amq": {
 		iterate: (event) => arrayIter(event, "messages"),
 		fields: { value: accData, body: accData, data: accData },
+		encoding: "base64",
 	},
-	// MQ (RabbitMQ)
+	// MQ (RabbitMQ): same paragraph as ActiveMQ — `data` is base64.
+	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:rmq": {
 		iterate: (event) => rmqIter(event),
 		fields: { value: accData, body: accData, data: accData },
+		encoding: "base64",
 	},
 };
 

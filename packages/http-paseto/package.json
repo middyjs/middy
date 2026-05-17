@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-paseto",
-	"version": "7.6.3",
+	"version": "7.6.4",
 	"description": "HTTP PASETO authentication middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,7 +62,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.3"
+		"@middy/util": "7.6.4"
 	},
 	"peerDependencies": {
 		"paseto": "^3.0.0"
@@ -73,7 +73,7 @@
 		}
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.3",
+		"@middy/core": "7.6.4",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"paseto": "3.1.4"

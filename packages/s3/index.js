@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonContentTypePattern,
 	jsonSafeParse,
 	modifyCache,
@@ -78,6 +79,7 @@ const s3Middleware = (opts = {}) => {
 		...opts,
 	};
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
@@ -116,9 +118,9 @@ const s3Middleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			if (pending) await pending;
 		}
 	};
 	return {

@@ -40,9 +40,11 @@ const validatorMiddleware = (opts = {}) => {
 		languages,
 	} = { ...defaults, ...opts };
 
-	const validatorMiddlewareBefore = async (request) => {
+	const validatorMiddlewareBefore = (request) => {
 		if (eventSchema) {
-			const validEvent = await eventSchema(request.event);
+			// AJV-compiled validators are synchronous (unless `$async`);
+			// dropping `await` skips a per-hook microtask on the warm path.
+			const validEvent = eventSchema(request.event);
 
 			if (!validEvent) {
 				const localize =
@@ -61,7 +63,7 @@ const validatorMiddleware = (opts = {}) => {
 		}
 
 		if (contextSchema) {
-			const validContext = await contextSchema(request.context);
+			const validContext = contextSchema(request.context);
 
 			if (!validContext) {
 				// Internal Server Error
@@ -75,8 +77,8 @@ const validatorMiddleware = (opts = {}) => {
 		}
 	};
 
-	const validatorMiddlewareAfter = async (request) => {
-		const validResponse = await responseSchema(request.response);
+	const validatorMiddlewareAfter = (request) => {
+		const validResponse = responseSchema(request.response);
 
 		if (!validResponse) {
 			// Internal Server Error

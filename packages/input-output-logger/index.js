@@ -44,133 +44,62 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		...opts,
 	};
 
+	// Disabled — register no hooks.
+	if (typeof logger !== "function") return {};
+
 	const omitPathTree = buildPathTree(omitPaths);
-	// needs `omitPathTree`, `logger`
-	const omitAndLog = (param, request) => {
-		const message = { [param]: request[param] };
+	const withContext = executionContext || lambdaContext;
 
-		if (executionContext) {
-			if (isExecutionModeDurable(request.context)) {
-				message.context ??= {};
-				message.context.executionContext = pick(
-					request.context.executionContext,
-					executionContextKeys,
-				);
-			} else {
-				message.context = pick(request.context, executionContextKeys);
-			}
+	const log = (param, request, data) => {
+		const message = { [param]: omit(data, omitPathTree[param], mask) };
+		if (withContext) {
+			const ctx = buildContext(
+				request.context,
+				executionContext,
+				lambdaContext,
+			);
+			if (ctx) message.context = ctx;
 		}
-		if (lambdaContext) {
-			if (isExecutionModeDurable(request.context)) {
-				message.context ??= {};
-				message.context.lambdaContext = pick(
-					request.context.lambdaContext,
-					lambdaContextKeys,
-				);
-			} else {
-				message.context = pick(request.context, lambdaContextKeys);
-			}
-		}
-
-		let cloneMessage = message;
-		if (omitPaths.length) {
-			// Clone only the branch being omitted, not the entire message
-			cloneMessage = { ...message };
-			cloneMessage[param] = structuredClone(message[param]);
-			omit(cloneMessage, { [param]: omitPathTree[param] });
-		}
-		logger(cloneMessage);
+		logger(message);
 	};
 
-	// needs `mask`
-	const omit = (obj, pathTree = {}) => {
-		if (Array.isArray(obj) && pathTree["[]"]) {
-			for (let i = 0, l = obj.length; i < l; i++) {
-				omit(obj[i], pathTree["[]"]);
-			}
-		} else if (isObject(obj)) {
-			for (const key in pathTree) {
-				if (pathTree[key] === true) {
-					if (mask) {
-						obj[key] = mask;
-					} else {
-						delete obj[key];
-					}
-				} else {
-					omit(obj[key], pathTree[key]);
-				}
-			}
-		}
-	};
-
-	const inputOutputLoggerMiddlewareBefore = (request) => {
-		omitAndLog("event", request);
-	};
-	const inputOutputLoggerMiddlewareAfter = (request) => {
-		// Check for Node.js stream
-		if (
-			request.response?._readableState ??
-			request.response?.body?._readableState
-		) {
-			passThrough(request, omitAndLog);
-		}
-		// Check for Web stream
-		else if (
-			request.response instanceof ReadableStream ||
-			request.response?.body instanceof ReadableStream
-		) {
-			passThroughWebStream(request, omitAndLog);
+	const logResponse = (request) => {
+		const { response } = request;
+		// Streamed responses tee chunks so we can capture the body without
+		// consuming it. Plain responses log directly.
+		if (isNodeStream(response) || isNodeStream(response?.body)) {
+			teeStream(request, log, makeNodeTee);
+		} else if (isWebStream(response) || isWebStream(response?.body)) {
+			teeStream(request, log, makeWebTee);
 		} else {
-			omitAndLog("response", request);
+			log("response", request, response);
 		}
-	};
-	const inputOutputLoggerMiddlewareOnError = async (request) => {
-		if (typeof request.response === "undefined") return;
-		await inputOutputLoggerMiddlewareAfter(request);
 	};
 
 	return {
-		before:
-			typeof logger === "function"
-				? inputOutputLoggerMiddlewareBefore
-				: undefined,
-		after:
-			typeof logger === "function"
-				? inputOutputLoggerMiddlewareAfter
-				: undefined,
-		onError:
-			typeof logger === "function"
-				? inputOutputLoggerMiddlewareOnError
-				: undefined,
+		before: (request) => log("event", request, request.event),
+		after: logResponse,
+		onError: (request) => {
+			if (request.response !== undefined) logResponse(request);
+		},
 	};
 };
 
-// move to util, if ever used elsewhere
-const pick = (originalObject = {}, keysToPick = []) => {
-	const newObject = {};
-	for (const path of keysToPick) {
-		// only supports first level
-		if (originalObject[path] !== undefined) {
-			newObject[path] = originalObject[path];
-		}
-	}
-	return newObject;
-};
-
-const isObject = (value) =>
-	value && typeof value === "object" && value.constructor === Object;
+// -- omit-path utilities -----------------------------------------------------
 
 const buildPathTree = (paths) => {
 	const tree = {};
 	for (let path of paths.sort().reverse()) {
-		// reverse to ensure conflicting paths don't cause issues
+		// reverse so a leaf path (`a.b = true`) overrides a longer one
+		// (`a.b.c = true`) when both are configured
 		if (!Array.isArray(path)) path = path.split(".");
 		if (
 			path.includes("__proto__") ||
 			path.includes("constructor") ||
 			path.includes("prototype")
-		)
+		) {
 			continue;
+		}
 		path.reduce((a, b, idx) => {
 			if (idx < path.length - 1) {
 				a[b] ??= {};
@@ -183,70 +112,157 @@ const buildPathTree = (paths) => {
 	return tree;
 };
 
-const passThrough = (request, omitAndLog) => {
-	// required because `core` remove body before `flush` is triggered
-	const hasBody = request.response?.body;
+// Returns `obj` unchanged when no `pathTree` entry applies (zero allocations
+// on the cold subtree); otherwise returns a shallow clone with matched keys
+// masked or removed. Only branches present in `pathTree` are walked.
+const omit = (obj, pathTree, mask) => {
+	if (!pathTree) return obj;
+	if (Array.isArray(obj)) return omitArray(obj, pathTree["[]"], mask);
+	if (isPlainObject(obj)) return omitObject(obj, pathTree, mask);
+	return obj;
+};
+
+const omitArray = (arr, childTree, mask) => {
+	if (!childTree) return arr;
+	let clone = arr;
+	for (let i = 0, l = arr.length; i < l; i++) {
+		const next = omit(arr[i], childTree, mask);
+		if (next !== arr[i]) {
+			if (clone === arr) clone = arr.slice();
+			clone[i] = next;
+		}
+	}
+	return clone;
+};
+
+const omitObject = (obj, pathTree, mask) => {
+	let clone = obj;
+	for (const key in pathTree) {
+		const sub = pathTree[key];
+		if (sub === true) {
+			// leaf — mask or remove
+			if (mask !== undefined) {
+				if (clone === obj) clone = { ...obj };
+				clone[key] = mask;
+			} else if (Object.hasOwn(obj, key)) {
+				if (clone === obj) clone = { ...obj };
+				delete clone[key];
+			}
+		} else {
+			const next = omit(obj[key], sub, mask);
+			if (next !== obj[key]) {
+				if (clone === obj) clone = { ...obj };
+				clone[key] = next;
+			}
+		}
+	}
+	return clone;
+};
+
+const isPlainObject = (value) =>
+	value && typeof value === "object" && value.constructor === Object;
+
+// -- context merging ---------------------------------------------------------
+
+// First-level pick. Returns `null` when nothing matches so callers can avoid
+// attaching empty objects to the message.
+const pick = (source, keys) => {
+	if (!source) return null;
+	let out = null;
+	for (const key of keys) {
+		if (source[key] !== undefined) {
+			if (out === null) out = {};
+			out[key] = source[key];
+		}
+	}
+	return out;
+};
+
+// Durable mode → nested `{executionContext, lambdaContext}` namespaces under
+// `message.context`. Standard mode → flat pick onto `message.context` (later
+// option wins on key collisions, matching historical behaviour).
+const buildContext = (context, withExec, withLambda) => {
+	if (isExecutionModeDurable(context)) {
+		const exec = withExec
+			? pick(context.executionContext, executionContextKeys)
+			: null;
+		const lambda = withLambda
+			? pick(context.lambdaContext, lambdaContextKeys)
+			: null;
+		if (!exec && !lambda) return null;
+		const out = {};
+		if (exec) out.executionContext = exec;
+		if (lambda) out.lambdaContext = lambda;
+		return out;
+	}
+	// Caller guards entry on `withExec || withLambda`, so the other branch
+	// here is guaranteed `withExec` when `withLambda` is false.
+	return withLambda
+		? pick(context, lambdaContextKeys)
+		: pick(context, executionContextKeys);
+};
+
+// -- stream tee --------------------------------------------------------------
+
+const isNodeStream = (value) => Boolean(value?._readableState);
+const isWebStream = (value) => value instanceof ReadableStream;
+
+// Tee the response (or its `.body`) through an engine-specific transform so
+// we can capture the streamed body and log it after flush. `core` may clear
+// `request.response` before flush triggers, so we snapshot the response shape
+// at tee-time and reattach the accumulated body inside the flush callback.
+const teeStream = (request, log, makeTee) => {
+	const hasBody = !!request.response?.body;
+	const source = hasBody ? request.response.body : request.response;
+	const snapshot = hasBody ? request.response : null;
 	let body = "";
-	const listen = new Transform({
+	const piped = makeTee(source, {
+		onChunk: (chunk) => {
+			body += chunk;
+		},
+		onFlush: () => {
+			log("response", request, hasBody ? { ...snapshot, body } : body);
+		},
+	});
+	if (hasBody) request.response.body = piped;
+	else request.response = piped;
+};
+
+const makeNodeTee = (source, { onChunk, onFlush }) => {
+	const transform = new Transform({
 		objectMode: false,
 		transform(chunk, encoding, callback) {
-			body += chunk;
+			onChunk(chunk);
 			this.push(chunk, encoding);
 			callback();
 		},
 		flush(callback) {
-			if (hasBody) {
-				omitAndLog("response", { response: { ...request.response, body } });
-			} else {
-				omitAndLog("response", { response: body });
-			}
+			onFlush();
 			callback();
 		},
 	});
-	if (hasBody) {
-		request.response.body = request.response.body
-			.on("error", (e) => listen.destroy(e))
-			.pipe(listen);
-	} else {
-		request.response = request.response
-			.on("error", (e) => listen.destroy(e))
-			.pipe(listen);
-	}
+	return source.on("error", (e) => transform.destroy(e)).pipe(transform);
 };
 
-// Handler for Web Streams API
-const passThroughWebStream = (request, omitAndLog) => {
-	const hasBody = request.response?.body;
-	let body = "";
-
-	const transformer = new TransformStream({
-		transform(chunk, controller) {
-			// For web streams, chunks could be various types
-			const textChunk =
-				typeof chunk === "string"
-					? chunk
-					: chunk instanceof Uint8Array
-						? new TextDecoder().decode(chunk)
-						: String(chunk);
-			body += textChunk;
-			controller.enqueue(chunk);
-		},
-		flush(controller) {
-			if (hasBody) {
-				omitAndLog("response", { response: { ...request.response, body } });
-			} else {
-				omitAndLog("response", { response: body });
-			}
-		},
-	});
-
-	if (hasBody) {
-		// Handle response with body property that's a ReadableStream
-		request.response.body = request.response.body.pipeThrough(transformer);
-	} else {
-		// Handle response that's directly a ReadableStream
-		request.response = request.response.pipeThrough(transformer);
-	}
+const webDecoder = new TextDecoder();
+const decodeWebChunk = (chunk) => {
+	if (typeof chunk === "string") return chunk;
+	if (chunk instanceof Uint8Array)
+		return webDecoder.decode(chunk, { stream: true });
+	return String(chunk);
 };
+
+const makeWebTee = (source, { onChunk, onFlush }) =>
+	source.pipeThrough(
+		new TransformStream({
+			transform(chunk, controller) {
+				onChunk(decodeWebChunk(chunk));
+				controller.enqueue(chunk);
+			},
+			flush() {
+				onFlush();
+			},
+		}),
+	);
 
 export default inputOutputLoggerMiddleware;

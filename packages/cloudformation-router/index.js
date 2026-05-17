@@ -19,6 +19,7 @@ const defaults = {
 };
 
 const requestTypes = ["Create", "Update", "Delete"];
+const requestTypesSet = new Set(requestTypes);
 
 const optionSchema = {
 	type: "object",
@@ -63,7 +64,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 		const { RequestType: requestType } = event;
 		// Schema `enum` only validates route config at setup; this guard
 		// validates the incoming AWS event shape at invocation time.
-		if (!requestType || !requestTypes.includes(requestType)) {
+		if (!requestType || !requestTypesSet.has(requestType)) {
 			throw new Error(
 				`Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: ${requestType ?? "undefined"}`,
 				{
@@ -75,9 +76,11 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 			);
 		}
 
-		// Static
-		if (Object.hasOwn(routesStatic, requestType)) {
-			const handler = routesStatic[requestType];
+		// Static. `routesStatic` is `Object.create(null)` and `requestType` is
+		// guarded above to one of {Create,Update,Delete}, so a single read +
+		// `=== undefined` check is safe (no prototype chain walk).
+		const handler = routesStatic[requestType];
+		if (handler !== undefined) {
 			return handler(event, context, abort);
 		}
 

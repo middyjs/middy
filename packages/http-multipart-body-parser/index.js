@@ -132,18 +132,24 @@ const parseMultipartData = (event, options) => {
 				};
 
 				const chunks = [];
+				let totalLength = 0;
 
 				file.on("data", (data) => {
 					chunks.push(data);
+					totalLength += data.length;
 				});
 				file.on("end", () => {
 					attachment.truncated = file.truncated;
-					attachment.content = Buffer.concat(chunks);
-					if (!multipartData[fieldname]) {
+					// Pass total length to skip Buffer.concat's prepass scan.
+					attachment.content = Buffer.concat(chunks, totalLength);
+					const current = multipartData[fieldname];
+					if (current === undefined) {
 						multipartData[fieldname] = attachment;
+					} else if (Array.isArray(current)) {
+						// Preserve historical semantics: new attachment first.
+						current.unshift(attachment);
 					} else {
-						const current = multipartData[fieldname];
-						multipartData[fieldname] = [attachment].concat(current);
+						multipartData[fieldname] = [attachment, current];
 					}
 				});
 			})

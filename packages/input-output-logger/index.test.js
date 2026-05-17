@@ -406,6 +406,29 @@ test("It should include the AWS lambda context", async (t) => {
 	]);
 });
 
+test("It should include only the execution context when lambdaContext is off (standard mode)", async (t) => {
+	const logger = t.mock.fn();
+
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+		}),
+	);
+
+	const event = { foo: "bar" };
+	const context = {
+		...defaultContext,
+		tenantId: "alpha",
+		functionName: "test",
+	};
+	await handler(event, context);
+
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event, context: { tenantId: "alpha" } },
+	]);
+});
+
 test("It should include the AWS lambda durable context", async (t) => {
 	const logger = t.mock.fn();
 
@@ -466,6 +489,110 @@ test("It should include the AWS lambda durable context", async (t) => {
 			},
 		},
 	]);
+});
+
+test("It should include only the execution context (durable mode, no lambdaContext requested)", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+		}),
+	);
+	await handler(
+		{ foo: "bar" },
+		{
+			executionContext: { tenantId: "alpha" },
+			lambdaContext: { functionName: "test" },
+			constructor: { name: "DurableContextImpl" },
+		},
+	);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event: { foo: "bar" },
+			context: { executionContext: { tenantId: "alpha" } },
+		},
+	]);
+});
+
+test("It should include only the lambda context (durable mode, no executionContext requested)", async (t) => {
+	const logger = t.mock.fn();
+
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			lambdaContext: true,
+		}),
+	);
+
+	const event = { foo: "bar" };
+	const context = {
+		lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
+		// No `executionContext` field — verifies pick handles absent source.
+		constructor: { name: "DurableContextImpl" },
+	};
+	await handler(event, context);
+
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event,
+			context: {
+				lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
+			},
+		},
+	]);
+});
+
+test("It should handle durable context with the requested namespace absent", async (t) => {
+	// `executionContext: true` but context.executionContext doesn't exist.
+	// pick is called with an undefined source and returns null cleanly.
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+			lambdaContext: true,
+		}),
+	);
+	await handler(
+		{ foo: "bar" },
+		{
+			// No `executionContext` — only lambdaContext present.
+			lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
+			constructor: { name: "DurableContextImpl" },
+		},
+	);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event: { foo: "bar" },
+			context: {
+				lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
+			},
+		},
+	]);
+});
+
+test("It should produce no message.context when picks find nothing (durable mode)", async (t) => {
+	// Both flags on, both inner contexts present but with no recognised keys —
+	// pick returns null for both, buildContext returns null, message.context
+	// is omitted.
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: true,
+			lambdaContext: true,
+		}),
+	);
+	await handler(
+		{ foo: "bar" },
+		{
+			executionContext: { unrelated: "x" },
+			lambdaContext: { unrelated: "y" },
+			constructor: { name: "DurableContextImpl" },
+		},
+	);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { foo: "bar" } }]);
 });
 
 test("It should skip logging if error is handled", async (t) => {

@@ -119,6 +119,13 @@ const httpPasetoMiddleware = (opts = {}) => {
 	if (options.clockTolerance !== undefined)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
 
+	// Per-middleware-instance cache of imported KeyObjects, keyed by the
+	// keyData reference. createPublicKey reparses DER through OpenSSL on
+	// every call (~tens of μs); since the resolved key is stable across
+	// warm invocations, cache it. WeakMap keys must be objects — string
+	// keyData (rare) falls through to the slow path each time.
+	const keyCache = new WeakMap();
+
 	const httpPasetoMiddlewareBefore = async (request) => {
 		const token = parseToken(request.event);
 
@@ -140,19 +147,16 @@ const httpPasetoMiddleware = (opts = {}) => {
 			});
 		}
 
-		let key;
-		if (keyData?.publicKey instanceof Uint8Array) {
-			key = createPublicKey({
-				key: Buffer.from(keyData.publicKey),
-				format: "der",
-				type: "spki",
-			});
-		} else {
-			key = createPublicKey({
-				key: Buffer.from(keyData),
-				format: "der",
-				type: "spki",
-			});
+		// WeakMap.get on a primitive returns `undefined` (only `set` throws),
+		// so a single lookup works for all keyData shapes; cache writes happen
+		// only for object-shaped keys. `createPublicKey` accepts Uint8Array /
+		// Buffer directly — no copy needed.
+		let key = keyCache.get(keyData);
+		if (key === undefined) {
+			const bytes =
+				keyData?.publicKey instanceof Uint8Array ? keyData.publicKey : keyData;
+			key = createPublicKey({ key: bytes, format: "der", type: "spki" });
+			keyCache.set(keyData, key);
 		}
 
 		try {

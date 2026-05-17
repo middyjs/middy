@@ -647,6 +647,207 @@ test("It should escape regex metacharacters in static path segments", async (t) 
 	}
 });
 
+// Behavior pinning tests — these lock in semantics so optimizations
+// cannot silently regress matching order, parameter capture, or 404 paths.
+
+test("It should route to the matching dynamic route when multiple segment counts coexist", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/user/{id}",
+			handler: (event) => `one:${event.pathParameters.id}`,
+		},
+		{
+			method: "GET",
+			path: "/user/{id}/posts/{postId}",
+			handler: (event) =>
+				`two:${event.pathParameters.id}-${event.pathParameters.postId}`,
+		},
+		{
+			method: "GET",
+			path: "/user/{id}/posts/{postId}/comments/{commentId}",
+			handler: (event) =>
+				`three:${event.pathParameters.id}-${event.pathParameters.postId}-${event.pathParameters.commentId}`,
+		},
+	]);
+
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/user/42" }, defaultContext),
+		"one:42",
+	);
+	strictEqual(
+		await handler(
+			{ httpMethod: "GET", path: "/user/42/posts/9" },
+			defaultContext,
+		),
+		"two:42-9",
+	);
+	strictEqual(
+		await handler(
+			{ httpMethod: "GET", path: "/user/42/posts/9/comments/7" },
+			defaultContext,
+		),
+		"three:42-9-7",
+	);
+});
+
+test("It should 404 a deeper path against a shallower dynamic route", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/user/{id}", handler: () => "should-not-match" },
+	]);
+	try {
+		await handler(
+			{ httpMethod: "GET", path: "/user/42/extra" },
+			defaultContext,
+		);
+		ok(false, "expected 404");
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should 404 a shallower path against a deeper dynamic route", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/user/{id}/posts/{postId}",
+			handler: () => "should-not-match",
+		},
+	]);
+	try {
+		await handler({ httpMethod: "GET", path: "/user/42" }, defaultContext);
+		ok(false, "expected 404");
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+test("It should preserve registration order: wildcard before specific wins", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/{proxy+}", handler: () => "wild" },
+		{ method: "GET", path: "/users/{id}", handler: () => "specific" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/users/1" }, defaultContext),
+		"wild",
+	);
+});
+
+test("It should preserve registration order: specific before wildcard wins", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/users/{id}", handler: () => "specific" },
+		{ method: "GET", path: "/{proxy+}", handler: () => "wild" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/users/1" }, defaultContext),
+		"specific",
+	);
+	// Wildcard still catches non-matching depth
+	strictEqual(
+		await handler(
+			{ httpMethod: "GET", path: "/users/1/extra/2" },
+			defaultContext,
+		),
+		"wild",
+	);
+});
+
+test("It should match wildcard across varying depths in a single router", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/files/{proxy+}",
+			handler: (event) => event.pathParameters.proxy,
+		},
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files" }, defaultContext),
+		"",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files/a" }, defaultContext),
+		"a",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/files/a/b/c" }, defaultContext),
+		"a/b/c",
+	);
+});
+
+test("It should isolate dynamic routes between methods", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/user/{id}", handler: () => "get" },
+		{ method: "POST", path: "/user/{id}/items", handler: () => "post" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/user/1" }, defaultContext),
+		"get",
+	);
+	try {
+		await handler({ httpMethod: "POST", path: "/user/1" }, defaultContext);
+		ok(false, "expected 404");
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+	}
+	strictEqual(
+		await handler(
+			{ httpMethod: "POST", path: "/user/1/items" },
+			defaultContext,
+		),
+		"post",
+	);
+});
+
+test("It should match dynamic route with trailing slash on the request", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/user/{id}",
+			handler: (event) => event.pathParameters.id,
+		},
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/user/42/" }, defaultContext),
+		"42",
+	);
+});
+
+test("It should route VPC Lattice event with empty query string", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/path", handler: () => true },
+	]);
+	ok(await handler({ method: "GET", raw_path: "/path?" }, defaultContext));
+});
+
+test("It should route VPC Lattice event with multiple query parameters", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/path", handler: () => true },
+	]);
+	ok(
+		await handler(
+			{ method: "GET", raw_path: "/path?a=1&b=2&c=3" },
+			defaultContext,
+		),
+	);
+});
+
+test("It should expose a plain-object pathParameters (not null-prototype)", async (t) => {
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/u/{id}",
+			handler: (event) => {
+				ok(event.pathParameters.__proto__ === Object.prototype);
+				return event.pathParameters.id;
+			},
+		},
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/u/9" }, defaultContext),
+		"9",
+	);
+});
+
 test("httpRouterValidateOptions accepts valid options and rejects typos", () => {
 	httpRouterValidateOptions({ routes: [], notFoundResponse: () => {} });
 	httpRouterValidateOptions({});
