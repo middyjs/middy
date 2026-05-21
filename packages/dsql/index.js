@@ -94,7 +94,7 @@ const dsqlMiddleware = (opts = {}) => {
 				await request.context[options.contextKey].end();
 			}
 		} catch (e) {
-			console.error(`${pkg}: cleanup error`, e);
+			console.error("%s: cleanup error: %s", pkg, e.message);
 		}
 	};
 	const dsqlMiddlewareOnError = dsqlMiddlewareAfter;

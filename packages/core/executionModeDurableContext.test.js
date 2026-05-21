@@ -7,14 +7,12 @@ import middy from "./index.js";
 const _event = {};
 const _context = {};
 
-test.beforeEach(async (t) => {
+test.beforeEach(async () => {
 	await LocalDurableTestRunner.setupTestEnvironment({
 		skipTime: true,
 	});
-	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 });
-test.afterEach(async (t) => {
-	t.mock.reset();
+test.afterEach(async () => {
 	await LocalDurableTestRunner.teardownTestEnvironment();
 });
 
