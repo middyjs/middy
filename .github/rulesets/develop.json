@@ -1,0 +1,23 @@
+{
+	"name": "develop",
+	"target": "branch",
+	"enforcement": "active",
+	"conditions": {
+		"ref_name": {
+			"exclude": [],
+			"include": ["refs/heads/develop"]
+		}
+	},
+	"rules": [
+		{
+			"type": "deletion"
+		},
+		{
+			"type": "non_fast_forward"
+		},
+		{
+			"type": "required_signatures"
+		}
+	],
+	"bypass_actors": []
+}

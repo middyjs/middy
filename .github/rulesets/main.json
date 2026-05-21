@@ -1,0 +1,133 @@
+{
+	"name": "main",
+	"target": "branch",
+	"enforcement": "active",
+	"conditions": {
+		"ref_name": {
+			"exclude": [],
+			"include": ["~DEFAULT_BRANCH"]
+		}
+	},
+	"rules": [
+		{
+			"type": "deletion"
+		},
+		{
+			"type": "non_fast_forward"
+		},
+		{
+			"type": "pull_request",
+			"parameters": {
+				"required_approving_review_count": 2,
+				"dismiss_stale_reviews_on_push": true,
+				"required_reviewers": [],
+				"require_code_owner_review": true,
+				"require_last_push_approval": true,
+				"required_review_thread_resolution": false,
+				"allowed_merge_methods": ["merge"]
+			}
+		},
+		{
+			"type": "code_scanning",
+			"parameters": {
+				"code_scanning_tools": [
+					{
+						"tool": "CodeQL",
+						"security_alerts_threshold": "all",
+						"alerts_threshold": "all"
+					},
+					{
+						"tool": "zizmor",
+						"security_alerts_threshold": "high_or_higher",
+						"alerts_threshold": "errors"
+					}
+				]
+			}
+		},
+		{
+			"type": "required_status_checks",
+			"parameters": {
+				"strict_required_status_checks_policy": true,
+				"do_not_enforce_on_create": false,
+				"required_status_checks": [
+					{
+						"context": "CodeQL",
+						"integration_id": 57789
+					},
+					{
+						"context": "Tests (fuzz)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (perf)",
+						"integration_id": 15368
+					},
+					{
+						"context": "CodeQL: SAST (javascript)",
+						"integration_id": 15368
+					},
+					{
+						"context": "semgrep: SAST",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (types)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (lint)",
+						"integration_id": 15368
+					},
+					{
+						"context": "DCO",
+						"integration_id": 1861
+					},
+					{
+						"context": "Tests (dco)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Trivy: Licensing",
+						"integration_id": 15368
+					},
+					{
+						"context": "Trivy: SCA",
+						"integration_id": 15368
+					},
+					{
+						"context": "lockfile-lint: SAST package-lock.json",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (unit) (22.x)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (unit) (24.x)",
+						"integration_id": 15368
+					},
+					{
+						"context": "actionlint: GitHub Actions lint",
+						"integration_id": 15368
+					},
+					{
+						"context": "zizmor: GitHub Actions SAST",
+						"integration_id": 15368
+					},
+					{
+						"context": "TruffleHog: secrets",
+						"integration_id": 15368
+					},
+					{
+						"context": "gitleaks: secrets",
+						"integration_id": 15368
+					}
+				]
+			}
+		},
+		{
+			"type": "required_signatures"
+		}
+	],
+	"bypass_actors": []
+}

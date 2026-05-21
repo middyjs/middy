@@ -1,0 +1,20 @@
+{
+	"name": "version",
+	"target": "tag",
+	"enforcement": "active",
+	"conditions": {
+		"ref_name": {
+			"exclude": [],
+			"include": ["~ALL"]
+		}
+	},
+	"rules": [
+		{
+			"type": "non_fast_forward"
+		},
+		{
+			"type": "deletion"
+		}
+	],
+	"bypass_actors": []
+}
