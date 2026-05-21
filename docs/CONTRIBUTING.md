@@ -19,6 +19,8 @@ npm i -g lockfile-lint
 brew install semgrep
 brew install trivy
 brew install trufflehog
+brew install actionlint
+brew install zizmor
 echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
 docker pull ghcr.io/oss-review-toolkit/ort
 ```

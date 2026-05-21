@@ -216,7 +216,7 @@ const checkRule = (rule, value, path, fail) => {
 				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
 			}
 		}
-		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
+		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
 		if (minLength !== undefined && value.length < minLength) {

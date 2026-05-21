@@ -52,6 +52,7 @@ const config = {
 	preprocess: [
 		mdsvex({
 			extensions: [".md"],
+			smartypants: false,
 			layout: {
 				_: resolve("./src/components/docs/mdsvex-layout.svelte"),
 			},

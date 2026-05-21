@@ -15,7 +15,7 @@ npm install --save @middy/cloudformation-router
 
 ## Options
 
-- `routes` (array[\{requestType, handler\}]) (required): Array of route objects.
+- `routes` (`array[{requestType, handler}]`) (required): Array of route objects.
   - `requestType` (string) (required): AWS formatted request type. One of `Create`, `Update`, `Delete`
   - `handler` (function) (required): Any `handler(event, context, {signal})` function
 - `notFoundResponse` (function): Override default FAILED response with your own custom response. Passes in `{requestType}`
