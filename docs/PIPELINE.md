@@ -44,7 +44,7 @@ These run on every PR and (where noted) on a weekly cron.
 | [test-perf.yml](../.github/workflows/test-perf.yml) | PR | `tinybench` performance regression check | Defence-in-depth |
 | [test-dast.yml](../.github/workflows/test-dast.yml) | PR | Property-based fuzz tests via `fast-check` | V3.3.14 |
 | [test-dco.yml](../.github/workflows/test-dco.yml) | PR | Developer Certificate of Origin sign-off | V1.3.5 |
-| [test-sast.yml](../.github/workflows/test-sast.yml) | PR + weekly cron | Trivy SCA (vuln) + Trivy license + lockfile-lint + CodeQL + semgrep + actionlint + zizmor + TruffleHog + gitleaks | V2.4.1-6, V2.4.7-9, V2.4.14, V2.5.1, V2.6.1, V3.1.5, V3.3.1-9 |
+| [test-sast.yml](../.github/workflows/test-sast.yml) | PR + weekly cron | Trivy SCA (vuln) + Trivy license + lockfile-lint + CodeQL (javascript + actions) + semgrep + actionlint + zizmor + TruffleHog + gitleaks | V2.4.1-6, V2.4.7-9, V2.4.14, V2.5.1, V2.6.1, V3.1.5, V3.3.1-9 |
 | [ossf-scorecard.yml](../.github/workflows/ossf-scorecard.yml) | weekly cron + push to `main` | OSSF Scorecard scan; SARIF upload to code-scanning + results published to scorecard.dev | V3.3.18, V3.3.19, V5.2.1 |
 | [website-cloudflare-pages.yml](../.github/workflows/website-cloudflare-pages.yml) | push to `main` (under `websites/`) | Build + deploy the docs site | Outside SPVS scope (docs site, not the npm package) |
 

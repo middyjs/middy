@@ -162,7 +162,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | V3.1.1 | 1 | Build servers hardened and regularly patched | :white_check_mark: | Ephemeral GitHub-hosted `ubuntu-latest` runners (auto-patched); every job pins `step-security/harden-runner` (audit egress, telemetry disabled) with one documented exception: the `semgrep` job in [test-sast.yml](../.github/workflows/test-sast.yml) runs inside the pinned `semgrep/semgrep:1.111.0` container where harden-runner cannot install. See [release.yml](../.github/workflows/release.yml) and all `test-*` workflows |
 | V3.1.2 | 2 | Access to build servers restricted | :white_check_mark: | GitHub-managed; no self-hosted runners |
 | V3.1.3 | 2 | Build servers monitored for unauthorised access | :white_check_mark: | `harden-runner` egress audit logs accessible via the StepSecurity dashboard; org audit log available to admins |
-| V3.1.5 | 2 | Build systems reviewed for misconfiguration | :white_check_mark: | zizmor + actionlint in [test-sast.yml](../.github/workflows/test-sast.yml) (every PR + weekly) |
+| V3.1.5 | 2 | Build systems reviewed for misconfiguration | :white_check_mark: | zizmor + actionlint + CodeQL `actions` dataflow analysis in [test-sast.yml](../.github/workflows/test-sast.yml) (every PR + weekly) |
 
 ### V3.2 Credential Hygiene
 
