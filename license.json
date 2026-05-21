@@ -16,6 +16,7 @@
 		"docs/**/*",
 		"LICENSE",
 		"license.template",
+		".gitleaks.toml",
 		"**/.gitignore",
 		"**/*.fuzz.js",
 		"**/*.perf.js",

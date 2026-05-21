@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''.*\.svelte-kit/.*''',
+    '''.*\.test\.js$''',
+]

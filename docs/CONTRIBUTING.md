@@ -19,6 +19,7 @@ npm i -g lockfile-lint
 brew install semgrep
 brew install trivy
 brew install trufflehog
+brew install gitleaks
 brew install actionlint
 brew install zizmor
 echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME

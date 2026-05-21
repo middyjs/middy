@@ -89,8 +89,7 @@ const rdsMiddleware = (opts = {}) => {
 				await request.context[options.contextKey].end();
 			}
 		} catch (e) {
-			const msg = `${pkg}: cleanup error`;
-			console.error(msg, e.message);
+			console.error("%s: cleanup error: %s", pkg, e.message);
 		}
 	};
 	const rdsMiddlewareOnError = rdsMiddlewareAfter;
