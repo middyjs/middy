@@ -3,8 +3,8 @@ name: Tests (unit)
 on:
   pull_request:
 
-env:
-  NODE_VERSION: 24.x # Not used. See jobs.unit.strategy.matrix.node-version
+# env:
+#   NODE_VERSION: 24.x
 
 permissions:
   contents: read
