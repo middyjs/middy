@@ -615,10 +615,9 @@ export const lambdaContextKeys = [
 
 export const executionContextKeys = ["tenantId"];
 
+// TODO https://github.com/aws/aws-durable-execution-sdk-js/pull/558
 export const isExecutionModeDurable = (context) => {
-	// using `context instanceof DurableContextImpl` would be better
-	// but would require an extra dependency
-	return context.constructor.name === "DurableContextImpl";
+	return typeof context?.step === "function";
 };
 
 export const executionContext = (request, key, context) => {

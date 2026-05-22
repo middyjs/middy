@@ -137,9 +137,6 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	return middy;
 };
 
-// shared AbortController, because it's slow
-let handlerAbort = new AbortController();
-let abortOpts = { signal: handlerAbort.signal };
 const runRequest = async (
 	request,
 	beforeMiddlewares,
@@ -162,15 +159,14 @@ const runRequest = async (
 		if (!("earlyResponse" in request)) {
 			plugin.beforeHandler();
 
-			// Can't manually abort and timeout with same AbortSignal
-			// https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
-			if (handlerAbort.signal.aborted) {
-				handlerAbort = new AbortController();
-				abortOpts = { signal: handlerAbort.signal };
-			}
+			// Per-request AbortController: scoping it here keeps nested middy
+			// calls and concurrent invocations (workers/non-Lambda hosts) from
+			// aborting each other's signals.
+			const handlerAbort = new AbortController();
+			const abortOpts = { signal: handlerAbort.signal };
 
-			// clearTimeout pattern is 10x faster than using AbortController
-			// Note: signal.abort is slow ~6_000ns
+			// clearTimeout pattern is ~24x faster than timers/promises + AbortController
+			// Note: signal.abort is slow ~3_500ns
 			// Required --test-force-exit to ignore unresolved timeoutPromise
 			const handlerResult = lambdaHandler(
 				request.event,

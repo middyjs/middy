@@ -569,6 +569,12 @@ test("under durable context, success path produces empty batchItemFailures", asy
 		constructor() {
 			this.getRemainingTimeInMillis = () => 1000;
 		}
+		async step(_id, fn) {
+			return fn(this);
+		}
+		async runInChildContext(_id, fn) {
+			return fn(this);
+		}
 	}
 	const event = createEvent.default("aws:sqs", {
 		Records: [
@@ -589,6 +595,12 @@ test("onError under durable context: no-op (durable owns retry)", async () => {
 	class DurableContextImpl {
 		constructor() {
 			this.getRemainingTimeInMillis = () => 1000;
+		}
+		async step(_id, fn) {
+			return fn(this);
+		}
+		async runInChildContext(_id, fn) {
+			return fn(this);
 		}
 	}
 	const event = createEvent.default("aws:sqs", {

@@ -8,6 +8,7 @@
 		"node": ">=22"
 	},
 	"engineStrict": true,
+	"packageManager": "npm@11.15.0+sha512.fa4d2d93b9519e93143e70bb913b94ff2ad5fe69c5a0f84943be557cbb59e9fc1bcce55768fb1313f225f4f9f50c78b8f366f2332aa41effd7b10efa98d8d72f",
 	"scripts": {
 		"prepare": "husky",
 		"git:pre-commit": "npm run git:lint-staged && npm run git:test-staged",
@@ -37,7 +38,7 @@
 		"rm": "npm run rm:node_modules && npm run rm:lock",
 		"rm:lock": "find . -name 'package-lock.json' -type f -exec rm -f '{}' +",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
-		"update": "npm update --workspaces && npm install --workspaces",
+		"update": "corepack up && npm run rm && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
 		"audit": "npm audit fix --workspaces",
 		"release:license:add": "license-check-and-add add -f license.json",

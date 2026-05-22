@@ -15,6 +15,18 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
+class DurableContextImpl {
+	constructor(props = {}) {
+		Object.assign(this, props);
+	}
+	async step(_id, fn) {
+		return fn(this);
+	}
+	async runInChildContext(_id, fn) {
+		return fn(this);
+	}
+}
+
 test("It should log event and response", async (t) => {
 	const logger = t.mock.fn();
 
@@ -441,7 +453,7 @@ test("It should include the AWS lambda durable context", async (t) => {
 	);
 
 	const event = { foo: "bar", fuu: "baz" };
-	const context = {
+	const context = new DurableContextImpl({
 		executionContext: {
 			requestId: "uuid",
 			tenantId: "alpha",
@@ -451,11 +463,7 @@ test("It should include the AWS lambda durable context", async (t) => {
 			functionName: "test",
 			awsRequestId: "xxxxx",
 		},
-		// mock Class
-		constructor: {
-			name: "DurableContextImpl",
-		},
-	};
+	});
 	const response = await handler(event, context);
 
 	deepStrictEqual(response, event);
@@ -501,11 +509,10 @@ test("It should include only the execution context (durable mode, no lambdaConte
 	);
 	await handler(
 		{ foo: "bar" },
-		{
+		new DurableContextImpl({
 			executionContext: { tenantId: "alpha" },
 			lambdaContext: { functionName: "test" },
-			constructor: { name: "DurableContextImpl" },
-		},
+		}),
 	);
 	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{
@@ -526,11 +533,10 @@ test("It should include only the lambda context (durable mode, no executionConte
 	);
 
 	const event = { foo: "bar" };
-	const context = {
+	// No `executionContext` field — verifies pick handles absent source.
+	const context = new DurableContextImpl({
 		lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
-		// No `executionContext` field — verifies pick handles absent source.
-		constructor: { name: "DurableContextImpl" },
-	};
+	});
 	await handler(event, context);
 
 	deepStrictEqual(logger.mock.calls[0].arguments, [
@@ -556,11 +562,10 @@ test("It should handle durable context with the requested namespace absent", asy
 	);
 	await handler(
 		{ foo: "bar" },
-		{
-			// No `executionContext` — only lambdaContext present.
+		// No `executionContext` — only lambdaContext present.
+		new DurableContextImpl({
 			lambdaContext: { functionName: "test", awsRequestId: "xxxxx" },
-			constructor: { name: "DurableContextImpl" },
-		},
+		}),
 	);
 	deepStrictEqual(logger.mock.calls[0].arguments, [
 		{
@@ -586,11 +591,10 @@ test("It should produce no message.context when picks find nothing (durable mode
 	);
 	await handler(
 		{ foo: "bar" },
-		{
+		new DurableContextImpl({
 			executionContext: { unrelated: "x" },
 			lambdaContext: { unrelated: "y" },
-			constructor: { name: "DurableContextImpl" },
-		},
+		}),
 	);
 	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { foo: "bar" } }]);
 });

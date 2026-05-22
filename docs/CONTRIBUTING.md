@@ -13,8 +13,14 @@ Ensure git history is pulled from the `develop` branch.
 
 ## 2. Setup
 
+Enable Corepack so the npm version pinned in `package.json` (`packageManager`) is used automatically:
+
 ```bash
-npm i -g nmq
+corepack enable
+```
+
+```bash
+npm i -g npq
 npm i -g lockfile-lint
 brew install semgrep
 brew install trivy
@@ -46,9 +52,9 @@ We use `biome` with recommended configurations plus a few correctness additions.
 
 We use `node --test` with a minimum test coverage of:
 
-- lines: >=90%
-- branches: >=80%
-- functions: >=90%
+- lines: 100%
+- branches: 100%
+- functions: 100%
 
 Of course higher is always better. Bug fixes should always start with a failing unit test.
 New features should have acceptance and rejection tests.

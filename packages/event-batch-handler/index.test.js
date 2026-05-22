@@ -128,6 +128,9 @@ class DurableContextImpl {
 		stepCtx.parentStepId = id;
 		return fn(stepCtx);
 	}
+	async runInChildContext(_id, fn) {
+		return fn(Object.create(this));
+	}
 }
 
 test("durable context: each record runs in its own ctx.step keyed by index", async () => {

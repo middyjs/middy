@@ -18,6 +18,7 @@ import {
 	getCache,
 	getInternal,
 	HttpError,
+	isExecutionModeDurable,
 	isJsonStructured,
 	jsonSafeParse,
 	jsonSafeStringify,
@@ -926,6 +927,54 @@ test("HttpError should create error with explicit expose", async (t) => {
 	strictEqual(e.expose, true);
 });
 
+class DurableContextImpl {
+	constructor(props = {}) {
+		Object.assign(this, props);
+	}
+	async step(_id, fn) {
+		return fn(this);
+	}
+	async runInChildContext(_id, fn) {
+		return fn(this);
+	}
+}
+
+// isExecutionModeDurable
+describe("isExecutionModeDurable", () => {
+	test("returns true for a real durable context (has step + runInChildContext)", () => {
+		strictEqual(isExecutionModeDurable(new DurableContextImpl()), true);
+	});
+
+	test("returns false for a plain Lambda context", () => {
+		strictEqual(
+			isExecutionModeDurable({
+				functionName: "fn",
+				awsRequestId: "id",
+				getRemainingTimeInMillis: () => 1000,
+			}),
+			false,
+		);
+	});
+
+	test("returns false when step is present but not callable", () => {
+		strictEqual(isExecutionModeDurable({ step: "not-a-function" }), false);
+	});
+
+	test("returns false for null/undefined", () => {
+		strictEqual(isExecutionModeDurable(undefined), false);
+		strictEqual(isExecutionModeDurable(null), false);
+	});
+
+	test("returns false when constructor.name matches but no methods exist", () => {
+		strictEqual(
+			isExecutionModeDurable({
+				constructor: { name: "DurableContextImpl" },
+			}),
+			false,
+		);
+	});
+});
+
 // executionContext
 describe("executionContext", () => {
 	test("executionContext should get value from standard context", async (t) => {
@@ -940,18 +989,10 @@ describe("executionContext", () => {
 	});
 
 	test("executionContext should get value from durable context", async (t) => {
-		const request = {
-			context: {
-				executionContext: {
-					tenantId: "tenant-123",
-				},
-			},
-		};
-		const context = {
-			constructor: {
-				name: "DurableContextImpl",
-			},
-		};
+		const context = new DurableContextImpl({
+			executionContext: { tenantId: "tenant-123" },
+		});
+		const request = { context };
 		const value = executionContext(request, "tenantId", context);
 		strictEqual(value, "tenant-123");
 	});
@@ -971,18 +1012,10 @@ describe("lambdaContext", () => {
 	});
 
 	test("lambdaContext should get value from durable context", async (t) => {
-		const request = {
-			context: {
-				lambdaContext: {
-					functionName: "test-function",
-				},
-			},
-		};
-		const context = {
-			constructor: {
-				name: "DurableContextImpl",
-			},
-		};
+		const context = new DurableContextImpl({
+			lambdaContext: { functionName: "test-function" },
+		});
+		const request = { context };
 		const value = lambdaContext(request, "functionName", context);
 		strictEqual(value, "test-function");
 	});
