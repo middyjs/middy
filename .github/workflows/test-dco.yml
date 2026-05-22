@@ -17,4 +17,4 @@ jobs:
           egress-policy: audit
           disable-telemetry: true
       - name: Check for Developer Certificate of Origin (DCO) compiance
-        uses: KineticCafe/actions-dco@f7fe2fdfb5808e2528042be3919b67079100b96b # v3.0.0
+        uses: KineticCafe/actions-dco@1da04282bbf757dab7d92a5c8535dbfb8113da5c # v3.1.0
