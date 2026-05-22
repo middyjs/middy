@@ -1,5 +1,7 @@
 name: Tests (sast)
 on:
+  push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: "43 3 * * 5"
