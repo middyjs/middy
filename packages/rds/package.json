@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds",
-	"version": "7.6.4",
+	"version": "7.6.5",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -292,10 +292,10 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.6.4"
+		"@middy/util": "7.6.5"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.4",
+		"@middy/core": "7.6.5",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"pg": "^8.0.0",

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/glue-schema-registry",
-	"version": "7.6.4",
+	"version": "7.6.5",
 	"description": "AWS Glue Schema Registry middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -63,7 +63,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.4"
+		"@middy/util": "7.6.5"
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-glue": "^3.0.0"
@@ -75,7 +75,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-glue": "^3.0.0",
-		"@middy/core": "7.6.4",
+		"@middy/core": "7.6.5",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"aws-xray-sdk": "^3.0.0"
