@@ -298,7 +298,7 @@ const httpJwtMiddleware = (opts = {}) => {
 		const token = parseToken(request.event);
 
 		let key;
-		let verifyOptions = baseVerifyOptions;
+		let verifyOptions;
 
 		if (issuersMap) {
 			let header;

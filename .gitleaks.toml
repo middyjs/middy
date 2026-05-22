@@ -1,9 +1,25 @@
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Global allowlist"
+[[allowlists]]
+description = "Global path allowlist"
 paths = [
     '''.*\.svelte-kit/.*''',
     '''.*\.test\.js$''',
+]
+
+[[allowlists]]
+description = "Historical false positives in removed files / old READMEs (AWS example creds, Kinesis sequence numbers, revoked CircleCI badge token)"
+commits = [
+    # Old README CircleCI badge token (revoked)
+    "a726ecf8ab13000026f84b46912986db569d85d4",
+    "259fa57c71a4b1f3aa2aa3ce22620702177bbfe7",
+    # event-normalizer test fixtures (AWS-published example creds, Kinesis sequence numbers)
+    "2e19f19f51e02493691a6ad49bf58811b22da340",
+    "c67b8ea0128970e4b8310980dbceb666678bc8c5",
+    "76b942b80be449caeb257f22c0b6ef7d0c0c446f",
+    "c8f07bad8e71955801dd62d1c1bc9830fe8b8d1c",
+    # benchmark Kinesis Firehose fixture (sequence numbers)
+    "42f233a73afcc5778bbabc122198b3d66acc89a3",
+    "508f2dd5280565878d0c5a26d615866be196132e",
 ]
