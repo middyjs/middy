@@ -82,7 +82,11 @@ Ensure git commits meet the following FLOSS Best Practices:
 
 ## 6. Pull Request (PR)
 
-Submit a PR to the `develop` branch. Keep PR in draft mode until all automated tests are successful. Once ready, at least 2 maintainers will review the PR and request changes if necessary. Reviewers will be evaluating for secure design principles.
+Submit a PR to the `develop` branch. Keep PR in draft mode until all automated tests are successful. A maintainer from [@middyjs/owners](https://github.com/orgs/middyjs/teams/owners) or [@middyjs/reviewers](https://github.com/orgs/middyjs/teams/reviewers) will review for secure design principles before merge.
+
+`develop` is an integration branch: its ruleset enforces signed commits, no force-push, and no deletion. PR review on `develop` is policy, not currently ruleset-enforced.
+
+The release boundary is `main`. The subsequent `develop → main` release PR (opened by `release-please`) is fully gated by the [main ruleset](../.github/rulesets/main.json): 2 approving reviews + CODEOWNERS review + all 18 required status checks + signed commits + CodeQL/zizmor code-scanning gates. Nothing reaches npm without passing that gate.
 
 ## 7. Release
 
