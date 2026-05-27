@@ -85,6 +85,23 @@ test("parseJson on Kafka key+value", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { a: 2 });
 });
 
+test("parseJson across multiple Kafka topic-partition groups", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"t-0": [{ value: b64('{"x":1}') }],
+			"t-1": [{ value: b64('{"x":2}') }],
+		},
+	};
+
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
+	deepStrictEqual(out.records["t-1"][0].value, { x: 2 });
+});
+
 test("parseJson on Kinesis data", async () => {
 	const handler = middy().use(eventBatchParser({ data: parseJson() }));
 	handler.handler((event) => event);
@@ -615,6 +632,33 @@ test("SQS event with no Records falls back to empty iterator", async () => {
 	handler.handler((event) => event);
 
 	const event = { eventSource: "aws:sqs" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("Kinesis event with no Records falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:kinesis" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("Firehose event with no records falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:lambda:events" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("ActiveMQ event with no messages falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:amq" };
 	const out = await handler(event, defaultContext);
 	deepStrictEqual(out, event);
 });

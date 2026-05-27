@@ -49,35 +49,53 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			});
 		}
 
-		// Validate field config matches source's supported fields
+		// Resolve the accessor + parser for each configured field once per
+		// invocation, validating that each field is supported by this source.
+		// Hoisting this out of the per-record loop avoids re-looking-up
+		// source.fields/options and re-allocating an inner iterator for every
+		// record across the batch.
+		const work = [];
 		for (const field of parserFields) {
-			if (!Object.hasOwn(source.fields, field)) {
+			const accessor = source.fields[field];
+			if (!accessor) {
 				throw new TypeError(
 					`${pkg}: field "${field}" is not supported for event source "${eventSource}". Supported: ${Object.keys(source.fields).join(", ")}`,
 				);
 			}
+			work.push({ field, accessor, parser: options[field] });
 		}
 
-		// Decode the field bytes (encoding is source-specific per AWS docs;
-		// see the per-source `encoding` notes below), strip Glue framing if
-		// present, then run parsers. Framing is kept off the record so it
-		// doesn't leak downstream; parsers receive it as a fourth arg.
+		// Produce the parser payload per source (encoding is source-specific per
+		// AWS docs; see the per-source notes below):
+		//   text sources (SQS) deliver the value already decoded as a string with
+		//     no Glue framing, so it is handed to the parser as-is.
+		//   binary sources (Kafka/Kinesis/Firehose/MQ) are base64 BLOBs: decode to
+		//     a Buffer and strip any Glue framing first.
+		// Framing is kept off the record so it doesn't leak downstream; parsers
+		// receive it as a fourth arg. The representation is fixed per source, so
+		// the branch is resolved once here rather than for every record.
 		const encoding = source.encoding;
-		for (const record of source.iterate(request.event)) {
-			for (const field of parserFields) {
-				const accessor = source.fields[field];
+		const text = encoding === "utf8";
+		const records = source.getRecords(request.event);
+		for (let r = 0; r < records.length; r += 1) {
+			const record = records[r];
+			for (let w = 0; w < work.length; w += 1) {
+				const { field, accessor, parser } = work[w];
 				const raw = accessor.get(record);
 				if (raw == null) continue;
-				const buffer = Buffer.from(raw, encoding);
-				const framing = parseGlueFraming(buffer, maxDecompressedBytes);
-				const parser = options[field];
+				let payload = raw;
+				let framing;
+				if (!text) {
+					payload = Buffer.from(raw, encoding);
+					framing = parseGlueFraming(payload, maxDecompressedBytes);
+				}
 				let parsed;
 				try {
 					// Skip `await` for sync parsers (parseJson, schema-bound
 					// parseAvro/parseProtobuf bindings) — saves a microtask per
 					// record across the batch. Only awaits when the parser
 					// actually returns a thenable.
-					parsed = parser(buffer, record, request, framing);
+					parsed = parser(payload, record, request, framing);
 					if (parsed !== null && typeof parsed?.then === "function") {
 						parsed = await parsed;
 					}
@@ -101,27 +119,24 @@ const eventBatchParserMiddleware = (opts = {}) => {
 	};
 };
 
-const kafkaIter = function* (event) {
-	for (const topicRecords of Object.values(event.records ?? {})) {
-		for (const record of topicRecords) {
-			yield record;
-		}
+// Each source returns a flat array of records (not a generator): the before
+// loop indexes it directly, so a real array avoids the per-yield iterator-result
+// allocation that dominated GC on large batches. The single-group fast path
+// returns the source's own array uncopied; only multi-group events allocate.
+const flattenGroups = (groups) => {
+	if (groups.length === 1) return groups[0];
+	const out = [];
+	for (const group of groups) {
+		for (const record of group) out.push(record);
 	}
+	return out;
 };
 
-const arrayIter = function* (event, recordsKey) {
-	for (const record of event[recordsKey] ?? []) {
-		yield record;
-	}
-};
+const kafkaRecords = (event) =>
+	flattenGroups(Object.values(event.records ?? {}));
 
-const rmqIter = function* (event) {
-	for (const messages of Object.values(event.rmqMessagesByQueue ?? {})) {
-		for (const message of messages) {
-			yield message;
-		}
-	}
-};
+const rmqRecords = (event) =>
+	flattenGroups(Object.values(event.rmqMessagesByQueue ?? {}));
 
 // Each entry: how to iterate records and per-logical-field accessor pairs.
 // `value`, `body`, and `data` are internal aliases for the same payload field
@@ -168,19 +183,19 @@ const sources = {
 	// base64-encoded message."
 	// docs.aws.amazon.com/lambda/latest/dg/with-msk.html
 	"aws:kafka": {
-		iterate: (event) => kafkaIter(event),
+		getRecords: kafkaRecords,
 		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
 		encoding: "base64",
 	},
 	SelfManagedKafka: {
-		iterate: (event) => kafkaIter(event),
+		getRecords: kafkaRecords,
 		fields: { key: accKey, value: accValue, body: accValue, data: accValue },
 		encoding: "base64",
 	},
 	// Kinesis: `data` is base64.
 	// docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html
 	"aws:kinesis": {
-		iterate: (event) => arrayIter(event, "Records"),
+		getRecords: (event) => event.Records ?? [],
 		fields: {
 			value: accKinesisData,
 			body: accKinesisData,
@@ -191,7 +206,7 @@ const sources = {
 	// Kinesis Firehose: transform-records `data` is base64.
 	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	"aws:lambda:events": {
-		iterate: (event) => arrayIter(event, "records"),
+		getRecords: (event) => event.records ?? [],
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},
@@ -199,7 +214,7 @@ const sources = {
 	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
 	//   example: { "body": "Test message.", … }
 	"aws:sqs": {
-		iterate: (event) => arrayIter(event, "Records"),
+		getRecords: (event) => event.Records ?? [],
 		fields: { value: accBody, body: accBody, data: accBody },
 		encoding: "utf8",
 	},
@@ -207,14 +222,14 @@ const sources = {
 	// base64-encodes them into a single JSON payload."
 	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:amq": {
-		iterate: (event) => arrayIter(event, "messages"),
+		getRecords: (event) => event.messages ?? [],
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},
 	// MQ (RabbitMQ): same paragraph as ActiveMQ — `data` is base64.
 	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:rmq": {
-		iterate: (event) => rmqIter(event),
+		getRecords: rmqRecords,
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},

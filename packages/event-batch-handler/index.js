@@ -19,9 +19,18 @@ const eventBatchHandler = (recordHandler) => async (event, context) => {
 		return settled;
 	}
 
-	return Promise.allSettled(
-		records.map(async (record) => recordHandler(record, context)),
-	);
+	// Call recordHandler directly and pass its return (promise or value) straight
+	// to allSettled. Wrapping each call in `async (record) => …` would allocate an
+	// extra promise and add a microtask hop per record; the try/catch keeps the
+	// sync-throw safety that wrapper provided without that per-record overhead.
+	const settle = (record) => {
+		try {
+			return recordHandler(record, context);
+		} catch (err) {
+			return Promise.reject(err);
+		}
+	};
+	return Promise.allSettled(records.map(settle));
 };
 
 export default eventBatchHandler;
