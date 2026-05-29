@@ -50,6 +50,9 @@ const defaults = {
 
 const rdsMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	if (options.internalKey && opts.cacheExpiry === undefined) {
+		options.cacheExpiry = 0;
+	}
 	if (typeof options.client !== "function") {
 		throw new Error(
 			options.client === undefined
@@ -73,14 +76,12 @@ const rdsMiddleware = (opts = {}) => {
 
 	const fetch = (request) => options.client(buildConfig(request));
 
-	let prefetch;
 	if (!options.internalKey && canPrefetch(options)) {
-		prefetch = processCache(options, fetch);
+		processCache(options, fetch);
 	}
 
 	const rdsMiddlewareBefore = async (request) => {
-		const { value } =
-			prefetch ?? processCache(options, () => fetch(request), request);
+		const { value } = processCache(options, () => fetch(request), request);
 		Object.assign(request.context, { [options.contextKey]: await value });
 	};
 	const rdsMiddlewareAfter = async (request) => {

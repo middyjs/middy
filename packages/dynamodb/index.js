@@ -103,7 +103,7 @@ const dynamodbMiddleware = (opts = {}) => {
 			values[internalKey] = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
-				.then((resp) => unmarshall(resp.Item))
+				.then((resp) => (resp.Item ? unmarshall(resp.Item) : undefined))
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
 					value[internalKey] = undefined;

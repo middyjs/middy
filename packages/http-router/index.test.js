@@ -556,6 +556,100 @@ test("It should throw when not a http event (missing path)", async (t) => {
 	}
 });
 
+test("It should throw a descriptive error for an unknown event version", async (t) => {
+	const event = {
+		version: "3.0",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof TypeError));
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("It should throw a descriptive error for a malformed v2 event (missing requestContext.http)", async (t) => {
+	const event = {
+		version: "2.0",
+		requestContext: {},
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof TypeError));
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("It should throw a descriptive error for a malformed VPC Lattice event (missing raw_path)", async (t) => {
+	const event = {
+		method: "GET",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof TypeError));
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
+		);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("It should not invoke an Object.prototype member as a static handler", async (t) => {
+	const event = {
+		httpMethod: "GET",
+		path: "__proto__",
+	};
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
+	}
+});
+
 test("It should throw 404 when method has no routes defined", async (t) => {
 	const event = {
 		httpMethod: "POST",

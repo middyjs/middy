@@ -164,6 +164,9 @@ const parseHeader = (
 	context[desc.resultName] = results[0];
 
 	if (typeof context[desc.resultName] === "undefined") {
+		if (!Array.isArray(availableValues) || availableValues.length === 0) {
+			return;
+		}
 		if (defaultToFirstValue) {
 			context[desc.resultName] = availableValues[0];
 		} else if (failOnMismatch) {

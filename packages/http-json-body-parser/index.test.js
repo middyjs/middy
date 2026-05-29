@@ -51,22 +51,23 @@ test("It should use a reviver when parsing a JSON request", async (t) => {
 	const handler = middy((event) => {
 		return event.body; // propagates the body as a response
 	});
-	const reviver = (_) => _;
+	const reviver = t.mock.fn((_key, value) =>
+		typeof value === "string" ? value.toUpperCase() : value,
+	);
 	handler.use(jsonBodyParser({ reviver }));
 
 	// invokes the handler
-	const jsonString = JSON.stringify({ foo: "bar" });
 	const event = {
 		headers: {
 			"Content-Type": "application/json",
 		},
-		body: jsonString,
+		body: JSON.stringify({ foo: "bar" }),
 	};
-	const jsonParseSpy = t.mock.method(JSON, "parse");
 
-	await handler(event, defaultContext);
+	const body = await handler(event, defaultContext);
 
-	deepStrictEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
+	ok(reviver.mock.callCount() >= 1);
+	deepStrictEqual(body, { foo: "BAR" });
 });
 
 test("It should parse a JSON request with lowercase header", async (t) => {
@@ -250,6 +251,37 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
 	}
+});
+
+test("It should not retain a dangerous own __proto__ on the parsed body", async (t) => {
+	const handler = middy((event) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(jsonBodyParser());
+
+	// invokes the handler
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: '{ "__proto__": { "polluted": true }, "foo": "bar" }',
+	};
+
+	const body = await handler(event, defaultContext);
+
+	// The own `__proto__` data property must be dropped so downstream
+	// consumers that copy keys cannot have their prototype mutated.
+	strictEqual(Object.hasOwn(body, "__proto__"), false);
+	strictEqual(body.foo, "bar");
+
+	// Simulate a downstream consumer copying keys onto a fresh object.
+	const target = {};
+	for (const key in body) {
+		target[key] = body[key];
+	}
+	strictEqual(Object.getPrototypeOf(target), Object.prototype);
+	strictEqual(target.polluted, undefined);
 });
 
 test("httpJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {

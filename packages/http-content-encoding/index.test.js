@@ -5,6 +5,7 @@ import {
 	brotliCompressSync,
 	constants,
 	deflateSync,
+	gunzipSync,
 	gzipSync,
 	zstdDecompressSync,
 } from "node:zlib";
@@ -424,6 +425,24 @@ test("It should export getContentEncodingStream helper function", async (t) => {
 	strictEqual(typeof stream.pipe, "function");
 });
 
+test("It should pass options to getContentEncodingStream encoder", async (t) => {
+	const { getContentEncodingStream } = await import("./index.js");
+	const body = compressibleBody;
+
+	const stream = getContentEncodingStream("gzip", { level: 1 });
+	stream.end(body);
+	const compressed = await streamToBuffer(stream);
+
+	// Roundtrips back to the original body.
+	strictEqual(gunzipSync(compressed).toString(), body);
+	// With level=1 the output differs from the default (level=6) stream,
+	// so this would have caught the dropped-options bug.
+	const defaultStream = getContentEncodingStream("gzip");
+	defaultStream.end(body);
+	const defaultCompressed = await streamToBuffer(defaultStream);
+	ok(!compressed.equals(defaultCompressed));
+});
+
 test("It should handle errors in onError middleware when response is defined", async (t) => {
 	const handler = middy((event, context) => {
 		throw new Error("test error");
@@ -470,6 +489,36 @@ test("It should skip override encodings not in preferredEncodings", async (t) =>
 	});
 
 	// Should use gzip since br and zstd are not in preferredEncodings
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: gzipSync(body).toString("base64"),
+		headers: { "Content-Encoding": "gzip", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
+test("It should not throw when overridePreferredEncoding is set but context.preferredEncodings is undefined", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		body,
+	}));
+	handler.use(
+		httpContentEncoding({
+			overridePreferredEncoding: ["br", "gzip", "deflate"],
+		}),
+	);
+
+	const event = { headers: {} };
+
+	// preferredEncoding present, but preferredEncodings intentionally omitted.
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "gzip",
+	});
+
+	// No override applies (no preferredEncodings list), so it falls back to the
+	// context preferredEncoding (gzip) without throwing.
 	deepStrictEqual(response, {
 		statusCode: 200,
 		body: gzipSync(body).toString("base64"),

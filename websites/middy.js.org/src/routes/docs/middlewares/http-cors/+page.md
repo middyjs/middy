@@ -17,7 +17,7 @@ npm install --save @middy/http-cors
 
 ## Options
 
-- `credentials` (bool) (optional): if true, sets `Access-Control-Allow-Credentials` (default `false`)
+- `credentials` (bool|string) (optional): if true, sets `Access-Control-Allow-Credentials` (default `undefined`)
 - `disableBeforePreflightResponse` (bool) (optional): if false, replies automatically to cors preflight requests. Set to true if handling the response in a custom way (default `true`)
 - `headers` (string) (optional): value to put in `Access-Control-Allow-Headers` (default: `false`)
 - `methods` (string) (optional): value to put in `Access-Control-Allow-Methods` (default: `false`)
@@ -26,14 +26,16 @@ npm install --save @middy/http-cors
 - `origins` (array) (optional): An array of allowed origins. The incoming origin is matched against the list and is returned if present. If the incoming origin is not found, the header will not be returned. Wildcards can be used within the origin to match multiple origins.
 - `exposeHeaders` (string) (optional): value to put in `Access-Control-Expose-Headers` (default: `false`)
 - `maxAge` (string) (optional): value to put in Access-Control-Max-Age header (default: `null`)
-- `requestHeaders` (string[]) (optional): array of allowed headers to filter preflight requests by `Access-Control-Request-Headers`. CORS-safelisted request headers (`accept`, `accept-language`, `content-language`, `content-type`, `range`) are always allowed. (default: `null`)
-- `requestMethods` (string[]) (optional): array of allowed methods to filter preflight requests by `Access-Control-Request-Method` header (default: `null`)
-- `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `null`)
+- `requestHeaders` (string[]) (optional): array of allowed headers to filter preflight requests by `Access-Control-Request-Headers`. CORS-safelisted request headers (`accept`, `accept-language`, `content-language`, `content-type`, `range`) are always allowed. (default: `undefined`)
+- `requestMethods` (string[]) (optional): array of allowed methods to filter preflight requests by `Access-Control-Request-Method` header (default: `undefined`)
+- `cacheControl` (string) (optional): value to put in Cache-Control header on pre-flight (OPTIONS) requests (default: `undefined`)
+- `vary` (string) (optional): value to add to the `Vary` response header. `Origin` is appended automatically whenever the emitted `Access-Control-Allow-Origin` depends on the request `Origin`. (default: `undefined`)
 
 ```javascript
 import middy from '@middy/core'
 import httpErrorHandler from '@middy/http-error-handler'
 import cors from '@middy/http-cors'
+import createError from 'http-errors'
 
 const lambdaHandler = (event, context) => {
   throw new createError.UnprocessableEntity()
@@ -44,12 +46,11 @@ export const handler = middy()
   .handler(lambdaHandler)
 
 // when Lambda runs the handler...
-handler({}, {}, (_, response) => {
-  strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
-  deepStrictEqual(response, {
-    statusCode: 422,
-    body: 'Unprocessable Entity'
-  })
+const response = await handler({}, {})
+strictEqual(response.headers['Access-Control-Allow-Origin'], '*')
+deepStrictEqual(response, {
+  statusCode: 422,
+  body: 'Unprocessable Entity'
 })
 ```
 

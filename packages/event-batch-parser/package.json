@@ -1,7 +1,7 @@
 {
 	"name": "@middy/event-batch-parser",
 	"version": "7.6.5",
-	"description": "Event batch parser middleware for the middy framework — Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support",
+	"description": "Event batch parser middleware for the middy framework: Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support",
 	"type": "module",
 	"engines": {
 		"node": ">=22"

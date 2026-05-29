@@ -70,7 +70,7 @@ test("It should return default security headers", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -107,7 +107,7 @@ test("It should return default security headers when HTML", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -218,7 +218,7 @@ test("It should support array responses", async (t) => {
 	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -274,7 +274,7 @@ test("It should apply security headers if error is handled", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -376,6 +376,110 @@ test("It should handle reportTo with falsy group value", async (t) => {
 		response.headers["Report-To"],
 		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }',
 	);
+});
+
+test("It should not emit preload when maxAge is below one year", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpSecurityHeaders());
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=15552000; includeSubDomains",
+	);
+});
+
+test("It should emit preload when maxAge is at least one year", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			strictTransportSecurity: {
+				maxAge: 31536000,
+				preload: true,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=31536000; includeSubDomains; preload",
+	);
+});
+
+test("It should honor a Report-To includeSubDomains override", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				includeSubDomains: false,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": false }',
+	);
+});
+
+test("It should honor a Report-To legacy includeSubdomains override", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				includeSubdomains: false,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": false }',
+	);
+});
+
+test("It should not emit empty Report-To or Reporting-Endpoints headers by default", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpSecurityHeaders());
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Report-To"], undefined);
+	strictEqual(response.headers["Reporting-Endpoints"], undefined);
 });
 
 test("httpSecurityHeadersValidateOptions accepts valid options and rejects typos", () => {

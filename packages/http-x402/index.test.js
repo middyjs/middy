@@ -105,6 +105,69 @@ test("malformed payment-signature header returns 402", async (t) => {
 	strictEqual(mockVerify.mock.callCount(), 0);
 });
 
+test("non-object decoded payment header returns 402 invalid_payment", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(42) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const body = JSON.parse(response.body);
+	strictEqual(body.error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
+test("null decoded payment header returns 402 invalid_payment", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(null) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const body = JSON.parse(response.body);
+	strictEqual(body.error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
+test("array decoded payment header returns 402 invalid_payment", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader([1, 2, 3]) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const body = JSON.parse(response.body);
+	strictEqual(body.error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
 test("verify failure returns 402 with invalidReason", async (t) => {
 	const { MockFacilitatorClient, mockVerify, mockSettle } = makeMockClient(
 		t,
@@ -125,6 +188,66 @@ test("verify failure returns 402 with invalidReason", async (t) => {
 	strictEqual(body.error, "invalid_exact_evm_payload_signature");
 	strictEqual(mockVerify.mock.callCount(), 1);
 	strictEqual(mockSettle.mock.callCount(), 0);
+});
+
+test("verify throws (facilitator down) returns clean 402 without leaking message", async (t) => {
+	const mockVerify = t.mock.fn(async () => {
+		throw new Error("facilitator 503: upstream secret detail");
+	});
+	class MockFacilitatorClient {
+		verify(...args) {
+			return mockVerify(...args);
+		}
+		settle() {}
+	}
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const body = JSON.parse(response.body);
+	strictEqual(body.x402Version, 2);
+	strictEqual(body.error, "invalid_payment");
+	ok(!response.body.includes("upstream secret detail"));
+	strictEqual(mockVerify.mock.callCount(), 1);
+});
+
+test("settle throws (facilitator down) returns clean 402 without leaking message", async (t) => {
+	const mockSettle = t.mock.fn(async () => {
+		throw new Error("facilitator 503: settle secret detail");
+	});
+	class MockFacilitatorClient {
+		verify() {
+			return defaultVerifyResult;
+		}
+		settle(...args) {
+			return mockSettle(...args);
+		}
+	}
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const body = JSON.parse(response.body);
+	strictEqual(body.x402Version, 2);
+	strictEqual(body.error, "settle_error");
+	ok(!response.body.includes("settle secret detail"));
+	strictEqual(mockSettle.mock.callCount(), 1);
 });
 
 test("verify passes but handler returns 4xx - no settlement", async (t) => {
@@ -302,6 +425,257 @@ test("price conversion: 0.01 with decimals:6 produces amount 10000", async (t) =
 
 	const [, requirements] = mockVerify.mock.calls[0].arguments;
 	strictEqual(requirements.amount, "10000");
+});
+
+test("18-decimal string price produces exact integer atomic amount", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({
+			...defaultOptions,
+			price: "1.000000000000000001",
+			decimals: 18,
+			FacilitatorClient: MockFacilitatorClient,
+		}),
+	);
+
+	await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	const [, requirements] = mockVerify.mock.calls[0].arguments;
+	strictEqual(requirements.amount, "1000000000000000001");
+});
+
+test("exponential-notation small numeric price (1e-7) on an 18-decimal asset is exact", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	// String(1e-7) === "1e-7"; the converter must expand it rather than reject it.
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({
+			...defaultOptions,
+			price: 1e-7,
+			decimals: 18,
+			FacilitatorClient: MockFacilitatorClient,
+		}),
+	);
+
+	await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	const [, requirements] = mockVerify.mock.calls[0].arguments;
+	strictEqual(requirements.amount, (10n ** 11n).toString());
+});
+
+test("exponential-notation large numeric price (1e21) is expanded, not rejected", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	// String(1e21) === "1e+21"; decimals:0 keeps the atomic amount equal to price.
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({
+			...defaultOptions,
+			price: 1e21,
+			decimals: 0,
+			FacilitatorClient: MockFacilitatorClient,
+		}),
+	);
+
+	await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	const [, requirements] = mockVerify.mock.calls[0].arguments;
+	strictEqual(requirements.amount, (10n ** 21n).toString());
+});
+
+test("payment header is read in Title-Case as well as lowercase", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	// Title-Case header (a non-normalized source) must be honored (verify runs)
+	// rather than treated as a missing header (402).
+	const response = await handler(
+		{ headers: { "Payment-Signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(mockVerify.mock.callCount(), 1);
+	strictEqual(response.statusCode, 200);
+});
+
+test("large string price produces non-exponential atomic amount", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({
+			...defaultOptions,
+			price: "123456789",
+			decimals: 18,
+			FacilitatorClient: MockFacilitatorClient,
+		}),
+	);
+
+	await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	const [, requirements] = mockVerify.mock.calls[0].arguments;
+	strictEqual(requirements.amount, "123456789000000000000000000");
+});
+
+test("explicit integer amount override is used verbatim", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({
+			...defaultOptions,
+			price: undefined,
+			amount: "987654321",
+			FacilitatorClient: MockFacilitatorClient,
+		}),
+	);
+
+	await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	const [, requirements] = mockVerify.mock.calls[0].arguments;
+	strictEqual(requirements.amount, "987654321");
+});
+
+test("omitted price (and no amount) is rejected", (t) => {
+	const { MockFacilitatorClient } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	let threw = false;
+	try {
+		httpX402({
+			payTo: "0xpayto",
+			asset: "0xasset",
+			FacilitatorClient: MockFacilitatorClient,
+		});
+	} catch (e) {
+		threw = true;
+		ok(e.cause?.package === "@middy/http-x402");
+	}
+	ok(threw);
+});
+
+test("empty string price is rejected", (t) => {
+	const { MockFacilitatorClient } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	let threw = false;
+	try {
+		httpX402({
+			price: "",
+			payTo: "0xpayto",
+			asset: "0xasset",
+			FacilitatorClient: MockFacilitatorClient,
+		});
+	} catch (e) {
+		threw = true;
+		ok(e.cause?.package === "@middy/http-x402");
+	}
+	ok(threw);
+});
+
+test("non-integer amount override is rejected", (t) => {
+	const { MockFacilitatorClient } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	let threw = false;
+	try {
+		httpX402({
+			amount: "12.5",
+			payTo: "0xpayto",
+			asset: "0xasset",
+			FacilitatorClient: MockFacilitatorClient,
+		});
+	} catch (e) {
+		threw = true;
+		ok(e.cause?.package === "@middy/http-x402");
+	}
+	ok(threw);
+});
+
+test("price with more fractional digits than decimals is rejected", (t) => {
+	const { MockFacilitatorClient } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	let threw = false;
+	try {
+		httpX402({
+			price: "0.0000001",
+			decimals: 6,
+			payTo: "0xpayto",
+			asset: "0xasset",
+			FacilitatorClient: MockFacilitatorClient,
+		});
+	} catch (e) {
+		threw = true;
+		ok(e.cause?.package === "@middy/http-x402");
+	}
+	ok(threw);
 });
 
 test("human returns true - skips payment entirely", async (t) => {

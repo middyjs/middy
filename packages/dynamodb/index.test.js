@@ -41,9 +41,7 @@ test("It should set DynamoDB param value to internal storage", async (t) => {
 					key: {
 						TableName: "table",
 						Key: {
-							pk: {
-								S: "0000",
-							},
+							pk: "0000",
 						},
 					},
 				},
@@ -53,6 +51,46 @@ test("It should set DynamoDB param value to internal storage", async (t) => {
 		.before(middleware);
 
 	await handler(defaultEvent, defaultContext);
+});
+
+test("It should marshall a native Key before sending GetItemCommand", async (t) => {
+	let receivedInput;
+	mockClient(DynamoDBClient)
+		.on(GetItemCommand)
+		.callsFake(async (input) => {
+			receivedInput = input;
+			return {
+				Item: {
+					value: {
+						S: "value",
+					},
+				},
+			};
+		});
+
+	const handler = middy(() => {}).use(
+		dynamodb({
+			AwsClient: DynamoDBClient,
+			cacheExpiry: 0,
+			fetchData: {
+				key: {
+					TableName: "table",
+					Key: {
+						pk: "0000",
+					},
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(receivedInput.Key, {
+		pk: {
+			S: "0000",
+		},
+	});
 });
 
 test("It should set DynamoDB param value to internal storage without prefetch", async (t) => {
@@ -158,9 +196,7 @@ test("It should not call aws-sdk again if parameter is cached forever", async (t
 					key: {
 						TableName: "table",
 						Key: {
-							pk: {
-								S: "0000",
-							},
+							pk: "0000",
 						},
 					},
 				},
@@ -200,9 +236,7 @@ test("It should not call aws-sdk again if parameter is cached", async (t) => {
 					key: {
 						TableName: "table",
 						Key: {
-							pk: {
-								S: "0000",
-							},
+							pk: "0000",
 						},
 					},
 				},
@@ -367,6 +401,37 @@ test("It should skip fetching already cached values when fetching multiple keys"
 
 	// Should have called send 3 times total (key1 once, key2 twice)
 	strictEqual(sendStub.callCount, 3);
+});
+
+test("It should resolve to undefined when GetItem returns no Item", async (t) => {
+	mockClient(DynamoDBClient).on(GetItemCommand).resolvesOnce({});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key, undefined);
+	};
+
+	const handler = middy(() => {})
+		.use(
+			dynamodb({
+				AwsClient: DynamoDBClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: {
+						TableName: "table",
+						Key: {
+							pk: {
+								S: "0000",
+							},
+						},
+					},
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
 });
 
 test("It should export dynamoDbParam helper for TypeScript type inference", async (t) => {

@@ -2,6 +2,7 @@ import {
 	deepStrictEqual,
 	notStrictEqual,
 	ok,
+	rejects,
 	strictEqual,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
@@ -26,6 +27,7 @@ import {
 	modifyCache,
 	normalizeHttpResponse,
 	processCache,
+	resolveHttpEventVersion,
 	sanitizeKey,
 } from "./index.js";
 
@@ -216,6 +218,27 @@ describe("canPrefetch", () => {
 		});
 		strictEqual(prefetch, false);
 	});
+
+	test("canPrefetch should not prefetch when cacheExpiry is 0", async (t) => {
+		const prefetch = canPrefetch({
+			cacheExpiry: 0,
+		});
+		strictEqual(prefetch, false);
+	});
+
+	test("canPrefetch should prefetch when cacheExpiry is a positive duration", async (t) => {
+		const prefetch = canPrefetch({
+			cacheExpiry: 100,
+		});
+		strictEqual(prefetch, true);
+	});
+
+	test("canPrefetch should prefetch when cacheExpiry is infinite (-1)", async (t) => {
+		const prefetch = canPrefetch({
+			cacheExpiry: -1,
+		});
+		strictEqual(prefetch, true);
+	});
 });
 
 describe("getInternal", () => {
@@ -323,6 +346,11 @@ describe("getInternal", () => {
 		const values = await getInternal("object.key", syncRequest);
 		deepStrictEqual(values, nullObj({ object_key: undefined }));
 	});
+
+	test("getInternal(true) returns an empty object when request.internal is missing", async (t) => {
+		const values = await getInternal(true, {});
+		deepStrictEqual(values, Object.create(null));
+	});
 });
 
 describe("sanitizeKey", () => {
@@ -339,6 +367,21 @@ describe("sanitizeKey", () => {
 	test("sanitizeKey should not sanitize key", async (t) => {
 		const key = sanitizeKey("api_secret_key0_pem");
 		strictEqual(key, "api_secret_key0_pem");
+	});
+});
+
+describe("resolveHttpEventVersion", () => {
+	test("returns the explicit event.version when present", () => {
+		strictEqual(resolveHttpEventVersion({ version: "2.0" }), "2.0");
+		strictEqual(resolveHttpEventVersion({ version: "1.0" }), "1.0");
+	});
+
+	test("returns 'vpc' when no version but event.method is present", () => {
+		strictEqual(resolveHttpEventVersion({ method: "GET" }), "vpc");
+	});
+
+	test("defaults to '1.0' when neither version nor method is present", () => {
+		strictEqual(resolveHttpEventVersion({}), "1.0");
 	});
 });
 
@@ -372,6 +415,29 @@ describe("processCache / clearCache", () => {
 		strictEqual(await value, "value");
 		ok(cache);
 		strictEqual(fetchRequest.mock.callCount(), 1);
+		clearCache();
+	});
+
+	test("processCache should silence rejection when fetch returns a bare promise", async (t) => {
+		const unhandled = [];
+		const onUnhandled = (reason) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+
+		const options = {
+			cacheKey: "key",
+			cacheExpiry: -1,
+		};
+		// middlewareFetch returns a Promise directly (not an object of promises),
+		// so silenceFetchRejections takes the `value instanceof Promise` branch.
+		const fetchRequest = t.mock.fn(() => Promise.reject(new Error("boom")));
+		const { value } = processCache(options, fetchRequest, cacheRequest);
+
+		// The original rejecting promise is left in place; a consumer still observes it.
+		await rejects(() => value, /boom/);
+		// But no unhandledRejection escapes.
+		await new Promise((resolve) => setImmediate(resolve));
+		process.off("unhandledRejection", onUnhandled);
+		deepStrictEqual(unhandled, []);
 		clearCache();
 	});
 
@@ -439,6 +505,38 @@ describe("processCache / clearCache", () => {
 		strictEqual(await value, "value");
 		strictEqual(cache, true);
 		strictEqual(fetchRequest.mock.callCount(), 1);
+		clearCache();
+	});
+
+	test("processCache should honor per-key expiry written under the stored cacheKey", async (t) => {
+		// Consumer starts with an infinite cache, then (e.g. after learning a
+		// rotation date) writes a concrete unix-timestamp expiry under the very
+		// cacheKey the entry is stored under. The override must take effect on
+		// the next invocation, even though an infinite expiry was stored first.
+		const fetchRequest = t.mock.fn(() => "value");
+		// Move past the 24h timestamp threshold so the override is interpreted
+		// as a unix timestamp (matching real rotation dates).
+		t.mock.timers.tick(86400001);
+		const options = {
+			cacheKey: "per-key",
+			cacheExpiry: -1,
+			cacheKeyExpiry: {},
+		};
+		processCache(options, fetchRequest, cacheRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+
+		// Write the override keyed by the stored cacheKey, expiring soon.
+		options.cacheKeyExpiry[options.cacheKey] = Date.now() + 100;
+
+		// Before expiry: served from cache, no re-fetch.
+		t.mock.timers.tick(50);
+		processCache(options, fetchRequest, cacheRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+
+		// After the per-key expiry passes: must re-fetch.
+		t.mock.timers.tick(100);
+		processCache(options, fetchRequest, cacheRequest);
+		strictEqual(fetchRequest.mock.callCount(), 2);
 		clearCache();
 	});
 
@@ -683,6 +781,79 @@ test("processCache should throw when cacheExpiry is below -1", async (t) => {
 	clearCache();
 });
 
+test("processCache should throw when cacheExpiry is NaN", async (t) => {
+	try {
+		processCache({ cacheKey: "bad-expiry-nan", cacheExpiry: Number.NaN });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should throw when cacheExpiry is Infinity", async (t) => {
+	try {
+		processCache({
+			cacheKey: "bad-expiry-inf",
+			cacheExpiry: Number.POSITIVE_INFINITY,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should throw when cacheExpiry is a positive fraction", async (t) => {
+	try {
+		processCache({ cacheKey: "bad-expiry-frac", cacheExpiry: 1.5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should throw when cacheExpiry is a fractional negative (between -1 and 0)", async (t) => {
+	try {
+		processCache({ cacheKey: "bad-expiry-neg-frac", cacheExpiry: -0.5 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("Invalid cacheExpiry"));
+		strictEqual(e.cause.package, "@middy/util");
+	}
+	clearCache();
+});
+
+test("processCache should accept a missing (nullish) cacheExpiry as no-cache", async (t) => {
+	const fetchRequest = t.mock.fn(() => "value");
+	// No cacheExpiry option: must not throw and must not cache.
+	const result = processCache({ cacheKey: "no-expiry" }, fetchRequest, {
+		internal: {},
+	});
+	strictEqual(result.value, "value");
+	deepStrictEqual(getCache("no-expiry"), {});
+	clearCache();
+});
+
+test("processCache should accept integer cacheExpiry values", async (t) => {
+	const fetchRequest = t.mock.fn(() => "value");
+	// -1 (infinite), 0 (disabled), and a positive integer must all be accepted.
+	for (const cacheExpiry of [-1, 0, 100]) {
+		processCache(
+			{ cacheKey: `ok-expiry-${cacheExpiry}`, cacheExpiry },
+			fetchRequest,
+			{
+				internal: {},
+			},
+		);
+	}
+	clearCache();
+});
+
 test("processCache should evict oldest entry when exceeding cacheMaxSize", async (t) => {
 	const fetchRequest = t.mock.fn(() => "value");
 	processCache(
@@ -708,10 +879,103 @@ test("processCache should evict oldest entry when exceeding cacheMaxSize", async
 	clearCache();
 });
 
+test("processCache should evict finite entries before infinite entries", async (t) => {
+	const fetchRequest = t.mock.fn(() => "value");
+	// Infinite entry inserted first (oldest by insertion order).
+	processCache(
+		{ cacheKey: "infinite", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	// Finite entry inserted second (newer).
+	processCache(
+		{ cacheKey: "finite", cacheExpiry: 100000, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	t.mock.timers.tick(10);
+	// Third entry triggers eviction; the finite entry must go, not infinite.
+	processCache(
+		{ cacheKey: "third", cacheExpiry: -1, cacheMaxSize: 2 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	notStrictEqual(getCache("infinite").value, undefined);
+	deepStrictEqual(getCache("finite"), {});
+	notStrictEqual(getCache("third").value, undefined);
+	clearCache();
+});
+
 // modifyCache
 test("modifyCache should not override value when it does not exist", async (t) => {
 	modifyCache("key");
 	deepStrictEqual(getCache("key"), {});
+});
+
+test("processCache should keep auto-refresh alive after modifyCache (duration)", async (t) => {
+	const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+	const options = {
+		cacheKey: "refresh-after-modify",
+		cacheExpiry: 100,
+	};
+	const cached = processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+
+	// Consumer modifies the cached value, which clears the refresh timer and
+	// marks the entry modified.
+	modifyCache(options.cacheKey, cached.value);
+
+	// Next invocation re-fetches the modified entry; the rebuilt entry must
+	// reschedule the auto-refresh timer.
+	processCache(options, fetchRequest, { internal: {} });
+	const entry = getCache(options.cacheKey);
+	ok(entry.refresh, "modified re-fetch should reschedule a refresh timer");
+
+	// Advancing past the duration must trigger the auto-refresh fetch.
+	t.mock.timers.tick(100);
+	ok(
+		fetchRequest.mock.callCount() >= 3,
+		`expected auto-refresh after modify, got ${fetchRequest.mock.callCount()} calls`,
+	);
+	clearCache();
+});
+
+test("processCache should keep auto-refresh alive after modifyCache (unix timestamp)", async (t) => {
+	const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+	const options = {
+		cacheKey: "refresh-after-modify-unix",
+		cacheExpiry: Date.now() + 86400000 + 100,
+	};
+	const cached = processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+
+	modifyCache(options.cacheKey, cached.value);
+
+	processCache(options, fetchRequest, { internal: {} });
+	const entry = getCache(options.cacheKey);
+	ok(entry.refresh, "modified re-fetch should reschedule a refresh timer");
+
+	t.mock.timers.tick(86400000 + 100);
+	ok(
+		fetchRequest.mock.callCount() >= 3,
+		`expected auto-refresh after modify, got ${fetchRequest.mock.callCount()} calls`,
+	);
+	clearCache();
+});
+
+test("processCache should not reschedule refresh after modifyCache for infinite cache", async (t) => {
+	const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+	const options = {
+		cacheKey: "refresh-after-modify-infinite",
+		cacheExpiry: -1,
+	};
+	const cached = processCache(options, fetchRequest, { internal: {} });
+	modifyCache(options.cacheKey, cached.value);
+	processCache(options, fetchRequest, { internal: {} });
+	const entry = getCache(options.cacheKey);
+	strictEqual(entry.refresh, undefined);
+	clearCache();
 });
 
 describe("jsonSafeParse", () => {

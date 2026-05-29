@@ -19,7 +19,7 @@ This middleware can be used in combination with
 [`httpErrorHandler`](#httperrorhandler) to automatically return the right
 response to the user.
 
-It can also be used in combination with [`http-content-negotiation`](#httpContentNegotiation) to load localized translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-ftl-i18n`](https://www.npmjs.com/package/ajv-ftl-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language by passing it in the `ajvOptions` options with the key `defaultLanguage` and specifying as value one of the [supported locales](https://www.npmjs.com/package/ajv-i18n#supported-locales).
+It can also be used in combination with [`http-content-negotiation`](#httpContentNegotiation) to load localized translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-ftl-i18n`](https://www.npmjs.com/package/ajv-ftl-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language with the top-level `defaultLanguage` option and supply localizers with the top-level `languages` option.
 
 Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance.
 
@@ -40,13 +40,12 @@ npm install --save-dev ajv-cmd # Optional: for pre-transpiling
   to validate the input (`request.context`) of the Lambda handler. Has additional support for `typeof` keyword to allow validation of `"typeof":"function"`.
 - `responseSchema` (function) (default `undefined`): The compiled ajv validator that will be used
   to validate the output (`request.response`) of the Lambda handler.
-- `i18nEnabled` (boolean) (default `true`): Option to disable i18n default package.
 - `defaultLanguage` (string) (default `en`): When language not found, what language to fallback to.
 - `languages` (object) (default: `{}`): Localization overrides
 
 NOTES:
 
-- At least one of `eventSchema` or `responseSchema` is required.
+- At least one of `eventSchema`, `contextSchema`, or `responseSchema` may be supplied.
 - If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data`, the original response can be found at `request.error.response`.
 - **Important** Transpiling schemas & locales on the fly will cause a 50-150ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 
@@ -58,7 +57,7 @@ Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-i18n`, `a
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
   class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`.
 
-## transpileLocale
+## transpileFTL
 
 Transpile Fluent (.ftl) localization file into ajv compatible format. Allows the overriding of the default messages and adds support for multi-language `errrorMessages`.
 
@@ -245,15 +244,15 @@ export const handler = middy()
 import { readFile } from 'node:fs/promises'
 import middy from '@middy/core'
 import validator from '@middy/validator'
-import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
+import { transpileSchema, transpileFTL } from '@middy/validator/transpile'
 import eventSchema from './schema.event.json'
 
 const lambdaHandler = (event, context) => {
   return {}
 }
 
-const en = transpileLocale(await readFile('./en.ftl'))
-const fr = transpileLocale(await readFile('./fr.ftl'))
+const en = transpileFTL(await readFile('./en.ftl'))
+const fr = transpileFTL(await readFile('./fr.ftl'))
 
 export const handler = middy()
   .use(
@@ -271,7 +270,7 @@ export const handler = middy()
 import { readFile } from 'node:fs/promises'
 import middy from '@middy/core'
 import validator from '@middy/validator'
-import { transpileSchema, transpileLocale } from '@middy/validator/transpile'
+import { transpileSchema, transpileFTL } from '@middy/validator/transpile'
 import { en, fr } from 'ajv-ftl-i18n' // `ajv-i18n` can also be used
 import eventSchema from './schema.event.json'
 

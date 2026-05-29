@@ -1906,6 +1906,17 @@ test("setToContext: true writes to both internal and context", async (t) => {
 
 test("httpJwtValidateOptions accepts valid options and rejects typos", () => {
 	httpJwtValidateOptions({ internalKey: "k", algorithm: "HS256" });
+	httpJwtValidateOptions({
+		internalKey: "k",
+		algorithm: "HS256",
+		requireExp: true,
+		maxTokenAge: "1h",
+	});
+	httpJwtValidateOptions({
+		internalKey: "k",
+		algorithm: "HS256",
+		maxTokenAge: 3600,
+	});
 	httpJwtValidateOptions({});
 	try {
 		httpJwtValidateOptions({ internlKey: "k" });
@@ -1984,4 +1995,229 @@ test("It should strip RFC 6265 surrounding double-quotes from a cookie value", a
 	);
 
 	strictEqual(result.jwt.sub, "user-quoted-cookie");
+});
+
+test("It should accept a token without exp by default", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	// No setExpirationTime: token has no exp claim.
+	const token = await new SignJWT({ sub: "user-no-exp" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context).use(
+		httpJwt({ secretKey: secret, algorithm: "HS256" }),
+	);
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.jwt.sub, "user-no-exp");
+});
+
+test("It should reject a token without exp when requireExp is set", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	const token = await new SignJWT({ sub: "user-no-exp" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.sign(Buffer.from(secret));
+
+	const handler = middy(() => {}).use(
+		httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: true }),
+	);
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-jwt");
+	}
+});
+
+test("It should accept a token with exp when requireExp is set", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	const token = await new SignJWT({ sub: "user-has-exp" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.setExpirationTime("1h")
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context).use(
+		httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: true }),
+	);
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.jwt.sub, "user-has-exp");
+});
+
+test("It should reject a token older than maxTokenAge", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	// Issued 2 hours ago, no exp claim.
+	const token = await new SignJWT({ sub: "user-stale" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+		.sign(Buffer.from(secret));
+
+	const handler = middy(() => {}).use(
+		httpJwt({ secretKey: secret, algorithm: "HS256", maxTokenAge: "1h" }),
+	);
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-jwt");
+	}
+});
+
+test("issuers: requireExp rejects a token without exp", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	// No setExpirationTime: token has no exp claim.
+	const token = await new SignJWT({})
+		.setProtectedHeader({ alg: "RS256", kid })
+		.setIssuedAt()
+		.setIssuer(iss)
+		.sign(privateKey);
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				requireExp: true,
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: maxTokenAge rejects a stale token", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	// Issued 2 hours ago, no exp claim.
+	const token = await new SignJWT({})
+		.setProtectedHeader({ alg: "RS256", kid })
+		.setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+		.setIssuer(iss)
+		.sign(privateKey);
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				maxTokenAge: "1h",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: requireExp accepts a token with exp", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy((event, context) => context).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				requireExp: true,
+				disablePrefetch: true,
+			}),
+		);
+		const result = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(result.jwt.iss, iss);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	const token = await new SignJWT({ sub: "user-hyphen-key" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.setExpirationTime("1h")
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context)
+		.before((request) => {
+			request.internal["jwt-key"] = secret;
+		})
+		.use(httpJwt({ internalKey: "jwt-key", algorithm: "HS256" }));
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.jwt.sub, "user-hyphen-key");
+});
+
+test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+	const token = await new SignJWT({ sub: "user-dotted-key" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.setExpirationTime("1h")
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context)
+		.before((request) => {
+			request.internal.kms = { publicKey: secret };
+		})
+		.use(httpJwt({ internalKey: "kms.publicKey", algorithm: "HS256" }));
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.jwt.sub, "user-dotted-key");
 });

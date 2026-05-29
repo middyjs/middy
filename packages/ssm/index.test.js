@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import {
 	GetParametersByPathCommand,
@@ -248,11 +248,14 @@ const ssmOrderTest = async (t, fetchData) => {
 
 	const middleware = async (request) => {
 		const values = await getInternal(true, request);
-		deepStrictEqual(values, {
-			key0: "key-value-0",
-			key1: "key-value-1",
-			key2: { path0: "path-value-0", path1: "path-value-1" },
-		});
+		deepStrictEqual(
+			values,
+			Object.assign(Object.create(null), {
+				key0: "key-value-0",
+				key1: "key-value-1",
+				key2: { path0: "path-value-0", path1: "path-value-1" },
+			}),
+		);
 	};
 
 	const handler = middy(() => {})
@@ -269,24 +272,24 @@ const ssmOrderTest = async (t, fetchData) => {
 	await handler(event);
 };
 
-test("It should set SSM param values to context with mix of paths and names [paths first]", (t) => {
-	ssmOrderTest(t, {
+test("It should set SSM param values to context with mix of paths and names [paths first]", async (t) => {
+	await ssmOrderTest(t, {
 		key2: "/dev/service_name/",
 		key0: "/dev/service_name/key_name0",
 		key1: "/dev/service_name/key_name1",
 	});
 });
 
-test("It should set SSM param values to context with mix of paths and names [paths middle]", (t) => {
-	ssmOrderTest(t, {
+test("It should set SSM param values to context with mix of paths and names [paths middle]", async (t) => {
+	await ssmOrderTest(t, {
 		key0: "/dev/service_name/key_name0",
 		key2: "/dev/service_name/",
 		key1: "/dev/service_name/key_name1",
 	});
 });
 
-test("It should set SSM param values to context with mix of paths and names [paths last]", (t) => {
-	ssmOrderTest(t, {
+test("It should set SSM param values to context with mix of paths and names [paths last]", async (t) => {
+	await ssmOrderTest(t, {
 		key0: "/dev/service_name/key_name0",
 		key1: "/dev/service_name/key_name1",
 		key2: "/dev/service_name/",
@@ -417,6 +420,35 @@ test("It should set cross-account shared SSM param value to internal storage", a
 		.before(middleware);
 
 	await handler(event, context);
+});
+
+test("It should reject (not silently resolve undefined) for an invalid cross-account ARN", async (t) => {
+	const arn =
+		"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/missing";
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolvesOnce({
+			Parameters: [],
+			InvalidParameters: [arn],
+		});
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: { key0: arn },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+
+	await rejects(
+		() => handler(event, context),
+		/Failed to resolve internal values/,
+	);
 });
 
 test("It should not call aws-sdk again if parameter is cached forever", async (t) => {

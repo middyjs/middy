@@ -1,7 +1,7 @@
 import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import { clearCache } from "../util/index.js";
+import { clearCache, processCache } from "../util/index.js";
 import rdsMiddleware, { rdsValidateOptions } from "./index.js";
 
 test.afterEach(() => {
@@ -221,6 +221,92 @@ test("It should re-instantiate per invocation when cacheExpiry is 0", async (t) 
 	await handler(defaultEvent, newContext());
 	await handler(defaultEvent, newContext());
 	strictEqual(client.mock.callCount(), 2);
+});
+
+test("It should re-create per invocation and not double-end with cacheExpiry 0 and prefetch enabled", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {}).use(
+		rdsMiddleware({
+			client,
+			config: { host: validHost },
+			cacheExpiry: 0,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 2);
+	strictEqual(end.mock.callCount(), 2);
+});
+
+test("It should surface a refreshed cache entry in before, not a stale prefetch", async (t) => {
+	let n = 0;
+	const client = t.mock.fn(() => ({
+		end: async () => {},
+		mark: `client-${++n}`,
+	}));
+	const opts = {
+		client,
+		config: { host: validHost },
+		cacheKey: "rds-refresh",
+		cacheExpiry: -1,
+	};
+	const handler = middy(() => {}).use(rdsMiddleware(opts));
+	let captured;
+	handler.before(async (request) => {
+		captured = request.context.rds;
+	});
+	await handler(defaultEvent, newContext());
+	strictEqual(captured.mark, "client-1");
+	// Rebuild the shared cache with a fresh client, as the auto-refresh timer would
+	clearCache();
+	processCache({ ...opts }, () => client());
+	await handler(defaultEvent, newContext());
+	strictEqual(captured.mark, "client-2");
+});
+
+test("It should default cacheExpiry to 0 when internalKey is set so a rotated token is re-read", async (t) => {
+	const end = t.mock.fn(async () => {});
+	const client = t.mock.fn((cfg) => ({ end, password: cfg.password }));
+	let token = "token-1";
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.rdsToken = token;
+		})
+		.use(
+			rdsMiddleware({
+				client,
+				config: { host: validHost, username: "admin" },
+				internalKey: "rdsToken",
+				cacheKey: "rds-rotate",
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.calls[0].arguments[0].password, "token-1");
+	token = "token-2";
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 2);
+	strictEqual(client.mock.calls[1].arguments[0].password, "token-2");
+	strictEqual(end.mock.callCount(), 2);
+});
+
+test("It should honour an explicit cacheExpiry over the internalKey default", async (t) => {
+	const { client } = buildClient(t);
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.rdsToken = "iam-token";
+		})
+		.use(
+			rdsMiddleware({
+				client,
+				config: { host: validHost, username: "admin" },
+				internalKey: "rdsToken",
+				cacheExpiry: -1,
+				cacheKey: "rds-explicit-expiry",
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 1);
 });
 
 test("It should throw if client option is missing", () => {

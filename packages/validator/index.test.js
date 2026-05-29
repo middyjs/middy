@@ -725,3 +725,17 @@ test("validatorValidateOptions rejects non-function localizer in languages", () 
 		ok(e.message.includes("languages.en"));
 	}
 });
+
+test("It should reject an $async AJV validator at setup rather than failing open", () => {
+	// An $async validator returns a promise (truthy) instead of a boolean, which
+	// the synchronous validation path would treat as always valid.
+	const asyncValidator = () => Promise.resolve(true);
+	asyncValidator.$async = true;
+	try {
+		validator({ eventSchema: asyncValidator });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("$async"));
+	}
+});

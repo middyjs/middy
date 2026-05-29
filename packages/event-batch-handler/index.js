@@ -8,11 +8,15 @@ const eventBatchHandler = (recordHandler) => async (event, context) => {
 
 	if (isExecutionModeDurable(context)) {
 		const settled = await Promise.allSettled(
-			records.map((record, idx) =>
-				context.step(`record-${idx}`, async (stepCtx) =>
-					recordHandler(record, stepCtx),
-				),
-			),
+			records.map((record, idx) => {
+				try {
+					return context.step(`record-${idx}`, async (stepCtx) =>
+						recordHandler(record, stepCtx),
+					);
+				} catch (err) {
+					return Promise.reject(err);
+				}
+			}),
 		);
 		const firstFailure = settled.find((s) => s.status === "rejected");
 		if (firstFailure) throw firstFailure.reason;

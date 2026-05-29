@@ -10,7 +10,7 @@ const defaultContext = {
 };
 
 // Headers
-test("It should normalize (lowercase) all the headers and create a copy in rawHeaders", async (t) => {
+test("It should normalize (lowercase) all the headers", async (t) => {
 	const handler = middy((event, context) => event);
 
 	handler.use(httpHeaderNormalizer());
@@ -25,13 +25,13 @@ test("It should normalize (lowercase) all the headers and create a copy in rawHe
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"x-api-key": "123456",
 		tcn: "abc",
 		te: "cde",
 		dns: "d",
 		foo: "bar",
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -53,13 +53,13 @@ test("It should normalize (canonical) all the headers", async (t) => {
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"X-Api-Key": "123456",
 		TCN: "abc",
 		TE: "cde",
 		Dns: "d",
 		Foo: "bar",
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -87,13 +87,13 @@ test("It can use custom normalization function", async (t) => {
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"X-API-KEY": "123456",
 		TCN: "abc",
 		TE: "cde",
 		DNS: "d",
 		FOO: "bar",
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -123,7 +123,7 @@ test("It should normalize (lowercase) all the headers with defaults", async (t) 
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"x-api-key": "123456",
 		tcn: "abc",
 		te: "cde",
@@ -131,7 +131,7 @@ test("It should normalize (lowercase) all the headers with defaults", async (t) 
 		foo: "bar",
 		accept: "application/json",
 		"content-type": "application/json",
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -140,7 +140,7 @@ test("It should normalize (lowercase) all the headers with defaults", async (t) 
 
 // multiValueHeaders
 
-test("It should normalize (lowercase) all the headers and create a copy in rawMultiValueHeaders", async (t) => {
+test("It should normalize (lowercase) all the multiValueHeaders", async (t) => {
 	const handler = middy((event, context) => event);
 
 	handler.use(httpHeaderNormalizer());
@@ -151,16 +151,16 @@ test("It should normalize (lowercase) all the headers and create a copy in rawMu
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		cookie: ["123456", "654321"],
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
 	deepStrictEqual(resultingEvent.multiValueHeaders, expectedHeaders);
 });
 
-test("It should normalize (canonical) all the headers and create a copy in rawMultiValueHeaders", async (t) => {
+test("It should normalize (canonical) all the multiValueHeaders", async (t) => {
 	const handler = middy((event, context) => event);
 
 	handler.use(httpHeaderNormalizer({ canonical: true }));
@@ -171,9 +171,9 @@ test("It should normalize (canonical) all the headers and create a copy in rawMu
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		Cookie: ["123456", "654321"],
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -197,9 +197,9 @@ test("It can use custom normalization function on multiValueHeaders", async (t) 
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		COOKIE: ["123456", "654321"],
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -229,7 +229,7 @@ test("It should normalize (lowercase) all the multiValueHeaders with defaults", 
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"x-api-key": ["123456"],
 		tcn: ["abc"],
 		te: ["cde"],
@@ -237,7 +237,7 @@ test("It should normalize (lowercase) all the multiValueHeaders with defaults", 
 		foo: ["bar"],
 		accept: ["application/json"],
 		"content-type": ["application/json", "*/*"],
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 
@@ -279,9 +279,12 @@ test("It should not match inherited properties like 'constructor' in canonical e
 
 	// "constructor" should be canonicalized normally (to "Constructor"),
 	// NOT matched against Object.prototype.constructor
-	deepStrictEqual(resultingEvent.headers, {
-		Constructor: "some-value",
-	});
+	deepStrictEqual(
+		resultingEvent.headers,
+		Object.assign(Object.create(null), {
+			Constructor: "some-value",
+		}),
+	);
 });
 
 test("It should not match inherited properties like 'toString' in canonical exceptions", async (t) => {
@@ -299,9 +302,77 @@ test("It should not match inherited properties like 'toString' in canonical exce
 
 	// "tostring" should be canonicalized normally (to "Tostring"),
 	// NOT matched against Object.prototype.toString
-	deepStrictEqual(resultingEvent.headers, {
-		Tostring: "some-value",
+	deepStrictEqual(
+		resultingEvent.headers,
+		Object.assign(Object.create(null), {
+			Tostring: "some-value",
+		}),
+	);
+});
+
+test("It should keep a literal __proto__ header as an own property without altering the prototype", async (t) => {
+	const handler = middy((event, context) => event);
+
+	handler.use(httpHeaderNormalizer());
+
+	// Build an event whose headers object genuinely has an own "__proto__" key
+	// (an object literal { "__proto__": ... } would set the prototype instead).
+	const headers = {};
+	Object.defineProperty(headers, "__proto__", {
+		value: "polluted",
+		enumerable: true,
+		writable: true,
+		configurable: true,
 	});
+	headers.foo = "bar";
+	const event = { headers };
+
+	const resultingEvent = await handler(event, defaultContext);
+
+	// The prototype must be untouched (the value must not become the prototype).
+	strictEqual(Object.getPrototypeOf(resultingEvent.headers), null);
+	// __proto__ must survive as an own enumerable property and not be dropped.
+	ok(Object.hasOwn(resultingEvent.headers, "__proto__"));
+	ok(Object.keys(resultingEvent.headers).includes("__proto__"));
+	strictEqual(resultingEvent.headers.foo, "bar");
+	// The header value survives intact.
+	strictEqual(
+		Object.getOwnPropertyDescriptor(resultingEvent.headers, "__proto__").value,
+		"polluted",
+	);
+});
+
+test("It should keep a literal __proto__ multiValueHeaders header as an own property without altering the prototype", async (t) => {
+	const handler = middy((event, context) => event);
+
+	handler.use(httpHeaderNormalizer());
+
+	// Build an event whose multiValueHeaders object genuinely has an own
+	// "__proto__" key (an object literal would set the prototype instead).
+	const multiValueHeaders = {};
+	Object.defineProperty(multiValueHeaders, "__proto__", {
+		value: ["polluted"],
+		enumerable: true,
+		writable: true,
+		configurable: true,
+	});
+	multiValueHeaders.foo = ["bar"];
+	const event = { multiValueHeaders };
+
+	const resultingEvent = await handler(event, defaultContext);
+
+	// The prototype must be untouched (the value must not replace the prototype).
+	strictEqual(Object.getPrototypeOf(resultingEvent.multiValueHeaders), null);
+	ok(Object.hasOwn(resultingEvent.multiValueHeaders, "__proto__"));
+	ok(Object.keys(resultingEvent.multiValueHeaders).includes("__proto__"));
+	deepStrictEqual(
+		Object.getOwnPropertyDescriptor(
+			resultingEvent.multiValueHeaders,
+			"__proto__",
+		).value,
+		["polluted"],
+	);
+	deepStrictEqual(resultingEvent.multiValueHeaders.foo, ["bar"]);
 });
 
 test("It should not fail given a corrupted header key", async (t) => {
@@ -315,9 +386,9 @@ test("It should not fail given a corrupted header key", async (t) => {
 		},
 	};
 
-	const expectedHeaders = {
+	const expectedHeaders = Object.assign(Object.create(null), {
 		"X----": "foo",
-	};
+	});
 
 	const resultingEvent = await handler(event, defaultContext);
 

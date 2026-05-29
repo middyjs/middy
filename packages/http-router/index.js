@@ -1,6 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import {
+	createError,
+	resolveHttpEventVersion,
+	validateOptions,
+} from "@middy/util";
 
 const name = "http-router";
 const pkg = `@middy/${name}`;
@@ -85,7 +89,8 @@ const httpRouteHandler = (opts = {}) => {
 	}
 
 	const handler = (event, context, abort) => {
-		const { method, path } = getVersionRoute[pickVersion(event)](event);
+		const route = getVersionRoute[resolveHttpEventVersion(event)];
+		const { method, path } = route ? route(event) : {};
 
 		if (!method) {
 			throw new Error(
@@ -158,7 +163,7 @@ const attachStaticRoute = (method, path, handler, routesType) => {
 		}
 		return;
 	}
-	routesType[method] ??= {};
+	routesType[method] ??= Object.create(null);
 	// TODO v8 when duplicates throw error
 	routesType[method][path] = handler;
 	routesType[method][`${path}/`] = handler; // Optional `/`
@@ -193,23 +198,18 @@ const countSlashes = (s) => {
 	return n;
 };
 
-const pickVersion = (event) => {
-	// '1.0' is a safer default
-	return event.version ?? (event.method ? "vpc" : "1.0");
-};
-
 const getVersionRoute = {
 	"1.0": (event) => ({
 		method: event.httpMethod,
 		path: event.path,
 	}),
 	"2.0": (event) => ({
-		method: event.requestContext.http.method,
-		path: event.requestContext.http.path,
+		method: event.requestContext?.http?.method,
+		path: event.requestContext?.http?.path,
 	}),
 	vpc: (event) => {
 		const rawPath = event.raw_path;
-		const q = rawPath.indexOf("?");
+		const q = rawPath?.indexOf("?") ?? -1;
 		return {
 			method: event.method,
 			path: q < 0 ? rawPath : rawPath.substring(0, q),

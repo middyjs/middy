@@ -454,6 +454,38 @@ describe("validateOptions instanceof error paths", () => {
 	});
 });
 
+describe("validateOptions oneOf surfaces schema-construction errors", () => {
+	test("a malformed instanceof inside oneOf fails loudly with the real cause", () => {
+		const schema = {
+			v: { oneOf: [{ instanceof: "NotARealGlobalClass" }, { type: "string" }] },
+		};
+		try {
+			validateOptions("@middy/test", schema, { v: 123 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(
+				e.message.includes("NotARealGlobalClass"),
+				`expected construction error to surface, got: ${e.message}`,
+			);
+		}
+	});
+
+	test("an unrecognized sub-schema shape inside oneOf fails loudly", () => {
+		const schema = {
+			v: { oneOf: [{ unknownKeyword: true }, { type: "string" }] },
+		};
+		try {
+			validateOptions("@middy/test", schema, { v: 123 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(
+				e.message.includes("Invalid schema"),
+				`expected invalid-schema error to surface, got: ${e.message}`,
+			);
+		}
+	});
+});
+
 describe("validateOptions undefined-value short-circuits", () => {
 	test("const rule allows undefined", () => {
 		validateOptions("@middy/test", { flag: { const: false } }, {});
@@ -463,6 +495,14 @@ describe("validateOptions undefined-value short-circuits", () => {
 		validateOptions(
 			"@middy/test",
 			{ v: { oneOf: [{ type: "string" }, { type: "number" }] } },
+			{},
+		);
+	});
+
+	test("allOf rule allows undefined", () => {
+		validateOptions(
+			"@middy/test",
+			{ v: { allOf: [{ type: "string", pattern: "^/" }] } },
 			{},
 		);
 	});
@@ -697,6 +737,53 @@ describe("validateOptions minLength/maxLength", () => {
 	});
 });
 
+describe("validateOptions string-only constraints on non-string value", () => {
+	test("pattern on a non-string value yields a clean validation Error", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "number", pattern: "^a" } },
+				{ n: 42 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("n"));
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+
+	test("minLength on a non-string value yields a clean validation Error", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "number", minLength: 2 } },
+				{ n: 42 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("n"));
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+
+	test("maxLength on a non-string value yields a clean validation Error", () => {
+		try {
+			validateOptions(
+				"@middy/test",
+				{ n: { type: "number", maxLength: 2 } },
+				{ n: 42 },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("n"));
+			strictEqual(e.cause.package, "@middy/test");
+		}
+	});
+});
+
 describe("validateOptions enum", () => {
 	test("accepts a value that matches the enum list", () => {
 		validateOptions(
@@ -891,6 +978,35 @@ describe("validateOptions uniqueItems", () => {
 				{ method: "POST", path: "/a", handler: () => {} },
 			],
 		});
+	});
+
+	test("does not stack overflow on a circular item", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		const item = {};
+		item.self = item;
+		try {
+			validateOptions("@middy/test", schema, { rows: [item] });
+		} catch (e) {
+			ok(
+				!(e instanceof RangeError),
+				"must not throw a RangeError stack overflow",
+			);
+		}
+	});
+
+	test("treats two distinct circular items as duplicates", () => {
+		const schema = { rows: { type: "array", uniqueItems: true } };
+		const a = { name: "x" };
+		a.self = a;
+		const b = { name: "x" };
+		b.self = b;
+		try {
+			validateOptions("@middy/test", schema, { rows: [a, b] });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(!(e instanceof RangeError));
+			ok(e.message.includes("rows[1]"));
+		}
 	});
 });
 

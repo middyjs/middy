@@ -33,8 +33,8 @@ npm install --save @middy/warmup
 ## Sample usage
 
 ```javascript
-const middy = require('@middy/core')
-const warmup = require('@middy/warmup')
+import middy from '@middy/core'
+import warmup from '@middy/warmup'
 
 const lambdaHandler = (event, context, cb) => {
   /* ... */

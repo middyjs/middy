@@ -47,7 +47,11 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 	const s3ObjectResponseMiddlewareBefore = async (request) => {
 		const { inputS3Url } = request.event.getObjectContext ?? {};
 
-		request.context.s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined;
+		const s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined;
+		// Suppress an unhandledRejection without swallowing the error: a consumer
+		// that awaits context.s3ObjectFetch still observes the real rejection.
+		s3ObjectFetch?.catch(() => {});
+		request.context.s3ObjectFetch = s3ObjectFetch;
 	};
 
 	const s3ObjectResponseMiddlewareAfter = async (request) => {
@@ -59,7 +63,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 		const command = new WriteGetObjectResponseCommand({
 			RequestRoute: request.event.getObjectContext?.outputRoute,
 			RequestToken: request.event.getObjectContext?.outputToken,
-			Body: request.response.Body ?? request.response.body,
+			Body: request.response?.Body ?? request.response?.body,
 		});
 		await client
 			.send(command)

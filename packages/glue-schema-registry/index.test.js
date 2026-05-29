@@ -34,7 +34,7 @@ test("validateOptions accepts SchemaId+SchemaVersionNumber form", () => {
 		fetchData: {
 			user: {
 				SchemaId: { SchemaName: "user", RegistryName: "default" },
-				SchemaVersionNumber: 3,
+				SchemaVersionNumber: { VersionNumber: 3 },
 			},
 		},
 	});
@@ -226,7 +226,11 @@ test("resolveSchemaVersion: prefetch path (canPrefetch true)", async () => {
 	const request = { internal: {}, context: {} };
 	const result = await resolveSchemaVersion(
 		"pf-1",
-		{ AwsClient: GlueClient, cacheKey: "glue-schema-registry", cacheExpiry: 0 },
+		{
+			AwsClient: GlueClient,
+			cacheKey: "glue-schema-registry",
+			cacheExpiry: -1,
+		},
 		request,
 	);
 	strictEqual(result.schemaVersionId, "pf-1");
@@ -332,6 +336,29 @@ test("resolveSchemaVersion: reuses client across timer-driven refreshes", async 
 
 	await new Promise((resolve) => setTimeout(resolve, 80));
 	clearCache("glue-timer-refresh:tmr-1");
+});
+
+test("resolveSchemaVersion: cacheKeyExpiry override (keyed on base cacheKey) takes effect", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "exp-1",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const request = { internal: {}, context: {} };
+	const opts = {
+		AwsClient: GlueClient,
+		cacheKey: "glue-schema-registry",
+		// Infinite by default, but the per-key override disables caching for this
+		// base cacheKey, so the second resolve must refetch.
+		cacheExpiry: -1,
+		cacheKeyExpiry: { "glue-schema-registry": 0 },
+		disablePrefetch: true,
+	};
+
+	await resolveSchemaVersion("exp-1", opts, request);
+	await resolveSchemaVersion("exp-1", opts, request);
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 2);
 });
 
 test("resolveSchemaVersion rejects empty schemaVersionId", async () => {

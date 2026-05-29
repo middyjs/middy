@@ -185,6 +185,83 @@ test("It should respect a pre-shaped { Data, ConnectionId } response", async (t)
 	strictEqual(sentInput.ConnectionId, "explicit-conn");
 });
 
+test("It should not write a derived endpoint back onto the shared awsClientOptions", async (t) => {
+	mockClient(ApiGatewayManagementApiClient)
+		.on(PostToConnectionCommand)
+		.resolves({ statusCode: 200 });
+
+	// No explicit endpoint: it is derived from requestContext. The derived value
+	// must live on a per-request copy, not leak back onto the shared options
+	// object (which would poison later warm-container invocations).
+	const awsClientOptions = {};
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient, awsClientOptions }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "xxxxxx.execute-api.region.amazonaws.com",
+			stage: "production",
+			connectionId: "id",
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { statusCode: 200 });
+	strictEqual(awsClientOptions.endpoint, undefined);
+});
+
+test("It should preserve an explicit endpoint over the requestContext-derived one", async (t) => {
+	mockClient(ApiGatewayManagementApiClient)
+		.on(PostToConnectionCommand)
+		.resolves({ statusCode: 200 });
+
+	const awsClientOptions = { endpoint: "https://option-endpoint/prod" };
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient, awsClientOptions }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "xxxxxx.execute-api.region.amazonaws.com",
+			stage: "production",
+			connectionId: "id",
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { statusCode: 200 });
+	// The explicit endpoint wins and the caller's object is left untouched (no
+	// requestContext-derived endpoint leaked back onto the shared options).
+	strictEqual(awsClientOptions.endpoint, "https://option-endpoint/prod");
+});
+
+test("It should pass a binary Uint8Array response through as Data without serializing", async (t) => {
+	const client = mockClient(ApiGatewayManagementApiClient);
+	let sentInput;
+	client.on(PostToConnectionCommand).callsFake(async (input) => {
+		sentInput = input;
+		return { statusCode: 200 };
+	});
+
+	const binary = new Uint8Array([1, 2, 3]);
+	const handler = middy(() => binary).use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "xxxxxx.execute-api.region.amazonaws.com",
+			stage: "production",
+			connectionId: "conn-bin",
+		},
+	};
+	await handler(event, defaultContext);
+
+	strictEqual(sentInput.Data, binary);
+	strictEqual(sentInput.ConnectionId, "conn-bin");
+});
+
 test("wsResponseValidateOptions accepts valid options and rejects typos", () => {
 	wsResponseValidateOptions({ disablePrefetch: true });
 	wsResponseValidateOptions({});

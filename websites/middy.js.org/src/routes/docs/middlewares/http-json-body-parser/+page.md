@@ -4,7 +4,8 @@ description: "Parse JSON HTTP request bodies automatically and handle malformed 
 ---
 
 This middleware automatically parses HTTP requests with a JSON body and converts the body into an
-object. Also handles gracefully broken JSON as _Unsupported Media Type_ (415 errors)
+object. Broken or malformed JSON is handled gracefully as an _Unprocessable Entity_ (422 error),
+while a non-JSON `Content-Type` is reported as _Unsupported Media Type_ (415 error),
 if used in combination with `httpErrorHandler`.
 
 It can also be used in combination with validator as a prior step to normalize the
@@ -49,7 +50,7 @@ const event = {
   body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  strictEqual(body, { foo: 'bar' })
+  deepStrictEqual(body, { foo: 'bar' })
 })
 ```
 

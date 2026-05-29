@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Middy `event-batch-parser` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-  <p><strong>Event batch parser middleware for the middy framework — Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support</strong></p>
+  <p><strong>Event batch parser middleware for the middy framework: Kafka, Kinesis, Firehose, SQS, MQ with pluggable JSON / Avro / Protobuf parsers and AWS Glue Schema Registry support</strong></p>
   <p>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
     <a href="https://www.npmjs.com/package/@middy/event-batch-parser"><img alt="npm version" src="https://img.shields.io/npm/v/@middy/event-batch-parser.svg"></a>

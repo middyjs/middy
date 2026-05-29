@@ -349,3 +349,25 @@ test("stsValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("setToContext"));
 	}
 });
+
+test("It should throw a clear, package-tagged error for non-cloneable fetchData", () => {
+	try {
+		sts({
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+					bad: () => {},
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof DOMException), "should not be a raw DOMException");
+		ok(e instanceof Error);
+		ok(
+			e.message.includes("fetchData"),
+			`message should mention fetchData, got: ${e.message}`,
+		);
+		strictEqual(e.cause.package, "@middy/sts");
+	}
+});

@@ -154,6 +154,23 @@ test("It should allow the return of the entire response", async (t) => {
 	});
 });
 
+test("It should not crash when a serializer returns null", async (t) => {
+	const handler = middy((event, context) => createHttpResponse());
+
+	handler.use(
+		httpResponseSerializer({
+			serializers: [{ regex: /^application\/json$/, serializer: () => null }],
+			defaultContentType: "application/json",
+		}),
+	);
+
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
+
+	strictEqual(response.body, null);
+	strictEqual(response.headers["Content-Type"], "application/json");
+});
+
 test("It should use the defaultContentType when no matching accept preferences are found", async (t) => {
 	const handler = middy((event, context) => {
 		return createHttpResponse();

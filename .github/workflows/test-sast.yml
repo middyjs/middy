@@ -18,7 +18,6 @@ jobs:
   trivy-vuln:
     name: "Trivy: SCA"
     runs-on: ubuntu-latest
-    if: (github.actor != 'dependabot[bot]')
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -43,7 +42,6 @@ jobs:
   trivy-license:
     name: "Trivy: Licensing"
     runs-on: ubuntu-latest
-    if: (github.actor != 'dependabot[bot]')
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -164,7 +162,6 @@ jobs:
       # https://hub.docker.com/r/semgrep/semgrep/tags
       image: semgrep/semgrep:1.111.0 # v1.111.0
 
-    if: (github.actor != 'dependabot[bot]')
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -215,7 +212,6 @@ jobs:
   trufflehog:
     name: 'TruffleHog: secrets'
     runs-on: ubuntu-latest
-    if: (github.actor != 'dependabot[bot]')
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -230,13 +226,14 @@ jobs:
       - name: TruffleHog
         uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab # v3.95.3
         with:
-          extra_args: --only-verified --results=verified,unknown
+          extra_args: --only-verified
 
   # https://github.com/gitleaks/gitleaks-action
   gitleaks:
     name: 'gitleaks: secrets'
     runs-on: ubuntu-latest
-    if: (github.actor != 'dependabot[bot]')
+    env:
+      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -244,11 +241,13 @@ jobs:
           egress-policy: audit
           disable-telemetry: true
       - name: Checkout repository
+        if: env.GITLEAKS_LICENSE != ''
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: gitleaks
+        if: env.GITLEAKS_LICENSE != ''
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -139,6 +139,67 @@ test("Should return with executionMode:executionModeStreamifyResponse using body
 	strictEqual(content(), input);
 });
 
+test("Should flush empty body when handler returns null in streamify mode", async (t) => {
+	const handler = middy(
+		(event, context, { signal }) => {
+			return null;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	);
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), "");
+});
+
+test("Should flush empty body when handler returns undefined in streamify mode", async (t) => {
+	const handler = middy(
+		(event, context, { signal }) => {
+			return undefined;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	);
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), "");
+});
+
+test("Should flush empty body when before middleware short-circuits with earlyResponse=undefined in streamify mode", async (t) => {
+	let requestEndCalled = false;
+	const handler = middy(
+		(event, context, { signal }) => {
+			throw new Error("handler should not run");
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+			requestEnd: () => {
+				requestEndCalled = true;
+			},
+		},
+	).before((request) => {
+		request.earlyResponse = undefined;
+	});
+
+	const { responseStream, chunkResponse } =
+		createResponseStreamMockAndCapture();
+
+	const response = await handler(event, responseStream, context);
+	strictEqual(response, undefined);
+	strictEqual(chunkResponse(), "");
+	ok(requestEndCalled);
+});
+
 test("Should return with executionMode:executionModeStreamifyResponse using body string", async (t) => {
 	const input = "x".repeat(1024 * 1024);
 	const handler = middy({

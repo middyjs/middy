@@ -67,7 +67,8 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	const optional = rawType.endsWith("?");
 	const type = optional ? rawType.slice(0, -1) : rawType;
 	const checker = validateOptionsTypeCheckers[type];
-	if (!checker) fail(`Unknown schema type '${type}' for option '${path}'`);
+	if (!checker)
+		schemaFail(`Unknown schema type '${type}' for option '${path}'`);
 	if (value === undefined) {
 		if (!optional) fail(`Missing required option '${path}' (${type})`);
 		return false;
@@ -97,24 +98,35 @@ const checkNestedRule = (rule, value, path, fail) => {
 
 const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
 
+class SchemaError extends Error {}
+const schemaFail = (message) => {
+	throw new SchemaError(message);
+};
+
 // Stable JSON form: recursively sorts object keys, skips function-typed
 // values. Used for `uniqueItems` so items that differ only by handler
 // identity or key ordering collide.
-const stableStringify = (value) => {
+const stableStringify = (value, seen = new WeakSet()) => {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (seen.has(value)) return '"[Circular]"';
+	seen.add(value);
+	let result;
 	if (Array.isArray(value)) {
-		return `[${value.map(stableStringify).join(",")}]`;
+		result = `[${value.map((v) => stableStringify(v, seen)).join(",")}]`;
+	} else {
+		const keys = Object.keys(value)
+			.filter((k) => typeof value[k] !== "function")
+			.sort();
+		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
 	}
-	const keys = Object.keys(value)
-		.filter((k) => typeof value[k] !== "function")
-		.sort();
-	return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+	seen.delete(value);
+	return result;
 };
 
 const resolveInstance = (name) => {
 	const ctor = globalThis[name];
 	if (typeof ctor !== "function") {
-		throw new Error(`Unknown 'instanceof' class '${name}'`);
+		schemaFail(`Unknown 'instanceof' class '${name}'`);
 	}
 	return ctor;
 };
@@ -153,7 +165,9 @@ const checkRule = (rule, value, path, fail) => {
 					throw new TypeError(msg);
 				});
 				matches++;
-			} catch {}
+			} catch (e) {
+				if (e instanceof SchemaError) throw e;
+			}
 		}
 		if (matches !== 1) {
 			fail(`Option '${path}' must match exactly one schema in oneOf`);
@@ -216,6 +230,13 @@ const checkRule = (rule, value, path, fail) => {
 				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
 			}
 		}
+		const hasStringConstraint =
+			pattern !== undefined ||
+			minLength !== undefined ||
+			maxLength !== undefined;
+		if (hasStringConstraint && typeof value !== "string") {
+			fail(`Option '${path}' must be string`);
+		}
 		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
@@ -276,7 +297,7 @@ const checkRule = (rule, value, path, fail) => {
 		}
 		return;
 	}
-	fail(`Invalid schema for option '${path}'`);
+	schemaFail(`Invalid schema for option '${path}'`);
 };
 
 const isJsonSchemaForm = (schema) =>
@@ -290,10 +311,20 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	const fail = (message) => {
 		throw new TypeError(message, { cause: { package: packageName } });
 	};
-	if (isJsonSchemaForm(schema)) {
-		checkRule(schema, options, "", fail);
-	} else {
-		checkSchemaObject(schema, options, "", fail);
+	try {
+		if (isJsonSchemaForm(schema)) {
+			checkRule(schema, options, "", fail);
+		} else {
+			checkSchemaObject(schema, options, "", fail);
+		}
+	} catch (e) {
+		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
+		// the documented `TypeError` + `cause.package`; mismatch errors already
+		// carry that shape and pass through untouched.
+		if (e instanceof SchemaError) {
+			fail(e.message);
+		}
+		throw e;
 	}
 	return options;
 };
@@ -341,7 +372,11 @@ export const createClient = async (options, request) => {
 };
 
 export const canPrefetch = (options = {}) => {
-	return !options.awsClientAssumeRole && !options.disablePrefetch;
+	return (
+		!options.awsClientAssumeRole &&
+		!options.disablePrefetch &&
+		options.cacheExpiry !== 0
+	);
 };
 
 const safeGet = (obj, key) =>
@@ -349,7 +384,7 @@ const safeGet = (obj, key) =>
 
 // Internal Context
 export const getInternal = async (variables, request) => {
-	if (!variables || !request) return Object.create(null);
+	if (!variables || !request?.internal) return Object.create(null);
 	let keys = [];
 	let values = [];
 	if (variables === true) {
@@ -436,6 +471,16 @@ export const sanitizeKey = (key) => {
 		.replace(sanitizeKeyRemoveDisallowedChar, "_");
 };
 
+// Resolve the API Gateway / VPC Lattice event "version" used by the HTTP
+// router and event normalizer to dispatch event-shape handling:
+//   - explicit `event.version` ("1.0" | "2.0") wins
+//   - otherwise a VPC Lattice event (identified by `event.method`) -> "vpc"
+//   - else default to "1.0" (the safer default)
+export const resolveHttpEventVersion = (event) => {
+	// '1.0' is a safer default
+	return event.version ?? (event.method ? "vpc" : "1.0");
+};
+
 // setToContext fast-path
 //
 // Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
@@ -486,15 +531,30 @@ const cache = new Map();
 const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
+	if (cacheExpiry == null) return;
 	if (
-		typeof cacheExpiry === "number" &&
-		cacheExpiry < -1 &&
-		!Number.isNaN(cacheExpiry)
+		typeof cacheExpiry !== "number" ||
+		!Number.isInteger(cacheExpiry) ||
+		cacheExpiry < -1
 	) {
 		throw new Error(
-			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive number (ms duration or unix timestamp)`,
+			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive integer (ms duration or unix timestamp)`,
 			{ cause: { package: pkg } },
 		);
+	}
+};
+
+// Attach a no-op rejection handler to any promise(s) a fetch returns. A prefetch
+// (warm-up) result is stored but not awaited until a later invocation, so without
+// this an early rejection would surface as an unhandledRejection. The original
+// promise is left in place, so the eventual `await` still observes the error.
+const silenceFetchRejections = (value) => {
+	if (value instanceof Promise) {
+		value.catch(() => {});
+	} else if (value !== null && typeof value === "object") {
+		for (const key of Object.keys(value)) {
+			if (value[key] instanceof Promise) value[key].catch(() => {});
+		}
 	}
 };
 
@@ -508,15 +568,27 @@ export const processCache = (
 	cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry;
 	validateCacheExpiry(cacheExpiry);
 	const now = Date.now();
+	const scheduleRefresh = (duration) =>
+		duration > 0 && Number.isFinite(duration)
+			? setTimeout(
+					() => processCache(options, middlewareFetch, middlewareFetchRequest),
+					duration,
+				).unref()
+			: undefined;
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
-		const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > now);
+		const effectiveExpiry =
+			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
+		const unexpired =
+			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
 
 		if (unexpired) {
 			if (cached.modified) {
 				const value = middlewareFetch(middlewareFetchRequest, cached.value);
+				silenceFetchRejections(value);
 				Object.assign(cached.value, value);
-				const entry = { value: cached.value, expiry: cached.expiry };
+				const refresh = scheduleRefresh(cached.expiry - now);
+				const entry = { value: cached.value, expiry: cached.expiry, refresh };
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -525,25 +597,22 @@ export const processCache = (
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
+	silenceFetchRejections(value);
 	// cacheExpiry semantics:
 	//   >86400000 (24h): treated as unix timestamp (ms)
 	//   >0 && <=86400000: treated as duration (ms) from now
 	//   -1: infinite cache (never expires)
 	//   0/undefined/null: no caching
-	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
+	const expiry =
+		cacheExpiry < 0
+			? Number.POSITIVE_INFINITY
+			: cacheExpiry > 86400000
+				? cacheExpiry
+				: now + cacheExpiry;
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
 		clearTimeout(cache.get(cacheKey)?.refresh);
-		// .unref() so a pending refresh timer does not keep the Lambda event
-		// loop alive (relevant under `callbackWaitsForEmptyEventLoop: false`).
-		const refresh =
-			duration > 0
-				? setTimeout(
-						() =>
-							processCache(options, middlewareFetch, middlewareFetchRequest),
-						duration,
-					).unref()
-				: undefined;
+		const refresh = scheduleRefresh(duration);
 		cache.set(cacheKey, { value, expiry, refresh });
 		evictCache(cacheMaxSize);
 	}
@@ -573,9 +642,9 @@ export const modifyCache = (cacheKey, value) => {
 const evictCache = (maxSize) => {
 	if (cache.size <= maxSize) return;
 	let oldestKey = null;
-	let oldestExpiry = Infinity;
+	let oldestExpiry;
 	for (const [key, entry] of cache) {
-		if (entry && entry.expiry < oldestExpiry) {
+		if (entry && (oldestKey === null || entry.expiry < oldestExpiry)) {
 			oldestExpiry = entry.expiry;
 			oldestKey = key;
 		}

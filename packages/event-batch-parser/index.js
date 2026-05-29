@@ -60,6 +60,11 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			if (!accessor) {
 				throw new TypeError(
 					`${pkg}: field "${field}" is not supported for event source "${eventSource}". Supported: ${Object.keys(source.fields).join(", ")}`,
+					{
+						cause: {
+							package: pkg,
+						},
+					},
 				);
 			}
 			work.push({ field, accessor, parser: options[field] });
@@ -92,7 +97,7 @@ const eventBatchParserMiddleware = (opts = {}) => {
 				let parsed;
 				try {
 					// Skip `await` for sync parsers (parseJson, schema-bound
-					// parseAvro/parseProtobuf bindings) — saves a microtask per
+					// parseAvro/parseProtobuf bindings), saves a microtask per
 					// record across the batch. Only awaits when the parser
 					// actually returns a thenable.
 					parsed = parser(payload, record, request, framing);
@@ -140,7 +145,7 @@ const rmqRecords = (event) =>
 
 // Each entry: how to iterate records and per-logical-field accessor pairs.
 // `value`, `body`, and `data` are internal aliases for the same payload field
-// on every source — undocumented, but accepted so users can use whichever name
+// on every source, undocumented, but accepted so users can use whichever name
 // reads naturally for their source. Accessors are fixed functions (not string
 // paths) to keep property access static and avoid dynamic-key pollution risks.
 const accKey = {
@@ -226,7 +231,7 @@ const sources = {
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
 	},
-	// MQ (RabbitMQ): same paragraph as ActiveMQ — `data` is base64.
+	// MQ (RabbitMQ): same paragraph as ActiveMQ, `data` is base64.
 	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:rmq": {
 		getRecords: rmqRecords,
@@ -241,6 +246,10 @@ const detectEventSource = (event) => {
 	if (Array.isArray(records) && records[0]?.eventSource) {
 		return records[0].eventSource;
 	}
+	// Kinesis Firehose data-transformation events carry a top-level
+	// deliveryStreamArn and records with recordId/data but no eventSource.
+	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
+	if (typeof event?.deliveryStreamArn === "string") return "aws:lambda:events";
 	if (event?.rmqMessagesByQueue) return "aws:rmq";
 	return undefined;
 };

@@ -1034,6 +1034,7 @@ test("It should handle origins containing parentheses and pipes", async (t) => {
 		statusCode: 204,
 		headers: {
 			"Access-Control-Allow-Origin": "https://app(1).example.com",
+			Vary: "Origin",
 		},
 	});
 });
@@ -1059,6 +1060,7 @@ test("It should handle origins containing square brackets", async (t) => {
 		statusCode: 204,
 		headers: {
 			"Access-Control-Allow-Origin": "https://app[1].example.com",
+			Vary: "Origin",
 		},
 	});
 });
@@ -1364,6 +1366,33 @@ test("It should handle vary option with empty string header", async (t) => {
 	const response = await handler(event, defaultContext);
 
 	strictEqual(response.headers.Vary, "Accept");
+});
+
+// *** Vary: Origin on single-origin reflect (cache-correctness) *** //
+test("It should add Vary: Origin when a single configured origin is reflected", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	// The emitted Access-Control-Allow-Origin depends on the request Origin,
+	// so caches must vary on Origin even with a single configured origin.
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
 });
 
 // *** requestMethods *** //
@@ -2088,6 +2117,7 @@ test("It should match IDN origin when configured in unicode (static)", async (t)
 		statusCode: 200,
 		headers: {
 			"Access-Control-Allow-Origin": "https://xn--mnchen-3ya.de",
+			Vary: "Origin",
 		},
 	});
 });
@@ -2138,6 +2168,7 @@ test("It should match origin with mixed-case hostname (static)", async (t) => {
 		statusCode: 200,
 		headers: {
 			"Access-Control-Allow-Origin": "https://myapp.example.com",
+			Vary: "Origin",
 		},
 	});
 });
@@ -2272,4 +2303,89 @@ test("httpCorsValidateOptions rejects non-array requestHeaders", () => {
 	} catch (e) {
 		ok(e.message.includes("requestHeaders"));
 	}
+});
+
+// *** shared-state leak across warm-container invocations *** //
+test("It should not leak credentials/origin state across requests on a warm instance", async (t) => {
+	// First invocation: response carries Access-Control-Allow-Credentials: "true".
+	// The buggy code wrote that back into the shared factory options object,
+	// permanently flipping options.credentials to true for all later requests.
+	const middleware = httpCors({ origin: "*" });
+
+	const handlerWithCredentials = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Credentials": "true" },
+	})).use(middleware);
+
+	const eventWithOrigin = {
+		httpMethod: "GET",
+		headers: { Origin: "https://example.com" },
+	};
+
+	await handlerWithCredentials(eventWithOrigin, defaultContext);
+
+	// Second invocation on the SAME warm middleware instance, clean handler.
+	// With origin "*" and no credentials option, the emitted origin must be "*".
+	// If state leaked, options.credentials would now be true and the origin
+	// would be reflected as https://example.com instead.
+	const handlerClean = middy((event, context) => ({ statusCode: 200 })).use(
+		middleware,
+	);
+
+	const response = await handlerClean(eventWithOrigin, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+// *** null-prototype allowlist: Object.prototype keys must not match *** //
+for (const protoKey of ["__proto__", "constructor", "toString"]) {
+	test(`It should not reflect Object.prototype key "${protoKey}" as an allowed origin`, async (t) => {
+		const handler = middy((event, context) => ({ statusCode: 200 })).use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origins: ["https://example.com"],
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: { Origin: protoKey },
+		};
+
+		const response = await handler(event, defaultContext);
+
+		strictEqual(response.headers["Access-Control-Allow-Origin"], undefined);
+	});
+}
+
+// *** null-prototype version dispatch: attacker-controlled event.version *** //
+test("It should not invoke inherited methods when event.version is an Object.prototype key", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			origin: "*",
+		}),
+	);
+
+	// event.version is attacker-controlled. "__proto__" resolves to
+	// Object.prototype (not a function) and crashed the middleware; other keys
+	// such as "constructor"/"toString" invoked inherited methods.
+	const event = {
+		version: "__proto__",
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
 });

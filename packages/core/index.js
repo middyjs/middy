@@ -84,7 +84,9 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 			context,
 			response: undefined,
 			error: undefined,
-			internal: plugin.internal ?? Object.create(null),
+			internal: plugin.internal
+				? Object.assign(Object.create(null), plugin.internal)
+				: Object.create(null),
 		};
 	};
 
@@ -167,7 +169,6 @@ const runRequest = async (
 
 			// clearTimeout pattern is ~24x faster than timers/promises + AbortController
 			// Note: signal.abort is slow ~3_500ns
-			// Required --test-force-exit to ignore unresolved timeoutPromise
 			const handlerResult = lambdaHandler(
 				request.event,
 				request.context,
@@ -185,9 +186,12 @@ const runRequest = async (
 						}
 					};
 				});
+				// Clamp to >= 0: when remaining Lambda time is below
+				// timeoutEarlyInMillis the raw delay is negative, which would emit
+				// a TimeoutNegativeWarning. A 0ms delay fires on the next tick.
 				timeoutID = setTimeout(
 					timeoutResolve,
-					getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
+					Math.max(0, getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis),
 				);
 				request.response = await Promise.race([handlerResult, timeoutPromise]);
 			} else {
@@ -213,9 +217,14 @@ const runRequest = async (
 		try {
 			await runMiddlewares(request, onErrorMiddlewares, plugin);
 		} catch (err) {
-			// Save error that wasn't handled
-			err.originalError = request.error; // TODO remove in v8, use cause
-			err.cause ??= request.error;
+			// Save error that wasn't handled. When an onError middleware rethrows
+			// `request.error`, err === request.error; attaching it to itself would
+			// create self-references that loop cause-walking serializers, so only
+			// attach when the thrown error is distinct.
+			if (err !== request.error) {
+				err.originalError = request.error; // TODO remove in v8, use cause
+				err.cause ??= request.error;
+			}
 			request.error = err;
 
 			throw request.error;

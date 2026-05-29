@@ -14,6 +14,26 @@ const buildBatchItemFailures = ({ records, source, settled }) => {
 	return { batchItemFailures };
 };
 
+// Kafka/MSK require an OBJECT itemIdentifier shaped as
+// { partition: `${topic}-${partition}`, offset: Number(offset) }; the flat
+// string form used by SQS/Kinesis/DynamoDB is treated as invalid and Lambda
+// retries the ENTIRE batch.
+// docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+const buildKafkaBatchItemFailures = ({ records, settled }) => {
+	const batchItemFailures = [];
+	for (let idx = 0; idx < records.length; idx += 1) {
+		if (settled[idx]?.status === "fulfilled") continue;
+		const message = records[idx];
+		batchItemFailures.push({
+			itemIdentifier: {
+				partition: `${message.topic}-${message.partition}`,
+				offset: Number(message.offset),
+			},
+		});
+	}
+	return { batchItemFailures };
+};
+
 const toS3BatchResult = (taskId, value, defaultCode, reason) => {
 	if (value && typeof value === "object" && "resultCode" in value) {
 		return {
@@ -127,9 +147,7 @@ const sources = {
 	},
 	"aws:kafka": {
 		getRecords: kafkaRecords,
-		identify: (message) =>
-			message && `${message.topic}-${message.partition}-${message.offset}`,
-		buildResponse: buildBatchItemFailures,
+		buildResponse: buildKafkaBatchItemFailures,
 	},
 	"aws:s3:batch": {
 		getRecords: (event) => asArray(event.tasks),

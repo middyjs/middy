@@ -73,16 +73,27 @@ const optionSchema = {
 export const stsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+const cloneFetchData = (fetchData) => {
+	try {
+		return structuredClone(fetchData);
+	} catch (e) {
+		throw new Error(
+			`Invalid \`fetchData\` option: value is not cloneable (${e.message})`,
+			{ cause: { package: pkg } },
+		);
+	}
+};
+
 const stsMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
-		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
+		fetchData: cloneFetchData({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
-	const fetch = (request, cachedValues = {}) => {
+	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
 		for (const internalKey of fetchDataKeys) {
@@ -114,7 +125,7 @@ const stsMiddleware = (opts = {}) => {
 	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
-		processCache(options, fetch);
+		processCache(options, fetchRequest);
 	}
 
 	const stsMiddlewareBefore = async (request) => {
@@ -123,7 +134,7 @@ const stsMiddleware = (opts = {}) => {
 			client = await clientInit;
 		}
 
-		const { value } = processCache(options, fetch, request);
+		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 

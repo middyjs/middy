@@ -223,6 +223,21 @@ test("cloudwatchMetricsValidateOptions accepts valid options and rejects typos",
 	}
 });
 
+test("cloudwatchMetrics throws when a dimension set exceeds 30 dimensions", async () => {
+	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
+	const dimensions = {};
+	for (let i = 0; i < 31; i += 1) {
+		dimensions[`d${i}`] = "v";
+	}
+	try {
+		cloudwatchMetricsMiddleware({ dimensions });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/cloudwatch-metrics");
+		ok(e.message.includes("30 dimensions"));
+	}
+});
+
 test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
 	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
 	try {

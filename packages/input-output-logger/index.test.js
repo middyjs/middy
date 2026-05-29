@@ -300,6 +300,25 @@ test("It should mask paths", async (t) => {
 	deepStrictEqual(response, event);
 });
 
+test("It should not inject a phantom key when masking an absent omitPath", async (t) => {
+	const logger = t.mock.fn();
+
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.absent"],
+			mask: "*****",
+		}),
+	);
+
+	const event = { foo: "foo" };
+	await handler(event, defaultContext);
+
+	// `absent` is not on the payload, so masking must not add it as a new key.
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { foo: "foo" } }]);
+	ok(!Object.hasOwn(logger.mock.calls[0].arguments[0].event, "absent"));
+});
+
 test("It should omit nested paths", async (t) => {
 	const logger = t.mock.fn();
 
@@ -819,6 +838,139 @@ test("It should propagate Node.js stream errors when response has body stream", 
 			return true;
 		},
 	);
+});
+
+test("It should log a multi-byte character split across Web Stream chunks", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	// "héllo😀" where é is 2 bytes and 😀 is 4 bytes; the encoded byte array is
+	// split mid-character across chunk boundaries.
+	const text = "héllo😀";
+	const bytes = new TextEncoder().encode(text);
+	// Split so that the multi-byte sequences straddle chunk boundaries.
+	const chunkA = bytes.slice(0, 2); // ends mid "é"
+	const chunkB = bytes.slice(2, 9); // ends mid "😀"
+	const chunkC = bytes.slice(9);
+	const handler = middy(
+		async () => {
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(chunkA);
+					controller.enqueue(chunkB);
+					controller.enqueue(chunkC);
+					controller.close();
+				},
+			});
+			return stream;
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	const responseStream = createWritableStream(() => {});
+	const response = await handler(event, responseStream, defaultContext);
+	strictEqual(response, undefined);
+	strictEqual(logged.length, 2);
+	strictEqual(logged[1].response, text);
+});
+
+test("It should log a multi-byte character split across Node Stream chunks", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	const text = "héllo😀";
+	const bytes = new TextEncoder().encode(text);
+	const chunkA = Buffer.from(bytes.slice(0, 2)); // ends mid "é"
+	const chunkB = Buffer.from(bytes.slice(2, 9)); // ends mid "😀"
+	const chunkC = Buffer.from(bytes.slice(9));
+	const handler = middy(
+		async () => {
+			return Readable.from([chunkA, chunkB, chunkC]);
+		},
+		{
+			executionMode: executionModeStreamifyResponse,
+		},
+	).use(
+		inputOutputLogger({
+			logger,
+		}),
+	);
+
+	const event = {};
+	const responseStream = createWritableStream(() => {});
+	const response = await handler(event, responseStream, defaultContext);
+	strictEqual(response, undefined);
+	strictEqual(logged.length, 2);
+	strictEqual(logged[1].response, text);
+});
+
+test("It should not corrupt a second Web Stream with state from the first", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	// First stream ends with an incomplete multi-byte sequence (a lone lead
+	// byte of "é"). A shared streaming decoder would retain that partial byte
+	// and prepend its replacement/continuation to the next stream.
+	const firstBytes = new TextEncoder().encode("ab").slice(0, 2);
+	const danglingLead = Uint8Array.from([0xc3]); // lead byte of "é", no trailer
+	const makeHandler = (chunks) =>
+		middy(
+			async () => {
+				const stream = new ReadableStream({
+					start(controller) {
+						for (const chunk of chunks) controller.enqueue(chunk);
+						controller.close();
+					},
+				});
+				return stream;
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+			},
+		).use(inputOutputLogger({ logger }));
+
+	const responseStreamA = createWritableStream(() => {});
+	await makeHandler([firstBytes, danglingLead])(
+		{},
+		responseStreamA,
+		defaultContext,
+	);
+
+	// Second, well-formed stream must decode cleanly without leftover state.
+	const second = "second";
+	const responseStreamB = createWritableStream(() => {});
+	await makeHandler([new TextEncoder().encode(second)])(
+		{},
+		responseStreamB,
+		defaultContext,
+	);
+
+	strictEqual(logged.length, 4);
+	strictEqual(logged[3].response, second);
+});
+
+test("It should not mutate the caller-provided omitPaths array", async (t) => {
+	const logger = t.mock.fn();
+	const omitPaths = ["event.foo", "response.bar"];
+	const original = [...omitPaths];
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths,
+		}),
+	);
+	await handler({ foo: "foo", bar: "bar" }, defaultContext);
+	deepStrictEqual(omitPaths, original);
 });
 
 test("inputOutputLoggerValidateOptions accepts valid options and rejects typos", () => {

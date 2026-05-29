@@ -52,14 +52,15 @@ const wsResponseMiddleware = (opts = {}) => {
 
 		if (!normalizedResponse.ConnectionId) return;
 
-		if (request.event.requestContext) {
-			options.awsClientOptions.endpoint ??= `https://${
-				request.event.requestContext.domainName
-			}/${request.event.requestContext.stage}`;
-		}
-
 		if (!client) {
-			client = await createClient(options, request);
+			// Build a per-request client config without mutating the shared options
+			// object (which would otherwise leak one request's endpoint to later
+			// warm invocations).
+			const awsClientOptions = { ...options.awsClientOptions };
+			if (request.event.requestContext) {
+				awsClientOptions.endpoint ??= `https://${request.event.requestContext.domainName}/${request.event.requestContext.stage}`;
+			}
+			client = await createClient({ ...options, awsClientOptions }, request);
 		}
 
 		const command = new PostToConnectionCommand(normalizedResponse);
@@ -83,7 +84,11 @@ const normalizeWsResponse = (request) => {
 		typeof response?.Data === "undefined" &&
 		typeof response?.ConnectionId === "undefined"
 	) {
-		response = { Data: response };
+		const data =
+			typeof response === "string" || response instanceof Uint8Array
+				? response
+				: JSON.stringify(response);
+		response = { Data: data };
 	}
 	response.ConnectionId ??= request.event.requestContext?.connectionId;
 	return response;

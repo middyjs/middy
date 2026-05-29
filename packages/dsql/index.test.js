@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import { clearCache } from "../util/index.js";
+import { clearCache, processCache } from "../util/index.js";
 import dsqlMiddleware, { dsqlValidateOptions } from "./index.js";
 
 test.afterEach(() => {
@@ -99,6 +99,24 @@ test("It should merge token from internalKey into config.password", async (t) =>
 	strictEqual(arg.password, "iam-token-abc");
 	strictEqual(arg.host, validHost);
 	strictEqual(arg.ssl, true);
+});
+
+test("It should default cacheExpiry to 0 when internalKey is set and cacheExpiry is omitted", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.dsqlToken = "iam-token-abc";
+		})
+		.use(
+			dsqlMiddleware({
+				client,
+				config: { host: validHost, username: "admin" },
+				internalKey: "dsqlToken",
+				disablePrefetch: true,
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	strictEqual(end.mock.callCount(), 1);
 });
 
 test("It should throw when internalKey is set but token is missing", async (t) => {
@@ -237,6 +255,47 @@ test("It should re-instantiate per invocation when cacheExpiry is 0", async (t) 
 	await handler(defaultEvent, newContext());
 	await handler(defaultEvent, newContext());
 	strictEqual(client.mock.callCount(), 2);
+});
+
+test("It should re-create per invocation and not double-end with cacheExpiry 0 and prefetch enabled", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {}).use(
+		dsqlMiddleware({
+			client,
+			config: { host: validHost },
+			cacheExpiry: 0,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	strictEqual(client.mock.callCount(), 2);
+	strictEqual(end.mock.callCount(), 2);
+});
+
+test("It should surface a refreshed cache entry in before, not a stale prefetch", async (t) => {
+	let n = 0;
+	const client = t.mock.fn(() => ({
+		end: async () => {},
+		mark: `client-${++n}`,
+	}));
+	const opts = {
+		client,
+		config: { host: validHost, username: "admin" },
+		cacheKey: "dsql-refresh",
+		cacheExpiry: -1,
+	};
+	const handler = middy(() => {}).use(dsqlMiddleware(opts));
+	let captured;
+	handler.before(async (request) => {
+		captured = request.context.dsql;
+	});
+	await handler(defaultEvent, newContext());
+	strictEqual(captured.mark, "client-1");
+	// Rebuild the shared cache with a fresh client, as the auto-refresh timer would
+	clearCache();
+	processCache({ ...opts }, () => client());
+	await handler(defaultEvent, newContext());
+	strictEqual(captured.mark, "client-2");
 });
 
 test("It should throw if client option is missing", () => {

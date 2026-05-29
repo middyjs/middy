@@ -31,7 +31,7 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
-test("It should filter a response with default opts (string)", async (t) => {
+test("It should pass through a non-JSON body untouched even with the filter param", async (t) => {
 	const handler = middy(() => ({
 		statusCode: 200,
 		body: "response",
@@ -48,7 +48,27 @@ test("It should filter a response with default opts (string)", async (t) => {
 
 	const response = await handler(event, defaultContext);
 
-	deepStrictEqual(response.body, "response");
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: "response",
+	});
+});
+
+test("It should pass through a bare-string response untouched even with the filter param", async (t) => {
+	const handler = middy(() => "response");
+
+	handler.use(httpPartialResponse());
+
+	const event = {
+		headers: {},
+		queryStringParameters: {
+			fields: "firstname",
+		},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response, "response");
 });
 
 test("It should filter a response with default opts (object)", async (t) => {

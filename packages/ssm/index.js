@@ -143,7 +143,7 @@ const ssmMiddleware = (opts = {}) => {
 						const matchingParamName = Object.keys(params).find((key) =>
 							fetchKey.endsWith(`:parameter${key}`),
 						);
-						return params[matchingParamName];
+						return params[matchingParamName] ?? params[fetchKey];
 					}
 
 					return params[options.fetchData[internalKey]];

@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
@@ -126,6 +126,83 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 
 	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(200, response.statusCode);
+});
+
+test("It should not throw when handler returns undefined", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response(""));
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolvesOnce({ statusCode: 200 });
+
+	const handler = middy(async (event, context) => {
+		await context.s3ObjectFetch;
+		// handler returns nothing
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	const response = await handler(defaultEvent, defaultContext);
+	strictEqual(response.statusCode, 200);
+});
+
+test("It should not emit unhandledRejection when prefetch fetch rejects and handler ignores it", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => {
+		throw new Error("fetch failed");
+	});
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolvesOnce({ statusCode: 200 });
+
+	const unhandled = [];
+	const onUnhandled = (reason) => unhandled.push(reason);
+	process.on("unhandledRejection", onUnhandled);
+
+	// Handler never awaits context.s3ObjectFetch, so its rejection must be
+	// swallowed by an internal .catch to avoid an unhandledRejection.
+	const handler = middy(async (event, context) => {
+		return { Body: "ok" };
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	const response = await handler(defaultEvent, defaultContext);
+	// Allow any microtask-queued rejection to surface.
+	await new Promise((resolve) => setImmediate(resolve));
+	process.off("unhandledRejection", onUnhandled);
+
+	strictEqual(response.statusCode, 200);
+	deepStrictEqual(unhandled, []);
+});
+
+test("It should surface the real fetch error to a consumer that awaits context.s3ObjectFetch", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => {
+		throw new Error("fetch failed");
+	});
+	mockClient(S3Client)
+		.on(WriteGetObjectResponseCommand)
+		.resolvesOnce({ statusCode: 200 });
+
+	// A consumer that awaits the prefetched value must see the real error, not a
+	// swallowed `undefined`.
+	const handler = middy(async (event, context) => {
+		await context.s3ObjectFetch;
+	});
+
+	handler.use(
+		s3ObjectResponse({
+			AwsClient: S3Client,
+		}),
+	);
+
+	await rejects(() => handler(defaultEvent, defaultContext), /fetch failed/);
 });
 
 test("It should export s3ObjectResponseParam helper for TypeScript type inference", async (t) => {

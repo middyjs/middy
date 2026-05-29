@@ -116,13 +116,18 @@ test("parseJson on Kinesis data", async () => {
 	deepStrictEqual(out.Records[0].kinesis.data, { k: 1 });
 });
 
-test("parseJson on Firehose data", async () => {
+test("parseJson on Firehose data (real AWS shape: deliveryStreamArn, recordId, no eventSource)", async () => {
+	// A real Kinesis Data Firehose data-transformation event has a top-level
+	// deliveryStreamArn and records carrying recordId/data with NO eventSource.
+	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	const handler = middy().use(eventBatchParser({ data: parseJson() }));
 	handler.handler((event) => event);
 
 	const event = {
-		deliveryStreamArn: "arn:...",
-		records: [{ eventSource: "aws:lambda:events", data: b64('{"f":1}') }],
+		invocationId: "inv-1",
+		deliveryStreamArn: "arn:aws:firehose:us-east-1:123:deliverystream/x",
+		region: "us-east-1",
+		records: [{ recordId: "r-1", data: b64('{"f":1}') }],
 	};
 
 	const out = await handler(event, defaultContext);
@@ -394,7 +399,7 @@ test("body is an internal alias for value on Kafka", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
 });
 
-test("Mismatched config: key for Kinesis throws TypeError", async () => {
+test("Mismatched config: key for Kinesis throws TypeError carrying cause.package", async () => {
 	const handler = middy().use(eventBatchParser({ key: parseJson() }));
 	handler.handler((event) => event);
 
@@ -404,7 +409,14 @@ test("Mismatched config: key for Kinesis throws TypeError", async () => {
 		],
 	};
 
-	await rejects(() => handler(event, defaultContext), TypeError);
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
 });
 
 test("Unknown event source throws", async () => {

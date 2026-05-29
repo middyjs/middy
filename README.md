@@ -30,9 +30,9 @@
 
 Middy is a middleware engine for AWS Lambda on Node.js. It lets you keep your handler focused on business logic while attaching reusable steps for parsing, validation, auth, observability, error handling, and AWS service integration.
 
-- 38 official packages covering API Gateway, SQS, S3, DynamoDB, SNS, EventBridge, Kinesis, Kafka, WebSockets, App Runner, and more
+- 52 official packages covering API Gateway, SQS, S3, DynamoDB, SNS, EventBridge, Kinesis, Kafka, WebSockets, and more
 - Built-in TypeScript types, Node.js >= 22, ESM
-- Tiny core (zero dependencies beyond `@middy/util`), no AWS SDK in core
+- Tiny core (only `@middy/util`, plus an optional peer dependency for durable functions), no AWS SDK in core
 - Routers for HTTP, WebSocket, and CloudFormation custom resources
 - First-class support for AWS Lambda response streaming and durable functions
 

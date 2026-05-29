@@ -14,6 +14,7 @@ export const parseAvro = (parserOpts = {}) => {
 			"parseAvro: requires `schema` or `internalKey` (matching a fetchData key on @middy/glue-schema-registry)",
 		);
 	}
+	const typeCache = new Map();
 	return async (buffer, _record, request, framing) => {
 		const entry = await request.internal?.[internalKey];
 		const schemaDefinition = entry?.schemaDefinition;
@@ -22,7 +23,12 @@ export const parseAvro = (parserOpts = {}) => {
 				`parseAvro: request.internal["${internalKey}"] is unset; did glue-schema-registry run with a matching fetchData key?`,
 			);
 		}
-		return avro.parse(schemaDefinition).fromBuffer(framing?.payload ?? buffer);
+		let type = typeCache.get(schemaDefinition);
+		if (!type) {
+			type = avro.parse(schemaDefinition);
+			typeCache.set(schemaDefinition, type);
+		}
+		return type.fromBuffer(framing?.payload ?? buffer);
 	};
 };
 

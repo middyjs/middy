@@ -799,6 +799,58 @@ test("It should handle DynamoDB event with undefined type value", async (t) => {
 	);
 });
 
+test("It should not dispatch on prototype keys via recursive SQS body", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ eventSource: "__proto__" }),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, { eventSource: "__proto__" });
+});
+
+test("It should not dispatch on inherited members via recursive SQS body", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ eventSource: "valueOf" }),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, { eventSource: "valueOf" });
+});
+
+test("It should skip when Records is empty", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [] };
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { Records: [] });
+});
+
+test("It should skip when first record is null", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [null] };
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { Records: [null] });
+});
+
 test("eventNormalizerValidateOptions accepts valid options and rejects typos", () => {
 	eventNormalizerValidateOptions({ wrapNumbers: true });
 	eventNormalizerValidateOptions({});

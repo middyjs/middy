@@ -29,7 +29,7 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test index.test.js",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:benchmark": "node index.perf.js",
+		"test:perf": "node --test index.perf.js",
 		"test:types": "tstyche"
 	},
 	"license": "MIT",

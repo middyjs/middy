@@ -156,6 +156,25 @@ test("It should use event.PhysicalResourceId on error during Update", async (t) 
 	});
 });
 
+test("It should return FAILURE when a non-object is thrown", async (t) => {
+	const handler = middy((event, context) => {
+		throw "string error";
+	});
+
+	handler.use(cloudformationResponse());
+
+	const event = defaultEvent;
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		Status: "FAILED",
+		Reason: "string error",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
+	});
+});
+
 test("It should not override response values", async (t) => {
 	const handler = middy((event, context) => {
 		return {

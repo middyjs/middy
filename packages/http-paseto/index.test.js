@@ -614,6 +614,7 @@ test("setToContext: false (default) writes only to internal, not context for PAS
 
 test("httpPasetoValidateOptions accepts valid options and rejects typos", () => {
 	httpPasetoValidateOptions({ audience: "https://example.com" });
+	httpPasetoValidateOptions({ internalKey: "k", maxTokenAge: "1h" });
 	httpPasetoValidateOptions({});
 	try {
 		httpPasetoValidateOptions({ audiance: "typo" });
@@ -658,4 +659,94 @@ test("It should strip RFC 6265 surrounding double-quotes from a cookie value", a
 	);
 
 	strictEqual(result.paseto.sub, "quoted-cookie");
+});
+
+test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-hyphen-key" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const spkiDer = publicKey.export({ type: "spki", format: "der" });
+	const handler = middy((event, context) => context)
+		.before((request) => {
+			request.internal["paseto-key"] = new Uint8Array(spkiDer);
+		})
+		.use(httpPaseto({ internalKey: "paseto-key" }));
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-hyphen-key");
+});
+
+test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-dotted-key" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const spkiDer = publicKey.export({ type: "spki", format: "der" });
+	const handler = middy((event, context) => context)
+		.before((request) => {
+			request.internal.kms = { publicKey: new Uint8Array(spkiDer) };
+		})
+		.use(httpPaseto({ internalKey: "kms.publicKey" }));
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-dotted-key");
+});
+
+test("It should accept a token without exp by default", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	// No expiresIn: token has no exp claim.
+	const token = await V4.sign({ sub: "user-no-exp" }, privateKey);
+
+	const handler = makeHandlerWithKey(publicKey);
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-no-exp");
+});
+
+test("It should reject a token older than maxTokenAge", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	// iat stamped 2 hours ago via the `now` option, no exp claim.
+	const token = await V4.sign({ sub: "user-stale" }, privateKey, {
+		now: new Date(Date.now() - 7200 * 1000),
+	});
+
+	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-paseto");
+	}
+});
+
+test("It should accept a fresh token within maxTokenAge", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-fresh" }, privateKey);
+
+	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
+
+	const result = await handler(makeEvent(`Bearer ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-fresh");
 });

@@ -759,6 +759,60 @@ test("It should handle GetLatestConfiguration error with cache enabled", async (
 	}
 });
 
+test("It should correctly decode configuration across multiple fetches with a reused decoder", async (t) => {
+	const params = {
+		ApplicationIdentifier: "...",
+		ConfigurationProfileIdentifier: "...",
+		EnvironmentIdentifier: "...",
+	};
+	mockClient(AppConfigDataClient)
+		.on(StartConfigurationSessionCommand, params)
+		.resolvesOnce({
+			ContentType: "application/json",
+			InitialConfigurationToken: "InitialToken...",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "InitialToken...",
+		})
+		.resolvesOnce({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"first"}'),
+			NextPollConfigurationToken: "NextConfigToken",
+		})
+		.on(GetLatestConfigurationCommand, {
+			ConfigurationToken: "NextConfigToken",
+		})
+		.resolvesOnce({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"second"}'),
+			NextPollConfigurationToken: "NextConfigToken",
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		return values.key?.option;
+	};
+
+	const handler = middy(() => {})
+		.use(
+			appConfig({
+				AwsClient: AppConfigDataClient,
+				cacheExpiry: 0,
+				disablePrefetch: true,
+				fetchData: {
+					key: params,
+				},
+			}),
+		)
+		.before(middleware);
+
+	const configOne = await handler(defaultEvent, defaultContext);
+	const configTwo = await handler(defaultEvent, defaultContext);
+
+	strictEqual(configOne, "first");
+	strictEqual(configTwo, "second");
+});
+
 test("It should export appConfigParam helper for TypeScript type inference", async (t) => {
 	const { appConfigParam } = await import("./index.js");
 	const mockRequest = { event: {}, context: {}, internal: {} };

@@ -32,9 +32,10 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 		// https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
 		// Required: include the value `ReportBatchItemFailures` in the `FunctionResponseTypes` list
 		const batchItemFailures = [];
+		const settled = Array.isArray(response) ? response : [];
 		if (Array.isArray(Records)) {
 			for (const [idx, record] of Records.entries()) {
-				const { status, reason } = response[idx] ?? {};
+				const { status, reason } = settled[idx] ?? {};
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {

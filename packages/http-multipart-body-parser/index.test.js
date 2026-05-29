@@ -261,6 +261,181 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	}
 });
 
+test("It should reject a field name larger than the default fieldNameSize cap", async (t) => {
+	// @fastify/busboy does not enforce limits.fieldNameSize for multipart, so a
+	// conservative default cap (100) is enforced by the middleware and an
+	// over-cap field name is normalized to a 422.
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const longName = "n".repeat(200);
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: `--TEST\r\nContent-Disposition: form-data; name="${longName}"\r\n\r\nval\r\n--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("It should reject a file field name larger than the configured fieldNameSize cap", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+
+	const longName = "attachment";
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: `--TEST\r\nContent-Disposition: form-data; name="${longName}"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("It should allow a field name within an increased fieldNameSize cap", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 300 } } }),
+	);
+
+	const longName = "n".repeat(200);
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: `--TEST\r\nContent-Disposition: form-data; name="${longName}"\r\n\r\nval\r\n--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+	strictEqual(response[longName], "val");
+});
+
+test("It should parse a bracket-heavy field name with no closing bracket in linear time", async (t) => {
+	// A field name of many '[' with no closing ']' caused catastrophic
+	// (super-linear) backtracking in the old /(.+)\[(.*)]$/ regex; a linear
+	// endsWith/lastIndexOf parse must keep this fast and treat it as a plain
+	// (non-array) field because there is no closing bracket.
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	// Raise the field-name cap so the bracket-heavy name reaches the array-field
+	// parse branch (rather than being rejected by the size guard), exercising the
+	// linear lastIndexOf/endsWith path against the previously catastrophic input.
+	handler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5000 } } }),
+	);
+
+	const evilName = "x".repeat(1000) + "[".repeat(1000);
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: `--TEST\r\nContent-Disposition: form-data; name="${evilName}"\r\n\r\nbar\r\n--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	const start = process.hrtime.bigint();
+	const response = await handler(event, defaultContext);
+	const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+
+	// No closing ']' -> stored as a plain field key with its raw value.
+	strictEqual(response[evilName], "bar");
+	// The buggy regex took multiple seconds for this input; linear parse is
+	// sub-millisecond. Allow generous headroom for CI noise.
+	ok(
+		elapsedMs < 1000,
+		`expected linear-time parse, took ${elapsedMs.toFixed(0)}ms`,
+	);
+});
+
+test("It should normalize a synchronous BusBoy constructor throw to a 422 when disableContentTypeCheck is true", async (t) => {
+	// With disableContentTypeCheck the mimePattern guard is skipped, so a
+	// non-multipart content-type reaches BusBoy whose constructor throws
+	// synchronously. That throw must be normalized to a 422, not leak raw.
+	const handler = middy((event, context) => {
+		return event.body; // propagates the body as a response
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeCheck: true }));
+
+	const event = {
+		headers: {
+			"content-type": "application/json",
+		},
+		body: "not multipart",
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
+test("It should normalize a synchronous BusBoy constructor throw to a 422 when content-type is missing and disableContentTypeCheck is true", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeCheck: true }));
+
+	const event = {
+		headers: {},
+		body: "not multipart",
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+	}
+});
+
 test("It should parse an array from a multipart/form-data request (base64)", async (t) => {
 	const handler = middy((event, context) => {
 		return event.body; // propagates the body as a response

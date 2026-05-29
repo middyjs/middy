@@ -44,7 +44,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		...opts,
 	};
 
-	// Disabled — register no hooks.
+	// Disabled: register no hooks.
 	if (typeof logger !== "function") return {};
 
 	const omitPathTree = buildPathTree(omitPaths);
@@ -89,7 +89,8 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 const buildPathTree = (paths) => {
 	const tree = {};
-	for (let path of paths.sort().reverse()) {
+	// Copy before sorting so the caller-provided array is never mutated.
+	for (let path of [...paths].sort().reverse()) {
 		// reverse so a leaf path (`a.b = true`) overrides a longer one
 		// (`a.b.c = true`) when both are configured
 		if (!Array.isArray(path)) path = path.split(".");
@@ -140,8 +141,9 @@ const omitObject = (obj, pathTree, mask) => {
 	for (const key in pathTree) {
 		const sub = pathTree[key];
 		if (sub === true) {
-			// leaf — mask or remove
+			// leaf: mask or remove
 			if (mask !== undefined) {
+				if (!Object.hasOwn(obj, key)) continue;
 				if (clone === obj) clone = { ...obj };
 				clone[key] = mask;
 			} else if (Object.hasOwn(obj, key)) {
@@ -211,58 +213,65 @@ const isWebStream = (value) => value instanceof ReadableStream;
 // we can capture the streamed body and log it after flush. `core` may clear
 // `request.response` before flush triggers, so we snapshot the response shape
 // at tee-time and reattach the accumulated body inside the flush callback.
+// Each tee owns its own accumulation/decoding so no decoder state can leak
+// between streams on a warm container.
 const teeStream = (request, log, makeTee) => {
 	const hasBody = !!request.response?.body;
 	const source = hasBody ? request.response.body : request.response;
 	const snapshot = hasBody ? request.response : null;
-	let body = "";
-	const piped = makeTee(source, {
-		onChunk: (chunk) => {
-			body += chunk;
-		},
-		onFlush: () => {
-			log("response", request, hasBody ? { ...snapshot, body } : body);
-		},
-	});
+	const onBody = (body) => {
+		log("response", request, hasBody ? { ...snapshot, body } : body);
+	};
+	const piped = makeTee(source, onBody);
 	if (hasBody) request.response.body = piped;
 	else request.response = piped;
 };
 
-const makeNodeTee = (source, { onChunk, onFlush }) => {
+const makeNodeTee = (source, onBody) => {
+	// `objectMode: false` means string chunks are decoded to Buffers on the
+	// writable side, so every chunk here is a Buffer. Accumulate the raw
+	// Buffers and decode once at flush so multi-byte UTF-8 sequences split
+	// across chunk boundaries are not corrupted.
+	const chunks = [];
 	const transform = new Transform({
 		objectMode: false,
 		transform(chunk, encoding, callback) {
-			onChunk(chunk);
+			chunks.push(chunk);
 			this.push(chunk, encoding);
 			callback();
 		},
 		flush(callback) {
-			onFlush();
+			onBody(Buffer.concat(chunks).toString("utf8"));
 			callback();
 		},
 	});
 	return source.on("error", (e) => transform.destroy(e)).pipe(transform);
 };
 
-const webDecoder = new TextDecoder();
-const decodeWebChunk = (chunk) => {
-	if (typeof chunk === "string") return chunk;
-	if (chunk instanceof Uint8Array)
-		return webDecoder.decode(chunk, { stream: true });
-	return String(chunk);
-};
-
-const makeWebTee = (source, { onChunk, onFlush }) =>
-	source.pipeThrough(
+const makeWebTee = (source, onBody) => {
+	// A fresh decoder per stream: streaming state never carries over to the
+	// next response on a warm container.
+	const decoder = new TextDecoder();
+	let body = "";
+	const decodeWebChunk = (chunk) => {
+		if (typeof chunk === "string") return chunk;
+		if (chunk instanceof Uint8Array)
+			return decoder.decode(chunk, { stream: true });
+		return String(chunk);
+	};
+	return source.pipeThrough(
 		new TransformStream({
 			transform(chunk, controller) {
-				onChunk(decodeWebChunk(chunk));
+				body += decodeWebChunk(chunk);
 				controller.enqueue(chunk);
 			},
 			flush() {
-				onFlush();
+				// Drain any buffered partial multi-byte bytes from the decoder.
+				body += decoder.decode();
+				onBody(body);
 			},
 		}),
 	);
+};
 
 export default inputOutputLoggerMiddleware;

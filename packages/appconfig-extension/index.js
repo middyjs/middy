@@ -75,7 +75,11 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 			let url = `http://localhost:${port}/applications/${encodeURIComponent(application)}/environments/${encodeURIComponent(environment)}/configurations/${encodeURIComponent(configuration)}`;
 			if (flag) {
 				const flags = Array.isArray(flag) ? flag : [flag];
-				url += `?${flags.map((f) => `flag=${encodeURIComponent(f)}`).join("&")}`;
+				if (flags.length) {
+					url += `?${flags
+						.map((f) => `flag=${encodeURIComponent(f)}`)
+						.join("&")}`;
+				}
 			}
 			values[internalKey] = fetch(url)
 				.then((res) => {
@@ -99,7 +103,9 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 		return values;
 	};
 
-	if (canPrefetch(options)) processCache(options, fetchRequest);
+	if (canPrefetch(options)) {
+		processCache(options, fetchRequest);
+	}
 
 	const appConfigExtensionMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, fetchRequest, request);

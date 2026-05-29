@@ -62,8 +62,8 @@ const defaults = {
 	overridePreferredEncoding: [],
 };
 
-export const getContentEncodingStream = (preferredEncoding) => {
-	return contentEncodingStreams[preferredEncoding]();
+export const getContentEncodingStream = (preferredEncoding, encoderOptions) => {
+	return contentEncodingStreams[preferredEncoding](encoderOptions);
 };
 
 const httpContentEncodingMiddleware = (opts = {}) => {
@@ -110,7 +110,7 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		// Resolve encoding choice before creating any stream
 		let contentEncoding = preferredEncoding;
 		for (const encoding of options.overridePreferredEncoding) {
-			if (!preferredEncodings.includes(encoding)) continue;
+			if (!preferredEncodings?.includes(encoding)) continue;
 			contentEncoding = encoding;
 			break;
 		}

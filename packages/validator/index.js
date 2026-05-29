@@ -40,6 +40,22 @@ const validatorMiddleware = (opts = {}) => {
 		languages,
 	} = { ...defaults, ...opts };
 
+	// AJV `$async` validators return a promise (and throw on invalid) instead of
+	// a boolean, so the synchronous validation paths below would silently treat
+	// every input as valid. Reject them at setup rather than failing open.
+	for (const [label, schema] of [
+		["eventSchema", eventSchema],
+		["contextSchema", contextSchema],
+		["responseSchema", responseSchema],
+	]) {
+		if (schema?.$async) {
+			throw new Error(
+				`${pkg} ${label} is an $async AJV validator, which is not supported; compile the schema without $async`,
+				{ cause: { package: pkg } },
+			);
+		}
+	}
+
 	const validatorMiddlewareBefore = (request) => {
 		if (eventSchema) {
 			// AJV-compiled validators are synchronous (unless `$async`);

@@ -68,7 +68,14 @@ const optionSchema = {
 								},
 								additionalProperties: true,
 							},
-							SchemaVersionNumber: { type: "integer", minimum: 1 },
+							SchemaVersionNumber: {
+								type: "object",
+								properties: {
+									VersionNumber: { type: "integer", minimum: 1 },
+									LatestVersion: { type: "boolean" },
+								},
+								additionalProperties: true,
+							},
 						},
 						additionalProperties: true,
 					},
@@ -91,7 +98,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
-	const fetch = (request, cachedValues = {}) => {
+	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
 		for (const internalKey of fetchDataKeys) {
@@ -122,7 +129,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
-		processCache(options, fetch);
+		processCache(options, fetchRequest);
 	}
 
 	const glueSchemaRegistryMiddlewareBefore = async (request) => {
@@ -131,7 +138,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 			client = await clientInit;
 		}
 
-		const { value } = processCache(options, fetch, request);
+		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
@@ -154,10 +161,15 @@ export const resolveSchemaVersion = async (
 	}
 	const merged = { ...defaults, ...options };
 	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;
+	const baseExpiry = merged.cacheKeyExpiry?.[merged.cacheKey];
+	const cacheKeyExpiry =
+		baseExpiry === undefined
+			? merged.cacheKeyExpiry
+			: { ...merged.cacheKeyExpiry, [cacheKey]: baseExpiry };
 	const cacheOptions = {
 		cacheKey,
 		cacheExpiry: merged.cacheExpiry,
-		cacheKeyExpiry: merged.cacheKeyExpiry,
+		cacheKeyExpiry,
 	};
 
 	let client;
@@ -171,7 +183,7 @@ export const resolveSchemaVersion = async (
 		return client;
 	};
 
-	const fetch = () => {
+	const fetchRequest = () => {
 		const command = new GetSchemaVersionCommand({
 			SchemaVersionId: schemaVersionId,
 		});
@@ -196,7 +208,7 @@ export const resolveSchemaVersion = async (
 		};
 	};
 
-	const { value } = processCache(cacheOptions, fetch);
+	const { value } = processCache(cacheOptions, fetchRequest);
 	return value[schemaVersionId];
 };
 

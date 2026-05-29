@@ -1,7 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { createPublicKey } from "node:crypto";
-import { createError, getInternal, validateOptions } from "@middy/util";
+import {
+	createError,
+	getInternal,
+	sanitizeKey,
+	validateOptions,
+} from "@middy/util";
 import { V4 } from "paseto";
 
 const name = "http-paseto";
@@ -15,6 +20,7 @@ const defaults = {
 	audience: undefined,
 	issuer: undefined,
 	clockTolerance: undefined,
+	maxTokenAge: undefined,
 	payloadKey: "paseto",
 	setToContext: false,
 };
@@ -29,6 +35,7 @@ const optionSchema = {
 		audience: { type: "string" },
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
+		maxTokenAge: { type: "string" },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
@@ -118,6 +125,8 @@ const httpPasetoMiddleware = (opts = {}) => {
 	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
 	if (options.clockTolerance !== undefined)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
+	if (options.maxTokenAge !== undefined)
+		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
 
 	// Per-middleware-instance cache of imported KeyObjects, keyed by the
 	// keyData reference. createPublicKey reparses DER through OpenSSL on
@@ -136,7 +145,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		}
 
 		const result = await getInternal(options.internalKey, request);
-		const keyData = result[options.internalKey];
+		const keyData = result[sanitizeKey(options.internalKey)];
 
 		if (keyData === undefined) {
 			throw createError(500, "Internal Server Error", {

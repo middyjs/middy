@@ -33,8 +33,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		const fields = request.event?.queryStringParameters?.[filteringKeyName];
 		if (!fields) return;
 
-		normalizeHttpResponse(request);
-		const body = request.response.body;
+		const body = request.response?.body;
 		const bodyIsString = typeof body === "string";
 
 		const parsedBody = jsonSafeParse(body);
@@ -42,6 +41,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 
 		const filteredBody = mask(parsedBody, fields);
 
+		normalizeHttpResponse(request);
 		request.response.body = bodyIsString
 			? JSON.stringify(filteredBody)
 			: filteredBody;

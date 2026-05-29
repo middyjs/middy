@@ -1,7 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { createPublicKey } from "node:crypto";
-import { createError, getInternal, validateOptions } from "@middy/util";
+import {
+	createError,
+	getInternal,
+	sanitizeKey,
+	validateOptions,
+} from "@middy/util";
 import { decodeJwt, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
 
 const name = "http-jwt";
@@ -32,6 +37,8 @@ const defaults = {
 	audience: undefined,
 	issuer: undefined,
 	clockTolerance: 0,
+	requireExp: false,
+	maxTokenAge: undefined,
 	payloadKey: "jwt",
 	setToContext: false,
 	cacheExpiry: undefined,
@@ -67,6 +74,8 @@ const optionSchema = {
 		audience: stringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
 		clockTolerance: { type: "number", minimum: 0 },
+		requireExp: { type: "boolean" },
+		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 		cacheExpiry: { type: "number", minimum: 0 },
@@ -287,6 +296,9 @@ const httpJwtMiddleware = (opts = {}) => {
 	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
 	if (options.clockTolerance)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
+	if (options.requireExp) baseVerifyOptions.requiredClaims = ["exp"];
+	if (options.maxTokenAge !== undefined)
+		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
 
 	// Cache imported keys per-middleware-instance. `importJWK` and
 	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
@@ -384,9 +396,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			if (entry.audience !== undefined) verifyOptions.audience = entry.audience;
 			if (options.clockTolerance)
 				verifyOptions.clockTolerance = options.clockTolerance;
+			if (options.requireExp) verifyOptions.requiredClaims = ["exp"];
+			if (options.maxTokenAge !== undefined)
+				verifyOptions.maxTokenAge = options.maxTokenAge;
 		} else {
 			const result = await getInternal(options.internalKey, request);
-			const keyData = result[options.internalKey];
+			const keyData = result[sanitizeKey(options.internalKey)];
 			if (keyData === undefined) {
 				throw createError(500, "Internal Server Error", {
 					cause: {

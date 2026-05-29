@@ -259,6 +259,56 @@ test("It should not handle error is response is set", async (t) => {
 	ok(response);
 });
 
+test("It should return the 500 fallback when a non-object is thrown", async (t) => {
+	const handler = middy(() => {
+		throw null;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
+test("It should return the 500 fallback when a primitive is thrown", async (t) => {
+	const handler = middy(() => {
+		throw "boom";
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
+test("It should keep an error-supplied Content-Type header", async (t) => {
+	const handler = middy(() => {
+		const error = createError(422, "<error>Unprocessable</error>");
+		error.headers = {
+			"Content-Type": "application/xml",
+		};
+		throw error;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(null, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 422,
+		body: "<error>Unprocessable</error>",
+		headers: {
+			"Content-Type": "application/xml",
+		},
+	});
+});
+
 test("httpErrorHandlerValidateOptions accepts valid options and rejects typos", () => {
 	httpErrorHandlerValidateOptions({ logger: () => {}, fallbackMessage: "x" });
 	httpErrorHandlerValidateOptions({ logger: false });

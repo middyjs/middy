@@ -337,6 +337,66 @@ test("Should treat missing response entries as rejected", async (t) => {
 	strictEqual(logger.mock.callCount(), 1);
 });
 
+test("Should degrade gracefully when handler returns a null response", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	// Handler returns null (forgot Promise.allSettled). Must NOT raise an
+	// internal TypeError that onError then re-reports as the failure reason;
+	// the record is reported failed with a clean (undefined) reason.
+	const handler = middy(async () => null).use(
+		sqsPartialBatchFailure({ logger }),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+	strictEqual(logger.mock.callCount(), 1);
+	// The buggy path surfaces "Cannot read properties of null" as the reason.
+	const [reason] = logger.mock.calls[0].arguments;
+	strictEqual(reason, undefined);
+});
+
+test("Should degrade gracefully when handler returns a non-array object response", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: {
+					resolveOrReject: { stringValue: "resolve" },
+				},
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	const handler = middy(async () => ({ not: "an array" })).use(
+		sqsPartialBatchFailure({ logger }),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+	strictEqual(logger.mock.callCount(), 1);
+	const [reason] = logger.mock.calls[0].arguments;
+	strictEqual(reason, undefined);
+});
+
 test("sqsPartialBatchFailureValidateOptions accepts valid options and rejects typos", () => {
 	sqsPartialBatchFailureValidateOptions({ logger: () => {} });
 	sqsPartialBatchFailureValidateOptions({});

@@ -116,31 +116,24 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	}
 });
 
-test("It should not process the body if malformed body is passed", async (t) => {
-	const handler = middy((event, context) => {
+test("It should leniently parse a single-field body (querystring.parse is total)", async (t) => {
+	const handler = middy((event) => {
 		return event.body; // propagates the body as a response
 	});
 
 	handler.use(urlEncodeBodyParser());
 
-	// invokes the handler
+	// `search` is a valid x-www-form-urlencoded field with an empty value. The
+	// removed heuristic wrongly rejected this as malformed with a 422.
 	const event = {
-		body: JSON.stringify({ foo: "bar" }),
+		body: "search",
 		headers: {
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 	};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
-		strictEqual(e.statusCode, 422);
-		strictEqual(
-			e.message,
-			"Invalid or malformed URL encoded form was provided",
-		);
-	}
+	const body = await handler(event, defaultContext);
+	strictEqual(body.search, "");
 });
 
 // Security: Prototype pollution via __proto__ key

@@ -478,6 +478,27 @@ test('Thrown error from "onError" middlewares should handled', async (t) => {
 	deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "e2"]);
 });
 
+test('"onError" middleware rethrowing request.error should not create self-references', async (t) => {
+	const handlerError = new Error("boom");
+	const handler = middy(() => {
+		throw handlerError;
+	}).onError((request) => {
+		throw request.error;
+	});
+
+	let caught;
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected error to propagate");
+	} catch (e) {
+		caught = e;
+	}
+	strictEqual(caught, handlerError);
+	// No self-references: walking .cause / .originalError must not loop back.
+	ok(caught.cause !== caught);
+	ok(caught.originalError !== caught);
+});
+
 // Modifying shared resources
 test('"before" middlewares should be able to mutate event and context', async (t) => {
 	const mutateLambdaEvent = (request) => {
@@ -784,6 +805,25 @@ test('"onError" middleware should be able to use earlyResponse', async (t) => {
 	deepStrictEqual(executed, ["b1", "e2"]);
 });
 
+// runMiddlewares iterates the live array; a "before" middleware that appends
+// another "before" via middy.before() mid-run is picked up in the same pass.
+// This pins that documented-in-comment behavior so a future refactor cannot
+// silently change it.
+test('"before" middleware appending another "before" mid-run runs it in the same pass', async (t) => {
+	const executed = [];
+	const handler = middy(() => {
+		executed.push("handler");
+	});
+	handler.before(() => {
+		executed.push("b1");
+		handler.before(() => {
+			executed.push("b-added");
+		});
+	});
+	await handler(defaultEvent, defaultContext);
+	deepStrictEqual(executed, ["b1", "b-added", "handler"]);
+});
+
 // Plugin
 test("Should trigger all plugin hooks", async (t) => {
 	const plugin = {
@@ -991,6 +1031,37 @@ test("Should use default timeoutEarlyResponse when timeout expires", async (t) =
 	}
 });
 
+test("Should not emit TimeoutNegativeWarning when remaining time is below timeoutEarlyInMillis", async (t) => {
+	// Use real timers so a negative setTimeout delay would surface a warning.
+	t.mock.timers.reset();
+	const warnings = [];
+	const onWarning = (warning) => {
+		warnings.push(warning.name);
+	};
+	process.on("warning", onWarning);
+
+	// Remaining time (3ms) below timeoutEarlyInMillis (5ms) => raw delay -2ms.
+	const context = {
+		getRemainingTimeInMillis: () => 3,
+	};
+	const handler = middy(
+		async () => {
+			return "response";
+		},
+		{ timeoutEarlyInMillis: 5 },
+	);
+
+	// Either outcome (handler response or early timeout) is acceptable; the
+	// observable contract is that no negative-delay warning is emitted.
+	await handler(defaultEvent, context).catch(() => {});
+
+	// Warnings are emitted on a later tick; wait for them to flush.
+	await new Promise((resolve) => globalThis.setTimeout(resolve, 10));
+	process.removeListener("warning", onWarning);
+
+	ok(!warnings.includes("TimeoutNegativeWarning"));
+});
+
 test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	let timeoutCalled = false;
 	const plugin = {
@@ -1013,6 +1084,36 @@ test("Should not invoke timeoutEarlyResponse on error", async (t) => {
 	t.mock.timers.tick(100);
 
 	ok(!timeoutCalled);
+});
+
+test("internal option seeds a fresh per-request object (no leak between invocations)", async (t) => {
+	const seen = [];
+	const handler = middy(() => {}, { internal: { count: 0 } }).before(
+		(request) => {
+			seen.push(request.internal.count);
+			// Mutate this invocation's internal; must not leak to the next.
+			request.internal.count += 1;
+			request.internal.leaked = true;
+		},
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+
+	// Both invocations must start from the seeded value (0), not the mutated 1.
+	deepStrictEqual(seen, [0, 0]);
+});
+
+test("internal option seeds values onto each request.internal", async (t) => {
+	let captured;
+	const handler = middy(() => {}, { internal: { token: "seed" } }).before(
+		(request) => {
+			captured = request.internal.token;
+		},
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(captured, "seed");
 });
 
 test("middyValidateOptions accepts valid options and rejects typos", () => {

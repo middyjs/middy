@@ -146,7 +146,11 @@ const kafkaEvent = (eventSource) => ({
 	},
 });
 
-test("Kafka (aws:kafka): returns topic-partition-offset identifiers", async () => {
+test("Kafka (aws:kafka): returns object itemIdentifier { partition, offset }", async () => {
+	// Per docs.aws.amazon.com/lambda/latest/dg/kafka-retry-configurations.html
+	// (PartialBatchResponse), Kafka/MSK REQUIRE an object identifier shaped as
+	// { partition: `${topic}-${partition}`, offset: Number(offset) }. A flat
+	// string identifier is treated as invalid and the entire batch is retried.
 	const event = kafkaEvent("aws:kafka");
 	const handler = middy(allSettledHandler((r) => r.value)).use(
 		eventBatchResponse(),
@@ -155,8 +159,8 @@ test("Kafka (aws:kafka): returns topic-partition-offset identifiers", async () =
 	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: [
-			{ itemIdentifier: "topic-0-11" },
-			{ itemIdentifier: "topic-1-20" },
+			{ itemIdentifier: { partition: "topic-0", offset: 11 } },
+			{ itemIdentifier: { partition: "topic-1", offset: 20 } },
 		],
 	});
 });
@@ -170,8 +174,8 @@ test("Kafka (SelfManagedKafka): same handling as aws:kafka", async () => {
 	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: [
-			{ itemIdentifier: "topic-0-11" },
-			{ itemIdentifier: "topic-1-20" },
+			{ itemIdentifier: { partition: "topic-0", offset: 11 } },
+			{ itemIdentifier: { partition: "topic-1", offset: 20 } },
 		],
 	});
 });
@@ -540,10 +544,10 @@ test("onError Kafka: rejects every flattened message", async () => {
 	const response = await handler(event, defaultContext);
 	deepStrictEqual(response, {
 		batchItemFailures: [
-			{ itemIdentifier: "topic-0-10" },
-			{ itemIdentifier: "topic-0-11" },
-			{ itemIdentifier: "topic-1-20" },
-			{ itemIdentifier: "topic-1-21" },
+			{ itemIdentifier: { partition: "topic-0", offset: 10 } },
+			{ itemIdentifier: { partition: "topic-0", offset: 11 } },
+			{ itemIdentifier: { partition: "topic-1", offset: 20 } },
+			{ itemIdentifier: { partition: "topic-1", offset: 21 } },
 		],
 	});
 });
@@ -718,7 +722,10 @@ test("flattenBatchRecords order matches the middleware's response identifier ord
 			extractIds: (response) =>
 				response.batchItemFailures.map((f) => f.itemIdentifier),
 			extractRecordIds: (records) =>
-				records.map((m) => `${m.topic}-${m.partition}-${m.offset}`),
+				records.map((m) => ({
+					partition: `${m.topic}-${m.partition}`,
+					offset: Number(m.offset),
+				})),
 		},
 		{
 			name: "S3 Batch",

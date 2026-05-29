@@ -23,6 +23,8 @@ import {
 const name = "appconfig";
 const pkg = `@middy/${name}`;
 
+const decoder = new TextDecoder();
+
 const defaults = {
 	AwsClient: AppConfigDataClient,
 	awsClientOptions: {},
@@ -101,7 +103,7 @@ const appConfigMiddleware = (opts = {}) => {
 					return configurationCache[internalKey];
 				}
 
-				let value = new TextDecoder().decode(configResp.Configuration);
+				let value = decoder.decode(configResp.Configuration);
 				if (jsonContentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}

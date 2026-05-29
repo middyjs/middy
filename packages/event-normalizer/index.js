@@ -64,13 +64,17 @@ const parseEvent = (event, options) => {
 		return;
 	}
 
+	if (!records.length) {
+		return;
+	}
+
 	// record.eventSource => default
 	// record.EventSource => aws:sns
 	// record.s3Key => aws:s3:batch
 	eventSource ??=
-		records[0].eventSource ??
-		records[0].EventSource ??
-		(records[0].s3Key && "aws:s3:batch");
+		records[0]?.eventSource ??
+		records[0]?.EventSource ??
+		(records[0]?.s3Key && "aws:s3:batch");
 	// Hoist the dispatch fn out of the loop so we look it up once per batch
 	// instead of once per record.
 	const fn = events[eventSource];
@@ -82,7 +86,7 @@ const parseEvent = (event, options) => {
 };
 
 const normalizeS3KeyReplacePlus = /\+/g;
-const events = {
+const events = Object.assign(Object.create(null), {
 	// MQ (ActiveMQ)
 	"aws:amq": (message) => {
 		message.data = base64Parse(message.data);
@@ -165,7 +169,7 @@ const events = {
 			parseEvent(record.body, options);
 		}
 	},
-};
+});
 const base64Decode = (data) => Buffer.from(data, "base64");
 const base64Parse = (data) =>
 	jsonSafeParse(base64Decode(data).toString("utf-8"));

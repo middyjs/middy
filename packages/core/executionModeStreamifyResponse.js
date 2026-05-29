@@ -26,8 +26,8 @@ export const executionModeStreamifyResponse = (
 				plugin,
 			);
 			let responseStream = lambdaResponseStream;
-			let handlerBody = handlerResponse;
-			if (handlerResponse.statusCode) {
+			let handlerBody = handlerResponse ?? "";
+			if (handlerResponse?.statusCode) {
 				const { body, ...restResponse } = handlerResponse;
 				handlerBody = body ?? ""; // #1137
 				responseStream = awslambda.HttpResponseStream.from(

@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { after, before, test } from "node:test";
 import middy from "../core/index.js";
 import { clearCache, getInternal } from "../util/index.js";
@@ -403,6 +403,54 @@ test("It should skip fetching already cached values when fetching multiple keys"
 	await handler(defaultEvent, defaultContext);
 
 	strictEqual(getDbConnectAuthToken.mock.callCount(), 3);
+});
+
+test("It should not emit unhandledRejection when prefetch token fetch fails at construction", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(async () => {
+		throw new Error("timeout");
+	});
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const unhandled = [];
+	const onUnhandled = (reason) => {
+		unhandled.push(reason);
+	};
+	process.on("unhandledRejection", onUnhandled);
+	t.after(() => {
+		process.off("unhandledRejection", onUnhandled);
+	});
+
+	const handler = middy(() => {})
+		.use(
+			dsqlSigner({
+				AwsClient,
+				cacheExpiry: -1,
+				fetchData: {
+					token: { region: "us-east-1" },
+				},
+				disablePrefetch: false,
+			}),
+		)
+		.before(async (request) => {
+			// A consumer that awaits the internal value surfaces the failure.
+			await getInternal(true, request);
+		});
+
+	// Allow any microtasks/macrotasks from the prefetch rejection to flush.
+	await new Promise((resolve) => setImmediate(resolve));
+	deepStrictEqual(unhandled, []);
+
+	// The fetch failure surfaces when a consumer awaits the internal value.
+	await rejects(
+		() => handler(defaultEvent, defaultContext),
+		/Failed to resolve internal values/,
+	);
+
+	// Still no unhandledRejection after invocation.
+	await new Promise((resolve) => setImmediate(resolve));
+	deepStrictEqual(unhandled, []);
 });
 
 test("It should export dsqlSignerParam helper for TypeScript type inference", async (t) => {
