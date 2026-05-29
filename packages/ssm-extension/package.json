@@ -30,7 +30,8 @@
 		"test:unit": "node --test index.test.js",
 		"test:fuzz": "node --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js",
-		"test:types": "tstyche"
+		"test:types": "tstyche",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [

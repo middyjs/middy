@@ -31,6 +31,7 @@
 		"test:sast:trufflehog": "trufflehog filesystem --only-verified --log-level=-1 ./",
 		"test:sast:zizmor": "zizmor .github/workflows/",
 		"test:types": "tstyche",
+		"test:mutation": "npm run test:mutation --workspaces --if-present",
 		"test:perf": "node --no-warnings=ExperimentalWarning --test ./packages/**/*.perf.js",
 		"test:dast": "npm run test:dast:fuzz",
 		"test:dast:fuzz": "node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks ./packages/**/*.fuzz.js",
@@ -71,6 +72,7 @@
 	"homepage": "https://middy.js.org",
 	"devDependencies": {
 		"@biomejs/biome": "^2.0.0",
+		"@stryker-mutator/core": "^9.0.0",
 		"@commitlint/cli": "^21.0.0",
 		"@commitlint/config-conventional": "^21.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
@@ -85,7 +87,8 @@
 		"@sveltejs/kit": {
 			"cookie": "^0.7.2"
 		},
-		"mathjs": ">=15.2.0"
+		"mathjs": ">=15.2.0",
+		"qs": "^6.15.2"
 	},
 	"devEngines": {
 		"runtime": {

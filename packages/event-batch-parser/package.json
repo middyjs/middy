@@ -53,7 +53,8 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js"
+		"test:perf": "node --test index.perf.js",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [

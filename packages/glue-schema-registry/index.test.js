@@ -1,9 +1,14 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
-import { clearCache, getCache, getInternal, modifyCache } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
+import {
+	clearCache,
+	getCache,
+	getInternal,
+	modifyCache,
+} from "../util/index.js";
 import glueSchemaRegistry, {
 	glueSchemaRegistryParam,
 	glueSchemaRegistryValidateOptions,

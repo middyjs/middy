@@ -13,6 +13,7 @@
 		".husky/**/*",
 		"CNAME",
 		"commitlint.config.cjs",
+		"stryker.config.mjs",
 		"docs/**/*",
 		"LICENSE",
 		"license.template",
