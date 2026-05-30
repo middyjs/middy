@@ -2,9 +2,6 @@ import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
-// import {
-// 	executionModeDurableContext,
-// } from "../core/executionModeDurableContext.js";
 import { executionModeStreamifyResponse } from "../core/executionModeStreamifyResponse.js";
 import middy from "../core/index.js";
 import inputOutputLogger, {
