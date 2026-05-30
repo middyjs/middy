@@ -43,19 +43,18 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 			error.expose = error.statusCode < 500;
 		}
 
-		// Non-http error OR expose set to false
-		// biome-ignore format: keep the inline Stryker directive attached to the else block's leading comment
+		// Replace non-http errors (or errors with expose: false) with a generic
+		// fallback. When the guard is false, request.error already holds the http
+		// error to expose (error === request.error), so it is left untouched.
 		if (!error.expose || !error.statusCode) {
 			request.error = {
 				statusCode: 500,
 				message: fallbackMessage,
 				expose: true,
 			};
-		} else /* Stryker disable next-line BlockStatement: equivalent mutant - this else branch only runs when the local `error` came from `request.error ?? {}` with a truthy statusCode, so `error === request.error` and the assignment is a self-assignment with no observable effect. */ {
-			request.error = error;
 		}
 
-		// Stryker disable next-line ConditionalExpression: equivalent mutant - after the block above `request.error.expose` is always truthy (the fallback sets `expose: true`; the else branch keeps an error whose `expose` was already truthy), so forcing the guard to `true` cannot be observed.
+		// Stryker disable next-line ConditionalExpression: equivalent mutant - after the block above `request.error.expose` is always truthy (the fallback sets `expose: true`; a kept error already had a truthy `expose`), so forcing the guard to `true` cannot be observed.
 		if (request.error.expose) {
 			normalizeHttpResponse(request);
 			const { statusCode, message, headers } = request.error;
