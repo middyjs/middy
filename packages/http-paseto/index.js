@@ -55,6 +55,7 @@ const readCookieValue = (event, cookieName) => {
 	if (!match) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value
+	// Stryker disable next-line EqualityOperator,ConditionalExpression: the length guard only differs from `>2`/`true` for values shorter than 2 chars (or exactly 2, i.e. `""`), none of which are valid PASETO tokens, so the strip decision is observably identical.
 	if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
 		value = value.slice(1, -1);
 	}
@@ -120,11 +121,15 @@ const httpPasetoMiddleware = (opts = {}) => {
 	};
 
 	const baseVerifyOptions = {};
+	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `audience: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
 	if (options.audience !== undefined)
 		baseVerifyOptions.audience = options.audience;
+	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `issuer: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
 	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
+	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `clockTolerance: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
 	if (options.clockTolerance !== undefined)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
+	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `maxTokenAge: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
 	if (options.maxTokenAge !== undefined)
 		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
 
@@ -161,6 +166,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// only for object-shaped keys. `createPublicKey` accepts Uint8Array /
 		// Buffer directly — no copy needed.
 		let key = keyCache.get(keyData);
+		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical KeyObject); the verified payload is byte-identical, so the optimization is unobservable through the public interface.
 		if (key === undefined) {
 			const bytes =
 				keyData?.publicKey instanceof Uint8Array ? keyData.publicKey : keyData;

@@ -14,16 +14,21 @@ import {
 	clearCache,
 	createClient,
 	createError,
+	createPrefetchClient,
 	decodeBody,
 	executionContext,
+	executionContextKeys,
 	getCache,
 	getInternal,
 	HttpError,
+	httpErrorCodes,
 	isExecutionModeDurable,
 	isJsonStructured,
+	jsonContentTypePattern,
 	jsonSafeParse,
 	jsonSafeStringify,
 	lambdaContext,
+	lambdaContextKeys,
 	modifyCache,
 	normalizeHttpResponse,
 	processCache,
@@ -282,6 +287,33 @@ describe("getInternal", () => {
 		}
 	});
 
+	test("getInternal must reject (not silently resolve) when a value rejects", async (t) => {
+		// Asserts the throw actually happens, killing mutants that skip the
+		// rejected-status check or the final `if (errors) throw`.
+		await rejects(
+			() => getInternal(true, getInternalRejected),
+			(e) => {
+				strictEqual(e.message, "Failed to resolve internal values");
+				deepStrictEqual(e.cause, {
+					package: "@middy/util",
+					data: [promiseRejectError, promiseThrowError],
+				});
+				return true;
+			},
+		);
+	});
+
+	test("getInternal resolves fulfilled values even when present alongside no rejections", async (t) => {
+		const request = {
+			internal: {
+				a: Promise.resolve("av"),
+				b: Promise.resolve("bv"),
+			},
+		};
+		const values = await getInternal(["a", "b"], request);
+		deepStrictEqual(values, nullObj({ a: "av", b: "bv" }));
+	});
+
 	test("getInternal should get none from internal store", async (t) => {
 		const values = await getInternal(false, getInternalRequest);
 		deepStrictEqual(values, Object.create(null));
@@ -439,6 +471,80 @@ describe("processCache / clearCache", () => {
 		process.off("unhandledRejection", onUnhandled);
 		deepStrictEqual(unhandled, []);
 		clearCache();
+	});
+
+	test("processCache silences rejections in an object of promises (not consumed)", async (t) => {
+		const unhandled = [];
+		const onUnhandled = (reason) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+
+		const options = { cacheKey: "obj-silence", cacheExpiry: -1 };
+		// fetch returns an OBJECT whose values are promises (one rejects).
+		const fetchRequest = t.mock.fn(() => ({
+			ok: Promise.resolve("v"),
+			bad: Promise.reject(new Error("kaboom")),
+		}));
+		processCache(options, fetchRequest, cacheRequest);
+
+		// Do NOT await the rejecting value: silencing must keep it from surfacing.
+		await new Promise((resolve) => setImmediate(resolve));
+		process.off("unhandledRejection", onUnhandled);
+		deepStrictEqual(unhandled, []);
+		clearCache();
+	});
+
+	test("processCache silences a bare rejecting promise (not consumed)", async (t) => {
+		const unhandled = [];
+		const onUnhandled = (reason) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+
+		const options = { cacheKey: "bare-silence", cacheExpiry: -1 };
+		const fetchRequest = t.mock.fn(() => Promise.reject(new Error("kaboom")));
+		processCache(options, fetchRequest, cacheRequest);
+
+		await new Promise((resolve) => setImmediate(resolve));
+		process.off("unhandledRejection", onUnhandled);
+		deepStrictEqual(unhandled, []);
+		clearCache();
+	});
+
+	test("processCache does not throw when fetch returns null", async (t) => {
+		// silenceFetchRejections(null) must be a no-op (null is not an object to
+		// iterate, nor a Promise to attach a catch handler to).
+		const fetchRequest = t.mock.fn(() => null);
+		const result = processCache(
+			{ cacheKey: "null-fetch", cacheExpiry: -1 },
+			fetchRequest,
+			cacheRequest,
+		);
+		strictEqual(result.value, null);
+		clearCache();
+	});
+
+	test("processCache does not serve a stale entry when cacheExpiry is falsy", async (t) => {
+		// Prime an infinite cache, then call the same key with cacheExpiry 0.
+		// With no caching requested, it must re-fetch, not return the cached entry.
+		const fetchRequest = t.mock.fn(() => "value");
+		processCache(
+			{ cacheKey: "falsy-expiry", cacheExpiry: -1 },
+			fetchRequest,
+			cacheRequest,
+		);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		const result = processCache(
+			{ cacheKey: "falsy-expiry", cacheExpiry: 0 },
+			fetchRequest,
+			cacheRequest,
+		);
+		strictEqual(fetchRequest.mock.callCount(), 2);
+		strictEqual(result.cache, undefined);
+		clearCache();
+	});
+
+	test("clearCache does not throw for a key that is not cached", async (t) => {
+		// clearCache must tolerate unknown keys (optional chaining on the lookup).
+		clearCache(["definitely-not-a-cached-key"]);
+		clearCache("another-missing-key");
 	});
 
 	test("processCache should cache when not expired", async (t) => {
@@ -978,6 +1084,110 @@ test("processCache should not reschedule refresh after modifyCache for infinite 
 	clearCache();
 });
 
+test("processCache modified re-fetch reschedules refresh for the remaining duration", async (t) => {
+	// Advance time before modifying so `now > 0`: this distinguishes the
+	// remaining-duration arithmetic `cached.expiry - now` from `+ now`.
+	const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+	const options = {
+		cacheKey: "refresh-remaining-duration",
+		cacheExpiry: 1000,
+	};
+	const cached = processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+
+	// Consume 600ms of the 1000ms lifetime, then modify.
+	t.mock.timers.tick(600);
+	modifyCache(options.cacheKey, cached.value);
+
+	// Re-fetch: refresh must be scheduled for the REMAINING ~400ms
+	// (cached.expiry - now), not cached.expiry + now.
+	processCache(options, fetchRequest, { internal: {} });
+	const count2 = fetchRequest.mock.callCount();
+
+	// Just before the remaining duration elapses, no auto-refresh yet.
+	t.mock.timers.tick(399);
+	strictEqual(fetchRequest.mock.callCount(), count2);
+	// Crossing the remaining duration triggers the auto-refresh.
+	t.mock.timers.tick(2);
+	ok(fetchRequest.mock.callCount() > count2);
+	clearCache();
+});
+
+test("processCache with cacheExpiry exactly 24h treats it as a duration (expiry)", async (t) => {
+	// At the 86400000 boundary the value is a DURATION, so the stored expiry is
+	// now + cacheExpiry (not the raw cacheExpiry treated as a timestamp).
+	const fetchRequest = t.mock.fn(() => "value");
+	t.mock.timers.tick(100);
+	const options = { cacheKey: "boundary-duration", cacheExpiry: 86400000 };
+	processCache(options, fetchRequest, { internal: {} });
+	strictEqual(getCache("boundary-duration").expiry, 100 + 86400000);
+	clearCache();
+});
+
+test("processCache 24h-duration entry stays cached until now+duration", async (t) => {
+	// Distinguishes effectiveExpiry = cached.expiry (now+duration) from
+	// effectiveExpiry = cacheExpiry (the raw 86400000) at the boundary.
+	const fetchRequest = t.mock.fn(() => "value");
+	t.mock.timers.tick(100);
+	const options = { cacheKey: "boundary-unexpired", cacheExpiry: 86400000 };
+	processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+	// Advance past 86400000 but before the real expiry 86400100.
+	t.mock.timers.tick(86400050 - 100);
+	processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+	clearCache();
+});
+
+test("processCache 24h-duration refresh fires at now+duration, not earlier", async (t) => {
+	// Distinguishes refresh duration = cacheExpiry (86400000) from
+	// cacheExpiry - now (86399900) at the boundary.
+	const fetchRequest = t.mock.fn(() => "value");
+	t.mock.timers.tick(100);
+	const options = { cacheKey: "boundary-refresh", cacheExpiry: 86400000 };
+	processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 1);
+	// At now=86400000 (tick 86399900) the refresh must not have fired yet (real
+	// schedules it for 86400000ms from now=100 -> absolute 86400100).
+	t.mock.timers.tick(86399900);
+	strictEqual(fetchRequest.mock.callCount(), 1);
+	clearCache();
+});
+
+test("processCache with cacheExpiry 0 returns a finite (now) expiry", async (t) => {
+	// cacheExpiry 0 means no caching; the computed expiry is `now`, not Infinity
+	// (the `< 0` infinite branch must use strict less-than).
+	const fetchRequest = t.mock.fn(() => "value");
+	t.mock.timers.tick(500);
+	const result = processCache(
+		{ cacheKey: "zero-expiry-value", cacheExpiry: 0 },
+		fetchRequest,
+		{ internal: {} },
+	);
+	strictEqual(result.expiry, 500);
+	clearCache();
+});
+
+test("normalizeHttpResponse does not wrap a response that already has statusCode", async (t) => {
+	// A response object with a statusCode (but no body/headers) must NOT be
+	// treated as a raw body and wrapped.
+	const request = { response: { statusCode: 201, foo: "bar" } };
+	const response = normalizeHttpResponse(request);
+	deepStrictEqual(response, { statusCode: 201, foo: "bar", headers: {} });
+});
+
+test("normalizeHttpResponse does not wrap a response that already has a body", async (t) => {
+	const request = { response: { body: "hi" } };
+	const response = normalizeHttpResponse(request);
+	deepStrictEqual(response, { statusCode: 500, body: "hi", headers: {} });
+});
+
+test("normalizeHttpResponse does not wrap a response that already has headers", async (t) => {
+	const request = { response: { headers: { a: "1" } } };
+	const response = normalizeHttpResponse(request);
+	deepStrictEqual(response, { statusCode: 500, headers: { a: "1" } });
+});
+
 describe("jsonSafeParse", () => {
 	test("jsonSafeParse should parse valid json", async (t) => {
 		const value = jsonSafeParse("{}");
@@ -1340,5 +1550,288 @@ describe("assignSetToContext", () => {
 		const result = assignSetToContext(spec, { token: null }, request);
 		strictEqual(result, undefined);
 		strictEqual(request.context.token, null);
+	});
+	test("handles a missing (undefined) value without throwing", () => {
+		// value has no entry for the spec key: the `.then` probe must use
+		// optional chaining so `undefined?.then` does not throw.
+		const spec = [["token", "token"]];
+		const request = { context: {} };
+		const result = assignSetToContext(spec, {}, request);
+		strictEqual(result, undefined);
+		strictEqual(request.context.token, undefined);
+	});
+});
+
+// httpErrorCodes: assert every code maps to its documented message + derived
+// name. Kills the per-line StringLiteral mutants on the httpErrorCodes table
+// and the `name` derivation in the HttpError constructor.
+describe("httpErrorCodes table", () => {
+	const expected = {
+		100: ["ContinueError", "Continue"],
+		101: ["SwitchingProtocolsError", "Switching Protocols"],
+		102: ["ProcessingError", "Processing"],
+		103: ["EarlyHintsError", "Early Hints"],
+		200: ["OKError", "OK"],
+		201: ["CreatedError", "Created"],
+		202: ["AcceptedError", "Accepted"],
+		203: ["NonAuthoritativeInformationError", "Non-Authoritative Information"],
+		204: ["NoContentError", "No Content"],
+		205: ["ResetContentError", "Reset Content"],
+		206: ["PartialContentError", "Partial Content"],
+		207: ["MultiStatusError", "Multi-Status"],
+		208: ["AlreadyReportedError", "Already Reported"],
+		226: ["IMUsedError", "IM Used"],
+		300: ["MultipleChoicesError", "Multiple Choices"],
+		301: ["MovedPermanentlyError", "Moved Permanently"],
+		302: ["FoundError", "Found"],
+		303: ["SeeOtherError", "See Other"],
+		304: ["NotModifiedError", "Not Modified"],
+		305: ["UseProxyError", "Use Proxy"],
+		306: ["UnusedError", "(Unused)"],
+		307: ["TemporaryRedirectError", "Temporary Redirect"],
+		308: ["PermanentRedirectError", "Permanent Redirect"],
+		400: ["BadRequestError", "Bad Request"],
+		401: ["UnauthorizedError", "Unauthorized"],
+		402: ["PaymentRequiredError", "Payment Required"],
+		403: ["ForbiddenError", "Forbidden"],
+		404: ["NotFoundError", "Not Found"],
+		405: ["MethodNotAllowedError", "Method Not Allowed"],
+		406: ["NotAcceptableError", "Not Acceptable"],
+		407: ["ProxyAuthenticationRequiredError", "Proxy Authentication Required"],
+		408: ["RequestTimeoutError", "Request Timeout"],
+		409: ["ConflictError", "Conflict"],
+		410: ["GoneError", "Gone"],
+		411: ["LengthRequiredError", "Length Required"],
+		412: ["PreconditionFailedError", "Precondition Failed"],
+		413: ["PayloadTooLargeError", "Payload Too Large"],
+		414: ["URITooLongError", "URI Too Long"],
+		415: ["UnsupportedMediaTypeError", "Unsupported Media Type"],
+		416: ["RangeNotSatisfiableError", "Range Not Satisfiable"],
+		417: ["ExpectationFailedError", "Expectation Failed"],
+		418: ["ImateapotError", "I'm a teapot"],
+		421: ["MisdirectedRequestError", "Misdirected Request"],
+		422: ["UnprocessableEntityError", "Unprocessable Entity"],
+		423: ["LockedError", "Locked"],
+		424: ["FailedDependencyError", "Failed Dependency"],
+		425: ["UnorderedCollectionError", "Unordered Collection"],
+		426: ["UpgradeRequiredError", "Upgrade Required"],
+		428: ["PreconditionRequiredError", "Precondition Required"],
+		429: ["TooManyRequestsError", "Too Many Requests"],
+		431: [
+			"RequestHeaderFieldsTooLargeError",
+			"Request Header Fields Too Large",
+		],
+		451: ["UnavailableForLegalReasonsError", "Unavailable For Legal Reasons"],
+		500: ["InternalServerError", "Internal Server Error"],
+		501: ["NotImplementedError", "Not Implemented"],
+		502: ["BadGatewayError", "Bad Gateway"],
+		503: ["ServiceUnavailableError", "Service Unavailable"],
+		504: ["GatewayTimeoutError", "Gateway Timeout"],
+		505: ["HTTPVersionNotSupportedError", "HTTP Version Not Supported"],
+		506: ["VariantAlsoNegotiatesError", "Variant Also Negotiates"],
+		507: ["InsufficientStorageError", "Insufficient Storage"],
+		508: ["LoopDetectedError", "Loop Detected"],
+		509: ["BandwidthLimitExceededError", "Bandwidth Limit Exceeded"],
+		510: ["NotExtendedError", "Not Extended"],
+		511: [
+			"NetworkAuthenticationRequiredError",
+			"Network Authentication Required",
+		],
+	};
+
+	test("table has exactly the documented codes", () => {
+		deepStrictEqual(
+			Object.keys(httpErrorCodes).sort(),
+			Object.keys(expected).sort(),
+		);
+	});
+
+	for (const [code, [name, message]] of Object.entries(expected)) {
+		test(`code ${code} -> ${name} / "${message}"`, () => {
+			strictEqual(httpErrorCodes[code], message);
+			const e = new HttpError(Number(code));
+			strictEqual(e.message, message);
+			strictEqual(e.name, name);
+		});
+	}
+});
+
+// createPrefetchClient: covers the X-Ray capture branch outside handler scope.
+describe("createPrefetchClient", () => {
+	const RawClient = class {
+		constructor() {
+			this.id = "raw";
+		}
+	};
+
+	test("returns captured client when awsClientCapture + disablePrefetch", () => {
+		const captured = { id: "captured" };
+		const result = createPrefetchClient({
+			AwsClient: RawClient,
+			awsClientCapture: (client) => {
+				strictEqual(client.id, "raw");
+				return captured;
+			},
+			disablePrefetch: true,
+		});
+		strictEqual(result, captured);
+	});
+
+	test("warns and returns raw client when capture but not disablePrefetch", () => {
+		let warned = 0;
+		const original = console.warn;
+		console.warn = () => {
+			warned++;
+		};
+		const result = createPrefetchClient({
+			AwsClient: RawClient,
+			awsClientCapture: () => ({ id: "captured" }),
+		});
+		console.warn = original;
+		strictEqual(result.id, "raw");
+		strictEqual(warned, 1);
+	});
+
+	test("returns raw client when no capture configured (no warning)", () => {
+		let warned = 0;
+		const original = console.warn;
+		console.warn = () => {
+			warned++;
+		};
+		const result = createPrefetchClient({ AwsClient: RawClient });
+		console.warn = original;
+		strictEqual(result.id, "raw");
+		strictEqual(warned, 0);
+	});
+
+	test("warning message names the X-Ray scoping limitation", () => {
+		let message;
+		const original = console.warn;
+		console.warn = (m) => {
+			message = m;
+		};
+		createPrefetchClient({
+			AwsClient: RawClient,
+			awsClientCapture: () => ({}),
+		});
+		console.warn = original;
+		strictEqual(
+			message,
+			"Unable to apply X-Ray outside of handler invocation scope.",
+		);
+	});
+});
+
+test("createClient throws a packaged error when assuming role without request", async () => {
+	const AwsClient = class {};
+	await rejects(
+		() => createClient({ AwsClient, awsClientAssumeRole: "adminRole" }),
+		(e) => {
+			strictEqual(e.message, "Request required when assuming role");
+			deepStrictEqual(e.cause, { package: "@middy/util" });
+			return true;
+		},
+	);
+});
+
+// getInternal edge branches
+describe("getInternal edge branches", () => {
+	const nullObj = (obj) =>
+		Object.create(null, Object.getOwnPropertyDescriptors(obj));
+
+	test("returns empty object when request is null (optional chaining guard)", async () => {
+		const values = await getInternal("anything", null);
+		deepStrictEqual(values, Object.create(null));
+	});
+
+	test("returns empty object when variables type matches no branch", async () => {
+		// A function value: truthy, but not true/string/array/plain dispatch.
+		const fn = () => {};
+		fn.foo = "object";
+		const request = { internal: { object: { key: "value" } } };
+		const values = await getInternal(fn, request);
+		deepStrictEqual(values, Object.create(null));
+	});
+
+	test("resolves a nested path through a pending promise (async path)", async () => {
+		const request = {
+			internal: {
+				obj: Promise.resolve({ a: { b: "deep" } }),
+			},
+		};
+		const values = await getInternal("obj.a.b", request);
+		deepStrictEqual(values, nullObj({ obj_a_b: "deep" }));
+	});
+
+	test("async path renames keys via object-form variables", async () => {
+		const request = {
+			internal: {
+				src: Promise.resolve("v"),
+				other: Promise.resolve("o"),
+			},
+		};
+		const values = await getInternal({ renamed: "src" }, request);
+		deepStrictEqual(values, nullObj({ renamed: "v" }));
+	});
+});
+
+// jsonContentTypePattern: pin the exact regex so structural mutations break.
+describe("jsonContentTypePattern", () => {
+	test("matches application/json and +json subtypes", () => {
+		ok(jsonContentTypePattern.test("application/json"));
+		ok(jsonContentTypePattern.test("application/json; charset=utf-8"));
+		ok(jsonContentTypePattern.test("application/vnd.api+json"));
+		ok(jsonContentTypePattern.test("application/ld+json; charset=utf-8"));
+		ok(jsonContentTypePattern.test("APPLICATION/JSON"));
+	});
+	test("does not match when anchoring/structure is wrong", () => {
+		// Leading text before application/ must not match (^ anchor).
+		strictEqual(jsonContentTypePattern.test("text/application/json"), false);
+		// Wrong base type.
+		strictEqual(jsonContentTypePattern.test("text/json"), false);
+		// +json subtype chars limited to [a-z0-9.+-]: a space breaks it.
+		strictEqual(jsonContentTypePattern.test("application/foo bar+json"), false);
+		// json must be followed by ; or end-of-string.
+		strictEqual(jsonContentTypePattern.test("application/jsonx"), false);
+		// subtype before +json must use allowed chars only, not be empty-of-rule.
+		strictEqual(jsonContentTypePattern.test("application/+json"), false);
+	});
+});
+
+// lambdaContextKeys / executionContextKeys: pin the exact key strings.
+describe("context key tables", () => {
+	test("lambdaContextKeys lists the documented Lambda context keys", () => {
+		deepStrictEqual(lambdaContextKeys, [
+			"functionName",
+			"functionVersion",
+			"invokedFunctionArn",
+			"memoryLimitInMB",
+			"awsRequestId",
+			"logGroupName",
+			"logStreamName",
+			"identity",
+			"clientContext",
+			"callbackWaitsForEmptyEventLoop",
+		]);
+	});
+	test("executionContextKeys lists the execution context keys", () => {
+		deepStrictEqual(executionContextKeys, ["tenantId"]);
+	});
+});
+
+// jsonSafeParse: pin the first-char gate.
+describe("jsonSafeParse first-char gate", () => {
+	test("parses a quoted JSON string (leading double-quote)", () => {
+		strictEqual(jsonSafeParse('"hello"'), "hello");
+	});
+	test("parses a JSON array (leading bracket)", () => {
+		deepStrictEqual(jsonSafeParse("[1,2]"), [1, 2]);
+	});
+	test("does not parse text starting with another char", () => {
+		strictEqual(jsonSafeParse("true"), "true");
+		strictEqual(jsonSafeParse("123"), "123");
+	});
+	test("returns original text on parse failure of bracketed input", () => {
+		strictEqual(jsonSafeParse("[not json"), "[not json");
 	});
 });

@@ -117,6 +117,7 @@ const stableStringify = (value, seen = new WeakSet()) => {
 		const keys = Object.keys(value)
 			.filter((k) => typeof value[k] !== "function")
 			.sort();
+		// Stryker disable next-line StringLiteral: removing the key/value join "," is equivalent; JSON.stringify quotes every key, so no two distinct objects can ever serialize to the same string with or without the separator (and equal objects stay equal).
 		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
 	}
 	seen.delete(value);
@@ -212,15 +213,19 @@ const checkRule = (rule, value, path, fail) => {
 		} = rule;
 		if (!checkTypeSpec(rawType, value, path, fail)) return;
 		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
+		// Stryker disable next-line ConditionalExpression: dropping the `minimum !== undefined` guard is equivalent; when minimum is undefined, `value < undefined` is always false.
 		if (minimum !== undefined && value < minimum) {
 			fail(`Option '${path}' must be >= ${minimum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `maximum !== undefined` guard is equivalent; `value > undefined` is always false.
 		if (maximum !== undefined && value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMinimum !== undefined` guard is equivalent; `value <= undefined` is always false.
 		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
 			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMaximum !== undefined` guard is equivalent; `value >= undefined` is always false.
 		if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) {
 			fail(`Option '${path}' must be < ${exclusiveMaximum}`);
 		}
@@ -240,9 +245,11 @@ const checkRule = (rule, value, path, fail) => {
 		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `minLength !== undefined` guard is equivalent; `value.length < undefined` is always false.
 		if (minLength !== undefined && value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `maxLength !== undefined` guard is equivalent; `value.length > undefined` is always false.
 		if (maxLength !== undefined && value.length > maxLength) {
 			fail(`Option '${path}' must have length <= ${maxLength}`);
 		}
@@ -321,6 +328,7 @@ export const validateOptions = (packageName, schema, options = {}) => {
 		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
 		// the documented `TypeError` + `cause.package`; mismatch errors already
 		// carry that shape and pass through untouched.
+		// Stryker disable next-line ConditionalExpression: forcing this true is equivalent; the only non-SchemaError reaching here is a `fail()` TypeError that already carries cause.package, so re-wrapping it via `fail(e.message)` produces an identical message + cause.
 		if (e instanceof SchemaError) {
 			fail(e.message);
 		}
@@ -386,6 +394,7 @@ const safeGet = (obj, key) =>
 export const getInternal = async (variables, request) => {
 	if (!variables || !request?.internal) return Object.create(null);
 	let keys = [];
+	// Stryker disable next-line ArrayDeclaration: equivalent; this initial value is only observable when no branch below matches (variables is a truthy non-true/string/array/object), and in that case `keys` stays [] so the output is always {} regardless of `values`.
 	let values = [];
 	if (variables === true) {
 		keys = values = Object.keys(request.internal);
@@ -398,8 +407,13 @@ export const getInternal = async (variables, request) => {
 		values = Object.values(variables);
 	}
 	// Fast synchronous path: when all internal values are already resolved
-	// (warm/cached invocations), skip all Promise machinery entirely
+	// (warm/cached invocations), skip all Promise machinery entirely.
+	// The async fallback below produces byte-for-byte identical output, so the
+	// following sync-path mutants are equivalent: they only ever route execution
+	// to the async path (or vice versa), never change the resolved result.
+	// Stryker disable next-line BooleanLiteral: equivalent; starting allSync=false just forces the async path, which yields the same result.
 	let allSync = true;
+	// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
 	const syncResults = new Array(values.length);
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
@@ -407,6 +421,7 @@ export const getInternal = async (variables, request) => {
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; forcing the async path for every value yields the same result.
 		if (isPromise(value)) {
 			allSync = false;
 			break;
@@ -418,6 +433,7 @@ export const getInternal = async (variables, request) => {
 		}
 		syncResults[i] = value;
 	}
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent; skipping the sync fast-path defers to the async fallback, which returns the same object.
 	if (allSync) {
 		const obj = Object.create(null);
 		for (let i = 0; i < keys.length; i++) {
@@ -433,6 +449,7 @@ export const getInternal = async (variables, request) => {
 		const pathOptionKey = internalKey.split(".");
 		const rootOptionKey = pathOptionKey.shift();
 		let valuePromise = request.internal[rootOptionKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; Promise.resolve(p) returns p unchanged when p is already a promise, so always wrapping yields the same value.
 		if (!isPromise(valuePromise)) {
 			valuePromise = Promise.resolve(valuePromise);
 		}
@@ -507,9 +524,11 @@ export const buildSetToContextSpec = (options) =>
 export const assignSetToContext = (spec, value, request) => {
 	for (let i = 0; i < spec.length; i++) {
 		const v = value[spec[i][0]];
+		// Stryker disable next-line ConditionalExpression: the `v !== null` operand is equivalent (redundant). The `typeof v?.then` optional chain already null-guards: `null?.then` is undefined, so `typeof undefined === "function"` is false whether or not the explicit null check is present.
 		if (v !== null && typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
+			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
 			const keys = new Array(spec.length);
 			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
 			return getInternal(keys, request).then((data) => {
@@ -533,6 +552,7 @@ const defaultCacheMaxSize = 128;
 const validateCacheExpiry = (cacheExpiry) => {
 	if (cacheExpiry == null) return;
 	if (
+		// Stryker disable next-line ConditionalExpression: equivalent; any non-number value also fails `!Number.isInteger(cacheExpiry)` on the next line, so dropping this typeof guard rejects exactly the same inputs.
 		typeof cacheExpiry !== "number" ||
 		!Number.isInteger(cacheExpiry) ||
 		cacheExpiry < -1
@@ -580,6 +600,7 @@ export const processCache = (
 		const effectiveExpiry =
 			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
 		const unexpired =
+			// Stryker disable next-line ConditionalExpression,EqualityOperator: the `cacheExpiry < 0` branch is equivalent. cacheExpiry === 0 is unreachable (guarded by `if (cacheExpiry)`), and for the only negative value -1 the stored expiry is Infinity so `effectiveExpiry > now` is already always true. (-1 -> 0 boundary cannot be observed.)
 			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
 
 		if (unexpired) {
@@ -609,6 +630,7 @@ export const processCache = (
 			: cacheExpiry > 86400000
 				? cacheExpiry
 				: now + cacheExpiry;
+	// Stryker disable next-line EqualityOperator: the `> 86400000` -> `>= 86400000` change is equivalent for the refresh duration. It only differs at cacheExpiry === 86400000, where it shifts the auto-refresh timer by `now` ms; the refresh callback re-validates the (separately-set) expiry, so the same number of fetches occur and no observable difference results.
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
 		clearTimeout(cache.get(cacheKey)?.refresh);
@@ -649,7 +671,9 @@ const evictCache = (maxSize) => {
 			oldestKey = key;
 		}
 	}
+	// Stryker disable next-line ConditionalExpression: equivalent; evictCache only runs when cache.size > maxSize (>0) and every cache entry is a truthy object, so the loop always sets oldestKey to a real key. Forcing this guard true would at worst delete the null key, a harmless no-op.
 	if (oldestKey !== null) {
+		// Stryker disable next-line OptionalChaining: equivalent; oldestKey was just read from the live cache in the loop above, so cache.get(oldestKey) is always defined and the optional chain never short-circuits.
 		clearTimeout(cache.get(oldestKey)?.refresh);
 		cache.delete(oldestKey);
 	}

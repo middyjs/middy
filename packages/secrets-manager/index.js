@@ -106,6 +106,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 					.catch((e) => catchInvalidSignatureException(e, client, command)),
 			);
 		}
+		// Stryker disable next-line ConditionalExpression: equivalent - when pending is empty the remaining loop is a no-op and expiry stays undefined, so skipping the early return produces the identical result
 		if (!pending.length) return;
 
 		let expiry;
@@ -128,6 +129,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 				expiry = expiry === undefined ? keyExpiry : Math.min(expiry, keyExpiry);
 			}
 		}
+		// Stryker disable next-line ConditionalExpression: equivalent - reaching here with expiry===undefined writes `undefined`, which is read back via `cacheKeyExpiry?.[cacheKey] ?? cacheExpiry`, identical to not writing at all
 		if (expiry !== undefined) {
 			options.cacheKeyExpiry[options.cacheKey] = expiry;
 		}
@@ -159,7 +161,13 @@ const secretsManagerMiddleware = (opts = {}) => {
 		return values;
 	};
 
+	// Equivalent mutant: forcing rotationEnabled true still no-ops because
+	// cacheUnexpired() gates refreshRotationExpiry and fetchRotationDates does
+	// nothing without rotation keys; clearCache only ever touches an
+	// already-expired entry that processCache would refetch regardless.
+	// Stryker disable next-line ConditionalExpression
 	const rotationEnabled =
+		// Stryker disable next-line ConditionalExpression
 		options.fetchRotationDate === true ||
 		fetchDataKeys.some((key) => options.fetchRotationDate?.[key]);
 
@@ -203,6 +211,7 @@ const secretsManagerMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent - pending is either a Promise (awaited under both) or undefined, and `await undefined` resolves immediately with no observable effect
 			if (pending) await pending;
 		}
 	};

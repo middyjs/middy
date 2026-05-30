@@ -37,6 +37,7 @@ const optionSchema = {
 							{ type: "string", pattern: "^/" },
 							{ type: "string", pattern: "^(/|.*[^/])$" },
 						],
+						// Stryker disable next-line ArrayDeclaration,StringLiteral: examples are documentation-only metadata; validateOptions never reads them, so mutating their content cannot change validation behavior.
 						examples: ["/", "/users", "/users/{id}"],
 					},
 					handler: { instanceof: "Function" },
@@ -79,6 +80,7 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Static
+		// Stryker disable next-line EqualityOperator: `< 0` vs `<= 0` differ only when "{" is at index 0; a dynamic capture's brace is always preceded by "/" (index >= 1), and a brace at index 0 yields a literal regex with the same match set as a static entry, so the branch choice is unobservable.
 		if (path.indexOf("{") < 0) {
 			attachStaticRoute(method, path, handler, routesStatic);
 			continue;
@@ -124,14 +126,17 @@ const httpRouteHandler = (opts = {}) => {
 			// regardless.
 			let reqSegments = 0;
 			const pathLen = path.length;
+			// Stryker disable LogicalOperator,ConditionalExpression,EqualityOperator: equivalent; the trailing-slash trim only changes reqSegments for path "/", which no fixed-depth dynamic route can match (a [^/]+ param needs a non-slash char). For any other path the trimmed final char is a non-slash, so the slash count is unchanged. The segmentCount filter below is a pure performance pre-filter; the regex is the authoritative gate.
 			const stop =
 				pathLen > 1 && path.charCodeAt(pathLen - 1) === 47
 					? pathLen - 1
 					: pathLen;
+			// Stryker restore LogicalOperator,ConditionalExpression,EqualityOperator
 			for (let i = 0; i < stop; i++) {
 				if (path.charCodeAt(i) === 47) reqSegments++;
 			}
 			for (const route of dynamicRoutes) {
+				// Stryker disable next-line ConditionalExpression,BlockStatement: pure performance pre-filter. A non-proxy dynamic route's regex matches exactly its slash depth, so skipping (or not skipping) by segmentCount can never change which route the authoritative `path.match` selects.
 				if (route.segmentCount !== -1 && route.segmentCount !== reqSegments) {
 					continue;
 				}
@@ -176,6 +181,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 		}
 		return;
 	}
+	// Stryker disable next-line ArrayDeclaration: a sentinel seed element has segmentCount===undefined, which the loop's `segmentCount !== reqSegments` filter always skips before any `.match`, so it cannot change routing.
 	routesType[method] ??= [];
 	const pathPartialRegExp = path
 		.replace(regExpEscapeChars, "\\$&")
@@ -186,12 +192,14 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`
 	// `{proxy+}` matches across slashes so its depth is unconstrained; mark -1.
 	// All other dynamic params capture a single segment, so depth == slash count.
+	// Stryker disable next-line StringLiteral: forcing segmentCount to -1 only disables the performance pre-filter; the authoritative `path.match` regex still gates every route, so routing results are unchanged.
 	const segmentCount = path.includes("{proxy+}") ? -1 : countSlashes(path);
 	routesType[method].push({ path: pathRegExp, handler, segmentCount });
 };
 
 const countSlashes = (s) => {
 	let n = 0;
+	// Stryker disable next-line EqualityOperator: `<=` over-reads one index past the string; charCodeAt returns NaN there, which never equals 47, so the slash count is identical.
 	for (let i = 0; i < s.length; i++) {
 		if (s.charCodeAt(i) === 47) n++;
 	}

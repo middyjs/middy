@@ -15,6 +15,7 @@ const optionSchema = {
 		methods: {
 			type: "string",
 			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
+			// Stryker disable next-line StringLiteral,ArrayDeclaration: JSON Schema `examples` is an annotation only; it does not affect validation, so mutating its contents cannot change observable behavior.
 			examples: ["*", "GET", "GET,POST"],
 		},
 		origin: { type: "string" },
@@ -56,6 +57,7 @@ const hostnameToPunycode = (hostname) => {
 const asciiOriginFast = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
 
 const originToPunycode = (origin) => {
+	// Stryker disable next-line ConditionalExpression,StringLiteral: "*" fails both the asciiOriginFast regex and the /^(https?:\/\/)(.+)$/ match, so it is returned unchanged downstream regardless; the early-return is a pure fast-path with no observable effect.
 	if (!origin || origin === "*") return origin;
 	// Fast-path: ASCII origin without wildcard — just canonicalize case.
 	// `new URL().host` lowercases the host portion; reproduce that here.

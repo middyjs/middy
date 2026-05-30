@@ -112,9 +112,12 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
+	// Stryker disable next-line ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	// Stryker disable ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultMultiValueHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultMultiValueHeaders =
 		Object.keys(defaultMultiValueHeaders).length > 0;
+	// Stryker restore ConditionalExpression,EqualityOperator
 
 	const httpHeaderNormalizerMiddlewareBefore = (request) => {
 		if (request.event.headers) {

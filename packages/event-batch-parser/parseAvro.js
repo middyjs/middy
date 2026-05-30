@@ -24,6 +24,7 @@ export const parseAvro = (parserOpts = {}) => {
 			);
 		}
 		let type = typeCache.get(schemaDefinition);
+		// Stryker disable next-line ConditionalExpression: the cache is a perf optimization; forcing the parse branch re-parses the identical schema and yields an equal type, so decoded output is unchanged regardless of cache hit/miss.
 		if (!type) {
 			type = avro.parse(schemaDefinition);
 			typeCache.set(schemaDefinition, type);

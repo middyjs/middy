@@ -990,3 +990,320 @@ test("httpRouterValidateOptions allows distinct routes", () => {
 		],
 	});
 });
+
+// Default routes table (index.js:13)
+test("It should 404 when constructed with no routes option", async (t) => {
+	const handler = httpRouter({});
+	try {
+		await handler({ httpMethod: "GET", path: "/" }, defaultContext);
+		ok(false, "expected 404");
+	} catch (e) {
+		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.statusCode, 404);
+	}
+});
+
+// 404 error cause shape (index.js:15-16)
+test("It should attach cause package and data to the 404 error", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	try {
+		await handler({ httpMethod: "POST", path: "/missing" }, defaultContext);
+		ok(false, "expected 404");
+	} catch (e) {
+		ok(e.cause, "cause present");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "POST", path: "/missing" });
+	}
+});
+
+// Supported methods list (index.js:22)
+for (const method of [
+	"GET",
+	"POST",
+	"PUT",
+	"PATCH",
+	"DELETE",
+	"OPTIONS",
+	"HEAD",
+]) {
+	test(`It should accept and route the ${method} method`, async (t) => {
+		const handler = httpRouter([
+			{ method, path: "/thing", handler: () => method },
+		]);
+		strictEqual(
+			await handler({ httpMethod: method, path: "/thing" }, defaultContext),
+			method,
+		);
+	});
+}
+
+// Option schema: required fields (index.js:32)
+test("httpRouterValidateOptions rejects a route missing method", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ path: "/a", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("httpRouterValidateOptions rejects a route missing path", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("httpRouterValidateOptions rejects a route missing handler", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", path: "/a" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+// Option schema: method enum includes ANY (index.js:34)
+test("httpRouterValidateOptions accepts method ANY in the enum", () => {
+	httpRouterValidateOptions({
+		routes: [{ method: "ANY", path: "/a", handler: () => {} }],
+	});
+});
+
+test("httpRouterValidateOptions rejects an unknown method in the enum", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "ALL", path: "/a", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+// Option schema: path leading-slash constraint (index.js:36-37)
+test("httpRouterValidateOptions rejects a path without a leading slash", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", path: "users", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+// Option schema: path trailing-slash constraint (index.js:36,38)
+test("httpRouterValidateOptions rejects a path with a trailing slash", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", path: "/users/", handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+test("httpRouterValidateOptions accepts the root path /", () => {
+	httpRouterValidateOptions({
+		routes: [{ method: "GET", path: "/", handler: () => {} }],
+	});
+});
+
+// Option schema: additionalProperties on a route (index.js:44)
+test("httpRouterValidateOptions rejects unknown properties on a route", () => {
+	try {
+		httpRouterValidateOptions({
+			routes: [{ method: "GET", path: "/a", handler: () => {}, extra: true }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+// Invalid-method guard at construction (index.js:70-72)
+test("It should attach cause package and data to the method-not-allowed error", async (t) => {
+	try {
+		httpRouter([{ method: "ALL", path: "/", handler: () => true }]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Method not allowed");
+		ok(e.cause, "cause present");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "ALL" });
+	}
+});
+
+// Root path is not over-trimmed (index.js:77)
+test("It should route the root / path exactly (not over-trimmed)", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => "root" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/" }, defaultContext),
+		"root",
+	);
+	// The root "/" route must NOT have its slash trimmed to "" during
+	// registration; if it were, the optional-trailing-slash key would become
+	// "/" and the original "/" key "" so the request "//" (root + optional
+	// slash) would 404. Real code keeps "/" and "//".
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "//" }, defaultContext),
+		"root",
+	);
+});
+
+// Static vs dynamic dispatch (index.js:82)
+test("It should dispatch a brace-free path via the static table (precedence over earlier wildcard)", async (t) => {
+	// A wildcard dynamic route is registered FIRST, then a static route. Static
+	// lookups happen before the dynamic loop, so the static route must win even
+	// though the wildcard was registered earlier. If the static branch were
+	// disabled, "/about" would be registered as a dynamic route and the
+	// earlier "/{proxy+}" would capture the request instead.
+	const handler = httpRouter([
+		{ method: "GET", path: "/{proxy+}", handler: () => "wild" },
+		{ method: "GET", path: "/about", handler: () => "static" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/about" }, defaultContext),
+		"static",
+	);
+});
+
+// Missing-method error cause (index.js:99)
+test("It should attach cause data to the missing-method error", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	try {
+		await handler({ path: "/" }, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.cause, "cause present");
+		ok(Object.hasOwn(e.cause.data, "method"));
+		strictEqual(e.cause.data.method, undefined);
+	}
+});
+
+// Missing-path error cause (index.js:107)
+test("It should attach cause data to the missing-path error", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	try {
+		await handler({ httpMethod: "GET" }, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.cause, "cause present");
+		ok(Object.hasOwn(e.cause.data, "path"));
+		strictEqual(e.cause.data.path, undefined);
+	}
+});
+
+// Wildcard $ anchor: {proxy+} must be terminal (index.js:156)
+test("It should treat a non-terminal {proxy+} as a literal param and throw on construction", async (t) => {
+	try {
+		httpRouter([
+			{ method: "GET", path: "/files/{proxy+}/x", handler: () => true },
+		]);
+		ok(false, "expected throw on invalid capture group name");
+	} catch (e) {
+		ok(
+			e.message.includes("Invalid capture group name"),
+			`unexpected message: ${e.message}`,
+		);
+	}
+});
+
+// {proxy+} depth marker vs fixed-depth dynamic (index.js:189)
+test("It should not treat a non-proxy dynamic route as unbounded depth", async (t) => {
+	// /a/{x} has fixed depth 2; a 3-segment request must 404, while the
+	// 2-segment request matches. If segmentCount were forced to -1 the route
+	// would behave like a wildcard for the regex... but regex still constrains.
+	// Distinguish via a sibling deeper route that should win at depth 3.
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{x}", handler: () => "two" },
+		{ method: "GET", path: "/a/{x}/{y}", handler: () => "three" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1" }, defaultContext),
+		"two",
+	);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1/2" }, defaultContext),
+		"three",
+	);
+});
+
+// v2 optional chaining for method (index.js:207)
+test("It should safely extract method from a v2 event missing requestContext", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	try {
+		await handler({ version: "2.0" }, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof TypeError));
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
+	}
+});
+
+// v2 optional chaining for path (index.js:208)
+test("It should safely extract path from a v2 event with method but missing requestContext.http", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	// requestContext present but http missing -> method undefined too; to hit
+	// the path branch we provide method via http but only check path safety.
+	// Use a v2 event where requestContext is entirely absent: both optional
+	// chains must short-circuit without a TypeError.
+	try {
+		await handler({ version: "2.0", requestContext: null }, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(!(e instanceof TypeError));
+		strictEqual(e.cause.package, "@middy/http-router");
+	}
+});
+
+// VPC raw_path query strip at index 0 (index.js:215)
+test("It should strip a VPC raw_path that is entirely a query string", async (t) => {
+	// raw_path "?x=1" has "?" at index 0. With `q < 0` (real) the path becomes
+	// "" -> falsy -> "missing path" error. The mutant `q <= 0` would NOT strip
+	// and pass "?x=1" through, yielding a 404 "Route does not exist" instead.
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => "root" },
+	]);
+	try {
+		await handler({ method: "GET", raw_path: "?x=1" }, defaultContext);
+		ok(false, "expected missing-path error for empty stripped path");
+	} catch (e) {
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing path. Expected 'path' (v1), 'requestContext.http.path' (v2), or 'raw_path' (VPC)",
+		);
+	}
+});

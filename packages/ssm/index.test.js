@@ -5,9 +5,9 @@ import {
 	GetParametersCommand,
 	SSMClient,
 } from "@aws-sdk/client-ssm";
+import { clearCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
-import { clearCache, getInternal } from "../util/index.js";
 import ssm, { ssmValidateOptions } from "./index.js";
 
 test.beforeEach((t) => {
@@ -789,6 +789,221 @@ test("It should skip fetching already cached path values", async (t) => {
 	strictEqual(sendStub.callCount, 3);
 });
 
+test("It should skip fetching an already cached named value on a modified-cache re-run", async (t) => {
+	// A named key (GetParametersCommand) succeeds and is cached; a sibling path
+	// key (GetParametersByPathCommand) fails, marking the cache modified so the
+	// next invocation re-runs fetch with the cached values. The already-resolved
+	// named key must be skipped (index.js line 88) and NOT re-requested.
+	let nameCalls = 0;
+	let pathCalls = 0;
+	const mockService = mockClient(SSMClient);
+	mockService.on(GetParametersCommand).callsFake(async () => {
+		nameCalls++;
+		return {
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		};
+	});
+	mockService.on(GetParametersByPathCommand).callsFake(async () => {
+		pathCalls++;
+		if (pathCalls === 1) {
+			throw new Error("timeout");
+		}
+		return {
+			Parameters: [{ Name: "/dev/path/key", Value: "path-value" }],
+		};
+	});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.named, "key-value");
+		strictEqual(values.path.key, "path-value");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					named: "/dev/service_name/key_name",
+					path: "/dev/path/",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	// First invocation: named resolves & caches, path rejects -> cache modified.
+	try {
+		await handler(event, context);
+	} catch (_e) {
+		// expected
+	}
+	// Second invocation: named is already cached -> skipped (no new request);
+	// only the path is re-fetched.
+	await handler(event, context);
+
+	// named fetched exactly once; path fetched twice.
+	strictEqual(nameCalls, 1);
+	strictEqual(pathCalls, 2);
+});
+
+test("It should clear failed named batch from cache so the next invocation refetches", async (t) => {
+	// On a batch failure the failed keys must be cleared from cache (index.js
+	// line 133). Otherwise the rejected promise lingers and a later cached
+	// invocation would resolve the stale rejection instead of refetching.
+	let calls = 0;
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.callsFake(async () => {
+			calls++;
+			if (calls === 1) {
+				throw new Error("timeout");
+			}
+			return {
+				Parameters: [
+					{ Name: "/dev/service_name/key_name", Value: "key-value" },
+				],
+			};
+		});
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 1000,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.key, "key-value");
+		});
+
+	// First invocation fails.
+	await rejects(
+		() => handler(event, context),
+		/Failed to resolve internal values/,
+	);
+	// Second invocation must refetch (cache was cleared) and succeed.
+	await handler(event, context);
+
+	strictEqual(calls, 2);
+});
+
+test("It should resolve single-batch named values to undefined when Parameters is missing", async (t) => {
+	// GetParametersCommand may return a response without a Parameters field.
+	// Guards `for (const param of resp.Parameters ?? [])` at index.js (single).
+	mockClient(SSMClient).on(GetParametersCommand).resolvesOnce({});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key, undefined);
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
+test("It should look up a non-ARN named value directly, not via the ARN suffix branch", async (t) => {
+	// A non-ARN fetchKey must resolve by exact name (index.js line 149), not by
+	// entering the ARN-suffix matching branch. Here a sibling param's name is a
+	// `:parameter<name>` suffix of the fetchKey; the ARN branch would mis-select
+	// it. Guards the `fetchKey.startsWith("arn:aws:ssm:")` condition.
+	const fetchKey = "weird:parameter/dev/service_name/key_name";
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolvesOnce({
+			Parameters: [
+				{ Name: "/dev/service_name/key_name", Value: "wrong-value" },
+				{ Name: fetchKey, Value: "correct-value" },
+			],
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key, "correct-value");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: fetchKey,
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
+test("It should map multiple cross-account ARNs to the correct values by suffix", async (t) => {
+	// Two ARNs in one batch. The branch matches each param by its
+	// `:parameter<Name>` suffix; a first-match would mis-map key1 to key0's
+	// value. Guards the ARN matching at index.js (startsWith + template).
+	const arn0 =
+		"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name0";
+	const arn1 =
+		"arn:aws:ssm:us-east-1:000000000000:parameter/dev/service_name/key_name1";
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolvesOnce({
+			Parameters: [
+				{
+					ARN: arn0,
+					Name: "/dev/service_name/key_name0",
+					Value: "key-value0",
+				},
+				{
+					ARN: arn1,
+					Name: "/dev/service_name/key_name1",
+					Value: "key-value1",
+				},
+			],
+		});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key0, "key-value0");
+		strictEqual(values.key1, "key-value1");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key0: arn0,
+					key1: arn1,
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+});
+
 test("It should export ssmParam helper for TypeScript type inference", async (t) => {
 	const { ssmParam } = await import("./index.js");
 	const paramName = "/test/param";
@@ -859,4 +1074,224 @@ test("ssmValidateOptions should throw when setToContext is not boolean", () => {
 	} catch (e) {
 		ok(e.message.includes("setToContext"));
 	}
+});
+
+test("ssmValidateOptions should accept a valid awsClientOptions object", () => {
+	ssmValidateOptions({ awsClientOptions: { region: "us-east-1" } });
+});
+
+test("ssmValidateOptions should throw when awsClientOptions is not an object", () => {
+	try {
+		ssmValidateOptions({ awsClientOptions: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("awsClientOptions"));
+	}
+});
+
+test("ssmValidateOptions should accept a valid awsClientAssumeRole string", () => {
+	ssmValidateOptions({ awsClientAssumeRole: "credentials" });
+});
+
+test("ssmValidateOptions should throw when awsClientAssumeRole is not a string", () => {
+	try {
+		ssmValidateOptions({ awsClientAssumeRole: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("awsClientAssumeRole"));
+	}
+});
+
+test("ssmValidateOptions should accept a valid awsClientCapture function", () => {
+	ssmValidateOptions({ awsClientCapture: (client) => client });
+});
+
+test("ssmValidateOptions should throw when awsClientCapture is not a function", () => {
+	try {
+		ssmValidateOptions({ awsClientCapture: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("awsClientCapture"));
+	}
+});
+
+test("ssmValidateOptions should accept a valid cacheKey string", () => {
+	ssmValidateOptions({ cacheKey: "my-cache-key" });
+});
+
+test("ssmValidateOptions should throw when cacheKey is not a string", () => {
+	try {
+		ssmValidateOptions({ cacheKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("cacheKey"));
+	}
+});
+
+test("ssmValidateOptions should accept a cacheKeyExpiry object whose values are numbers >= -1", () => {
+	ssmValidateOptions({ cacheKeyExpiry: { "@middy/ssm": 0 } });
+	ssmValidateOptions({ cacheKeyExpiry: { "@middy/ssm": -1 } });
+});
+
+test("ssmValidateOptions should throw when cacheKeyExpiry is not an object", () => {
+	try {
+		ssmValidateOptions({ cacheKeyExpiry: "no" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("cacheKeyExpiry"));
+	}
+});
+
+test("ssmValidateOptions should throw when a cacheKeyExpiry value is not a number", () => {
+	try {
+		ssmValidateOptions({ cacheKeyExpiry: { "@middy/ssm": "no" } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("@middy/ssm"));
+	}
+});
+
+test("ssmValidateOptions should throw when a cacheKeyExpiry value is below -1", () => {
+	try {
+		ssmValidateOptions({ cacheKeyExpiry: { "@middy/ssm": -2 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("@middy/ssm"));
+	}
+});
+
+// --- defaults coverage ---
+
+test("It should prefetch by default (disablePrefetch defaults to false)", async (t) => {
+	const mockService = mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		ssm({
+			AwsClient: SSMClient,
+			fetchData: {
+				key: "/dev/service_name/key_name",
+			},
+		}),
+	);
+
+	// With prefetch enabled (the default), the request fires at factory time,
+	// before the handler is ever invoked. With disablePrefetch:true it would
+	// only fire on the first invocation.
+	strictEqual(sendStub.callCount, 1);
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key, "key-value");
+	};
+	handler.before(middleware);
+
+	await handler(event, context);
+	strictEqual(sendStub.callCount, 1);
+});
+
+test("It should reuse the prefetched client and not recreate it on invocation", async (t) => {
+	// When prefetch created the client at factory time, the before-hook must
+	// reuse it (index.js `if (!client)` guard) rather than constructing a new
+	// AWS client on every invocation.
+	let ctorCount = 0;
+	class CountingSSMClient extends SSMClient {
+		constructor(...args) {
+			super(...args);
+			ctorCount++;
+		}
+	}
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: CountingSSMClient,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.key, "key-value");
+		});
+
+	// Prefetch constructed exactly one client.
+	strictEqual(ctorCount, 1);
+	await handler(event, context);
+	// No additional client constructed during invocation.
+	strictEqual(ctorCount, 1);
+});
+
+test("It should cache forever by default (cacheExpiry defaults to -1)", async (t) => {
+	const mockService = mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+	const sendStub = mockService.send;
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.key, "key-value");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
+	// Advance well past any positive expiry window; with the -1 default the
+	// cached value never expires so no second fetch occurs.
+	t.mock.timers.tick(60000);
+	await handler(event, context);
+
+	strictEqual(sendStub.callCount, 1);
+});
+
+test("It should not set values to context by default (setToContext defaults to false)", async (t) => {
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolvesOnce({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+
+	const middleware = async (request) => {
+		// Default setToContext is false: the value must NOT be copied to context.
+		strictEqual(request.context.key, undefined);
+		const values = await getInternal(true, request);
+		strictEqual(values.key, "key-value");
+	};
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(event, context);
 });

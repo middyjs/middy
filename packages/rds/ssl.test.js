@@ -51,6 +51,18 @@ test("checkServerIdentity returns TLS error when cert CN is not an RDS endpoint"
 	ok(result instanceof Error);
 });
 
+test("checkServerIdentity returns TLS error without throwing when cert has no subject", () => {
+	// Exercises the optional chain on cert.subject?.CN: a cert lacking `subject`
+	// must surface the TLS error, not throw a TypeError reading .CN of undefined.
+	const { checkServerIdentity } = getSsl(ca).ssl;
+	const cert = {};
+	const result = checkServerIdentity(
+		"db.cluster.us-east-1.rds.amazonaws.com",
+		cert,
+	);
+	ok(result instanceof Error);
+});
+
 test("checkServerIdentity returns TLS error without throwing when cert has no CN", () => {
 	const { checkServerIdentity } = getSsl(ca).ssl;
 	const cert = { subject: {} };

@@ -150,6 +150,7 @@ const defaults = {
 	crossOriginResourcePolicy: {
 		policy: "same-origin",
 	},
+	// Stryker disable next-line ObjectLiteral: {allow:false} and {} both yield config.allow falsy -> "off"; observationally equivalent
 	dnsPrefetchControl: {
 		allow: false,
 	},
@@ -403,7 +404,9 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		if (options.poweredBy) {
 			// Guard `delete` to avoid V8 hidden-class transitions when the key
 			// was never set (the typical Lambda handler case).
+			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
 			if ("Server" in headers) delete headers.Server;
+			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
 			if ("X-Powered-By" in headers) delete headers["X-Powered-By"];
 		}
 	};

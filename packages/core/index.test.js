@@ -1207,3 +1207,243 @@ test("middyValidateOptions accepts arbitrary nested keys in internal", () => {
 		internal: { anything: 1, nested: { value: true }, arr: [1, 2] },
 	});
 });
+
+// index.js:66 - timeoutEarly is false when timeoutEarlyInMillis is 0
+test("Should not schedule early timeout when timeoutEarlyInMillis is 0", async (t) => {
+	// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
+	t.mock.timers.reset();
+	let timeoutCalled = false;
+	const plugin = {
+		timeoutEarlyInMillis: 0,
+		timeoutEarlyResponse: () => {
+			timeoutCalled = true;
+			return "timed out";
+		},
+	};
+	const context = {
+		// If `timeoutEarly` were (incorrectly) truthy with timeoutEarlyInMillis 0,
+		// an early timer would be scheduled at delay = 50 - 0 = 50ms.
+		getRemainingTimeInMillis: () => 50,
+	};
+	// Handler resolves at 100ms, after the would-be early timeout (50ms).
+	const handler = middy(
+		() =>
+			new Promise((resolve) => {
+				setTimeout(() => resolve("response"), 100);
+			}),
+		plugin,
+	);
+
+	const response = await handler(defaultEvent, context);
+
+	// With timeoutEarly correctly false, no early timer fires and the handler
+	// response is returned; a mutant enabling it would yield "timed out".
+	strictEqual(response, "response");
+	strictEqual(timeoutCalled, false);
+});
+
+// index.js:112 - onError only registered when middleware provides one
+test('"use" must not register an undefined onError handler for a before-only middleware', async (t) => {
+	const handlerError = new Error("boom");
+	const handler = middy(() => {
+		throw handlerError;
+	}).use({
+		before: () => {},
+	});
+
+	let caught;
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected handler error to propagate");
+	} catch (e) {
+		caught = e;
+	}
+	// If an `undefined` onError middleware were registered, runMiddlewares would
+	// call undefined(request) and throw a TypeError instead of the handler error.
+	strictEqual(caught, handlerError);
+	ok(!(caught instanceof TypeError));
+});
+
+// index.js:115/116/117 - invalid middleware error message + cause/package
+test('"use" with invalid middleware throws with exact message and package cause', async (t) => {
+	const handler = middy();
+	let caught;
+	try {
+		handler.use({ foo: "bar" });
+		throw new Error("Expected throw");
+	} catch (e) {
+		caught = e;
+	}
+	strictEqual(
+		caught.message,
+		'Middleware must be an object containing at least one key among "before", "after", "onError"',
+	);
+	deepStrictEqual(caught.cause, { package: "@middy/core" });
+});
+
+// index.js:168 - handler receives a working abort signal aborted on timeout
+test("Should pass a working abort signal that is aborted on early timeout", async (t) => {
+	// Real timers: the early-timeout uses `node:timers` setTimeout, which the
+	// mock-timer harness does not intercept.
+	t.mock.timers.reset();
+	let receivedSignal;
+	let abortedAtAbortEvent;
+	const plugin = {
+		timeoutEarlyInMillis: 1,
+		timeoutEarlyResponse: () => true,
+	};
+	const context = {
+		// Early-timeout fires at delay 10 - 1 = 9ms.
+		getRemainingTimeInMillis: () => 10,
+	};
+	const handler = middy((event, context, { signal }) => {
+		receivedSignal = signal;
+		strictEqual(signal.aborted, false);
+		return new Promise((resolve) => {
+			signal.addEventListener("abort", () => {
+				abortedAtAbortEvent = signal.aborted;
+				resolve(true);
+			});
+			// Fallback so the promise always settles (no hang) even if a mutant
+			// drops the signal; the assertions below still fail in that case.
+			setTimeout(() => resolve(true), 1000);
+		});
+	}, plugin);
+
+	await handler(defaultEvent, context);
+
+	ok(receivedSignal instanceof AbortSignal);
+	strictEqual(abortedAtAbortEvent, true);
+	strictEqual(receivedSignal.aborted, true);
+});
+
+// index.js:194 - early-timeout delay is (remaining - timeoutEarlyInMillis)
+test("Should fire early timeout at remaining minus timeoutEarlyInMillis", async (t) => {
+	// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
+	t.mock.timers.reset();
+	const plugin = {
+		timeoutEarlyInMillis: 80,
+		timeoutEarlyResponse: () => "timed out",
+	};
+	const context = {
+		// Correct early-timeout delay is 200 - 80 = 120ms. The `+` mutant would
+		// schedule it at 200 + 80 = 280ms. The handler resolves at 200ms, so:
+		//   correct: timeout (120ms) wins  -> "timed out"
+		//   mutant:  handler (200ms) wins  -> "handler-response"
+		getRemainingTimeInMillis: () => 200,
+	};
+	const handler = middy(
+		() =>
+			new Promise((resolve) => {
+				setTimeout(() => resolve("handler-response"), 200);
+			}),
+		plugin,
+	);
+
+	const response = await handler(defaultEvent, context);
+	strictEqual(response, "timed out");
+});
+
+// index.js:210 - scheduled timeout is cleared after handler completes
+test("Should clear the scheduled early timeout after handler completes", async (t) => {
+	// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
+	t.mock.timers.reset();
+	let timeoutCalled = false;
+	const plugin = {
+		timeoutEarlyInMillis: 10,
+		timeoutEarlyResponse: () => {
+			timeoutCalled = true;
+		},
+	};
+	const context = {
+		// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
+		getRemainingTimeInMillis: () => 50,
+	};
+	const handler = middy(async () => "response", plugin);
+
+	const response = await handler(defaultEvent, context);
+	strictEqual(response, "response");
+
+	// The timer was scheduled (timeoutEarly active) but the handler resolved
+	// first; cleanup must clearTimeout so it never fires afterwards. Wait past
+	// the would-be delay (40ms) to confirm it was cleared.
+	await new Promise((resolve) => setTimeout(resolve, 120));
+	ok(!timeoutCalled);
+});
+
+// index.js:210 (catch path) - scheduled early timeout is cleared when the
+// handler throws, so timeoutEarlyResponse never fires afterwards.
+test("Should clear the scheduled early timeout when the handler throws", async (t) => {
+	// Real timers (the early-timeout uses node:timers setTimeout, not mocked).
+	t.mock.timers.reset();
+	let timeoutCalled = false;
+	const handlerError = new Error("boom");
+	const plugin = {
+		timeoutEarlyInMillis: 10,
+		timeoutEarlyResponse: () => {
+			timeoutCalled = true;
+		},
+	};
+	const context = {
+		// Early-timeout would fire at delay 50 - 10 = 40ms if not cleared.
+		getRemainingTimeInMillis: () => 50,
+	};
+	// Handler rejects quickly, before the would-be early timeout (40ms).
+	const handler = middy(async () => {
+		throw handlerError;
+	}, plugin);
+
+	const caught = await handler(defaultEvent, context).catch((e) => e);
+	strictEqual(caught, handlerError);
+
+	// Wait past the would-be delay (40ms); the catch-path cleanup must have
+	// cleared the timer so timeoutEarlyResponse never runs.
+	await new Promise((resolve) => setTimeout(resolve, 120));
+	ok(!timeoutCalled);
+});
+
+// index.js:224/226 - a distinct rethrown error gets originalError and cause
+test('"onError" rethrowing a distinct error attaches originalError and cause', async (t) => {
+	const handlerError = new Error("boom");
+	const rethrown = new Error("wrapped");
+	const handler = middy(() => {
+		throw handlerError;
+	}).onError(() => {
+		throw rethrown;
+	});
+
+	let caught;
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected error to propagate");
+	} catch (e) {
+		caught = e;
+	}
+	strictEqual(caught, rethrown);
+	strictEqual(caught.originalError, handlerError);
+	strictEqual(caught.cause, handlerError);
+});
+
+// index.js:226 - cause is not overwritten when already set on the rethrown error
+test('"onError" rethrowing a distinct error preserves its existing cause', async (t) => {
+	const handlerError = new Error("boom");
+	const existingCause = new Error("pre-existing");
+	const rethrown = new Error("wrapped", { cause: existingCause });
+	const handler = middy(() => {
+		throw handlerError;
+	}).onError(() => {
+		throw rethrown;
+	});
+
+	let caught;
+	try {
+		await handler(defaultEvent, defaultContext);
+		throw new Error("Expected error to propagate");
+	} catch (e) {
+		caught = e;
+	}
+	strictEqual(caught, rethrown);
+	strictEqual(caught.originalError, handlerError);
+	// ??= must not overwrite an already-set cause.
+	strictEqual(caught.cause, existingCause);
+});

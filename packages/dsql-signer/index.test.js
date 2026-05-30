@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { clearCache, getInternal } from "@middy/util";
 import middy from "../core/index.js";
-import { clearCache, getInternal } from "../util/index.js";
 import dsqlSigner, { dsqlSignerValidateOptions } from "./index.js";
 
 before(() => {
@@ -341,20 +341,25 @@ test("It should catch if a token without X-Amz-Security-Token is returned from f
 		}),
 	);
 
-	try {
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
-		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
-			new Error("X-Amz-Security-Token Missing", {
-				cause: {
-					package: "@middy/dsql-signer",
-					method: "getDbConnectAuthToken",
-				},
-			}),
-		]);
-	}
+	let caught;
+	await rejects(async () => {
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			caught = e;
+			throw e;
+		}
+	}, /Failed to resolve internal values/);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+	strictEqual(caught.message, "Failed to resolve internal values");
+	deepStrictEqual(caught.cause.data, [
+		new Error("X-Amz-Security-Token Missing", {
+			cause: {
+				package: "@middy/dsql-signer",
+				method: "getDbConnectAuthToken",
+			},
+		}),
+	]);
 });
 
 test("It should skip fetching already cached values when fetching multiple keys", async (t) => {
@@ -607,4 +612,182 @@ test("dsqlSignerValidateOptions rejects fetchData entry with non-DSQL hostname",
 		ok(e instanceof TypeError);
 		strictEqual(e.cause.package, "@middy/dsql-signer");
 	}
+});
+
+test("dsqlSignerValidateOptions accepts a Function AwsClient", () => {
+	dsqlSignerValidateOptions({ AwsClient: function MyClient() {} });
+});
+
+test("dsqlSignerValidateOptions accepts an object awsClientOptions", () => {
+	dsqlSignerValidateOptions({ awsClientOptions: { region: "us-east-1" } });
+});
+
+test("dsqlSignerValidateOptions accepts a boolean disablePrefetch", () => {
+	dsqlSignerValidateOptions({ disablePrefetch: true });
+});
+
+test("dsqlSignerValidateOptions accepts a boolean setToContext", () => {
+	dsqlSignerValidateOptions({ setToContext: true });
+});
+
+test("dsqlSignerValidateOptions accepts fetchData entry with extra properties", () => {
+	dsqlSignerValidateOptions({
+		fetchData: {
+			token: {
+				hostname: "cluster.dsql.us-east-1.on.aws",
+				region: "us-east-1",
+				expiresIn: 900,
+			},
+		},
+	});
+});
+
+test("dsqlSignerValidateOptions accepts cacheKeyExpiry with numeric entries >= -1", () => {
+	dsqlSignerValidateOptions({ cacheKeyExpiry: {} });
+	dsqlSignerValidateOptions({ cacheKeyExpiry: { "@middy/dsql-signer": -1 } });
+	dsqlSignerValidateOptions({ cacheKeyExpiry: { "@middy/dsql-signer": 0 } });
+});
+
+test("dsqlSignerValidateOptions rejects cacheKeyExpiry with a non-number entry", () => {
+	try {
+		dsqlSignerValidateOptions({
+			cacheKeyExpiry: { "@middy/dsql-signer": "soon" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/dsql-signer");
+	}
+});
+
+test("dsqlSignerValidateOptions rejects cacheKeyExpiry with an entry below -1", () => {
+	try {
+		dsqlSignerValidateOptions({
+			cacheKeyExpiry: { "@middy/dsql-signer": -2 },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/dsql-signer");
+	}
+});
+
+test("It should not require fetchData (defaults to empty object)", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+	const handler = middy(() => {}).use(
+		dsqlSigner({ AwsClient, cacheExpiry: 0, disablePrefetch: true }),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 0);
+});
+
+test("It should prefetch at creation time by default", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	dsqlSigner({
+		AwsClient,
+		cacheExpiry: -1,
+		fetchData: {
+			token: { region: "us-east-1" },
+		},
+	});
+
+	// Prefetch runs synchronously at factory time when disablePrefetch defaults
+	// to false; the token fetch is issued before any handler invocation.
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+});
+
+test("It should not set token to context by default", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		strictEqual(request.context.token, undefined);
+	};
+
+	handler
+		.use(
+			dsqlSigner({
+				AwsClient,
+				cacheExpiry: 0,
+				fetchData: {
+					token: { region: "us-east-1" },
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, { getRemainingTimeInMillis: () => 1000 });
+});
+
+test("It should never expire the cache with the default cacheExpiry", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	// Default cacheExpiry is -1 (infinite). Prefetch runs at factory time and
+	// no refresh timer is scheduled, so after a real delay there must still be
+	// exactly one fetch. A finite default would schedule a refresh and re-fetch.
+	dsqlSigner({
+		AwsClient,
+		fetchData: {
+			token: { region: "us-east-1" },
+		},
+	});
+
+	await new Promise((resolve) => setTimeout(resolve, 25));
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+});
+
+test("It should fall back to PGUSER for the default username", async (t) => {
+	const savedPGUSER = process.env.PGUSER;
+	process.env.PGUSER = "admin";
+	delete process.env.DBUSER;
+	t.after(() => {
+		if (savedPGUSER === undefined) delete process.env.PGUSER;
+		else process.env.PGUSER = savedPGUSER;
+	});
+
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	const getDbConnectAdminAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=admin-token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+		getDbConnectAdminAuthToken = getDbConnectAdminAuthToken;
+	}
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheExpiry: 0,
+			fetchData: { token: {} },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAdminAuthToken.mock.callCount(), 1);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 0);
 });

@@ -140,6 +140,7 @@ const stsMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns a Promise (cold path) or undefined (sync warm path); `await undefined` is a no-op, so forcing the guard to `true` is observationally identical.
 			if (pending) await pending;
 		}
 	};

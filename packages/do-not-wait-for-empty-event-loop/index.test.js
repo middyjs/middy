@@ -326,3 +326,18 @@ test("doNotWaitForEmptyEventLoopValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("runOnBefore"));
 	}
 });
+
+test("doNotWaitForEmptyEventLoopValidateOptions accepts boolean runOnError", () => {
+	doNotWaitForEmptyEventLoopValidateOptions({ runOnError: false });
+	doNotWaitForEmptyEventLoopValidateOptions({ runOnError: true });
+});
+
+test("doNotWaitForEmptyEventLoopValidateOptions rejects non-boolean runOnError", () => {
+	try {
+		doNotWaitForEmptyEventLoopValidateOptions({ runOnError: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.message, "Option 'runOnError' must be boolean");
+	}
+});

@@ -30,8 +30,9 @@ export default {
 		"!**/node_modules/**",
 	],
 	plugins: ["@stryker-mutator/*"],
-	reporters: ["progress", "clear-text"],
+	reporters: ["progress", "clear-text", "json"],
+	jsonReporter: { fileName: `reports/mutation/${pkg ?? "all"}.json` },
 	thresholds: { high: 100, low: 100, break: 100 },
-	tempDirName: ".stryker-tmp",
+	tempDirName: pkg ? `.stryker-tmp/${pkg}` : ".stryker-tmp",
 	cleanTempDir: true,
 };

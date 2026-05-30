@@ -130,6 +130,7 @@ const dsqlSignerMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns either a Promise (truthy) or undefined; `await undefined` on the sync path is a no-op, so forcing the branch to true is behaviourally equivalent.
 			if (pending) await pending;
 		}
 	};

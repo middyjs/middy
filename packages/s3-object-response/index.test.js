@@ -1,9 +1,9 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
+import { clearCache } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
-import { clearCache } from "../util/index.js";
 
 import s3ObjectResponse, { s3ObjectResponseValidateOptions } from "./index.js";
 
@@ -339,5 +339,195 @@ test("s3ObjectResponseValidateOptions rejects wrong type", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("disablePrefetch"));
+		// Must reject specifically because the value is not a boolean (not because
+		// the schema rule itself was dropped/malformed).
+		ok(e.message.includes("boolean"));
 	}
+});
+
+test("s3ObjectResponseValidateOptions accepts a boolean disablePrefetch", () => {
+	// A valid boolean must pass. A dropped/empty disablePrefetch rule would throw
+	// a schema error for every value, including valid booleans.
+	s3ObjectResponseValidateOptions({ disablePrefetch: true });
+	s3ObjectResponseValidateOptions({ disablePrefetch: false });
+});
+
+test("s3ObjectResponseValidateOptions rejects non-object awsClientOptions", () => {
+	try {
+		s3ObjectResponseValidateOptions({ awsClientOptions: "nope" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("awsClientOptions"));
+	}
+});
+
+test("s3ObjectResponseValidateOptions rejects non-string awsClientAssumeRole", () => {
+	try {
+		s3ObjectResponseValidateOptions({ awsClientAssumeRole: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("awsClientAssumeRole"));
+	}
+});
+
+test("s3ObjectResponseValidateOptions accepts string awsClientAssumeRole", () => {
+	s3ObjectResponseValidateOptions({ awsClientAssumeRole: "role" });
+});
+
+test("s3ObjectResponseValidateOptions rejects non-function awsClientCapture", () => {
+	try {
+		s3ObjectResponseValidateOptions({ awsClientCapture: {} });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("awsClientCapture"));
+	}
+});
+
+test("s3ObjectResponseValidateOptions accepts function awsClientCapture", () => {
+	s3ObjectResponseValidateOptions({ awsClientCapture: (client) => client });
+});
+
+test("s3ObjectResponseValidateOptions accepts object awsClientOptions", () => {
+	s3ObjectResponseValidateOptions({
+		awsClientOptions: { region: "us-east-1" },
+	});
+});
+
+test("It should create a prefetch client at construction time by default", async (t) => {
+	let constructed = 0;
+	class AwsClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	// No disablePrefetch / awsClientAssumeRole passed: defaults make canPrefetch
+	// true, so createPrefetchClient runs immediately at construction, before any
+	// handler call.
+	s3ObjectResponse({ AwsClient });
+
+	strictEqual(constructed, 1);
+});
+
+test("It should NOT create a client at construction when disablePrefetch is true", async (t) => {
+	let constructed = 0;
+	class AwsClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	s3ObjectResponse({ AwsClient, disablePrefetch: true });
+
+	strictEqual(constructed, 0);
+});
+
+test("It should reuse the prefetched client in after (no second construction)", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("body-data"));
+	let constructed = 0;
+	const sendArgs = [];
+	class AwsClient {
+		constructor() {
+			constructed += 1;
+		}
+		send(command) {
+			sendArgs.push(command);
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ Body: "body-data" }));
+	handler.use(s3ObjectResponse({ AwsClient }));
+
+	strictEqual(constructed, 1);
+	const response = await handler(defaultEvent, defaultContext);
+	strictEqual(response.statusCode, 200);
+	// The prefetched client must be reused: createClient (which constructs a new
+	// client) must not run again in the after hook.
+	strictEqual(constructed, 1);
+	strictEqual(sendArgs.length, 1);
+});
+
+test("It should lazily create the client in after when prefetch is disabled", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("body-data"));
+	let constructed = 0;
+	class AwsClient {
+		constructor() {
+			constructed += 1;
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ Body: "body-data" }));
+	handler.use(s3ObjectResponse({ AwsClient, disablePrefetch: true }));
+
+	strictEqual(constructed, 0);
+	const response = await handler(defaultEvent, defaultContext);
+	strictEqual(response.statusCode, 200);
+	strictEqual(constructed, 1);
+});
+
+test("It should use the default S3Client AwsClient when AwsClient is omitted", async (t) => {
+	// With defaults applied, omitting AwsClient must fall back to S3Client. If the
+	// defaults object were empty, AwsClient would be undefined and construction
+	// would throw.
+	const middleware = s3ObjectResponse({});
+	ok(typeof middleware.before === "function");
+	ok(typeof middleware.after === "function");
+});
+
+test("It should build the command with RequestRoute, RequestToken and Body", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ Body: "the-body" }));
+	handler.use(s3ObjectResponse({ AwsClient }));
+
+	await handler(defaultEvent, defaultContext);
+
+	ok(captured instanceof WriteGetObjectResponseCommand);
+	strictEqual(
+		captured.input.RequestRoute,
+		defaultEvent.getObjectContext.outputRoute,
+	);
+	strictEqual(
+		captured.input.RequestToken,
+		defaultEvent.getObjectContext.outputToken,
+	);
+	strictEqual(captured.input.Body, "the-body");
+});
+
+test("It should fall back to request.response.body when Body is absent", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ body: "lowercase-body" }));
+	handler.use(s3ObjectResponse({ AwsClient }));
+
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(captured.input.Body, "lowercase-body");
 });

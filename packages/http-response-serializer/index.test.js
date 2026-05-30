@@ -1,9 +1,9 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import { createError } from "@middy/util";
 import middy from "../core/index.js";
 import httpContentNegotiation from "../http-content-negotiation/index.js";
 import httpErrorHandler from "../http-error-handler/index.js";
-import { createError } from "../util/index.js";
 import httpResponseSerializer, {
 	httpResponseSerializerValidateOptions,
 } from "./index.js";
@@ -384,4 +384,208 @@ test("httpResponseSerializerValidateOptions rejects wrong type", () => {
 	} catch (e) {
 		ok(e.message.includes("serializers"));
 	}
+});
+
+test("default serializers list is empty and defaultContentType undefined when no options given", async (t) => {
+	const handler = middy((event, context) => createHttpResponse());
+
+	handler.use(httpResponseSerializer());
+
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
+
+	// With empty default serializers and no defaultContentType, nothing matches
+	// and the response passes through unserialized with no Content-Type header.
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {},
+		body: "Hello World",
+	});
+});
+
+test("httpResponseSerializerValidateOptions requires 'regex' on each serializer item", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: [{ serializer: () => "x" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("regex"));
+	}
+});
+
+test("httpResponseSerializerValidateOptions requires 'serializer' on each serializer item", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: [{ regex: /^x$/ }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("serializer"));
+	}
+});
+
+test("httpResponseSerializerValidateOptions requires each serializer item to be an object", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: ["not-an-object"],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("serializers[0]"));
+		ok(e.message.includes("object"));
+	}
+});
+
+test("httpResponseSerializerValidateOptions requires regex to be a RegExp instance", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: [{ regex: "^application/json$", serializer: () => "x" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("regex"));
+		ok(e.message.includes("RegExp"));
+	}
+});
+
+test("httpResponseSerializerValidateOptions requires serializer to be a Function instance", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: [{ regex: /^application\/json$/, serializer: "notfn" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("serializer"));
+		ok(e.message.includes("Function"));
+	}
+});
+
+test("httpResponseSerializerValidateOptions accepts a valid serializer item", () => {
+	httpResponseSerializerValidateOptions({
+		serializers: [{ regex: /^application\/json$/, serializer: () => "x" }],
+	});
+});
+
+test("httpResponseSerializerValidateOptions rejects unknown keys on a serializer item", () => {
+	try {
+		httpResponseSerializerValidateOptions({
+			serializers: [
+				{ regex: /^application\/json$/, serializer: () => "x", extra: true },
+			],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("extra"));
+	}
+});
+
+test("preferredMediaTypes fallback is empty when context.preferredMediaTypes is absent", async (t) => {
+	// No http-content-negotiation, so request.context.preferredMediaTypes is
+	// nullish. With a catch-all serializer regex and NO defaultContentType, the
+	// candidate `types` list is exactly the preferredMediaTypes fallback plus
+	// the (undefined) defaultContentType. The real empty `[]` fallback means the
+	// first (and only) candidate matched is `undefined`, so the Content-Type the
+	// serializer sets is `undefined`. A non-empty fallback would put its own
+	// value first, making the matched/assigned Content-Type that injected value.
+	const handler = middy((event, context) => createHttpResponse());
+	handler.use(
+		httpResponseSerializer({
+			serializers: [
+				{
+					regex: /.*/,
+					serializer: ({ body }) => `serialized:${body}`,
+				},
+			],
+		}),
+	);
+
+	const response = await handler({ headers: {} }, { ...defaultContext });
+
+	strictEqual(response.body, "serialized:Hello World");
+	// The matched candidate type is undefined (empty fallback, undefined default).
+	strictEqual(response.headers["Content-Type"], undefined);
+	ok(Object.hasOwn(response.headers, "Content-Type"));
+});
+
+test("onError skips serialization when request.response is undefined", async (t) => {
+	const serializerCalls = [];
+	const handler = middy((event, context) => {
+		throw new Error("boom");
+	});
+
+	handler.use(
+		httpResponseSerializer({
+			serializers: [
+				{
+					regex: /.*/,
+					serializer: (response) => {
+						serializerCalls.push(response);
+						return "serialized";
+					},
+				},
+			],
+			defaultContentType: "text/plain",
+		}),
+	);
+
+	const event = { headers: {} };
+	let thrown;
+	try {
+		await handler(event, { ...defaultContext });
+	} catch (e) {
+		thrown = e;
+	}
+
+	// onError must early-return because request.response is undefined: the
+	// serializer must never run, and the original error must propagate.
+	strictEqual(thrown.message, "boom");
+	strictEqual(serializerCalls.length, 0);
+});
+
+test("onError serializes a defined error response", async (t) => {
+	const handler = middy((event, context) => {
+		throw new Error("boom");
+	});
+
+	// Serializer is added first so its onError runs AFTER the responder's
+	// onError (onError stack runs in reverse order of addition). The responder
+	// sets a defined response without a Content-Type so the serializer's
+	// onError path actually serializes rather than early-returning.
+	handler.use(
+		httpResponseSerializer({
+			serializers: [
+				{
+					regex: /^text\/plain$/,
+					serializer: ({ body }) => `wrapped:${body}`,
+				},
+			],
+			defaultContentType: "text/plain",
+		}),
+	);
+	handler.use({
+		onError: (request) => {
+			request.response = { statusCode: 500, body: "Internal Error" };
+			request.error = null;
+		},
+	});
+
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
+
+	// The serializer's onError must NOT early-return (response is defined): it
+	// serializes the body using the text/plain serializer.
+	deepStrictEqual(response, {
+		statusCode: 500,
+		body: "wrapped:Internal Error",
+		headers: {
+			"Content-Type": "text/plain",
+		},
+	});
 });

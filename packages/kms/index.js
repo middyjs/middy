@@ -99,6 +99,7 @@ const kmsMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only `undefined` (sync path, context already assigned) or a Promise; `if (true) await pending` differs only by awaiting `undefined`, a no-op with no observable effect.
 			if (pending) await pending;
 		}
 	};

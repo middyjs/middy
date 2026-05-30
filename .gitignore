@@ -66,6 +66,7 @@ typings/
 
 # Mutation testing
 .stryker-tmp/
+reports/
 
 # IDE
 *.iml

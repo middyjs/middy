@@ -397,6 +397,82 @@ test("Should degrade gracefully when handler returns a non-array object response
 	strictEqual(reason, undefined);
 });
 
+test("Should log request.error as the reason for every record in onError", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "resolve" } },
+				body: "",
+			},
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "resolve" } },
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+	const thrown = new Error("handler error");
+
+	const handler = middy(async () => {
+		throw thrown;
+	}).use(sqsPartialBatchFailure({ logger }));
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+	strictEqual(logger.mock.callCount(), 2);
+	// Each record's settled entry must carry reason=request.error so the logger
+	// receives the thrown error (kills mutants that empty/blank the per-record
+	// object, drop the map return value, or zero-out the Array.from length).
+	for (let i = 0; i < event.Records.length; i++) {
+		const [reason, record] = logger.mock.calls[i].arguments;
+		strictEqual(reason, thrown);
+		strictEqual(record.messageId, event.Records[i].messageId);
+	}
+});
+
+test("Should use console.error as the default logger when none is supplied", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "reject" } },
+				body: "",
+			},
+		],
+	});
+	// The default logger reference (console.error) is captured at module load,
+	// so spy on the underlying stderr stream that console.error writes to.
+	const stderrWrite = t.mock.method(process.stderr, "write", () => true);
+
+	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: event.Records.map((r) => ({
+			itemIdentifier: r.messageId,
+		})),
+	});
+	// With no logger option the default (console.error) must be used to log the
+	// rejected record (kills the mutant that empties the defaults object).
+	strictEqual(stderrWrite.mock.callCount(), 1);
+});
+
+test("sqsPartialBatchFailureValidateOptions accepts logger:false and rejects logger:true", () => {
+	// logger:false is the documented way to disable logging and must validate.
+	sqsPartialBatchFailureValidateOptions({ logger: false });
+	// logger:true is not allowed by the schema (const must be false).
+	try {
+		sqsPartialBatchFailureValidateOptions({ logger: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/sqs-partial-batch-failure");
+	}
+});
+
 test("sqsPartialBatchFailureValidateOptions accepts valid options and rejects typos", () => {
 	sqsPartialBatchFailureValidateOptions({ logger: () => {} });
 	sqsPartialBatchFailureValidateOptions({});

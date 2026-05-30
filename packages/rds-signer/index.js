@@ -128,6 +128,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns undefined on the sync path (context already assigned) or a Promise otherwise; `await undefined` is a no-op, so forcing the guard to true changes only an unobservable microtask hop, not behavior.
 			if (pending) await pending;
 		}
 	};

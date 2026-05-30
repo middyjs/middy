@@ -7,6 +7,7 @@ import awsEmbeddedMetrics from "aws-embedded-metrics";
 const name = "cloudwatch-metrics";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: value is already undefined, so dropping the key is observably identical after spread + destructuring
 const defaults = {
 	onFlushError: undefined,
 };

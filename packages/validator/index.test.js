@@ -739,3 +739,261 @@ test("It should reject an $async AJV validator at setup rather than failing open
 		ok(e.message.includes("$async"));
 	}
 });
+
+test("It should reject an $async contextSchema validator naming contextSchema", () => {
+	const asyncValidator = () => Promise.resolve(true);
+	asyncValidator.$async = true;
+	try {
+		validator({ contextSchema: asyncValidator });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("$async"));
+		ok(e.message.includes("contextSchema"));
+	}
+});
+
+test("It should reject an $async responseSchema validator naming responseSchema", () => {
+	const asyncValidator = () => Promise.resolve(true);
+	asyncValidator.$async = true;
+	try {
+		validator({ responseSchema: asyncValidator });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("$async"));
+		ok(e.message.includes("responseSchema"));
+	}
+});
+
+test("It should reject an $async eventSchema validator naming eventSchema", () => {
+	const asyncValidator = () => Promise.resolve(true);
+	asyncValidator.$async = true;
+	try {
+		validator({ eventSchema: asyncValidator });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("$async"));
+		ok(e.message.includes("eventSchema"));
+	}
+});
+
+test("It should throw a 400 when the event fails validation", async (t) => {
+	const handler = middy((event, context) => event.body);
+
+	const schema = {
+		type: "object",
+		required: ["foo"],
+		properties: { foo: { type: "string" } },
+	};
+
+	handler.use(
+		validator({
+			eventSchema: transpileSchema(schema),
+			languages: { en: localize.en },
+		}),
+	);
+
+	let error;
+	try {
+		await handler({}, defaultContext);
+	} catch (e) {
+		error = e;
+	}
+	ok(error, "expected the event validation to throw");
+	strictEqual(error.cause.package, "@middy/validator");
+	strictEqual(error.statusCode, 400);
+	strictEqual(error.message, "Event object failed validation");
+	deepStrictEqual(error.cause.data, [
+		{
+			instancePath: "",
+			keyword: "required",
+			message: "must have required property foo",
+			params: { missingProperty: "foo" },
+			schemaPath: "#/required",
+		},
+	]);
+});
+
+test("It should pass a valid event without throwing", async (t) => {
+	const handler = middy((event, context) => event.foo);
+
+	const schema = {
+		type: "object",
+		required: ["foo"],
+		properties: { foo: { type: "string" } },
+	};
+
+	handler.use(validator({ eventSchema: transpileSchema(schema) }));
+
+	const result = await handler({ foo: "bar" }, defaultContext);
+	strictEqual(result, "bar");
+});
+
+test("validatorValidateOptions rejects a non-function contextSchema", () => {
+	validatorValidateOptions({ contextSchema: () => true });
+	try {
+		validatorValidateOptions({ contextSchema: "not-a-function" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("contextSchema"));
+		ok(e.message.includes("Function"));
+	}
+});
+
+test("validatorValidateOptions rejects a non-function responseSchema", () => {
+	validatorValidateOptions({ responseSchema: () => true });
+	try {
+		validatorValidateOptions({ responseSchema: "not-a-function" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("responseSchema"));
+		ok(e.message.includes("Function"));
+	}
+});
+
+test("validatorValidateOptions rejects a non-function eventSchema", () => {
+	validatorValidateOptions({ eventSchema: () => true });
+	try {
+		validatorValidateOptions({ eventSchema: "not-a-function" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("eventSchema"));
+		ok(e.message.includes("Function"));
+	}
+});
+
+test("It should run context validation and reject an invalid context with a 500", async (t) => {
+	const handler = middy((event, context) => ({}));
+
+	handler
+		.before((request) => {
+			request.context.callbackWaitsForEmptyEventLoop = "fail";
+		})
+		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+	let error;
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (e) {
+		error = e;
+	}
+	ok(error, "expected context validation to throw");
+	strictEqual(error.cause.package, "@middy/validator");
+	strictEqual(error.statusCode, 500);
+	strictEqual(error.message, "Context object failed validation");
+	ok(Array.isArray(error.cause.data));
+	ok(error.cause.data.length > 0);
+});
+
+test("It should run context validation and pass a valid context", async (t) => {
+	const expectedResponse = { body: "Hello world", statusCode: 200 };
+	const handler = middy((event, context) => expectedResponse);
+
+	handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+	const response = await handler(defaultEvent, {
+		...defaultContext,
+		callbackWaitsForEmptyEventLoop: true,
+	});
+	deepStrictEqual(response, expectedResponse);
+});
+
+test("It should run response validation and reject an invalid response with a 500", async (t) => {
+	const handler = middy((event, context) => ({}));
+
+	const schema = {
+		type: "object",
+		required: ["body", "statusCode"],
+		properties: {
+			body: { type: "object" },
+			statusCode: { type: "number" },
+		},
+	};
+
+	handler.use(validator({ responseSchema: transpileSchema(schema) }));
+
+	let error;
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (e) {
+		error = e;
+	}
+	ok(error, "expected response validation to throw");
+	strictEqual(error.cause.package, "@middy/validator");
+	strictEqual(error.statusCode, 500);
+	strictEqual(error.message, "Response object failed validation");
+	ok(Array.isArray(error.cause.data));
+	ok(error.cause.data.length > 0);
+});
+
+test("It should run response validation and pass a valid response", async (t) => {
+	const expectedResponse = { body: "Hello world", statusCode: 200 };
+	const handler = middy((event, context) => expectedResponse);
+
+	const schema = {
+		type: "object",
+		required: ["body", "statusCode"],
+		properties: {
+			body: { type: "string" },
+			statusCode: { type: "number" },
+		},
+	};
+
+	handler.use(validator({ responseSchema: transpileSchema(schema) }));
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response, expectedResponse);
+});
+
+test("transpileSchema compiles in strict mode and rejects unknown keywords", () => {
+	const schema = {
+		type: "object",
+		somethingnew: "must be an object with an integer property foo only",
+	};
+	let threw;
+	try {
+		transpileSchema(schema);
+		threw = false;
+	} catch (e) {
+		threw = true;
+		strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
+	}
+	ok(threw, "expected strict mode to reject the unknown keyword");
+});
+
+test("transpileSchema fills defaults for empty values (useDefaults 'empty')", () => {
+	const schema = {
+		type: "object",
+		properties: {
+			missing: { type: "string", default: "fromDefault" },
+			emptyString: { type: "string", default: "fromDefault" },
+		},
+	};
+	const validate = transpileSchema(schema);
+
+	const missingFilled = {};
+	validate(missingFilled);
+	strictEqual(missingFilled.missing, "fromDefault");
+
+	// 'empty' mode (unlike a falsy useDefaults) also replaces empty strings.
+	const emptyFilled = { emptyString: "" };
+	validate(emptyFilled);
+	strictEqual(emptyFilled.emptyString, "fromDefault");
+});
+
+test("transpileSchema resets keywords so user keywords do not conflict with plugins", () => {
+	const schema = { type: "object" };
+	// `typeof` is a keyword added by ajv-keywords; passing it via ajvOptions
+	// would conflict unless the compile path resets the keywords list first.
+	transpileSchema(schema, {
+		keywords: [{ keyword: "typeof", validate: () => true }],
+	});
+});

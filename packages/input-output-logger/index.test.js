@@ -997,3 +997,453 @@ test("inputOutputLoggerValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("omitPaths"));
 	}
 });
+
+// L22 default omitPaths is [] (nothing omitted). The mutant replaces the
+// default with ["Stryker was here"], which would omit that exact top-level key.
+test("It should not omit any key by default (empty omitPaths)", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(inputOutputLogger({ logger }));
+	const event = { "Stryker was here": "keep", foo: "bar" };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: event }]);
+});
+
+// L20 default executionContext is false; L51 withContext = exec||lambda; L55
+// `if (withContext)`. With no flags set and a context carrying recognised keys,
+// no `context` must be attached to the message.
+test("It should not attach context by default", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(inputOutputLogger({ logger }));
+	const event = { foo: "bar" };
+	const context = {
+		...defaultContext,
+		tenantId: "alpha",
+		functionName: "test",
+		awsRequestId: "xxxxx",
+	};
+	await handler(event, context);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	ok(!Object.hasOwn(logger.mock.calls[0].arguments[0], "context"));
+});
+
+// L51 withContext = executionContext || lambdaContext. When BOTH are false we
+// must not build context even if requested elsewhere. Covered by default test
+// above; here we explicitly set both false alongside a populated context.
+test("It should not attach context when both context flags are false", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			executionContext: false,
+			lambdaContext: false,
+		}),
+	);
+	const context = {
+		...defaultContext,
+		tenantId: "alpha",
+		functionName: "test",
+	};
+	await handler({ foo: "bar" }, context);
+	ok(!Object.hasOwn(logger.mock.calls[0].arguments[0], "context"));
+});
+
+// L30 executionContext schema { type: "boolean" }. Mutant empties the schema or
+// blanks the type, so a non-boolean is no longer rejected.
+test("inputOutputLoggerValidateOptions rejects non-boolean executionContext", () => {
+	try {
+		inputOutputLoggerValidateOptions({ executionContext: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("executionContext"));
+	}
+	inputOutputLoggerValidateOptions({ executionContext: true });
+});
+
+// L31 lambdaContext schema { type: "boolean" }. Mutant empties the schema or
+// blanks the type, so a non-boolean is no longer rejected.
+test("inputOutputLoggerValidateOptions rejects non-boolean lambdaContext", () => {
+	try {
+		inputOutputLoggerValidateOptions({ lambdaContext: 1 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("lambdaContext"));
+	}
+	inputOutputLoggerValidateOptions({ lambdaContext: false });
+});
+
+// L29 logger schema `const: false`. Mutant flips it to `const: true`, which
+// would accept logger:true and reject logger:false.
+test("inputOutputLoggerValidateOptions accepts logger:false and rejects logger:true", () => {
+	inputOutputLoggerValidateOptions({ logger: false });
+	try {
+		inputOutputLoggerValidateOptions({ logger: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("logger"));
+	}
+});
+
+// L96 `if (!Array.isArray(path)) path = path.split(".")`. Mutant forces the
+// branch true and would `.split` an array. omitPaths entries may already be
+// arrays (pre-split), which must work as a path.
+test("It should accept pre-split array omitPaths entries", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: [["event", "foo"]],
+		}),
+	);
+	const event = { foo: "foo", bar: "bar" };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { bar: "bar" } }]);
+});
+
+// L99 prototype-pollution guard `path.includes("constructor")`. Mutant changes
+// it to `path.includes("")`, so a literal `constructor` key would be omitted
+// instead of skipped. The guard must skip it, leaving the key in place.
+test("It should skip an omitPath containing the constructor segment", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.constructor"],
+		}),
+	);
+	const event = { foo: "bar" };
+	// Own enumerable `constructor` key that still equals Object, so the payload
+	// stays a plain object (isPlainObject passes) and would be omitted if the
+	// guard did not skip the `constructor` segment.
+	Object.defineProperty(event, "constructor", {
+		value: Object,
+		enumerable: true,
+		configurable: true,
+		writable: true,
+	});
+	await handler(event, defaultContext);
+	ok(Object.hasOwn(logger.mock.calls[0].arguments[0].event, "constructor"));
+});
+
+// L100 prototype-pollution guard `path.includes("prototype")`. Mutant changes
+// it to `path.includes("")`, so a literal `prototype` key would be omitted
+// instead of skipped.
+test("It should skip an omitPath containing the prototype segment", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.prototype"],
+		}),
+	);
+	const event = { foo: "bar", prototype: "own-prototype" };
+	await handler(event, defaultContext);
+	strictEqual(
+		logger.mock.calls[0].arguments[0].event.prototype,
+		"own-prototype",
+	);
+});
+
+// L110 buildPathTree leaf reduce returns `true`. Mutant returns `false`, so a
+// deeper sibling omit path under the same parent would lose its leaf marker.
+// Two paths sharing a parent: `event.a.b` then `event.a.c`. The reduce return
+// value seeds the next path's reduce only when paths share structure; assert
+// both nested leaves are omitted.
+test("It should omit multiple nested leaves under a shared parent", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.a.b", "event.a.c"],
+		}),
+	);
+	const event = { a: { b: 1, c: 2, d: 3 } };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event: { a: { d: 3 } } }]);
+});
+
+// L120 omit `if (!pathTree) return obj`. Mutant forces it false, so a cold
+// subtree (falsy pathTree) continues into array handling: omitArray would read
+// `undefined["[]"]` and throw. With an array response that has no omit path,
+// the guard must short-circuit and return the array unchanged.
+test("It should return an array value unchanged when no path tree applies", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy(() => [1, 2, 3]).use(
+		inputOutputLogger({
+			logger,
+			// Only `event` has an omit path; `response` pathTree is undefined.
+			omitPaths: ["event.foo"],
+		}),
+	);
+	const response = await handler({ foo: "x" }, defaultContext);
+	deepStrictEqual(response, [1, 2, 3]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: [1, 2, 3] }]);
+});
+
+// L127 omitArray `if (!childTree) return arr`. Mutant forces it false. An array
+// pathTree with no `[]` child means the array must be returned unchanged.
+test("It should return an array unchanged when no [] child path applies", async (t) => {
+	const logger = t.mock.fn();
+	// `event.list.x` makes `list` a nested object tree (no `[]` child), but the
+	// value is an array, so omitArray gets childTree === undefined.
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.list.x"],
+		}),
+	);
+	const event = { list: [{ x: 1 }, { x: 2 }] };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+});
+
+// L129 omitArray loop bound `i < l`. Mutant changes to `i <= l`, reading
+// arr[l] (undefined) and omitting on it. Assert array elements are processed
+// exactly and no extra trailing element is introduced.
+// L131 `if (next !== arr[i])` and L132 copy-on-write. Use an array where some
+// elements change and assert the original is untouched and clone is correct.
+test("It should omit inside array elements without mutating the source array", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.list.[].secret"],
+		}),
+	);
+	const list = [
+		{ secret: "a", keep: 1 },
+		{ keep: 2 },
+		{ secret: "c", keep: 3 },
+	];
+	const event = { list };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{
+			event: {
+				list: [{ keep: 1 }, { keep: 2 }, { keep: 3 }],
+			},
+		},
+	]);
+	const logged = logger.mock.calls[0].arguments[0].event.list;
+	// Exactly the original length (no off-by-one trailing element).
+	strictEqual(logged.length, 3);
+	// Source array and its elements were not mutated (copy-on-write).
+	deepStrictEqual(list, [
+		{ secret: "a", keep: 1 },
+		{ keep: 2 },
+		{ secret: "c", keep: 3 },
+	]);
+	ok(Object.hasOwn(list[0], "secret"));
+});
+
+// L131 omitArray `if (next !== arr[i])`. Mutant forces it true, slicing a clone
+// even when no element changed. When the `[]` child path matches nothing on any
+// element, omitArray must return the SAME array reference (no clone).
+test("It should return the same array reference when no element is omitted", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			// `[]` child tree exists, but no element carries `secret`.
+			omitPaths: ["event.list.[].secret"],
+		}),
+	);
+	const list = [{ keep: 1 }, { keep: 2 }];
+	const event = { list };
+	await handler(event, defaultContext);
+	// Nothing changed, so the original array is returned by reference.
+	strictEqual(logger.mock.calls[0].arguments[0].event.list, list);
+});
+
+// L147 omitObject mask branch copy-on-write `if (clone === obj) clone = {...obj}`.
+// Forcing it true re-spreads from the original on the second masked key, losing
+// the first mask. Mask TWO keys on the same object and assert both are masked,
+// and the source object is left unmutated.
+test("It should mask multiple keys on one object without losing earlier masks", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.foo", "event.baz"],
+			mask: "*****",
+		}),
+	);
+	const event = { foo: "secret", baz: "secret2", bar: "bar" };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event: { foo: "*****", baz: "*****", bar: "bar" } },
+	]);
+	// Original object retains its real values (clone-on-write).
+	deepStrictEqual(event, { foo: "secret", baz: "secret2", bar: "bar" });
+});
+
+// L149 delete branch `else if (Object.hasOwn(obj, key))`. Mutant forces it
+// true, so a leaf omit path whose key is absent still clones (and deletes the
+// absent key). When nothing is omitted, omit must return the SAME object
+// reference (zero-allocation cold path); a spurious clone breaks that identity.
+test("It should return the same object reference when the leaf key is absent", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.absent"],
+		}),
+	);
+	const event = { foo: "foo" };
+	await handler(event, defaultContext);
+	// Real code: no own `absent` key, so no clone is made and the original
+	// object is logged by reference. The forced-true mutant clones it.
+	strictEqual(logger.mock.calls[0].arguments[0].event, event);
+	ok(!Object.hasOwn(logger.mock.calls[0].arguments[0].event, "absent"));
+});
+
+// L156 omitObject nested branch copy-on-write `if (clone === obj) clone = {...obj}`.
+// Forcing true re-spreads from the original on a second nested change (losing
+// the first); the `!==`/false variants either never clone (mutating the source)
+// or skip writing the change. Two nested sub-objects changed on one parent,
+// with the source asserted unmutated, pins all three L156 mutants.
+test("It should omit two nested subtrees on one object without losing changes or mutating source", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.a.secret", "event.b.secret"],
+		}),
+	);
+	const a = { secret: "sa", keep: "ka" };
+	const b = { secret: "sb", keep: "kb" };
+	const event = { a, b };
+	await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event: { a: { keep: "ka" }, b: { keep: "kb" } } },
+	]);
+	// Source object and its nested subtrees untouched (copy-on-write).
+	deepStrictEqual(a, { secret: "sa", keep: "ka" });
+	deepStrictEqual(b, { secret: "sb", keep: "kb" });
+	deepStrictEqual(event, {
+		a: { secret: "sa", keep: "ka" },
+		b: { secret: "sb", keep: "kb" },
+	});
+});
+
+// L165 isPlainObject `typeof value === "object"` and `value.constructor === Object`.
+// A non-object primitive at an omit path's parent must bypass omitObject, and a
+// non-plain object (class instance) must not be treated as plain.
+test("It should not treat primitives or class instances as plain objects when omitting", async (t) => {
+	const logger = t.mock.fn();
+	class Custom {
+		constructor() {
+			this.secret = "keep";
+		}
+	}
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.prim.secret", "event.inst.secret"],
+		}),
+	);
+	const inst = new Custom();
+	const event = { prim: 42, inst };
+	await handler(event, defaultContext);
+	// `prim` is a number (typeof !== object) and `inst` is a class instance
+	// (constructor !== Object); neither is descended into, so both survive whole.
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event: { prim: 42, inst } },
+	]);
+	strictEqual(logger.mock.calls[0].arguments[0].event.inst.secret, "keep");
+});
+
+// L70/L72 optional chaining on response?.body and L219 teeStream response?.body.
+// onError path with a defined-but-bodyless response (not a stream) must not
+// throw and must log the response directly.
+test("It should log a plain non-stream response set in onError", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy(() => {
+		throw new Error("boom");
+	})
+		.use(inputOutputLogger({ logger }))
+		.onError((request) => {
+			request.response = { recovered: true };
+		});
+	const event = { foo: "bar" };
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [{ event }]);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
+		{ response: { recovered: true } },
+	]);
+	deepStrictEqual(response, { recovered: true });
+});
+
+// L70/L72 `isNodeStream(response?.body)` / `isWebStream(response?.body)` optional
+// chaining. When the response is null, `response.body` (mutant) throws; the
+// optional chaining must guard it so a null response logs cleanly.
+test("It should log a null response without throwing", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy(() => null).use(inputOutputLogger({ logger }));
+	const response = await handler({ foo: "bar" }, defaultContext);
+	strictEqual(response, null);
+	deepStrictEqual(logger.mock.calls[1].arguments, [{ response: null }]);
+});
+
+// L219 teeStream `!!request.response?.body` and L226
+// `if (hasBody) request.response.body = piped`. When the response IS a bare
+// stream (no .body), the teed stream is reattached to request.response, and the
+// logged response is the decoded body (not an object wrapper). Covered by the
+// existing ReadableStream tests, but assert reattachment explicitly here for a
+// bodyless stream so the L219 chaining and the L226 else-branch are pinned.
+test("It should log decoded body for a bare body-stream response (object wrapper preserved)", async (t) => {
+	const input = "wrapped-body";
+	const logger = t.mock.fn();
+	const handler = middy(
+		async () => {
+			const stream = new ReadableStream({
+				start(controller) {
+					controller.enqueue(input);
+					controller.close();
+				},
+			});
+			return { statusCode: 201, body: stream };
+		},
+		{ executionMode: executionModeStreamifyResponse },
+	).use(inputOutputLogger({ logger }));
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	await handler({}, responseStream, defaultContext);
+	// L226: piped (teed) stream reattached to .body so the streamed output is
+	// the teed stream; the captured body is logged with the wrapper preserved.
+	strictEqual(chunkResponse, input);
+	deepStrictEqual(logger.mock.calls[1].arguments, [
+		{ response: { statusCode: 201, body: input } },
+	]);
+});
+
+// L257 makeWebTee decodeWebChunk `if (typeof chunk === "string") return chunk`.
+// Mutant forces it false (or blanks the compared string), so a string chunk
+// would be coerced via String()/decoder instead of passed through. Stream a
+// string chunk and assert it is logged unchanged.
+test("It should pass string chunks through a Web Stream unchanged", async (t) => {
+	const logged = [];
+	const logger = (data) => {
+		logged.push(data);
+	};
+	const input = "plain-string-chunk";
+	const handler = middy(
+		async () => {
+			return new ReadableStream({
+				start(controller) {
+					controller.enqueue(input);
+					controller.close();
+				},
+			});
+		},
+		{ executionMode: executionModeStreamifyResponse },
+	).use(inputOutputLogger({ logger }));
+	const responseStream = createWritableStream(() => {});
+	await handler({}, responseStream, defaultContext);
+	strictEqual(logged[1].response, input);
+});

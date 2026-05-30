@@ -129,6 +129,7 @@ const dynamodbMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns either undefined (sync path) or a Promise; `await undefined` is a no-op, so guarding with `if (pending)` vs always awaiting is observationally identical.
 			if (pending) await pending;
 		}
 	};

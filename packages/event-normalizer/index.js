@@ -58,12 +58,14 @@ const parseEvent = (event, options) => {
 			(event.configRuleId && "aws:config") ??
 			(event.awslogs && "aws:cloudwatch") ??
 			(event["CodePipeline.job"] && "aws:codepipeline");
+		// Stryker disable next-line ConditionalExpression: equivalent. When eventSource is falsy it is undefined/empty-string, and `events` (a null-prototype object of string keys) has no such key, so `events[eventSource]?.()` no-ops whether the branch runs or not.
 		if (eventSource) {
 			events[eventSource]?.(event, options);
 		}
 		return;
 	}
 
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent. records is guaranteed a real array here; with zero records the only code after the early return (records[0]?... resolves undefined, and the per-record loop) performs no work, so skipping the return is observationally identical.
 	if (!records.length) {
 		return;
 	}

@@ -123,6 +123,7 @@ const ssmMiddleware = (opts = {}) => {
 							}),
 						);
 					}
+					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a string element whose .Name and .Value are undefined, so parseValue yields undefined and only result["undefined"]=undefined is added, which is indistinguishable from the key being absent.
 					for (const param of resp.Parameters ?? []) {
 						result[param.Name] = parseValue(param);
 					}
@@ -219,6 +220,7 @@ const ssmMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns a Promise or undefined; awaiting undefined (forced true) is a no-op with no observable difference.
 			if (pending) await pending;
 		}
 	};

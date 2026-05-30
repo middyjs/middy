@@ -5,6 +5,7 @@ import { createError, decodeBody, validateOptions } from "@middy/util";
 const name = "ws-json-body-parser";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: `reviver: undefined` documents the only option; emptying the object yields an identical `options.reviver` after spread (no observable difference).
 const defaults = {
 	reviver: undefined,
 };

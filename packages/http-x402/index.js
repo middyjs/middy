@@ -201,6 +201,7 @@ const expandExponential = (value) => {
 	// JS only uses exponential notation for magnitudes < 1e-6 (point <= 0, a pure
 	// fraction) or >= 1e21 (point >= digits.length, a trailing-zero integer), so
 	// the decimal point never lands inside `digits`.
+	// Stryker disable next-line EqualityOperator: point===0 is unreachable. JS only emits exponential notation for magnitudes < 1e-6, so the smallest exponent is -7 with intPart.length >= 1, giving point <= -6; the <= vs < boundary at 0 can never be exercised.
 	return point <= 0
 		? `0.${"0".repeat(-point)}${digits}`
 		: `${digits}${"0".repeat(point - digits.length)}`;
@@ -261,7 +262,9 @@ const decodeHeader = (header) => {
 		typeof payload !== "object" ||
 		Array.isArray(payload)
 	) {
+		// Stryker disable next-line StringLiteral,ObjectLiteral: the before-hook catch block discards this error entirely (only a generic invalid_payment 402 is returned), so the message and cause are never observable.
 		throw new Error(`${pkg} payment payload must be an object`, {
+			// Stryker disable next-line ObjectLiteral: see above; cause is unobservable because the thrown error is swallowed.
 			cause: { package: pkg },
 		});
 	}

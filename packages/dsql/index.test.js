@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
+import { clearCache, processCache } from "@middy/util";
 import middy from "../core/index.js";
-import { clearCache, processCache } from "../util/index.js";
 import dsqlMiddleware, { dsqlValidateOptions } from "./index.js";
 
 test.afterEach(() => {
@@ -119,6 +119,29 @@ test("It should default cacheExpiry to 0 when internalKey is set and cacheExpiry
 	strictEqual(end.mock.callCount(), 1);
 });
 
+test("It should NOT override an explicit cacheExpiry when internalKey is set", async (t) => {
+	const { client, end } = buildClient(t);
+	const handler = middy(() => {})
+		.before(async (request) => {
+			request.internal.dsqlToken = "iam-token-abc";
+		})
+		.use(
+			dsqlMiddleware({
+				client,
+				config: { host: validHost, username: "admin" },
+				internalKey: "dsqlToken",
+				cacheExpiry: -1,
+				cacheKey: "test-internalkey-explicit-expiry",
+			}),
+		);
+	await handler(defaultEvent, newContext());
+	await handler(defaultEvent, newContext());
+	// cacheExpiry stays -1 (not coerced to 0), so end() is never called and the
+	// client is reused across invocations.
+	strictEqual(end.mock.callCount(), 0);
+	strictEqual(client.mock.callCount(), 1);
+});
+
 test("It should throw when internalKey is set but token is missing", async (t) => {
 	const { client } = buildClient(t);
 	const handler = middy(() => {}).use(
@@ -138,6 +161,61 @@ test("It should throw when internalKey is set but token is missing", async (t) =
 	}
 	ok(captured);
 	strictEqual(captured.cause?.package, "@middy/dsql");
+});
+
+test("It should throw the descriptive not-found error (not a TypeError) when request.internal is absent", async (t) => {
+	const { client } = buildClient(t);
+	const middleware = dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		internalKey: "dsqlToken",
+		cacheExpiry: 0,
+		disablePrefetch: true,
+	});
+	// Craft a request whose `internal` is missing entirely. The optional chaining
+	// must yield `undefined` (not throw a TypeError on property access), so the
+	// middleware raises the descriptive guard error instead.
+	const request = { context: {}, internal: undefined };
+	let captured;
+	try {
+		await middleware.before(request);
+	} catch (e) {
+		captured = e;
+	}
+	ok(captured);
+	strictEqual(
+		captured.message,
+		"internalKey 'dsqlToken' not found; ensure @middy/dsql-signer runs before @middy/dsql",
+	);
+	strictEqual(captured.cause?.package, "@middy/dsql");
+	strictEqual(client.mock.callCount(), 0);
+});
+
+test("It should throw the descriptive not-found error when the request itself is absent", async (t) => {
+	const { client } = buildClient(t);
+	const middleware = dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		internalKey: "dsqlToken",
+		cacheExpiry: 0,
+		disablePrefetch: true,
+	});
+	// With no request at all, `request?.internal?.[key]` must short-circuit to
+	// undefined and raise the guard error, rather than a TypeError from reading
+	// `.internal` on undefined.
+	let captured;
+	try {
+		await middleware.before(undefined);
+	} catch (e) {
+		captured = e;
+	}
+	ok(captured);
+	strictEqual(
+		captured.message,
+		"internalKey 'dsqlToken' not found; ensure @middy/dsql-signer runs before @middy/dsql",
+	);
+	strictEqual(captured.cause?.package, "@middy/dsql");
+	strictEqual(client.mock.callCount(), 0);
 });
 
 test("It should honour custom contextKey", async (t) => {
@@ -207,6 +285,30 @@ test("It should swallow cleanup errors in after", async (t) => {
 	);
 	await handler(defaultEvent, newContext());
 	strictEqual(end.mock.callCount(), 1);
+});
+
+test("It should log a descriptive message to console.error when cleanup fails", async (t) => {
+	const errorMock = t.mock.method(console, "error", () => {});
+	const end = t.mock.fn(async () => {
+		throw new Error("end failed");
+	});
+	const { client } = buildClient(t, { end });
+	const handler = middy(() => {}).use(
+		dsqlMiddleware({
+			client,
+			config: { host: validHost },
+			cacheExpiry: 0,
+			disablePrefetch: true,
+		}),
+	);
+	await handler(defaultEvent, newContext());
+	// catch block must run and log with the exact format string + args.
+	strictEqual(errorMock.mock.callCount(), 1);
+	deepStrictEqual(errorMock.mock.calls[0].arguments, [
+		"%s: cleanup error: %s",
+		"@middy/dsql",
+		"end failed",
+	]);
 });
 
 test("It should run cleanup on onError too", async (t) => {
@@ -298,6 +400,56 @@ test("It should surface a refreshed cache entry in before, not a stale prefetch"
 	strictEqual(captured.mark, "client-2");
 });
 
+test("It should prefetch the client at construction time when prefetch is enabled", async (t) => {
+	const { client } = buildClient(t);
+	// No disablePrefetch, default cacheExpiry (-1): prefetch should fire eagerly.
+	dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		cacheKey: "test-construct-prefetch",
+	});
+	// Client invoked at construction, before any handler invocation.
+	strictEqual(client.mock.callCount(), 1);
+});
+
+test("It should NOT prefetch at construction when disablePrefetch is the default true under mutation", async (t) => {
+	const { client } = buildClient(t);
+	// internalKey set => construction prefetch must be skipped entirely.
+	dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		internalKey: "dsqlToken",
+		cacheKey: "test-no-construct-prefetch",
+	});
+	strictEqual(client.mock.callCount(), 0);
+});
+
+test("It should not prefetch at construction when disablePrefetch is explicitly true", async (t) => {
+	const { client } = buildClient(t);
+	dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		disablePrefetch: true,
+		cacheKey: "test-disabled-prefetch",
+	});
+	strictEqual(client.mock.callCount(), 0);
+});
+
+test("It should cache the client indefinitely by default (no refresh timer)", async (t) => {
+	const { client } = buildClient(t);
+	dsqlMiddleware({
+		client,
+		config: { host: validHost },
+		cacheKey: "test-default-infinite",
+	});
+	// Construction prefetch -> 1 call. With the default cacheExpiry of -1 there is
+	// no refresh timer; a positive finite default would schedule a timer that
+	// re-fetches after the duration elapses.
+	strictEqual(client.mock.callCount(), 1);
+	await new Promise((resolve) => setTimeout(resolve, 25));
+	strictEqual(client.mock.callCount(), 1);
+});
+
 test("It should throw if client option is missing", () => {
 	try {
 		dsqlMiddleware({ config: { host: validHost } });
@@ -340,6 +492,40 @@ test("dsqlValidateOptions accepts the full surface", () => {
 		cacheKeyExpiry: { k: 60_000 },
 		cacheExpiry: -1,
 	});
+});
+
+test("dsqlValidateOptions accepts additional config properties (passed through to pg)", () => {
+	// config.additionalProperties is true: arbitrary pg client options are allowed.
+	dsqlValidateOptions({
+		client: () => ({}),
+		config: {
+			host: validHost,
+			connectionTimeoutMillis: 5000,
+			application_name: "svc",
+		},
+	});
+});
+
+test("dsqlValidateOptions accepts a cacheKeyExpiry value of -1 (infinite)", () => {
+	// cacheKeyExpiry per-key values share the cacheExpiry semantics: -1 is valid.
+	dsqlValidateOptions({
+		client: () => ({}),
+		config: { host: validHost },
+		cacheKeyExpiry: { "@middy/dsql": -1 },
+	});
+});
+
+test("dsqlValidateOptions rejects a cacheKeyExpiry value below -1", () => {
+	try {
+		dsqlValidateOptions({
+			client: () => ({}),
+			config: { host: validHost },
+			cacheKeyExpiry: { "@middy/dsql": -2 },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
 });
 
 test("dsqlValidateOptions rejects unknown options (typo guard)", () => {

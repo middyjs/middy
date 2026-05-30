@@ -137,3 +137,17 @@ test("errorLoggerValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("logger"));
 	}
 });
+
+test("errorLoggerValidateOptions accepts logger: false to disable logging", () => {
+	errorLoggerValidateOptions({ logger: false });
+});
+
+test("errorLoggerValidateOptions rejects logger: true", () => {
+	try {
+		errorLoggerValidateOptions({ logger: true });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("logger"));
+	}
+});

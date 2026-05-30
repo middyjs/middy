@@ -5,6 +5,8 @@ useDefault = true
 description = "Global allowlist: paths + historical false-positive commits (AWS-published example creds, Kinesis sequence numbers, revoked CircleCI badge token)"
 paths = [
     '''.*\.svelte-kit/.*''',
+    # Stryker mutation-testing sandbox copies (transient, not committed)
+    '''.*\.stryker-tmp/.*''',
     # AWS-published example creds + Kinesis sequence numbers in event fixtures
     '''^packages/event-normalizer/index\.test\.js$''',
 ]

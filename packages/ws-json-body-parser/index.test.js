@@ -1,4 +1,10 @@
-import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	match,
+	ok,
+	rejects,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import jsonBodyParser, { wsJsonBodyParserValidateOptions } from "./index.js";
@@ -55,13 +61,13 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 		body: `make it broken${JSON.stringify({ foo: "bar" })}`,
 	};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
+	await rejects(handler(event, defaultContext), (e) => {
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
-	}
+		return true;
+	});
 });
 
 test("It should handle a base64 body", async (t) => {
@@ -99,13 +105,13 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 		body: base64Data,
 	};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
+	await rejects(handler(event, defaultContext), (e) => {
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		match(e.cause.message, /^Unexpected token/);
-	}
+		return true;
+	});
 });
 
 test("It should handle missing body as an UnprocessableEntity", async (t) => {
@@ -118,14 +124,16 @@ test("It should handle missing body as an UnprocessableEntity", async (t) => {
 	// invokes the handler with no body
 	const event = {};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
+	await rejects(handler(event, defaultContext), (e) => {
 		strictEqual(e.message, "Invalid or malformed JSON was provided");
 		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
 		strictEqual(e.cause.data, undefined);
-	}
+		// The missing-body guard throws directly (no JSON.parse), so the cause
+		// carries no parser `message`. A body that reached JSON.parse would.
+		ok(!("message" in e.cause));
+		return true;
+	});
 });
 
 test("wsJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {

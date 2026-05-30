@@ -128,6 +128,9 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: forcing the guard to
+			// `true` is equivalent; `await undefined` (warm/sync path) is a no-op and
+			// the cold path already returns a truthy promise.
 			if (pending) await pending;
 		}
 	};

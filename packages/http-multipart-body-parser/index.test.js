@@ -408,6 +408,9 @@ test("It should normalize a synchronous BusBoy constructor throw to a 422 when d
 			"Invalid or malformed multipart/form-data was provided",
 		);
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		// The construction error must be captured and rejected from the catch
+		// block (not swallowed, which would later throw on an undefined busboy).
+		strictEqual(e.cause.message, "Unsupported Content-Type.");
 	}
 });
 
@@ -669,6 +672,360 @@ test("httpMultipartBodyParserValidateOptions allows unknown busboy keys (version
 	httpMultipartBodyParserValidateOptions({
 		busboy: { futureOption: "value" },
 	});
+});
+
+test("It should reject a content-type with leading garbage before multipart/form-data", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type":
+				"x-multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+	}
+});
+
+test("It should reject a content-type with trailing garbage after the boundary", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M; junk",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+	}
+});
+
+test("It should accept a content-type with charset and no space after the semicolon", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type":
+				"multipart/form-data; boundary=----WebKitFormBoundaryppsQEwf2BVJeCe0M;charset=utf-8",
+		},
+		body: "LS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmb28iDQoNCmJhcg0KLS0tLS0tV2ViS2l0Rm9ybUJvdW5kYXJ5cHBzUUV3ZjJCVkplQ2UwTS0t",
+		isBase64Encoded: true,
+	};
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, Object.assign(Object.create(null), { foo: "bar" }));
+});
+
+test("httpMultipartBodyParserValidateOptions allows unknown busboy.limits keys", () => {
+	httpMultipartBodyParserValidateOptions({
+		busboy: { limits: { futureLimit: 5 } },
+	});
+});
+
+test("httpMultipartBodyParserValidateOptions rejects non-boolean disableContentTypeError", () => {
+	try {
+		httpMultipartBodyParserValidateOptions({
+			disableContentTypeError: "notabool",
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.message, "Option 'disableContentTypeError' must be boolean");
+	}
+});
+
+test("It should decode a non-base64 body using the default utf8 charset", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="foo"\r\n\r\nbär\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+	strictEqual(response.foo, "bär");
+});
+
+test("It should throw 415 on an unsupported content-type when disableContentTypeError is left at its default", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "application/json",
+		},
+		body: "irrelevant",
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, "application/json");
+	}
+});
+
+test("It should not throw a TypeError when event has no headers (handled as 415)", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		body: "irrelevant",
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.message, "Unsupported Media Type");
+		strictEqual(e.cause.data, undefined);
+	}
+});
+
+test("It should throw 422 when content-type is valid but body is undefined", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: undefined,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.data, undefined);
+		// The dedicated missing-body guard throws before busboy is touched, so
+		// no downstream stream error message is attached. If the guard were
+		// skipped, busboy.write(undefined) would throw and populate cause.message.
+		strictEqual(e.cause.message, undefined);
+	}
+});
+
+test("It should not throw a TypeError during busboy construction when headers are absent and content-type check is disabled", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser({ disableContentTypeCheck: true }));
+
+	const event = {
+		body: "not multipart",
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		// Null-safe header access means busboy receives an undefined
+		// content-type and reports a missing-header error, rather than the
+		// middleware throwing a raw TypeError on event.headers["..."].
+		strictEqual(e.cause.message, "Missing Content-Type-header.");
+	}
+});
+
+test("It should accumulate uploaded file content bytes", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello world!\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+	strictEqual(response.file.content.toString(), "hello world!");
+	ok(response.file.content.length > 0);
+});
+
+test("It should reject a file field name exceeding the cap and pass at the boundary", async (t) => {
+	const overHandler = middy((event) => event.body);
+	overHandler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+
+	// "attach" is length 6, one over the cap of 5
+	const overEvent = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="attach"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await overHandler(overEvent, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.message, "Field name size limit exceeded");
+	}
+
+	const atHandler = middy((event) => event.body);
+	atHandler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+
+	// "files" is length 5, exactly at the cap; must pass
+	const atEvent = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="files"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const atResponse = await atHandler(atEvent, defaultContext);
+	notStrictEqual(atResponse.files, undefined);
+	strictEqual(atResponse.files.content.toString(), "hello");
+});
+
+test("It should reject a non-file field name exceeding the cap and pass at the boundary with the expected message", async (t) => {
+	const overHandler = middy((event) => event.body);
+	overHandler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+
+	// "field6" is length 6, one over the cap of 5
+	const overEvent = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="field6"\r\n\r\nval\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await overHandler(overEvent, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.cause.message, "Field name size limit exceeded");
+	}
+
+	const atHandler = middy((event) => event.body);
+	atHandler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldNameSize: 5 } } }),
+	);
+
+	// "field" is length 5, exactly at the cap; must pass
+	const atEvent = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="field"\r\n\r\nval\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const atResponse = await atHandler(atEvent, defaultContext);
+	strictEqual(atResponse.field, "val");
+});
+
+test("It should group a field name with '[' at index 1 as an array under the leading key", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="a[b]"\r\n\r\nval\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response.a, ["val"]);
+});
+
+test("It should reject a malformed/corrupt multipart body with a 422 via the busboy error handler", async (t) => {
+	const handler = middy((event, context) => {
+		return event.body;
+	});
+
+	handler.use(httpMultipartBodyParser());
+
+	// Declares two parts but the stream ends mid-part, triggering a busboy
+	// stream "error" event rather than a clean "finish".
+	const event = {
+		headers: {
+			"content-type": "multipart/form-data; boundary=TEST",
+		},
+		body: '--TEST\r\nContent-Disposition: form-data; name="foo"\r\n\r\nbar',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 422);
+		strictEqual(
+			e.message,
+			"Invalid or malformed multipart/form-data was provided",
+		);
+	}
 });
 
 test("httpMultipartBodyParserValidateOptions rejects bad busboy field types", () => {

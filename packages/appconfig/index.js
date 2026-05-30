@@ -168,6 +168,9 @@ const appConfigMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: `pending` is either a
+			// Promise (cold path) or undefined (warm path); forcing the guard true
+			// only adds `await undefined`, which is observationally identical.
 			if (pending) await pending;
 		}
 	};

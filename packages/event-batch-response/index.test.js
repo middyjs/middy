@@ -817,3 +817,221 @@ test("treats missing response entries as rejected", async () => {
 		batchItemFailures: [{ itemIdentifier: "s-2" }],
 	});
 });
+
+// --- internal cache key -------------------------------------------------
+
+test("stores its cache under request.internal['@middy/event-batch-response']", async () => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [{ messageId: "a", body: "" }],
+	});
+	let beforeInternal;
+	let afterInternal;
+	const capture = {
+		// runs after eventBatchResponse().before stored the cache
+		before: (request) => {
+			beforeInternal = request.internal["@middy/event-batch-response"];
+		},
+		// runs before eventBatchResponse().after consumes the cache
+		after: (request) => {
+			afterInternal = request.internal["@middy/event-batch-response"];
+		},
+	};
+	const handler = middy(async () => [{ status: "fulfilled", value: 1 }])
+		.use(eventBatchResponse())
+		.use(capture);
+
+	await handler(event, defaultContext);
+	ok(
+		beforeInternal,
+		"cache must be set under the @middy/event-batch-response key",
+	);
+	deepStrictEqual(beforeInternal.records, event.Records);
+	ok(afterInternal, "cache must still be present when after runs");
+});
+
+// --- defensive identify / optional chaining -----------------------------
+
+test("Kafka: settled shorter than records does not throw, extra message is a failure", async () => {
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"topic-0": [
+				{ topic: "topic", partition: 0, offset: 10 },
+				{ topic: "topic", partition: 0, offset: 11 },
+			],
+		},
+	};
+	// Only one settled entry for two messages: settled[1] is undefined.
+	const handler = middy(async () => [{ status: "fulfilled", value: 1 }]).use(
+		eventBatchResponse(),
+	);
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [
+			{ itemIdentifier: { partition: "topic-0", offset: 11 } },
+		],
+	});
+});
+
+test("SQS: null record passed to identify yields undefined, no throw", async () => {
+	const event = {
+		eventSource: "aws:sqs",
+		Records: [{ messageId: "a" }, null],
+	};
+	const handler = middy(async () => [
+		{ status: "rejected", reason: new Error("x") },
+		{ status: "rejected", reason: new Error("x") },
+	]).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [{ itemIdentifier: "a" }, { itemIdentifier: undefined }],
+	});
+});
+
+test("Kinesis: null record and record missing .kinesis yield undefined, no throw", async () => {
+	const event = {
+		eventSource: "aws:kinesis",
+		Records: [null, { eventSource: "aws:kinesis" }],
+	};
+	const handler = middy(async () => [
+		{ status: "rejected", reason: new Error("x") },
+		{ status: "rejected", reason: new Error("x") },
+	]).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [
+			{ itemIdentifier: undefined },
+			{ itemIdentifier: undefined },
+		],
+	});
+});
+
+test("DynamoDB: null record and record missing .dynamodb yield undefined, no throw", async () => {
+	const event = {
+		eventSource: "aws:dynamodb",
+		Records: [null, { eventSource: "aws:dynamodb" }],
+	};
+	const handler = middy(async () => [
+		{ status: "rejected", reason: new Error("x") },
+		{ status: "rejected", reason: new Error("x") },
+	]).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [
+			{ itemIdentifier: undefined },
+			{ itemIdentifier: undefined },
+		],
+	});
+});
+
+test("S3 Batch: null task passed to identify yields undefined, no throw", async () => {
+	const event = s3BatchEvent([null]);
+	const handler = middy(async () =>
+		Promise.allSettled([Promise.reject(new Error("boom"))]),
+	).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response.results, [
+		{ taskId: undefined, resultCode: "TemporaryFailure", resultString: "boom" },
+	]);
+});
+
+test("Firehose: null record yields undefined identifier/data, no throw", async () => {
+	const event = firehoseEvent([{ recordId: "a", data: "in-a" }, null]);
+	const handler = middy(async () =>
+		Promise.allSettled([Promise.resolve("ok"), Promise.resolve("ok2")]),
+	).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response.records, [
+		{ recordId: "a", result: "Ok", data: Buffer.from("ok").toString("base64") },
+		{
+			recordId: undefined,
+			result: "Ok",
+			data: Buffer.from("ok2").toString("base64"),
+		},
+	]);
+});
+
+test("Firehose: fulfilled undefined transform result falls back to input data", async () => {
+	const event = firehoseEvent([{ recordId: "r", data: "fallback-input" }]);
+	const handler = middy(async () =>
+		Promise.allSettled([Promise.resolve(undefined)]),
+	).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response.records, [
+		{ recordId: "r", result: "Ok", data: "fallback-input" },
+	]);
+});
+
+// --- detection requires BOTH s3:batch signals ---------------------------
+
+test("S3 Batch detection requires both invocationSchemaVersion AND tasks array", async () => {
+	// invocationSchemaVersion present, tasks absent: must NOT be treated as
+	// s3:batch; detection falls through to the SQS record's eventSource.
+	const event = {
+		invocationSchemaVersion: "1.0",
+		invocationId: "inv-x",
+		Records: [{ eventSource: "aws:sqs", messageId: "m", body: "" }],
+	};
+	const handler = middy(async () => [
+		{ status: "rejected", reason: new Error("x") },
+	]).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [{ itemIdentifier: "m" }],
+	});
+});
+
+// --- Kafka non-object records -------------------------------------------
+
+test("Kafka: non-object truthy records yields empty batchItemFailures", async () => {
+	const event = { eventSource: "aws:kafka", records: "not-an-object" };
+	const handler = middy(async () => []).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, { batchItemFailures: [] });
+});
+
+// --- onError synthesized settled entries are "rejected" -----------------
+
+test("onError: every record becomes a failure (synthesized status 'rejected')", async () => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{ messageId: "a", body: "" },
+			{ messageId: "b", body: "" },
+			{ messageId: "c", body: "" },
+		],
+	});
+	const handler = middy(async () => {
+		throw new Error("explode");
+	}).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, {
+		batchItemFailures: [
+			{ itemIdentifier: "a" },
+			{ itemIdentifier: "b" },
+			{ itemIdentifier: "c" },
+		],
+	});
+});
+
+// --- after runs only when before cached an entry ------------------------
+
+test("after with no cached entry leaves an array response untouched", async () => {
+	// Unrecognized source: before stores nothing, so after must early-return
+	// even though request.response is an array.
+	const event = { Records: [{ eventSource: "aws:unknown", id: "x" }] };
+	const settled = [{ status: "rejected", reason: new Error("x") }];
+	const handler = middy(async () => settled).use(eventBatchResponse());
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response, settled);
+});

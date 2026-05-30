@@ -273,6 +273,147 @@ test("It should handle base64 body", async (t) => {
 	deepStrictEqual(body, Object.assign(Object.create(null), { a: "a", b: "b" }));
 });
 
+test("It should reject a content-type with trailing junk after the type", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded-extra",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should reject a content-type with a leading prefix before the type", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "text/application/x-www-form-urlencoded",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should check content-type and throw 415 by default with no options", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should parse when content-type is provided via lowercase content-type key", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "application/x-www-form-urlencoded",
+		},
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	strictEqual(body.a, "1");
+});
+
+test("It should not throw when event has no headers object and check is disabled", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeCheck: true }));
+
+	const event = {
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	strictEqual(body.a, "1");
+});
+
+test("It should throw 415 when event has no headers object and check is enabled", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+			strictEqual(e.cause.data, undefined);
+		},
+	);
+});
+
+test("It should silently return on bad content-type when disableContentTypeError is true", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeError: true }));
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	// Body is left untouched (not parsed) because the gate returned early.
+	strictEqual(body, "a=1");
+});
+
+test("It should throw 415 on bad content-type when disableContentTypeError is false", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeError: false }));
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
 test("httpUrlencodeBodyParserValidateOptions accepts valid options and rejects typos", () => {
 	httpUrlencodeBodyParserValidateOptions({
 		disableContentTypeCheck: true,

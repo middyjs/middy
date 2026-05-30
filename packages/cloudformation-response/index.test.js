@@ -209,3 +209,36 @@ test("cloudformationResponseValidateOptions accepts empty options and rejects an
 		strictEqual(e.cause.package, "@middy/cloudformation-response");
 	}
 });
+
+test("cloudformationResponseValidateOptions validates options as a typed object schema", () => {
+	// A non-object option must be rejected via the JSON-Schema object rule
+	// (message "Option '' must be object"), not the flat-schema fallback
+	// ("options must be an object") that an empty schema would produce.
+	try {
+		cloudformationResponseValidateOptions("not-an-object");
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.message, "Option '' must be object");
+		strictEqual(e.cause.package, "@middy/cloudformation-response");
+	}
+});
+
+test("It should fall back to String(request.error) when error has no message", async (t) => {
+	const middleware = cloudformationResponse();
+	const request = {
+		event: defaultEvent,
+		context: defaultContext,
+		error: null,
+		response: undefined,
+	};
+	middleware.onError(request);
+	deepStrictEqual(request.response, {
+		Status: "FAILED",
+		Reason: "null",
+		RequestId: "RequestId",
+		LogicalResourceId: "LogicalResourceId",
+		StackId: "StackId",
+		PhysicalResourceId: "2026/03/14/[$LATEST]abcdef1234567890",
+	});
+});

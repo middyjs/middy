@@ -161,6 +161,38 @@ test("It should return the initial response if there is no queryStringParameters
 	});
 });
 
+test("It should not throw when request.event is undefined", async (t) => {
+	const { after } = httpPartialResponse();
+	const request = {
+		event: undefined,
+		response: { statusCode: 200, body: { firstname: "john" } },
+	};
+	after(request);
+	deepStrictEqual(request.response.body, { firstname: "john" });
+});
+
+test("It should not throw when request.response is undefined but fields present", async (t) => {
+	const { after } = httpPartialResponse();
+	const request = {
+		event: { queryStringParameters: { fields: "firstname" } },
+		response: undefined,
+	};
+	after(request);
+	strictEqual(request.response, undefined);
+});
+
+test("It should leave the body unchanged when fields query param is absent", async (t) => {
+	const { after } = httpPartialResponse();
+	const body = { firstname: "john", lastname: "doe" };
+	const request = {
+		event: { queryStringParameters: {} },
+		response: { statusCode: 200, body },
+	};
+	after(request);
+	strictEqual(request.response.body, body);
+	deepStrictEqual(request.response, { statusCode: 200, body });
+});
+
 test("httpPartialResponseValidateOptions accepts valid options and rejects typos", () => {
 	httpPartialResponseValidateOptions({ filteringKeyName: "fields" });
 	httpPartialResponseValidateOptions({});

@@ -101,6 +101,7 @@ const eventBatchParserMiddleware = (opts = {}) => {
 					// record across the batch. Only awaits when the parser
 					// actually returns a thenable.
 					parsed = parser(payload, record, request, framing);
+					// Stryker disable next-line ConditionalExpression,LogicalOperator: guard is a perf gate; awaiting a non-thenable returns the same value, so widening/forcing these branches only adds a no-op await with no observable effect (the null/undefined safety is covered by separate OptionalChaining mutants/tests).
 					if (parsed !== null && typeof parsed?.then === "function") {
 						parsed = await parsed;
 					}
@@ -129,7 +130,9 @@ const eventBatchParserMiddleware = (opts = {}) => {
 // allocation that dominated GC on large batches. The single-group fast path
 // returns the source's own array uncopied; only multi-group events allocate.
 const flattenGroups = (groups) => {
+	// Stryker disable next-line ConditionalExpression: single-group fast path is a copy-avoidance optimization; forcing the multi-group branch still flattens the same record references (mutated in place), producing an identical observable result.
 	if (groups.length === 1) return groups[0];
+	// Stryker disable next-line ArrayDeclaration: a non-empty seed only adds a primitive sentinel record whose key/value/body/data accessors all read undefined, so it is skipped (no parser call, no write-back) and never reaches the event.
 	const out = [];
 	for (const group of groups) {
 		for (const record of group) out.push(record);
@@ -200,6 +203,7 @@ const sources = {
 	// Kinesis: `data` is base64.
 	// docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html
 	"aws:kinesis": {
+		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
 		getRecords: (event) => event.Records ?? [],
 		fields: {
 			value: accKinesisData,
@@ -211,6 +215,7 @@ const sources = {
 	// Kinesis Firehose: transform-records `data` is base64.
 	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	"aws:lambda:events": {
+		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
 		getRecords: (event) => event.records ?? [],
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
@@ -219,6 +224,7 @@ const sources = {
 	// docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
 	//   example: { "body": "Test message.", … }
 	"aws:sqs": {
+		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
 		getRecords: (event) => event.Records ?? [],
 		fields: { value: accBody, body: accBody, data: accBody },
 		encoding: "utf8",
@@ -227,6 +233,7 @@ const sources = {
 	// base64-encodes them into a single JSON payload."
 	// docs.aws.amazon.com/lambda/latest/dg/with-mq.html
 	"aws:amq": {
+		// Stryker disable next-line ArrayDeclaration: a non-empty fallback only adds a primitive sentinel record (skipped because its accessors read undefined); getRecords' return is never written back to the event, so the seed is unobservable.
 		getRecords: (event) => event.messages ?? [],
 		fields: { value: accData, body: accData, data: accData },
 		encoding: "base64",
@@ -260,6 +267,7 @@ const decompress = (compressionByte, payload, maxOutputLength) => {
 		try {
 			return inflateSync(payload, { maxOutputLength });
 		} catch (err) {
+			// Stryker disable next-line OptionalChaining: inflateSync only ever throws a non-null Error, so `err?.code` and `err.code` are indistinguishable; no input can make the suite observe the nullish-safety branch.
 			if (err?.code === "ERR_BUFFER_TOO_LARGE") {
 				throw createError(413, "Decompressed payload exceeds cap", {
 					cause: {

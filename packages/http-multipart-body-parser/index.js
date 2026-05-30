@@ -51,6 +51,7 @@ export const httpMultipartBodyParserValidateOptions = (options) =>
 const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
 	busboy: {},
+	// Stryker disable next-line StringLiteral: Node treats an empty-string encoding as the default utf8 for both Buffer.from and stream.write, so "" and "utf8" produce byte-identical results here (no observable behavior change).
 	charset: "utf8",
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,

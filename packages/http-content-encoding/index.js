@@ -122,10 +122,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 			);
 			request.response.headers["Content-Encoding"] = contentEncoding;
 			if (isNodeStream) {
+				// Stryker disable ConditionalExpression: reaching the `else if (isWebStream)` below implies isNodeStream is false, and the outer guard requires isNodeStream || isWebStream, so isWebStream is always true there; forcing it `true` is equivalent
 				request.response.body = request.response.body.pipe(
 					contentEncodingStream,
 				);
 			} else if (isWebStream) {
+				// Stryker restore ConditionalExpression
 				request.response.body = Readable.toWeb(
 					Readable.fromWeb(response.body).pipe(contentEncodingStream),
 				);

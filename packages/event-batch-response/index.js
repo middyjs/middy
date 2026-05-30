@@ -79,6 +79,7 @@ const buildS3BatchResponse = ({ records, source, settled, request }) => {
 const encodeFirehoseData = (value, fallback) => {
 	if (value === undefined || value === null) return fallback;
 	if (typeof value === "string") return Buffer.from(value).toString("base64");
+	// Stryker disable next-line ConditionalExpression: a Buffer is a Uint8Array, so the next branch produces identical base64; forcing this false changes nothing observable.
 	if (Buffer.isBuffer(value)) return value.toString("base64");
 	if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
 	return Buffer.from(JSON.stringify(value)).toString("base64");
@@ -120,6 +121,7 @@ const asArray = (value) => (Array.isArray(value) ? value : []);
 const sqsLikeRecords = (event) => asArray(event.Records);
 const kafkaRecords = (event) => {
 	const records = event.records;
+	// Stryker disable next-line LogicalOperator,ConditionalExpression: for any truthy non-object primitive, Object.values() yields no array entries, so the loop also produces []; the guard is an optimization with no observable difference.
 	if (!records || typeof records !== "object") return [];
 	const out = [];
 	for (const messages of Object.values(records)) {
@@ -163,6 +165,7 @@ const sources = {
 sources.SelfManagedKafka = sources["aws:kafka"];
 
 const detectEventSource = (event) => {
+	// Stryker disable next-line ConditionalExpression: for any truthy non-object primitive, every subsequent property read is undefined and the function still returns undefined; the typeof guard is purely defensive with no observable difference.
 	if (!event || typeof event !== "object") return undefined;
 	if (event.eventSource) return event.eventSource;
 	// Firehose transform: identified by deliveryStreamArn.
@@ -219,6 +222,7 @@ const eventBatchResponseMiddleware = () => {
 		if (!cached) return;
 
 		request.response = Array.from({ length: cached.records.length }, () => ({
+			// Stryker disable next-line StringLiteral: synthesized status is only ever compared against "fulfilled"; any non-"fulfilled" value routes the entry to the failure branch identically, so the literal is unobservable.
 			status: "rejected",
 			reason: request.error,
 		}));

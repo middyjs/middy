@@ -198,6 +198,7 @@ const runRequest = async (
 				request.response = await handlerResult;
 			}
 
+			// Stryker disable next-line ConditionalExpression: forcing this to `true` is equivalent - when no early timeout was scheduled timeoutID is undefined and clearTimeout(undefined) is a spec no-op, so the guard has no observable effect.
 			if (timeoutID) {
 				clearTimeout(timeoutID);
 			}
@@ -207,6 +208,7 @@ const runRequest = async (
 		}
 	} catch (err) {
 		// timeout should be aborted when errors happen in handler
+		// Stryker disable next-line ConditionalExpression: forcing this to `true` is equivalent - clearTimeout(undefined) is a spec no-op when no timer was scheduled, so the guard cannot be observed. (The BlockStatement/false variants remain active and are covered by the "clear the scheduled early timeout when the handler throws" test.)
 		if (timeoutID) {
 			clearTimeout(timeoutID);
 		}

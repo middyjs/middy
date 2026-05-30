@@ -10,6 +10,7 @@ import {
 const name = "http-json-body-parser";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: replacing the defaults with `{}` is equivalent: reviver/disableContentTypeCheck/disableContentTypeError are only ever read via truthiness, and absent keys are also falsy/undefined.
 const defaults = {
 	reviver: undefined,
 	disableContentTypeCheck: false,

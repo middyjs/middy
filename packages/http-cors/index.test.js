@@ -3,6 +3,7 @@ import {
 	doesNotThrow,
 	ok,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
@@ -2388,4 +2389,509 @@ test("It should not invoke inherited methods when event.version is an Object.pro
 			"Access-Control-Allow-Origin": "*",
 		},
 	});
+});
+
+// *** optionSchema validation: each constraint must be enforced *** //
+test("httpCorsValidateOptions rejects non-boolean disableBeforePreflightResponse", () => {
+	throws(() =>
+		httpCorsValidateOptions({ disableBeforePreflightResponse: "yes" }),
+	);
+	doesNotThrow(() =>
+		httpCorsValidateOptions({ disableBeforePreflightResponse: true }),
+	);
+});
+
+test("httpCorsValidateOptions rejects non-function getOrigin", () => {
+	throws(() => httpCorsValidateOptions({ getOrigin: "not-a-function" }));
+	doesNotThrow(() => httpCorsValidateOptions({ getOrigin: () => "*" }));
+});
+
+test("httpCorsValidateOptions rejects non-string headers", () => {
+	throws(() => httpCorsValidateOptions({ headers: 123 }));
+	doesNotThrow(() => httpCorsValidateOptions({ headers: "x-example" }));
+});
+
+test("httpCorsValidateOptions rejects non-string methods", () => {
+	throws(() => httpCorsValidateOptions({ methods: 123 }));
+	doesNotThrow(() => httpCorsValidateOptions({ methods: "GET,POST" }));
+});
+
+test("httpCorsValidateOptions rejects methods that violate the pattern", () => {
+	throws(() => httpCorsValidateOptions({ methods: "get;post" }));
+	doesNotThrow(() => httpCorsValidateOptions({ methods: "*" }));
+});
+
+test("httpCorsValidateOptions rejects non-string exposeHeaders", () => {
+	throws(() => httpCorsValidateOptions({ exposeHeaders: 123 }));
+	doesNotThrow(() =>
+		httpCorsValidateOptions({ exposeHeaders: "X-Middleware" }),
+	);
+});
+
+test("httpCorsValidateOptions rejects non-array requestMethods option", () => {
+	throws(() => httpCorsValidateOptions({ requestMethods: "GET" }));
+	doesNotThrow(() => httpCorsValidateOptions({ requestMethods: ["GET"] }));
+});
+
+test("httpCorsValidateOptions rejects requestMethods entries that are not strings", () => {
+	throws(() => httpCorsValidateOptions({ requestMethods: [123] }));
+});
+
+test("httpCorsValidateOptions rejects requestMethods entries outside the enum", () => {
+	throws(() => httpCorsValidateOptions({ requestMethods: ["FOO"] }));
+});
+
+for (const method of [
+	"GET",
+	"POST",
+	"PUT",
+	"PATCH",
+	"DELETE",
+	"OPTIONS",
+	"HEAD",
+]) {
+	test(`httpCorsValidateOptions accepts requestMethods enum value "${method}"`, () => {
+		doesNotThrow(() => httpCorsValidateOptions({ requestMethods: [method] }));
+	});
+}
+
+test("httpCorsValidateOptions rejects non-array requestHeaders option", () => {
+	throws(() => httpCorsValidateOptions({ requestHeaders: "authorization" }));
+	doesNotThrow(() =>
+		httpCorsValidateOptions({ requestHeaders: ["authorization"] }),
+	);
+});
+
+test("httpCorsValidateOptions rejects requestHeaders entries that are not strings", () => {
+	throws(() => httpCorsValidateOptions({ requestHeaders: [123] }));
+});
+
+test("httpCorsValidateOptions rejects non-string cacheControl", () => {
+	throws(() => httpCorsValidateOptions({ cacheControl: 123 }));
+	doesNotThrow(() => httpCorsValidateOptions({ cacheControl: "max-age=3600" }));
+});
+
+test("httpCorsValidateOptions rejects non-string vary", () => {
+	throws(() => httpCorsValidateOptions({ vary: 123 }));
+	doesNotThrow(() => httpCorsValidateOptions({ vary: "Accept" }));
+});
+
+// *** originToPunycode fast-path vs slow-path canonicalization *** //
+test("It should canonicalize an uppercase ASCII origin via the fast-path", async (t) => {
+	// Fast-path lowercases scheme+host; the slow-path regex (no i flag) would
+	// leave "HTTPS://A.COM" untouched, so this distinguishes the two code paths.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://a.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "HTTPS://A.COM" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://a.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should canonicalize an uppercase ASCII http origin via the fast-path", async (t) => {
+	// Exercises the optional `s` in https? on the fast-path regex.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["http://a.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "HTTP://A.COM" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "http://a.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should canonicalize an uppercase ASCII origin with a multi-digit port via the fast-path", async (t) => {
+	// Exercises the \d+ multi-digit port quantifier and optional port group.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://a.com:8080"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "HTTPS://A.COM:8080" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://a.com:8080",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should not fast-path an origin with a prefix before the scheme", async (t) => {
+	// The leading ^ anchor must reject "Xhttp://A.COM"; without it the fast-path
+	// would match the embedded http:// and lowercase to "xhttp://a.com".
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["xhttp://a.com"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "Xhttp://A.COM" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Access-Control-Allow-Origin"], undefined);
+});
+
+test("It should match a non-ASCII http origin through the punycode slow-path", async (t) => {
+	// http:// (non-TLS) IDN origin forces the slow-path protocol capture.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["http://münchen.de"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "http://xn--mnchen-3ya.de" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "http://xn--mnchen-3ya.de",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should anchor the slow-path host capture to the end of the origin", async (t) => {
+	// A configured origin with a trailing newline takes the slow path; the $
+	// anchor makes the match fail (origin kept verbatim), so a clean incoming
+	// origin must NOT match. Without $, the host would be captured up to the
+	// newline and incorrectly normalised to "https://a.com".
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://a.com\nx"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://a.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Access-Control-Allow-Origin"], undefined);
+});
+
+// *** CORS-safelisted request headers must each be treated as safelisted *** //
+for (const safelisted of [
+	"accept",
+	"accept-language",
+	"content-language",
+	"content-type",
+	"range",
+]) {
+	test(`It should treat "${safelisted}" as a CORS-safelisted request header`, async (t) => {
+		const handler = middy((event, context) => ({ statusCode: 200 })).use(
+			httpCors({
+				disableBeforePreflightResponse: false,
+				origin: "*",
+				requestHeaders: ["authorization"],
+			}),
+		);
+
+		const event = {
+			httpMethod: "OPTIONS",
+			headers: { "Access-Control-Request-Headers": safelisted },
+		};
+
+		const response = await handler(event, defaultContext);
+
+		// Safelisted headers are allowed even though they are not in requestHeaders.
+		deepStrictEqual(response, {
+			statusCode: 204,
+			headers: {
+				"Access-Control-Allow-Origin": "*",
+			},
+		});
+	});
+}
+
+// *** getOrigin default: credentials reflection gated on origin === "*" *** //
+test("It should not reflect incoming origin with credentials when origin is not '*'", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			credentials: true,
+			origin: "https://configured.com",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://incoming.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	// origin !== "*", so the configured origin is returned, NOT the incoming one.
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Origin": "https://configured.com",
+		},
+	});
+});
+
+// *** modifyHeaders: existing ACA-Credentials non-"true" value => false *** //
+test("It should treat an existing Access-Control-Allow-Credentials of 'maybe' as not credentialed", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Credentials": "maybe" },
+	}))
+		.use(
+			httpCors({
+				disableBeforePreflightResponse: true,
+				credentials: true,
+			}),
+		)
+		.onError(() => {});
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	// header value "maybe" !== "true", so credentials becomes false and the
+	// header is not normalised/re-emitted as "true".
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "maybe",
+		},
+	});
+});
+
+// *** modifyHeaders: options.headers must not overwrite existing ACA-Headers *** //
+test("It should not overwrite a pre-set Access-Control-Allow-Headers with options.headers", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Headers": "x-preset" },
+	})).use(
+		httpCors({
+			disableBeforePreflightResponse: true,
+			headers: "x-from-options",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Headers": "x-preset",
+		},
+	});
+});
+
+// *** reflectsRequestOrigin: getOrigin returning "*" with origins configured *** //
+test("It should not flag reflectsRequestOrigin when getOrigin returns '*' with origins configured", async (t) => {
+	// origins length > 0 and newOrigin === "*"; reflectsRequestOrigin must be
+	// false. Vary: Origin still gets added by the originAny branch, but the
+	// reflection-specific path (newOrigin === punycode(incomingOrigin)) is not
+	// what drives it.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["*"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "*" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	// newOrigin is "*" and equals punycode("*"); only the `newOrigin !== "*"`
+	// guard keeps reflectsRequestOrigin false, so no Vary: Origin is emitted.
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should not flag reflectsRequestOrigin when resolved origin differs from incoming", async (t) => {
+	// origins configured, a different origin reflected via getOrigin than the
+	// incoming one => reflectsRequestOrigin is false, no Vary: Origin from that
+	// path.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://allowed.com"],
+			getOrigin: () => "https://allowed.com",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://different.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://allowed.com",
+		},
+	});
+});
+
+// *** before-hook: unknown event.version => method lookup undefined, no crash *** //
+test("It should not crash in before-hook when event.version is unsupported", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+		}),
+	);
+
+	const event = {
+		version: "9.9",
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	// version "9.9" is not in the dispatch table, so method resolves undefined
+	// (not OPTIONS) and the before-hook does not short-circuit the preflight.
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+// *** before-hook: lowercase-only request-method / request-headers keys *** //
+test("It should reject preflight via lowercase-only access-control-request-method", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestMethods: ["GET"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "access-control-request-method": "POST" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+test("It should reject preflight via lowercase-only access-control-request-headers", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origin: "*",
+			requestHeaders: ["authorization"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { "access-control-request-headers": "X-Disallowed" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {},
+	});
+});
+
+// *** onError: undefined response short-circuits before modifyHeaders *** //
+test("It should skip modifyHeaders onError when response is undefined", async (t) => {
+	const handler = middy((event, context) => {
+		throw new Error("handler");
+	}).use(
+		httpCors({
+			disableBeforePreflightResponse: true,
+			origin: "https://example.com",
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: {},
+	};
+
+	// No onError sets a response, so request.response stays undefined; the guard
+	// must short-circuit, leaving the original error to propagate.
+	let thrown;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown instanceof Error);
+	strictEqual(thrown.message, "handler");
 });

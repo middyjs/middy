@@ -7,6 +7,7 @@ const name = "http-urlencode-body-parser";
 const pkg = `@middy/${name}`;
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
+// Stryker disable next-line ObjectLiteral: `{}` is equivalent; both flags are only read for truthiness, so explicit `false` and absent (`undefined`) produce identical behavior on every path.
 const defaults = {
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,

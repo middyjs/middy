@@ -79,6 +79,7 @@ export const executionModeStreamifyResponse = (
 // write+end; for larger strings we slice and respect backpressure via `drain`.
 const chunkSize = 16384; // 16 * 1024, matches Node.js default highWaterMark
 const writeString = async (stream, body) => {
+	// Stryker disable next-line EqualityOperator: at body.length === chunkSize both branches emit one identical full-body write then end(); behavior is indistinguishable.
 	if (body.length <= chunkSize) {
 		// Single-shot: write triggers HttpResponseStream's prelude+delimiter
 		// on first write, then our body, then end(). Always write (even empty)

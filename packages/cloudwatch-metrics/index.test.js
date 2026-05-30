@@ -238,6 +238,35 @@ test("cloudwatchMetrics throws when a dimension set exceeds 30 dimensions", asyn
 	}
 });
 
+test("cloudwatchMetrics accepts a dimension set with exactly 30 dimensions", async () => {
+	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
+	const dimensions = {};
+	for (let i = 0; i < 30; i += 1) {
+		dimensions[`d${i}`] = "v";
+	}
+	// Exactly 30 is the documented maximum and must not throw.
+	const middleware = cloudwatchMetricsMiddleware({ dimensions });
+	ok(middleware);
+});
+
+test("cloudwatchMetrics flush handler does not throw when context.metrics is unset", async () => {
+	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
+	let onFlushErrorCalled = false;
+	const middleware = cloudwatchMetricsMiddleware({
+		onFlushError: () => {
+			onFlushErrorCalled = true;
+		},
+	});
+	// Invoke the after handler directly with a request whose context has no
+	// metrics logger (e.g., onError firing before `before` ran). The optional
+	// chaining must guard against the missing logger so no error is thrown
+	// and onFlushError is never invoked (without the `?.`, accessing
+	// `.flush()` would throw a TypeError caught and routed to onFlushError).
+	await middleware.after({ context: {} });
+	await middleware.onError({ context: {} });
+	strictEqual(onFlushErrorCalled, false);
+});
+
 test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
 	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
 	try {
