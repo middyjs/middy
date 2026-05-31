@@ -33,5 +33,4 @@ export default {
 	reporters: ["progress", "clear-text"],
 	thresholds: { high: 100, low: 100, break: 100 },
 	tempDirName: pkg ? `/tmp/stryker/@middy/${pkg}` : "/tmp/stryker/@middy",
-	cleanTempDir: true,
 };
