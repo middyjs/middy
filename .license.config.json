@@ -1,5 +1,5 @@
 {
-	"license": "license.template",
+	"license": ".license.template",
 	"licenseFormats": {
 		"js|ts": {
 			"eachLine": {
@@ -17,7 +17,8 @@
 		".stryker-tmp/**/*",
 		"docs/**/*",
 		"LICENSE",
-		"license.template",
+		".license.template",
+		".license.config.json",
 		".gitleaks.toml",
 		"**/.gitignore",
 		"**/*.fuzz.js",
