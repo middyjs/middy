@@ -142,8 +142,15 @@ const httpRouteHandler = (opts = {}) => {
 				}
 				const match = path.match(route.path);
 				if (match) {
+					const params = match.groups;
+					// A bare `{proxy+}` parent (e.g. `/files` for `/files/{proxy+}`)
+					// leaves the greedy group unmatched (undefined); normalize it to ""
+					// so `proxy` is always a string, matching the documented behavior.
+					if ("proxy" in params && params.proxy === undefined) {
+						params.proxy = "";
+					}
 					event.pathParameters = {
-						...match.groups,
+						...params,
 						...event.pathParameters,
 					};
 					return route.handler(event, context, abort);
@@ -185,7 +192,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	routesType[method] ??= [];
 	const pathPartialRegExp = path
 		.replace(regExpEscapeChars, "\\$&")
-		.replace(regExpDynamicWildcards, "/?(?<$1>.*)")
+		.replace(regExpDynamicWildcards, "(?:/(?<$1>.*))?")
 		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp

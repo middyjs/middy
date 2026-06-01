@@ -230,6 +230,31 @@ test("It should route to a dynamic route (/path/to) with `{proxy+}`", async (t) 
 	ok(response);
 });
 
+test("It should not match a sibling segment against a parent `{proxy+}` route", async (t) => {
+	let proxyCalled = false;
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/path/{proxy+}",
+			handler: () => {
+				proxyCalled = true;
+				return true;
+			},
+		},
+	]);
+	// `/pathology` is a SIBLING of `/path`, not a child under `/path/`, so a
+	// greedy `{proxy+}` must not capture across the segment boundary (AWS routes
+	// `/path/{proxy+}` to `/path/bar`, never to `/pathology`).
+	const event = { httpMethod: "GET", path: "/pathology" };
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected 404: a sibling segment must not match {proxy+}");
+	} catch (e) {
+		strictEqual(e.statusCode, 404);
+	}
+	strictEqual(proxyCalled, false);
+});
+
 test("It should populate pathParameters to a dynamic route even if they already exist in the event", async (t) => {
 	const event = {
 		httpMethod: "GET",
