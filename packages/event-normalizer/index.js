@@ -36,7 +36,8 @@ const eventNormalizerMiddleware = (opts = {}) => {
 const parseEvent = (event, options) => {
 	// event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
 	// event.deliveryStreamArn => aws:lambda:events
-	let eventSource = event.eventSource ?? event.deliveryStreamArn;
+	let eventSource =
+		event.eventSource ?? (event.deliveryStreamArn && "aws:lambda:events");
 
 	// event.Records => default
 	// event.records => aws:lambda:events

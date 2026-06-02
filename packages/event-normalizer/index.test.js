@@ -478,7 +478,8 @@ test("It should parse Kinesis Firehose event data", async (t) => {
 	const data = { hello: "world" };
 	const event = {
 		invocationId: "invoked123",
-		deliveryStreamArn: "aws:lambda:events",
+		deliveryStreamArn:
+			"arn:aws:firehose:us-west-2:112556298976:deliverystream/my-stream",
 		region: "us-west-2",
 		records: [
 			{

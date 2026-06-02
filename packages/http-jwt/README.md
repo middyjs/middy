@@ -42,7 +42,9 @@ For documentation and examples, refer to the main [Middy monorepo on GitHub](htt
 
 ## Security
 
-The `algorithms` allowlist blocks only `none`; symmetric algorithms (such as HS256) remain permitted. Operators SHOULD restrict `algorithms` to their expected asymmetric set (for example `["RS256"]` or `["ES256"]`) to avoid algorithm-confusion attacks.
+The `algorithms` allowlist blocks `none`, and a string key (a symmetric secret) may only be paired with symmetric `HS*` algorithms: configuring a string key with any asymmetric algorithm is rejected, which closes the classic RS/HS algorithm-confusion attack. Asymmetric keys must be supplied as a `Uint8Array` (DER) or KMS key, which binds the algorithm family to the key type. Operators SHOULD still restrict `algorithms` to exactly the set they expect (for example `["RS256"]` or `["ES256"]`).
+
+By default `requireExp` is `false`, so a token without an `exp` claim is accepted (and never expires). Set `requireExp: true` (and/or `maxTokenAge`) to require expiry; this is strongly recommended in production so a leaked token cannot be replayed indefinitely.
 
 
 ## Contributing

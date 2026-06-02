@@ -112,6 +112,7 @@ const ssmMiddleware = (opts = {}) => {
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
+					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a bogus fetchKey whose indexOf is -1, so it only writes result[bogus]=Promise.reject and value[undefined]=undefined; neither is ever read back (only requested keys are resolved), so it is indistinguishable from the empty fallback.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
 						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
 						const value = getCache(options.cacheKey).value ?? {};

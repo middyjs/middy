@@ -463,6 +463,14 @@ const httpJwtMiddleware = (opts = {}) => {
 					publicKeyCache.set(keyData, key);
 				}
 			} else {
+				if (usableAlgs.some((a) => !a.startsWith("HS"))) {
+					throw createError(500, "Internal Server Error", {
+						cause: {
+							package: pkg,
+							data: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+						},
+					});
+				}
 				key = Buffer.from(keyData);
 			}
 			verifyOptions = { ...baseVerifyOptions, algorithms: usableAlgs };

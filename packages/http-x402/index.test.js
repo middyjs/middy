@@ -168,6 +168,61 @@ test("array decoded payment header returns 402 invalid_payment", async (t) => {
 	strictEqual(mockVerify.mock.callCount(), 0);
 });
 
+test("payment payload for a different network is rejected without calling the facilitator", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	// A payload for a different network must be rejected up front, not bound by
+	// trusting the facilitator.
+	const wrongNetwork = { ...testPayload, network: "eip155:1" };
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(wrongNetwork) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	strictEqual(JSON.parse(response.body).error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
+test("payment payload for a different scheme is rejected without calling the facilitator", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	// A payload whose scheme does not match (network unchanged) must be rejected
+	// up front by the scheme guard, not bound by trusting the facilitator.
+	const wrongScheme = { ...testPayload, scheme: "upto" };
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(wrongScheme) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	strictEqual(response.headers["Content-Type"], "application/json");
+	strictEqual(JSON.parse(response.body).error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
 test("verify failure returns 402 with invalidReason", async (t) => {
 	const { MockFacilitatorClient, mockVerify, mockSettle } = makeMockClient(
 		t,

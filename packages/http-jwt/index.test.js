@@ -193,6 +193,35 @@ test("It should verify with RS256 using internalKey", async (t) => {
 	strictEqual(result.jwt.sub, "user-2");
 });
 
+test("It should reject an HS256 token forged via algorithm confusion on a string key", async (t) => {
+	const { publicKey } = await generateKeyPairAsync("rsa", {
+		modulusLength: 2048,
+	});
+	const publicPem = publicKey
+		.export({ type: "spki", format: "pem" })
+		.toString();
+
+	// Attacker forges an HS256 token using the (public) key bytes as the HMAC
+	// secret. With a raw string key and a mixed RS256+HS256 allowlist this would
+	// otherwise verify (classic RS/HS algorithm confusion).
+	const forged = await new SignJWT({ sub: "attacker" })
+		.setProtectedHeader({ alg: "HS256" })
+		.sign(Buffer.from(publicPem));
+
+	const handler = middy(() => true)
+		.before((request) => {
+			request.internal.pubkey = publicPem;
+		})
+		.use(httpJwt({ internalKey: "pubkey", algorithm: ["RS256", "HS256"] }));
+
+	try {
+		await handler(makeEvent(`Bearer ${forged}`), { ...defaultContext });
+		ok(false, "alg-confusion: forged HS256 token was accepted");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+	}
+});
+
 test("It should throw 401 when Authorization header is missing", async (t) => {
 	const handler = middy(() => {}).use(
 		httpJwt({ secretKey: "secret", algorithm: "HS256" }),

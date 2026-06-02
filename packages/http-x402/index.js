@@ -112,6 +112,20 @@ const httpX402Middleware = (opts = {}) => {
 			return request.response;
 		}
 
+		if (
+			payload.scheme !== requirements.scheme ||
+			payload.network !== requirements.network
+		) {
+			normalizeHttpResponse(request);
+			request.response.statusCode = 402;
+			request.response.headers["Content-Type"] = "application/json";
+			request.response.body = JSON.stringify({
+				x402Version: 2,
+				error: "invalid_payment",
+			});
+			return request.response;
+		}
+
 		let verifyResult;
 		try {
 			verifyResult = await facilitator.verify(payload, fullRequirements);
@@ -259,6 +273,7 @@ const decodeHeader = (header) => {
 	const payload = JSON.parse(Buffer.from(header, "base64").toString());
 	if (
 		payload === null ||
+		// Stryker disable next-line ConditionalExpression: a non-null, non-array primitive that slips past this check has no matching scheme, so the scheme/network guard returns the same invalid_payment 402; forcing this operand false is therefore unobservable.
 		typeof payload !== "object" ||
 		Array.isArray(payload)
 	) {
