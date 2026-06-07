@@ -28,7 +28,6 @@ export default {
 		`!${base}/**/*.test.js`,
 		`!${base}/**/*.perf.js`,
 		`!${base}/**/*.fuzz.js`,
-		"!**/node_modules/**",
 	],
 	plugins: ["@stryker-mutator/*"],
 	reporters: ["progress", "clear-text"],

@@ -219,6 +219,16 @@ test("It should reject an HS256 token forged via algorithm confusion on a string
 		ok(false, "alg-confusion: forged HS256 token was accepted");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
+		strictEqual(e.message, "Internal Server Error");
+		strictEqual(e.cause.package, "@middy/http-jwt");
+		ok(
+			e.cause.data.includes(
+				"internalKey 'pubkey' is a string secret but 'algorithm' includes a non-symmetric value",
+			),
+		);
+		ok(
+			e.cause.data.includes("string keys may only be used with HS* algorithms"),
+		);
 	}
 });
 
