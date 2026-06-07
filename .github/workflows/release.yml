@@ -142,7 +142,7 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
             github.com:443
             api.github.com:443
-            *.blob.core.windows.net:443
+            tmaproduction.blob.core.windows.net:443
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
