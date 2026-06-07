@@ -81,7 +81,7 @@ const optionSchema = {
 		referrerPolicy: booleanOr(policyObject(referrerPolicyValues)),
 		// Reporting-Endpoints is an open-ended group->url map.
 		reportingEndpoints: booleanOr({ type: "object" }),
-		// Report-To groups are open-ended; maxAge/includeSubdomains are known.
+		// Report-To groups are open-ended; maxAge/includeSubDomains are known.
 		reportTo: booleanOr({ type: "object" }),
 		strictTransportSecurity: booleanOr({
 			type: "object",
@@ -150,6 +150,7 @@ const defaults = {
 	crossOriginResourcePolicy: {
 		policy: "same-origin",
 	},
+	// Stryker disable next-line ObjectLiteral: {allow:false} and {} both yield config.allow falsy -> "off"; observationally equivalent
 	dnsPrefetchControl: {
 		allow: false,
 	},
@@ -218,7 +219,7 @@ const defaults = {
 	reportingEndpoints: {},
 	reportTo: {
 		maxAge: 365 * 24 * 60 * 60,
-		includeSubdomains: true,
+		includeSubDomains: true,
 	},
 	strictTransportSecurity: {
 		maxAge: 180 * 24 * 60 * 60,
@@ -284,36 +285,58 @@ helmet.referrerPolicy = (headers, config) => {
 
 // DEPRECATED by reportingEndpoints
 helmet.reportTo = (headers, config) => {
-	const keys = Object.keys(config);
-	headers["Report-To"] = keys
+	// `maxAge` and `includeSubDomains` are settings, not endpoint groups. Accept
+	// both `includeSubDomains` (aligned with HSTS) and the legacy `includeSubdomains`
+	// casing so a user override is honored either way.
+	const settingKeys = new Set([
+		"maxAge",
+		"includeSubDomains",
+		"includeSubdomains",
+	]);
+	// Defaults only set `includeSubDomains`; a legacy `includeSubdomains` key can
+	// only come from a user override, so honor it when present.
+	const includeSubDomains = Object.hasOwn(config, "includeSubdomains")
+		? config.includeSubdomains
+		: config.includeSubDomains;
+	const header = Object.keys(config)
 		.map((group) => {
-			if (group === "includeSubdomains" || group === "maxAge") return "";
-			const includeSubdomains =
+			if (settingKeys.has(group)) return "";
+			const subdomains =
 				group === "default"
-					? `, "include_subdomains": ${config.includeSubdomains}`
+					? `, "include_subdomains": ${includeSubDomains}`
 					: "";
-			return config[group] && group !== "includeSubdomains"
-				? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${includeSubdomains} }`
+			return config[group]
+				? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${subdomains} }`
 				: "";
 		})
 		.filter((str) => str)
 		.join(", ");
+	// Don't emit an empty header when no endpoints are configured.
+	if (header) {
+		headers["Report-To"] = header;
+	}
 };
 
 helmet.reportingEndpoints = (headers, config) => {
-	const keys = Object.keys(config);
-	headers["Reporting-Endpoints"] = keys
+	const header = Object.keys(config)
 		.map((key) => `${key}="${config[key]}"`)
 		.join(", ");
+	// Don't emit an empty header when no endpoints are configured.
+	if (header) {
+		headers["Reporting-Endpoints"] = header;
+	}
 };
 
 // https://github.com/helmetjs/hsts
 helmet.strictTransportSecurity = (headers, config) => {
-	let header = `max-age=${Math.round(config.maxAge)}`;
+	const maxAge = Math.round(config.maxAge);
+	let header = `max-age=${maxAge}`;
 	if (config.includeSubDomains) {
 		header += "; includeSubDomains";
 	}
-	if (config.preload) {
+	// The HSTS preload list only accepts entries with max-age >= 31536000 (1 year).
+	// Emitting `preload` below that threshold produces an invalid token, so omit it.
+	if (config.preload && maxAge >= 31536000) {
 		header += "; preload";
 	}
 	headers["Strict-Transport-Security"] = header;
@@ -381,7 +404,9 @@ const httpSecurityHeadersMiddleware = (opts = {}) => {
 		if (options.poweredBy) {
 			// Guard `delete` to avoid V8 hidden-class transitions when the key
 			// was never set (the typical Lambda handler case).
+			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
 			if ("Server" in headers) delete headers.Server;
+			// Stryker disable next-line ConditionalExpression: `in` guard is a perf-only hidden-class optimization; forcing true still deletes a possibly-absent key with identical observable output
 			if ("X-Powered-By" in headers) delete headers["X-Powered-By"];
 		}
 	};

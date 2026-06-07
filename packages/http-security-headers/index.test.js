@@ -70,7 +70,7 @@ test("It should return default security headers", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -107,7 +107,7 @@ test("It should return default security headers when HTML", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -218,7 +218,7 @@ test("It should support array responses", async (t) => {
 	strictEqual(response.headers["Referrer-Policy"], "no-referrer");
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -274,7 +274,7 @@ test("It should apply security headers if error is handled", async (t) => {
 	strictEqual(response.headers.Server, undefined);
 	strictEqual(
 		response.headers["Strict-Transport-Security"],
-		"max-age=15552000; includeSubDomains; preload",
+		"max-age=15552000; includeSubDomains",
 	);
 	strictEqual(response.headers["X-Content-Type-Options"], "nosniff");
 	strictEqual(response.headers["X-DNS-Prefetch-Control"], "off");
@@ -378,6 +378,110 @@ test("It should handle reportTo with falsy group value", async (t) => {
 	);
 });
 
+test("It should not emit preload when maxAge is below one year", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpSecurityHeaders());
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=15552000; includeSubDomains",
+	);
+});
+
+test("It should emit preload when maxAge is at least one year", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			strictTransportSecurity: {
+				maxAge: 31536000,
+				preload: true,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=31536000; includeSubDomains; preload",
+	);
+});
+
+test("It should honor a Report-To includeSubDomains override", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				includeSubDomains: false,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": false }',
+	);
+});
+
+test("It should honor a Report-To legacy includeSubdomains override", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				includeSubdomains: false,
+			},
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": false }',
+	);
+});
+
+test("It should not emit empty Report-To or Reporting-Endpoints headers by default", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpSecurityHeaders());
+
+	const event = {
+		httpMethod: "GET",
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers["Report-To"], undefined);
+	strictEqual(response.headers["Reporting-Endpoints"], undefined);
+});
+
 test("httpSecurityHeadersValidateOptions accepts valid options and rejects typos", () => {
 	httpSecurityHeadersValidateOptions({
 		poweredBy: false,
@@ -429,4 +533,261 @@ test("httpSecurityHeadersValidateOptions rejects unknown nested property", () =>
 	} catch (e) {
 		ok(e instanceof TypeError);
 	}
+});
+
+const assertRejects = (options) => {
+	try {
+		httpSecurityHeadersValidateOptions(options);
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+};
+
+test("httpSecurityHeadersValidateOptions accepts a valid policy option value", () => {
+	httpSecurityHeadersValidateOptions({
+		crossOriginEmbedderPolicy: { policy: "require-corp" },
+		crossOriginOpenerPolicy: { policy: "same-origin" },
+		crossOriginResourcePolicy: { policy: "same-origin" },
+	});
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid contentSecurityPolicy object", () => {
+	httpSecurityHeadersValidateOptions({
+		contentSecurityPolicy: { "default-src": "'self'" },
+	});
+});
+
+test("httpSecurityHeadersValidateOptions accepts a boolean contentSecurityPolicyReportOnly", () => {
+	httpSecurityHeadersValidateOptions({ contentSecurityPolicyReportOnly: true });
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid dnsPrefetchControl object", () => {
+	httpSecurityHeadersValidateOptions({ dnsPrefetchControl: { allow: true } });
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid originAgentCluster object", () => {
+	httpSecurityHeadersValidateOptions({ originAgentCluster: {} });
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid permissionsPolicy object", () => {
+	httpSecurityHeadersValidateOptions({ permissionsPolicy: { camera: "" } });
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid reportingEndpoints object", () => {
+	httpSecurityHeadersValidateOptions({
+		reportingEndpoints: { csp: "https://example.com" },
+	});
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid reportTo object", () => {
+	httpSecurityHeadersValidateOptions({
+		reportTo: { default: "https://example.com" },
+	});
+});
+
+test("httpSecurityHeadersValidateOptions accepts a valid strictTransportSecurity object", () => {
+	httpSecurityHeadersValidateOptions({
+		strictTransportSecurity: {
+			maxAge: 100,
+			includeSubDomains: true,
+			preload: false,
+		},
+	});
+});
+
+test("httpSecurityHeadersValidateOptions rejects extra property on a policy option", () => {
+	assertRejects({ crossOriginOpenerPolicy: { policy: "same-origin", x: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-string policy value", () => {
+	assertRejects({ crossOriginOpenerPolicy: { policy: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects extra property on an action option", () => {
+	assertRejects({ contentTypeOptions: { action: "nosniff", x: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions accepts every referrerPolicy enum value", () => {
+	for (const policy of [
+		"no-referrer",
+		"no-referrer-when-downgrade",
+		"origin",
+		"origin-when-cross-origin",
+		"same-origin",
+		"strict-origin",
+		"strict-origin-when-cross-origin",
+		"unsafe-url",
+	]) {
+		httpSecurityHeadersValidateOptions({ referrerPolicy: { policy } });
+	}
+});
+
+test("httpSecurityHeadersValidateOptions accepts every permittedCrossDomainPolicies enum value", () => {
+	for (const policy of [
+		"none",
+		"master-only",
+		"by-content-type",
+		"by-ftp-filename",
+		"all",
+	]) {
+		httpSecurityHeadersValidateOptions({
+			permittedCrossDomainPolicies: { policy },
+		});
+	}
+});
+
+test("httpSecurityHeadersValidateOptions rejects unknown permittedCrossDomainPolicies value", () => {
+	assertRejects({ permittedCrossDomainPolicies: { policy: "bogus" } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-object contentSecurityPolicy", () => {
+	assertRejects({ contentSecurityPolicy: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-boolean contentSecurityPolicyReportOnly", () => {
+	assertRejects({ contentSecurityPolicyReportOnly: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects invalid dnsPrefetchControl shape", () => {
+	assertRejects({ dnsPrefetchControl: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-boolean dnsPrefetchControl.allow", () => {
+	assertRejects({ dnsPrefetchControl: { allow: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects extra property on dnsPrefetchControl", () => {
+	assertRejects({ dnsPrefetchControl: { allow: true, x: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects invalid originAgentCluster shape", () => {
+	assertRejects({ originAgentCluster: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects extra property on originAgentCluster", () => {
+	assertRejects({ originAgentCluster: { x: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-object permissionsPolicy", () => {
+	assertRejects({ permissionsPolicy: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-object reportingEndpoints", () => {
+	assertRejects({ reportingEndpoints: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-object reportTo", () => {
+	assertRejects({ reportTo: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects invalid strictTransportSecurity shape", () => {
+	assertRejects({ strictTransportSecurity: 1 });
+});
+
+test("httpSecurityHeadersValidateOptions rejects negative strictTransportSecurity.maxAge", () => {
+	assertRejects({ strictTransportSecurity: { maxAge: -1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-number strictTransportSecurity.maxAge", () => {
+	assertRejects({ strictTransportSecurity: { maxAge: "100" } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-boolean strictTransportSecurity.includeSubDomains", () => {
+	assertRejects({ strictTransportSecurity: { includeSubDomains: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects non-boolean strictTransportSecurity.preload", () => {
+	assertRejects({ strictTransportSecurity: { preload: 1 } });
+});
+
+test("httpSecurityHeadersValidateOptions rejects extra property on xssProtection", () => {
+	assertRejects({ xssProtection: { x: 1 } });
+});
+
+test("It should emit default preload when only maxAge is overridden above one year", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			strictTransportSecurity: {
+				maxAge: 31536000,
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Strict-Transport-Security"],
+		"max-age=31536000; includeSubDomains; preload",
+	);
+});
+
+test("It should not append sandbox or upgrade-insecure-requests when directives are disabled", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			contentSecurityPolicy: {
+				"default-src": "'self'",
+				sandbox: false,
+				"upgrade-insecure-requests": false,
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Content-Security-Policy"],
+		"default-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; report-to default; require-trusted-types-for 'script'",
+	);
+});
+
+test("It should honor legacy includeSubdomains key as a setting not an endpoint group", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				default: "https://default.example.com",
+				includeSubdomains: true,
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }',
+	);
+});
+
+test("It should not remove Server or X-Powered-By when poweredBy is false", async (t) => {
+	const handler = middy(() => createHeaderObjectResponse());
+
+	handler.use(httpSecurityHeaders({ poweredBy: false }));
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.headers.Server, "AMZN");
+	strictEqual(response.headers["X-Powered-By"], "MiddyJS");
+});
+
+test("It should remove Server and X-Powered-By when present and poweredBy enabled", async (t) => {
+	const handler = middy(() => createHeaderObjectResponse());
+
+	handler.use(httpSecurityHeaders({ poweredBy: true }));
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	ok(!("Server" in response.headers));
+	ok(!("X-Powered-By" in response.headers));
 });

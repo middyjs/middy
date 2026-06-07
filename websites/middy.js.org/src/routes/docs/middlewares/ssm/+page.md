@@ -30,9 +30,11 @@ npm install --save-dev @aws-sdk/client-ssm
 - `awsClientCapture` (function) (optional): Enable AWS X-Ray by passing `captureAWSv3Client` from `aws-xray-sdk` in.
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `Names`/`Path`. `SecureString` are automatically decrypted.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
-- `cacheKey` (string) (default `ssm`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKey` (string) (default `@middy/ssm`): Cache key for the fetched data responses. Must be unique across all middleware.
+- `cacheKeyExpiry` (object) (default `{}`): Per-internal-key cache expiry overrides, keyed by internal key name with a millisecond value (`-1`: cache forever, `0`: never cache, `n`: cache for n ms).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store role tokens to `request.context`.
+- `setToContext` (boolean) (default `false`): Store the fetched parameters to `request.context`.
+- `awsRequestLimit` (integer) (default `10`): Maximum number of parameters fetched by name in a single `GetParameters` request (1-10).
 
 NOTES:
 

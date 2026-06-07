@@ -1,6 +1,6 @@
 {
 	"name": "@middy/secrets-manager-extension",
-	"version": "7.6.5",
+	"version": "7.6.6",
 	"description": "Secrets Manager Lambda Extension middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -29,8 +29,9 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test index.test.js",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:benchmark": "node index.perf.js",
-		"test:types": "tstyche"
+		"test:perf": "node --test index.perf.js",
+		"test:types": "tstyche",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -63,10 +64,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.5"
+		"@middy/util": "7.6.6"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.5",
+		"@middy/core": "7.6.6",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}

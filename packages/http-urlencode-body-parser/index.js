@@ -7,6 +7,7 @@ const name = "http-urlencode-body-parser";
 const pkg = `@middy/${name}`;
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
+// Stryker disable next-line ObjectLiteral: `{}` is equivalent; both flags are only read for truthiness, so explicit `false` and absent (`undefined`) produce identical behavior on every path.
 const defaults = {
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
@@ -45,20 +46,13 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 		}
 
 		// `querystring.parse` returns a null-prototype object and represents
-		// duplicates as arrays — matches the previous URLSearchParams loop's
-		// semantics in one native call.
-		const parsedBody = parseQuery(decodeBody(body, isBase64Encoded));
-
-		// Check if it didn't parse
-		if (parsedBody?.[body] === "") {
-			throw createError(
-				422,
-				"Invalid or malformed URL encoded form was provided",
-				{ cause: { package: pkg, data: body } },
-			);
-		}
-
-		event.body = parsedBody;
+		// duplicates as arrays, matching the previous URLSearchParams loop's
+		// semantics in one native call. It is total (never throws) and the
+		// Content-Type check above is the real gate, so there is no reliable
+		// "malformed" signal to detect here. The previous heuristic both
+		// rejected valid single-field forms and admitted non-form input, and
+		// echoed the raw body into the error, so it has been removed.
+		event.body = parseQuery(decodeBody(body, isBase64Encoded));
 	};
 
 	return {

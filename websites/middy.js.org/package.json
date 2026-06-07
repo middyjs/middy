@@ -2,7 +2,7 @@
 	"name": "middy.js.org",
 	"description": "SvelteKit SSR",
 	"private": true,
-	"version": "7.6.5",
+	"version": "7.6.6",
 	"type": "module",
 	"scripts": {
 		"prestart": "node src/scripts/build-docs-mtimes.mjs",

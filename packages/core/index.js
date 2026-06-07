@@ -84,7 +84,9 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 			context,
 			response: undefined,
 			error: undefined,
-			internal: plugin.internal ?? Object.create(null),
+			internal: plugin.internal
+				? Object.assign(Object.create(null), plugin.internal)
+				: Object.create(null),
 		};
 	};
 
@@ -137,9 +139,6 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	return middy;
 };
 
-// shared AbortController, because it's slow
-let handlerAbort = new AbortController();
-let abortOpts = { signal: handlerAbort.signal };
 const runRequest = async (
 	request,
 	beforeMiddlewares,
@@ -162,16 +161,14 @@ const runRequest = async (
 		if (!("earlyResponse" in request)) {
 			plugin.beforeHandler();
 
-			// Can't manually abort and timeout with same AbortSignal
-			// https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
-			if (handlerAbort.signal.aborted) {
-				handlerAbort = new AbortController();
-				abortOpts = { signal: handlerAbort.signal };
-			}
+			// Per-request AbortController: scoping it here keeps nested middy
+			// calls and concurrent invocations (workers/non-Lambda hosts) from
+			// aborting each other's signals.
+			const handlerAbort = new AbortController();
+			const abortOpts = { signal: handlerAbort.signal };
 
-			// clearTimeout pattern is 10x faster than using AbortController
-			// Note: signal.abort is slow ~6_000ns
-			// Required --test-force-exit to ignore unresolved timeoutPromise
+			// clearTimeout pattern is ~24x faster than timers/promises + AbortController
+			// Note: signal.abort is slow ~3_500ns
 			const handlerResult = lambdaHandler(
 				request.event,
 				request.context,
@@ -189,15 +186,19 @@ const runRequest = async (
 						}
 					};
 				});
+				// Clamp to >= 0: when remaining Lambda time is below
+				// timeoutEarlyInMillis the raw delay is negative, which would emit
+				// a TimeoutNegativeWarning. A 0ms delay fires on the next tick.
 				timeoutID = setTimeout(
 					timeoutResolve,
-					getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis,
+					Math.max(0, getRemainingTimeInMillis() - plugin.timeoutEarlyInMillis),
 				);
 				request.response = await Promise.race([handlerResult, timeoutPromise]);
 			} else {
 				request.response = await handlerResult;
 			}
 
+			// Stryker disable next-line ConditionalExpression: forcing this to `true` is equivalent - when no early timeout was scheduled timeoutID is undefined and clearTimeout(undefined) is a spec no-op, so the guard has no observable effect.
 			if (timeoutID) {
 				clearTimeout(timeoutID);
 			}
@@ -207,6 +208,7 @@ const runRequest = async (
 		}
 	} catch (err) {
 		// timeout should be aborted when errors happen in handler
+		// Stryker disable next-line ConditionalExpression: forcing this to `true` is equivalent - clearTimeout(undefined) is a spec no-op when no timer was scheduled, so the guard cannot be observed. (The BlockStatement/false variants remain active and are covered by the "clear the scheduled early timeout when the handler throws" test.)
 		if (timeoutID) {
 			clearTimeout(timeoutID);
 		}
@@ -217,9 +219,14 @@ const runRequest = async (
 		try {
 			await runMiddlewares(request, onErrorMiddlewares, plugin);
 		} catch (err) {
-			// Save error that wasn't handled
-			err.originalError = request.error; // TODO remove in v8, use cause
-			err.cause ??= request.error;
+			// Save error that wasn't handled. When an onError middleware rethrows
+			// `request.error`, err === request.error; attaching it to itself would
+			// create self-references that loop cause-walking serializers, so only
+			// attach when the thrown error is distinct.
+			if (err !== request.error) {
+				err.originalError = request.error; // TODO remove in v8, use cause
+				err.cause ??= request.error;
+			}
 			request.error = err;
 
 			throw request.error;

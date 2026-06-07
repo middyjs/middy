@@ -22,6 +22,7 @@ const httpUrlencodePathParserMiddlewareBefore = (request) => {
 		// Fast-path: most API Gateway path params are plain ASCII (UUIDs,
 		// numeric IDs, slugs). Skip the native decodeURIComponent + property
 		// write entirely when there's no `%` to decode.
+		// Stryker disable next-line ConditionalExpression,StringLiteral: the no-'%' branch is a perf-only fast-path; decodeURIComponent leaves any string without '%' unchanged and never throws, so skipping vs decoding it is behaviorally indistinguishable in the output.
 		if (typeof value !== "string" || value.indexOf("%") === -1) continue;
 		try {
 			params[key] = decodeURIComponent(value);

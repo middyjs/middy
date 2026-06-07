@@ -116,31 +116,24 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	}
 });
 
-test("It should not process the body if malformed body is passed", async (t) => {
-	const handler = middy((event, context) => {
+test("It should leniently parse a single-field body (querystring.parse is total)", async (t) => {
+	const handler = middy((event) => {
 		return event.body; // propagates the body as a response
 	});
 
 	handler.use(urlEncodeBodyParser());
 
-	// invokes the handler
+	// `search` is a valid x-www-form-urlencoded field with an empty value. The
+	// removed heuristic wrongly rejected this as malformed with a 422.
 	const event = {
-		body: JSON.stringify({ foo: "bar" }),
+		body: "search",
 		headers: {
 			"Content-Type": "application/x-www-form-urlencoded",
 		},
 	};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/http-urlencode-body-parser");
-		strictEqual(e.statusCode, 422);
-		strictEqual(
-			e.message,
-			"Invalid or malformed URL encoded form was provided",
-		);
-	}
+	const body = await handler(event, defaultContext);
+	strictEqual(body.search, "");
 });
 
 // Security: Prototype pollution via __proto__ key
@@ -278,6 +271,147 @@ test("It should handle base64 body", async (t) => {
 	const body = await handler(event, defaultContext);
 
 	deepStrictEqual(body, Object.assign(Object.create(null), { a: "a", b: "b" }));
+});
+
+test("It should reject a content-type with trailing junk after the type", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded-extra",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should reject a content-type with a leading prefix before the type", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "text/application/x-www-form-urlencoded",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should check content-type and throw 415 by default with no options", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
+});
+
+test("It should parse when content-type is provided via lowercase content-type key", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		headers: {
+			"content-type": "application/x-www-form-urlencoded",
+		},
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	strictEqual(body.a, "1");
+});
+
+test("It should not throw when event has no headers object and check is disabled", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeCheck: true }));
+
+	const event = {
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	strictEqual(body.a, "1");
+});
+
+test("It should throw 415 when event has no headers object and check is enabled", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser());
+
+	const event = {
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+			strictEqual(e.cause.data, undefined);
+		},
+	);
+});
+
+test("It should silently return on bad content-type when disableContentTypeError is true", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeError: true }));
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	const body = await handler(event, defaultContext);
+	// Body is left untouched (not parsed) because the gate returned early.
+	strictEqual(body, "a=1");
+});
+
+test("It should throw 415 on bad content-type when disableContentTypeError is false", async (t) => {
+	const handler = middy((event) => event.body);
+	handler.use(urlEncodeBodyParser({ disableContentTypeError: false }));
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: "a=1",
+	};
+
+	await handler(event, defaultContext).then(
+		() => ok(false, "expected 415 to be thrown"),
+		(e) => {
+			strictEqual(e.statusCode, 415);
+			strictEqual(e.message, "Unsupported Media Type");
+		},
+	);
 });
 
 test("httpUrlencodeBodyParserValidateOptions accepts valid options and rejects typos", () => {

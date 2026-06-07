@@ -128,6 +128,9 @@ class DurableContextImpl {
 		stepCtx.parentStepId = id;
 		return fn(stepCtx);
 	}
+	async runInChildContext(_id, fn) {
+		return fn(Object.create(this));
+	}
 }
 
 test("durable context: each record runs in its own ctx.step keyed by index", async () => {
@@ -142,6 +145,26 @@ test("durable context: each record runs in its own ctx.step keyed by index", asy
 		{ status: "fulfilled", value: 6 },
 	]);
 	deepStrictEqual(ctx.stepCalls, ["record-0", "record-1", "record-2"]);
+});
+
+test("durable context: a synchronous throw from context.step is settled then propagated", async () => {
+	const ctx = new DurableContextImpl();
+	const error = new Error("step-sync-throw");
+	// context.step itself throwing synchronously (not the record handler) must be
+	// caught and settled as a rejection (so every record's step is still
+	// attempted) rather than escaping Promise.allSettled as a raw sync throw.
+	ctx.step = () => {
+		throw error;
+	};
+	const handler = eventBatchHandler(async (record) => record.id);
+
+	let caught;
+	try {
+		await handler(sqsEvent({ id: 1 }, { id: 2 }), ctx);
+	} catch (e) {
+		caught = e;
+	}
+	strictEqual(caught, error);
 });
 
 test("durable context: per-record throws propagate (rethrown after Promise.allSettled)", async () => {

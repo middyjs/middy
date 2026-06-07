@@ -59,13 +59,24 @@ typings/
 .env
 
 .tern-port
-.DS_Store
 
 # SAST
 .scannerwork
+
+# Mutation testing
+.stryker-tmp/
 
 # IDE
 *.iml
 .idea/
 .vscode/
 .nova/
+
+# Agents
+## /grpahify && /graphify hook install
+.husky/post-checkout
+.husky/post-commit
+graphify-out
+
+# OS
+.DS_Store

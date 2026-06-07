@@ -4,8 +4,16 @@ description: "Parse JSON HTTP request bodies automatically and handle malformed 
 ---
 
 This middleware automatically parses HTTP requests with a JSON body and converts the body into an
-object. Also handles gracefully broken JSON as _Unsupported Media Type_ (415 errors)
+object. Broken or malformed JSON is handled gracefully as an _Unprocessable Entity_ (422 error),
+while a non-JSON `Content-Type` is reported as _Unsupported Media Type_ (415 error),
 if used in combination with `httpErrorHandler`.
+
+For safety, a body carrying a prototype-pollution payload at any depth is rejected as an
+_Unprocessable Entity_ (422 error) rather than parsed, so a malicious payload cannot mutate a
+prototype in a downstream consumer. Detection follows the exploit structure: an own `__proto__` key,
+or a `constructor` key whose value contains a `prototype` member. Every other shape is preserved as
+legitimate data, including a standalone `prototype` key or a `constructor` value that does not itself
+contain a `prototype`.
 
 It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
@@ -49,7 +57,7 @@ const event = {
   body: JSON.stringify({ foo: 'bar' })
 }
 handler(event, {}, (_, body) => {
-  strictEqual(body, { foo: 'bar' })
+  deepStrictEqual(body, { foo: 'bar' })
 })
 ```
 
@@ -57,7 +65,7 @@ handler(event, {}, (_, body) => {
 
 - [`@middy/http-header-normalizer`](/docs/middlewares/http-header-normalizer) - register **before** this middleware so the Content-Type check sees lowercase keys.
 - [`@middy/validator`](/docs/middlewares/validator) - register **after** so it can validate the parsed object.
-- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - maps the thrown 415 / 400 errors to a clean HTTP response.
+- [`@middy/http-error-handler`](/docs/middlewares/http-error-handler) - maps the thrown 415 / 422 errors to a clean HTTP response.
 
 ## See also
 

@@ -23,6 +23,8 @@ import {
 const name = "appconfig";
 const pkg = `@middy/${name}`;
 
+const decoder = new TextDecoder();
+
 const defaults = {
 	AwsClient: AppConfigDataClient,
 	awsClientOptions: {},
@@ -101,7 +103,7 @@ const appConfigMiddleware = (opts = {}) => {
 					return configurationCache[internalKey];
 				}
 
-				let value = new TextDecoder().decode(configResp.Configuration);
+				let value = decoder.decode(configResp.Configuration);
 				if (jsonContentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}
@@ -166,6 +168,9 @@ const appConfigMiddleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: `pending` is either a
+			// Promise (cold path) or undefined (warm path); forcing the guard true
+			// only adds `await undefined`, which is observationally identical.
 			if (pending) await pending;
 		}
 	};

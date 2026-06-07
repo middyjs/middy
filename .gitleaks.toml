@@ -1,15 +1,15 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "Global path allowlist"
+[allowlist]
+description = "Global allowlist: paths + historical false-positive commits (AWS-published example creds, Kinesis sequence numbers, revoked CircleCI badge token)"
 paths = [
     '''.*\.svelte-kit/.*''',
-    '''.*\.test\.js$''',
+    # Stryker mutation-testing sandbox copies (transient, not committed)
+    '''.*\.stryker-tmp/.*''',
+    # AWS-published example creds + Kinesis sequence numbers in event fixtures
+    '''^packages/event-normalizer/index\.test\.js$''',
 ]
-
-[[allowlists]]
-description = "Historical false positives in removed files / old READMEs (AWS example creds, Kinesis sequence numbers, revoked CircleCI badge token)"
 commits = [
     # Old README CircleCI badge token (revoked)
     "a726ecf8ab13000026f84b46912986db569d85d4",

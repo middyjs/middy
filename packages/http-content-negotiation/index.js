@@ -122,24 +122,28 @@ const httpContentNegotiationMiddleware = (opts = {}) => {
 // invocation. Hoisting them to module scope removes per-call string ops.
 const headerDescriptors = {
 	Charset: {
+		// Stryker disable next-line StringLiteral: `header` is unused; header lookup goes through the headerName argument and `lower`.
 		header: "Accept-Charset",
 		lower: "accept-charset",
 		resultsName: "preferredCharsets",
 		resultName: "preferredCharset",
 	},
 	Encoding: {
+		// Stryker disable next-line StringLiteral: `header` is unused; header lookup goes through the headerName argument and `lower`.
 		header: "Accept-Encoding",
 		lower: "accept-encoding",
 		resultsName: "preferredEncodings",
 		resultName: "preferredEncoding",
 	},
 	Language: {
+		// Stryker disable next-line StringLiteral: `header` is unused; header lookup goes through the headerName argument and `lower`.
 		header: "Accept-Language",
 		lower: "accept-language",
 		resultsName: "preferredLanguages",
 		resultName: "preferredLanguage",
 	},
 	MediaType: {
+		// Stryker disable next-line StringLiteral: `header` is unused; header lookup goes through the headerName argument and `lower`.
 		header: "Accept",
 		lower: "accept",
 		resultsName: "preferredMediaTypes",
@@ -164,6 +168,9 @@ const parseHeader = (
 	context[desc.resultName] = results[0];
 
 	if (typeof context[desc.resultName] === "undefined") {
+		if (!Array.isArray(availableValues) || availableValues.length === 0) {
+			return;
+		}
 		if (defaultToFirstValue) {
 			context[desc.resultName] = availableValues[0];
 		} else if (failOnMismatch) {

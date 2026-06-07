@@ -6,6 +6,13 @@ description: "Parse WebSocket request bodies as JSON automatically in API Gatewa
 This middleware automatically parses WebSocket requests with a JSON body and converts the body into an
 object.
 
+For safety, a body carrying a prototype-pollution payload at any depth is rejected as an
+_Unprocessable Entity_ (422 error) rather than parsed, so a malicious payload cannot mutate a
+prototype in a downstream consumer. Detection follows the exploit structure: an own `__proto__` key,
+or a `constructor` key whose value contains a `prototype` member. Every other shape is preserved as
+legitimate data, including a standalone `prototype` key or a `constructor` value that does not itself
+contain a `prototype`.
+
 It can also be used in combination with validator as a prior step to normalize the
 event body input as an object so that the content can be validated.
 

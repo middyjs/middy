@@ -1,8 +1,7 @@
 import { equal, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { setTimeout } from "node:timers/promises";
+import { clearCache, getInternal, modifyCache } from "@middy/util";
 import middy from "../core/index.js";
-import { clearCache, getInternal, modifyCache } from "../util/index.js";
 import secretsManagerExtension, {
 	secretsManagerExtensionParam,
 	secretsManagerExtensionValidateOptions,
@@ -12,8 +11,12 @@ const mockFetchCache = {};
 const mockFetch = (url, response, status = 200) => {
 	mockFetchCache[url] = { body: JSON.stringify(response), status };
 };
-global.fetch = (url) => {
+let lastFetchOptions;
+const fetchUrls = [];
+global.fetch = (url, options) => {
 	fetchCount += 1;
+	lastFetchOptions = options;
+	fetchUrls.push(url);
 	const cached = mockFetchCache[url];
 	const status = cached?.status ?? 404;
 	return Promise.resolve(
@@ -43,6 +46,8 @@ mockFetch(`${baseUrl}rds_login`, {
 
 test.beforeEach((_t) => {
 	fetchCount = 0;
+	lastFetchOptions = undefined;
+	fetchUrls.length = 0;
 	event = {};
 	context = { getRemainingTimeInMillis: () => 1000 };
 });
@@ -134,6 +139,7 @@ test("It should not call extension again if secret is cached forever", async (_t
 		.use(
 			secretsManagerExtension({
 				cacheExpiry: -1,
+				cacheKey: "sm-ext-forever",
 				fetchData: { token: "api_key" },
 			}),
 		)
@@ -148,12 +154,15 @@ test("It should not call extension again if secret is cached forever", async (_t
 	equal(fetchCount, 1);
 });
 
-test("It should not call extension again if secret is cached within TTL", async (_t) => {
+test("It should not call extension again if secret is cached within TTL", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 	const handler = middy(() => {})
 		.use(
 			secretsManagerExtension({
 				cacheExpiry: 1000,
+				cacheKey: "sm-ext-ttl",
 				fetchData: { token: "api_key" },
+				disablePrefetch: true,
 			}),
 		)
 		.before(async (request) => {
@@ -162,6 +171,7 @@ test("It should not call extension again if secret is cached within TTL", async 
 		});
 
 	await handler(event, context);
+	t.mock.timers.tick(500);
 	await handler(event, context);
 
 	equal(fetchCount, 1);
@@ -187,11 +197,13 @@ test("It should call extension every invocation if cache disabled", async (_t) =
 	equal(fetchCount, 2);
 });
 
-test("It should call extension again after cache expires", async (_t) => {
+test("It should call extension again after cache expires", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 	const handler = middy(() => {})
 		.use(
 			secretsManagerExtension({
 				cacheExpiry: 50,
+				cacheKey: "sm-ext-expires",
 				fetchData: { token: "api_key" },
 				disablePrefetch: true,
 			}),
@@ -201,7 +213,7 @@ test("It should call extension again after cache expires", async (_t) => {
 		});
 
 	await handler(event, context);
-	await setTimeout(60);
+	t.mock.timers.tick(60);
 	await handler(event, context);
 	clearCache();
 
@@ -287,29 +299,31 @@ test("It should skip already-cached keys when cache is modified", async (_t) => 
 	equal(fetchCount, 1);
 });
 
-test("It should update cache to undefined on error when prior cache values exist", async (_t) => {
-	const smUrl = `${baseUrl}api_key`;
-	const handler = middy(() => {}).use(
-		secretsManagerExtension({
-			cacheExpiry: 50,
-			fetchData: { token: "api_key" },
-			disablePrefetch: true,
-		}),
-	);
-	await handler(event, context);
-
-	await setTimeout(60);
-
-	const savedMock = mockFetchCache[smUrl];
-	mockFetchCache[smUrl] = { body: null, status: 500 };
+test("It should propagate the original fetch error (catch rethrows, not swallows)", async (_t) => {
+	// cacheExpiry:0 means no cache entry exists, so the in-middleware catch runs
+	// `getCache(cacheKey).value ?? {}` against an undefined value. The `?? {}`
+	// fallback keeps `value[internalKey] = undefined` from throwing a TypeError,
+	// and the trailing `throw e` re-surfaces the original package error. Asserting
+	// the caller receives that exact error kills both the catch-block-removal and
+	// the `?? {}`->`&& {}` mutants (the latter would instead throw a TypeError).
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "missing_secret" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
 	try {
 		await handler(event, context);
 		ok(false, "should have thrown");
-	} catch (_e) {
-		equal(fetchCount, 2);
-	} finally {
-		clearCache();
-		mockFetchCache[smUrl] = savedMock;
+	} catch (e) {
+		const original = e.cause.data[0];
+		equal(original.message, "@middy/secrets-manager-extension 404 Not Found");
+		strictEqual(original.cause.package, "@middy/secrets-manager-extension");
 	}
 });
 
@@ -359,6 +373,179 @@ test("It should fetch secret with slash-containing ID", async (_t) => {
 			equal(values.token, "slash-token");
 		});
 	await handler(event, context);
+});
+
+test("It should send the secrets extension auth token header", async (_t) => {
+	process.env.AWS_SESSION_TOKEN = "session-token-123";
+	try {
+		const handler = middy(() => {}).use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		);
+		await handler(event, context);
+		ok(lastFetchOptions);
+		equal(
+			lastFetchOptions.headers["X-Aws-Parameters-Secrets-Token"],
+			"session-token-123",
+		);
+	} finally {
+		delete process.env.AWS_SESSION_TOKEN;
+	}
+});
+
+test("It should skip cached keys when re-running fetch against a modified cache", async (t) => {
+	// Drives the modified-cache branch entirely through the middleware's own
+	// behaviour (no test-side cache writes, which target a different module
+	// instance under Stryker's sandbox). A transient error makes the middleware's
+	// catch call modifyCache (marking the entry modified with `good` still
+	// resolved and `flaky` undefined). The next invocation then re-runs
+	// fetchRequest with that cached value: `good` must be skipped (cachedValues
+	// truthy) and only `flaky` re-fetched.
+	// Fake timers (with NO tick) keep the entry unexpired and stop the auto-refresh
+	// timer from firing, so the only path into the second invocation is the
+	// modified-cache branch created by the middleware's own catch.
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	const goodUrl = `${baseUrl}skip_good`;
+	const flakyUrl = `${baseUrl}skip_flaky`;
+	mockFetch(goodUrl, { SecretString: "good-value" });
+	mockFetchCache[flakyUrl] = { body: null, status: 500 };
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 100,
+				cacheKey: "sm-ext-skip-cached",
+				fetchData: { good: "skip_good", flaky: "skip_flaky" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+
+	// Call 1: `good` succeeds and is cached; `flaky` fails, so the middleware's
+	// catch calls modifyCache, marking the entry modified with `good` resolved and
+	// `flaky` undefined.
+	try {
+		await handler(event, context);
+		ok(false, "should have thrown");
+	} catch (_e) {
+		// expected
+	}
+	equal(fetchCount, 2);
+
+	// Restore `flaky` and re-invoke (no tick: entry still unexpired + modified).
+	mockFetch(flakyUrl, { SecretString: "flaky-value" });
+	fetchUrls.length = 0;
+	await handler(event, context);
+	// `good` was already resolved in the modified cache, so it is skipped; only
+	// `flaky` is re-fetched.
+	equal(fetchUrls.includes(goodUrl), false);
+	equal(fetchUrls.includes(flakyUrl), true);
+});
+
+test("It should prefetch by default when prefetch is not disabled", async (_t) => {
+	// disablePrefetch defaults to false, so the factory call itself fetches.
+	secretsManagerExtension({
+		cacheExpiry: -1,
+		cacheKey: "sm-ext-prefetch",
+		fetchData: { token: "api_key" },
+	});
+	equal(fetchCount, 1);
+	equal(fetchUrls.includes(`${baseUrl}api_key`), true);
+});
+
+test("It should not prefetch when prefetch is disabled", async (_t) => {
+	secretsManagerExtension({
+		cacheExpiry: -1,
+		cacheKey: "sm-ext-no-prefetch",
+		fetchData: { token: "api_key" },
+		disablePrefetch: true,
+	});
+	equal(fetchCount, 0);
+});
+
+test("It should not set values to context when setToContext defaults to false", async (_t) => {
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			equal(request.context.token, undefined);
+			ok(!Object.hasOwn(request.context, "token"));
+		});
+	await handler(event, context);
+});
+
+test("It should cache forever by default (cacheExpiry default -1)", async (t) => {
+	// No cacheExpiry passed: default is -1 (infinite). A positive default (e.g. the
+	// `+1` mutant) is treated as a 1ms duration, so after ticking the clock well
+	// past it the second invocation would re-fetch. Ticking proves the default is
+	// infinite, not a tiny positive duration.
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheKey: "sm-ext-default-expiry",
+				fetchData: { token: "api_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			equal(values.token, "token");
+		});
+	await handler(event, context);
+	t.mock.timers.tick(60000);
+	await handler(event, context);
+	equal(fetchCount, 1);
+});
+
+test("secretsManagerExtensionValidateOptions accepts cacheKeyExpiry with numeric -1", () => {
+	secretsManagerExtensionValidateOptions({
+		cacheKeyExpiry: { "custom-key": -1 },
+	});
+});
+
+test("secretsManagerExtensionValidateOptions rejects cacheKeyExpiry below -1", () => {
+	try {
+		secretsManagerExtensionValidateOptions({
+			cacheKeyExpiry: { "custom-key": -2 },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
+
+test("secretsManagerExtensionValidateOptions rejects non-number cacheKeyExpiry value", () => {
+	try {
+		secretsManagerExtensionValidateOptions({
+			cacheKeyExpiry: { "custom-key": "soon" },
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
+});
+
+test("secretsManagerExtensionValidateOptions accepts cacheExpiry of -1", () => {
+	secretsManagerExtensionValidateOptions({ cacheExpiry: -1 });
+});
+
+test("secretsManagerExtensionValidateOptions rejects cacheExpiry below -1", () => {
+	try {
+		secretsManagerExtensionValidateOptions({ cacheExpiry: -2 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+	}
 });
 
 test("secretsManagerExtensionParam returns the secret ID", () => {

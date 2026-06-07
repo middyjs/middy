@@ -1,6 +1,6 @@
 {
 	"name": "@middy/dsql",
-	"version": "7.6.5",
+	"version": "7.6.6",
 	"description": "Aurora DSQL connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -53,7 +53,8 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js"
+		"test:perf": "node --test index.perf.js",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -98,10 +99,10 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.6.5"
+		"@middy/util": "7.6.6"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.5",
+		"@middy/core": "7.6.6",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"pg": "^8.0.0",

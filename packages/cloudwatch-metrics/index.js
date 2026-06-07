@@ -7,6 +7,7 @@ import awsEmbeddedMetrics from "aws-embedded-metrics";
 const name = "cloudwatch-metrics";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: value is already undefined, so dropping the key is observably identical after spread + destructuring
 const defaults = {
 	onFlushError: undefined,
 };
@@ -37,6 +38,18 @@ export const cloudwatchMetricsValidateOptions = (options) =>
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
 	const { namespace, dimensions, onFlushError } = { ...defaults, ...opts };
+
+	if (dimensions) {
+		const dimensionSets = Array.isArray(dimensions) ? dimensions : [dimensions];
+		for (const set of dimensionSets) {
+			if (Object.keys(set).length > 30) {
+				throw new Error(
+					`${pkg} a dimension set may contain at most 30 dimensions`,
+					{ cause: { package: pkg } },
+				);
+			}
+		}
+	}
 	const cloudwatchMetricsBefore = async (request) => {
 		const metrics = awsEmbeddedMetrics.createMetricsLogger();
 

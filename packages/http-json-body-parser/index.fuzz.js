@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
@@ -56,14 +56,37 @@ test("fuzz `event` w/ `record`", async () => {
 });
 
 test("fuzz roundtrip: valid JSON body is parsed correctly", async () => {
+	// The parser rejects prototype-pollution payloads (an own `__proto__` key,
+	// or a `constructor` whose value carries a `prototype` member) at any depth
+	// with a 422, so the expected outcome is either a clean roundtrip or a 422.
+	const isPollution = (jsonStr) => {
+		let found = false;
+		JSON.parse(jsonStr, (key, value) => {
+			if (
+				key === "__proto__" ||
+				(key === "constructor" && value && Object.hasOwn(value, "prototype"))
+			) {
+				found = true;
+			}
+			return value;
+		});
+		return found;
+	};
 	await fc.assert(
 		fc.asyncProperty(fc.json(), async (jsonStr) => {
 			const event = {
 				headers: { "content-type": "application/json" },
 				body: jsonStr,
 			};
-			const result = await handler(event, defaultContext);
-			deepStrictEqual(result.body, JSON.parse(jsonStr));
+			if (isPollution(jsonStr)) {
+				await rejects(handler(event, defaultContext), (e) => {
+					strictEqual(e.statusCode, 422);
+					return true;
+				});
+			} else {
+				const result = await handler(event, defaultContext);
+				deepStrictEqual(result.body, JSON.parse(jsonStr));
+			}
 		}),
 		{
 			numRuns: 10_000,

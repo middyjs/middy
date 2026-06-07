@@ -10,10 +10,13 @@ export interface RecordFraming {
 	schemaVersionId?: string;
 }
 export type RecordParser = (
-	buffer: Uint8Array,
+	// Binary sources (Kafka/Kinesis/Firehose/MQ) deliver decoded bytes; text
+	// sources (SQS) deliver the value already decoded as a string.
+	payload: Uint8Array | string,
 	record: Record<string, unknown>,
 	request: Request,
-	framing: RecordFraming,
+	// Glue framing is only present on binary sources; undefined for text sources.
+	framing?: RecordFraming,
 ) => unknown | Promise<unknown>;
 
 export interface EventBatchParserOptions {

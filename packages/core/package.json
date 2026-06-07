@@ -1,6 +1,6 @@
 {
 	"name": "@middy/core",
-	"version": "7.6.5",
+	"version": "7.6.6",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
@@ -69,10 +69,11 @@
 	],
 	"scripts": {
 		"test": "npm run test:unit && npm run test:fuzz",
-		"test:unit": "node --test --test-force-exit",
+		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
 		"test:perf": "node --test index.perf.js",
-		"test:profile": "node --prof __benchmarks__/index.js && node --prof-process --preprocess -j isolate*.log | speedscope -"
+		"test:profile": "node --prof index.perf.js && node --prof-process --preprocess -j isolate*.log | speedscope -",
+		"test:mutation": "cd ../.. && MUTATE_PACKAGE=\"$(basename \"$OLDPWD\")\" stryker run"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -112,7 +113,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.5"
+		"@middy/util": "7.6.6"
 	},
 	"peerDependencies": {
 		"@aws/durable-execution-sdk-js": "^1.0.0"

@@ -75,7 +75,11 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 			let url = `http://localhost:${port}/applications/${encodeURIComponent(application)}/environments/${encodeURIComponent(environment)}/configurations/${encodeURIComponent(configuration)}`;
 			if (flag) {
 				const flags = Array.isArray(flag) ? flag : [flag];
-				url += `?${flags.map((f) => `flag=${encodeURIComponent(f)}`).join("&")}`;
+				if (flags.length) {
+					url += `?${flags
+						.map((f) => `flag=${encodeURIComponent(f)}`)
+						.join("&")}`;
+				}
 			}
 			values[internalKey] = fetch(url)
 				.then((res) => {
@@ -84,6 +88,7 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 							cause: { package: pkg },
 						});
 					}
+					// Stryker disable next-line StringLiteral: equivalent mutant. The fallback only applies when the Content-Type header is absent, and its sole use is `jsonContentTypePattern.test(contentType)`. Any non-`application/...json` string (including "" or any other literal) yields the same `false`, so the value is unobservable.
 					const contentType = res.headers.get("Content-Type") ?? "";
 					return jsonContentTypePattern.test(contentType)
 						? res.json()
@@ -99,13 +104,16 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 		return values;
 	};
 
-	if (canPrefetch(options)) processCache(options, fetchRequest);
+	if (canPrefetch(options)) {
+		processCache(options, fetchRequest);
+	}
 
 	const appConfigExtensionMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns either a Promise (cold path) or undefined (sync path). Replacing the guard with `true` only adds `await undefined` on the sync path, which resolves immediately with no observable difference.
 			if (pending) await pending;
 		}
 	};

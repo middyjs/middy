@@ -112,13 +112,18 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
+	// Stryker disable next-line ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	// Stryker disable ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultMultiValueHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultMultiValueHeaders =
 		Object.keys(defaultMultiValueHeaders).length > 0;
+	// Stryker restore ConditionalExpression,EqualityOperator
 
 	const httpHeaderNormalizerMiddlewareBefore = (request) => {
 		if (request.event.headers) {
-			const headers = hasDefaultHeaders ? { ...defaultHeaders } : {};
+			const headers = hasDefaultHeaders
+				? Object.assign(Object.create(null), defaultHeaders)
+				: Object.create(null);
 
 			for (const key in request.event.headers) {
 				headers[cachedNormalizeKey(key)] = request.event.headers[key];
@@ -129,8 +134,8 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 
 		if (request.event.multiValueHeaders) {
 			const headers = hasDefaultMultiValueHeaders
-				? { ...defaultMultiValueHeaders }
-				: {};
+				? Object.assign(Object.create(null), defaultMultiValueHeaders)
+				: Object.create(null);
 
 			for (const key in request.event.multiValueHeaders) {
 				headers[cachedNormalizeKey(key)] = request.event.multiValueHeaders[key];

@@ -147,22 +147,29 @@ test("callbackWaitsForEmptyEventLoop should be false in handler but true after i
 	ok(!context.callbackWaitsForEmptyEventLoop);
 });
 
-const defaultDurableContext = {
-	lambdaContext: {
-		...defaultContext,
-	},
-	// mock Class
-	constructor: {
-		name: "DurableContextImpl",
-	},
-};
+class DurableContextImpl {
+	constructor(props = {}) {
+		Object.assign(this, props);
+	}
+	async step(_id, fn) {
+		return fn(this);
+	}
+	async runInChildContext(_id, fn) {
+		return fn(this);
+	}
+}
+
+const makeDurableContext = (overrides = {}) =>
+	new DurableContextImpl({
+		lambdaContext: { ...defaultContext, ...(overrides.lambdaContext ?? {}) },
+	});
 
 test("It should set callbackWaitsForEmptyEventLoop to false by default (executionModeDurableContext)", async (t) => {
 	const handler = middy()
 		.use(doNotWaitForEmptyEventLoop())
 		.handler((event, context) => {});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
@@ -175,7 +182,7 @@ test("callbackWaitsForEmptyEventLoop should remain true if was overridden by use
 			context.lambdaContext.callbackWaitsForEmptyEventLoop = true;
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	await handler(defaultEvent, context);
 
 	ok(context.lambdaContext.callbackWaitsForEmptyEventLoop);
@@ -188,7 +195,7 @@ test("callbackWaitsForEmptyEventLoop should stay false if handler has error (exe
 			throw new Error("!");
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 
 	try {
 		await handler(defaultEvent, context);
@@ -208,7 +215,7 @@ test("callbackWaitsForEmptyEventLoop should be false when runOnAfter is true in 
 			context.lambdaContext.callbackWaitsForEmptyEventLoop = true;
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
@@ -226,7 +233,7 @@ test("callbackWaitsForEmptyEventLoop should remain true when error occurs even i
 			throw new Error("!");
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	try {
 		await handler(defaultEvent, context);
 	} catch (_e) {
@@ -247,7 +254,7 @@ test("callbackWaitsForEmptyEventLoop should be false when error occurs but runOn
 			throw new Error("!");
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	try {
 		await handler(defaultEvent, context);
 	} catch (_e) {
@@ -268,7 +275,7 @@ test("thrown error should be propagated when it occurs & runOnError is true (exe
 			throw new Error("!");
 		});
 
-	const context = { ...defaultDurableContext };
+	const context = makeDurableContext();
 	try {
 		await handler(defaultEvent, context);
 	} catch (error) {
@@ -288,13 +295,9 @@ test("callbackWaitsForEmptyEventLoop should be false in handler but true after i
 			ok(context.lambdaContext.callbackWaitsForEmptyEventLoop);
 		});
 
-	const context = {
-		...defaultDurableContext,
-		lambdaContext: {
-			...defaultDurableContext.lambdaContext,
-			callbackWaitsForEmptyEventLoop: true,
-		},
-	};
+	const context = makeDurableContext({
+		lambdaContext: { callbackWaitsForEmptyEventLoop: true },
+	});
 	await handler(defaultEvent, context);
 
 	ok(!context.lambdaContext.callbackWaitsForEmptyEventLoop);
@@ -321,5 +324,20 @@ test("doNotWaitForEmptyEventLoopValidateOptions rejects wrong type", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("runOnBefore"));
+	}
+});
+
+test("doNotWaitForEmptyEventLoopValidateOptions accepts boolean runOnError", () => {
+	doNotWaitForEmptyEventLoopValidateOptions({ runOnError: false });
+	doNotWaitForEmptyEventLoopValidateOptions({ runOnError: true });
+});
+
+test("doNotWaitForEmptyEventLoopValidateOptions rejects non-boolean runOnError", () => {
+	try {
+		doNotWaitForEmptyEventLoopValidateOptions({ runOnError: "yes" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.message, "Option 'runOnError' must be boolean");
 	}
 });

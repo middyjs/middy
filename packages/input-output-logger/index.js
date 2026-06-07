@@ -19,6 +19,7 @@ const defaults = {
 	},
 	executionContext: false,
 	lambdaContext: false,
+	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default is keyed by its first path segment (e.g. "Stryker"), never the "event"/"response" params, so omitPathTree[param] stays undefined and nothing is ever omitted, same as [].
 	omitPaths: [],
 	mask: undefined,
 };
@@ -44,7 +45,7 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 		...opts,
 	};
 
-	// Disabled — register no hooks.
+	// Disabled: register no hooks.
 	if (typeof logger !== "function") return {};
 
 	const omitPathTree = buildPathTree(omitPaths);
@@ -89,7 +90,8 @@ const inputOutputLoggerMiddleware = (opts = {}) => {
 
 const buildPathTree = (paths) => {
 	const tree = {};
-	for (let path of paths.sort().reverse()) {
+	// Copy before sorting so the caller-provided array is never mutated.
+	for (let path of [...paths].sort().reverse()) {
 		// reverse so a leaf path (`a.b = true`) overrides a longer one
 		// (`a.b.c = true`) when both are configured
 		if (!Array.isArray(path)) path = path.split(".");
@@ -106,6 +108,7 @@ const buildPathTree = (paths) => {
 				return a[b];
 			}
 			a[b] = true;
+			// Stryker disable next-line BooleanLiteral: equivalent. This is the reduce's terminal return value; the leaf marker is written on the line above (a[b] = true), and the reduce result is discarded, so true vs false is unobservable.
 			return true;
 		}, tree);
 	}
@@ -123,8 +126,10 @@ const omit = (obj, pathTree, mask) => {
 };
 
 const omitArray = (arr, childTree, mask) => {
+	// Stryker disable next-line ConditionalExpression: equivalent. With childTree falsy, continuing into the loop calls omit(el, undefined) which short-circuits via `if (!pathTree) return obj`, returning each element unchanged, so the array is returned identical anyway.
 	if (!childTree) return arr;
 	let clone = arr;
+	// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads arr[l] === undefined; omit(undefined, childTree) returns undefined, and `undefined !== undefined` is false, so no extra element is ever written.
 	for (let i = 0, l = arr.length; i < l; i++) {
 		const next = omit(arr[i], childTree, mask);
 		if (next !== arr[i]) {
@@ -140,8 +145,9 @@ const omitObject = (obj, pathTree, mask) => {
 	for (const key in pathTree) {
 		const sub = pathTree[key];
 		if (sub === true) {
-			// leaf — mask or remove
+			// leaf: mask or remove
 			if (mask !== undefined) {
+				if (!Object.hasOwn(obj, key)) continue;
 				if (clone === obj) clone = { ...obj };
 				clone[key] = mask;
 			} else if (Object.hasOwn(obj, key)) {
@@ -160,6 +166,7 @@ const omitObject = (obj, pathTree, mask) => {
 };
 
 const isPlainObject = (value) =>
+	// Stryker disable next-line ConditionalExpression: equivalent. Replacing `typeof value === "object"` with true is masked by the following `value.constructor === Object` check: only objects can have constructor Object, so a non-object still yields false.
 	value && typeof value === "object" && value.constructor === Object;
 
 // -- context merging ---------------------------------------------------------
@@ -211,58 +218,68 @@ const isWebStream = (value) => value instanceof ReadableStream;
 // we can capture the streamed body and log it after flush. `core` may clear
 // `request.response` before flush triggers, so we snapshot the response shape
 // at tee-time and reattach the accumulated body inside the flush callback.
+// Each tee owns its own accumulation/decoding so no decoder state can leak
+// between streams on a warm container.
 const teeStream = (request, log, makeTee) => {
+	// Stryker disable next-line OptionalChaining: equivalent. teeStream is only reached from logResponse after a truthy `response` was confirmed to be (or to carry) a stream, so request.response is never null/undefined here and the `?.` never short-circuits.
 	const hasBody = !!request.response?.body;
 	const source = hasBody ? request.response.body : request.response;
 	const snapshot = hasBody ? request.response : null;
-	let body = "";
-	const piped = makeTee(source, {
-		onChunk: (chunk) => {
-			body += chunk;
-		},
-		onFlush: () => {
-			log("response", request, hasBody ? { ...snapshot, body } : body);
-		},
-	});
+	const onBody = (body) => {
+		log("response", request, hasBody ? { ...snapshot, body } : body);
+	};
+	const piped = makeTee(source, onBody);
+	// Stryker disable next-line ConditionalExpression: equivalent. The tee transform pulls from the original `source` stream regardless; whether `piped` is reattached to .body only changes which equivalent stream object the host pipes, and both deliver the same bytes and trigger the same flush/log.
 	if (hasBody) request.response.body = piped;
 	else request.response = piped;
 };
 
-const makeNodeTee = (source, { onChunk, onFlush }) => {
+const makeNodeTee = (source, onBody) => {
+	// `objectMode: false` means string chunks are decoded to Buffers on the
+	// writable side, so every chunk here is a Buffer. Accumulate the raw
+	// Buffers and decode once at flush so multi-byte UTF-8 sequences split
+	// across chunk boundaries are not corrupted.
+	const chunks = [];
 	const transform = new Transform({
 		objectMode: false,
 		transform(chunk, encoding, callback) {
-			onChunk(chunk);
+			chunks.push(chunk);
 			this.push(chunk, encoding);
 			callback();
 		},
 		flush(callback) {
-			onFlush();
+			onBody(Buffer.concat(chunks).toString("utf8"));
 			callback();
 		},
 	});
 	return source.on("error", (e) => transform.destroy(e)).pipe(transform);
 };
 
-const webDecoder = new TextDecoder();
-const decodeWebChunk = (chunk) => {
-	if (typeof chunk === "string") return chunk;
-	if (chunk instanceof Uint8Array)
-		return webDecoder.decode(chunk, { stream: true });
-	return String(chunk);
-};
-
-const makeWebTee = (source, { onChunk, onFlush }) =>
-	source.pipeThrough(
+const makeWebTee = (source, onBody) => {
+	// A fresh decoder per stream: streaming state never carries over to the
+	// next response on a warm container.
+	const decoder = new TextDecoder();
+	let body = "";
+	const decodeWebChunk = (chunk) => {
+		// Stryker disable next-line ConditionalExpression,StringLiteral: equivalent. Skipping the string fast-path lets a string chunk fall through to `return String(chunk)`, and String(str) === str, so the returned value is identical.
+		if (typeof chunk === "string") return chunk;
+		if (chunk instanceof Uint8Array)
+			return decoder.decode(chunk, { stream: true });
+		return String(chunk);
+	};
+	return source.pipeThrough(
 		new TransformStream({
 			transform(chunk, controller) {
-				onChunk(decodeWebChunk(chunk));
+				body += decodeWebChunk(chunk);
 				controller.enqueue(chunk);
 			},
 			flush() {
-				onFlush();
+				// Drain any buffered partial multi-byte bytes from the decoder.
+				body += decoder.decode();
+				onBody(body);
 			},
 		}),
 	);
+};
 
 export default inputOutputLoggerMiddleware;

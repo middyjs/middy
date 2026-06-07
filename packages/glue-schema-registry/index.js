@@ -68,7 +68,14 @@ const optionSchema = {
 								},
 								additionalProperties: true,
 							},
-							SchemaVersionNumber: { type: "integer", minimum: 1 },
+							SchemaVersionNumber: {
+								type: "object",
+								properties: {
+									VersionNumber: { type: "integer", minimum: 1 },
+									LatestVersion: { type: "boolean" },
+								},
+								additionalProperties: true,
+							},
 						},
 						additionalProperties: true,
 					},
@@ -91,7 +98,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const contextSpec = buildSetToContextSpec(options);
-	const fetch = (request, cachedValues = {}) => {
+	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
 		for (const internalKey of fetchDataKeys) {
@@ -122,7 +129,7 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
-		processCache(options, fetch);
+		processCache(options, fetchRequest);
 	}
 
 	const glueSchemaRegistryMiddlewareBefore = async (request) => {
@@ -131,10 +138,11 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 			client = await clientInit;
 		}
 
-		const { value } = processCache(options, fetch, request);
+		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent — assignSetToContext returns undefined on the warm path, and `await undefined` is a no-op, so forcing the await is observationally identical
 			if (pending) await pending;
 		}
 	};
@@ -154,15 +162,22 @@ export const resolveSchemaVersion = async (
 	}
 	const merged = { ...defaults, ...options };
 	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;
+	const baseExpiry = merged.cacheKeyExpiry?.[merged.cacheKey];
+	const cacheKeyExpiry =
+		// Stryker disable next-line ConditionalExpression: equivalent — when baseExpiry is undefined the else branch yields {...merged.cacheKeyExpiry, [cacheKey]: undefined}, and processCache reads `cacheKeyExpiry?.[cacheKey] ?? cacheExpiry`, so undefined collapses to the same cacheExpiry as the then branch
+		baseExpiry === undefined
+			? merged.cacheKeyExpiry
+			: { ...merged.cacheKeyExpiry, [cacheKey]: baseExpiry };
 	const cacheOptions = {
 		cacheKey,
 		cacheExpiry: merged.cacheExpiry,
-		cacheKeyExpiry: merged.cacheKeyExpiry,
+		cacheKeyExpiry,
 	};
 
 	let client;
 	const ensureClient = async () => {
 		if (client) return client;
+		// Stryker disable next-line ConditionalExpression: equivalent (forcing the else) — with no awsClientAssumeRole, createClient(merged, request) merges an empty credential set and delegates to createPrefetchClient with identical awsClientOptions, producing the same client as the then branch
 		if (canPrefetch(merged)) {
 			client = createPrefetchClient(merged);
 		} else {
@@ -171,7 +186,7 @@ export const resolveSchemaVersion = async (
 		return client;
 	};
 
-	const fetch = () => {
+	const fetchRequest = () => {
 		const command = new GetSchemaVersionCommand({
 			SchemaVersionId: schemaVersionId,
 		});
@@ -196,7 +211,7 @@ export const resolveSchemaVersion = async (
 		};
 	};
 
-	const { value } = processCache(cacheOptions, fetch);
+	const { value } = processCache(cacheOptions, fetchRequest);
 	return value[schemaVersionId];
 };
 

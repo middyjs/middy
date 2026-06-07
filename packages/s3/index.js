@@ -120,6 +120,7 @@ const s3Middleware = (opts = {}) => {
 		Object.assign(request.internal, value);
 		if (contextSpec) {
 			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only undefined or a Promise; `if (true) await undefined` is a no-op, so forcing the condition true produces no observable behavior change.
 			if (pending) await pending;
 		}
 	};

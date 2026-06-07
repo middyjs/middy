@@ -36,7 +36,8 @@ const eventNormalizerMiddleware = (opts = {}) => {
 const parseEvent = (event, options) => {
 	// event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
 	// event.deliveryStreamArn => aws:lambda:events
-	let eventSource = event.eventSource ?? event.deliveryStreamArn;
+	let eventSource =
+		event.eventSource ?? (event.deliveryStreamArn && "aws:lambda:events");
 
 	// event.Records => default
 	// event.records => aws:lambda:events
@@ -58,9 +59,15 @@ const parseEvent = (event, options) => {
 			(event.configRuleId && "aws:config") ??
 			(event.awslogs && "aws:cloudwatch") ??
 			(event["CodePipeline.job"] && "aws:codepipeline");
+		// Stryker disable next-line ConditionalExpression: equivalent. When eventSource is falsy it is undefined/empty-string, and `events` (a null-prototype object of string keys) has no such key, so `events[eventSource]?.()` no-ops whether the branch runs or not.
 		if (eventSource) {
 			events[eventSource]?.(event, options);
 		}
+		return;
+	}
+
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent. records is guaranteed a real array here; with zero records the only code after the early return (records[0]?... resolves undefined, and the per-record loop) performs no work, so skipping the return is observationally identical.
+	if (!records.length) {
 		return;
 	}
 
@@ -68,9 +75,9 @@ const parseEvent = (event, options) => {
 	// record.EventSource => aws:sns
 	// record.s3Key => aws:s3:batch
 	eventSource ??=
-		records[0].eventSource ??
-		records[0].EventSource ??
-		(records[0].s3Key && "aws:s3:batch");
+		records[0]?.eventSource ??
+		records[0]?.EventSource ??
+		(records[0]?.s3Key && "aws:s3:batch");
 	// Hoist the dispatch fn out of the loop so we look it up once per batch
 	// instead of once per record.
 	const fn = events[eventSource];
@@ -82,7 +89,7 @@ const parseEvent = (event, options) => {
 };
 
 const normalizeS3KeyReplacePlus = /\+/g;
-const events = {
+const events = Object.assign(Object.create(null), {
 	// MQ (ActiveMQ)
 	"aws:amq": (message) => {
 		message.data = base64Parse(message.data);
@@ -165,7 +172,7 @@ const events = {
 			parseEvent(record.body, options);
 		}
 	},
-};
+});
 const base64Decode = (data) => Buffer.from(data, "base64");
 const base64Parse = (data) =>
 	jsonSafeParse(base64Decode(data).toString("utf-8"));

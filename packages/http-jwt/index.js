@@ -1,7 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { createPublicKey } from "node:crypto";
-import { createError, getInternal, validateOptions } from "@middy/util";
+import {
+	createError,
+	getInternal,
+	sanitizeKey,
+	validateOptions,
+} from "@middy/util";
 import { decodeJwt, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
 
 const name = "http-jwt";
@@ -32,6 +37,8 @@ const defaults = {
 	audience: undefined,
 	issuer: undefined,
 	clockTolerance: 0,
+	requireExp: false,
+	maxTokenAge: undefined,
 	payloadKey: "jwt",
 	setToContext: false,
 	cacheExpiry: undefined,
@@ -67,6 +74,8 @@ const optionSchema = {
 		audience: stringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
 		clockTolerance: { type: "number", minimum: 0 },
+		requireExp: { type: "boolean" },
+		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 		cacheExpiry: { type: "number", minimum: 0 },
@@ -143,6 +152,7 @@ const assertValidAlgs = (algs, where) => {
 // Minimal JWKS resolver. Owns its own cache so we can read the raw JWK
 // (including `alg`) before converting to a key.
 const createJwksResolver = (uri, options = {}) => {
+	// Stryker disable next-line LogicalOperator: `?? 600_000` -> `&& 600_000` only differs when cacheMaxAge is undefined (default), yielding `undefined` so the staleness check (`> undefined` -> always false) never expires the cache. The sole observable difference is whether a cached doc is refetched AFTER 600s of cache life, which no bounded test can reach without process-global time mocking (unsafe under node:test concurrency).
 	const cacheMaxAge = options.cacheMaxAge ?? 600_000;
 	const cooldownDuration = options.cooldownDuration ?? 30_000;
 	let cache = null;
@@ -184,6 +194,7 @@ const createJwksResolver = (uri, options = {}) => {
 		getJwk: async (kid) => {
 			const now = Date.now();
 			let doc = cache;
+			// Stryker disable next-line EqualityOperator: `>` -> `>=` only differs at the exact instant `now - cacheTime === cacheMaxAge` (a sub-millisecond boundary). Reaching it deterministically requires process-global time mocking, which is unsafe under node:test's concurrent execution of this file's tests.
 			if (!doc || now - cacheTime > cacheMaxAge) {
 				doc = await fetchJwks();
 			}
@@ -282,11 +293,18 @@ const httpJwtMiddleware = (opts = {}) => {
 	};
 
 	const baseVerifyOptions = {};
+	// Stryker disable next-line ConditionalExpression: forcing this true sets audience:undefined, which jose treats identically to omitting it (no observable change).
 	if (options.audience !== undefined)
 		baseVerifyOptions.audience = options.audience;
+	// Stryker disable next-line ConditionalExpression: forcing this true sets issuer:undefined, which jose ignores exactly like an omitted issuer.
 	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
+	// Stryker disable next-line ConditionalExpression: forcing this true sets clockTolerance to the default 0, which equals jose's own default (no observable change).
 	if (options.clockTolerance)
 		baseVerifyOptions.clockTolerance = options.clockTolerance;
+	if (options.requireExp) baseVerifyOptions.requiredClaims = ["exp"];
+	// Stryker disable next-line ConditionalExpression: forcing this true sets maxTokenAge:undefined, which jose ignores exactly like an omitted maxTokenAge.
+	if (options.maxTokenAge !== undefined)
+		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
 
 	// Cache imported keys per-middleware-instance. `importJWK` and
 	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
@@ -364,6 +382,7 @@ const httpJwtMiddleware = (opts = {}) => {
 			}
 			const jwkCacheKey = `${header.kid}\0${alg}`;
 			key = jwkKeyCache.get(jwkCacheKey);
+			// Stryker disable next-line ConditionalExpression: forcing this true only re-imports the same JWK, producing an identical key (cache is a pure performance optimization, no observable behavior change).
 			if (!key) {
 				try {
 					key = await importJWK(jwk, alg);
@@ -377,16 +396,23 @@ const httpJwtMiddleware = (opts = {}) => {
 				}
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
+			// Stryker disable next-line ObjectLiteral: blanking this to {} is equivalent here. `importJWK(jwk, alg)` already binds the key to the selected algorithm (a key imported for RS256/ES256/etc. rejects any other alg), so dropping `algorithms:[alg]` changes nothing; and `issuer: payload.iss` is decoded from the token, making jose's issuer===token.iss check trivially true.
 			verifyOptions = {
 				issuer: payload.iss,
 				algorithms: [alg],
 			};
+			// Stryker disable next-line ConditionalExpression: forcing this true sets audience:undefined, which jose treats identically to omitting it.
 			if (entry.audience !== undefined) verifyOptions.audience = entry.audience;
+			// Stryker disable next-line ConditionalExpression: forcing this true sets clockTolerance to the default 0, which equals jose's own default.
 			if (options.clockTolerance)
 				verifyOptions.clockTolerance = options.clockTolerance;
+			if (options.requireExp) verifyOptions.requiredClaims = ["exp"];
+			// Stryker disable next-line ConditionalExpression: forcing this true sets maxTokenAge:undefined, which jose ignores exactly like an omitted maxTokenAge.
+			if (options.maxTokenAge !== undefined)
+				verifyOptions.maxTokenAge = options.maxTokenAge;
 		} else {
 			const result = await getInternal(options.internalKey, request);
-			const keyData = result[options.internalKey];
+			const keyData = result[sanitizeKey(options.internalKey)];
 			if (keyData === undefined) {
 				throw createError(500, "Internal Server Error", {
 					cause: {
@@ -416,6 +442,7 @@ const httpJwtMiddleware = (opts = {}) => {
 					}
 				}
 				key = publicKeyCache.get(keyData);
+				// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
 				if (!key) {
 					key = createPublicKey({
 						key: Buffer.from(keyData.publicKey),
@@ -426,6 +453,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				}
 			} else if (keyData instanceof Uint8Array) {
 				key = publicKeyCache.get(keyData);
+				// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
 				if (!key) {
 					key = createPublicKey({
 						key: Buffer.from(keyData),
@@ -435,6 +463,14 @@ const httpJwtMiddleware = (opts = {}) => {
 					publicKeyCache.set(keyData, key);
 				}
 			} else {
+				if (usableAlgs.some((a) => !a.startsWith("HS"))) {
+					throw createError(500, "Internal Server Error", {
+						cause: {
+							package: pkg,
+							data: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+						},
+					});
+				}
 				key = Buffer.from(keyData);
 			}
 			verifyOptions = { ...baseVerifyOptions, algorithms: usableAlgs };

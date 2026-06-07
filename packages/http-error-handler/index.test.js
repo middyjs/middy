@@ -259,6 +259,128 @@ test("It should not handle error is response is set", async (t) => {
 	ok(response);
 });
 
+test("It should return the 500 fallback when a non-object is thrown", async (t) => {
+	const handler = middy(() => {
+		throw null;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
+test("It should return the 500 fallback when a primitive is thrown", async (t) => {
+	const handler = middy(() => {
+		throw "boom";
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
+test("It should keep an error-supplied Content-Type header", async (t) => {
+	const handler = middy(() => {
+		const error = createError(422, "<error>Unprocessable</error>");
+		error.headers = {
+			"Content-Type": "application/xml",
+		};
+		throw error;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(null, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 422,
+		body: "<error>Unprocessable</error>",
+		headers: {
+			"Content-Type": "application/xml",
+		},
+	});
+});
+
+test("It should use the default console.error logger when none is provided", async (t) => {
+	const write = t.mock.method(process.stderr, "write", () => true);
+
+	const handler = middy(() => {
+		throw createError(422, "Unprocessable Entity");
+	});
+
+	handler.use(httpErrorHandler());
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	ok(write.mock.calls.length >= 1);
+	deepStrictEqual(response, {
+		statusCode: 422,
+		body: "Unprocessable Entity",
+		headers: {
+			"Content-Type": "text/plain",
+		},
+	});
+});
+
+test("It should leave an already-set response untouched", async (t) => {
+	const handler = middy(() => {
+		throw createError(422, "Unprocessable Entity");
+	});
+
+	handler.use(httpErrorHandler({ logger: false })).onError((request) => {
+		request.response = "already-handled";
+	});
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	strictEqual(response, "already-handled");
+});
+
+test("It should fall back to 500 for a non-object error carrying http properties", async (t) => {
+	const errorFn = () => {};
+	errorFn.statusCode = 422;
+	errorFn.expose = true;
+	errorFn.message = "should be ignored";
+
+	const handler = middy(() => {
+		throw errorFn;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
+test("It should not expose a generic 500 error (statusCode === 500 boundary)", async (t) => {
+	const handler = middy(() => {
+		const err = new Error("A server error");
+		err.statusCode = 500;
+		throw err;
+	});
+
+	handler.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 500,
+		headers: {},
+	});
+});
+
 test("httpErrorHandlerValidateOptions accepts valid options and rejects typos", () => {
 	httpErrorHandlerValidateOptions({ logger: () => {}, fallbackMessage: "x" });
 	httpErrorHandlerValidateOptions({ logger: false });

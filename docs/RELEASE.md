@@ -31,18 +31,18 @@ At a given point in time, if you want to draft a new release, you need to follow
 
 ### 1. Prepare release
 
-- Releases should always be done from the `master` branch (unless working on a future/past major version branch like `0.x` or `2.0`).
+- Releases should always be done from the `main` branch (unless working on a future/past major version branch like `0.x` or `2.0`).
 - You can create a `release-vX.Y.Z` branch if you want to do all the necessary changes in multiple commits and/or if you wish to have a review from the other maintainers
 
 ### 2. Version bump
 
 - Update the `version` field of the main [`package.json`](../package.json) with the new version.
-- Run the command `npm run sync` to make sure every package will have the same version.
+- Run the command `npm run release:sync` to make sure every package will have the same version.
 - Commit all the changes so far.
 
 ### 3. Publish release on GitHub
 
-- If you have been working on a branch so far, make sure the branch is merged back to master (or its own version branch in case of future/past major versions).
+- If you have been working on a branch so far, make sure the branch is merged back to main (or its own version branch in case of future/past major versions).
 - Create a [new release on GitHub](https://github.com/middyjs/middy/releases/new), with the following attributes:
   - **Tag version**: `X.Y.Z` as per the target version. Note: don't use a `v` prefix for the version.
   - **Release title**: same as above

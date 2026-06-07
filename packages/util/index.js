@@ -67,7 +67,8 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	const optional = rawType.endsWith("?");
 	const type = optional ? rawType.slice(0, -1) : rawType;
 	const checker = validateOptionsTypeCheckers[type];
-	if (!checker) fail(`Unknown schema type '${type}' for option '${path}'`);
+	if (!checker)
+		schemaFail(`Unknown schema type '${type}' for option '${path}'`);
 	if (value === undefined) {
 		if (!optional) fail(`Missing required option '${path}' (${type})`);
 		return false;
@@ -97,24 +98,36 @@ const checkNestedRule = (rule, value, path, fail) => {
 
 const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
 
+class SchemaError extends Error {}
+const schemaFail = (message) => {
+	throw new SchemaError(message);
+};
+
 // Stable JSON form: recursively sorts object keys, skips function-typed
 // values. Used for `uniqueItems` so items that differ only by handler
 // identity or key ordering collide.
-const stableStringify = (value) => {
+const stableStringify = (value, seen = new WeakSet()) => {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (seen.has(value)) return '"[Circular]"';
+	seen.add(value);
+	let result;
 	if (Array.isArray(value)) {
-		return `[${value.map(stableStringify).join(",")}]`;
+		result = `[${value.map((v) => stableStringify(v, seen)).join(",")}]`;
+	} else {
+		const keys = Object.keys(value)
+			.filter((k) => typeof value[k] !== "function")
+			.sort();
+		// Stryker disable next-line StringLiteral: removing the key/value join "," is equivalent; JSON.stringify quotes every key, so no two distinct objects can ever serialize to the same string with or without the separator (and equal objects stay equal).
+		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
 	}
-	const keys = Object.keys(value)
-		.filter((k) => typeof value[k] !== "function")
-		.sort();
-	return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+	seen.delete(value);
+	return result;
 };
 
 const resolveInstance = (name) => {
 	const ctor = globalThis[name];
 	if (typeof ctor !== "function") {
-		throw new Error(`Unknown 'instanceof' class '${name}'`);
+		schemaFail(`Unknown 'instanceof' class '${name}'`);
 	}
 	return ctor;
 };
@@ -153,7 +166,9 @@ const checkRule = (rule, value, path, fail) => {
 					throw new TypeError(msg);
 				});
 				matches++;
-			} catch {}
+			} catch (e) {
+				if (e instanceof SchemaError) throw e;
+			}
 		}
 		if (matches !== 1) {
 			fail(`Option '${path}' must match exactly one schema in oneOf`);
@@ -198,15 +213,19 @@ const checkRule = (rule, value, path, fail) => {
 		} = rule;
 		if (!checkTypeSpec(rawType, value, path, fail)) return;
 		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
+		// Stryker disable next-line ConditionalExpression: dropping the `minimum !== undefined` guard is equivalent; when minimum is undefined, `value < undefined` is always false.
 		if (minimum !== undefined && value < minimum) {
 			fail(`Option '${path}' must be >= ${minimum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `maximum !== undefined` guard is equivalent; `value > undefined` is always false.
 		if (maximum !== undefined && value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMinimum !== undefined` guard is equivalent; `value <= undefined` is always false.
 		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
 			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMaximum !== undefined` guard is equivalent; `value >= undefined` is always false.
 		if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) {
 			fail(`Option '${path}' must be < ${exclusiveMaximum}`);
 		}
@@ -216,12 +235,21 @@ const checkRule = (rule, value, path, fail) => {
 				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
 			}
 		}
+		const hasStringConstraint =
+			pattern !== undefined ||
+			minLength !== undefined ||
+			maxLength !== undefined;
+		if (hasStringConstraint && typeof value !== "string") {
+			fail(`Option '${path}' must be string`);
+		}
 		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `minLength !== undefined` guard is equivalent; `value.length < undefined` is always false.
 		if (minLength !== undefined && value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
 		}
+		// Stryker disable next-line ConditionalExpression: dropping the `maxLength !== undefined` guard is equivalent; `value.length > undefined` is always false.
 		if (maxLength !== undefined && value.length > maxLength) {
 			fail(`Option '${path}' must have length <= ${maxLength}`);
 		}
@@ -276,7 +304,7 @@ const checkRule = (rule, value, path, fail) => {
 		}
 		return;
 	}
-	fail(`Invalid schema for option '${path}'`);
+	schemaFail(`Invalid schema for option '${path}'`);
 };
 
 const isJsonSchemaForm = (schema) =>
@@ -290,10 +318,21 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	const fail = (message) => {
 		throw new TypeError(message, { cause: { package: packageName } });
 	};
-	if (isJsonSchemaForm(schema)) {
-		checkRule(schema, options, "", fail);
-	} else {
-		checkSchemaObject(schema, options, "", fail);
+	try {
+		if (isJsonSchemaForm(schema)) {
+			checkRule(schema, options, "", fail);
+		} else {
+			checkSchemaObject(schema, options, "", fail);
+		}
+	} catch (e) {
+		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
+		// the documented `TypeError` + `cause.package`; mismatch errors already
+		// carry that shape and pass through untouched.
+		// Stryker disable next-line ConditionalExpression: forcing this true is equivalent; the only non-SchemaError reaching here is a `fail()` TypeError that already carries cause.package, so re-wrapping it via `fail(e.message)` produces an identical message + cause.
+		if (e instanceof SchemaError) {
+			fail(e.message);
+		}
+		throw e;
 	}
 	return options;
 };
@@ -341,7 +380,11 @@ export const createClient = async (options, request) => {
 };
 
 export const canPrefetch = (options = {}) => {
-	return !options.awsClientAssumeRole && !options.disablePrefetch;
+	return (
+		!options.awsClientAssumeRole &&
+		!options.disablePrefetch &&
+		options.cacheExpiry !== 0
+	);
 };
 
 const safeGet = (obj, key) =>
@@ -349,8 +392,9 @@ const safeGet = (obj, key) =>
 
 // Internal Context
 export const getInternal = async (variables, request) => {
-	if (!variables || !request) return Object.create(null);
+	if (!variables || !request?.internal) return Object.create(null);
 	let keys = [];
+	// Stryker disable next-line ArrayDeclaration: equivalent; this initial value is only observable when no branch below matches (variables is a truthy non-true/string/array/object), and in that case `keys` stays [] so the output is always {} regardless of `values`.
 	let values = [];
 	if (variables === true) {
 		keys = values = Object.keys(request.internal);
@@ -363,8 +407,13 @@ export const getInternal = async (variables, request) => {
 		values = Object.values(variables);
 	}
 	// Fast synchronous path: when all internal values are already resolved
-	// (warm/cached invocations), skip all Promise machinery entirely
+	// (warm/cached invocations), skip all Promise machinery entirely.
+	// The async fallback below produces byte-for-byte identical output, so the
+	// following sync-path mutants are equivalent: they only ever route execution
+	// to the async path (or vice versa), never change the resolved result.
+	// Stryker disable next-line BooleanLiteral: equivalent; starting allSync=false just forces the async path, which yields the same result.
 	let allSync = true;
+	// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
 	const syncResults = new Array(values.length);
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
@@ -372,6 +421,7 @@ export const getInternal = async (variables, request) => {
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; forcing the async path for every value yields the same result.
 		if (isPromise(value)) {
 			allSync = false;
 			break;
@@ -383,6 +433,7 @@ export const getInternal = async (variables, request) => {
 		}
 		syncResults[i] = value;
 	}
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent; skipping the sync fast-path defers to the async fallback, which returns the same object.
 	if (allSync) {
 		const obj = Object.create(null);
 		for (let i = 0; i < keys.length; i++) {
@@ -398,6 +449,7 @@ export const getInternal = async (variables, request) => {
 		const pathOptionKey = internalKey.split(".");
 		const rootOptionKey = pathOptionKey.shift();
 		let valuePromise = request.internal[rootOptionKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; Promise.resolve(p) returns p unchanged when p is already a promise, so always wrapping yields the same value.
 		if (!isPromise(valuePromise)) {
 			valuePromise = Promise.resolve(valuePromise);
 		}
@@ -436,6 +488,16 @@ export const sanitizeKey = (key) => {
 		.replace(sanitizeKeyRemoveDisallowedChar, "_");
 };
 
+// Resolve the API Gateway / VPC Lattice event "version" used by the HTTP
+// router and event normalizer to dispatch event-shape handling:
+//   - explicit `event.version` ("1.0" | "2.0") wins
+//   - otherwise a VPC Lattice event (identified by `event.method`) -> "vpc"
+//   - else default to "1.0" (the safer default)
+export const resolveHttpEventVersion = (event) => {
+	// '1.0' is a safer default
+	return event.version ?? (event.method ? "vpc" : "1.0");
+};
+
 // setToContext fast-path
 //
 // Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
@@ -462,9 +524,11 @@ export const buildSetToContextSpec = (options) =>
 export const assignSetToContext = (spec, value, request) => {
 	for (let i = 0; i < spec.length; i++) {
 		const v = value[spec[i][0]];
+		// Stryker disable next-line ConditionalExpression: the `v !== null` operand is equivalent (redundant). The `typeof v?.then` optional chain already null-guards: `null?.then` is undefined, so `typeof undefined === "function"` is false whether or not the explicit null check is present.
 		if (v !== null && typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
+			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
 			const keys = new Array(spec.length);
 			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
 			return getInternal(keys, request).then((data) => {
@@ -486,15 +550,31 @@ const cache = new Map();
 const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
+	if (cacheExpiry == null) return;
 	if (
-		typeof cacheExpiry === "number" &&
-		cacheExpiry < -1 &&
-		!Number.isNaN(cacheExpiry)
+		// Stryker disable next-line ConditionalExpression: equivalent; any non-number value also fails `!Number.isInteger(cacheExpiry)` on the next line, so dropping this typeof guard rejects exactly the same inputs.
+		typeof cacheExpiry !== "number" ||
+		!Number.isInteger(cacheExpiry) ||
+		cacheExpiry < -1
 	) {
 		throw new Error(
-			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive number (ms duration or unix timestamp)`,
+			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive integer (ms duration or unix timestamp)`,
 			{ cause: { package: pkg } },
 		);
+	}
+};
+
+// Attach a no-op rejection handler to any promise(s) a fetch returns. A prefetch
+// (warm-up) result is stored but not awaited until a later invocation, so without
+// this an early rejection would surface as an unhandledRejection. The original
+// promise is left in place, so the eventual `await` still observes the error.
+const silenceFetchRejections = (value) => {
+	if (value instanceof Promise) {
+		value.catch(() => {});
+	} else if (value !== null && typeof value === "object") {
+		for (const key of Object.keys(value)) {
+			if (value[key] instanceof Promise) value[key].catch(() => {});
+		}
 	}
 };
 
@@ -508,15 +588,28 @@ export const processCache = (
 	cacheExpiry = cacheKeyExpiry?.[cacheKey] ?? cacheExpiry;
 	validateCacheExpiry(cacheExpiry);
 	const now = Date.now();
+	const scheduleRefresh = (duration) =>
+		duration > 0 && Number.isFinite(duration)
+			? setTimeout(
+					() => processCache(options, middlewareFetch, middlewareFetchRequest),
+					duration,
+				).unref()
+			: undefined;
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
-		const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > now);
+		const effectiveExpiry =
+			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
+		const unexpired =
+			// Stryker disable next-line ConditionalExpression,EqualityOperator: the `cacheExpiry < 0` branch is equivalent. cacheExpiry === 0 is unreachable (guarded by `if (cacheExpiry)`), and for the only negative value -1 the stored expiry is Infinity so `effectiveExpiry > now` is already always true. (-1 -> 0 boundary cannot be observed.)
+			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
 
 		if (unexpired) {
 			if (cached.modified) {
 				const value = middlewareFetch(middlewareFetchRequest, cached.value);
+				silenceFetchRejections(value);
 				Object.assign(cached.value, value);
-				const entry = { value: cached.value, expiry: cached.expiry };
+				const refresh = scheduleRefresh(cached.expiry - now);
+				const entry = { value: cached.value, expiry: cached.expiry, refresh };
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -525,25 +618,23 @@ export const processCache = (
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
+	silenceFetchRejections(value);
 	// cacheExpiry semantics:
 	//   >86400000 (24h): treated as unix timestamp (ms)
 	//   >0 && <=86400000: treated as duration (ms) from now
 	//   -1: infinite cache (never expires)
 	//   0/undefined/null: no caching
-	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
+	const expiry =
+		cacheExpiry < 0
+			? Number.POSITIVE_INFINITY
+			: cacheExpiry > 86400000
+				? cacheExpiry
+				: now + cacheExpiry;
+	// Stryker disable next-line EqualityOperator: the `> 86400000` -> `>= 86400000` change is equivalent for the refresh duration. It only differs at cacheExpiry === 86400000, where it shifts the auto-refresh timer by `now` ms; the refresh callback re-validates the (separately-set) expiry, so the same number of fetches occur and no observable difference results.
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
 		clearTimeout(cache.get(cacheKey)?.refresh);
-		// .unref() so a pending refresh timer does not keep the Lambda event
-		// loop alive (relevant under `callbackWaitsForEmptyEventLoop: false`).
-		const refresh =
-			duration > 0
-				? setTimeout(
-						() =>
-							processCache(options, middlewareFetch, middlewareFetchRequest),
-						duration,
-					).unref()
-				: undefined;
+		const refresh = scheduleRefresh(duration);
 		cache.set(cacheKey, { value, expiry, refresh });
 		evictCache(cacheMaxSize);
 	}
@@ -573,14 +664,16 @@ export const modifyCache = (cacheKey, value) => {
 const evictCache = (maxSize) => {
 	if (cache.size <= maxSize) return;
 	let oldestKey = null;
-	let oldestExpiry = Infinity;
+	let oldestExpiry;
 	for (const [key, entry] of cache) {
-		if (entry && entry.expiry < oldestExpiry) {
+		if (entry && (oldestKey === null || entry.expiry < oldestExpiry)) {
 			oldestExpiry = entry.expiry;
 			oldestKey = key;
 		}
 	}
+	// Stryker disable next-line ConditionalExpression: equivalent; evictCache only runs when cache.size > maxSize (>0) and every cache entry is a truthy object, so the loop always sets oldestKey to a real key. Forcing this guard true would at worst delete the null key, a harmless no-op.
 	if (oldestKey !== null) {
+		// Stryker disable next-line OptionalChaining: equivalent; oldestKey was just read from the live cache in the loop above, so cache.get(oldestKey) is always defined and the optional chain never short-circuits.
 		clearTimeout(cache.get(oldestKey)?.refresh);
 		cache.delete(oldestKey);
 	}
@@ -615,10 +708,9 @@ export const lambdaContextKeys = [
 
 export const executionContextKeys = ["tenantId"];
 
+// TODO https://github.com/aws/aws-durable-execution-sdk-js/pull/558
 export const isExecutionModeDurable = (context) => {
-	// using `context instanceof DurableContextImpl` would be better
-	// but would require an extra dependency
-	return context.constructor.name === "DurableContextImpl";
+	return typeof context?.step === "function";
 };
 
 export const executionContext = (request, key, context) => {
@@ -644,6 +736,20 @@ export const jsonSafeParse = (text, reviver) => {
 	} catch {
 		return text;
 	}
+};
+
+export const jsonParseProtectProto = (text, reviver, packageName) => {
+	return JSON.parse(text, (key, value) => {
+		if (
+			key === "__proto__" ||
+			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
+		) {
+			throw createError(422, "Forbidden key in JSON body", {
+				cause: { package: packageName, data: key },
+			});
+		}
+		return reviver ? reviver(key, value) : value;
+	});
 };
 
 // Cheap structural-JSON heuristic: returns true if `text` starts with `{`

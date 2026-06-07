@@ -10,6 +10,7 @@ const defaults = {
 	FacilitatorClient: HTTPFacilitatorClient,
 	facilitatorUrl: "https://x402.org/facilitator",
 	price: undefined,
+	amount: undefined,
 	decimals: 6,
 	network: "eip155:8453",
 	payTo: undefined,
@@ -24,7 +25,10 @@ const optionSchema = {
 	properties: {
 		FacilitatorClient: { instanceof: "Function" },
 		facilitatorUrl: { type: "string" },
-		price: { type: "number", exclusiveMinimum: 0 },
+		price: {
+			oneOf: [{ type: "number", exclusiveMinimum: 0 }, { type: "string" }],
+		},
+		amount: { type: "string" },
 		decimals: { type: "integer" },
 		network: { type: "string" },
 		payTo: { type: "string" },
@@ -33,7 +37,7 @@ const optionSchema = {
 		mimeType: { type: "string" },
 		human: { instanceof: "Function" },
 	},
-	required: ["price", "payTo", "asset"],
+	required: ["payTo", "asset"],
 	additionalProperties: false,
 };
 
@@ -46,6 +50,7 @@ const httpX402Middleware = (opts = {}) => {
 		FacilitatorClient,
 		facilitatorUrl,
 		price,
+		amount: amountOverride,
 		decimals,
 		network,
 		payTo,
@@ -55,7 +60,7 @@ const httpX402Middleware = (opts = {}) => {
 		human,
 	} = options;
 
-	const amount = String(Math.round(price * 10 ** decimals));
+	const amount = toAtomicAmount(price, decimals, amountOverride);
 	const requirements = {
 		scheme: "exact",
 		network,
@@ -72,7 +77,8 @@ const httpX402Middleware = (opts = {}) => {
 		if (human?.(request)) return;
 
 		const headers = request.event.headers ?? {};
-		const paymentHeader = headers["payment-signature"];
+		const paymentHeader =
+			headers["payment-signature"] ?? headers["Payment-Signature"];
 
 		const resource = buildResource(request.event);
 		const fullRequirements = { ...requirements, resource };
@@ -106,7 +112,33 @@ const httpX402Middleware = (opts = {}) => {
 			return request.response;
 		}
 
-		const verifyResult = await facilitator.verify(payload, fullRequirements);
+		if (
+			payload.scheme !== requirements.scheme ||
+			payload.network !== requirements.network
+		) {
+			normalizeHttpResponse(request);
+			request.response.statusCode = 402;
+			request.response.headers["Content-Type"] = "application/json";
+			request.response.body = JSON.stringify({
+				x402Version: 2,
+				error: "invalid_payment",
+			});
+			return request.response;
+		}
+
+		let verifyResult;
+		try {
+			verifyResult = await facilitator.verify(payload, fullRequirements);
+		} catch {
+			normalizeHttpResponse(request);
+			request.response.statusCode = 402;
+			request.response.headers["Content-Type"] = "application/json";
+			request.response.body = JSON.stringify({
+				x402Version: 2,
+				error: "invalid_payment",
+			});
+			return request.response;
+		}
 		if (!verifyResult.isValid) {
 			normalizeHttpResponse(request);
 			request.response.statusCode = 402;
@@ -129,7 +161,18 @@ const httpX402Middleware = (opts = {}) => {
 		if (request.response.statusCode >= 400) return;
 
 		const { payload, requirements: fullRequirements } = stored;
-		const settleResult = await facilitator.settle(payload, fullRequirements);
+		let settleResult;
+		try {
+			settleResult = await facilitator.settle(payload, fullRequirements);
+		} catch {
+			request.response.statusCode = 402;
+			request.response.headers["Content-Type"] = "application/json";
+			request.response.body = JSON.stringify({
+				x402Version: 2,
+				error: "settle_error",
+			});
+			return;
+		}
 
 		if (!settleResult.success) {
 			request.response.statusCode = 402;
@@ -156,6 +199,65 @@ const httpX402Middleware = (opts = {}) => {
 	};
 };
 
+const integerPattern = /^[0-9]+$/;
+
+// Render a finite number as a plain decimal string. `String(n)` uses exponential
+// notation for magnitudes below 1e-6 or at/above 1e21 (e.g. "1e-7"), which the
+// decimal parser below would reject even though the value is a valid price.
+const expandExponential = (value) => {
+	const s = String(value);
+	const eIdx = s.indexOf("e");
+	if (eIdx === -1) return s;
+	const exp = Number(s.slice(eIdx + 1));
+	const [intPart, fracPart = ""] = s.slice(0, eIdx).split(".");
+	const digits = intPart + fracPart;
+	const point = intPart.length + exp;
+	// JS only uses exponential notation for magnitudes < 1e-6 (point <= 0, a pure
+	// fraction) or >= 1e21 (point >= digits.length, a trailing-zero integer), so
+	// the decimal point never lands inside `digits`.
+	// Stryker disable next-line EqualityOperator: point===0 is unreachable. JS only emits exponential notation for magnitudes < 1e-6, so the smallest exponent is -7 with intPart.length >= 1, giving point <= -6; the <= vs < boundary at 0 can never be exercised.
+	return point <= 0
+		? `0.${"0".repeat(-point)}${digits}`
+		: `${digits}${"0".repeat(point - digits.length)}`;
+};
+
+const toAtomicAmount = (price, decimals, amountOverride) => {
+	if (amountOverride !== undefined) {
+		if (!integerPattern.test(amountOverride)) {
+			throw new Error(`${pkg} amount must be a non-negative integer string`, {
+				cause: { package: pkg },
+			});
+		}
+		return amountOverride;
+	}
+
+	const priceString =
+		typeof price === "number" ? expandExponential(price) : String(price);
+	const match = /^([0-9]*)(?:\.([0-9]+))?$/.exec(priceString);
+	if (!match || (match[1] === "" && match[2] === undefined)) {
+		throw new Error(
+			`${pkg} price must be a non-negative decimal string or number`,
+			{ cause: { package: pkg } },
+		);
+	}
+
+	const whole = match[1];
+	const fraction = match[2] ?? "";
+	if (fraction.length > decimals) {
+		throw new Error(
+			`${pkg} price has more fractional digits than decimals (${decimals})`,
+			{ cause: { package: pkg } },
+		);
+	}
+
+	const padded = fraction.padEnd(decimals, "0");
+	// `whole` and `padded` are digit-only (regex above) and never both empty
+	// (the empty-string price is rejected earlier), so BigInt and its String()
+	// form are always a non-negative integer string matching integerPattern:
+	// no exponential notation, no precision loss.
+	return String(BigInt(`${whole}${padded}`));
+};
+
 const buildResource = (event) => {
 	if (event.version === "2.0") {
 		return `https://${event.requestContext.domainName}${event.requestContext.http.path}`;
@@ -167,7 +269,21 @@ const buildResource = (event) => {
 const encodeHeader = (obj) =>
 	Buffer.from(JSON.stringify(obj)).toString("base64");
 
-const decodeHeader = (header) =>
-	JSON.parse(Buffer.from(header, "base64").toString());
+const decodeHeader = (header) => {
+	const payload = JSON.parse(Buffer.from(header, "base64").toString());
+	if (
+		payload === null ||
+		// Stryker disable next-line ConditionalExpression: a non-null, non-array primitive that slips past this check has no matching scheme, so the scheme/network guard returns the same invalid_payment 402; forcing this operand false is therefore unobservable.
+		typeof payload !== "object" ||
+		Array.isArray(payload)
+	) {
+		// Stryker disable next-line StringLiteral,ObjectLiteral: the before-hook catch block discards this error entirely (only a generic invalid_payment 402 is returned), so the message and cause are never observable.
+		throw new Error(`${pkg} payment payload must be an object`, {
+			// Stryker disable next-line ObjectLiteral: see above; cause is unobservable because the thrown error is swallowed.
+			cause: { package: pkg },
+		});
+	}
+	return payload;
+};
 
 export default httpX402Middleware;

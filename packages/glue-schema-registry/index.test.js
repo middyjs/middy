@@ -1,4 +1,11 @@
-import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	doesNotThrow,
+	ok,
+	rejects,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { test } from "node:test";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
 import { clearCache, getCache, getInternal, modifyCache } from "@middy/util";
@@ -34,7 +41,7 @@ test("validateOptions accepts SchemaId+SchemaVersionNumber form", () => {
 		fetchData: {
 			user: {
 				SchemaId: { SchemaName: "user", RegistryName: "default" },
-				SchemaVersionNumber: 3,
+				SchemaVersionNumber: { VersionNumber: 3 },
 			},
 		},
 	});
@@ -212,7 +219,13 @@ test("middleware: caches undefined and rethrows on fetch failure", async () => {
 
 	await rejects(
 		() => handler(defaultEvent, defaultContext),
-		/Failed to resolve internal values/,
+		(e) => {
+			strictEqual(e.message, "Failed to resolve internal values");
+			// The original rejection reason must survive untouched; the error-cache
+			// fallback must not replace it with an incidental TypeError.
+			strictEqual(e.cause.data[0].message, "glue boom");
+			return true;
+		},
 	);
 });
 
@@ -226,7 +239,11 @@ test("resolveSchemaVersion: prefetch path (canPrefetch true)", async () => {
 	const request = { internal: {}, context: {} };
 	const result = await resolveSchemaVersion(
 		"pf-1",
-		{ AwsClient: GlueClient, cacheKey: "glue-schema-registry", cacheExpiry: 0 },
+		{
+			AwsClient: GlueClient,
+			cacheKey: "glue-schema-registry",
+			cacheExpiry: -1,
+		},
 		request,
 	);
 	strictEqual(result.schemaVersionId, "pf-1");
@@ -259,7 +276,7 @@ test("glueSchemaRegistryParam returns the name", () => {
 });
 
 test("middleware: skips refetch when modified-cache already has truthy entry", async () => {
-	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
 		SchemaVersionId: "v-cached",
 		SchemaDefinition: AVRO_SCHEMA,
 		DataFormat: "AVRO",
@@ -283,6 +300,9 @@ test("middleware: skips refetch when modified-cache already has truthy entry", a
 	modifyCache("glue-skip-refetch", { user: truthyEntry });
 
 	await handler(defaultEvent, defaultContext);
+	// The truthy modified-cache entry must short-circuit the per-key fetch loop;
+	// no second GetSchemaVersionCommand should be issued.
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
 });
 
 test("middleware: entries without schemaVersionId still land on internal", async () => {
@@ -334,6 +354,29 @@ test("resolveSchemaVersion: reuses client across timer-driven refreshes", async 
 	clearCache("glue-timer-refresh:tmr-1");
 });
 
+test("resolveSchemaVersion: cacheKeyExpiry override (keyed on base cacheKey) takes effect", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "exp-1",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const request = { internal: {}, context: {} };
+	const opts = {
+		AwsClient: GlueClient,
+		cacheKey: "glue-schema-registry",
+		// Infinite by default, but the per-key override disables caching for this
+		// base cacheKey, so the second resolve must refetch.
+		cacheExpiry: -1,
+		cacheKeyExpiry: { "glue-schema-registry": 0 },
+		disablePrefetch: true,
+	};
+
+	await resolveSchemaVersion("exp-1", opts, request);
+	await resolveSchemaVersion("exp-1", opts, request);
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 2);
+});
+
 test("resolveSchemaVersion rejects empty schemaVersionId", async () => {
 	let threw = false;
 	try {
@@ -347,6 +390,570 @@ test("resolveSchemaVersion rejects empty schemaVersionId", async () => {
 	} catch (e) {
 		threw = true;
 		ok(e instanceof TypeError);
+		strictEqual(e.message, "resolveSchemaVersion: schemaVersionId required");
 	}
 	ok(threw, "expected TypeError for empty id");
+});
+
+test("resolveSchemaVersion rejects non-string schemaVersionId", async () => {
+	await rejects(
+		() =>
+			resolveSchemaVersion(
+				123,
+				{ cacheKey: "glue-schema-registry" },
+				{
+					internal: {},
+				},
+			),
+		(e) => {
+			ok(e instanceof TypeError);
+			strictEqual(e.message, "resolveSchemaVersion: schemaVersionId required");
+			return true;
+		},
+	);
+});
+
+// --- option validation: each rule must both accept valid + reject invalid ---
+
+test("validateOptions errors carry the package name in cause", () => {
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheKey: 123 }),
+		(e) => {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/glue-schema-registry");
+			return true;
+		},
+	);
+});
+
+test("validateOptions rejects unknown top-level options", () => {
+	throws(
+		() => glueSchemaRegistryValidateOptions({ notARealOption: 1 }),
+		/Unknown option 'notARealOption'/,
+	);
+});
+
+test("validateOptions enforces AwsClient must be a Function", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ AwsClient: GlueClient }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ AwsClient: 123 }),
+		/AwsClient.*instanceof Function/,
+	);
+});
+
+test("validateOptions enforces awsClientOptions must be an object", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ awsClientOptions: { region: "us" } }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ awsClientOptions: "nope" }),
+		/awsClientOptions.*must be object/,
+	);
+});
+
+test("validateOptions enforces awsClientAssumeRole must be a string", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ awsClientAssumeRole: "role" }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ awsClientAssumeRole: 123 }),
+		/awsClientAssumeRole.*must be string/,
+	);
+});
+
+test("validateOptions enforces awsClientCapture must be a Function", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ awsClientCapture: () => {} }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ awsClientCapture: "nope" }),
+		/awsClientCapture.*instanceof Function/,
+	);
+});
+
+test("validateOptions enforces disablePrefetch must be a boolean", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ disablePrefetch: true }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ disablePrefetch: "nope" }),
+		/disablePrefetch.*must be boolean/,
+	);
+});
+
+test("validateOptions enforces cacheKey must be a string", () => {
+	doesNotThrow(() => glueSchemaRegistryValidateOptions({ cacheKey: "k" }));
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheKey: 123 }),
+		/cacheKey.*must be string/,
+	);
+});
+
+test("validateOptions enforces cacheKeyExpiry numeric values >= -1", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({ cacheKeyExpiry: { k: -1 } }),
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheKeyExpiry: { k: "x" } }),
+		/cacheKeyExpiry\.k.*must be number/,
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheKeyExpiry: { k: -2 } }),
+		/cacheKeyExpiry\.k.*must be >= -1/,
+	);
+});
+
+test("validateOptions enforces cacheExpiry must be a number >= -1", () => {
+	doesNotThrow(() => glueSchemaRegistryValidateOptions({ cacheExpiry: -1 }));
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheExpiry: "x" }),
+		/cacheExpiry.*must be number/,
+	);
+	throws(
+		() => glueSchemaRegistryValidateOptions({ cacheExpiry: -2 }),
+		/cacheExpiry.*must be >= -1/,
+	);
+});
+
+test("validateOptions enforces setToContext must be a boolean", () => {
+	doesNotThrow(() => glueSchemaRegistryValidateOptions({ setToContext: true }));
+	throws(
+		() => glueSchemaRegistryValidateOptions({ setToContext: "nope" }),
+		/setToContext.*must be boolean/,
+	);
+});
+
+test("validateOptions: fetchData SchemaVersionId branch enforces string", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({
+			fetchData: { user: { SchemaVersionId: "uuid" } },
+		}),
+	);
+	// non-string SchemaVersionId matches neither oneOf branch
+	throws(
+		() =>
+			glueSchemaRegistryValidateOptions({
+				fetchData: { user: { SchemaVersionId: 123 } },
+			}),
+		/fetchData\.user.*oneOf/,
+	);
+});
+
+test("validateOptions: fetchData SchemaVersionId branch allows extra keys", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({
+			fetchData: { user: { SchemaVersionId: "uuid", extra: 1 } },
+		}),
+	);
+});
+
+test("validateOptions: fetchData SchemaId object enforces string fields + extras", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({
+			fetchData: {
+				user: {
+					SchemaId: {
+						SchemaName: "user",
+						RegistryName: "default",
+						SchemaArn: "arn:aws:glue:::schema/user",
+						extra: 1,
+					},
+					SchemaVersionNumber: { VersionNumber: 1 },
+				},
+			},
+		}),
+	);
+	throws(
+		() =>
+			glueSchemaRegistryValidateOptions({
+				fetchData: {
+					user: {
+						SchemaId: { SchemaArn: 123 },
+						SchemaVersionNumber: { VersionNumber: 1 },
+					},
+				},
+			}),
+		/fetchData\.user.*oneOf/,
+	);
+});
+
+test("validateOptions: fetchData SchemaVersionNumber enforces integer >= 1 + boolean + extras", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({
+			fetchData: {
+				user: {
+					SchemaId: { SchemaName: "user" },
+					SchemaVersionNumber: {
+						VersionNumber: 3,
+						LatestVersion: true,
+						extra: 1,
+					},
+				},
+			},
+		}),
+	);
+	throws(
+		() =>
+			glueSchemaRegistryValidateOptions({
+				fetchData: {
+					user: {
+						SchemaId: { SchemaName: "user" },
+						SchemaVersionNumber: { LatestVersion: "nope" },
+					},
+				},
+			}),
+		/fetchData\.user.*oneOf/,
+	);
+});
+
+test("validateOptions: fetchData SchemaId branch allows extra keys on entry", () => {
+	doesNotThrow(() =>
+		glueSchemaRegistryValidateOptions({
+			fetchData: {
+				user: {
+					SchemaId: { SchemaName: "user" },
+					SchemaVersionNumber: { VersionNumber: 1 },
+					extra: 1,
+				},
+			},
+		}),
+	);
+});
+
+// --- defaults-driven runtime behavior ---
+
+test("defaults: cacheKey defaults to the package name", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-default-key",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const handler = middy(() => {});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			cacheExpiry: -1,
+			fetchData: { user: { SchemaVersionId: "v-default-key" } },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+
+	const cached = getCache("@middy/glue-schema-registry");
+	ok(cached.value, "expected cache stored under default package cacheKey");
+	deepStrictEqual(Object.keys(cached.value), ["user"]);
+});
+
+test("defaults: cacheExpiry defaults to -1 (infinite) so values survive across delay", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-inf",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const handler = middy(() => {});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			// cacheExpiry omitted: relies on default -1
+			fetchData: { user: { SchemaVersionId: "v-inf" } },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await new Promise((resolve) => setTimeout(resolve, 30));
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
+});
+
+test("defaults: setToContext defaults to false (context left untouched)", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-noctx",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	let observedContextUser = "UNSET";
+	const handler = middy((event, context) => {
+		observedContextUser = context.user;
+	});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			cacheExpiry: 0,
+			// setToContext omitted: relies on default false
+			fetchData: { user: { SchemaVersionId: "v-noctx" } },
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, { ...defaultContext });
+	strictEqual(observedContextUser, undefined);
+});
+
+test("middleware: prefetch issues the fetch at factory time (default disablePrefetch false)", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-pf2",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const handler = middy(() => {});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			cacheExpiry: -1,
+			fetchData: { user: { SchemaVersionId: "v-pf2" } },
+		}),
+	);
+
+	// Prefetch must have already sent the command before any invocation.
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
+
+	await handler(defaultEvent, defaultContext);
+	// Still cached: no extra call from the before-hook.
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 1);
+});
+
+test("middleware: prefetch creates the client exactly once (reused in before-hook)", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-once",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	let instantiations = 0;
+	class CountingClient extends GlueClient {
+		constructor(options) {
+			super(options);
+			instantiations++;
+		}
+	}
+
+	const handler = middy(() => {});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: CountingClient,
+			cacheExpiry: -1,
+			fetchData: { user: { SchemaVersionId: "v-once" } },
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	// The prefetched client must be reused: the before-hook must NOT build a
+	// second client.
+	strictEqual(instantiations, 1);
+});
+
+test("middleware: sends GetSchemaVersionCommand with the configured fetchData input", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "v-input",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const handler = middy(() => {});
+	handler.use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			cacheExpiry: 0,
+			fetchData: {
+				user: {
+					SchemaId: { SchemaName: "user", RegistryName: "default" },
+					SchemaVersionNumber: { VersionNumber: 2 },
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	const calls = mock.commandCalls(GetSchemaVersionCommand);
+	strictEqual(calls.length, 1);
+	deepStrictEqual(calls[0].args[0].input, {
+		SchemaId: { SchemaName: "user", RegistryName: "default" },
+		SchemaVersionNumber: { VersionNumber: 2 },
+	});
+});
+
+test("middleware: retries on InvalidSignatureException then resolves", async () => {
+	const signatureError = Object.assign(new Error("bad signature"), {
+		__type: "InvalidSignatureException",
+	});
+	const mock = mockClient(GlueClient)
+		.on(GetSchemaVersionCommand)
+		.rejectsOnce(signatureError)
+		.resolves({
+			SchemaVersionId: "v-retry",
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+
+	const handler = middy(() => {});
+	handler
+		.use(
+			glueSchemaRegistry({
+				AwsClient: GlueClient,
+				cacheExpiry: 0,
+				fetchData: { user: { SchemaVersionId: "v-retry" } },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const entry = await request.internal.user;
+			strictEqual(entry.schemaVersionId, "v-retry");
+			strictEqual(entry.schemaDefinition, AVRO_SCHEMA);
+		});
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 2);
+});
+
+// --- resolveSchemaVersion behavior ---
+
+test("resolveSchemaVersion sends command with the exact schemaVersionId", async () => {
+	const mock = mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "exact-id",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const request = { internal: {}, context: {} };
+	await resolveSchemaVersion(
+		"exact-id",
+		{
+			AwsClient: GlueClient,
+			cacheKey: "glue-schema-registry",
+			cacheExpiry: 0,
+			disablePrefetch: true,
+		},
+		request,
+	);
+	deepStrictEqual(mock.commandCalls(GetSchemaVersionCommand)[0].args[0].input, {
+		SchemaVersionId: "exact-id",
+	});
+});
+
+test("resolveSchemaVersion stores cache under composed cacheKey", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "comp-1",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const request = { internal: {}, context: {} };
+	await resolveSchemaVersion(
+		"comp-1",
+		{
+			AwsClient: GlueClient,
+			cacheKey: "glue-schema-registry",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+		},
+		request,
+	);
+
+	ok(
+		getCache("glue-schema-registry:comp-1").value,
+		"expected cache under composed cacheKey:schemaVersionId",
+	);
+});
+
+test("resolveSchemaVersion tolerates an explicitly undefined cacheKeyExpiry", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "undef-exp",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	const request = { internal: {}, context: {} };
+	const result = await resolveSchemaVersion(
+		"undef-exp",
+		{
+			AwsClient: GlueClient,
+			cacheKey: "glue-schema-registry",
+			cacheExpiry: 0,
+			cacheKeyExpiry: undefined,
+			disablePrefetch: true,
+		},
+		request,
+	);
+	strictEqual(result.schemaVersionId, "undef-exp");
+});
+
+test("resolveSchemaVersion reuses the client across timer-driven refreshes (single instantiation)", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "tmr-reuse",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	let instantiations = 0;
+	class CountingClient extends GlueClient {
+		constructor(options) {
+			super(options);
+			instantiations++;
+		}
+	}
+
+	const request = { internal: {}, context: {} };
+	await resolveSchemaVersion(
+		"tmr-reuse",
+		{
+			AwsClient: CountingClient,
+			cacheKey: "glue-timer-reuse",
+			cacheExpiry: 30,
+			disablePrefetch: true,
+		},
+		request,
+	);
+
+	await new Promise((resolve) => setTimeout(resolve, 90));
+	clearCache("glue-timer-reuse:tmr-reuse");
+	strictEqual(instantiations, 1);
+});
+
+test("resolveSchemaVersion assumes role: credentials reach the client (no-prefetch path)", async () => {
+	mockClient(GlueClient).on(GetSchemaVersionCommand).resolves({
+		SchemaVersionId: "role-1",
+		SchemaDefinition: AVRO_SCHEMA,
+		DataFormat: "AVRO",
+	});
+
+	let receivedOptions = null;
+	class CapturingClient extends GlueClient {
+		constructor(options) {
+			super(options);
+			receivedOptions = options;
+		}
+	}
+
+	const request = {
+		internal: {
+			credentials: { accessKeyId: "AK", secretAccessKey: "SK" },
+		},
+		context: {},
+	};
+	const result = await resolveSchemaVersion(
+		"role-1",
+		{
+			AwsClient: CapturingClient,
+			cacheKey: "glue-role",
+			cacheExpiry: 0,
+			awsClientAssumeRole: "credentials",
+		},
+		request,
+	);
+	strictEqual(result.schemaVersionId, "role-1");
+	// canPrefetch is false when assuming a role, so createClient must run and
+	// thread the resolved credentials into the client constructor.
+	deepStrictEqual(receivedOptions.credentials, {
+		accessKeyId: "AK",
+		secretAccessKey: "SK",
+	});
 });

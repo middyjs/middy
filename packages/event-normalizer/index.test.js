@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { gzipSync } from "node:zlib";
 import createEvent from "@serverless/event-mocks";
@@ -478,7 +478,8 @@ test("It should parse Kinesis Firehose event data", async (t) => {
 	const data = { hello: "world" };
 	const event = {
 		invocationId: "invoked123",
-		deliveryStreamArn: "aws:lambda:events",
+		deliveryStreamArn:
+			"arn:aws:firehose:us-west-2:112556298976:deliverystream/my-stream",
 		region: "us-west-2",
 		records: [
 			{
@@ -799,6 +800,58 @@ test("It should handle DynamoDB event with undefined type value", async (t) => {
 	);
 });
 
+test("It should not dispatch on prototype keys via recursive SQS body", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ eventSource: "__proto__" }),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, { eventSource: "__proto__" });
+});
+
+test("It should not dispatch on inherited members via recursive SQS body", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ eventSource: "valueOf" }),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, { eventSource: "valueOf" });
+});
+
+test("It should skip when Records is empty", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [] };
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { Records: [] });
+});
+
+test("It should skip when first record is null", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [null] };
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { Records: [null] });
+});
+
 test("eventNormalizerValidateOptions accepts valid options and rejects typos", () => {
 	eventNormalizerValidateOptions({ wrapNumbers: true });
 	eventNormalizerValidateOptions({});
@@ -818,4 +871,185 @@ test("eventNormalizerValidateOptions rejects wrong type", () => {
 	} catch (e) {
 		ok(e.message.includes("wrapNumbers"));
 	}
+});
+
+test("eventNormalizerValidateOptions rejects non-integer maxDecompressedBytes", () => {
+	let caught;
+	try {
+		eventNormalizerValidateOptions({ maxDecompressedBytes: 1.5 });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught, "expected throw for non-integer maxDecompressedBytes");
+	ok(caught.message.includes("maxDecompressedBytes"));
+	strictEqual(caught.cause.package, "@middy/event-normalizer");
+});
+
+test("eventNormalizerValidateOptions rejects maxDecompressedBytes below minimum", () => {
+	let caught;
+	try {
+		eventNormalizerValidateOptions({ maxDecompressedBytes: 0 });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught, "expected throw for maxDecompressedBytes below minimum");
+	ok(caught.message.includes("maxDecompressedBytes"));
+});
+
+test("eventNormalizerValidateOptions accepts a valid integer maxDecompressedBytes", () => {
+	eventNormalizerValidateOptions({ maxDecompressedBytes: 1 });
+	eventNormalizerValidateOptions({ maxDecompressedBytes: 5 * 1024 * 1024 });
+});
+
+test("CloudWatch Logs: default decompressed cap of 10 MiB is applied", async () => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	// 11 MiB of zeros deflates small but decompresses past the default 10 MiB cap.
+	const event = {
+		awslogs: {
+			data: gzipSync(Buffer.alloc(11 * 1024 * 1024, 0)).toString("base64"),
+		},
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught, "expected throw when default 10 MiB cap is exceeded");
+	strictEqual(caught.code, "ERR_BUFFER_TOO_LARGE");
+});
+
+test("CloudWatch Logs: under the default 10 MiB cap does not throw", async () => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const eventJSON = { messageType: "DATA_MESSAGE", logEvents: [] };
+	const event = {
+		awslogs: {
+			data: gzipSync(JSON.stringify(eventJSON)).toString("base64"),
+		},
+	};
+
+	const response = await handler(event, defaultContext);
+	deepStrictEqual(response.awslogs.data, eventJSON);
+});
+
+test("It should recursively parse an SQS body that is not an SNS Notification", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	// Body is a nested S3 event (else branch): record.body parsed by jsonSafeParse,
+	// then parseEvent applied recursively so the S3 key gets normalized.
+	const nested = {
+		Records: [
+			{
+				eventSource: "aws:s3",
+				s3: { object: { key: "This+is+a+picture.jpg" } },
+			},
+		],
+	};
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify(nested),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(
+		response.Records[0].body.Records[0].s3.object.key,
+		"This is a picture.jpg",
+	);
+});
+
+test("DynamoDB N: value equal to MAX_SAFE_INTEGER stays a Number", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: String(Number.MAX_SAFE_INTEGER) },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].dynamodb.Keys.N, Number.MAX_SAFE_INTEGER);
+});
+
+test("DynamoDB N: value equal to MIN_SAFE_INTEGER stays a Number", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: String(Number.MIN_SAFE_INTEGER) },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].dynamodb.Keys.N, Number.MIN_SAFE_INTEGER);
+});
+
+test("DynamoDB N: value below MIN_SAFE_INTEGER becomes BigInt", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const value = "-19007199254740991";
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: value },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].dynamodb.Keys.N, -19007199254740991n);
+});
+
+test("DynamoDB N: value parsing to +Infinity stays a Number (no BigInt, no throw)", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: "1e400" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].dynamodb.Keys.N, Number.POSITIVE_INFINITY);
+});
+
+test("DynamoDB N: value parsing to -Infinity stays a Number (no BigInt, no throw)", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: "-1e400" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].dynamodb.Keys.N, Number.NEGATIVE_INFINITY);
+});
+
+test("DynamoDB N: out-of-range non-integer string throws BigInt conversion error", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const value = "9007199254740998.25";
+	const event = createEvent.default("aws:dynamo");
+	event.Records[0].dynamodb.Keys = {
+		N: { N: value },
+	};
+
+	await rejects(
+		() => handler(event, defaultContext),
+		(e) => {
+			strictEqual(
+				e.message,
+				`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
+			);
+			strictEqual(e.cause.package, "@middy/event-normalizer");
+			strictEqual(e.cause.value, value);
+			return true;
+		},
+	);
 });

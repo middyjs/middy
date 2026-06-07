@@ -1,8 +1,8 @@
 import { equal, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout } from "node:timers/promises";
+import { clearCache, getInternal, modifyCache } from "@middy/util";
 import middy from "../core/index.js";
-import { clearCache, getInternal, modifyCache } from "../util/index.js";
 import appConfigExtension, {
 	appConfigExtensionParam,
 	appConfigExtensionValidateOptions,
@@ -259,12 +259,23 @@ test("It should throw if extension returns a non-2xx response", async (_t) => {
 		}),
 	);
 
+	let thrown;
 	try {
 		await handler(event, context);
-		equal(true, false, "should have thrown");
-	} catch (_e) {
-		equal(fetchCount, 1);
+	} catch (e) {
+		thrown = e;
 	}
+	ok(thrown, "should have thrown");
+	ok(thrown instanceof Error);
+	// @middy/core wraps the failure; the original fetch error is in cause.data.
+	const cause = thrown.cause?.data?.[0];
+	ok(cause instanceof Error, "original fetch error should propagate");
+	// The propagated error must be the constructed HTTP error (lines 86/87),
+	// carrying status + statusText, NOT a TypeError from the catch handler
+	// (line 97 `?? {}` vs `&& {}` would throw on `undefined[internalKey]`).
+	strictEqual(cause.message, "@middy/appconfig-extension 404 Not Found");
+	strictEqual(cause.cause?.package, "@middy/appconfig-extension");
+	equal(fetchCount, 1);
 });
 
 test("It should update cache to undefined on error when prior cache values exist", async (_t) => {
@@ -429,6 +440,227 @@ test("It should skip already-cached keys when cache is modified", async (_t) => 
 	modifyCache("ac-modified", { config: { option: "value" } }); // mark as modified with truthy value
 	await handler(event, context); // cachedValues["config"] is truthy → continue is taken
 	equal(fetchCount, 1); // only 1 fetch (second call skips via continue)
+});
+
+test("It should prefetch at factory time when using defaults", async (_t) => {
+	// Defaults: disablePrefetch=false, cacheExpiry=-1 → canPrefetch() is true,
+	// so processCache(...) runs the fetch during construction (before any
+	// handler invocation). Kills: canPrefetch guard (line 106), disablePrefetch
+	// default (line 19).
+	fetchCount = 0;
+	const middleware = appConfigExtension({
+		cacheKey: "ac-prefetch",
+		fetchData: { config: fetchParam },
+	});
+	equal(fetchCount, 1, "fetch should have fired during factory prefetch");
+
+	const seen = {};
+	const handler = middy(() => {})
+		.use(middleware)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.config?.option, "value");
+			seen.contextHasConfig = "config" in request.context;
+		});
+	await handler(event, context);
+	// setToContext defaults to false (line 23): config must NOT land on context.
+	strictEqual(seen.contextHasConfig, false);
+	// cacheExpiry defaults to -1 (infinite, line 22): the prefetched value is
+	// reused, no second fetch.
+	equal(fetchCount, 1, "default cacheExpiry=-1 keeps value cached forever");
+	clearCache();
+});
+
+test("It should re-fetch once default infinite cache is replaced by short TTL", async (_t) => {
+	// Guards the default cacheExpiry of -1 (line 22). With -1 the prefetched
+	// value never expires (fetchCount stays 1 across a delay). If the default
+	// were a small positive number the entry would expire and re-fetch.
+	fetchCount = 0;
+	const handler = middy(() => {})
+		.use(
+			appConfigExtension({
+				cacheKey: "ac-ttl",
+				fetchData: { config: fetchParam },
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+	equal(fetchCount, 1, "prefetched once");
+	await setTimeout(20);
+	await handler(event, context);
+	equal(fetchCount, 1, "infinite cache: still only one fetch after delay");
+	clearCache();
+});
+
+test("It should not append a flag query string for an empty flag array", async (_t) => {
+	// flags.length guard (line 78): an empty array must NOT add `?flag=...`, so
+	// the plain (unflagged) configuration URL is requested.
+	const handler = middy(() => {})
+		.use(
+			appConfigExtension({
+				cacheExpiry: 0,
+				fetchData: { config: { ...fetchParam, flag: [] } },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			// my_config (no `?`) resolves to the JSON config; `my_config?` is 404.
+			strictEqual(values.config?.option, "value");
+		});
+	await handler(event, context);
+});
+
+test("appConfigExtensionValidateOptions accepts a string flag", () => {
+	appConfigExtensionValidateOptions({
+		fetchData: {
+			key: {
+				application: "app",
+				environment: "env",
+				configuration: "cfg",
+				flag: "my_flag",
+			},
+		},
+	});
+});
+
+test("appConfigExtensionValidateOptions accepts an array-of-strings flag", () => {
+	appConfigExtensionValidateOptions({
+		fetchData: {
+			key: {
+				application: "app",
+				environment: "env",
+				configuration: "cfg",
+				flag: ["a", "b"],
+			},
+		},
+	});
+});
+
+test("appConfigExtensionValidateOptions rejects a non-string/array flag", () => {
+	// Guards the flag oneOf schema (lines 38-41): a number matches neither
+	// `{type:"string"}` nor `{type:"array",items:{type:"string"}}`.
+	try {
+		appConfigExtensionValidateOptions({
+			fetchData: {
+				key: {
+					application: "app",
+					environment: "env",
+					configuration: "cfg",
+					flag: 123,
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("flag"));
+	}
+});
+
+test("appConfigExtensionValidateOptions rejects an array flag with non-string items", () => {
+	// Guards `items: { type: "string" }` (line 40).
+	try {
+		appConfigExtensionValidateOptions({
+			fetchData: {
+				key: {
+					application: "app",
+					environment: "env",
+					configuration: "cfg",
+					flag: [1, 2],
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("flag"));
+	}
+});
+
+test("appConfigExtensionValidateOptions rejects unknown fetchData entry property", () => {
+	// Guards fetchData entry additionalProperties:false (line 45).
+	try {
+		appConfigExtensionValidateOptions({
+			fetchData: {
+				key: {
+					application: "app",
+					environment: "env",
+					configuration: "cfg",
+					unexpected: "x",
+				},
+			},
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("unexpected"));
+	}
+});
+
+test("appConfigExtensionValidateOptions rejects cacheExpiry below -1", () => {
+	// Guards cacheExpiry minimum:-1 (line 54).
+	try {
+		appConfigExtensionValidateOptions({ cacheExpiry: -2 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheExpiry"));
+	}
+});
+
+test("appConfigExtensionValidateOptions accepts cacheExpiry of -1", () => {
+	appConfigExtensionValidateOptions({ cacheExpiry: -1 });
+});
+
+test("appConfigExtensionValidateOptions accepts a numeric cacheKeyExpiry value", () => {
+	// Guards cacheKeyExpiry entry type:"number" (line 52). With type:"" the
+	// validator would reject even a valid number ("Unknown schema type").
+	appConfigExtensionValidateOptions({ cacheKeyExpiry: { someKey: 1000 } });
+});
+
+test("appConfigExtensionValidateOptions accepts cacheKeyExpiry of -1 (minimum boundary)", () => {
+	// Guards cacheKeyExpiry entry minimum:-1 (line 52). -1 is the inclusive
+	// floor; if the minimum were +1 this value would be wrongly rejected.
+	appConfigExtensionValidateOptions({ cacheKeyExpiry: { someKey: -1 } });
+});
+
+test("appConfigExtensionValidateOptions rejects cacheKeyExpiry value below -1", () => {
+	// Guards cacheKeyExpiry additionalProperties {type:number,minimum:-1}
+	// (lines 52, 54-style schema on entries).
+	try {
+		appConfigExtensionValidateOptions({ cacheKeyExpiry: { someKey: -2 } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("someKey") || e.message.includes("cacheKeyExpiry"));
+	}
+});
+
+test("appConfigExtensionValidateOptions rejects non-number cacheKeyExpiry value", () => {
+	// Guards cacheKeyExpiry additionalProperties type:"number" (line 52).
+	// A string value matches neither number nor object, so it is rejected.
+	try {
+		appConfigExtensionValidateOptions({ cacheKeyExpiry: { someKey: "bad" } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("someKey") || e.message.includes("cacheKeyExpiry"));
+	}
+});
+
+test("appConfigExtensionValidateOptions rejects an object cacheKeyExpiry value", () => {
+	// Guards the cacheKeyExpiry entry schema OBJECT itself (line 52,
+	// `{ type: "number", minimum: -1 }` -> `{}`). An empty schema would accept
+	// any plain object; the real schema requires a number.
+	try {
+		appConfigExtensionValidateOptions({ cacheKeyExpiry: { someKey: {} } });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("someKey") || e.message.includes("number"));
+	}
 });
 
 test("appConfigExtensionValidateOptions rejects fetchData entry missing required fields", () => {

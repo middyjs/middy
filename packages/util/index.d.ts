@@ -133,6 +133,12 @@ declare function jsonSafeParse(
 	reviver?: (key: string, value: unknown) => unknown,
 ): unknown;
 
+declare function jsonParseProtectProto(
+	text: string,
+	reviver?: (key: string, value: unknown) => unknown,
+	packageName?: string,
+): unknown;
+
 declare function normalizeHttpResponse(
 	request: middy.Request,
 	fallbackResponse?: Record<string, unknown>,

@@ -200,6 +200,114 @@ test("It should call notFoundResponse only when valid RequestType has no route",
 	strictEqual(calls, 2);
 });
 
+// Default notFoundResponse behavior (no routes / no notFoundResponse configured)
+test("Default notFoundResponse throws with cause when no route configured", async (t) => {
+	const handler = cloudformationRouter();
+	let thrown;
+	try {
+		await handler({ RequestType: "Create" }, defaultContext);
+		ok(false, "expected default notFoundResponse to throw");
+	} catch (e) {
+		thrown = e;
+	}
+	strictEqual(thrown.message, "Route does not exist");
+	ok(thrown.cause, "expected cause to exist");
+	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+	ok(thrown.cause.data, "expected cause.data to exist");
+	strictEqual(thrown.cause.data.requestType, "Create");
+});
+
+test("Default notFoundResponse fires when constructed with no routes (defaults applied)", async (t) => {
+	const handler = cloudformationRouter();
+	let thrown;
+	try {
+		await handler({ RequestType: "Delete" }, defaultContext);
+		ok(false, "expected throw with empty default routes");
+	} catch (e) {
+		thrown = e;
+	}
+	strictEqual(thrown.message, "Route does not exist");
+	strictEqual(thrown.cause.data.requestType, "Delete");
+});
+
+// Invalid RequestType runtime error cause + exact message
+test("Invalid RequestType throws Error with full message and cause", async (t) => {
+	const handler = cloudformationRouter([
+		{ requestType: "Create", handler: () => true },
+	]);
+	let thrown;
+	try {
+		await handler({ RequestType: "Patch" }, defaultContext);
+		ok(false, "expected throw for invalid RequestType");
+	} catch (e) {
+		thrown = e;
+	}
+	strictEqual(
+		thrown.message,
+		"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: Patch",
+	);
+	ok(thrown.cause, "expected cause to exist");
+	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+	ok(thrown.cause.data, "expected cause.data to exist");
+	strictEqual(thrown.cause.data.requestType, "Patch");
+});
+
+test("Missing RequestType throws Error with 'Received: undefined' message and cause", async (t) => {
+	const handler = cloudformationRouter([
+		{ requestType: "Create", handler: () => true },
+	]);
+	let thrown;
+	try {
+		await handler({}, defaultContext);
+		ok(false, "expected throw for missing RequestType");
+	} catch (e) {
+		thrown = e;
+	}
+	strictEqual(
+		thrown.message,
+		"Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: undefined",
+	);
+	ok(thrown.cause, "expected cause to exist");
+	strictEqual(thrown.cause.package, "@middy/cloudformation-router");
+	strictEqual(thrown.cause.data.requestType, undefined);
+});
+
+test("cloudformationRouterValidateOptions rejects route missing requestType", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [{ handler: () => {} }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});
+
+test("cloudformationRouterValidateOptions rejects route missing handler", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [{ requestType: "Create" }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});
+
+test("cloudformationRouterValidateOptions rejects unknown extra property on route", () => {
+	try {
+		cloudformationRouterValidateOptions({
+			routes: [{ requestType: "Create", handler: () => {}, extra: true }],
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.cause.package, "@middy/cloudformation-router");
+	}
+});
+
 test("cloudformationRouterValidateOptions accepts valid options and rejects typos", () => {
 	cloudformationRouterValidateOptions({
 		routes: [],

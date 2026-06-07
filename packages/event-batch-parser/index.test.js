@@ -2,12 +2,12 @@ import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { deflateSync } from "node:zlib";
 import { GetSchemaVersionCommand, GlueClient } from "@aws-sdk/client-glue";
+import { clearCache } from "@middy/util";
 import avro from "avro-js";
 import { mockClient } from "aws-sdk-client-mock";
 import protobuf from "protobufjs";
 import middy from "../core/index.js";
 import glueSchemaRegistry from "../glue-schema-registry/index.js";
-import { clearCache } from "../util/index.js";
 import eventBatchParser, { eventBatchParserValidateOptions } from "./index.js";
 import { parseAvro } from "./parseAvro.js";
 import { parseJson } from "./parseJson.js";
@@ -50,6 +50,84 @@ test("validateOptions accepts all parser fields", () => {
 	});
 });
 
+test("validateOptions rejects non-function `data`", () => {
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ data: "not-a-function" });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+});
+
+test("validateOptions accepts a function `data`", () => {
+	eventBatchParserValidateOptions({ data: () => undefined });
+});
+
+test("validateOptions rejects non-boolean `disableEventSourceError`", () => {
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ disableEventSourceError: "yes" });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+});
+
+test("validateOptions accepts a boolean `disableEventSourceError`", () => {
+	eventBatchParserValidateOptions({ disableEventSourceError: true });
+});
+
+test("validateOptions rejects non-integer `maxDecompressedBytes`", () => {
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ maxDecompressedBytes: 1.5 });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+});
+
+test("validateOptions rejects `maxDecompressedBytes` below minimum (0)", () => {
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ maxDecompressedBytes: 0 });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+});
+
+test("validateOptions accepts a positive integer `maxDecompressedBytes`", () => {
+	eventBatchParserValidateOptions({ maxDecompressedBytes: 1 });
+});
+
+test("validateOptions rejects unknown/extra options (additionalProperties false)", () => {
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ unknownOption: true });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+});
+
+test("eventBatchParserValidateOptions actually validates (throws on invalid)", () => {
+	// Guards against the validator body being replaced with a no-op.
+	let caught;
+	try {
+		eventBatchParserValidateOptions({ value: 123 });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+});
+
 // ---------- parseJson ----------
 
 test("parseJson on Kafka value", async () => {
@@ -85,6 +163,23 @@ test("parseJson on Kafka key+value", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { a: 2 });
 });
 
+test("parseJson across multiple Kafka topic-partition groups", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"t-0": [{ value: b64('{"x":1}') }],
+			"t-1": [{ value: b64('{"x":2}') }],
+		},
+	};
+
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
+	deepStrictEqual(out.records["t-1"][0].value, { x: 2 });
+});
+
 test("parseJson on Kinesis data", async () => {
 	const handler = middy().use(eventBatchParser({ data: parseJson() }));
 	handler.handler((event) => event);
@@ -99,13 +194,18 @@ test("parseJson on Kinesis data", async () => {
 	deepStrictEqual(out.Records[0].kinesis.data, { k: 1 });
 });
 
-test("parseJson on Firehose data", async () => {
+test("parseJson on Firehose data (real AWS shape: deliveryStreamArn, recordId, no eventSource)", async () => {
+	// A real Kinesis Data Firehose data-transformation event has a top-level
+	// deliveryStreamArn and records carrying recordId/data with NO eventSource.
+	// docs.aws.amazon.com/firehose/latest/dev/data-transformation.html
 	const handler = middy().use(eventBatchParser({ data: parseJson() }));
 	handler.handler((event) => event);
 
 	const event = {
-		deliveryStreamArn: "arn:...",
-		records: [{ eventSource: "aws:lambda:events", data: b64('{"f":1}') }],
+		invocationId: "inv-1",
+		deliveryStreamArn: "arn:aws:firehose:us-east-1:123:deliverystream/x",
+		region: "us-east-1",
+		records: [{ recordId: "r-1", data: b64('{"f":1}') }],
 	};
 
 	const out = await handler(event, defaultContext);
@@ -377,7 +477,7 @@ test("body is an internal alias for value on Kafka", async () => {
 	deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
 });
 
-test("Mismatched config: key for Kinesis throws TypeError", async () => {
+test("Mismatched config: key for Kinesis throws TypeError carrying cause.package", async () => {
 	const handler = middy().use(eventBatchParser({ key: parseJson() }));
 	handler.handler((event) => event);
 
@@ -387,7 +487,14 @@ test("Mismatched config: key for Kinesis throws TypeError", async () => {
 		],
 	};
 
-	await rejects(() => handler(event, defaultContext), TypeError);
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
 });
 
 test("Unknown event source throws", async () => {
@@ -615,6 +722,33 @@ test("SQS event with no Records falls back to empty iterator", async () => {
 	handler.handler((event) => event);
 
 	const event = { eventSource: "aws:sqs" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("Kinesis event with no Records falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:kinesis" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("Firehose event with no records falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:lambda:events" };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, event);
+});
+
+test("ActiveMQ event with no messages falls back to empty iterator", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:amq" };
 	const out = await handler(event, defaultContext);
 	deepStrictEqual(out, event);
 });
@@ -961,4 +1095,535 @@ test("Parser throw wraps in 422", async () => {
 	strictEqual(caught.statusCode, 422);
 	strictEqual(caught.cause.package, "@middy/event-batch-parser");
 	strictEqual(caught.cause.field, "value");
+});
+
+// ---------- default decompression cap (10 MiB) ----------
+
+test("default maxDecompressedBytes allows a ~1 MiB payload (cap is 10 MiB, not smaller)", async () => {
+	// No maxDecompressedBytes option: the default 10 * 1024 * 1024 cap must
+	// apply. A ~1 MiB inflated payload is well under 10 MiB and must succeed.
+	// Any shrunk default (e.g. 10*1024/1024 = 10240, or 10/1024*1024 ≈ 10)
+	// would reject this with a 413.
+	const uuid = "55556666-1234-1234-1234-1234567890ab";
+	const inner = Buffer.alloc(1024 * 1024, 0); // 1 MiB
+	const framed = glueFramedBuffer(uuid, inner, 0x05);
+
+	const handler = middy().use(
+		eventBatchParser({
+			value: (_buffer, _record, _request, framing) => framing.payload.length,
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, 1024 * 1024);
+});
+
+test("default maxDecompressedBytes rejects a payload over 10 MiB with 413", async () => {
+	// A payload just over the 10 MiB default cap must be rejected when no
+	// maxDecompressedBytes option is supplied.
+	const uuid = "66667777-1234-1234-1234-1234567890ab";
+	const inner = Buffer.alloc(10 * 1024 * 1024 + 1, 0); // 10 MiB + 1 byte
+	const framed = glueFramedBuffer(uuid, inner, 0x05);
+
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 413);
+	strictEqual(caught.cause.maxDecompressedBytes, 10 * 1024 * 1024);
+});
+
+// ---------- error message text ----------
+
+test("Unsupported-field TypeError carries the exact message and comma-joined field list", async () => {
+	const handler = middy().use(eventBatchParser({ key: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		Records: [
+			{ eventSource: "aws:kinesis", kinesis: { data: b64('{"x":1}') } },
+		],
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	strictEqual(
+		caught.message,
+		'@middy/event-batch-parser: field "key" is not supported for event source "aws:kinesis". Supported: value, body, data',
+	);
+});
+
+test("Parser-throw 422 carries the exact 'Invalid record payload' message", async () => {
+	const handler = middy().use(
+		eventBatchParser({
+			value: () => {
+				throw new Error("boom");
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: b64("garbage") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.message, "Invalid record payload");
+});
+
+test("413 over-cap error carries the exact 'Decompressed payload exceeds cap' message", async () => {
+	const uuid = "77778888-1234-1234-1234-1234567890ab";
+	const inner = Buffer.alloc(1024 * 1024, 0);
+	const framed = glueFramedBuffer(uuid, inner, 0x05);
+
+	const handler = middy().use(
+		eventBatchParser({ value: parseJson(), maxDecompressedBytes: 1024 }),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.message, "Decompressed payload exceeds cap");
+});
+
+test("Unsupported compression byte message hex-pads to two digits (0x07)", async () => {
+	// 0x07 < 0x10, so padStart(2, "0") yields "07"; padStart(2, "") yields "7".
+	const uuid = "88889999-1234-1234-1234-1234567890ab";
+	const hex = uuid.replace(/-/g, "");
+	const uuidBytes = Buffer.from(hex, "hex");
+	const framed = Buffer.concat([
+		Buffer.from([0x03, 0x07]),
+		uuidBytes,
+		Buffer.from("payload"),
+	]);
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(
+		caught.message,
+		"Unsupported Glue Schema Registry compression byte: 0x07",
+	);
+});
+
+// ---------- text vs binary path (SQS) ----------
+
+test("SQS (text source) hands the raw string to the parser, not a Buffer", async () => {
+	// Text sources must skip Buffer decoding and Glue framing: the parser's
+	// `payload` arg is the original string and there is no `framing` arg.
+	let observedPayload;
+	let observedFraming = "unset";
+	const handler = middy().use(
+		eventBatchParser({
+			body: (payload, _record, _request, framing) => {
+				observedPayload = payload;
+				observedFraming = framing;
+				return JSON.parse(payload);
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		Records: [{ eventSource: "aws:sqs", body: '{"s":1}' }],
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(typeof observedPayload, "string");
+	strictEqual(observedPayload, '{"s":1}');
+	strictEqual(observedFraming, undefined);
+	deepStrictEqual(out.Records[0].body, { s: 1 });
+});
+
+test("Kafka (binary source) hands a Buffer payload plus framing to the parser", async () => {
+	// Contrast to the SQS text path: binary sources decode to a Buffer and
+	// always pass a `framing` object (with at least `payload`).
+	let observedPayload;
+	let observedFraming;
+	const handler = middy().use(
+		eventBatchParser({
+			value: (payload, _record, _request, framing) => {
+				observedPayload = payload;
+				observedFraming = framing;
+				return JSON.parse(payload.toString("utf-8"));
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: b64('{"x":1}') }] },
+	};
+
+	await handler(event, defaultContext);
+	ok(Buffer.isBuffer(observedPayload));
+	ok(observedFraming && Buffer.isBuffer(observedFraming.payload));
+});
+
+// ---------- await branching (line 104) ----------
+
+test("parser returning undefined is set without error (optional chaining on .then)", async () => {
+	// `undefined !== null` passes the left guard, so `parsed?.then` is accessed;
+	// without optional chaining `undefined.then` would throw and wrap as 422.
+	const handler = middy().use(eventBatchParser({ value: () => undefined }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: b64('{"x":1}') }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, undefined);
+});
+
+test("async parser (thenable) is awaited so the resolved value is stored", async () => {
+	const handler = middy().use(
+		eventBatchParser({
+			value: (payload) =>
+				Promise.resolve(JSON.parse(payload.toString("utf-8")).x + 100),
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: b64('{"x":1}') }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, 101);
+});
+
+// ---------- flattenGroups (single vs multi group) ----------
+
+test("single Kafka group returns the source array uncopied (identity preserved)", async () => {
+	const recordsArr = [{ value: b64('{"x":1}') }];
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": recordsArr },
+	};
+
+	const out = await handler(event, defaultContext);
+	// Same array reference flattened through (single-group fast path).
+	strictEqual(out.records["t-0"], recordsArr);
+	deepStrictEqual(out.records["t-0"][0].value, { x: 1 });
+});
+
+test("multi-group Kafka flattens exactly the input records (no extra/sentinel entries)", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => {
+		// Count total records actually processed across all groups.
+		const total = Object.values(event.records).reduce(
+			(n, g) => n + g.length,
+			0,
+		);
+		return { total };
+	});
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"t-0": [{ value: b64('{"x":1}') }, { value: b64('{"x":2}') }],
+			"t-1": [{ value: b64('{"x":3}') }],
+		},
+	};
+
+	const out = await handler(event, defaultContext);
+	// Exactly 3 records flattened+parsed; a sentinel/extra accumulator entry
+	// would surface as a parse failure (422) on the bogus record.
+	strictEqual(out.total, 3);
+	deepStrictEqual(event.records["t-0"][0].value, { x: 1 });
+	deepStrictEqual(event.records["t-0"][1].value, { x: 2 });
+	deepStrictEqual(event.records["t-1"][0].value, { x: 3 });
+});
+
+// ---------- Kinesis empty-records fallback ----------
+
+test("Kinesis event with no Records is returned untouched (empty fallback, no injected records)", async () => {
+	const handler = middy().use(eventBatchParser({ data: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:kinesis" };
+	const out = await handler(event, defaultContext);
+	// Exact equality: the [] fallback must not introduce a Records array
+	// (a non-empty fallback would add records and/or error on them).
+	deepStrictEqual(out, { eventSource: "aws:kinesis" });
+	strictEqual(out.Records, undefined);
+});
+
+// ---------- Glue framing header guard + UUID + payload ----------
+
+test("Glue framing: schemaVersionId is the hyphenated UUID derived from header bytes", async () => {
+	// Build a clean, known UUID and assert the exact parsed schemaVersionId.
+	// Each hyphenated segment is distinct so a wrong slice surfaces.
+	const knownUuid = "01234567-89ab-cdef-0011-223344556677";
+	let observedFraming;
+	const inner = Buffer.from("hi");
+	const framed = glueFramedBuffer(knownUuid, inner);
+
+	const handler = middy().use(
+		eventBatchParser({
+			value: (_payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return framing.payload.toString("utf-8");
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: framed.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(observedFraming.schemaVersionId, knownUuid);
+	strictEqual(out.records["t-0"][0].value, "hi");
+});
+
+test("Glue framing: a buffer with first byte != 0x03 is treated as unframed (payload === original buffer)", async () => {
+	let observedFraming;
+	// First byte 0x01 (not the Glue 0x03 magic), length > 18.
+	const raw = Buffer.concat([Buffer.from([0x01]), Buffer.alloc(30, 0x41)]);
+	const handler = middy().use(
+		eventBatchParser({
+			value: (payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return { isOriginal: framing.payload === payload };
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	// Unframed: no schemaVersionId, payload is the original decoded buffer.
+	strictEqual(observedFraming.schemaVersionId, undefined);
+	ok(Buffer.isBuffer(observedFraming.payload));
+	strictEqual(out.records["t-0"][0].value.isOriginal, true);
+});
+
+test("Glue framing: a buffer shorter than 18 bytes is treated as unframed even if it starts with 0x03", async () => {
+	let observedFraming;
+	// Starts with 0x03 but is only 10 bytes (< 18 header minimum).
+	const raw = Buffer.concat([Buffer.from([0x03]), Buffer.alloc(9, 0x00)]);
+	const handler = middy().use(
+		eventBatchParser({
+			value: (_payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return framing.payload.length;
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	// Not framed: no schemaVersionId, whole 10-byte buffer is the payload.
+	strictEqual(observedFraming.schemaVersionId, undefined);
+	strictEqual(out.records["t-0"][0].value, 10);
+});
+
+test("Glue framing: an exactly-18-byte 0x03-prefixed buffer IS framed (empty payload)", async () => {
+	let observedFraming;
+	const knownUuid = "aabbccdd-eeff-0011-2233-445566778899";
+	const hex = knownUuid.replace(/-/g, "");
+	const uuidBytes = Buffer.from(hex, "hex"); // 16 bytes
+	// 0x03 magic + 0x00 (no compression) + 16 UUID bytes = exactly 18 bytes.
+	const raw = Buffer.concat([Buffer.from([0x03, 0x00]), uuidBytes]);
+	strictEqual(raw.length, 18);
+
+	const handler = middy().use(
+		eventBatchParser({
+			value: (_payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return framing.payload.length;
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	// Boundary: length >= 18 (not > 18) so it must be framed.
+	strictEqual(observedFraming.schemaVersionId, knownUuid);
+	strictEqual(out.records["t-0"][0].value, 0);
+});
+
+// ---------- detectEventSource optional-chaining safety ----------
+
+test("null event is handled safely (optional chaining on event accessors)", async () => {
+	// detectEventSource reads event?.eventSource / event?.Records /
+	// event?.deliveryStreamArn / event?.rmqMessagesByQueue. A null event must
+	// not throw; without the optional chaining each access would throw.
+	const handler = middy().use(
+		eventBatchParser({ value: parseJson(), disableEventSourceError: true }),
+	);
+	handler.handler((event) => event ?? "was-null");
+
+	const out = await handler(null, defaultContext);
+	strictEqual(out, "was-null");
+});
+
+test("event with empty Records array is handled safely (records[0]?.eventSource)", async () => {
+	// records[0] is undefined for an empty array; the optional chaining must
+	// keep `records[0]?.eventSource` from throwing.
+	const handler = middy().use(
+		eventBatchParser({ value: parseJson(), disableEventSourceError: true }),
+	);
+	handler.handler((event) => event);
+
+	const event = { Records: [] };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, { Records: [] });
+});
+
+// ---------- parseAvro negative path (valid type found) ----------
+
+test("parseAvro({ internalKey }) succeeds when a valid schemaDefinition IS present (negative of !type guard)", async () => {
+	const buf = buildAvroBuffer({ id: "u-pos", name: "Pos" });
+	const fn = parseAvro({ internalKey: "k" });
+	const out = await fn(buf, undefined, {
+		internal: { k: { schemaDefinition: AVRO_USER_SCHEMA } },
+	});
+	deepStrictEqual(plain(out), { id: "u-pos", name: "Pos" });
+});
+
+// ---------- parseProtobuf option/internal branches ----------
+
+test("parseProtobuf with only `root` (no messageType) falls through to internal-key path and throws", async () => {
+	// Pre-bound path requires BOTH root AND messageType; with only one the
+	// factory must NOT bind a parser and the runtime resolution throws.
+	const root = buildProtobufRoot();
+	const Type = root.lookupType("test.User");
+	const buf = Buffer.from(
+		Type.encode(Type.create({ id: "u-r", name: "R" })).finish(),
+	);
+	const fn = parseProtobuf({ root });
+	let caught;
+	try {
+		await fn(buf, undefined, { internal: {} });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+	ok(caught.message.includes("root, messageType"));
+});
+
+test("parseProtobuf with only `messageType` (no root) throws at runtime", async () => {
+	const fn = parseProtobuf({ messageType: "test.User" });
+	let caught;
+	try {
+		await fn(Buffer.from([0x00]), undefined, { internal: {} });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+});
+
+test("parseProtobuf({ internalKey }) is safe when request.internal is absent (optional chaining)", async () => {
+	const fn = parseProtobuf({ internalKey: "k" });
+	let caught;
+	try {
+		// No `internal` property on the request object at all.
+		await fn(Buffer.from([0x00]), undefined, {});
+	} catch (e) {
+		caught = e;
+	}
+	// Must be the controlled TypeError (root/messageType missing), not a
+	// TypeError from reading `.k` of undefined.
+	ok(caught instanceof TypeError);
+	ok(caught.message.includes("root, messageType"));
+});
+
+test("parseProtobuf throws when exactly one of root/messageType is supplied via internal (only root)", async () => {
+	const root = buildProtobufRoot();
+	const fn = parseProtobuf({ internalKey: "k" });
+	let caught;
+	try {
+		await fn(Buffer.from([0x00]), undefined, { internal: { k: { root } } });
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
+});
+
+test("parseProtobuf throws when exactly one of root/messageType is supplied via internal (only messageType)", async () => {
+	const fn = parseProtobuf({ internalKey: "k" });
+	let caught;
+	try {
+		await fn(Buffer.from([0x00]), undefined, {
+			internal: { k: { messageType: "test.User" } },
+		});
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught instanceof TypeError);
 });

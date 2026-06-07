@@ -22,7 +22,7 @@
     <a href="https://biomejs.dev"><img alt="Checked with Biome" src="https://img.shields.io/badge/Checked_with-Biome-60a5fa?style=flat&logo=biome"></a>
     <a href="https://conventionalcommits.org"><img alt="Conventional Commits" src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white"></a>
     <a href="https://github.com/middyjs/middy/blob/main/package.json#L32">
-    <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-95%25-brightgreen"></a>
+    <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-100%25-brightgreen"></a>
     <br/>
   </p>
 <p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/http-jwt">https://middy.js.org/docs/middlewares/http-jwt</a></p>
@@ -38,6 +38,13 @@ npm install --save @middy/http-jwt
 ## Documentation and examples
 
 For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/http-jwt).
+
+
+## Security
+
+The `algorithms` allowlist blocks `none`, and a string key (a symmetric secret) may only be paired with symmetric `HS*` algorithms: configuring a string key with any asymmetric algorithm is rejected, which closes the classic RS/HS algorithm-confusion attack. Asymmetric keys must be supplied as a `Uint8Array` (DER) or KMS key, which binds the algorithm family to the key type. Operators SHOULD still restrict `algorithms` to exactly the set they expect (for example `["RS256"]` or `["ES256"]`).
+
+By default `requireExp` is `false`, so a token without an `exp` claim is accepted (and never expires). Set `requireExp: true` (and/or `maxTokenAge`) to require expiry; this is strongly recommended in production so a leaked token cannot be replayed indefinitely.
 
 
 ## Contributing
