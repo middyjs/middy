@@ -34,19 +34,20 @@ test("It should use a reviver when parsing a JSON request", async (t) => {
 	const handler = middy((event) => {
 		return event.body; // propagates the body as a response
 	});
-	const reviver = (_) => _;
+	const reviver = t.mock.fn((_key, value) =>
+		typeof value === "string" ? value.toUpperCase() : value,
+	);
 	handler.use(jsonBodyParser({ reviver }));
 
 	// invokes the handler
-	const jsonString = JSON.stringify({ foo: "bar" });
 	const event = {
-		body: jsonString,
+		body: JSON.stringify({ foo: "bar" }),
 	};
-	const jsonParseSpy = t.mock.method(JSON, "parse");
 
-	await handler(event, defaultContext);
+	const body = await handler(event, defaultContext);
 
-	deepStrictEqual(jsonParseSpy.mock.calls[0].arguments, [jsonString, reviver]);
+	ok(reviver.mock.callCount() >= 1);
+	deepStrictEqual(body, { foo: "BAR" });
 });
 
 test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
@@ -133,6 +134,61 @@ test("It should handle missing body as an UnprocessableEntity", async (t) => {
 		// carries no parser `message`. A body that reached JSON.parse would.
 		ok(!("message" in e.cause));
 		return true;
+	});
+});
+
+test("It should reject a body containing a __proto__ key with 422", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		body: '{ "__proto__": { "polluted": true }, "foo": "bar" }',
+	};
+
+	await rejects(handler(event, defaultContext), (e) => {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+		strictEqual(e.cause.data, "__proto__");
+		return true;
+	});
+	// Object.prototype must be untouched.
+	strictEqual({}.polluted, undefined);
+});
+
+test("It should reject a deeply nested constructor.prototype payload with 422", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		body: '{ "a": { "constructor": { "prototype": { "x": 1 } } }, "foo": "bar" }',
+	};
+
+	await rejects(handler(event, defaultContext), (e) => {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.data, "constructor");
+		return true;
+	});
+});
+
+test("It should keep a benign constructor or standalone prototype key", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		body: '{ "prototype": { "x": 1 }, "constructor": "Widget", "foo": "bar" }',
+	};
+
+	const body = await handler(event, defaultContext);
+
+	deepStrictEqual(body, {
+		prototype: { x: 1 },
+		constructor: "Widget",
+		foo: "bar",
 	});
 });
 

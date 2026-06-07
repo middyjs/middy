@@ -738,6 +738,20 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
+export const jsonParseProtectProto = (text, reviver, packageName) => {
+	return JSON.parse(text, (key, value) => {
+		if (
+			key === "__proto__" ||
+			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
+		) {
+			throw createError(422, "Forbidden key in JSON body", {
+				cause: { package: packageName, data: key },
+			});
+		}
+		return reviver ? reviver(key, value) : value;
+	});
+};
+
 // Cheap structural-JSON heuristic: returns true if `text` starts with `{`
 // or `[`, indicating a JSON object/array body. Use as a Content-Type
 // guard where:

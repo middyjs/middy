@@ -377,14 +377,11 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	ok(thrown, "expected handler to throw on invalid base64 JSON");
 });
 
-test("It should not retain a dangerous own __proto__ on the parsed body", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
-	});
+test("It should reject a body containing a __proto__ key with 422", async (t) => {
+	const handler = middy((event) => event.body);
 
 	handler.use(jsonBodyParser());
 
-	// invokes the handler
 	const event = {
 		headers: {
 			"Content-Type": "application/json",
@@ -392,20 +389,96 @@ test("It should not retain a dangerous own __proto__ on the parsed body", async 
 		body: '{ "__proto__": { "polluted": true }, "foo": "bar" }',
 	};
 
+	let thrown = false;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.package, "@middy/http-json-body-parser");
+		strictEqual(e.cause.data, "__proto__");
+	}
+	ok(thrown, "expected handler to reject a __proto__ body");
+	// Object.prototype must be untouched.
+	strictEqual({}.polluted, undefined);
+});
+
+test("It should reject a constructor.prototype payload with 422", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: '{ "constructor": { "prototype": { "polluted": true } }, "foo": "bar" }',
+	};
+
+	let thrown = false;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.data, "constructor");
+	}
+	ok(thrown, "expected handler to reject a constructor.prototype body");
+	strictEqual({}.polluted, undefined);
+});
+
+test("It should keep a benign constructor or standalone prototype key", async (t) => {
+	// Accuracy: neither shape is a pollution path, so neither is falsely
+	// rejected. A standalone `prototype` and a `constructor` without a nested
+	// `prototype` are preserved as ordinary data.
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: '{ "prototype": { "x": 1 }, "constructor": "Widget", "foo": "bar" }',
+	};
+
 	const body = await handler(event, defaultContext);
 
-	// The own `__proto__` data property must be dropped so downstream
-	// consumers that copy keys cannot have their prototype mutated.
-	strictEqual(Object.hasOwn(body, "__proto__"), false);
-	strictEqual(body.foo, "bar");
+	deepStrictEqual(body, {
+		prototype: { x: 1 },
+		constructor: "Widget",
+		foo: "bar",
+	});
+});
 
-	// Simulate a downstream consumer copying keys onto a fresh object.
-	const target = {};
-	for (const key in body) {
-		target[key] = body[key];
+test("It should reject a deeply nested __proto__ key with 422", async (t) => {
+	// Prototype pollution typically hides a forbidden key several levels deep so
+	// it is reached by an unsafe recursive merge. The reviver visits every key
+	// at every depth, so a nested key must be rejected just like a top-level one.
+	const handler = middy((event) => event.body);
+
+	handler.use(jsonBodyParser());
+
+	const event = {
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: '{ "a": { "b": { "__proto__": { "polluted": true } } }, "foo": "bar" }',
+	};
+
+	let thrown = false;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.data, "__proto__");
 	}
-	strictEqual(Object.getPrototypeOf(target), Object.prototype);
-	strictEqual(target.polluted, undefined);
+	ok(thrown, "expected handler to reject a nested __proto__ body");
+	strictEqual({}.polluted, undefined);
 });
 
 test("httpJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {

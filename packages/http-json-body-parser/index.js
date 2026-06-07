@@ -4,6 +4,7 @@ import {
 	createError,
 	decodeBody,
 	jsonContentTypePattern,
+	jsonParseProtectProto,
 	validateOptions,
 } from "@middy/util";
 
@@ -33,10 +34,6 @@ export const httpJsonBodyParserValidateOptions = (options) =>
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const { reviver } = options;
-	const safeReviver = (key, value) => {
-		if (key === "__proto__") return undefined;
-		return reviver ? reviver(key, value) : value;
-	};
 	const httpJsonBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
 		const { headers, body, isBase64Encoded } = event;
@@ -61,8 +58,16 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		try {
-			event.body = JSON.parse(decodeBody(body, isBase64Encoded), safeReviver);
+			event.body = jsonParseProtectProto(
+				decodeBody(body, isBase64Encoded),
+				reviver,
+				pkg,
+			);
 		} catch (err) {
+			// Re-throw a forbidden-key rejection as-is; only wrap genuine parse errors.
+			if (err.statusCode) {
+				throw err;
+			}
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
 					package: pkg,

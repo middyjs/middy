@@ -1,6 +1,11 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, decodeBody, validateOptions } from "@middy/util";
+import {
+	createError,
+	decodeBody,
+	jsonParseProtectProto,
+	validateOptions,
+} from "@middy/util";
 
 const name = "ws-json-body-parser";
 const pkg = `@middy/${name}`;
@@ -34,11 +39,14 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		try {
+			// Parses while rejecting prototype-pollution payloads (see util).
 			const data = decodeBody(body, isBase64Encoded);
-			// Branch on `reviver` so the common no-reviver path hits V8's
-			// 1-arg JSON.parse fast lane.
-			event.body = reviver ? JSON.parse(data, reviver) : JSON.parse(data);
+			event.body = jsonParseProtectProto(data, reviver, pkg);
 		} catch (err) {
+			// Re-throw a forbidden-key rejection as-is; only wrap genuine parse errors.
+			if (err.statusCode) {
+				throw err;
+			}
 			// UnprocessableEntity
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {

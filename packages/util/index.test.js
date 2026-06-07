@@ -4,6 +4,7 @@ import {
 	ok,
 	rejects,
 	strictEqual,
+	throws,
 } from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
@@ -25,6 +26,7 @@ import {
 	isExecutionModeDurable,
 	isJsonStructured,
 	jsonContentTypePattern,
+	jsonParseProtectProto,
 	jsonSafeParse,
 	jsonSafeStringify,
 	lambdaContext,
@@ -1216,6 +1218,124 @@ describe("jsonSafeParse", () => {
 	test("jsonSafeParse should not parse nested function", async (t) => {
 		const value = jsonSafeParse("{fct:() => {}}");
 		strictEqual(value, "{fct:() => {}}");
+	});
+});
+
+describe("jsonParseProtectProto", () => {
+	const isForbidden = (key) => (e) => {
+		strictEqual(e.statusCode, 422);
+		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.package, "@middy/test");
+		strictEqual(e.cause.data, key);
+		return true;
+	};
+
+	test("parses a clean body", () => {
+		deepStrictEqual(jsonParseProtectProto('{"foo":"bar"}'), { foo: "bar" });
+	});
+
+	test("applies the user reviver", () => {
+		const reviver = (_key, value) =>
+			typeof value === "string" ? value.toUpperCase() : value;
+		deepStrictEqual(jsonParseProtectProto('{"foo":"bar"}', reviver), {
+			foo: "BAR",
+		});
+	});
+
+	// __proto__ vector
+	test("rejects a __proto__ key", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"__proto__":{"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a deeply nested __proto__ key", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"a":{"b":{"__proto__":{"x":1}}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a unicode-escaped __proto__ key", () => {
+		// The escaped key decodes to "__proto__"; the reviver sees the decoded
+		// name, so the escape provides no bypass.
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"\\u005f\\u005fproto\\u005f\\u005f":{"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	// constructor.prototype vector
+	test("rejects a constructor whose value carries a prototype member", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"constructor":{"prototype":{"x":1}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("constructor"),
+		);
+	});
+
+	test("rejects a deeply nested constructor.prototype payload", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"a":{"constructor":{"prototype":{"x":1}}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("constructor"),
+		);
+	});
+
+	// Accuracy: benign shapes are preserved, not falsely rejected.
+	test("allows a standalone prototype key (not a pollution path)", () => {
+		deepStrictEqual(jsonParseProtectProto('{"prototype":{"x":1}}'), {
+			prototype: { x: 1 },
+		});
+	});
+
+	test("allows a constructor mapped to a string", () => {
+		deepStrictEqual(jsonParseProtectProto('{"constructor":"Widget"}'), {
+			constructor: "Widget",
+		});
+	});
+
+	test("allows a constructor object without a prototype member", () => {
+		deepStrictEqual(jsonParseProtectProto('{"constructor":{"x":1}}'), {
+			constructor: { x: 1 },
+		});
+	});
+
+	test("allows a constructor mapped to null", () => {
+		// Guards the `value &&` check: Object.hasOwn(null, ...) would throw.
+		deepStrictEqual(jsonParseProtectProto('{"constructor":null}'), {
+			constructor: null,
+		});
+	});
+
+	test("allows a forbidden word as a string value, not a key", () => {
+		deepStrictEqual(jsonParseProtectProto('{"name":"__proto__"}'), {
+			name: "__proto__",
+		});
 	});
 });
 
