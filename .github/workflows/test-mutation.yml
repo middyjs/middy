@@ -10,35 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: List packages
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.list.outputs.packages }}
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-          disable-telemetry: true
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: List packages
-        id: list
-        run: |
-          echo "packages=$(find packages -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | jq -R -s -c 'split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
-
   mutation:
     name: Tests (mutation)
-    needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.setup.outputs.packages) }}
+    timeout-minutes: 360
 
     steps:
       - name: Harden runner
@@ -62,7 +37,5 @@ jobs:
         run: |
           npm run build --if-present
       - name: Mutation tests
-        env:
-          MUTATE_PACKAGE: ${{ matrix.package }}
         run: |
           npm run test:mutation

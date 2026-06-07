@@ -4,11 +4,12 @@
 // `return false`), and re-runs the suite. A mutant that survives a green suite is
 // an assertion the tests never make.
 //
-// One config, two modes:
-//   npm run test:mutation                          mutate every package
+// One config, one stryker process, two modes:
+//   npm run test:mutation                           mutate every package
 //   MUTATE_PACKAGE=http-cors npm run test:mutation  mutate just that package
 //
-// CI fans out per package via a matrix that sets MUTATE_PACKAGE.
+// CI runs a single job with no MUTATE_PACKAGE, so one stryker process
+// mutates every package. Set MUTATE_PACKAGE locally to scope to one.
 const pkg = process.env.MUTATE_PACKAGE;
 const base = pkg ? `packages/${pkg}` : "packages";
 
