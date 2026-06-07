@@ -15,22 +15,24 @@ const base = pkg ? `packages/${pkg}` : "packages";
 
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
-	packageManager: "npm",
-	testRunner: "command",
-	commandRunner: {
-		command: `node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks ./${base}/**/*.test.js`,
-	},
-	// The command runner re-runs the whole suite per mutant, so per-test coverage
-	// analysis is unavailable.
-	coverageAnalysis: "off",
-	mutate: [
-		`${base}/**/*.js`,
-		`!${base}/**/*.test.js`,
-		`!${base}/**/*.perf.js`,
-		`!${base}/**/*.fuzz.js`,
-	],
-	plugins: ["@stryker-mutator/*"],
-	reporters: ["progress", "clear-text"],
-	thresholds: { high: 100, low: 100, break: 100 },
-	tempDirName: pkg ? `/tmp/stryker/@middy/${pkg}` : "/tmp/stryker/@middy",
+  packageManager: "npm",
+  testRunner: "command",
+  commandRunner: {
+    command: `node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks ./${base}/**/*.test.js`,
+  },
+  coverageAnalysis: "off",
+  mutate: [
+    `${base}/**/*.js`,
+    `!${base}/**/*.test.js`,
+    `!${base}/**/*.perf.js`,
+    `!${base}/**/*.fuzz.js`,
+  ],
+  incremental: true,
+  incrementalFile: pkg
+    ? `/tmp/stryker/@middy/${pkg}/incremental.json`
+    : "/tmp/stryker/@middy/incremental.json",
+  plugins: ["@stryker-mutator/*"],
+  reporters: ["progress", "clear-text"],
+  thresholds: { high: 100, low: 100, break: 100 },
+  tempDirName: pkg ? `/tmp/stryker/@middy/${pkg}` : "/tmp/stryker/@middy",
 };
