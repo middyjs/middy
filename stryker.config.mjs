@@ -20,8 +20,6 @@ export default {
 	commandRunner: {
 		command: `node --no-warnings=ExperimentalWarning --test --experimental-test-module-mocks ./${base}/**/*.test.js`,
 	},
-	// The command runner re-runs the whole suite per mutant, so per-test coverage
-	// analysis is unavailable.
 	coverageAnalysis: "off",
 	mutate: [
 		`${base}/**/*.js`,
@@ -29,6 +27,10 @@ export default {
 		`!${base}/**/*.perf.js`,
 		`!${base}/**/*.fuzz.js`,
 	],
+	incremental: true,
+	incrementalFile: pkg
+		? `/tmp/stryker/@middy/${pkg}/incremental.json`
+		: "/tmp/stryker/@middy/incremental.json",
 	plugins: ["@stryker-mutator/*"],
 	reporters: ["progress", "clear-text"],
 	thresholds: { high: 100, low: 100, break: 100 },

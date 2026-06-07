@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.6.6",
+	"version": "7.6.7",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -47,7 +47,7 @@
 		"audit": "npm audit fix --workspaces",
 		"release:license:add": "license-check-and-add add -f .license.config.json",
 		"release:license:remove": "license-check-and-add remove -f .license.config.json",
-		"release:sync": "npm version $npm_package_version --workspaces --no-git-tag-version && find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm:node_modules && npm install && npm run lint",
+		"release:sync": "npm version $npm_package_version --workspaces; find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm && npm install && npm run lint",
 		"release:tag": "git tag $npm_package_version"
 	},
 	"repository": {
