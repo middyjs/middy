@@ -315,16 +315,7 @@ test("It should keep a literal __proto__ header as an own property without alter
 
 	handler.use(httpHeaderNormalizer());
 
-	// Build an event whose headers object genuinely has an own "__proto__" key
-	// (an object literal { "__proto__": ... } would set the prototype instead).
-	const headers = {};
-	Object.defineProperty(headers, "__proto__", {
-		value: "polluted",
-		enumerable: true,
-		writable: true,
-		configurable: true,
-	});
-	headers.foo = "bar";
+	const headers = JSON.parse('{"__proto__":"polluted","foo":"bar"}');
 	const event = { headers };
 
 	const resultingEvent = await handler(event, defaultContext);
@@ -348,15 +339,9 @@ test("It should keep a literal __proto__ multiValueHeaders header as an own prop
 	handler.use(httpHeaderNormalizer());
 
 	// Build an event whose multiValueHeaders object genuinely has an own
-	// "__proto__" key (an object literal would set the prototype instead).
-	const multiValueHeaders = {};
-	Object.defineProperty(multiValueHeaders, "__proto__", {
-		value: ["polluted"],
-		enumerable: true,
-		writable: true,
-		configurable: true,
-	});
-	multiValueHeaders.foo = ["bar"];
+	const multiValueHeaders = JSON.parse(
+		'{"__proto__":["polluted"],"foo":["bar"]}',
+	);
 	const event = { multiValueHeaders };
 
 	const resultingEvent = await handler(event, defaultContext);
