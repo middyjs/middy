@@ -1,6 +1,6 @@
 {
 	"name": "@middy/event-batch-response",
-	"version": "7.6.5",
+	"version": "7.6.6",
 	"description": "Batch response middleware for the middy framework (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch, Firehose)",
 	"type": "module",
 	"engines": {
@@ -67,10 +67,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.6.5"
+		"@middy/util": "7.6.6"
 	},
 	"devDependencies": {
-		"@middy/core": "7.6.5",
+		"@middy/core": "7.6.6",
 		"@serverless/event-mocks": "^1.0.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
