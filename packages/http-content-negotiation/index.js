@@ -49,12 +49,16 @@ const parseFn = {
 const defaults = {
 	parseCharsets: true,
 	availableCharsets: undefined,
+	defaultToFirstCharset: false,
 	parseEncodings: true,
 	availableEncodings: undefined,
+	defaultToFirstEncoding: false,
 	parseLanguages: true,
 	availableLanguages: undefined,
+	defaultToFirstLanguage: false,
 	parseMediaTypes: true,
 	availableMediaTypes: undefined,
+	defaultToFirstMediaType: false,
 	failOnMismatch: true,
 };
 
