@@ -16,6 +16,27 @@
 			"type": "non_fast_forward"
 		},
 		{
+			"type": "required_status_checks",
+			"parameters": {
+				"strict_required_status_checks_policy": true,
+				"do_not_enforce_on_create": false,
+				"required_status_checks": [
+					{
+						"context": "Tests (lint)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (unit) (22.x)",
+						"integration_id": 15368
+					},
+					{
+						"context": "Tests (unit) (24.x)",
+						"integration_id": 15368
+					}
+				]
+			}
+		},
+		{
 			"type": "required_signatures"
 		}
 	],

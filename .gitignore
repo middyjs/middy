@@ -73,7 +73,7 @@ typings/
 .nova/
 
 # Agents
-## /grpahify && /graphify hook install
+## /graphify hook install
 .husky/post-checkout
 .husky/post-commit
 graphify-out

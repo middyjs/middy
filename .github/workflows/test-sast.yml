@@ -160,7 +160,7 @@ jobs:
 
     container:
       # https://hub.docker.com/r/semgrep/semgrep/tags
-      image: semgrep/semgrep:1.111.0 # v1.111.0
+      image: semgrep/semgrep@sha256:3e6e5065d9e68abffddffdb536a8db2d79a8fa92dc424daa48d3a4b7d9bc65d0 # v1.111.0
 
     steps:
       - name: Checkout repository
