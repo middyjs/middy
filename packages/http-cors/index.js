@@ -176,6 +176,12 @@ const httpCorsMiddleware = (opts = {}) => {
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
 	}
 
+	// Stryker disable next-line ConditionalExpression: forcing this to `false` is equivalent - it just sends the default getOrigin through the explicit originToPunycode comparison below, which holds by construction for the default (the pre-fast-path behavior, identical results). (The EqualityOperator variant on this line remains active and is killed by the custom-getOrigin reflection tests.)
+	const usesDefaultGetOrigin = options.getOrigin === getOrigin;
+	const getOriginOptions = { ...options };
+	const getOriginOptionsCredentials = { ...options, credentials: true };
+	const getOriginOptionsNoCredentials = { ...options, credentials: false };
+
 	const modifyHeaders = (headers, options, request) => {
 		let credentials = options.credentials;
 		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
@@ -202,10 +208,14 @@ const httpCorsMiddleware = (opts = {}) => {
 		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
 			const eventHeaders = request.event.headers ?? {};
 			const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin;
-			newOrigin = options.getOrigin(incomingOrigin, {
-				...options,
-				credentials,
-			});
+			newOrigin = options.getOrigin(
+				incomingOrigin,
+				credentials === true
+					? getOriginOptionsCredentials
+					: credentials === false
+						? getOriginOptionsNoCredentials
+						: getOriginOptions,
+			);
 			if (newOrigin) {
 				headers["Access-Control-Allow-Origin"] = newOrigin;
 			}
@@ -213,7 +223,8 @@ const httpCorsMiddleware = (opts = {}) => {
 				options.origins.length > 0 &&
 				!!newOrigin &&
 				newOrigin !== "*" &&
-				newOrigin === originToPunycode(incomingOrigin);
+				(usesDefaultGetOrigin ||
+					newOrigin === originToPunycode(incomingOrigin));
 		}
 
 		if (!headers.Vary) {

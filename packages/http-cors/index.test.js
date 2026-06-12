@@ -2796,6 +2796,126 @@ test("It should not flag reflectsRequestOrigin when resolved origin differs from
 	});
 });
 
+test("It should flag reflectsRequestOrigin when custom getOrigin reflects the incoming origin with origins configured", async (t) => {
+	// origins configured and a custom getOrigin that echoes the incoming
+	// origin => the response varies by request origin, so Vary: Origin must
+	// be emitted via the reflectsRequestOrigin path (originMany/originAny are
+	// both false with a single static origin).
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+			getOrigin: (incomingOrigin) => incomingOrigin,
+		}),
+	);
+
+	const event = {
+		httpMethod: "OPTIONS",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+// *** credentials override must flow into getOrigin options *** //
+test("It should reflect the incoming origin when the response already allows credentials with origins wildcard", async (t) => {
+	// The handler's Access-Control-Allow-Credentials: "true" header overrides
+	// options.credentials (unset here), and the override must reach getOrigin
+	// so the originAny branch reflects the incoming origin instead of "*".
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Credentials": "true" },
+	})).use(
+		httpCors({
+			origins: ["*"],
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should return wildcard origin when the response disallows credentials with origins wildcard", async (t) => {
+	// An existing Access-Control-Allow-Credentials header that is not "true"
+	// overrides options.credentials (true here) to false, and the override
+	// must reach getOrigin so the originAny branch returns "*" instead of
+	// reflecting the incoming origin.
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Access-Control-Allow-Credentials": "false" },
+	})).use(
+		httpCors({
+			origins: ["*"],
+			credentials: true,
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "false",
+			"Access-Control-Allow-Origin": "*",
+		},
+	});
+});
+
+test("It should treat a truthy string credentials option as enabling credentials in getOrigin", async (t) => {
+	// options.credentials accepts a string; a truthy string is neither
+	// strictly true nor strictly false, but must still flow through to
+	// getOrigin unchanged so the originAny branch reflects the incoming
+	// origin.
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			origins: ["*"],
+			credentials: "true",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Credentials": "true",
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
 // *** before-hook: unknown event.version => method lookup undefined, no crash *** //
 test("It should not crash in before-hook when event.version is unsupported", async (t) => {
 	const handler = middy((event, context) => ({ statusCode: 200 })).use(
