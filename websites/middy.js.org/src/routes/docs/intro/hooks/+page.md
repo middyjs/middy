@@ -19,7 +19,7 @@ In order of execution
 Additional `pluginConfig` options
 
 - `internal` (`object`): Seed values merged into `request.internal` on each invocation. Defaults to an empty object.
-- `timeoutEarlyInMillis` (`integer >= 0`): Reserves N milliseconds before Lambda times out so `timeoutEarlyResponse` can run. Set to `0` to disable (default `5`).
+- `timeoutEarlyInMillis` (`integer >= 0`): Reserves N milliseconds before Lambda times out so `timeoutEarlyResponse` can run. Set to `0` to disable (default `5`). Only applies when the handler returns a `Promise` (e.g. an `async` handler); a synchronous handler blocks the event loop, so the timer cannot fire and its completed result is returned as-is. The same applies to the abort `signal` passed as the handler's third argument.
 - `timeoutEarlyResponse` (`function`): Invoked when the early-timeout fires; its return value becomes the response. The default throws a `TimeoutError`.
 - `executionMode` (`function`): Selects the runtime adapter. Provided modes: `executionModeStandard` (default), `executionModeDurableContext`, `executionModeStreamifyResponse`. Custom modes may be supplied.
 

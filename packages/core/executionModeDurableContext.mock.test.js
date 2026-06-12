@@ -109,6 +109,30 @@ describe("executionModeDurableContext (mocked withDurableExecution)", () => {
 		strictEqual(caught, hookErr);
 	});
 
+	// L46 true-arm - an async requestEnd hook returns a real Promise that must
+	// be awaited. This also runs in executionModeDurableContext.test.js against
+	// the real SDK; it is needed here too because this file's cache-busted
+	// `?mock=` import is a second module instance whose (query-stripped)
+	// coverage record is summed into the same file path by the coverage report.
+	test("executionModeDurableContext awaits async requestEnd hook and propagates its rejection", async () => {
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+			requestEnd: async () => {
+				throw hookErr;
+			},
+		}).handler(() => "ok");
+
+		let caught;
+		try {
+			await handler({}, baseContext());
+			throw new Error("Expected requestEnd hook error to propagate");
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught, hookErr);
+	});
+
 	// L47 - `??=` must not overwrite an already-set cause when the hook also throws.
 	test("executionModeDurableContext preserves existing handler error cause when hook throws", async () => {
 		const existingCause = new Error("pre-existing");

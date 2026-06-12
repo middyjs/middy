@@ -134,6 +134,24 @@ describe("executionModeDurableContext", () => {
 		strictEqual(execution.getError().errorMessage, "requestEnd failed");
 	});
 
+	test("Should await async requestEnd hook and propagate its rejection in durable context", async (t) => {
+		// An async requestEnd hook returns a real Promise; it must be awaited
+		// so its rejection is caught and propagated like a sync throw.
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+			requestEnd: async () => {
+				throw hookErr;
+			},
+		}).handler(() => "ok");
+		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "FAILED");
+		strictEqual(execution.getError().errorMessage, "requestEnd failed");
+	});
+
 	test("Should preserve handler error when requestEnd hook also throws in durable context", async (t) => {
 		const handlerErr = new Error("handler failed");
 		const hookErr = new Error("requestEnd failed");

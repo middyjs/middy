@@ -516,6 +516,24 @@ describe("executionModeStreamifyResponse", () => {
 		}
 	});
 
+	test("Should await async requestEnd hook and propagate its rejection in streamify mode", async (t) => {
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(async () => "ok", {
+			executionMode: executionModeStreamifyResponse,
+			requestEnd: async () => {
+				throw hookErr;
+			},
+		});
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		try {
+			await handler(event, responseStream, context);
+			throw new Error("Expected hook error to propagate");
+		} catch (e) {
+			strictEqual(e, hookErr);
+		}
+	});
+
 	test("Should preserve pipeline error when requestEnd hook also throws in streamify mode", async (t) => {
 		const pipelineErr = new Error("pipeline failed");
 		const hookErr = new Error("requestEnd failed");
