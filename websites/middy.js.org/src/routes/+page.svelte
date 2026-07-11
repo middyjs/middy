@@ -16,9 +16,6 @@ import P from "@design-system/elements/p.svelte";
 import Section from "@design-system/elements/section.svelte";
 import Span from "@design-system/elements/span.svelte";
 import Ul from "@design-system/elements/ul.svelte";
-import { page } from "$app/state";
-
-const { data } = page;
 
 const codeWithoutMiddy = `export const handler = (event, context) => {
   // BOILERPLATE!
@@ -76,6 +73,7 @@ export const handler = middy(lambdaHandler)
                 >Organise your Lambda code, remove code duplication, focus on
                 business logic. Simple, fast, and extensible.</P
             >
+            <!-- biome-ignore lint/a11y/useSemanticElements: role="group" is a @willfarrell-ds styling hook; fieldset would break DS styling -->
             <Div role="group">
                 <P>
                     <A href="/docs" class="button"

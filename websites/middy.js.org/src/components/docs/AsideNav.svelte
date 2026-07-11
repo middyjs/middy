@@ -1,8 +1,5 @@
 <script>
 import LayoutAsideNav from "@design-system/components/LayoutAsideNav.svelte";
-import { page } from "$app/state";
-
-const { params, data, form } = page;
 
 const nav = {
 	"Intro to Middy": {
