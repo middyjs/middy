@@ -189,7 +189,7 @@ jobs:
         with:
           persist-credentials: false
       - name: actionlint
-        uses: raven-actions/actionlint@205b530c5d9fa8f44ae9ed59f341a0db994aa6f8 # v2.1.2
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
   # https://github.com/zizmorcore/zizmor-action
   zizmor:
@@ -210,7 +210,7 @@ jobs:
         with:
           persist-credentials: false
       - name: zizmor
-        uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d # v0.5.6
+        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
 
   # https://github.com/trufflesecurity/trufflehog
   trufflehog:
