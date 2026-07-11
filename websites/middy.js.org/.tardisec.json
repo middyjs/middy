@@ -10,7 +10,7 @@
 			"Content-Security-Policy-Report-Only": "base-uri 'none';default-src 'none' 'report-sample' 'report-sha256';form-action 'none';frame-ancestors 'none';report-to default;report-uri https://33c4690d-c20b-58d1-adaa-121b1e32f3b1.report-to.org;require-trusted-types-for 'script'",
 			"Cross-Origin-Embedder-Policy": "require-corp;report-to=default",
 			"Cross-Origin-Opener-Policy": "same-origin;report-to=default",
-			"Cross-Origin-Resource-Policy": "cross-origin",
+			"Cross-Origin-Resource-Policy": "same-origin",
 			"Document-Isolation-Policy": "isolate-and-require-corp;report-to=\"default\"",
 			"Document-Policy": "",
 			"Document-Policy-Report-Only": "*;report-to=default",
