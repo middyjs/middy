@@ -2,10 +2,6 @@
 import BodyFooter from "@design-system/components/BodyFooter.svelte";
 import Image from "@design-system/components/Image.svelte";
 import A from "@design-system/elements/a.svelte";
-import { page } from "$app/state";
-
-const { children } = $props();
-const { url, params, data, form } = page;
 
 const navLinks = {
 	Docs: {

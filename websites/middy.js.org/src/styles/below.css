@@ -7,6 +7,7 @@
 @import "@willfarrell-ds/vanilla/elements/h4.css";
 @import "@willfarrell-ds/vanilla/elements/hr.css";
 @import "@willfarrell-ds/vanilla/elements/input.css";
+@import "@willfarrell-ds/vanilla/elements/input[type=search].css";
 @import "@willfarrell-ds/vanilla/elements/label.css";
 @import "@willfarrell-ds/vanilla/elements/ol.css";
 @import "@willfarrell-ds/vanilla/elements/p.css";

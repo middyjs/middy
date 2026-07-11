@@ -51,7 +51,7 @@ const config = {
 				"frame-ancestors": ["none"],
 				"report-to": ["default"],
 				"report-uri": [
-					"https://9a3890fa-a783-51c2-b20f-0dbe457d526f.report-to.org",
+					"https://33c4690d-c20b-58d1-adaa-121b1e32f3b1.report-to.org",
 				],
 				"require-trusted-types-for": ["script"],
 			},
