@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { STATUS_CODES } from "node:http";
 
 // Option validation helper.
 // Schema values:
@@ -12,9 +13,9 @@
 //     a predicate function, or a plain object treated as a per-element
 //     object schema (validated recursively with the same rules).
 //   { type: '<type>' | '<type>?', minimum?, maximum?, exclusiveMinimum?,
-//     exclusiveMaximum?, multipleOf?, minLength?, maxLength?, pattern? }
-//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`/
-//     `exclusiveMaximum` (exclusive), `multipleOf` (number/integer).
+//     minLength?, maxLength?, pattern? }
+//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`
+//     (exclusive).
 //     String: `minLength`/`maxLength` (string length), `pattern` (regex
 //     source string per JSON Schema).
 //   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
@@ -205,8 +206,6 @@ const checkRule = (rule, value, path, fail) => {
 			minimum,
 			maximum,
 			exclusiveMinimum,
-			exclusiveMaximum,
-			multipleOf,
 			pattern,
 			minLength,
 			maxLength,
@@ -224,16 +223,6 @@ const checkRule = (rule, value, path, fail) => {
 		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMinimum !== undefined` guard is equivalent; `value <= undefined` is always false.
 		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
 			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
-		}
-		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMaximum !== undefined` guard is equivalent; `value >= undefined` is always false.
-		if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) {
-			fail(`Option '${path}' must be < ${exclusiveMaximum}`);
-		}
-		if (multipleOf !== undefined) {
-			const quotient = value / multipleOf;
-			if (!Number.isFinite(quotient) || Math.floor(quotient) !== quotient) {
-				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
-			}
 		}
 		const hasStringConstraint =
 			pattern !== undefined ||
@@ -743,20 +732,6 @@ export const isExecutionModeDurable = (context) => {
 	return context?.[durableContextBrand] === true;
 };
 
-export const executionContext = (request, key, context) => {
-	if (isExecutionModeDurable(context)) {
-		return request.context.executionContext[key];
-	}
-	return request.context[key];
-};
-
-export const lambdaContext = (request, key, context) => {
-	if (isExecutionModeDurable(context)) {
-		return request.context.lambdaContext[key];
-	}
-	return request.context[key];
-};
-
 export const jsonSafeParse = (text, reviver) => {
 	if (typeof text !== "string") return text;
 	const firstChar = text[0];
@@ -794,14 +769,6 @@ export const isJsonStructured = (text) => {
 	if (typeof text !== "string") return false;
 	const c = text.charCodeAt(0);
 	return c === 123 || c === 91; // 123='{' 91='['
-};
-
-export const jsonSafeStringify = (value, replacer, space) => {
-	try {
-		return JSON.stringify(value, replacer, space);
-	} catch {
-		return value;
-	}
 };
 
 export const jsonContentTypePattern =
@@ -843,10 +810,10 @@ export class HttpError extends Error {
 			options = message;
 			message = undefined;
 		}
-		message ??= httpErrorCodes[code];
+		message ??= STATUS_CODES[code];
 		super(message, options);
 
-		const name = (httpErrorCodes[code] ?? "Unknown").replace(
+		const name = (STATUS_CODES[code] ?? "Unknown").replace(
 			createErrorRegexp,
 			"",
 		);
@@ -859,71 +826,4 @@ export class HttpError extends Error {
 
 export const createError = (code, message, properties = {}) => {
 	return new HttpError(code, message, properties);
-};
-
-export const httpErrorCodes = {
-	100: "Continue",
-	101: "Switching Protocols",
-	102: "Processing",
-	103: "Early Hints",
-	200: "OK",
-	201: "Created",
-	202: "Accepted",
-	203: "Non-Authoritative Information",
-	204: "No Content",
-	205: "Reset Content",
-	206: "Partial Content",
-	207: "Multi-Status",
-	208: "Already Reported",
-	226: "IM Used",
-	300: "Multiple Choices",
-	301: "Moved Permanently",
-	302: "Found",
-	303: "See Other",
-	304: "Not Modified",
-	305: "Use Proxy",
-	306: "(Unused)",
-	307: "Temporary Redirect",
-	308: "Permanent Redirect",
-	400: "Bad Request",
-	401: "Unauthorized",
-	402: "Payment Required",
-	403: "Forbidden",
-	404: "Not Found",
-	405: "Method Not Allowed",
-	406: "Not Acceptable",
-	407: "Proxy Authentication Required",
-	408: "Request Timeout",
-	409: "Conflict",
-	410: "Gone",
-	411: "Length Required",
-	412: "Precondition Failed",
-	413: "Payload Too Large",
-	414: "URI Too Long",
-	415: "Unsupported Media Type",
-	416: "Range Not Satisfiable",
-	417: "Expectation Failed",
-	418: "I'm a teapot",
-	421: "Misdirected Request",
-	422: "Unprocessable Entity",
-	423: "Locked",
-	424: "Failed Dependency",
-	425: "Unordered Collection",
-	426: "Upgrade Required",
-	428: "Precondition Required",
-	429: "Too Many Requests",
-	431: "Request Header Fields Too Large",
-	451: "Unavailable For Legal Reasons",
-	500: "Internal Server Error",
-	501: "Not Implemented",
-	502: "Bad Gateway",
-	503: "Service Unavailable",
-	504: "Gateway Timeout",
-	505: "HTTP Version Not Supported",
-	506: "Variant Also Negotiates",
-	507: "Insufficient Storage",
-	508: "Loop Detected",
-	509: "Bandwidth Limit Exceeded",
-	510: "Not Extended",
-	511: "Network Authentication Required",
 };

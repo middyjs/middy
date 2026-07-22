@@ -7,7 +7,6 @@ import {
 	createError,
 	getInternal,
 	jsonSafeParse,
-	jsonSafeStringify,
 	normalizeHttpResponse,
 	sanitizeKey,
 } from "./index.js";
@@ -38,38 +37,6 @@ test("fuzz `jsonSafeParse` roundtrip: parse then stringify equals original JSON"
 			const parsed = jsonSafeParse(jsonStr);
 			const reStringified = JSON.stringify(parsed);
 			strictEqual(reStringified, jsonStr);
-		}),
-		{
-			numRuns: 10_000,
-			examples: [],
-		},
-	);
-});
-
-test("fuzz `jsonSafeStringify` w/ `anything`", async () => {
-	await fc.assert(
-		fc.asyncProperty(fc.anything(), async (value) => {
-			try {
-				jsonSafeStringify(value);
-			} catch (_e) {
-				// Expected to not throw
-			}
-		}),
-		{
-			numRuns: 10_000,
-			examples: [],
-		},
-	);
-});
-
-test("fuzz `jsonSafeStringify` roundtrip: stringify(parse(json)) equals original JSON", async () => {
-	const jsonObjOrArr = fc
-		.json()
-		.filter((s) => s[0] === "{" || s[0] === "[" || s[0] === '"');
-	await fc.assert(
-		fc.asyncProperty(jsonObjOrArr, async (jsonStr) => {
-			const result = jsonSafeStringify(jsonSafeParse(jsonStr));
-			strictEqual(result, jsonStr);
 		}),
 		{
 			numRuns: 10_000,

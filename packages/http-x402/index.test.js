@@ -1095,6 +1095,81 @@ test("settle-failure 402 sets Content-Type application/json", async (t) => {
 	strictEqual(response.headers["Content-Type"], "application/json");
 });
 
+test("decode-error 402 body is x402Version 2 with invalid_payment", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(42) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	strictEqual(response.headers["Content-Type"], "application/json");
+	const body = JSON.parse(response.body);
+	strictEqual(body.x402Version, 2);
+	strictEqual(body.error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
+test("network-mismatch 402 body is x402Version 2 with invalid_payment", async (t) => {
+	const { MockFacilitatorClient, mockVerify } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const wrongNetwork = { ...testPayload, network: "eip155:1" };
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(wrongNetwork) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	strictEqual(response.headers["Content-Type"], "application/json");
+	const body = JSON.parse(response.body);
+	strictEqual(body.x402Version, 2);
+	strictEqual(body.error, "invalid_payment");
+	strictEqual(mockVerify.mock.callCount(), 0);
+});
+
+test("verify-invalid 402 body is x402Version 2 with facilitator invalidReason", async (t) => {
+	const { MockFacilitatorClient, mockVerify, mockSettle } = makeMockClient(
+		t,
+		{ isValid: false, invalidReason: "insufficient_balance" },
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	strictEqual(response.headers["Content-Type"], "application/json");
+	const body = JSON.parse(response.body);
+	strictEqual(body.x402Version, 2);
+	strictEqual(body.error, "insufficient_balance");
+	strictEqual(mockVerify.mock.callCount(), 1);
+	strictEqual(mockSettle.mock.callCount(), 0);
+});
+
 test("successful verify stores payload and requirements in internal.x402", async (t) => {
 	const { MockFacilitatorClient } = makeMockClient(
 		t,

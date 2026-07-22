@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.7.0",
+	"version": "7.7.1",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -47,7 +47,7 @@
 		"audit": "npm audit fix --workspaces",
 		"release:license:add": "license-check-and-add add -f .license.config.json",
 		"release:license:remove": "license-check-and-add remove -f .license.config.json",
-		"release:sync": "npm version $npm_package_version --workspaces; find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": $(npm pkg get version)#g\" {} \\; && npm run rm && npm install && npm run lint",
+		"release:sync": "npm version $npm_package_version --workspaces; v=$(npm pkg get version | tr -d '\"'); find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": \\\"$v\\\"#g\" {} \\; && npm run rm && npm install && npm run lint",
 		"release:tag": "git tag $npm_package_version"
 	},
 	"repository": {
@@ -81,8 +81,7 @@
 		"husky": "^9.0.0",
 		"tinybench": "^6.0.0",
 		"tstyche": "^7.0.0",
-		"typescript": "^6.0.0",
-		"undici": "^8.0.0"
+		"typescript": "^6.0.0"
 	},
 	"overrides": {
 		"@aws/durable-execution-sdk-js": "^2.0.0",
@@ -90,9 +89,12 @@
 			"cookie": "^0.7.2"
 		},
 		"esbuild": ">=0.28.1",
+		"fast-uri": "^3.1.4",
 		"js-yaml": ">=4.2.0",
 		"mathjs": ">=15.2.0",
 		"qs": "^6.15.2",
+		"sharp": ">=0.35.0",
+		"svgo": ">=4.0.2",
 		"ws": ">=8.21.0"
 	},
 	"devEngines": {

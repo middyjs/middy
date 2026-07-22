@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds",
-	"version": "7.7.0",
+	"version": "7.7.1",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -242,7 +242,7 @@
 		"certificates/"
 	],
 	"scripts": {
-		"prepublishOnly": "npm run build",
+		"prepack": "npm run build",
 		"build": "./bin/certificates",
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
@@ -293,10 +293,10 @@
 		}
 	},
 	"dependencies": {
-		"@middy/util": "7.7.0"
+		"@middy/util": "7.7.1"
 	},
 	"devDependencies": {
-		"@middy/core": "7.7.0",
+		"@middy/core": "7.7.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
 		"pg": "^8.0.0",

@@ -158,12 +158,6 @@ declare function catchInvalidSignatureException<Client, Command>(
 	command: Command,
 ): Promise<unknown>;
 
-declare function jsonSafeStringify(
-	value: unknown,
-	replacer?: (key: string, value: unknown) => unknown,
-	space?: string | number,
-): string | unknown;
-
 declare function isJsonStructured(text: unknown): boolean;
 
 declare const jsonContentTypePattern: RegExp;
@@ -178,20 +172,6 @@ declare const lambdaContextKeys: string[];
 declare const executionContextKeys: string[];
 
 declare function isExecutionModeDurable(context: LambdaContext): boolean;
-
-declare function executionContext(
-	request: middy.Request,
-	key: string,
-	context: LambdaContext,
-): unknown;
-
-declare function lambdaContext(
-	request: middy.Request,
-	key: string,
-	context: LambdaContext,
-): unknown;
-
-declare const httpErrorCodes: Record<number, string>;
 
 export type JsonSchemaType =
 	| "string"
@@ -215,8 +195,6 @@ export type NumberRule = {
 	minimum?: number;
 	maximum?: number;
 	exclusiveMinimum?: number;
-	exclusiveMaximum?: number;
-	multipleOf?: number;
 	enum?: readonly number[];
 	examples?: readonly number[];
 };

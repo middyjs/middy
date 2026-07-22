@@ -17,19 +17,15 @@ import {
 	createError,
 	createPrefetchClient,
 	decodeBody,
-	executionContext,
 	executionContextKeys,
 	getCache,
 	getInternal,
 	HttpError,
-	httpErrorCodes,
 	isExecutionModeDurable,
 	isJsonStructured,
 	jsonContentTypePattern,
 	jsonParseProtectProto,
 	jsonSafeParse,
-	jsonSafeStringify,
-	lambdaContext,
 	lambdaContextKeys,
 	modifyCache,
 	normalizeHttpResponse,
@@ -1402,23 +1398,6 @@ describe("isJsonStructured", () => {
 	});
 });
 
-// jsonSafeStringify
-test("jsonSafeStringify should stringify valid json", async (t) => {
-	const value = jsonSafeStringify({ hello: ["world"] });
-	strictEqual(value, '{"hello":["world"]}');
-});
-test("jsonSafeStringify should stringify with replacer", async (t) => {
-	const value = jsonSafeStringify(
-		JSON.stringify({ msg: JSON.stringify({ hello: ["world"] }) }),
-		(key, value) => jsonSafeParse(value),
-	);
-	strictEqual(value, '{"msg":{"hello":["world"]}}');
-});
-test("jsonSafeStringify should not stringify if throws error", async (t) => {
-	const value = jsonSafeStringify({ bigint: BigInt(9007199254740991) });
-	deepStrictEqual(value, { bigint: BigInt(9007199254740991) });
-});
-
 // decodeBody
 test("decodeBody should return body unchanged if not base64 encoded", async (t) => {
 	strictEqual(decodeBody('{"foo":"bar"}', false), '{"foo":"bar"}');
@@ -1541,6 +1520,12 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.expose, false);
 });
 
+test("createError(306) falls through to the unknown-code path (306 is absent from node:http STATUS_CODES)", async (t) => {
+	const e = createError(306);
+	strictEqual(e.message, "");
+	strictEqual(e.name, "UnknownError");
+});
+
 test("HttpError should default name to UnknownError for unknown status code", async (t) => {
 	const e = new HttpError(999, "message");
 	strictEqual(e.name, "UnknownError");
@@ -1621,52 +1606,6 @@ describe("isExecutionModeDurable", () => {
 	});
 });
 
-// executionContext
-describe("executionContext", () => {
-	test("executionContext should get value from standard context", async (t) => {
-		const request = {
-			context: {
-				functionName: "test-function",
-			},
-		};
-		const context = {};
-		const value = executionContext(request, "functionName", context);
-		strictEqual(value, "test-function");
-	});
-
-	test("executionContext should get value from durable context", async (t) => {
-		const context = new DurableContextImpl({
-			executionContext: { tenantId: "tenant-123" },
-		});
-		const request = { context };
-		const value = executionContext(request, "tenantId", context);
-		strictEqual(value, "tenant-123");
-	});
-});
-
-// lambdaContext
-describe("lambdaContext", () => {
-	test("lambdaContext should get value from standard context", async (t) => {
-		const request = {
-			context: {
-				awsRequestId: "request-123",
-			},
-		};
-		const context = {};
-		const value = lambdaContext(request, "awsRequestId", context);
-		strictEqual(value, "request-123");
-	});
-
-	test("lambdaContext should get value from durable context", async (t) => {
-		const context = new DurableContextImpl({
-			lambdaContext: { functionName: "test-function" },
-		});
-		const request = { context };
-		const value = lambdaContext(request, "functionName", context);
-		strictEqual(value, "test-function");
-	});
-});
-
 describe("buildSetToContextSpec", () => {
 	test("returns null when setToContext is false", () => {
 		const spec = buildSetToContextSpec({
@@ -1734,10 +1673,10 @@ describe("assignSetToContext", () => {
 	});
 });
 
-// httpErrorCodes: assert every code maps to its documented message + derived
-// name. Kills the per-line StringLiteral mutants on the httpErrorCodes table
-// and the `name` derivation in the HttpError constructor.
-describe("httpErrorCodes table", () => {
+// HttpError: assert every STATUS_CODES-backed code produces its documented
+// message + derived name through the public constructor. Kills mutants on
+// the `name` derivation in the HttpError constructor.
+describe("HttpError code name/message derivation", () => {
 	const expected = {
 		100: ["ContinueError", "Continue"],
 		101: ["SwitchingProtocolsError", "Switching Protocols"],
@@ -1759,7 +1698,6 @@ describe("httpErrorCodes table", () => {
 		303: ["SeeOtherError", "See Other"],
 		304: ["NotModifiedError", "Not Modified"],
 		305: ["UseProxyError", "Use Proxy"],
-		306: ["UnusedError", "(Unused)"],
 		307: ["TemporaryRedirectError", "Temporary Redirect"],
 		308: ["PermanentRedirectError", "Permanent Redirect"],
 		400: ["BadRequestError", "Bad Request"],
@@ -1780,12 +1718,12 @@ describe("httpErrorCodes table", () => {
 		415: ["UnsupportedMediaTypeError", "Unsupported Media Type"],
 		416: ["RangeNotSatisfiableError", "Range Not Satisfiable"],
 		417: ["ExpectationFailedError", "Expectation Failed"],
-		418: ["ImateapotError", "I'm a teapot"],
+		418: ["ImaTeapotError", "I'm a Teapot"],
 		421: ["MisdirectedRequestError", "Misdirected Request"],
 		422: ["UnprocessableEntityError", "Unprocessable Entity"],
 		423: ["LockedError", "Locked"],
 		424: ["FailedDependencyError", "Failed Dependency"],
-		425: ["UnorderedCollectionError", "Unordered Collection"],
+		425: ["TooEarlyError", "Too Early"],
 		426: ["UpgradeRequiredError", "Upgrade Required"],
 		428: ["PreconditionRequiredError", "Precondition Required"],
 		429: ["TooManyRequestsError", "Too Many Requests"],
@@ -1811,16 +1749,8 @@ describe("httpErrorCodes table", () => {
 		],
 	};
 
-	test("table has exactly the documented codes", () => {
-		deepStrictEqual(
-			Object.keys(httpErrorCodes).sort(),
-			Object.keys(expected).sort(),
-		);
-	});
-
 	for (const [code, [name, message]] of Object.entries(expected)) {
 		test(`code ${code} -> ${name} / "${message}"`, () => {
-			strictEqual(httpErrorCodes[code], message);
 			const e = new HttpError(Number(code));
 			strictEqual(e.message, message);
 			strictEqual(e.name, name);

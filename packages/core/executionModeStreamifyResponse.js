@@ -34,6 +34,7 @@ export const executionModeStreamifyResponse = (
 					responseStream,
 					restResponse,
 				);
+				responseStream.write("");
 			}
 
 			// See executionModeStandard for the .cause-chaining rationale.
@@ -82,9 +83,8 @@ const chunkSize = 16384; // 16 * 1024, matches Node.js default highWaterMark
 const writeString = async (stream, body) => {
 	// Stryker disable next-line EqualityOperator: at body.length === chunkSize both branches emit one identical full-body write then end(); behavior is indistinguishable.
 	if (body.length <= chunkSize) {
-		// Single-shot: write triggers HttpResponseStream's prelude+delimiter
-		// on first write, then our body, then end(). Always write (even empty)
-		// so the prelude is flushed for zero-length bodies.
+		// Single-shot: write then end(). The prelude is already flushed eagerly
+		// after HttpResponseStream.from, so an empty body needs no special care.
 		stream.write(body);
 	} else {
 		let position = 0;

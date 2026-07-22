@@ -151,10 +151,25 @@ const runRequest = async (
 		request.context.getRemainingTimeInMillis ||
 		request.context.lambdaContext?.getRemainingTimeInMillis;
 	const timeoutEarly = plugin.timeoutEarly && getRemainingTimeInMillis;
+	const beforeMiddlewareHook = plugin.beforeMiddleware;
+	const afterMiddlewareHook = plugin.afterMiddleware;
 
 	try {
-		if (beforeMiddlewares.length) {
-			await runMiddlewares(request, beforeMiddlewares, plugin);
+		for (let i = 0, len = beforeMiddlewares.length; i < len; i++) {
+			const nextMiddleware = beforeMiddlewares[i];
+			if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
+			let res = nextMiddleware(request);
+			if (res instanceof Promise) res = await res;
+			if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
+			// short circuit chaining and respond early
+			if (typeof res !== "undefined") {
+				request.earlyResponse = res;
+			}
+			// earlyResponse pattern added in 6.0.0 to handle undefined values
+			if ("earlyResponse" in request) {
+				request.response = request.earlyResponse;
+				break;
+			}
 		}
 
 		// Check if before stack hasn't exit early
@@ -213,8 +228,19 @@ const runRequest = async (
 			}
 
 			plugin.afterHandler();
-			if (afterMiddlewares.length) {
-				await runMiddlewares(request, afterMiddlewares, plugin);
+			for (let i = 0, len = afterMiddlewares.length; i < len; i++) {
+				const nextMiddleware = afterMiddlewares[i];
+				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
+				let res = nextMiddleware(request);
+				if (res instanceof Promise) res = await res;
+				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
+				if (typeof res !== "undefined") {
+					request.earlyResponse = res;
+				}
+				if ("earlyResponse" in request) {
+					request.response = request.earlyResponse;
+					break;
+				}
 			}
 		}
 	} catch (err) {
@@ -227,7 +253,20 @@ const runRequest = async (
 		request.response = undefined;
 		request.error = err;
 		try {
-			await runMiddlewares(request, onErrorMiddlewares, plugin);
+			for (let i = 0, len = onErrorMiddlewares.length; i < len; i++) {
+				const nextMiddleware = onErrorMiddlewares[i];
+				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
+				let res = nextMiddleware(request);
+				if (res instanceof Promise) res = await res;
+				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
+				if (typeof res !== "undefined") {
+					request.earlyResponse = res;
+				}
+				if ("earlyResponse" in request) {
+					request.response = request.earlyResponse;
+					break;
+				}
+			}
 		} catch (err) {
 			// Save error that wasn't handled. When an onError middleware rethrows
 			// `request.error`, err === request.error; attaching it to itself would
@@ -246,26 +285,6 @@ const runRequest = async (
 	}
 
 	return request.response;
-};
-
-const runMiddlewares = async (request, middlewares, plugin) => {
-	const beforeMiddlewareHook = plugin.beforeMiddleware;
-	const afterMiddlewareHook = plugin.afterMiddleware;
-	for (const nextMiddleware of middlewares) {
-		if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
-		let res = nextMiddleware(request);
-		if (res instanceof Promise) res = await res;
-		if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
-		// short circuit chaining and respond early
-		if (typeof res !== "undefined") {
-			request.earlyResponse = res;
-		}
-		// earlyResponse pattern added in 6.0.0 to handle undefined values
-		if ("earlyResponse" in request) {
-			request.response = request.earlyResponse;
-			return;
-		}
-	}
 };
 
 export default middy;

@@ -1,5 +1,5 @@
 import { ok, strictEqual } from "node:assert/strict";
-import { Writable } from "node:stream";
+import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import {
 	createPassThroughStream,
@@ -263,6 +263,66 @@ describe("executionModeStreamifyResponse", () => {
 		strictEqual(response, undefined);
 		strictEqual(prelude(), JSON.stringify(metadata));
 		strictEqual(content(), input);
+	});
+
+	test("Should flush prelude when body is an empty Node Readable stream", async (t) => {
+		const metadata = {
+			statusCode: 504,
+			headers: {
+				"Content-Type": "text/html",
+			},
+		};
+		const handler = middy(
+			async (event, context, { signal }) => {
+				return {
+					...metadata,
+					body: Readable.from([]),
+				};
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+			},
+		);
+
+		const { responseStream, prelude, content } =
+			createResponseStreamMockAndCapture();
+
+		const response = await handler(event, responseStream, context);
+		strictEqual(response, undefined);
+		strictEqual(prelude(), JSON.stringify(metadata));
+		strictEqual(content(), "");
+	});
+
+	test("Should flush prelude when body is an empty Web API ReadableStream", async (t) => {
+		const metadata = {
+			statusCode: 204,
+			headers: {
+				"Content-Type": "text/html",
+			},
+		};
+		const handler = middy(
+			async (event, context, { signal }) => {
+				return {
+					...metadata,
+					body: new ReadableStream({
+						start(controller) {
+							controller.close();
+						},
+					}),
+				};
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+			},
+		);
+
+		const { responseStream, prelude, content } =
+			createResponseStreamMockAndCapture();
+
+		const response = await handler(event, responseStream, context);
+		strictEqual(response, undefined);
+		strictEqual(prelude(), JSON.stringify(metadata));
+		strictEqual(content(), "");
 	});
 
 	// https://nodejs.org/api/stream.html#readable-streams

@@ -102,52 +102,24 @@ const httpX402Middleware = (opts = {}) => {
 		try {
 			payload = decodeHeader(paymentHeader);
 		} catch {
-			normalizeHttpResponse(request);
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.body = JSON.stringify({
-				x402Version: 2,
-				error: "invalid_payment",
-			});
-			return request.response;
+			return respond402(request, "invalid_payment");
 		}
 
 		if (
 			payload.scheme !== requirements.scheme ||
 			payload.network !== requirements.network
 		) {
-			normalizeHttpResponse(request);
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.body = JSON.stringify({
-				x402Version: 2,
-				error: "invalid_payment",
-			});
-			return request.response;
+			return respond402(request, "invalid_payment");
 		}
 
 		let verifyResult;
 		try {
 			verifyResult = await facilitator.verify(payload, fullRequirements);
 		} catch {
-			normalizeHttpResponse(request);
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.body = JSON.stringify({
-				x402Version: 2,
-				error: "invalid_payment",
-			});
-			return request.response;
+			return respond402(request, "invalid_payment");
 		}
 		if (!verifyResult.isValid) {
-			normalizeHttpResponse(request);
-			request.response.statusCode = 402;
-			request.response.headers["Content-Type"] = "application/json";
-			request.response.body = JSON.stringify({
-				x402Version: 2,
-				error: verifyResult.invalidReason,
-			});
-			return request.response;
+			return respond402(request, verifyResult.invalidReason);
 		}
 
 		request.internal.x402 = { payload, requirements: fullRequirements };
@@ -197,6 +169,14 @@ const httpX402Middleware = (opts = {}) => {
 		before: httpX402MiddlewareBefore,
 		after: httpX402MiddlewareAfter,
 	};
+};
+
+const respond402 = (request, error) => {
+	normalizeHttpResponse(request);
+	request.response.statusCode = 402;
+	request.response.headers["Content-Type"] = "application/json";
+	request.response.body = JSON.stringify({ x402Version: 2, error });
+	return request.response;
 };
 
 const integerPattern = /^[0-9]+$/;
