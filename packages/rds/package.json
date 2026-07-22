@@ -242,7 +242,7 @@
 		"certificates/"
 	],
 	"scripts": {
-		"prepublishOnly": "npm run build",
+		"prepack": "npm run build",
 		"build": "./bin/certificates",
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
