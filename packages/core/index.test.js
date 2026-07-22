@@ -1,4 +1,5 @@
 import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { describe, test } from "node:test";
 import middy, { middyValidateOptions } from "./index.js";
 
@@ -813,11 +814,10 @@ describe("middy core", () => {
 		deepStrictEqual(executed, ["b1", "e2"]);
 	});
 
-	// runMiddlewares iterates the live array; a "before" middleware that appends
-	// another "before" via middy.before() mid-run is picked up in the same pass.
-	// This pins that documented-in-comment behavior so a future refactor cannot
-	// silently change it.
-	test('"before" middleware appending another "before" mid-run runs it in the same pass', async (t) => {
+	// Middleware registration mid-run (e.g. handler.before() inside a hook) is
+	// NOT supported: the loops snapshot each stack's length at pass start for
+	// performance, so additions land in later invocations only.
+	test('"before" middleware appending another "before" mid-run defers it to the next invocation', async (t) => {
 		const executed = [];
 		const handler = middy(() => {
 			executed.push("handler");
@@ -828,6 +828,10 @@ describe("middy core", () => {
 				executed.push("b-added");
 			});
 		});
+		await handler(defaultEvent, defaultContext);
+		deepStrictEqual(executed, ["b1", "handler"]);
+		// the registration itself is permanent, so it joins the next pass
+		executed.length = 0;
 		await handler(defaultEvent, defaultContext);
 		deepStrictEqual(executed, ["b1", "b-added", "handler"]);
 	});
@@ -1717,5 +1721,57 @@ describe("middy core", () => {
 		strictEqual(caught.originalError, handlerError);
 		// ??= must not overwrite an already-set cause.
 		strictEqual(caught.cause, existingCause);
+	});
+
+	// #1661 contract: a store entered with enterWith() in a hook's
+	// synchronous section (before the hook's first await) reaches the
+	// handler and every later middleware, regardless of async middlewares
+	// registered ahead, so concurrent invocations on one execution
+	// environment (Lambda Managed Instances) stay isolated. This holds
+	// because runRequest inlines the middleware loops beside the handler
+	// call site: an `await` resumes under the context that was ambient when
+	// it executed, so awaiting an intermediate async helper (the pre-fix
+	// runMiddlewares) would pin the handler's continuation to the storeless
+	// frame and silently drop the store. This test goes red if the loops
+	// are ever extracted into an async helper again. Entering the store
+	// after an await inside the same hook stays unsupported (inherent
+	// AsyncLocalStorage semantics); enter it synchronously.
+	test("a middleware can establish per-invocation async context for the handler", async (t) => {
+		const als = new AsyncLocalStorage();
+		const seen = {};
+		const handler = middy(async (event) => {
+			await Promise.resolve(); // real handlers await I/O
+			seen[event.id] = als.getStore()?.id ?? "lost";
+		})
+			.use({
+				before: async () => {
+					await Promise.resolve(); // real hooks await (auth, ssm, ...)
+				},
+			})
+			.use({
+				before: (request) => {
+					als.enterWith({ id: request.event.id });
+				},
+				// exit() requires a callback; enterWith(undefined) is the
+				// per-invocation way to clear the store
+				after: () => {
+					als.enterWith(undefined);
+				},
+				onError: () => {
+					als.enterWith(undefined);
+				},
+			})
+			.use({
+				before: async () => {
+					await Promise.resolve();
+				},
+			});
+		await Promise.all([
+			handler({ id: "A" }, defaultContext),
+			handler({ id: "B" }, defaultContext),
+		]);
+		// Correctness requires each handler to observe its own invocation's
+		// context; anything else loses or cross-attributes request data.
+		deepStrictEqual(seen, { A: "A", B: "B" });
 	});
 });
