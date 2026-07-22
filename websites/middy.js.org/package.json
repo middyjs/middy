@@ -10,11 +10,12 @@
 		"preview": "vite preview",
 		"prepare": "node src/scripts/build-docs-mtimes.mjs && (svelte-kit sync || echo '')",
 		"prebuild": "node src/scripts/build-docs-mtimes.mjs",
-		"build": "npm run build:svelte && npm run build:svg && npm run build:styles:extract && npm run build:styles:optimize",
+		"build": "npm run build:svelte && npm run build:workers && npm run build:svg && npm run build:styles:extract && npm run build:styles:optimize",
 		"build:svelte": "vite build",
 		"build:svg": "npx svgo --multipass --recursive ./.svelte-kit/ -o ./.svelte-kit/",
 		"build:styles:extract": "ds extract --input-dir ./.svelte-kit --theme ./src/styles/theme.css --output-dir src/styles/",
 		"build:styles:optimize": "ds optimize-styles ./.svelte-kit",
+		"build:workers": "cp -R .svelte-kit/output/server/_/immutable/workers .svelte-kit/cloudflare/_/immutable/workers",
 		"release:login": "wrangler login --browser false",
 		"release:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H 'Authorization: Bearer ${API_KEY_W_PAGES_EDIT}' -d '{\"name\": \"middy.js.org\"}'",
 		"release:deploy": "wrangler pages deploy"
