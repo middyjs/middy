@@ -35,10 +35,10 @@
 					"https://33c4690d-c20b-58d1-adaa-121b1e32f3b1.report-to.org"
 				],
 				"require-trusted-types-for": ["script"],
-				"script-src": ["self","report-sample", "'report-sha256'"],
-				"script-src-elem": ["self","report-sample", "'report-sha256'"],
-				"style-src": ["self","report-sample", "'report-sha256'"],
-				"style-src-elem": ["self","report-sample", "'report-sha256'"]
+				"script-src": ["self", "report-sample", "'report-sha256'"],
+				"script-src-elem": ["self", "report-sample", "'report-sha256'"],
+				"style-src": ["self", "report-sample", "'report-sha256'"],
+				"style-src-elem": ["self", "report-sample", "'report-sha256'"]
 			}
 		}
 	}
