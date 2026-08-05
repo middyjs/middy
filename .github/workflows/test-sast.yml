@@ -74,22 +74,6 @@ jobs:
           exit-code: 0
           format: table
 
-  # https://github.com/oss-review-toolkit/ort-ci-github-action
-  # ort:
-  #   name: "OSS Review Toolkit: Licensing"
-  #   runs-on: ubuntu-latest
-  #   if: (github.actor != 'dependabot[bot]')
-
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-  #     - name: OSS Review Toolkit (ORT)
-  #       uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # 1.1.0
-  #       with:
-  #         allow-dynamic-versions: "true"
-  #         ort-cli-args: "-P ort.analyzer.enabledPackageManagers=NPM"
-  #         fail-on: "violations"
-
   lockfile:
     name: "lockfile-lint: SAST package-lock.json"
     runs-on: ubuntu-latest
