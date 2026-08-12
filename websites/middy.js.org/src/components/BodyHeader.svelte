@@ -50,11 +50,10 @@ const navPrimary = null; //{};
     {#snippet end()}
         <Search>
         <Form method="GET" action="/search">
-           	<!-- biome-ignore lint/a11y/useSemanticElements: role="group" is a @willfarrell-ds styling hook (search [role=group] pill); fieldset would break DS styling -->
-           	<Div role="group">
-					<InputSearch id="q" placeholder="Search ⌘+K" size="18" is="ds-input-focus" data-keys="$mod+K" value={form?.q} />
+           	<Div class="group">
+					<InputSearch id="q" placeholder="Search ⌘+K" size="18" is="ds-input-focus" data-keys="$mod+K" value={form?.q ?? ""} />
 					<!-- <Code>&#8984;</Code><Code>K</Code> -->
-					<Button><Icon src="/img/icons.svg#search" /><Span class="visually-hidden">Search</Span></Button>
+					<Button type="submit"><Icon src="/img/icons.svg#search" /><Span class="visually-hidden">Search</Span></Button>
 				</Div>
         </Form></Search>
     {/snippet}

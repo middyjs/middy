@@ -20,6 +20,7 @@ const defaults = {
 };
 
 const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]; // ANY excluded by design
+const allMethods = [...methods, "ANY"];
 
 const optionSchema = {
 	type: "object",
@@ -31,7 +32,7 @@ const optionSchema = {
 				type: "object",
 				required: ["method", "path", "handler"],
 				properties: {
-					method: { type: "string", enum: [...methods, "ANY"] },
+					method: { type: "string", enum: allMethods },
 					path: {
 						allOf: [
 							{ type: "string", pattern: "^/" },
@@ -63,12 +64,11 @@ const httpRouteHandler = (opts = {}) => {
 
 	const routesStatic = Object.create(null);
 	const routesDynamic = Object.create(null);
-	const enumMethods = methods.concat("ANY");
 	for (const route of routes) {
 		let { method, path, handler } = route;
 
 		// Prevents `routesType[method][path] = handler` from flagging: This assignment may alter Object.prototype if a malicious '__proto__' string is injected from library input.
-		if (!enumMethods.includes(method)) {
+		if (!allMethods.includes(method)) {
 			throw new Error("Method not allowed", {
 				cause: { package: pkg, data: { method } },
 			});

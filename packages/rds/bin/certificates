@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ./bin/certificates
 # Ref: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html#UsingWithRDS.SSL.CertificatesAllRegions
+set -euo pipefail
 
 rm -rf certificates
 mkdir -p certificates
@@ -13,9 +14,20 @@ updateExport () {
 	mv ../_package.json ../package.json
 }
 
-download () {
-  curl -s https://truststore.pki.rds.amazonaws.com/${1}/${1}-bundle.pem -o ${1}-bundle.pem
+# Fetch <region> from <host>, verify it is a real PEM, then emit the module.
+# curl -f fails on HTTP errors; --retry rides out transient truststore hiccups.
+# set -e aborts the build on any failure so a partial trust store never ships.
+generate () {
+	region="${1}"
+	host="${2}"
+	curl -fsS --retry 5 --retry-all-errors --retry-delay 2 \
+		"https://${host}/${region}/${region}-bundle.pem" -o "${region}-bundle.pem"
+	grep -q "BEGIN CERTIFICATE" "${region}-bundle.pem" \
+		|| { echo "certificates: ${region} bundle is not a valid PEM" >&2; exit 1; }
+	echo "export default \`$(cat "${region}-bundle.pem")\`" > "${region}.js"
+	updateExport "${region}"
 }
+
 regions=(
 	"global"
 	"us-east-1"      # US East (N. Virginia)
@@ -52,22 +64,21 @@ regions=(
 	"sa-east-1"      # South America (São Paulo)
 )
 for region in "${regions[@]}"; do
-   download ${region}
-   echo "export default \`$(cat ${region}-bundle.pem)\`" > ${region}.js
-   updateExport ${region}
+	generate "${region}" "truststore.pki.rds.amazonaws.com"
 done
 
-downloadGov () {
-  curl -s https://truststore.pki.us-gov-west-1.rds.amazonaws.com/${1}/${1}-bundle.pem -o ${1}-bundle.pem
-}
 govRegions=(
 	"us-gov-east-1"  # AWS GovCloud (US-East)
 	"us-gov-west-1"  # AWS GovCloud (US-West)
 )
 for region in "${govRegions[@]}"; do
-   downloadGov ${region}
-   echo "export default \`$(cat ${region}-bundle.pem)\`" > ${region}.js
-   updateExport ${region}
+	generate "${region}" "truststore.pki.us-gov-west-1.rds.amazonaws.com"
 done
 
-rm -f *-bundle.pem
+rm -f -- *-bundle.pem
+
+# Fail loud if any region is missing rather than shipping a partial trust store.
+expected=$(( ${#regions[@]} + ${#govRegions[@]} ))
+actual=$(find . -maxdepth 1 -name '*.js' | wc -l | tr -d ' ')
+[ "${actual}" -eq "${expected}" ] \
+	|| { echo "certificates: expected ${expected} modules, generated ${actual}" >&2; exit 1; }

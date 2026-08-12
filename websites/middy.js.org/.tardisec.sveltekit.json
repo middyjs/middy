@@ -14,8 +14,10 @@
 				"report-uri": [
 					"https://33c4690d-c20b-58d1-adaa-121b1e32f3b1.report-to.org"
 				],
+				"script-src": ["self", "report-sample", "'report-sha256'"],
 				"script-src-attr": ["report-sample", "'report-sha256'"],
 				"script-src-elem": ["self", "report-sample", "'report-sha256'"],
+				"style-src": ["self", "report-sample", "'report-sha256'"],
 				"style-src-attr": ["report-sample", "'report-sha256'"],
 				"style-src-elem": ["self", "report-sample", "'report-sha256'"],
 				"upgrade-insecure-requests": true,
@@ -24,13 +26,19 @@
 			"reportOnly": {
 				"base-uri": ["none"],
 				"default-src": ["report-sample", "'report-sha256'"],
-				"form-action": ["none"],
+				"form-action": ["self"],
 				"frame-ancestors": ["none"],
+				"img-src": ["self"],
+				"manifest-src": ["self"],
 				"report-to": ["default"],
 				"report-uri": [
 					"https://33c4690d-c20b-58d1-adaa-121b1e32f3b1.report-to.org"
 				],
-				"require-trusted-types-for": ["script"]
+				"require-trusted-types-for": ["script"],
+				"script-src": ["self", "report-sample", "'report-sha256'"],
+				"script-src-elem": ["self", "report-sample", "'report-sha256'"],
+				"style-src": ["self", "report-sample", "'report-sha256'"],
+				"style-src-elem": ["self", "report-sample", "'report-sha256'"]
 			}
 		}
 	}

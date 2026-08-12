@@ -73,8 +73,7 @@ export const handler = middy(lambdaHandler)
                 >Organise your Lambda code, remove code duplication, focus on
                 business logic. Simple, fast, and extensible.</P
             >
-            <!-- biome-ignore lint/a11y/useSemanticElements: role="group" is a @willfarrell-ds styling hook; fieldset would break DS styling -->
-            <Div role="group">
+            <Div>
                 <P>
                     <A href="/docs" class="button"
                         ><Span>Get started</Span>

@@ -2,7 +2,7 @@
 	"name": "middy.js.org",
 	"description": "SvelteKit SSR",
 	"private": true,
-	"version": "7.7.2",
+	"version": "7.7.3",
 	"type": "module",
 	"scripts": {
 		"prestart": "node src/scripts/build-docs-mtimes.mjs",
@@ -21,7 +21,7 @@
 		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
-		"@plausible-analytics/tracker": "0.4.5",
+		"@plausible-analytics/tracker": "0.4.6",
 		"@willfarrell-ds/svelte": "0.0.0-alpha.8",
 		"@willfarrell-ds/vanilla": "0.0.0-alpha.8",
 		"hast-util-to-string": "3.0.1",
