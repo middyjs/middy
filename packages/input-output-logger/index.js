@@ -165,9 +165,14 @@ const omitObject = (obj, pathTree, mask) => {
 	return clone;
 };
 
+// Null-prototype maps (`Object.create(null)`, as built by httpHeaderNormalizer
+// and event-normalizer) count as plain: they have no `constructor`, and
+// skipping them would silently leak the keys they hold into the logs.
 const isPlainObject = (value) =>
-	// Stryker disable next-line ConditionalExpression: equivalent. Replacing `typeof value === "object"` with true is masked by the following `value.constructor === Object` check: only objects can have constructor Object, so a non-object still yields false.
-	value && typeof value === "object" && value.constructor === Object;
+	// Stryker disable next-line ConditionalExpression: equivalent. Replacing `typeof value === "object"` with true is masked by the two checks that follow: only objects have constructor Object, and Object.getPrototypeOf on a primitive returns its wrapper prototype, never null, so a non-object still yields false.
+	value &&
+	typeof value === "object" &&
+	(value.constructor === Object || Object.getPrototypeOf(value) === null);
 
 // -- context merging ---------------------------------------------------------
 

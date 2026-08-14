@@ -1354,6 +1354,30 @@ test("It should not treat primitives or class instances as plain objects when om
 	strictEqual(logger.mock.calls[0].arguments[0].event.inst.secret, "keep");
 });
 
+// L168 isPlainObject must accept null-prototype objects: httpHeaderNormalizer
+// (and event-normalizer) build maps with `Object.create(null)`, and those were
+// previously skipped whole, leaking secrets into the logs. Issue #1673.
+test("It should omit paths inside null-prototype objects", async (t) => {
+	const logger = t.mock.fn();
+	const handler = middy((event) => event).use(
+		inputOutputLogger({
+			logger,
+			omitPaths: ["event.headers.authorization"],
+			mask: "****",
+		}),
+	);
+	const headers = Object.assign(Object.create(null), {
+		authorization: "Bearer secret",
+		accept: "*/*",
+	});
+	await handler({ headers }, defaultContext);
+	deepStrictEqual(logger.mock.calls[0].arguments, [
+		{ event: { headers: { authorization: "****", accept: "*/*" } } },
+	]);
+	// Copy-on-write: the event's own headers are never masked.
+	strictEqual(headers.authorization, "Bearer secret");
+});
+
 // L70/L72 optional chaining on response?.body and L219 teeStream response?.body.
 // onError path with a defined-but-bodyless response (not a stream) must not
 // throw and must log the response directly.
