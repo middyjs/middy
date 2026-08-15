@@ -381,6 +381,35 @@ test("It should not expose a generic 500 error (statusCode === 500 boundary)", a
 	});
 });
 
+// `request.error` is replaced with the generic fallback for non-http errors,
+// and stays visible to any onError middleware registered ahead of this one
+// (onError runs in reverse registration order). Pin that published shape.
+test("It should replace a non-http error with an exposable generic 500", async (t) => {
+	let captured;
+	const handler = middy(() => {
+		throw new Error("A leaky internal detail");
+	})
+		.use({
+			onError: (request) => {
+				captured = request.error;
+			},
+		})
+		.use(
+			httpErrorHandler({
+				logger: false,
+				fallbackMessage: "Internal Server Error",
+			}),
+		);
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(captured, {
+		statusCode: 500,
+		message: "Internal Server Error",
+		expose: true,
+	});
+});
+
 test("httpErrorHandlerValidateOptions accepts valid options and rejects typos", () => {
 	httpErrorHandlerValidateOptions({ logger: () => {}, fallbackMessage: "x" });
 	httpErrorHandlerValidateOptions({ logger: false });

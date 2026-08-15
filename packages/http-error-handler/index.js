@@ -68,10 +68,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 					: "text/plain";
 			}
 
-			// Stryker disable next-line ConditionalExpression: equivalent mutant - forcing the guard to `true` runs `Object.assign(target, undefined)` when `headers` is undefined, which is a spec no-op, so the guard has no observable effect.
-			if (headers) {
-				Object.assign(request.response.headers, headers);
-			}
+			Object.assign(request.response.headers, headers);
 		}
 	};
 

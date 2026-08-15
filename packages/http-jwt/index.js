@@ -292,19 +292,13 @@ const httpJwtMiddleware = (opts = {}) => {
 		});
 	};
 
-	const baseVerifyOptions = {};
-	// Stryker disable next-line ConditionalExpression: forcing this true sets audience:undefined, which jose treats identically to omitting it (no observable change).
-	if (options.audience !== undefined)
-		baseVerifyOptions.audience = options.audience;
-	// Stryker disable next-line ConditionalExpression: forcing this true sets issuer:undefined, which jose ignores exactly like an omitted issuer.
-	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
-	// Stryker disable next-line ConditionalExpression: forcing this true sets clockTolerance to the default 0, which equals jose's own default (no observable change).
-	if (options.clockTolerance)
-		baseVerifyOptions.clockTolerance = options.clockTolerance;
+	const baseVerifyOptions = {
+		audience: options.audience,
+		issuer: options.issuer,
+		clockTolerance: options.clockTolerance,
+		maxTokenAge: options.maxTokenAge,
+	};
 	if (options.requireExp) baseVerifyOptions.requiredClaims = ["exp"];
-	// Stryker disable next-line ConditionalExpression: forcing this true sets maxTokenAge:undefined, which jose ignores exactly like an omitted maxTokenAge.
-	if (options.maxTokenAge !== undefined)
-		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
 
 	// Cache imported keys per-middleware-instance. `importJWK` and
 	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
@@ -396,20 +390,14 @@ const httpJwtMiddleware = (opts = {}) => {
 				}
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
-			// Stryker disable next-line ObjectLiteral: blanking this to {} is equivalent here. `importJWK(jwk, alg)` already binds the key to the selected algorithm (a key imported for RS256/ES256/etc. rejects any other alg), so dropping `algorithms:[alg]` changes nothing; and `issuer: payload.iss` is decoded from the token, making jose's issuer===token.iss check trivially true.
 			verifyOptions = {
 				issuer: payload.iss,
 				algorithms: [alg],
+				audience: entry.audience,
+				clockTolerance: options.clockTolerance,
+				maxTokenAge: options.maxTokenAge,
 			};
-			// Stryker disable next-line ConditionalExpression: forcing this true sets audience:undefined, which jose treats identically to omitting it.
-			if (entry.audience !== undefined) verifyOptions.audience = entry.audience;
-			// Stryker disable next-line ConditionalExpression: forcing this true sets clockTolerance to the default 0, which equals jose's own default.
-			if (options.clockTolerance)
-				verifyOptions.clockTolerance = options.clockTolerance;
 			if (options.requireExp) verifyOptions.requiredClaims = ["exp"];
-			// Stryker disable next-line ConditionalExpression: forcing this true sets maxTokenAge:undefined, which jose ignores exactly like an omitted maxTokenAge.
-			if (options.maxTokenAge !== undefined)
-				verifyOptions.maxTokenAge = options.maxTokenAge;
 		} else {
 			const result = await getInternal(options.internalKey, request);
 			const keyData = result[sanitizeKey(options.internalKey)];
