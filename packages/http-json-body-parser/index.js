@@ -4,12 +4,14 @@ import {
 	createError,
 	decodeBody,
 	jsonContentTypePattern,
+	jsonParseProtectProto,
 	validateOptions,
 } from "@middy/util";
 
 const name = "http-json-body-parser";
 const pkg = `@middy/${name}`;
 
+// Stryker disable next-line ObjectLiteral: replacing the defaults with `{}` is equivalent: reviver/disableContentTypeCheck/disableContentTypeError are only ever read via truthiness, and absent keys are also falsy/undefined.
 const defaults = {
 	reviver: undefined,
 	disableContentTypeCheck: false,
@@ -31,8 +33,10 @@ export const httpJsonBodyParserValidateOptions = (options) =>
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	const { reviver } = options;
 	const httpJsonBodyParserMiddlewareBefore = (request) => {
-		const { headers, body } = request.event;
+		const event = request.event;
+		const { headers, body, isBase64Encoded } = event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
 		if (
@@ -54,10 +58,16 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 		}
 
 		try {
-			const data = decodeBody(request.event);
-
-			request.event.body = JSON.parse(data, options.reviver);
+			event.body = jsonParseProtectProto(
+				decodeBody(body, isBase64Encoded),
+				reviver,
+				pkg,
+			);
 		} catch (err) {
+			// Re-throw a forbidden-key rejection as-is; only wrap genuine parse errors.
+			if (err.statusCode) {
+				throw err;
+			}
 			throw createError(422, "Invalid or malformed JSON was provided", {
 				cause: {
 					package: pkg,

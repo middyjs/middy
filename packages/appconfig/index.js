@@ -6,12 +6,13 @@ import {
 	StartConfigurationSessionCommand,
 } from "@aws-sdk/client-appconfigdata";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonContentTypePattern,
 	jsonSafeParse,
 	modifyCache,
@@ -21,6 +22,8 @@ import {
 
 const name = "appconfig";
 const pkg = `@middy/${name}`;
+
+const decoder = new TextDecoder();
 
 const defaults = {
 	AwsClient: AppConfigDataClient,
@@ -100,7 +103,7 @@ const appConfigMiddleware = (opts = {}) => {
 					return configurationCache[internalKey];
 				}
 
-				let value = new TextDecoder().decode(configResp.Configuration);
+				let value = decoder.decode(configResp.Configuration);
 				if (jsonContentTypePattern.test(configResp.ContentType)) {
 					value = jsonSafeParse(value);
 				}
@@ -116,6 +119,7 @@ const appConfigMiddleware = (opts = {}) => {
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
@@ -162,9 +166,12 @@ const appConfigMiddleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: `pending` is either a
+			// Promise (cold path) or undefined (warm path); forcing the guard true
+			// only adds `await undefined`, which is observationally identical.
+			if (pending) await pending;
 		}
 	};
 	return {

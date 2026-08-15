@@ -14,7 +14,8 @@ const optionSchema = {
 		headers: { type: "string" },
 		methods: {
 			type: "string",
-			pattern: /^\s*(\*|[A-Z]+)(\s*,\s*(\*|[A-Z]+))*\s*$/,
+			pattern: "^\\s*(\\*|[A-Z]+)(\\s*,\\s*(\\*|[A-Z]+))*\\s*$",
+			// Stryker disable next-line StringLiteral,ArrayDeclaration: JSON Schema `examples` is an annotation only; it does not affect validation, so mutating its contents cannot change observable behavior.
 			examples: ["*", "GET", "GET,POST"],
 		},
 		origin: { type: "string" },
@@ -51,8 +52,19 @@ const hostnameToPunycode = (hostname) => {
 	}
 };
 
+// ASCII (no IDN), no port-stripping needed, no `*` wildcard. Hot path: most
+// Origin headers in production are plain ASCII URLs that this matches.
+const asciiOriginFast = /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i;
+
 const originToPunycode = (origin) => {
+	// Stryker disable next-line ConditionalExpression,StringLiteral: "*" fails both the asciiOriginFast regex and the /^(https?:\/\/)(.+)$/ match, so it is returned unchanged downstream regardless; the early-return is a pure fast-path with no observable effect.
 	if (!origin || origin === "*") return origin;
+	// Fast-path: ASCII origin without wildcard — just canonicalize case.
+	// `new URL().host` lowercases the host portion; reproduce that here.
+	if (asciiOriginFast.test(origin)) {
+		// Lowercase only the scheme+host portion (which is all of it for this regex).
+		return origin.toLowerCase();
+	}
 	const match = origin.match(/^(https?:\/\/)(.+)$/);
 	if (!match) return origin;
 	const [, protocol, host] = match;
@@ -136,7 +148,7 @@ const httpCorsMiddleware = (opts = {}) => {
 
 	let originAny = false;
 	let originMany = options.origins.length > 1;
-	const originStatic = {};
+	const originStatic = Object.create(null);
 	const originDynamic = [];
 
 	for (let origin of [options.origin, ...options.origins]) {
@@ -164,13 +176,19 @@ const httpCorsMiddleware = (opts = {}) => {
 		originDynamic.push(new RegExp(`^${regExpStr}$`));
 	}
 
+	// Stryker disable next-line ConditionalExpression: forcing this to `false` is equivalent - it just sends the default getOrigin through the explicit originToPunycode comparison below, which holds by construction for the default (the pre-fast-path behavior, identical results). (The EqualityOperator variant on this line remains active and is killed by the custom-getOrigin reflection tests.)
+	const usesDefaultGetOrigin = options.getOrigin === getOrigin;
+	const getOriginOptions = { ...options };
+	const getOriginOptionsCredentials = { ...options, credentials: true };
+	const getOriginOptionsNoCredentials = { ...options, credentials: false };
+
 	const modifyHeaders = (headers, options, request) => {
+		let credentials = options.credentials;
 		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
-			options.credentials =
-				headers["Access-Control-Allow-Credentials"] === "true";
+			credentials = headers["Access-Control-Allow-Credentials"] === "true";
 		}
-		if (options.credentials) {
-			headers["Access-Control-Allow-Credentials"] = String(options.credentials);
+		if (credentials) {
+			headers["Access-Control-Allow-Credentials"] = String(credentials);
 		}
 		if (
 			options.headers &&
@@ -186,13 +204,27 @@ const httpCorsMiddleware = (opts = {}) => {
 		}
 
 		let newOrigin;
+		let reflectsRequestOrigin = false;
 		if (!Object.hasOwn(headers, "Access-Control-Allow-Origin")) {
 			const eventHeaders = request.event.headers ?? {};
 			const incomingOrigin = eventHeaders.Origin ?? eventHeaders.origin;
-			newOrigin = options.getOrigin(incomingOrigin, options);
+			newOrigin = options.getOrigin(
+				incomingOrigin,
+				credentials === true
+					? getOriginOptionsCredentials
+					: credentials === false
+						? getOriginOptionsNoCredentials
+						: getOriginOptions,
+			);
 			if (newOrigin) {
 				headers["Access-Control-Allow-Origin"] = newOrigin;
 			}
+			reflectsRequestOrigin =
+				options.origins.length > 0 &&
+				!!newOrigin &&
+				newOrigin !== "*" &&
+				(usesDefaultGetOrigin ||
+					newOrigin === originToPunycode(incomingOrigin));
 		}
 
 		if (!headers.Vary) {
@@ -202,7 +234,8 @@ const httpCorsMiddleware = (opts = {}) => {
 		if (
 			originMany ||
 			(originAny && newOrigin !== "*") ||
-			(newOrigin === "*" && options.credentials)
+			(newOrigin === "*" && credentials) ||
+			reflectsRequestOrigin
 		) {
 			addHeaderPart(headers, "Vary", "Origin");
 		}
@@ -294,10 +327,10 @@ const httpCorsMiddleware = (opts = {}) => {
 		onError: httpCorsMiddlewareOnError,
 	};
 };
-const getVersionHttpMethod = {
+const getVersionHttpMethod = Object.assign(Object.create(null), {
 	"1.0": (event) => event.httpMethod,
 	"2.0": (event) => event.requestContext.http.method,
-};
+});
 
 // header in official name, lowercase variant handled
 const addHeaderPart = (headers, header, value) => {

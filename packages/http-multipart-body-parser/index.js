@@ -8,7 +8,6 @@ const pkg = `@middy/${name}`;
 
 const mimePattern =
 	/^multipart\/form-data; boundary=[a-zA-Z0-9-]{1,70}(; ?charset=[\w-]+)?$/i;
-const fieldnamePattern = /(.+)\[(.*)]$/;
 
 const optionSchema = {
 	type: "object",
@@ -52,13 +51,24 @@ export const httpMultipartBodyParserValidateOptions = (options) =>
 const defaults = {
 	// busboy options as per documentation: https://www.npmjs.com/package/busboy#busboy-methods
 	busboy: {},
+	// Stryker disable next-line StringLiteral: Node treats an empty-string encoding as the default utf8 for both Buffer.from and stream.write, so "" and "utf8" produce byte-identical results here (no observable behavior change).
 	charset: "utf8",
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
 };
 
+const defaultLimits = {
+	fieldNameSize: 100,
+	fields: 1000,
+	parts: 1000,
+};
+
 const httpMultipartBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
+	options.busboy = {
+		...options.busboy,
+		limits: { ...defaultLimits, ...options.busboy.limits },
+	};
 
 	const httpMultipartBodyParserMiddlewareBefore = (request) => {
 		const { headers, body } = request.event;
@@ -90,6 +100,9 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 				request.event.body = multipartData;
 			})
 			.catch((err) => {
+				if (typeof err.statusCode !== "undefined") {
+					throw err;
+				}
 				// UnprocessableEntity
 				throw createError(
 					422,
@@ -113,18 +126,31 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 const parseMultipartData = (event, options) => {
 	const multipartData = Object.create(null);
 	const charset = event.isBase64Encoded ? "base64" : options.charset;
-	// header must be lowercase (content-type)
-	const busboy = BusBoy({
-		...options.busboy,
-		headers: {
-			"content-type":
-				event.headers?.["content-type"] ?? event.headers?.["Content-Type"],
-		},
-	});
+	const fieldNameSize = options.busboy.limits.fieldNameSize;
 
 	return new Promise((resolve, reject) => {
+		let busboy;
+		try {
+			busboy = BusBoy({
+				...options.busboy,
+				headers: {
+					"content-type":
+						event.headers?.["content-type"] ?? event.headers?.["Content-Type"],
+				},
+			});
+		} catch (error) {
+			reject(error);
+			return;
+		}
+
 		busboy
 			.on("file", (fieldname, file, filename, encoding, mimetype) => {
+				// @fastify/busboy does not enforce fieldNameSize for multipart, so
+				// guard here to bound attacker-controlled field-name length.
+				if (fieldname.length > fieldNameSize) {
+					reject(new Error("Field name size limit exceeded"));
+					return;
+				}
 				const attachment = {
 					filename,
 					mimetype,
@@ -132,30 +158,53 @@ const parseMultipartData = (event, options) => {
 				};
 
 				const chunks = [];
+				let totalLength = 0;
 
 				file.on("data", (data) => {
 					chunks.push(data);
+					totalLength += data.length;
 				});
 				file.on("end", () => {
+					if (file.truncated) {
+						reject(
+							createError(413, "Request Entity Too Large", {
+								cause: { package: pkg, data: filename },
+							}),
+						);
+						return;
+					}
 					attachment.truncated = file.truncated;
-					attachment.content = Buffer.concat(chunks);
-					if (!multipartData[fieldname]) {
+					// Pass total length to skip Buffer.concat's prepass scan.
+					attachment.content = Buffer.concat(chunks, totalLength);
+					const current = multipartData[fieldname];
+					if (current === undefined) {
 						multipartData[fieldname] = attachment;
+					} else if (Array.isArray(current)) {
+						// Preserve historical semantics: new attachment first.
+						current.unshift(attachment);
 					} else {
-						const current = multipartData[fieldname];
-						multipartData[fieldname] = [attachment].concat(current);
+						multipartData[fieldname] = [attachment, current];
 					}
 				});
 			})
 			.on("field", (fieldname, value) => {
-				const matches = fieldname.match(fieldnamePattern);
-				if (!matches) {
+				// @fastify/busboy does not enforce fieldNameSize for multipart, so
+				// guard here to bound attacker-controlled field-name length.
+				if (fieldname.length > fieldNameSize) {
+					reject(new Error("Field name size limit exceeded"));
+					return;
+				}
+				const openBracket = fieldname.endsWith("]")
+					? fieldname.lastIndexOf("[")
+					: -1;
+				if (openBracket < 1) {
 					multipartData[fieldname] = value;
 				} else {
-					if (!multipartData[matches[1]]) {
-						multipartData[matches[1]] = [];
+					const key = fieldname.slice(0, openBracket);
+					if (!multipartData[key]) {
+						multipartData[key] = [];
 					}
-					multipartData[matches[1]].push(value);
+					multipartData[key].push(value);
 				}
 			})
 			.on("finish", () => resolve(multipartData))

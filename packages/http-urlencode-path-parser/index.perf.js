@@ -20,17 +20,19 @@ const warmHandler = setupHandler();
 
 await bench
 	.add(
-		"Parse body",
+		"plain ASCII path params",
 		async (
 			event = {
-				pathParameters: {
-					char: "M%C3%AEddy",
-				},
+				pathParameters: { id: "abc123", slug: "hello-world", env: "prod" },
 			},
 		) => {
-			try {
-				await warmHandler(event, defaultContext);
-			} catch (_e) {}
+			await warmHandler(event, defaultContext);
+		},
+	)
+	.add(
+		"encoded path params",
+		async (event = { pathParameters: { char: "M%C3%AEddy" } }) => {
+			await warmHandler(event, defaultContext);
 		},
 	)
 

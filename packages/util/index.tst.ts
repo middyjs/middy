@@ -286,32 +286,17 @@ test("catchInvalidSignatureException", () => {
 	expect(result).type.toBe<Promise<unknown>>();
 });
 
-test("jsonSafeStringify", () => {
-	const result = util.jsonSafeStringify({ foo: "bar" });
-	expect(result).type.toBe<string | unknown>();
-
-	const resultWithReplacer = util.jsonSafeStringify(
-		{ foo: "bar" },
-		(k, v) => v,
-		2,
-	);
-	expect(resultWithReplacer).type.toBe<string | unknown>();
-});
-
 test("decodeBody", () => {
-	const decoded = util.decodeBody({ body: "hello", isBase64Encoded: false });
+	const decoded = util.decodeBody("hello", false);
 	expect(decoded).type.toBe<string | null | undefined>();
 
-	const decodedBase64 = util.decodeBody({
-		body: "aGVsbG8=",
-		isBase64Encoded: true,
-	});
+	const decodedBase64 = util.decodeBody("aGVsbG8=", true);
 	expect(decodedBase64).type.toBe<string | null | undefined>();
 
-	const decodedNull = util.decodeBody({ body: null });
+	const decodedNull = util.decodeBody(null);
 	expect(decodedNull).type.toBe<string | null | undefined>();
 
-	const decodedUndefined = util.decodeBody({});
+	const decodedUndefined = util.decodeBody(undefined);
 	expect(decodedUndefined).type.toBe<string | null | undefined>();
 });
 
@@ -327,27 +312,4 @@ test("isExecutionModeDurable", () => {
 	expect(
 		util.isExecutionModeDurable(sampleRequest.context),
 	).type.toBe<boolean>();
-});
-
-test("executionContext", () => {
-	const result = util.executionContext(
-		sampleRequest,
-		"tenantId",
-		sampleRequest.context,
-	);
-	expect(result).type.toBe<unknown>();
-});
-
-test("lambdaContext", () => {
-	const result = util.lambdaContext(
-		sampleRequest,
-		"functionName",
-		sampleRequest.context,
-	);
-	expect(result).type.toBe<unknown>();
-});
-
-test("httpErrorCodes", () => {
-	expect(util.httpErrorCodes).type.toBe<Record<number, string>>();
-	expect(util.httpErrorCodes[404]).type.toBe<string | undefined>();
 });

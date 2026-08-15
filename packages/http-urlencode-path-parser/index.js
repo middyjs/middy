@@ -15,12 +15,17 @@ export const httpUrlencodePathParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpUrlencodePathParserMiddlewareBefore = (request) => {
-	if (!request.event.pathParameters) return;
-	for (const key of Object.keys(request.event.pathParameters)) {
+	const params = request.event.pathParameters;
+	if (!params) return;
+	for (const key of Object.keys(params)) {
+		const value = params[key];
+		// Fast-path: most API Gateway path params are plain ASCII (UUIDs,
+		// numeric IDs, slugs). Skip the native decodeURIComponent + property
+		// write entirely when there's no `%` to decode.
+		// Stryker disable next-line ConditionalExpression,StringLiteral: the no-'%' branch is a perf-only fast-path; decodeURIComponent leaves any string without '%' unchanged and never throws, so skipping vs decoding it is behaviorally indistinguishable in the output.
+		if (typeof value !== "string" || value.indexOf("%") === -1) continue;
 		try {
-			request.event.pathParameters[key] = decodeURIComponent(
-				request.event.pathParameters[key],
-			);
+			params[key] = decodeURIComponent(value);
 		} catch (_e) {
 			throw createError(400, "Invalid path parameter encoding", {
 				cause: { package: pkg, data: key },

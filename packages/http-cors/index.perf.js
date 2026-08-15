@@ -11,17 +11,57 @@ const bench = new Bench({
 const defaultContext = {
 	getRemainingTimeInMillis: () => 30000,
 };
-const setupHandler = () => {
-	const baseHandler = () => {};
-	return middy(baseHandler).use(middleware());
+const setupHandler = (opts = {}) => {
+	const baseHandler = () => ({ statusCode: 200 });
+	return middy(baseHandler).use(middleware(opts));
 };
 
-const warmHandler = setupHandler();
+const defaultHandler = setupHandler();
+const wildcardHandler = setupHandler({ origin: "*" });
+const explicitHandler = setupHandler({
+	origins: ["https://app.example.com", "https://admin.example.com"],
+});
 
 await bench
-	.add("Add Headers", async (event = { httpMethod: "OPTIONS" }) => {
+	.add("default (no origin header)", async (event = { httpMethod: "GET" }) => {
+		await defaultHandler(event, defaultContext);
+	})
+	.add(
+		"wildcard origin (ASCII request)",
+		async (
+			event = {
+				httpMethod: "GET",
+				headers: { Origin: "https://example.com" },
+			},
+		) => {
+			await wildcardHandler(event, defaultContext);
+		},
+	)
+	.add(
+		"explicit origins (ASCII hit)",
+		async (
+			event = {
+				httpMethod: "GET",
+				headers: { Origin: "https://app.example.com" },
+			},
+		) => {
+			await explicitHandler(event, defaultContext);
+		},
+	)
+	.add(
+		"explicit origins (ASCII miss)",
+		async (
+			event = {
+				httpMethod: "GET",
+				headers: { Origin: "https://other.example.com" },
+			},
+		) => {
+			await explicitHandler(event, defaultContext);
+		},
+	)
+	.add("preflight OPTIONS", async (event = { httpMethod: "OPTIONS" }) => {
 		try {
-			await warmHandler(event, defaultContext);
+			await defaultHandler(event, defaultContext);
 		} catch (_e) {}
 	})
 

@@ -1,0 +1,4325 @@
+/*
+Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
+SPDX-License-Identifier: MIT
+*/
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  middy e2e event capture harness (tests/events/SPEC.md). One capture Lambda per
+  event kind logs "MIDDY_CAPTURE <kind> <json>" to a shared log group. Raw
+  CloudFormation, no transform, no build step (except triggers/docdb-writer).
+  Deploy in us-east-1. Ephemeral: deploy -> trigger -> collect -> destroy.
+
+Parameters:
+  EnableVpc:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Tier 1 - VPC, ALB, VPC Lattice, in-VPC trigger proxy (ALB billed hourly)
+  EnableBrokers:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Tier 2 - MSK, self-managed Kafka ESM, Amazon MQ x2, DocumentDB (hourly billed, MSK create 20-35 min; requires EnableVpc)
+  EnableEdge:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Tier 3 - CloudFront + Lambda@Edge (stack delete stalls until replicas purge)
+  EnableConfig:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: AWS Config recorder + custom rule (recorder is an account-level singleton)
+  EnableCloudTrail:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Management-events trail + EventBridge CloudTrail rule
+  EnableCodeCommit:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: CodeCommit repo + trigger (only works in accounts grandfathered into CodeCommit)
+  EnableBedrock:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Bedrock agent + action groups (requires model access enabled in the account)
+  BedrockModelId:
+    Type: String
+    Default: us.anthropic.claude-3-5-haiku-20241022-v1:0
+    Description: Foundation model for the Bedrock agent (3.5+ Anthropic models require the cross-region inference profile id, us. prefix)
+  EnableTransfer:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+    Description: Transfer Family SFTP server with Lambda custom identity provider (server billed hourly)
+  SesDomain:
+    Type: String
+    Default: ""
+    Description: Tier 4 - domain you own (in the HostedZoneId zone) for SES receiving, e.g. events.example.com
+  HostedZoneId:
+    Type: String
+    Default: ""
+    Description: Route 53 hosted zone id for SesDomain
+  BrokerWriterCodeBucket:
+    Type: String
+    Default: ""
+    Description: S3 bucket holding the packaged triggers/broker-writer zip (set by deploy.sh when EnableBrokers)
+  BrokerWriterCodeKey:
+    Type: String
+    Default: ""
+    Description: S3 key of the packaged broker-writer zip
+  CaptureSerial:
+    Type: String
+    Default: "1"
+    Description: Bump to fire the cfn.custom-resource Update event
+
+Rules:
+  BrokersNeedVpc:
+    RuleCondition: !Equals [!Ref EnableBrokers, "true"]
+    Assertions:
+      - Assert: !Equals [!Ref EnableVpc, "true"]
+        AssertDescription: EnableBrokers requires EnableVpc=true (brokers live in the tier-1 VPC)
+
+Conditions:
+  HasVpc: !Equals [!Ref EnableVpc, "true"]
+  HasBrokers: !Equals [!Ref EnableBrokers, "true"]
+  HasEdge: !Equals [!Ref EnableEdge, "true"]
+  HasConfig: !Equals [!Ref EnableConfig, "true"]
+  HasTrail: !Equals [!Ref EnableCloudTrail, "true"]
+  HasCodeCommit: !Equals [!Ref EnableCodeCommit, "true"]
+  HasBedrock: !Equals [!Ref EnableBedrock, "true"]
+  HasTransfer: !Equals [!Ref EnableTransfer, "true"]
+  HasSes: !And
+    - !Not [!Equals [!Ref SesDomain, ""]]
+    - !Not [!Equals [!Ref HostedZoneId, ""]]
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Shared capture plumbing
+  # ---------------------------------------------------------------------------
+  # All non-edge capture functions log to this one group (LoggingConfig).
+  # collect.mjs reads a single group instead of ~90.
+  CaptureLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${AWS::StackName}/captures
+      RetentionInDays: 1
+
+  CaptureRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: capture
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt CaptureLogGroup.Arn
+              # Response contracts that require an API call back
+              - Effect: Allow
+                Action: s3:WriteGetObjectResponse
+                Resource: "*"
+              - Effect: Allow
+                Action: states:SendTaskSuccess
+                Resource: "*"
+              - Effect: Allow
+                Action: codepipeline:PutJobSuccessResult
+                Resource: "*"
+              # async destination delivery: the SOURCE function's execution
+              # role invokes the destination function (lambda.dest-* kinds)
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-*
+              # Poll-based event source mappings (SQS/DynamoDB/Kinesis) use the
+              # function role to read the source
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-*
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${AWS::StackName}-*
+              - Effect: Allow
+                Action:
+                  - kinesis:DescribeStream
+                  - kinesis:DescribeStreamConsumer
+                  - kinesis:DescribeStreamSummary
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:ListShards
+                  - kinesis:ListStreams
+                  - kinesis:SubscribeToShard
+                Resource: "*"
+
+  # ---------------------------------------------------------------------------
+  # SQS - sqs.standard, sqs.fifo, sqs.sns, sqs.sns-raw, sqs.s3, lambda.dlq
+  # ---------------------------------------------------------------------------
+  SqsStandardQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-sqs-standard
+  FnSqsStandard:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sqs-standard
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sqs.standard } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmSqsStandard:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SqsStandardQueue.Arn
+      FunctionName: !Ref FnSqsStandard
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 0
+
+  SqsFifoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-sqs-fifo.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+  FnSqsFifo:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sqs-fifo
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sqs.fifo } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmSqsFifo:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SqsFifoQueue.Arn
+      FunctionName: !Ref FnSqsFifo
+      BatchSize: 10
+
+  # SNS -> SQS (enveloped and raw) -> Lambda
+  SqsSnsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-sqs-sns
+  SqsSnsRawQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-sqs-sns-raw
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-topic
+  SnsToSqsSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SnsTopic
+      Protocol: sqs
+      Endpoint: !GetAtt SqsSnsQueue.Arn
+      RawMessageDelivery: false
+  SnsToSqsRawSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SnsTopic
+      Protocol: sqs
+      Endpoint: !GetAtt SqsSnsRawQueue.Arn
+      RawMessageDelivery: true
+  SqsSnsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref SqsSnsQueue, !Ref SqsSnsRawQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: [!GetAtt SqsSnsQueue.Arn, !GetAtt SqsSnsRawQueue.Arn]
+            Condition:
+              ArnEquals: { aws:SourceArn: !Ref SnsTopic }
+  FnSqsSns:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sqs-sns
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sqs.sns } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmSqsSns:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SqsSnsQueue.Arn
+      FunctionName: !Ref FnSqsSns
+  FnSqsSnsRaw:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sqs-sns-raw
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sqs.sns-raw } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmSqsSnsRaw:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt SqsSnsRawQueue.Arn
+      FunctionName: !Ref FnSqsSnsRaw
+
+  # ---------------------------------------------------------------------------
+  # SNS direct - sns.standard
+  # ---------------------------------------------------------------------------
+  FnSnsStandard:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sns-standard
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sns.standard } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  SnsToLambdaSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SnsTopic
+      Protocol: lambda
+      Endpoint: !GetAtt FnSnsStandard.Arn
+  PermSnsStandard:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnSnsStandard
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SnsTopic
+
+  # ---------------------------------------------------------------------------
+  # Lambda async destinations + DLQ - lambda.dest-success, lambda.dest-failure,
+  # lambda.dlq
+  # ---------------------------------------------------------------------------
+  FnDestSuccess:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lambda-dest-success
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: lambda.dest-success } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  FnDestFailure:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lambda-dest-failure
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: lambda.dest-failure } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  HelperSucceeds:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-helper-succeeds
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => ({ ok: true, echo: e });
+  HelperSucceedsInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref HelperSucceeds
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+      DestinationConfig:
+        OnSuccess: { Destination: !GetAtt FnDestSuccess.Arn }
+  HelperThrows:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-helper-throws
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Code:
+        ZipFile: |
+          exports.handler = async () => { throw new Error("middy-events intentional failure"); };
+  HelperThrowsInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref HelperThrows
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+      DestinationConfig:
+        OnFailure: { Destination: !GetAtt FnDestFailure.Arn }
+  DlqQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-lambda-dlq
+  HelperThrowsDlq:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-helper-throws-dlq
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt DlqHelperRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      DeadLetterConfig: { TargetArn: !GetAtt DlqQueue.Arn }
+      Code:
+        ZipFile: |
+          exports.handler = async () => { throw new Error("middy-events intentional failure"); };
+  HelperThrowsDlqInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref HelperThrowsDlq
+      Qualifier: $LATEST
+      MaximumRetryAttempts: 0
+  DlqHelperRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: dlq
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt CaptureLogGroup.Arn
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt DlqQueue.Arn
+  FnLambdaDlq:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lambda-dlq
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: lambda.dlq } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmLambdaDlq:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DlqQueue.Arn
+      FunctionName: !Ref FnLambdaDlq
+
+  # ---------------------------------------------------------------------------
+  # S3 - s3.put, s3.delete, s3.delete-marker, s3.sns, s3.sqs, s3.eventbridge,
+  # s3batch.v1, s3object.get
+  # Bucket names are deterministic strings (not !Ref) so Lambda permissions and
+  # topic/queue policies can reference them without circular dependencies.
+  # ---------------------------------------------------------------------------
+  FnS3Put:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-put
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.put } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  FnS3Delete:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-delete
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.delete } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  FnS3DeleteMarker:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-delete-marker
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.delete-marker } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermS3Put:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnS3Put
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-main-${AWS::AccountId}
+  PermS3Delete:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnS3Delete
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-main-${AWS::AccountId}
+  PermS3DeleteMarker:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnS3DeleteMarker
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:s3:::${AWS::StackName}-versioned-${AWS::AccountId}
+
+  S3EventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-s3-events
+  S3EventsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref S3EventsTopic]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: s3.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref S3EventsTopic
+            Condition:
+              ArnEquals: { aws:SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-main-${AWS::AccountId}" }
+  FnS3Sns:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-sns
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.sns } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  S3SnsToLambdaSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref S3EventsTopic
+      Protocol: lambda
+      Endpoint: !GetAtt FnS3Sns.Arn
+  PermS3Sns:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnS3Sns
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref S3EventsTopic
+
+  # S3 -> SNS -> SQS -> Lambda: the full three-level fan-out walk that
+  # @middy/event-normalizer documents (S3 records inside an SNS Notification
+  # envelope inside an SQS body). Fired by the same sns/-prefix PutObject.
+  S3SnsSqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-s3-sns-sqs
+  S3SnsSqsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref S3SnsSqsQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: sns.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt S3SnsSqsQueue.Arn
+            Condition:
+              ArnEquals: { aws:SourceArn: !Ref S3EventsTopic }
+  S3SnsToSqsSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref S3EventsTopic
+      Protocol: sqs
+      Endpoint: !GetAtt S3SnsSqsQueue.Arn
+      RawMessageDelivery: false
+  FnS3SnsSqs:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-sns-sqs
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.sns-sqs } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmS3SnsSqs:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt S3SnsSqsQueue.Arn
+      FunctionName: !Ref FnS3SnsSqs
+
+  S3SqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-s3-sqs
+  S3SqsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref S3SqsQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: s3.amazonaws.com }
+            Action: sqs:SendMessage
+            Resource: !GetAtt S3SqsQueue.Arn
+            Condition:
+              ArnEquals: { aws:SourceArn: !Sub "arn:aws:s3:::${AWS::StackName}-main-${AWS::AccountId}" }
+  FnS3Sqs:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-sqs
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.sqs } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmS3Sqs:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt S3SqsQueue.Arn
+      FunctionName: !Ref FnS3Sqs
+
+  MainBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: [PermS3Put, PermS3Delete, S3EventsTopicPolicy, S3SqsQueuePolicy]
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-main-${AWS::AccountId}
+      NotificationConfiguration:
+        EventBridgeConfiguration: { EventBridgeEnabled: true }
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt FnS3Put.Arn
+            Filter: { S3Key: { Rules: [{ Name: prefix, Value: put/ }] } }
+          - Event: s3:ObjectRemoved:*
+            Function: !GetAtt FnS3Delete.Arn
+            Filter: { S3Key: { Rules: [{ Name: prefix, Value: delete/ }] } }
+        TopicConfigurations:
+          - Event: s3:ObjectCreated:*
+            Topic: !Ref S3EventsTopic
+            Filter: { S3Key: { Rules: [{ Name: prefix, Value: sns/ }] } }
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt S3SqsQueue.Arn
+            Filter: { S3Key: { Rules: [{ Name: prefix, Value: sqs/ }] } }
+  VersionedBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: [PermS3DeleteMarker]
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-versioned-${AWS::AccountId}
+      VersioningConfiguration: { Status: Enabled }
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectRemoved:DeleteMarkerCreated
+            Function: !GetAtt FnS3DeleteMarker.Arn
+            Filter: { S3Key: { Rules: [{ Name: prefix, Value: dm/ }] } }
+
+  FnS3Eventbridge:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3-eventbridge
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3.eventbridge } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  S3EventbridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-s3-eventbridge
+      EventPattern:
+        source: [aws.s3]
+        detail-type: [Object Created]
+        detail:
+          bucket: { name: [!Sub "${AWS::StackName}-main-${AWS::AccountId}"] }
+          object: { key: [{ prefix: eb/ }] }
+      Targets:
+        - Id: capture
+          Arn: !GetAtt FnS3Eventbridge.Arn
+  PermS3Eventbridge:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnS3Eventbridge
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3EventbridgeRule.Arn
+
+  # S3 Batch Operations (job created by trigger.mjs; this is the job role + fn)
+  FnS3Batch:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3batch-v1
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3batch.v1 } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              invocationSchemaVersion: e.invocationSchemaVersion || "1.0",
+              treatMissingKeysAs: "PermanentFailure",
+              invocationId: e.invocationId,
+              results: (e.tasks || []).map((t) => ({ taskId: t.taskId, resultCode: "Succeeded", resultString: "captured" }))
+            };
+          };
+  S3BatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-s3batch
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: batchoperations.s3.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: batch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion, s3:PutObject]
+                Resource: !Sub arn:aws:s3:::${AWS::StackName}-main-${AWS::AccountId}/*
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt FnS3Batch.Arn
+
+  # S3 Object Lambda
+  FnS3Object:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-s3object-get
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: s3object.get } }
+      Code:
+        ZipFile: |
+          const { S3 } = require("@aws-sdk/client-s3");
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            const c = e.getObjectContext;
+            await new S3({}).writeGetObjectResponse({ RequestRoute: c.outputRoute, RequestToken: c.outputToken, Body: "middy-capture" });
+            return { statusCode: 200 };
+          };
+  SupportingAccessPoint:
+    Type: AWS::S3::AccessPoint
+    Properties:
+      Bucket: !Ref MainBucket
+      Name: !Sub ${AWS::StackName}-supporting
+  ObjectLambdaAccessPoint:
+    Type: AWS::S3ObjectLambda::AccessPoint
+    Properties:
+      Name: !Sub ${AWS::StackName}-olap
+      ObjectLambdaConfiguration:
+        SupportingAccessPoint: !GetAtt SupportingAccessPoint.Arn
+        TransformationConfigurations:
+          - Actions: [GetObject]
+            ContentTransformation:
+              AwsLambda: { FunctionArn: !GetAtt FnS3Object.Arn }
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB Streams - ddb.keys-only, ddb.new-image, ddb.old-image,
+  # ddb.new-and-old, ddb.windowed (view type is immutable per stream: one table
+  # per view type, on-demand billing, free while idle)
+  # ---------------------------------------------------------------------------
+  DdbKeysOnlyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-keys-only
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      StreamSpecification: { StreamViewType: KEYS_ONLY }
+  FnDdbKeysOnly:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ddb-keys-only
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ddb.keys-only } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmDdbKeysOnly:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DdbKeysOnlyTable.StreamArn
+      FunctionName: !Ref FnDdbKeysOnly
+      StartingPosition: LATEST
+      BatchSize: 10
+      # batch INSERT+MODIFY+REMOVE into one invocation so a single fixture
+      # shows all three eventName shapes
+      MaximumBatchingWindowInSeconds: 5
+
+  DdbNewImageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-new-image
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      StreamSpecification: { StreamViewType: NEW_IMAGE }
+  FnDdbNewImage:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ddb-new-image
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ddb.new-image } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmDdbNewImage:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DdbNewImageTable.StreamArn
+      FunctionName: !Ref FnDdbNewImage
+      StartingPosition: LATEST
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 5
+
+  DdbOldImageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-old-image
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      StreamSpecification: { StreamViewType: OLD_IMAGE }
+  FnDdbOldImage:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ddb-old-image
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ddb.old-image } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmDdbOldImage:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DdbOldImageTable.StreamArn
+      FunctionName: !Ref FnDdbOldImage
+      StartingPosition: LATEST
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 5
+
+  DdbNewAndOldTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-new-and-old
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      StreamSpecification: { StreamViewType: NEW_AND_OLD_IMAGES }
+  FnDdbNewAndOld:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ddb-new-and-old
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ddb.new-and-old } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmDdbNewAndOld:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DdbNewAndOldTable.StreamArn
+      FunctionName: !Ref FnDdbNewAndOld
+      StartingPosition: LATEST
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 5
+
+  DdbWindowedTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-windowed
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions: [{ AttributeName: pk, AttributeType: S }]
+      KeySchema: [{ AttributeName: pk, KeyType: HASH }]
+      StreamSpecification: { StreamViewType: NEW_AND_OLD_IMAGES }
+  FnDdbWindowed:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ddb-windowed
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ddb.windowed } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { state: e.state || {} }; };
+  EsmDdbWindowed:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DdbWindowedTable.StreamArn
+      FunctionName: !Ref FnDdbWindowed
+      StartingPosition: LATEST
+      BatchSize: 10
+      TumblingWindowInSeconds: 30
+
+  # ---------------------------------------------------------------------------
+  # Kinesis - kinesis.standard, kinesis.efo, kinesis.windowed
+  # ---------------------------------------------------------------------------
+  KinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub ${AWS::StackName}-stream
+      ShardCount: 1
+      RetentionPeriodHours: 24
+  FnKinesisStandard:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-kinesis-standard
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: kinesis.standard } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmKinesisStandard:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt KinesisStream.Arn
+      FunctionName: !Ref FnKinesisStandard
+      StartingPosition: LATEST
+      BatchSize: 100
+      MaximumBatchingWindowInSeconds: 1
+  KinesisEfoConsumer:
+    Type: AWS::Kinesis::StreamConsumer
+    Properties:
+      StreamARN: !GetAtt KinesisStream.Arn
+      ConsumerName: !Sub ${AWS::StackName}-efo
+  FnKinesisEfo:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-kinesis-efo
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: kinesis.efo } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmKinesisEfo:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt KinesisEfoConsumer.ConsumerARN
+      FunctionName: !Ref FnKinesisEfo
+      StartingPosition: LATEST
+      BatchSize: 100
+      MaximumBatchingWindowInSeconds: 1
+  FnKinesisWindowed:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-kinesis-windowed
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: kinesis.windowed } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { state: e.state || {} }; };
+  EsmKinesisWindowed:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt KinesisStream.Arn
+      FunctionName: !Ref FnKinesisWindowed
+      StartingPosition: LATEST
+      BatchSize: 100
+      MaximumBatchingWindowInSeconds: 1
+      TumblingWindowInSeconds: 30
+
+  # ---------------------------------------------------------------------------
+  # Kinesis Data Firehose transform - firehose.transform
+  # Invocation arrives after the 60 s buffering interval.
+  # ---------------------------------------------------------------------------
+  FnFirehose:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-firehose-transform
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 60
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: firehose.transform } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { records: (e.records || []).map((r) => ({ recordId: r.recordId, result: "Ok", data: r.data })) };
+          };
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: firehose.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: firehose
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:AbortMultipartUpload, s3:GetBucketLocation, s3:GetObject, s3:ListBucket, s3:ListBucketMultipartUploads, s3:PutObject]
+                Resource:
+                  - !GetAtt MainBucket.Arn
+                  - !Sub ${MainBucket.Arn}/*
+              - Effect: Allow
+                Action: [lambda:InvokeFunction, lambda:GetFunctionConfiguration]
+                Resource: !GetAtt FnFirehose.Arn
+  FirehoseStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub ${AWS::StackName}-firehose
+      DeliveryStreamType: DirectPut
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt MainBucket.Arn
+        Prefix: firehose-out/
+        RoleARN: !GetAtt FirehoseRole.Arn
+        BufferingHints: { IntervalInSeconds: 60, SizeInMBs: 1 }
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Type: Lambda
+              Parameters:
+                - { ParameterName: LambdaArn, ParameterValue: !GetAtt FnFirehose.Arn }
+                - { ParameterName: BufferIntervalInSeconds, ParameterValue: "60" }
+                - { ParameterName: BufferSizeInMBs, ParameterValue: "1" }
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Logs subscription - cwlogs.subscription
+  # ---------------------------------------------------------------------------
+  FeederLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${AWS::StackName}/feeder
+      RetentionInDays: 1
+  FnCwlogs:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cwlogs-subscription
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cwlogs.subscription } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermCwlogs:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnCwlogs
+      Action: lambda:InvokeFunction
+      Principal: !Sub logs.${AWS::Region}.amazonaws.com
+      SourceArn: !GetAtt FeederLogGroup.Arn
+  CwlogsSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn: PermCwlogs
+    Properties:
+      LogGroupName: !Ref FeederLogGroup
+      FilterPattern: ""
+      DestinationArn: !GetAtt FnCwlogs.Arn
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch alarm direct Lambda action - cwalarm.direct
+  # Trigger: SetAlarmState (no metric wait). Alarm name is deterministic so the
+  # Lambda permission can reference it without a circular dependency.
+  # ---------------------------------------------------------------------------
+  FnCwalarm:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cwalarm-direct
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cwalarm.direct } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermCwalarm:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnCwalarm
+      Action: lambda:InvokeFunction
+      Principal: lambda.alarms.cloudwatch.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-alarm
+  CaptureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: PermCwalarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-alarm
+      Namespace: MiddyEvents
+      MetricName: Custom
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!GetAtt FnCwalarm.Arn]
+      OKActions: [!GetAtt FnCwalarm.Arn]
+
+  # ---------------------------------------------------------------------------
+  # EventBridge - eventbridge.schedule-rule, eventbridge.custom,
+  # eventbridge.ec2-state, eventbridge.cloudtrail (gated),
+  # eventbridge.scheduler, eventbridge.pipe-sqs
+  # ---------------------------------------------------------------------------
+  FnEbSchedule:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-schedule
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.schedule-rule } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EbScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-schedule
+      ScheduleExpression: rate(1 minute)
+      Targets: [{ Id: capture, Arn: !GetAtt FnEbSchedule.Arn }]
+  PermEbSchedule:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnEbSchedule
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EbScheduleRule.Arn
+
+  EbCustomBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${AWS::StackName}-bus
+  FnEbCustom:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-custom
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.custom } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EbCustomRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-custom
+      EventBusName: !Ref EbCustomBus
+      EventPattern:
+        source: [middy.events]
+      Targets: [{ Id: capture, Arn: !GetAtt FnEbCustom.Arn }]
+  PermEbCustom:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnEbCustom
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EbCustomRule.Arn
+
+  FnEbEc2:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-ec2
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.ec2-state } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EbEc2Rule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${AWS::StackName}-ec2-state
+      EventPattern:
+        source: [aws.ec2]
+        detail-type: [EC2 Instance State-change Notification]
+      Targets: [{ Id: capture, Arn: !GetAtt FnEbEc2.Arn }]
+  PermEbEc2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnEbEc2
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EbEc2Rule.Arn
+
+  # CloudTrail -> EventBridge (gated: creates a management-events trail)
+  TrailBucket:
+    Type: AWS::S3::Bucket
+    Condition: HasTrail
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-trail-${AWS::AccountId}
+  TrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: HasTrail
+    Properties:
+      Bucket: !Ref TrailBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudtrail.amazonaws.com }
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt TrailBucket.Arn
+          - Effect: Allow
+            Principal: { Service: cloudtrail.amazonaws.com }
+            Action: s3:PutObject
+            Resource: !Sub ${TrailBucket.Arn}/AWSLogs/${AWS::AccountId}/*
+            Condition:
+              StringEquals: { s3:x-amz-acl: bucket-owner-full-control }
+  Trail:
+    Type: AWS::CloudTrail::Trail
+    Condition: HasTrail
+    DependsOn: TrailBucketPolicy
+    Properties:
+      TrailName: !Sub ${AWS::StackName}-trail
+      S3BucketName: !Ref TrailBucket
+      IsLogging: true
+      IsMultiRegionTrail: false
+      IncludeGlobalServiceEvents: false
+  FnEbCloudtrail:
+    Type: AWS::Lambda::Function
+    Condition: HasTrail
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-cloudtrail
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.cloudtrail } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EbCloudtrailRule:
+    Type: AWS::Events::Rule
+    Condition: HasTrail
+    Properties:
+      Name: !Sub ${AWS::StackName}-cloudtrail
+      EventPattern:
+        source: [aws.s3]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventSource: [s3.amazonaws.com]
+          eventName: [PutBucketTagging]
+      Targets: [{ Id: capture, Arn: !GetAtt FnEbCloudtrail.Arn }]
+  PermEbCloudtrail:
+    Type: AWS::Lambda::Permission
+    Condition: HasTrail
+    Properties:
+      FunctionName: !Ref FnEbCloudtrail
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EbCloudtrailRule.Arn
+
+  # EventBridge Scheduler (Input delivered verbatim; context placeholders in it)
+  FnEbScheduler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-scheduler
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.scheduler } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt FnEbScheduler.Arn
+  SchedulerSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-scheduler
+      ScheduleExpression: rate(1 minute)
+      FlexibleTimeWindow: { Mode: "OFF" }
+      State: ENABLED
+      Target:
+        Arn: !GetAtt FnEbScheduler.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"scheduleArn":"<aws.scheduler.schedule-arn>","scheduledTime":"<aws.scheduler.scheduled-time>","executionId":"<aws.scheduler.execution-id>","attemptNumber":"<aws.scheduler.attempt-number>"}'
+
+  # EventBridge Pipes (SQS source -> Lambda target)
+  PipeSourceQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${AWS::StackName}-pipe-source
+  FnEbPipe:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-eventbridge-pipe
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: eventbridge.pipe-sqs } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PipeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: pipes.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: pipe
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt PipeSourceQueue.Arn
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt FnEbPipe.Arn
+  Pipe:
+    Type: AWS::Pipes::Pipe
+    Properties:
+      Name: !Sub ${AWS::StackName}-pipe
+      RoleArn: !GetAtt PipeRole.Arn
+      Source: !GetAtt PipeSourceQueue.Arn
+      Target: !GetAtt FnEbPipe.Arn
+
+  # ---------------------------------------------------------------------------
+  # IoT Core rule - iot.rule
+  # ---------------------------------------------------------------------------
+  FnIot:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-iot-rule
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: iot.rule } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  IotRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      RuleName: !Sub
+        - "${Name}_capture"
+        - { Name: !Join ["_", !Split ["-", !Ref AWS::StackName]] }
+      TopicRulePayload:
+        Sql: SELECT * FROM 'middy/capture'
+        AwsIotSqlVersion: "2016-03-23"
+        Actions:
+          - Lambda: { FunctionArn: !GetAtt FnIot.Arn }
+  PermIot:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnIot
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !GetAtt IotRule.Arn
+
+  # IoT custom authorizer - iot.custom-authorizer
+  # Trigger: TestInvokeAuthorizer (no MQTT client needed); SigningDisabled so
+  # no token signature dance.
+  FnIotAuthorizer:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-iot-custom-authorizer
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: iot.custom-authorizer } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              isAuthenticated: true,
+              principalId: "middy",
+              disconnectAfterInSeconds: 300,
+              refreshAfterInSeconds: 300,
+              policyDocuments: [
+                { Version: "2012-10-17", Statement: [{ Action: "iot:*", Effect: "Allow", Resource: "*" }] }
+              ]
+            };
+          };
+  IotAuthorizer:
+    Type: AWS::IoT::Authorizer
+    Properties:
+      AuthorizerName: !Sub ${AWS::StackName}-authorizer
+      AuthorizerFunctionArn: !GetAtt FnIotAuthorizer.Arn
+      SigningDisabled: true
+      Status: ACTIVE
+  PermIotAuthorizer:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnIotAuthorizer
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceArn: !GetAtt IotAuthorizer.Arn
+
+  # ---------------------------------------------------------------------------
+  # Secrets Manager rotation - secrets.rotation
+  # Capture responds to no rotation steps: the rotation stays IN_PROGRESS by
+  # design; destroy.sh force-deletes the secret.
+  # ---------------------------------------------------------------------------
+  FnSecrets:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-secrets-rotation
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: secrets.rotation } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermSecrets:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnSecrets
+      Action: lambda:InvokeFunction
+      Principal: secretsmanager.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+  RotationSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}/rotation
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "middy"}'
+        GenerateStringKey: password
+  RotationSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    DependsOn: PermSecrets
+    Properties:
+      SecretId: !Ref RotationSecret
+      RotationLambdaARN: !GetAtt FnSecrets.Arn
+      RotateImmediatelyOnUpdate: false
+      RotationRules: { AutomaticallyAfterDays: 1 }
+
+  # ---------------------------------------------------------------------------
+  # Step Functions - sfn.task, sfn.task-token
+  # ---------------------------------------------------------------------------
+  FnSfnTask:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sfn-task
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sfn.task } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { ok: true }; };
+  FnSfnToken:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-sfn-task-token
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: sfn.task-token } }
+      Code:
+        ZipFile: |
+          const { SFN } = require("@aws-sdk/client-sfn");
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            await new SFN({}).sendTaskSuccess({ taskToken: e.token, output: JSON.stringify({ ok: true }) });
+            return {};
+          };
+  SfnRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: states.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: [!GetAtt FnSfnTask.Arn, !GetAtt FnSfnToken.Arn]
+  SfnTaskMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${AWS::StackName}-task
+      RoleArn: !GetAtt SfnRole.Arn
+      Definition:
+        StartAt: Capture
+        States:
+          Capture:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: !Ref FnSfnTask
+              Payload:
+                input.$: $
+                execution.$: $$.Execution
+                state.$: $$.State
+                stateMachine.$: $$.StateMachine
+            End: true
+  SfnTokenMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${AWS::StackName}-task-token
+      RoleArn: !GetAtt SfnRole.Arn
+      Definition:
+        StartAt: CaptureToken
+        States:
+          CaptureToken:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke.waitForTaskToken
+            TimeoutSeconds: 120
+            Parameters:
+              FunctionName: !Ref FnSfnToken
+              Payload:
+                token.$: $$.Task.Token
+                input.$: $
+                execution.$: $$.Execution
+            End: true
+
+  # ---------------------------------------------------------------------------
+  # CloudFormation custom resource - cfn.custom-resource (self-triggering:
+  # Create on deploy, Update on CaptureSerial change, Delete on teardown)
+  # ---------------------------------------------------------------------------
+  FnCfn:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cfn-custom-resource
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cfn.custom-resource } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            const body = JSON.stringify({
+              Status: "SUCCESS",
+              PhysicalResourceId: "middy-capture",
+              StackId: e.StackId,
+              RequestId: e.RequestId,
+              LogicalResourceId: e.LogicalResourceId,
+              Data: {}
+            });
+            await fetch(e.ResponseURL, { method: "PUT", headers: { "content-type": "" }, body });
+            return {};
+          };
+  CustomCapture:
+    Type: Custom::MiddyCapture
+    Properties:
+      ServiceToken: !GetAtt FnCfn.Arn
+      Serial: !Ref CaptureSerial
+      Sample: { nested: { key: value }, list: [1, 2, 3] }
+
+  # CloudFormation macro - cfn.macro
+  # Trigger: trigger.mjs deploys/deletes a probe stack whose template declares
+  # Transform: <stackname-without-dashes>macro (macro names are alphanumeric).
+  # The stack creator needs lambda:InvokeFunction on this function (no
+  # resource-based policy involved).
+  FnCfnMacro:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cfn-macro
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cfn.macro } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { requestId: e.requestId, status: "success", fragment: e.fragment };
+          };
+  CfnMacro:
+    Type: AWS::CloudFormation::Macro
+    Properties:
+      Name: !Join ["", !Split ["-", !Sub "${AWS::StackName}-macro"]]
+      FunctionName: !GetAtt FnCfnMacro.Arn
+
+  # ---------------------------------------------------------------------------
+  # CodePipeline invoke action - codepipeline.job
+  # V2 pipeline, S3 source (versioned bucket, pipeline/source.zip)
+  # ---------------------------------------------------------------------------
+  FnCodepipeline:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-codepipeline-job
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: codepipeline.job } }
+      Code:
+        ZipFile: |
+          const { CodePipeline } = require("@aws-sdk/client-codepipeline");
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            await new CodePipeline({}).putJobSuccessResult({ jobId: e["CodePipeline.job"].id });
+            return {};
+          };
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codepipeline.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: pipeline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion, s3:GetBucketVersioning, s3:PutObject]
+                Resource:
+                  - !GetAtt VersionedBucket.Arn
+                  - !Sub ${VersionedBucket.Arn}/*
+                  - !GetAtt MainBucket.Arn
+                  - !Sub ${MainBucket.Arn}/*
+              - Effect: Allow
+                Action: [lambda:InvokeFunction, lambda:ListFunctions]
+                Resource: "*"
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub ${AWS::StackName}-pipeline
+      PipelineType: V2
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore: { Type: S3, Location: !Ref MainBucket }
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId: { Category: Source, Owner: AWS, Provider: S3, Version: "1" }
+              Configuration:
+                S3Bucket: !Ref VersionedBucket
+                S3ObjectKey: pipeline/source.zip
+                PollForSourceChanges: false
+              OutputArtifacts: [{ Name: src }]
+        - Name: Invoke
+          Actions:
+            - Name: Capture
+              ActionTypeId: { Category: Invoke, Owner: AWS, Provider: Lambda, Version: "1" }
+              Configuration:
+                FunctionName: !Ref FnCodepipeline
+                UserParameters: '{"from":"middy-events","nested":{"key":"value"}}'
+              InputArtifacts: [{ Name: src }]
+
+  # ---------------------------------------------------------------------------
+  # CodeCommit trigger - codecommit.push (gated: service closed to new accounts)
+  # ---------------------------------------------------------------------------
+  FnCodecommit:
+    Type: AWS::Lambda::Function
+    Condition: HasCodeCommit
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-codecommit-push
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: codecommit.push } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermCodecommit:
+    Type: AWS::Lambda::Permission
+    Condition: HasCodeCommit
+    Properties:
+      FunctionName: !Ref FnCodecommit
+      Action: lambda:InvokeFunction
+      Principal: codecommit.amazonaws.com
+      SourceArn: !Sub arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-repo
+  CodeCommitRepo:
+    Type: AWS::CodeCommit::Repository
+    Condition: HasCodeCommit
+    DependsOn: PermCodecommit
+    Properties:
+      RepositoryName: !Sub ${AWS::StackName}-repo
+      Triggers:
+        - Name: capture
+          DestinationArn: !GetAtt FnCodecommit.Arn
+          Events: [updateReference]
+
+  # ---------------------------------------------------------------------------
+  # AWS Config custom rule - config.rule (gated: recorder is an account
+  # singleton; do not enable in accounts that already run AWS Config)
+  # ---------------------------------------------------------------------------
+  FnConfig:
+    Type: AWS::Lambda::Function
+    Condition: HasConfig
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-config-rule
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: config.rule } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermConfig:
+    Type: AWS::Lambda::Permission
+    Condition: HasConfig
+    Properties:
+      FunctionName: !Ref FnConfig
+      Action: lambda:InvokeFunction
+      Principal: config.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+  ConfigRole:
+    Type: AWS::IAM::Role
+    Condition: HasConfig
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: config.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWS_ConfigRole]
+      Policies:
+        - PolicyName: delivery
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub ${MainBucket.Arn}/config/*
+                Condition:
+                  StringEquals: { s3:x-amz-acl: bucket-owner-full-control }
+              - Effect: Allow
+                Action: s3:GetBucketAcl
+                Resource: !GetAtt MainBucket.Arn
+  ConfigRecorder:
+    Type: AWS::Config::ConfigurationRecorder
+    Condition: HasConfig
+    Properties:
+      Name: !Sub ${AWS::StackName}-recorder
+      RoleARN: !GetAtt ConfigRole.Arn
+      RecordingGroup:
+        AllSupported: false
+        IncludeGlobalResourceTypes: false
+        ResourceTypes: [AWS::SQS::Queue]
+  ConfigDeliveryChannel:
+    Type: AWS::Config::DeliveryChannel
+    Condition: HasConfig
+    # a delivery channel cannot be created before a recorder exists
+    DependsOn: ConfigRecorder
+    Properties:
+      Name: !Sub ${AWS::StackName}-delivery
+      S3BucketName: !Ref MainBucket
+      S3KeyPrefix: config
+  ConfigRule:
+    Type: AWS::Config::ConfigRule
+    Condition: HasConfig
+    DependsOn: [ConfigRecorder, PermConfig]
+    Properties:
+      ConfigRuleName: !Sub ${AWS::StackName}-rule
+      Scope: { ComplianceResourceTypes: [AWS::SQS::Queue] }
+      Source:
+        Owner: CUSTOM_LAMBDA
+        SourceIdentifier: !GetAtt FnConfig.Arn
+        SourceDetails:
+          - EventSource: aws.config
+            MessageType: ConfigurationItemChangeNotification
+
+  # ---------------------------------------------------------------------------
+  # AWS Transfer Family custom identity provider - transfer.custom-idp
+  # (gated EnableTransfer: server billed hourly). Trigger: TestIdentityProvider,
+  # no SFTP client required.
+  # ---------------------------------------------------------------------------
+  TransferUserRole:
+    Type: AWS::IAM::Role
+    Condition: HasTransfer
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: transfer.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: s3
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:GetObject, s3:PutObject]
+                Resource:
+                  - !GetAtt MainBucket.Arn
+                  - !Sub ${MainBucket.Arn}/transfer/*
+  FnTransferIdp:
+    Type: AWS::Lambda::Function
+    Condition: HasTransfer
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-transfer-custom-idp
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment:
+        Variables:
+          KIND: transfer.custom-idp
+          TRANSFER_ROLE_ARN: !GetAtt TransferUserRole.Arn
+          HOME_BUCKET: !Ref MainBucket
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { Role: process.env.TRANSFER_ROLE_ARN, HomeDirectory: "/" + process.env.HOME_BUCKET + "/transfer" };
+          };
+  PermTransfer:
+    Type: AWS::Lambda::Permission
+    Condition: HasTransfer
+    Properties:
+      FunctionName: !Ref FnTransferIdp
+      Action: lambda:InvokeFunction
+      Principal: transfer.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+  TransferServer:
+    Type: AWS::Transfer::Server
+    Condition: HasTransfer
+    DependsOn: PermTransfer
+    Properties:
+      Domain: S3
+      EndpointType: PUBLIC
+      Protocols: [SFTP]
+      IdentityProviderType: AWS_LAMBDA
+      IdentityProviderDetails:
+        Function: !GetAtt FnTransferIdp.Arn
+
+  # ---------------------------------------------------------------------------
+  # API Gateway REST (payload v1) - apigw.rest.proxy, apigw.rest.binary,
+  # apigw.rest.authorized, apigw.rest.cognito, apigw.rest.iam,
+  # apigw.authorizer.rest-token, apigw.authorizer.rest-request
+  # ---------------------------------------------------------------------------
+  FnApigwRestProxy:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-rest-proxy
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.rest.proxy } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnApigwRestAuthorized:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-rest-authorized
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.rest.authorized } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnAuthRestToken:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-auth-rest-token
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.authorizer.rest-token } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              principalId: "middy",
+              policyDocument: { Version: "2012-10-17", Statement: [{ Action: "execute-api:Invoke", Effect: "Allow", Resource: e.methodArn }] },
+              context: { from: "token-authorizer", n: 1, b: true }
+            };
+          };
+  FnAuthRestRequest:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-auth-rest-request
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.authorizer.rest-request } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              principalId: "middy",
+              policyDocument: { Version: "2012-10-17", Statement: [{ Action: "execute-api:Invoke", Effect: "Allow", Resource: e.methodArn }] },
+              context: { from: "request-authorizer" }
+            };
+          };
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-rest
+      EndpointConfiguration: { Types: [REGIONAL] }
+  RestEchoResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: echo
+  RestEchoProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref RestEchoResource
+      PathPart: "{proxy+}"
+  RestEchoMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestEchoProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters: { method.request.path.proxy: true }
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestProxy.Arn}/invocations
+  RestTokenAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      RestApiId: !Ref RestApi
+      Name: token-auth
+      Type: TOKEN
+      IdentitySource: method.request.header.Authorization
+      AuthorizerResultTtlInSeconds: 0
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnAuthRestToken.Arn}/invocations
+  RestRequestAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      RestApiId: !Ref RestApi
+      Name: request-auth
+      Type: REQUEST
+      IdentitySource: method.request.header.Authorization
+      AuthorizerResultTtlInSeconds: 0
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnAuthRestRequest.Arn}/invocations
+  RestAuthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: auth
+  RestAuthMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestAuthResource
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref RestRequestAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestAuthorized.Arn}/invocations
+  RestTokenAuthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: tokenauth
+  RestTokenAuthMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestTokenAuthResource
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref RestTokenAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestAuthorized.Arn}/invocations
+  # Cognito User Pools authorizer: requestContext.authorizer.claims shape
+  FnApigwRestCognito:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-rest-cognito
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.rest.cognito } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  RestCognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      RestApiId: !Ref RestApi
+      Name: cognito
+      Type: COGNITO_USER_POOLS
+      ProviderARNs: [!GetAtt UserPool.Arn]
+      IdentitySource: method.request.header.Authorization
+  RestCognitoResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: cognito
+  RestCognitoMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestCognitoResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref RestCognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestCognito.Arn}/invocations
+  PermApigwRestCognito:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwRestCognito
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+  # AWS_IAM auth: requestContext.identity fully populated with caller ARNs
+  FnApigwRestIam:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-rest-iam
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.rest.iam } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  RestIamResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: iam
+  RestIamMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestIamResource
+      HttpMethod: GET
+      AuthorizationType: AWS_IAM
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestIam.Arn}/invocations
+  PermApigwRestIam:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwRestIam
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+  RestDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: [RestEchoMethod, RestAuthMethod, RestTokenAuthMethod, RestCognitoMethod, RestIamMethod]
+    Properties:
+      RestApiId: !Ref RestApi
+  RestStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref RestDeployment
+      StageName: test
+      Variables: { env: test }
+  PermApigwRestProxy:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwRestProxy
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+  PermApigwRestAuthorized:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwRestAuthorized
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*
+  PermAuthRestToken:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnAuthRestToken
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/authorizers/${RestTokenAuthorizer}
+  PermAuthRestRequest:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnAuthRestRequest
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/authorizers/${RestRequestAuthorizer}
+
+  # Second REST API: binary media (*/*) so bodies arrive base64-encoded
+  FnApigwRestBinary:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-rest-binary
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.rest.binary } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  RestBinaryApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-rest-binary
+      BinaryMediaTypes: ["*/*"]
+      EndpointConfiguration: { Types: [REGIONAL] }
+  RestBinaryResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestBinaryApi
+      ParentId: !GetAtt RestBinaryApi.RootResourceId
+      PathPart: bin
+  RestBinaryMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestBinaryApi
+      ResourceId: !Ref RestBinaryResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnApigwRestBinary.Arn}/invocations
+  RestBinaryDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: [RestBinaryMethod]
+    Properties:
+      RestApiId: !Ref RestBinaryApi
+  RestBinaryStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestBinaryApi
+      DeploymentId: !Ref RestBinaryDeployment
+      StageName: test
+  PermApigwRestBinary:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwRestBinary
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestBinaryApi}/*
+
+  # ---------------------------------------------------------------------------
+  # API Gateway HTTP API - apigw.http.v1, apigw.http.v2, apigw.http.v2-jwt,
+  # apigw.http.v2-authorized, apigw.authorizer.http-simple
+  # ---------------------------------------------------------------------------
+  FnApigwHttpV1:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-http-v1
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.http.v1 } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnApigwHttpV2:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-http-v2
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.http.v2 } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnApigwHttpV2Jwt:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-http-v2-jwt
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.http.v2-jwt } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnApigwHttpV2Authorized:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-http-v2-authorized
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.http.v2-authorized } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnAuthHttpSimple:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-auth-http-simple
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.authorizer.http-simple } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { isAuthorized: true, context: { from: "http-simple-authorizer", n: 1 } };
+          };
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-http
+      ProtocolType: HTTP
+  HttpIntV1:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FnApigwHttpV1.Arn
+      PayloadFormatVersion: "1.0"
+  HttpIntV2:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FnApigwHttpV2.Arn
+      PayloadFormatVersion: "2.0"
+  HttpIntV2Jwt:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FnApigwHttpV2Jwt.Arn
+      PayloadFormatVersion: "2.0"
+  HttpIntV2Authorized:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FnApigwHttpV2Authorized.Arn
+      PayloadFormatVersion: "2.0"
+  HttpJwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      Name: jwt
+      AuthorizerType: JWT
+      IdentitySource: ["$request.header.Authorization"]
+      JwtConfiguration:
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+        Audience: [!Ref UserPoolClient]
+  HttpLambdaAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      Name: lambda-simple
+      AuthorizerType: REQUEST
+      AuthorizerPayloadFormatVersion: "2.0"
+      EnableSimpleResponses: true
+      AuthorizerResultTtlInSeconds: 0
+      IdentitySource: ["$request.header.Authorization"]
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnAuthHttpSimple.Arn}/invocations
+  HttpRouteV1:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: ANY /v1
+      Target: !Sub integrations/${HttpIntV1}
+  HttpRouteV2:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: ANY /v2
+      Target: !Sub integrations/${HttpIntV2}
+  HttpRouteJwt:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /jwt
+      AuthorizationType: JWT
+      AuthorizerId: !Ref HttpJwtAuthorizer
+      Target: !Sub integrations/${HttpIntV2Jwt}
+  HttpRouteAuthorized:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /lauth
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref HttpLambdaAuthorizer
+      Target: !Sub integrations/${HttpIntV2Authorized}
+  # AWS_IAM auth on HTTP API: requestContext.authorizer.iam block
+  FnApigwHttpV2Iam:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-http-v2-iam
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.http.v2-iam } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  HttpIntV2Iam:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt FnApigwHttpV2Iam.Arn
+      PayloadFormatVersion: "2.0"
+  HttpRouteIam:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /iam
+      AuthorizationType: AWS_IAM
+      Target: !Sub integrations/${HttpIntV2Iam}
+  PermApigwHttpV2Iam:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwHttpV2Iam
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+  HttpStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+  PermApigwHttpV1:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwHttpV1
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+  PermApigwHttpV2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwHttpV2
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+  PermApigwHttpV2Jwt:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwHttpV2Jwt
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+  PermApigwHttpV2Authorized:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnApigwHttpV2Authorized
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+  PermAuthHttpSimple:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnAuthHttpSimple
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/authorizers/${HttpLambdaAuthorizer}
+
+  # ---------------------------------------------------------------------------
+  # API Gateway WebSocket - apigw.ws.connect, apigw.ws.message,
+  # apigw.ws.disconnect, apigw.authorizer.ws
+  # ---------------------------------------------------------------------------
+  FnWsConnect:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-ws-connect
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.ws.connect } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { statusCode: 200 }; };
+  FnWsMessage:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-ws-message
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.ws.message } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { statusCode: 200 }; };
+  FnWsDisconnect:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-apigw-ws-disconnect
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.ws.disconnect } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return { statusCode: 200 }; };
+  FnAuthWs:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-auth-ws
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: apigw.authorizer.ws } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              principalId: "middy",
+              policyDocument: { Version: "2012-10-17", Statement: [{ Action: "execute-api:Invoke", Effect: "Allow", Resource: e.methodArn }] },
+              context: { from: "ws-authorizer" }
+            };
+          };
+  WsApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-ws
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+  WsAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref WsApi
+      Name: ws-auth
+      AuthorizerType: REQUEST
+      IdentitySource: ["route.request.querystring.auth"]
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnAuthWs.Arn}/invocations
+  WsIntConnect:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WsApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnWsConnect.Arn}/invocations
+  WsIntMessage:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WsApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnWsMessage.Arn}/invocations
+  WsIntDisconnect:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WsApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnWsDisconnect.Arn}/invocations
+  WsRouteConnect:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WsApi
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref WsAuthorizer
+      Target: !Sub integrations/${WsIntConnect}
+  WsRouteDefault:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WsApi
+      RouteKey: $default
+      Target: !Sub integrations/${WsIntMessage}
+  WsRouteEcho:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WsApi
+      RouteKey: echo
+      Target: !Sub integrations/${WsIntMessage}
+  WsRouteDisconnect:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WsApi
+      RouteKey: $disconnect
+      Target: !Sub integrations/${WsIntDisconnect}
+  WsStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WsApi
+      StageName: test
+      AutoDeploy: true
+  PermWsConnect:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnWsConnect
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/*
+  PermWsMessage:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnWsMessage
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/*
+  PermWsDisconnect:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnWsDisconnect
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/*
+  PermAuthWs:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnAuthWs
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WsApi}/authorizers/${WsAuthorizer}
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function URLs - functionurl.none, functionurl.iam
+  # ---------------------------------------------------------------------------
+  FnUrlNone:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-functionurl-none
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: functionurl.none } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnUrlNoneUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt FnUrlNone.Arn
+      AuthType: NONE
+  PermFnUrlNone:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnUrlNone
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+  FnUrlIam:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-functionurl-iam
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: functionurl.iam } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnUrlIamUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt FnUrlIam.Arn
+      AuthType: AWS_IAM
+
+  # ---------------------------------------------------------------------------
+  # Cognito user pool triggers - cognito.* (10 kinds)
+  # ---------------------------------------------------------------------------
+  FnCognitoPreSignup:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-pre-signup
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.pre-signup } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            e.response.autoConfirmUser = true;
+            e.response.autoVerifyEmail = true;
+            return e;
+          };
+  FnCognitoPostConfirmation:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-post-confirmation
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.post-confirmation } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return e; };
+  FnCognitoPreAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-pre-auth
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.pre-auth } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return e; };
+  FnCognitoPostAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-post-auth
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.post-auth } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return e; };
+  FnCognitoPreToken:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-pre-token
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.pre-token } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return e; };
+  FnCognitoCustomMessage:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-custom-message
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.custom-message } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return e; };
+  FnCognitoDefineAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-define-auth
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.define-auth } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            const s = e.request.session || [];
+            if (s.length && s[s.length - 1].challengeResult === true) {
+              e.response.issueTokens = true;
+              e.response.failAuthentication = false;
+            } else {
+              e.response.issueTokens = false;
+              e.response.failAuthentication = false;
+              e.response.challengeName = "CUSTOM_CHALLENGE";
+            }
+            return e;
+          };
+  FnCognitoCreateAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-create-auth
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.create-auth } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            e.response.publicChallengeParameters = { question: "answer 42" };
+            e.response.privateChallengeParameters = { answer: "42" };
+            e.response.challengeMetadata = "CAPTURE";
+            return e;
+          };
+  FnCognitoVerifyAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-verify-auth
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.verify-auth } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            e.response.answerCorrect = e.request.challengeAnswer === "42";
+            return e;
+          };
+  FnCognitoUserMigration:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-cognito-user-migration
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: cognito.user-migration } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            e.response.userAttributes = { email: e.userName, email_verified: "true" };
+            e.response.finalUserStatus = "CONFIRMED";
+            e.response.messageAction = "SUPPRESS";
+            return e;
+          };
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-pool
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy: { MinimumLength: 8, RequireLowercase: false, RequireUppercase: false, RequireNumbers: false, RequireSymbols: false }
+      LambdaConfig:
+        PreSignUp: !GetAtt FnCognitoPreSignup.Arn
+        PostConfirmation: !GetAtt FnCognitoPostConfirmation.Arn
+        PreAuthentication: !GetAtt FnCognitoPreAuth.Arn
+        PostAuthentication: !GetAtt FnCognitoPostAuth.Arn
+        PreTokenGeneration: !GetAtt FnCognitoPreToken.Arn
+        CustomMessage: !GetAtt FnCognitoCustomMessage.Arn
+        DefineAuthChallenge: !GetAtt FnCognitoDefineAuth.Arn
+        CreateAuthChallenge: !GetAtt FnCognitoCreateAuth.Arn
+        VerifyAuthChallengeResponse: !GetAtt FnCognitoVerifyAuth.Arn
+        UserMigration: !GetAtt FnCognitoUserMigration.Arn
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: harness
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_CUSTOM_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+  PermCognitoPreSignup:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoPreSignup, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoPostConfirmation:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoPostConfirmation, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoPreAuth:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoPreAuth, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoPostAuth:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoPostAuth, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoPreToken:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoPreToken, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoCustomMessage:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoCustomMessage, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoDefineAuth:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoDefineAuth, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoCreateAuth:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoCreateAuth, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoVerifyAuth:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoVerifyAuth, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+  PermCognitoUserMigration:
+    Type: AWS::Lambda::Permission
+    Properties: { FunctionName: !Ref FnCognitoUserMigration, Action: lambda:InvokeFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn }
+
+  # ---------------------------------------------------------------------------
+  # AppSync direct Lambda resolver - appsync.resolver
+  # ---------------------------------------------------------------------------
+  FnAppsync:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-appsync-resolver
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: appsync.resolver } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return JSON.stringify({ ok: true }); };
+  AppsyncApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-appsync
+      AuthenticationType: API_KEY
+  AppsyncApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt AppsyncApi.ApiId
+  AppsyncSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt AppsyncApi.ApiId
+      Definition: |
+        schema { query: Query }
+        type Query { capture(input: String): AWSJSON }
+  AppsyncServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: appsync.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt FnAppsync.Arn
+  AppsyncDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt AppsyncApi.ApiId
+      Name: capture
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt AppsyncServiceRole.Arn
+      LambdaConfig: { LambdaFunctionArn: !GetAtt FnAppsync.Arn }
+  AppsyncResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: AppsyncSchema
+    Properties:
+      ApiId: !GetAtt AppsyncApi.ApiId
+      TypeName: Query
+      FieldName: capture
+      DataSourceName: !GetAtt AppsyncDataSource.Name
+
+  # ---------------------------------------------------------------------------
+  # Lex V2 code hooks - lex.dialog + lex.fulfillment (one alias code hook
+  # Lambda serves both; the kind is derived from invocationSource)
+  # ---------------------------------------------------------------------------
+  FnLex:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lex-hook
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            const kind = e.invocationSource === "DialogCodeHook" ? "lex.dialog" : "lex.fulfillment";
+            console.log("MIDDY_CAPTURE " + kind + " " + JSON.stringify(e));
+            if (e.invocationSource === "DialogCodeHook") {
+              return { sessionState: { dialogAction: { type: "Delegate" }, intent: e.sessionState.intent } };
+            }
+            const intent = Object.assign({}, e.sessionState.intent, { state: "Fulfilled" });
+            return {
+              sessionState: { dialogAction: { type: "Close" }, intent },
+              messages: [{ contentType: "PlainText", content: "captured" }]
+            };
+          };
+  PermLex:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref FnLex
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
+      SourceArn: !Sub arn:aws:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/${LexBot}/TSTALIASID
+  LexRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lexv2.amazonaws.com }
+            Action: sts:AssumeRole
+  LexBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: !Sub ${AWS::StackName}-bot
+      RoleArn: !GetAtt LexRole.Arn
+      DataPrivacy: { ChildDirected: false }
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+        - LocaleId: en_US
+          NluConfidenceThreshold: 0.4
+          Intents:
+            - Name: CaptureIntent
+              SampleUtterances:
+                - { Utterance: capture }
+                - { Utterance: capture the event }
+              DialogCodeHook: { Enabled: true }
+              FulfillmentCodeHook: { Enabled: true }
+            - Name: FallbackIntent
+              ParentIntentSignature: AMAZON.FallbackIntent
+      TestBotAliasSettings:
+        BotAliasLocaleSettings:
+          - LocaleId: en_US
+            BotAliasLocaleSetting:
+              Enabled: true
+              CodeHookSpecification:
+                LambdaCodeHook:
+                  CodeHookInterfaceVersion: "1.0"
+                  LambdaArn: !GetAtt FnLex.Arn
+
+  # ---------------------------------------------------------------------------
+  # Bedrock agent action groups - bedrock.agent-api, bedrock.agent-function
+  # (gated: requires model access)
+  # ---------------------------------------------------------------------------
+  FnBedrockApi:
+    Type: AWS::Lambda::Function
+    Condition: HasBedrock
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-bedrock-agent-api
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: bedrock.agent-api } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              messageVersion: "1.0",
+              response: {
+                actionGroup: e.actionGroup,
+                apiPath: e.apiPath,
+                httpMethod: e.httpMethod,
+                httpStatusCode: 200,
+                responseBody: { "application/json": { body: "{\"ok\":true}" } }
+              }
+            };
+          };
+  FnBedrockFn:
+    Type: AWS::Lambda::Function
+    Condition: HasBedrock
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-bedrock-agent-function
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: bedrock.agent-function } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return {
+              messageVersion: "1.0",
+              response: {
+                actionGroup: e.actionGroup,
+                function: e.function,
+                functionResponse: { responseBody: { TEXT: { body: "ok" } } }
+              }
+            };
+          };
+  BedrockAgentRole:
+    Type: AWS::IAM::Role
+    Condition: HasBedrock
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: bedrock.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+      Policies:
+        - PolicyName: model
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # inference profiles fan out to sibling-region foundation models
+              - Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource:
+                  - arn:aws:bedrock:*::foundation-model/*
+                  - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/*
+  BedrockAgent:
+    Type: AWS::Bedrock::Agent
+    Condition: HasBedrock
+    Properties:
+      AgentName: !Sub ${AWS::StackName}-agent
+      AgentResourceRoleArn: !GetAtt BedrockAgentRole.Arn
+      FoundationModel: !Ref BedrockModelId
+      AutoPrepare: true
+      Instruction: >-
+        You are a test harness agent. When the user asks you to capture events,
+        call the captureApi operation and the captureFunction function.
+      ActionGroups:
+        - ActionGroupName: api-group
+          ActionGroupExecutor: { Lambda: !GetAtt FnBedrockApi.Arn }
+          ApiSchema:
+            Payload: '{"openapi":"3.0.0","info":{"title":"capture","version":"1.0.0"},"paths":{"/capture":{"post":{"operationId":"captureApi","description":"Capture a test event","responses":{"200":{"description":"ok"}}}}}}'
+        - ActionGroupName: fn-group
+          ActionGroupExecutor: { Lambda: !GetAtt FnBedrockFn.Arn }
+          FunctionSchema:
+            Functions:
+              - Name: captureFunction
+                Description: Capture a test event via function schema
+                Parameters:
+                  note: { Type: string, Required: false, Description: optional note }
+  BedrockAgentAlias:
+    Type: AWS::Bedrock::AgentAlias
+    Condition: HasBedrock
+    Properties:
+      AgentAliasName: live
+      AgentId: !GetAtt BedrockAgent.AgentId
+  PermBedrockApi:
+    Type: AWS::Lambda::Permission
+    Condition: HasBedrock
+    Properties:
+      FunctionName: !Ref FnBedrockApi
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt BedrockAgent.AgentArn
+  PermBedrockFn:
+    Type: AWS::Lambda::Permission
+    Condition: HasBedrock
+    Properties:
+      FunctionName: !Ref FnBedrockFn
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !GetAtt BedrockAgent.AgentArn
+
+  # ---------------------------------------------------------------------------
+  # Tier 1 (EnableVpc) - VPC, ALB (alb.single, alb.multi), VPC Lattice
+  # (lattice.v1, lattice.v2), in-VPC trigger proxy
+  # Public subnets + IGW only; no NAT. The proxy Lambda only reaches in-VPC
+  # targets (Lattice link-local, broker private IPs).
+  # ---------------------------------------------------------------------------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Condition: HasVpc
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}" }]
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Condition: HasVpc
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Condition: HasVpc
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Condition: HasVpc
+  IgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: HasVpc
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref Igw }
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: HasVpc
+    Properties: { VpcId: !Ref Vpc }
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: HasVpc
+    DependsOn: IgwAttach
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+  SubnetARoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: HasVpc
+    Properties: { SubnetId: !Ref SubnetA, RouteTableId: !Ref RouteTable }
+  SubnetBRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: HasVpc
+    Properties: { SubnetId: !Ref SubnetB, RouteTableId: !Ref RouteTable }
+  VpcDefaultSg:
+    Type: AWS::EC2::SecurityGroup
+    Condition: HasVpc
+    Properties:
+      GroupDescription: middy-events shared (proxy + brokers)
+      VpcId: !Ref Vpc
+      SecurityGroupEgress: [{ IpProtocol: "-1", CidrIp: 0.0.0.0/0 }]
+  VpcSelfIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasVpc
+    Properties:
+      GroupId: !Ref VpcDefaultSg
+      IpProtocol: "-1"
+      SourceSecurityGroupId: !Ref VpcDefaultSg
+
+  ProxyRole:
+    Type: AWS::IAM::Role
+    Condition: HasVpc
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole]
+      Policies:
+        - PolicyName: secrets
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AWS::StackName}/*
+  # Relays HTTP requests from trigger.mjs into the VPC:
+  # invoke with {url, method, headers, body} -> {status, body}
+  FnProxy:
+    Type: AWS::Lambda::Function
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-proxy
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt ProxyRole.Arn
+      Timeout: 60
+      VpcConfig:
+        SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+        SecurityGroupIds: [!Ref VpcDefaultSg]
+      Code:
+        ZipFile: |
+          const tls = require("node:tls");
+          tls.DEFAULT_MIN_VERSION = "TLSv1.2";
+          process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // broker consoles use self-signed/AWS-internal certs
+          exports.handler = async (e) => {
+            const r = await fetch(e.url, { method: e.method || "GET", headers: e.headers || {}, body: e.body });
+            return { status: r.status, body: await r.text() };
+          };
+
+  # ALB -> Lambda
+  AlbSg:
+    Type: AWS::EC2::SecurityGroup
+    Condition: HasVpc
+    Properties:
+      GroupDescription: middy-events alb
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: [{ IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }]
+      SecurityGroupEgress: [{ IpProtocol: "-1", CidrIp: 0.0.0.0/0 }]
+  FnAlbSingle:
+    Type: AWS::Lambda::Function
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-alb-single
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: alb.single } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnAlbMulti:
+    Type: AWS::Lambda::Function
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-alb-multi
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: alb.multi } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { statusCode: 200, multiValueHeaders: { "content-type": ["application/json"] }, body: JSON.stringify({ ok: true }) };
+          };
+  PermAlbSingle:
+    Type: AWS::Lambda::Permission
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Ref FnAlbSingle
+      Action: lambda:InvokeFunction
+      Principal: elasticloadbalancing.amazonaws.com
+  PermAlbMulti:
+    Type: AWS::Lambda::Permission
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Ref FnAlbMulti
+      Action: lambda:InvokeFunction
+      Principal: elasticloadbalancing.amazonaws.com
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: HasVpc
+    Properties:
+      Name: !Sub ${AWS::StackName}-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets: [!Ref SubnetA, !Ref SubnetB]
+      SecurityGroups: [!Ref AlbSg]
+  AlbTgSingle:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: HasVpc
+    DependsOn: PermAlbSingle
+    Properties:
+      Name: !Sub ${AWS::StackName}-single
+      TargetType: lambda
+      Targets: [{ Id: !GetAtt FnAlbSingle.Arn }]
+  AlbTgMulti:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Condition: HasVpc
+    DependsOn: PermAlbMulti
+    Properties:
+      Name: !Sub ${AWS::StackName}-multi
+      TargetType: lambda
+      TargetGroupAttributes: [{ Key: lambda.multi_value_headers.enabled, Value: "true" }]
+      Targets: [{ Id: !GetAtt FnAlbMulti.Arn }]
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasVpc
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref AlbTgSingle }]
+  AlbMultiRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: HasVpc
+    Properties:
+      ListenerArn: !Ref AlbListener
+      Priority: 10
+      Conditions: [{ Field: path-pattern, Values: [/multi*] }]
+      Actions: [{ Type: forward, TargetGroupArn: !Ref AlbTgMulti }]
+
+  # VPC Lattice -> Lambda (event structure V1 and V2 target groups)
+  FnLatticeV1:
+    Type: AWS::Lambda::Function
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lattice-v1
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: lattice.v1 } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { isBase64Encoded: false, statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  FnLatticeV2:
+    Type: AWS::Lambda::Function
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-lattice-v2
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: lattice.v2 } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e));
+            return { isBase64Encoded: false, statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ ok: true }) };
+          };
+  PermLatticeV1:
+    Type: AWS::Lambda::Permission
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Ref FnLatticeV1
+      Action: lambda:InvokeFunction
+      Principal: vpc-lattice.amazonaws.com
+  PermLatticeV2:
+    Type: AWS::Lambda::Permission
+    Condition: HasVpc
+    Properties:
+      FunctionName: !Ref FnLatticeV2
+      Action: lambda:InvokeFunction
+      Principal: vpc-lattice.amazonaws.com
+  LatticeNetwork:
+    Type: AWS::VpcLattice::ServiceNetwork
+    Condition: HasVpc
+    Properties:
+      Name: !Sub ${AWS::StackName}-network
+      AuthType: NONE
+  LatticeVpcAssoc:
+    Type: AWS::VpcLattice::ServiceNetworkVpcAssociation
+    Condition: HasVpc
+    Properties:
+      ServiceNetworkIdentifier: !Ref LatticeNetwork
+      VpcIdentifier: !Ref Vpc
+      SecurityGroupIds: [!Ref VpcDefaultSg]
+  LatticeService:
+    Type: AWS::VpcLattice::Service
+    Condition: HasVpc
+    Properties:
+      Name: !Sub ${AWS::StackName}-service
+      AuthType: NONE
+  LatticeServiceAssoc:
+    Type: AWS::VpcLattice::ServiceNetworkServiceAssociation
+    Condition: HasVpc
+    Properties:
+      ServiceNetworkIdentifier: !Ref LatticeNetwork
+      ServiceIdentifier: !Ref LatticeService
+  LatticeTgV1:
+    Type: AWS::VpcLattice::TargetGroup
+    Condition: HasVpc
+    DependsOn: PermLatticeV1
+    Properties:
+      Name: !Sub ${AWS::StackName}-v1
+      Type: LAMBDA
+      Config: { LambdaEventStructureVersion: V1 }
+      Targets: [{ Id: !GetAtt FnLatticeV1.Arn }]
+  LatticeTgV2:
+    Type: AWS::VpcLattice::TargetGroup
+    Condition: HasVpc
+    DependsOn: PermLatticeV2
+    Properties:
+      Name: !Sub ${AWS::StackName}-v2
+      Type: LAMBDA
+      Config: { LambdaEventStructureVersion: V2 }
+      Targets: [{ Id: !GetAtt FnLatticeV2.Arn }]
+  LatticeListener:
+    Type: AWS::VpcLattice::Listener
+    Condition: HasVpc
+    Properties:
+      ServiceIdentifier: !Ref LatticeService
+      Protocol: HTTPS
+      Port: 443
+      DefaultAction:
+        Forward: { TargetGroups: [{ TargetGroupIdentifier: !Ref LatticeTgV1 }] }
+  LatticeV2Rule:
+    Type: AWS::VpcLattice::Rule
+    Condition: HasVpc
+    Properties:
+      ServiceIdentifier: !Ref LatticeService
+      ListenerIdentifier: !Ref LatticeListener
+      Name: v2
+      Priority: 10
+      Match:
+        HttpMatch:
+          PathMatch: { Match: { Prefix: /v2 } }
+      Action:
+        Forward: { TargetGroups: [{ TargetGroupIdentifier: !Ref LatticeTgV2 }] }
+
+  # ---------------------------------------------------------------------------
+  # Tier 2 (EnableBrokers, requires EnableVpc) - msk.standard,
+  # kafka.self-managed, mq.activemq, mq.rabbitmq, docdb.insert
+  # Broker admin passwords are deterministic non-secrets for this ephemeral
+  # harness; the SCRAM/DocumentDB secrets are generated.
+  # ---------------------------------------------------------------------------
+  BrokerAccessPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasBrokers
+    Properties:
+      PolicyName: broker-access
+      Roles: [!Ref CaptureRole]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # ESM networking (MSK / MQ / DocumentDB pollers run in the VPC)
+          - Effect: Allow
+            Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DeleteNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+            Resource: "*"
+          - Effect: Allow
+            Action: [kafka:DescribeCluster, kafka:DescribeClusterV2, kafka:GetBootstrapBrokers]
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - kafka-cluster:Connect
+              - kafka-cluster:DescribeCluster
+              - kafka-cluster:DescribeClusterDynamicConfiguration
+              - kafka-cluster:DescribeGroup
+              - kafka-cluster:AlterGroup
+              - kafka-cluster:DescribeTopic
+              - kafka-cluster:ReadData
+            Resource:
+              - !Ref MskCluster
+              - !Sub arn:aws:kafka:${AWS::Region}:${AWS::AccountId}:topic/${AWS::StackName}-msk/*
+              - !Sub arn:aws:kafka:${AWS::Region}:${AWS::AccountId}:group/${AWS::StackName}-msk/*
+          - Effect: Allow
+            Action: mq:DescribeBroker
+            Resource: "*"
+          - Effect: Allow
+            Action: [rds:DescribeDBClusters, rds:DescribeDBClusterParameters, rds:DescribeDBSubnetGroups]
+            Resource: "*"
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource:
+              - !Ref MskScramSecret
+              - !Ref MqCredsSecret
+              - !Ref DocdbSecret
+          - Effect: Allow
+            Action: kms:Decrypt
+            Resource: !GetAtt MskKmsKey.Arn
+
+  # On-demand Kafka/MQ/DocumentDB event source mappings invoke the function
+  # through a path in this VPC; with no NAT gateway, PrivateLink endpoints to
+  # Lambda, STS, and Secrets Manager are required (see
+  # https://docs.aws.amazon.com/lambda/latest/dg/with-msk-cluster-network.html).
+  # The self-referencing security group rule covers the required 443 ingress.
+  VpceLambda:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: HasBrokers
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.lambda
+      VpcId: !Ref Vpc
+      SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+      SecurityGroupIds: [!Ref VpcDefaultSg]
+      PrivateDnsEnabled: true
+  VpceSts:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: HasBrokers
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.sts
+      VpcId: !Ref Vpc
+      SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+      SecurityGroupIds: [!Ref VpcDefaultSg]
+      PrivateDnsEnabled: true
+  VpceSecretsManager:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: HasBrokers
+    Properties:
+      VpcEndpointType: Interface
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+      VpcId: !Ref Vpc
+      SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+      SecurityGroupIds: [!Ref VpcDefaultSg]
+      PrivateDnsEnabled: true
+
+  # MSK (provisioned, smallest brokers, SASL/SCRAM + IAM)
+  MskKmsKey:
+    Type: AWS::KMS::Key
+    Condition: HasBrokers
+    Properties:
+      Description: !Sub ${AWS::StackName} MSK SCRAM secret key (AmazonMSK_ secrets require a customer-managed key)
+      PendingWindowInDays: 7
+  MskScramSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasBrokers
+    Properties:
+      Name: !Sub AmazonMSK_${AWS::StackName}
+      KmsKeyId: !Ref MskKmsKey
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "middy"}'
+        GenerateStringKey: password
+        ExcludePunctuation: true
+  MskConfiguration:
+    Type: AWS::MSK::Configuration
+    Condition: HasBrokers
+    Properties:
+      Name: !Sub ${AWS::StackName}-msk-config
+      ServerProperties: |
+        auto.create.topics.enable=true
+        default.replication.factor=2
+        min.insync.replicas=1
+  MskCluster:
+    Type: AWS::MSK::Cluster
+    Condition: HasBrokers
+    Properties:
+      ClusterName: !Sub ${AWS::StackName}-msk
+      # 3.9.x is MSK's recommended long-support version (3.6.0 hit MSK end of
+      # support 2026-06-01); the literal ".x" suffix is MSK's version naming
+      KafkaVersion: 3.9.x
+      NumberOfBrokerNodes: 2
+      ConfigurationInfo:
+        Arn: !Ref MskConfiguration
+        Revision: 1
+      BrokerNodeGroupInfo:
+        InstanceType: kafka.t3.small
+        ClientSubnets: [!Ref SubnetA, !Ref SubnetB]
+        SecurityGroups: [!Ref VpcDefaultSg]
+        StorageInfo: { EBSStorageInfo: { VolumeSize: 10 } }
+      ClientAuthentication:
+        Sasl:
+          Scram: { Enabled: true }
+          Iam: { Enabled: true }
+      EncryptionInfo:
+        EncryptionInTransit: { ClientBroker: TLS, InCluster: true }
+  MskScramAssoc:
+    Type: AWS::MSK::BatchScramSecret
+    Condition: HasBrokers
+    Properties:
+      ClusterArn: !Ref MskCluster
+      SecretArnList: [!Ref MskScramSecret]
+  FnMsk:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-msk-standard
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: msk.standard } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmMsk:
+    Type: AWS::Lambda::EventSourceMapping
+    Condition: HasBrokers
+    DependsOn: BrokerAccessPolicy
+    Properties:
+      EventSourceArn: !Ref MskCluster
+      FunctionName: !Ref FnMsk
+      Topics: [middy-capture]
+      StartingPosition: TRIM_HORIZON
+      BatchSize: 100
+  # kafka.self-managed reuses the MSK cluster's SASL/SCRAM bootstrap brokers.
+  # The bootstrap broker string is not resolvable in CloudFormation
+  # (GetBootstrapBrokers is API-only), so trigger.mjs creates/deletes the
+  # SelfManagedEventSource mapping onto this function at run time.
+  FnKafkaSelf:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-kafka-self-managed
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: kafka.self-managed } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+
+  # Amazon MQ (both engines, single-instance micro, private)
+  MqCredsSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasBrokers
+    Properties:
+      Name: !Sub ${AWS::StackName}/mq-creds
+      SecretString: !Sub '{"username": "middy", "password": "middyevents-${AWS::AccountId}"}'
+  ActiveMqBroker:
+    Type: AWS::AmazonMQ::Broker
+    Condition: HasBrokers
+    Properties:
+      BrokerName: !Sub ${AWS::StackName}-activemq
+      EngineType: ACTIVEMQ
+      EngineVersion: "5.19"
+      HostInstanceType: mq.t3.micro
+      DeploymentMode: SINGLE_INSTANCE
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: true
+      SubnetIds: [!Ref SubnetA]
+      SecurityGroups: [!Ref VpcDefaultSg]
+      Users: [{ Username: middy, Password: !Sub "middyevents-${AWS::AccountId}" }]
+  RabbitMqBroker:
+    Type: AWS::AmazonMQ::Broker
+    Condition: HasBrokers
+    Properties:
+      BrokerName: !Sub ${AWS::StackName}-rabbitmq
+      EngineType: RABBITMQ
+      EngineVersion: "3.13"
+      HostInstanceType: mq.t3.micro
+      DeploymentMode: SINGLE_INSTANCE
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: true
+      SubnetIds: [!Ref SubnetA]
+      SecurityGroups: [!Ref VpcDefaultSg]
+      Users: [{ Username: middy, Password: !Sub "middyevents-${AWS::AccountId}" }]
+  FnAmq:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-mq-activemq
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: mq.activemq } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmAmq:
+    Type: AWS::Lambda::EventSourceMapping
+    Condition: HasBrokers
+    DependsOn: BrokerAccessPolicy
+    Properties:
+      EventSourceArn: !GetAtt ActiveMqBroker.Arn
+      FunctionName: !Ref FnAmq
+      Queues: [MIDDY.QUEUE]
+      BatchSize: 10
+      SourceAccessConfigurations:
+        - { Type: BASIC_AUTH, URI: !Ref MqCredsSecret }
+  FnRmq:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-mq-rabbitmq
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: mq.rabbitmq } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmRmq:
+    Type: AWS::Lambda::EventSourceMapping
+    Condition: HasBrokers
+    DependsOn: BrokerAccessPolicy
+    Properties:
+      EventSourceArn: !GetAtt RabbitMqBroker.Arn
+      FunctionName: !Ref FnRmq
+      Queues: [middy-capture]
+      BatchSize: 10
+      SourceAccessConfigurations:
+        - { Type: BASIC_AUTH, URI: !Ref MqCredsSecret }
+        - { Type: VIRTUAL_HOST, URI: / }
+
+  # DocumentDB change streams
+  DocdbSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasBrokers
+    Properties:
+      Name: !Sub ${AWS::StackName}/docdb
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "middy"}'
+        GenerateStringKey: password
+        ExcludePunctuation: true
+  DocdbSubnetGroup:
+    Type: AWS::DocDB::DBSubnetGroup
+    Condition: HasBrokers
+    Properties:
+      DBSubnetGroupDescription: middy-events
+      SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+  # TLS disabled so the broker-writer needs no CA bundle (VPC-internal,
+  # ephemeral test cluster)
+  DocdbParams:
+    Type: AWS::DocDB::DBClusterParameterGroup
+    Condition: HasBrokers
+    Properties:
+      Description: middy-events (tls disabled)
+      Family: docdb5.0
+      Parameters: { tls: disabled }
+  DocdbCluster:
+    Type: AWS::DocDB::DBCluster
+    Condition: HasBrokers
+    Properties:
+      DBClusterIdentifier: !Sub ${AWS::StackName}-docdb
+      EngineVersion: 5.0.0
+      MasterUsername: middy
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DocdbSecret}:SecretString:password}}"
+      DBClusterParameterGroupName: !Ref DocdbParams
+      DBSubnetGroupName: !Ref DocdbSubnetGroup
+      VpcSecurityGroupIds: [!Ref VpcDefaultSg]
+      StorageEncrypted: true
+  DocdbInstance:
+    Type: AWS::DocDB::DBInstance
+    Condition: HasBrokers
+    Properties:
+      DBClusterIdentifier: !Ref DocdbCluster
+      DBInstanceClass: db.t3.medium
+  FnDocdb:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-docdb-insert
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 30
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: docdb.insert } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  EsmDocdb:
+    Type: AWS::Lambda::EventSourceMapping
+    Condition: HasBrokers
+    DependsOn: [BrokerAccessPolicy, DocdbInstance]
+    Properties:
+      # DocDB ESM takes the cluster ARN; AWS::DocDB::DBCluster has no ARN
+      # attribute, so it is constructed (Ref returns the identifier)
+      EventSourceArn: !Sub arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${DocdbCluster}
+      FunctionName: !Ref FnDocdb
+      StartingPosition: LATEST
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 10
+      DocumentDBEventSourceConfig:
+        DatabaseName: middy
+        CollectionName: capture
+        FullDocument: UpdateLookup
+      SourceAccessConfigurations:
+        - { Type: BASIC_AUTH, URI: !Ref DocdbSecret }
+  # ProxyRole's base policy only covers ${AWS::StackName}/* secrets; the MSK
+  # SCRAM secret lives under AmazonMSK_* with a customer-managed key
+  BrokerWriterAccessPolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasBrokers
+    Properties:
+      PolicyName: broker-writer-access
+      Roles: [!Ref ProxyRole]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !Ref MskScramSecret
+          - Effect: Allow
+            Action: kms:Decrypt
+            Resource: !GetAtt MskKmsKey.Arn
+
+  # The one packaged function in the harness (mongodb + kafkajs), built +
+  # uploaded by deploy.sh from triggers/broker-writer/ when EnableBrokers=true.
+  # action=docdb: enables change streams on middy.capture, insert/update/delete.
+  # action=kafka: produces JSON/text/binary records (with headers) to the topic
+  # via SASL/SCRAM using the MSK secret + bootstrap brokers passed in the event.
+  FnBrokerWriter:
+    Type: AWS::Lambda::Function
+    Condition: HasBrokers
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-broker-writer
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt ProxyRole.Arn
+      Timeout: 120
+      VpcConfig:
+        SubnetIds: [!Ref SubnetA, !Ref SubnetB]
+        SecurityGroupIds: [!Ref VpcDefaultSg]
+      Environment:
+        Variables:
+          DOCDB_ENDPOINT: !GetAtt DocdbCluster.Endpoint
+          DOCDB_SECRET_ARN: !Ref DocdbSecret
+          MSK_SECRET_ARN: !Ref MskScramSecret
+      Code:
+        S3Bucket: !Ref BrokerWriterCodeBucket
+        S3Key: !Ref BrokerWriterCodeKey
+
+  # ---------------------------------------------------------------------------
+  # Tier 3 (EnableEdge) - cloudfront.viewer-request(+body), origin-request,
+  # origin-response, viewer-response
+  # Lambda@Edge: us-east-1 only, no environment variables (kind is a literal),
+  # versioned ARNs required, logs land in the execution region under
+  # /aws/lambda/us-east-1.<fn>. Stack delete stalls until replicas purge.
+  # ---------------------------------------------------------------------------
+  EdgeRole:
+    Type: AWS::IAM::Role
+    Condition: HasEdge
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: [lambda.amazonaws.com, edgelambda.amazonaws.com] }
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]
+  FnEdgeViewerRequest:
+    Type: AWS::Lambda::Function
+    Condition: HasEdge
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-edge-viewer-request
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt EdgeRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            const cf = e.Records[0].cf;
+            const kind = cf.request.body && cf.request.body.data ? "cloudfront.viewer-request-body" : "cloudfront.viewer-request";
+            console.log("MIDDY_CAPTURE " + kind + " " + JSON.stringify(e));
+            return cf.request;
+          };
+  FnEdgeViewerRequestV1:
+    Type: AWS::Lambda::Version
+    Condition: HasEdge
+    Properties: { FunctionName: !Ref FnEdgeViewerRequest }
+  FnEdgeOriginRequest:
+    Type: AWS::Lambda::Function
+    Condition: HasEdge
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-edge-origin-request
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt EdgeRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE cloudfront.origin-request " + JSON.stringify(e));
+            return e.Records[0].cf.request;
+          };
+  FnEdgeOriginRequestV1:
+    Type: AWS::Lambda::Version
+    Condition: HasEdge
+    Properties: { FunctionName: !Ref FnEdgeOriginRequest }
+  FnEdgeOriginResponse:
+    Type: AWS::Lambda::Function
+    Condition: HasEdge
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-edge-origin-response
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt EdgeRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE cloudfront.origin-response " + JSON.stringify(e));
+            return e.Records[0].cf.response;
+          };
+  FnEdgeOriginResponseV1:
+    Type: AWS::Lambda::Version
+    Condition: HasEdge
+    Properties: { FunctionName: !Ref FnEdgeOriginResponse }
+  FnEdgeViewerResponse:
+    Type: AWS::Lambda::Function
+    Condition: HasEdge
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-edge-viewer-response
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt EdgeRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => {
+            console.log("MIDDY_CAPTURE cloudfront.viewer-response " + JSON.stringify(e));
+            return e.Records[0].cf.response;
+          };
+  FnEdgeViewerResponseV1:
+    Type: AWS::Lambda::Version
+    Condition: HasEdge
+    Properties: { FunctionName: !Ref FnEdgeViewerResponse }
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: HasEdge
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${AWS::StackName} edge capture
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: capture-origin
+            # Function URL domain: https://<id>.lambda-url.<region>.on.aws/
+            DomainName: !Select [2, !Split ["/", !GetAtt FnUrlNoneUrl.FunctionUrl]]
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: capture-origin
+          ViewerProtocolPolicy: allow-all
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
+          # Managed policies: CachingDisabled + AllViewerExceptHostHeader
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          LambdaFunctionAssociations:
+            - { EventType: viewer-request, LambdaFunctionARN: !Ref FnEdgeViewerRequestV1, IncludeBody: true }
+            - { EventType: origin-request, LambdaFunctionARN: !Ref FnEdgeOriginRequestV1 }
+            - { EventType: origin-response, LambdaFunctionARN: !Ref FnEdgeOriginResponseV1 }
+            - { EventType: viewer-response, LambdaFunctionARN: !Ref FnEdgeViewerResponseV1 }
+
+  # ---------------------------------------------------------------------------
+  # Tier 4 (SesDomain + HostedZoneId) - ses.receipt
+  # Receipt rule set activation is API-only (no CloudFormation support);
+  # deploy.sh runs `aws ses set-active-receipt-rule-set` after deploy.
+  # ---------------------------------------------------------------------------
+  SesIdentity:
+    Type: AWS::SES::EmailIdentity
+    Condition: HasSes
+    Properties:
+      EmailIdentity: !Ref SesDomain
+  SesDkim1:
+    Type: AWS::Route53::RecordSet
+    Condition: HasSes
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt SesIdentity.DkimDNSTokenName1
+      Type: CNAME
+      TTL: "300"
+      ResourceRecords: [!GetAtt SesIdentity.DkimDNSTokenValue1]
+  SesDkim2:
+    Type: AWS::Route53::RecordSet
+    Condition: HasSes
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt SesIdentity.DkimDNSTokenName2
+      Type: CNAME
+      TTL: "300"
+      ResourceRecords: [!GetAtt SesIdentity.DkimDNSTokenValue2]
+  SesDkim3:
+    Type: AWS::Route53::RecordSet
+    Condition: HasSes
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt SesIdentity.DkimDNSTokenName3
+      Type: CNAME
+      TTL: "300"
+      ResourceRecords: [!GetAtt SesIdentity.DkimDNSTokenValue3]
+  SesMx:
+    Type: AWS::Route53::RecordSet
+    Condition: HasSes
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref SesDomain
+      Type: MX
+      TTL: "300"
+      ResourceRecords: [!Sub "10 inbound-smtp.${AWS::Region}.amazonaws.com"]
+  FnSes:
+    Type: AWS::Lambda::Function
+    Condition: HasSes
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ses-receipt
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CaptureRole.Arn
+      Timeout: 10
+      LoggingConfig: { LogGroup: !Ref CaptureLogGroup }
+      Environment: { Variables: { KIND: ses.receipt } }
+      Code:
+        ZipFile: |
+          exports.handler = async (e) => { console.log("MIDDY_CAPTURE " + process.env.KIND + " " + JSON.stringify(e)); return {}; };
+  PermSes:
+    Type: AWS::Lambda::Permission
+    Condition: HasSes
+    Properties:
+      FunctionName: !Ref FnSes
+      Action: lambda:InvokeFunction
+      Principal: ses.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+  SesRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Condition: HasSes
+    Properties:
+      RuleSetName: !Sub ${AWS::StackName}-rules
+  SesRule:
+    Type: AWS::SES::ReceiptRule
+    Condition: HasSes
+    DependsOn: PermSes
+    Properties:
+      RuleSetName: !Ref SesRuleSet
+      Rule:
+        Name: capture
+        Enabled: true
+        ScanEnabled: false
+        Recipients: [!Ref SesDomain]
+        Actions:
+          - LambdaAction:
+              FunctionArn: !GetAtt FnSes.Arn
+              InvocationType: Event
+
+Outputs:
+  CaptureLogGroupName:
+    Value: !Ref CaptureLogGroup
+  MainBucketName:
+    Value: !Ref MainBucket
+  VersionedBucketName:
+    Value: !Ref VersionedBucket
+  SnsTopicArn:
+    Value: !Ref SnsTopic
+  SqsStandardQueueUrl:
+    Value: !Ref SqsStandardQueue
+  SqsFifoQueueUrl:
+    Value: !Ref SqsFifoQueue
+  PipeSourceQueueUrl:
+    Value: !Ref PipeSourceQueue
+  DlqHelperName:
+    Value: !Ref HelperThrowsDlq
+  HelperSucceedsName:
+    Value: !Ref HelperSucceeds
+  HelperThrowsName:
+    Value: !Ref HelperThrows
+  KinesisStreamName:
+    Value: !Ref KinesisStream
+  FirehoseStreamName:
+    Value: !Ref FirehoseStream
+  FeederLogGroupName:
+    Value: !Ref FeederLogGroup
+  AlarmName:
+    Value: !Ref CaptureAlarm
+  EventBusName:
+    Value: !Ref EbCustomBus
+  IotTopic:
+    Value: middy/capture
+  RotationSecretArn:
+    Value: !Ref RotationSecret
+  SfnTaskArn:
+    Value: !Ref SfnTaskMachine
+  SfnTokenArn:
+    Value: !Ref SfnTokenMachine
+  PipelineName:
+    Value: !Ref Pipeline
+  S3BatchRoleArn:
+    Value: !GetAtt S3BatchRole.Arn
+  FnS3BatchArn:
+    Value: !GetAtt FnS3Batch.Arn
+  ObjectLambdaAccessPointArn:
+    Value: !GetAtt ObjectLambdaAccessPoint.Arn
+  RestApiUrl:
+    Value: !Sub https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/test
+  RestBinaryUrl:
+    Value: !Sub https://${RestBinaryApi}.execute-api.${AWS::Region}.amazonaws.com/test
+  HttpApiUrl:
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  WsUrl:
+    Value: !Sub wss://${WsApi}.execute-api.${AWS::Region}.amazonaws.com/test
+  FunctionUrlNone:
+    Value: !GetAtt FnUrlNoneUrl.FunctionUrl
+  FunctionUrlIam:
+    Value: !GetAtt FnUrlIamUrl.FunctionUrl
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  AppsyncUrl:
+    Value: !GetAtt AppsyncApi.GraphQLUrl
+  AppsyncApiKey:
+    Value: !GetAtt AppsyncApiKey.ApiKey
+  LexBotId:
+    Value: !Ref LexBot
+  CodeCommitRepoName:
+    Condition: HasCodeCommit
+    Value: !GetAtt CodeCommitRepo.Name
+  ConfigRuleName:
+    Condition: HasConfig
+    Value: !Ref ConfigRule
+  TrailReady:
+    Condition: HasTrail
+    Value: "true"
+  TransferServerId:
+    Condition: HasTransfer
+    Value: !GetAtt TransferServer.ServerId
+  AlbUrl:
+    Condition: HasVpc
+    Value: !Sub http://${Alb.DNSName}
+  LatticeDomain:
+    Condition: HasVpc
+    Value: !GetAtt LatticeService.DnsEntry.DomainName
+  ProxyFunctionName:
+    Condition: HasVpc
+    Value: !Ref FnProxy
+  MskClusterArn:
+    Condition: HasBrokers
+    Value: !Ref MskCluster
+  MskScramSecretArn:
+    Condition: HasBrokers
+    Value: !Ref MskScramSecret
+  ActiveMqBrokerId:
+    Condition: HasBrokers
+    Value: !Ref ActiveMqBroker
+  RabbitMqBrokerId:
+    Condition: HasBrokers
+    Value: !Ref RabbitMqBroker
+  MqUsername:
+    Condition: HasBrokers
+    Value: middy
+  BrokerWriterName:
+    Condition: HasBrokers
+    Value: !Ref FnBrokerWriter
+  KafkaSelfFunctionArn:
+    Condition: HasBrokers
+    Value: !GetAtt FnKafkaSelf.Arn
+  VpcSubnetIds:
+    Condition: HasVpc
+    Value: !Sub ${SubnetA},${SubnetB}
+  VpcSecurityGroupId:
+    Condition: HasVpc
+    Value: !Ref VpcDefaultSg
+  DistributionDomain:
+    Condition: HasEdge
+    Value: !GetAtt Distribution.DomainName
+  BedrockAgentId:
+    Condition: HasBedrock
+    Value: !GetAtt BedrockAgent.AgentId
+  BedrockAgentAliasId:
+    Condition: HasBedrock
+    Value: !GetAtt BedrockAgentAlias.AgentAliasId
+  SesRuleSetName:
+    Condition: HasSes
+    Value: !Ref SesRuleSet
+  SesTestAddress:
+    Condition: HasSes
+    Value: !Sub test@${SesDomain}

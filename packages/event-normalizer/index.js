@@ -1,19 +1,25 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { gunzipSync } from "node:zlib";
-import { jsonSafeParse, validateOptions } from "@middy/util";
+import {
+	jsonParseProtectProto,
+	jsonSafeParse,
+	validateOptions,
+} from "@middy/util";
 
 const name = "event-normalizer";
 const pkg = `@middy/${name}`;
 
 const defaults = {
 	wrapNumbers: undefined,
+	maxDecompressedBytes: 10 * 1024 * 1024, // 10 MiB
 };
 
 const optionSchema = {
 	type: "object",
 	properties: {
 		wrapNumbers: { type: "boolean" },
+		maxDecompressedBytes: { type: "integer", minimum: 1 },
 	},
 	additionalProperties: false,
 };
@@ -34,7 +40,8 @@ const eventNormalizerMiddleware = (opts = {}) => {
 const parseEvent = (event, options) => {
 	// event.eventSource => aws:amq, aws:docdb, aws:kafka, SelfManagedKafka
 	// event.deliveryStreamArn => aws:lambda:events
-	let eventSource = event.eventSource ?? event.deliveryStreamArn;
+	let eventSource =
+		event.eventSource ?? (event.deliveryStreamArn && "aws:lambda:events");
 
 	// event.Records => default
 	// event.records => aws:lambda:events
@@ -56,9 +63,15 @@ const parseEvent = (event, options) => {
 			(event.configRuleId && "aws:config") ??
 			(event.awslogs && "aws:cloudwatch") ??
 			(event["CodePipeline.job"] && "aws:codepipeline");
+		// Stryker disable next-line ConditionalExpression: equivalent. When eventSource is falsy it is undefined/empty-string, and `events` (a null-prototype object of string keys) has no such key, so `events[eventSource]?.()` no-ops whether the branch runs or not.
 		if (eventSource) {
 			events[eventSource]?.(event, options);
 		}
+		return;
+	}
+
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent. records is guaranteed a real array here; with zero records the only code after the early return (records[0]?... resolves undefined, and the per-record loop) performs no work, so skipping the return is observationally identical.
+	if (!records.length) {
 		return;
 	}
 
@@ -66,23 +79,30 @@ const parseEvent = (event, options) => {
 	// record.EventSource => aws:sns
 	// record.s3Key => aws:s3:batch
 	eventSource ??=
-		records[0].eventSource ??
-		records[0].EventSource ??
-		(records[0].s3Key && "aws:s3:batch");
-	for (const record of records) {
-		events[eventSource]?.(record, options);
+		records[0]?.eventSource ??
+		records[0]?.EventSource ??
+		(records[0]?.s3Key && "aws:s3:batch");
+	// Hoist the dispatch fn out of the loop so we look it up once per batch
+	// instead of once per record.
+	const fn = events[eventSource];
+	if (fn) {
+		for (const record of records) {
+			fn(record, options);
+		}
 	}
 };
 
 const normalizeS3KeyReplacePlus = /\+/g;
-const events = {
+const events = Object.assign(Object.create(null), {
 	// MQ (ActiveMQ)
 	"aws:amq": (message) => {
 		message.data = base64Parse(message.data);
 	},
-	"aws:cloudwatch": (event) => {
+	"aws:cloudwatch": (event, options) => {
 		event.awslogs.data = jsonSafeParse(
-			gunzipSync(base64Decode(event.awslogs.data)).toString("utf-8"),
+			gunzipSync(base64Decode(event.awslogs.data), {
+				maxOutputLength: options.maxDecompressedBytes,
+			}).toString("utf-8"),
 		);
 	},
 	"aws:codepipeline": (event) => {
@@ -140,26 +160,50 @@ const events = {
 		events["aws:kafka"](event);
 	},
 	"aws:sns": (record, options) => {
-		record.Sns.Message = jsonSafeParse(record.Sns.Message);
+		record.Sns.Message = jsonParseProtectProto(
+			record.Sns.Message,
+			undefined,
+			pkg,
+		);
 		parseEvent(record.Sns.Message, options);
 	},
 	"aws:sns:sqs": (record, options) => {
-		record.Message = jsonSafeParse(record.Message);
+		record.Message = jsonParseProtectProto(record.Message, undefined, pkg);
 		parseEvent(record.Message, options);
 	},
 	"aws:sqs": (record, options) => {
-		record.body = jsonSafeParse(record.body);
+		record.body = jsonParseProtectProto(record.body, undefined, pkg);
 		// SNS -> SQS Special Case
-		if (record.body.Type === "Notification") {
+		if (record.body?.Type === "Notification") {
 			events["aws:sns:sqs"](record.body, options);
-		} else {
+		} else if (typeof record.body === "object" && record.body !== null) {
 			parseEvent(record.body, options);
 		}
 	},
-};
+});
 const base64Decode = (data) => Buffer.from(data, "base64");
-const base64Parse = (data) =>
-	jsonSafeParse(base64Decode(data).toString("utf-8"));
+// Base64 batch sources (Kinesis, Firehose, Kafka, RabbitMQ, ActiveMQ) can
+// carry non-JSON binary/text payloads, so we keep jsonSafeParse's forgiving
+// contract: only attempt a parse when the decoded text looks like JSON, and
+// fall back to the raw string on a genuine parse failure. We swap the inner
+// parser for jsonParseProtectProto so a JSON payload carrying a forbidden
+// `__proto__` / `constructor.prototype` key is rejected with a 422, matching
+// the sibling parsers (http-json-body-parser, ws-json-body-parser).
+const base64Parse = (data) => {
+	const text = base64Decode(data).toString("utf-8");
+	const firstChar = text[0];
+	if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') {
+		return text;
+	}
+	try {
+		return jsonParseProtectProto(text, undefined, pkg);
+	} catch (err) {
+		if (err.statusCode) {
+			throw err;
+		}
+		return text;
+	}
+};
 const normalizeS3Key = (key) =>
 	decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, " ")); // decodeURIComponent(key.replaceAll('+', ' '))
 
@@ -214,13 +258,15 @@ const convertValue = {
 
 const convertToNative = (data, options) => {
 	for (const key in data) {
-		if (!convertValue[key]) {
+		const fn = convertValue[key];
+		if (!fn) {
 			throw new Error(`Unsupported type passed: ${key}`, {
 				cause: { package: pkg },
 			});
 		}
-		if (typeof data[key] === "undefined") continue;
-		return convertValue[key](data[key], options);
+		const v = data[key];
+		if (typeof v === "undefined") continue;
+		return fn(v, options);
 	}
 };
 // End: AWS SDK unmarshall

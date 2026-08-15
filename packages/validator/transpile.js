@@ -34,6 +34,7 @@ export const transpileFTL = transpile;
 // Inlined from `ajv-cmd/compile` to avoid extra dependency
 
 const instance = (options = {}) => {
+	// Stryker disable next-line ObjectLiteral: compileSchema already reset options.keywords to [] before calling instance(), so emptying this Object.assign produces an identical keywords list and cannot change behaviour.
 	Object.assign(options, { keywords: [] });
 
 	const ajv = new Ajv(options);
@@ -45,6 +46,7 @@ const instance = (options = {}) => {
 };
 
 const compileSchema = (schema, options = {}) => {
+	// Stryker disable next-line ObjectLiteral,ArrayDeclaration: instance() unconditionally re-assigns options.keywords to [] immediately after this line, so any change here (empty assign or stray keyword entry) is overwritten before Ajv sees it.
 	Object.assign(options, { keywords: [] });
 	const ajv = instance(options);
 	return ajv.compile(schema);

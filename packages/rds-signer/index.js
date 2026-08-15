@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { Signer } from "@aws-sdk/rds-signer";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -70,9 +71,16 @@ const rdsSignerMiddleware = (opts = {}) => {
 	};
 	for (const key of Object.keys(options.fetchData)) {
 		options.fetchData[key] = { ...defaultFetchData, ...options.fetchData[key] };
+		if (!options.fetchData[key].hostname) {
+			throw new Error(
+				`fetchData.${key}.hostname is required; set PGHOST, DBHOST, or pass hostname explicitly`,
+				{ cause: { package: pkg } },
+			);
+		}
 	}
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const clients = {};
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
@@ -88,7 +96,9 @@ const rdsSignerMiddleware = (opts = {}) => {
 			values[internalKey] = clients[internalKey]
 				[method]()
 				.then((token) => {
-					// Catch Missing token, this usually means there is something wrong with the credentials
+					// Pre-signed token URLs always include X-Amz-Security-Token when temporary
+					// credentials (IAM role) are used, which is always the case in Lambda.
+					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
 							cause: { package: pkg, method },
@@ -116,9 +126,10 @@ const rdsSignerMiddleware = (opts = {}) => {
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns undefined on the sync path (context already assigned) or a Promise otherwise; `await undefined` is a no-op, so forcing the guard to true changes only an unobservable microtask hop, not behavior.
+			if (pending) await pending;
 		}
 	};
 

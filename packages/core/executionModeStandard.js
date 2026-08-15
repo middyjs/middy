@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
 export const executionModeStandard = (
 	{ middyRequest, runRequest },
 	beforeMiddlewares,
@@ -30,7 +31,8 @@ export const executionModeStandard = (
 			handlerError = err;
 		}
 		try {
-			await plugin.requestEnd(request);
+			const requestEndResult = plugin.requestEnd(request);
+			if (requestEndResult instanceof Promise) await requestEndResult;
 		} catch (hookErr) {
 			if (handlerError) {
 				handlerError.cause ??= hookErr;

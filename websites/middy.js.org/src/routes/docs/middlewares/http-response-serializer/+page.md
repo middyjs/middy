@@ -54,7 +54,6 @@ The header is not the only way the middleware decides which serializer to execut
 
 The content type is determined in the following order:
 
-- `event.requiredContentType` -- allows the handler to override everything else (legacy, will be deprecated in v6)
 - `context.preferredMediaTypes` -- allows the handler to override the default, but lets the request ask first
 - `defaultContentType` middleware configuration
 

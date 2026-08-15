@@ -40,15 +40,36 @@ const validatorMiddleware = (opts = {}) => {
 		languages,
 	} = { ...defaults, ...opts };
 
-	const validatorMiddlewareBefore = async (request) => {
+	// AJV `$async` validators return a promise (and throw on invalid) instead of
+	// a boolean, so the synchronous validation paths below would silently treat
+	// every input as valid. Reject them at setup rather than failing open.
+	for (const [label, schema] of [
+		["eventSchema", eventSchema],
+		["contextSchema", contextSchema],
+		["responseSchema", responseSchema],
+	]) {
+		if (schema?.$async) {
+			throw new Error(
+				`${pkg} ${label} is an $async AJV validator, which is not supported; compile the schema without $async`,
+				{ cause: { package: pkg } },
+			);
+		}
+	}
+
+	const validatorMiddlewareBefore = (request) => {
 		if (eventSchema) {
-			const validEvent = await eventSchema(request.event);
+			// AJV-compiled validators are synchronous (unless `$async`);
+			// dropping `await` skips a per-hook microtask on the warm path.
+			const validEvent = eventSchema(request.event);
 
 			if (!validEvent) {
+				const lang = request.context.preferredLanguage;
 				const localize =
-					languages[request.context.preferredLanguage] ??
+					(Object.hasOwn(languages, lang) ? languages[lang] : undefined) ??
 					languages[defaultLanguage];
-				localize?.(eventSchema.errors);
+				if (typeof localize === "function") {
+					localize(eventSchema.errors);
+				}
 
 				// Bad Request
 				throw createError(400, "Event object failed validation", {
@@ -61,7 +82,7 @@ const validatorMiddleware = (opts = {}) => {
 		}
 
 		if (contextSchema) {
-			const validContext = await contextSchema(request.context);
+			const validContext = contextSchema(request.context);
 
 			if (!validContext) {
 				// Internal Server Error
@@ -75,8 +96,8 @@ const validatorMiddleware = (opts = {}) => {
 		}
 	};
 
-	const validatorMiddlewareAfter = async (request) => {
-		const validResponse = await responseSchema(request.response);
+	const validatorMiddlewareAfter = (request) => {
+		const validResponse = responseSchema(request.response);
 
 		if (!validResponse) {
 			// Internal Server Error

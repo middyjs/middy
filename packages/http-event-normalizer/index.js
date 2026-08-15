@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { validateOptions } from "@middy/util";
+import { resolveHttpEventVersion, validateOptions } from "@middy/util";
 
 const name = "http-event-normalizer";
 const pkg = `@middy/${name}`;
@@ -18,7 +18,7 @@ const httpEventNormalizerMiddleware = () => {
 	const httpEventNormalizerMiddlewareBefore = (request) => {
 		const { event } = request;
 
-		const version = pickVersion(event);
+		const version = resolveHttpEventVersion(event);
 		// VPC Lattice is an http event, however uses a different notation
 		// - query_string_parameters
 		// - is_base64_encoded
@@ -38,11 +38,6 @@ const httpEventNormalizerMiddleware = () => {
 	return {
 		before: httpEventNormalizerMiddlewareBefore,
 	};
-};
-
-const pickVersion = (event) => {
-	// '1.0' is a safer default
-	return event.version ?? (event.method ? "vpc" : "1.0");
 };
 
 export default httpEventNormalizerMiddleware;

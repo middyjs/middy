@@ -1,11 +1,13 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { parse as parseQuery } from "node:querystring";
 import { createError, decodeBody, validateOptions } from "@middy/util";
 
 const name = "http-urlencode-body-parser";
 const pkg = `@middy/${name}`;
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
+// Stryker disable next-line ObjectLiteral: `{}` is equivalent; both flags are only read for truthiness, so explicit `false` and absent (`undefined`) produce identical behavior on every path.
 const defaults = {
 	disableContentTypeCheck: false,
 	disableContentTypeError: false,
@@ -26,7 +28,8 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const httpUrlencodeBodyParserMiddlewareBefore = (request) => {
-		const { headers, body } = request.event;
+		const event = request.event;
+		const { headers, body, isBase64Encoded } = event;
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
@@ -42,28 +45,14 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			});
 		}
 
-		const data = decodeBody(request.event);
-		const parsedBody = Object.create(null);
-		for (const [key, value] of new URLSearchParams(data)) {
-			if (Object.hasOwn(parsedBody, key)) {
-				parsedBody[key] = Array.isArray(parsedBody[key])
-					? [...parsedBody[key], value]
-					: [parsedBody[key], value];
-			} else {
-				parsedBody[key] = value;
-			}
-		}
-
-		// Check if it didn't parse
-		if (parsedBody?.[body] === "") {
-			throw createError(
-				422,
-				"Invalid or malformed URL encoded form was provided",
-				{ cause: { package: pkg, data: body } },
-			);
-		}
-
-		request.event.body = parsedBody;
+		// `querystring.parse` returns a null-prototype object and represents
+		// duplicates as arrays, matching the previous URLSearchParams loop's
+		// semantics in one native call. It is total (never throws) and the
+		// Content-Type check above is the real gate, so there is no reliable
+		// "malformed" signal to detect here. The previous heuristic both
+		// rejected valid single-field forms and admitted non-form input, and
+		// echoed the raw body into the error, so it has been removed.
+		event.body = parseQuery(decodeBody(body, isBase64Encoded));
 	};
 
 	return {

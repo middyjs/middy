@@ -31,6 +31,13 @@ const setupHandler = (options = {}) => {
 
 const coldHandler = setupHandler({ cacheExpiry: 0 });
 const warmHandler = setupHandler();
+const warmFetchHandler = setupHandler({
+	fetchData: { token: "my-secret", apiKey: "my-api-key" },
+});
+const warmSetToContextHandler = setupHandler({
+	fetchData: { token: "my-secret", apiKey: "my-api-key" },
+	setToContext: true,
+});
 
 const defaultEvent = {};
 await bench
@@ -43,6 +50,12 @@ await bench
 		try {
 			await warmHandler(defaultEvent, defaultContext);
 		} catch (_e) {}
+	})
+	.add("warm w/ fetchData (internal only)", async () => {
+		await warmFetchHandler(defaultEvent, defaultContext);
+	})
+	.add("warm w/ fetchData + setToContext", async () => {
+		await warmSetToContextHandler(defaultEvent, defaultContext);
 	})
 
 	.run();

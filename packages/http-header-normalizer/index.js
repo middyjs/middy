@@ -85,15 +85,19 @@ const defaults = {
 	normalizeHeaderKey,
 };
 
+export const NORMALIZED_KEY_CACHE_MAX = 2000;
+
 const httpHeaderNormalizerMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
-	// Cache for normalized header keys to avoid repeated split/map/join
 	const normalizedKeyCache = new Map();
 	const cachedNormalizeKey = (key) => {
 		let normalized = normalizedKeyCache.get(key);
 		if (normalized === undefined) {
 			normalized = options.normalizeHeaderKey(key, options.canonical);
+			if (normalizedKeyCache.size >= NORMALIZED_KEY_CACHE_MAX) {
+				normalizedKeyCache.delete(normalizedKeyCache.keys().next().value);
+			}
 			normalizedKeyCache.set(key, normalized);
 		}
 		return normalized;
@@ -112,13 +116,18 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 			: options.defaultHeaders[key].split(",");
 	}
 
+	// Stryker disable next-line ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultHeaders = Object.keys(defaultHeaders).length > 0;
+	// Stryker disable ConditionalExpression,EqualityOperator: micro-optimization only; forcing true merges an empty defaultMultiValueHeaders object, and Object.assign(Object.create(null), {}) is observably identical to Object.create(null).
 	const hasDefaultMultiValueHeaders =
 		Object.keys(defaultMultiValueHeaders).length > 0;
+	// Stryker restore ConditionalExpression,EqualityOperator
 
 	const httpHeaderNormalizerMiddlewareBefore = (request) => {
 		if (request.event.headers) {
-			const headers = hasDefaultHeaders ? { ...defaultHeaders } : {};
+			const headers = hasDefaultHeaders
+				? Object.assign(Object.create(null), defaultHeaders)
+				: Object.create(null);
 
 			for (const key in request.event.headers) {
 				headers[cachedNormalizeKey(key)] = request.event.headers[key];
@@ -129,8 +138,8 @@ const httpHeaderNormalizerMiddleware = (opts = {}) => {
 
 		if (request.event.multiValueHeaders) {
 			const headers = hasDefaultMultiValueHeaders
-				? { ...defaultMultiValueHeaders }
-				: {};
+				? Object.assign(Object.create(null), defaultMultiValueHeaders)
+				: Object.create(null);
 
 			for (const key in request.event.multiValueHeaders) {
 				headers[cachedNormalizeKey(key)] = request.event.multiValueHeaders[key];

@@ -20,18 +20,36 @@ const warmHandler = setupHandler();
 
 await bench
 	.add(
-		"Parse body",
+		"single key",
 		async (
 			event = {
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-				},
-				body: "a[b][c][d]=i",
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				body: "a=1",
 			},
 		) => {
-			try {
-				await warmHandler(event, defaultContext);
-			} catch (_e) {}
+			await warmHandler(event, defaultContext);
+		},
+	)
+	.add(
+		"10 keys",
+		async (
+			event = {
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				body: "k0=v0&k1=v1&k2=v2&k3=v3&k4=v4&k5=v5&k6=v6&k7=v7&k8=v8&k9=v9",
+			},
+		) => {
+			await warmHandler(event, defaultContext);
+		},
+	)
+	.add(
+		"duplicates",
+		async (
+			event = {
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				body: "tag=a&tag=b&tag=c&user=u",
+			},
+		) => {
+			await warmHandler(event, defaultContext);
 		},
 	)
 

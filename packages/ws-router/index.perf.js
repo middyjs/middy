@@ -26,13 +26,26 @@ const warmHandler = setupHandler();
 
 await bench
 	.add(
-		"short static",
+		"hit $connect",
 		async (event = { requestContext: { routeKey: "$connect" } }) => {
 			try {
 				await warmHandler(event, defaultContext);
 			} catch (_e) {}
 		},
 	)
+	.add(
+		"hit $default",
+		async (event = { requestContext: { routeKey: "$default" } }) => {
+			try {
+				await warmHandler(event, defaultContext);
+			} catch (_e) {}
+		},
+	)
+	.add("miss", async (event = { requestContext: { routeKey: "missing" } }) => {
+		try {
+			await warmHandler(event, defaultContext);
+		} catch (_e) {}
+	})
 
 	.run();
 

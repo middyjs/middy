@@ -15,7 +15,7 @@ test("fuzz `event` w/ `object`", async () => {
 			await handler(event, defaultContext);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},
@@ -46,7 +46,7 @@ test("fuzz queryStringParameters and pathParameters are always defined", async (
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},

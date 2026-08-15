@@ -217,3 +217,18 @@ test("httpEventNormalizerValidateOptions accepts empty options and rejects anyth
 		strictEqual(e.cause.package, "@middy/http-event-normalizer");
 	}
 });
+
+test("httpEventNormalizerValidateOptions validates options as a JSON-Schema object", () => {
+	// The optionSchema is a JSON-Schema-shaped object ({ type: "object", ... }).
+	// A non-object option must be rejected with the schema-form message
+	// "Option '' must be object" rather than the flat-schema fallback
+	// "options must be an object".
+	try {
+		httpEventNormalizerValidateOptions("not-an-object");
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		strictEqual(e.message, "Option '' must be object");
+		strictEqual(e.cause.package, "@middy/http-event-normalizer");
+	}
+});

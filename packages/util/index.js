@@ -1,20 +1,21 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { STATUS_CODES } from "node:http";
 
 // Option validation helper.
 // Schema values:
 //   'string' | 'number' | 'integer' | 'boolean' | 'function' | 'object' | 'array'
 //     Trailing '?' marks the field as optional (may be undefined).
-//   (value) => boolean predicate — only called when value is not undefined
+//   (value) => boolean predicate - only called when value is not undefined
 //     (i.e. predicates treat the field as optional by design).
 //   { type: 'array' | 'array?', items: <itemSchema> }
 //     `items` is applied to each array element. It can be a type string,
 //     a predicate function, or a plain object treated as a per-element
 //     object schema (validated recursively with the same rules).
 //   { type: '<type>' | '<type>?', minimum?, maximum?, exclusiveMinimum?,
-//     exclusiveMaximum?, multipleOf?, minLength?, maxLength?, pattern? }
-//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`/
-//     `exclusiveMaximum` (exclusive), `multipleOf` (number/integer).
+//     minLength?, maxLength?, pattern? }
+//     Numeric: `minimum`/`maximum` (inclusive), `exclusiveMinimum`
+//     (exclusive).
 //     String: `minLength`/`maxLength` (string length), `pattern` (regex
 //     source string per JSON Schema).
 //   { type: 'object' | 'object?', properties?: {...}, additionalProperties?: <rule> }
@@ -67,7 +68,8 @@ const checkTypeSpec = (rawType, value, path, fail) => {
 	const optional = rawType.endsWith("?");
 	const type = optional ? rawType.slice(0, -1) : rawType;
 	const checker = validateOptionsTypeCheckers[type];
-	if (!checker) fail(`Unknown schema type '${type}' for option '${path}'`);
+	if (!checker)
+		schemaFail(`Unknown schema type '${type}' for option '${path}'`);
 	if (value === undefined) {
 		if (!optional) fail(`Missing required option '${path}' (${type})`);
 		return false;
@@ -97,24 +99,36 @@ const checkNestedRule = (rule, value, path, fail) => {
 
 const childPathOf = (path, key) => (path ? `${path}.${key}` : key);
 
+class SchemaError extends Error {}
+const schemaFail = (message) => {
+	throw new SchemaError(message);
+};
+
 // Stable JSON form: recursively sorts object keys, skips function-typed
 // values. Used for `uniqueItems` so items that differ only by handler
 // identity or key ordering collide.
-const stableStringify = (value) => {
+const stableStringify = (value, seen = new WeakSet()) => {
 	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (seen.has(value)) return '"[Circular]"';
+	seen.add(value);
+	let result;
 	if (Array.isArray(value)) {
-		return `[${value.map(stableStringify).join(",")}]`;
+		result = `[${value.map((v) => stableStringify(v, seen)).join(",")}]`;
+	} else {
+		const keys = Object.keys(value)
+			.filter((k) => typeof value[k] !== "function")
+			.sort();
+		// Stryker disable next-line StringLiteral: removing the key/value join "," is equivalent; JSON.stringify quotes every key, so no two distinct objects can ever serialize to the same string with or without the separator (and equal objects stay equal).
+		result = `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k], seen)}`).join(",")}}`;
 	}
-	const keys = Object.keys(value)
-		.filter((k) => typeof value[k] !== "function")
-		.sort();
-	return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+	seen.delete(value);
+	return result;
 };
 
 const resolveInstance = (name) => {
 	const ctor = globalThis[name];
 	if (typeof ctor !== "function") {
-		throw new Error(`Unknown 'instanceof' class '${name}'`);
+		schemaFail(`Unknown 'instanceof' class '${name}'`);
 	}
 	return ctor;
 };
@@ -153,7 +167,9 @@ const checkRule = (rule, value, path, fail) => {
 					throw new TypeError(msg);
 				});
 				matches++;
-			} catch {}
+			} catch (e) {
+				if (e instanceof SchemaError) throw e;
+			}
 		}
 		if (matches !== 1) {
 			fail(`Option '${path}' must match exactly one schema in oneOf`);
@@ -190,39 +206,35 @@ const checkRule = (rule, value, path, fail) => {
 			minimum,
 			maximum,
 			exclusiveMinimum,
-			exclusiveMaximum,
-			multipleOf,
 			pattern,
 			minLength,
 			maxLength,
 		} = rule;
 		if (!checkTypeSpec(rawType, value, path, fail)) return;
 		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
-		if (minimum !== undefined && value < minimum) {
+		if (value < minimum) {
 			fail(`Option '${path}' must be >= ${minimum}`);
 		}
-		if (maximum !== undefined && value > maximum) {
+		if (value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
-		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
+		if (value <= exclusiveMinimum) {
 			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
 		}
-		if (exclusiveMaximum !== undefined && value >= exclusiveMaximum) {
-			fail(`Option '${path}' must be < ${exclusiveMaximum}`);
+		const hasStringConstraint =
+			pattern !== undefined ||
+			minLength !== undefined ||
+			maxLength !== undefined;
+		if (hasStringConstraint && typeof value !== "string") {
+			fail(`Option '${path}' must be string`);
 		}
-		if (multipleOf !== undefined) {
-			const quotient = value / multipleOf;
-			if (!Number.isFinite(quotient) || Math.floor(quotient) !== quotient) {
-				fail(`Option '${path}' must be a multiple of ${multipleOf}`);
-			}
-		}
-		if (pattern !== undefined && !new RegExp(pattern).test(value)) {
+		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
-		if (minLength !== undefined && value.length < minLength) {
+		if (value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
 		}
-		if (maxLength !== undefined && value.length > maxLength) {
+		if (value.length > maxLength) {
 			fail(`Option '${path}' must have length <= ${maxLength}`);
 		}
 		if (type === "array" && items !== undefined) {
@@ -276,7 +288,7 @@ const checkRule = (rule, value, path, fail) => {
 		}
 		return;
 	}
-	fail(`Invalid schema for option '${path}'`);
+	schemaFail(`Invalid schema for option '${path}'`);
 };
 
 const isJsonSchemaForm = (schema) =>
@@ -290,10 +302,21 @@ export const validateOptions = (packageName, schema, options = {}) => {
 	const fail = (message) => {
 		throw new TypeError(message, { cause: { package: packageName } });
 	};
-	if (isJsonSchemaForm(schema)) {
-		checkRule(schema, options, "", fail);
-	} else {
-		checkSchemaObject(schema, options, "", fail);
+	try {
+		if (isJsonSchemaForm(schema)) {
+			checkRule(schema, options, "", fail);
+		} else {
+			checkSchemaObject(schema, options, "", fail);
+		}
+	} catch (e) {
+		// Re-wrap an internal malformed-schema `SchemaError` so callers still see
+		// the documented `TypeError` + `cause.package`; mismatch errors already
+		// carry that shape and pass through untouched.
+		// Stryker disable next-line ConditionalExpression: forcing this true is equivalent; the only non-SchemaError reaching here is a `fail()` TypeError that already carries cause.package, so re-wrapping it via `fail(e.message)` produces an identical message + cause.
+		if (e instanceof SchemaError) {
+			fail(e.message);
+		}
+		throw e;
 	}
 	return options;
 };
@@ -341,7 +364,11 @@ export const createClient = async (options, request) => {
 };
 
 export const canPrefetch = (options = {}) => {
-	return !options.awsClientAssumeRole && !options.disablePrefetch;
+	return (
+		!options.awsClientAssumeRole &&
+		!options.disablePrefetch &&
+		options.cacheExpiry !== 0
+	);
 };
 
 const safeGet = (obj, key) =>
@@ -349,8 +376,9 @@ const safeGet = (obj, key) =>
 
 // Internal Context
 export const getInternal = async (variables, request) => {
-	if (!variables || !request) return Object.create(null);
+	if (!variables || !request?.internal) return Object.create(null);
 	let keys = [];
+	// Stryker disable next-line ArrayDeclaration: equivalent; this initial value is only observable when no branch below matches (variables is a truthy non-true/string/array/object), and in that case `keys` stays [] so the output is always {} regardless of `values`.
 	let values = [];
 	if (variables === true) {
 		keys = values = Object.keys(request.internal);
@@ -363,8 +391,13 @@ export const getInternal = async (variables, request) => {
 		values = Object.values(variables);
 	}
 	// Fast synchronous path: when all internal values are already resolved
-	// (warm/cached invocations), skip all Promise machinery entirely
+	// (warm/cached invocations), skip all Promise machinery entirely.
+	// The async fallback below produces byte-for-byte identical output, so the
+	// following sync-path mutants are equivalent: they only ever route execution
+	// to the async path (or vice versa), never change the resolved result.
+	// Stryker disable next-line BooleanLiteral: equivalent; starting allSync=false just forces the async path, which yields the same result.
 	let allSync = true;
+	// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
 	const syncResults = new Array(values.length);
 	for (let i = 0; i < values.length; i++) {
 		const internalKey = values[i];
@@ -372,6 +405,7 @@ export const getInternal = async (variables, request) => {
 		const rootKey =
 			dotIndex === -1 ? internalKey : internalKey.substring(0, dotIndex);
 		let value = request.internal[rootKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; forcing the async path for every value yields the same result.
 		if (isPromise(value)) {
 			allSync = false;
 			break;
@@ -383,6 +417,7 @@ export const getInternal = async (variables, request) => {
 		}
 		syncResults[i] = value;
 	}
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent; skipping the sync fast-path defers to the async fallback, which returns the same object.
 	if (allSync) {
 		const obj = Object.create(null);
 		for (let i = 0; i < keys.length; i++) {
@@ -398,6 +433,7 @@ export const getInternal = async (variables, request) => {
 		const pathOptionKey = internalKey.split(".");
 		const rootOptionKey = pathOptionKey.shift();
 		let valuePromise = request.internal[rootOptionKey];
+		// Stryker disable next-line ConditionalExpression: equivalent; Promise.resolve(p) returns p unchanged when p is already a promise, so always wrapping yields the same value.
 		if (!isPromise(valuePromise)) {
 			valuePromise = Promise.resolve(valuePromise);
 		}
@@ -430,10 +466,73 @@ const isPromise = (promise) => typeof promise?.then === "function";
 
 const sanitizeKeyPrefixLeadingNumber = /^([0-9])/;
 const sanitizeKeyRemoveDisallowedChar = /[^a-zA-Z0-9]+/g;
+const sanitizeKeyCache = new Map();
+const sanitizeKeyCacheMaxSize = 1024;
 export const sanitizeKey = (key) => {
-	return key
-		.replace(sanitizeKeyPrefixLeadingNumber, "_$1")
-		.replace(sanitizeKeyRemoveDisallowedChar, "_");
+	let sanitized = sanitizeKeyCache.get(key);
+	if (sanitized === undefined) {
+		sanitized = key
+			.replace(sanitizeKeyPrefixLeadingNumber, "_$1")
+			.replace(sanitizeKeyRemoveDisallowedChar, "_");
+		// Stryker disable next-line ConditionalExpression,EqualityOperator: the always-cache and cap-boundary variants are equivalent - storing past (or one entry beyond) the cap only changes whether a deterministic value is later recomputed, never the returned value, and killing them would require a test coupled to the exact global fill state of the memo. (The never-cache variants are killed by the replace-spy memo test.)
+		if (sanitizeKeyCache.size < sanitizeKeyCacheMaxSize) {
+			sanitizeKeyCache.set(key, sanitized);
+		}
+	}
+	return sanitized;
+};
+
+// Resolve the API Gateway / VPC Lattice event "version" used by the HTTP
+// router and event normalizer to dispatch event-shape handling:
+//   - explicit `event.version` ("1.0" | "2.0") wins
+//   - otherwise a VPC Lattice event (identified by `event.method`) -> "vpc"
+//   - else default to "1.0" (the safer default)
+export const resolveHttpEventVersion = (event) => {
+	// '1.0' is a safer default
+	return event.version ?? (event.method ? "vpc" : "1.0");
+};
+
+// setToContext fast-path
+//
+// Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
+// same pattern: after `processCache` resolves `value`, when `setToContext`
+// is set they re-`await getInternal(fetchDataKeys, request)` solely to copy
+// the same values to `request.context` under sanitized key names. On warm
+// invocations every entry in `value` is already resolved, so the extra
+// await + per-key regex + null-prototype-object allocation in `getInternal`
+// is dead work.
+//
+// `buildSetToContextSpec(options)` is called once at factory time and
+// returns either `null` (when `setToContext` is false) or the precomputed
+// `[[originalKey, sanitizedKey], …]` pairs.
+//
+// `assignSetToContext(spec, value, request)` is called once per invocation.
+// Returns `undefined` synchronously when all entries are resolved (the
+// common warm path), or a Promise when at least one is still pending. The
+// caller should `if (p) await p` so the sync path keeps zero microtask hops.
+export const buildSetToContextSpec = (options) =>
+	options.setToContext
+		? Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)])
+		: null;
+
+export const assignSetToContext = (spec, value, request) => {
+	for (let i = 0; i < spec.length; i++) {
+		const v = value[spec[i][0]];
+		if (typeof v?.then === "function") {
+			// Cold path: at least one value still pending; defer to
+			// `getInternal` for the standard await+sanitize+assign flow.
+			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
+			const keys = new Array(spec.length);
+			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
+			return getInternal(keys, request).then((data) => {
+				Object.assign(request.context, data);
+			});
+		}
+	}
+	const ctx = request.context;
+	for (let i = 0; i < spec.length; i++) {
+		ctx[spec[i][1]] = value[spec[i][0]];
+	}
 };
 
 // fetch Cache
@@ -444,17 +543,43 @@ const cache = new Map();
 const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
-	if (
-		typeof cacheExpiry === "number" &&
-		cacheExpiry < -1 &&
-		!Number.isNaN(cacheExpiry)
-	) {
+	if (cacheExpiry == null) return;
+	if (!Number.isInteger(cacheExpiry) || cacheExpiry < -1) {
 		throw new Error(
-			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive number (ms duration or unix timestamp)`,
+			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive integer (ms duration or unix timestamp)`,
 			{ cause: { package: pkg } },
 		);
 	}
 };
+
+// Attach a no-op rejection handler to any promise(s) a fetch returns. A prefetch
+// (warm-up) result is stored but not awaited until a later invocation, so without
+// this an early rejection would surface as an unhandledRejection. The original
+// promise is left in place, so the eventual `await` still observes the error.
+const silenceFetchRejections = (value) => {
+	if (value instanceof Promise) {
+		value.catch(() => {});
+	} else if (value !== null && typeof value === "object") {
+		for (const key of Object.keys(value)) {
+			if (value[key] instanceof Promise) value[key].catch(() => {});
+		}
+	}
+};
+
+// Module-scope so the warm cache-hit path allocates no closure; only the
+// scheduling paths (modified entry, miss) create the timer callback.
+const scheduleRefresh = (
+	duration,
+	options,
+	middlewareFetch,
+	middlewareFetchRequest,
+) =>
+	duration > 0 && Number.isFinite(duration)
+		? setTimeout(
+				() => processCache(options, middlewareFetch, middlewareFetchRequest),
+				duration,
+			).unref()
+		: undefined;
 
 export const processCache = (
 	options,
@@ -468,13 +593,24 @@ export const processCache = (
 	const now = Date.now();
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
-		const unexpired = cached.expiry && (cacheExpiry < 0 || cached.expiry > now);
+		const effectiveExpiry =
+			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
+		const unexpired =
+			// Stryker disable next-line ConditionalExpression,EqualityOperator: the `cacheExpiry < 0` branch is equivalent. cacheExpiry === 0 is unreachable (guarded by `if (cacheExpiry)`), and for the only negative value -1 the stored expiry is Infinity so `effectiveExpiry > now` is already always true. (-1 -> 0 boundary cannot be observed.)
+			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
 
 		if (unexpired) {
 			if (cached.modified) {
 				const value = middlewareFetch(middlewareFetchRequest, cached.value);
+				silenceFetchRejections(value);
 				Object.assign(cached.value, value);
-				const entry = { value: cached.value, expiry: cached.expiry };
+				const refresh = scheduleRefresh(
+					cached.expiry - now,
+					options,
+					middlewareFetch,
+					middlewareFetchRequest,
+				);
+				const entry = { value: cached.value, expiry: cached.expiry, refresh };
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -483,25 +619,28 @@ export const processCache = (
 		}
 	}
 	const value = middlewareFetch(middlewareFetchRequest);
+	silenceFetchRejections(value);
 	// cacheExpiry semantics:
 	//   >86400000 (24h): treated as unix timestamp (ms)
 	//   >0 && <=86400000: treated as duration (ms) from now
 	//   -1: infinite cache (never expires)
 	//   0/undefined/null: no caching
-	const expiry = cacheExpiry > 86400000 ? cacheExpiry : now + cacheExpiry;
+	const expiry =
+		cacheExpiry < 0
+			? Number.POSITIVE_INFINITY
+			: cacheExpiry > 86400000
+				? cacheExpiry
+				: now + cacheExpiry;
+	// Stryker disable next-line EqualityOperator: the `> 86400000` -> `>= 86400000` change is equivalent for the refresh duration. It only differs at cacheExpiry === 86400000, where it shifts the auto-refresh timer by `now` ms; the refresh callback re-validates the (separately-set) expiry, so the same number of fetches occur and no observable difference results.
 	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
 		clearTimeout(cache.get(cacheKey)?.refresh);
-		// .unref() so a pending refresh timer does not keep the Lambda event
-		// loop alive (relevant under `callbackWaitsForEmptyEventLoop: false`).
-		const refresh =
-			duration > 0
-				? setTimeout(
-						() =>
-							processCache(options, middlewareFetch, middlewareFetchRequest),
-						duration,
-					).unref()
-				: undefined;
+		const refresh = scheduleRefresh(
+			duration,
+			options,
+			middlewareFetch,
+			middlewareFetchRequest,
+		);
 		cache.set(cacheKey, { value, expiry, refresh });
 		evictCache(cacheMaxSize);
 	}
@@ -531,14 +670,16 @@ export const modifyCache = (cacheKey, value) => {
 const evictCache = (maxSize) => {
 	if (cache.size <= maxSize) return;
 	let oldestKey = null;
-	let oldestExpiry = Infinity;
+	let oldestExpiry;
 	for (const [key, entry] of cache) {
-		if (entry && entry.expiry < oldestExpiry) {
+		if (entry && (oldestKey === null || entry.expiry < oldestExpiry)) {
 			oldestExpiry = entry.expiry;
 			oldestKey = key;
 		}
 	}
+	// Stryker disable next-line ConditionalExpression: equivalent; evictCache only runs when cache.size > maxSize (>0) and every cache entry is a truthy object, so the loop always sets oldestKey to a real key. Forcing this guard true would at worst delete the null key, a harmless no-op.
 	if (oldestKey !== null) {
+		// Stryker disable next-line OptionalChaining: equivalent; oldestKey was just read from the live cache in the loop above, so cache.get(oldestKey) is always defined and the optional chain never short-circuits.
 		clearTimeout(cache.get(oldestKey)?.refresh);
 		cache.delete(oldestKey);
 	}
@@ -573,24 +714,11 @@ export const lambdaContextKeys = [
 
 export const executionContextKeys = ["tenantId"];
 
+const durableContextBrand = Symbol.for(
+	"@aws/durable-execution-sdk-js/durable-context",
+);
 export const isExecutionModeDurable = (context) => {
-	// using `context instanceof DurableContextImpl` would be better
-	// but would require an extra dependency
-	return context.constructor.name === "DurableContextImpl";
-};
-
-export const executionContext = (request, key, context) => {
-	if (isExecutionModeDurable(context)) {
-		return request.context.executionContext[key];
-	}
-	return request.context[key];
-};
-
-export const lambdaContext = (request, key, context) => {
-	if (isExecutionModeDurable(context)) {
-		return request.context.lambdaContext[key];
-	}
-	return request.context[key];
+	return context?.[durableContextBrand] === true;
 };
 
 export const jsonSafeParse = (text, reviver) => {
@@ -604,20 +732,44 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
-export const jsonSafeStringify = (value, replacer, space) => {
-	try {
-		return JSON.stringify(value, replacer, space);
-	} catch {
-		return value;
-	}
+export const jsonParseProtectProto = (text, reviver, packageName) => {
+	return JSON.parse(text, (key, value) => {
+		if (
+			key === "__proto__" ||
+			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
+		) {
+			throw createError(422, "Forbidden key in JSON body", {
+				cause: { package: packageName, data: key },
+			});
+		}
+		return reviver ? reviver(key, value) : value;
+	});
+};
+
+// Cheap structural-JSON heuristic: returns true if `text` starts with `{`
+// or `[`, indicating a JSON object/array body. Use as a Content-Type
+// guard where:
+//   - `{...}` / `[...]`  → `application/json`
+//   - everything else    → `text/plain`
+// Deliberately excludes leading `"`: a JSON string `"hi"` parses to a JS
+// string, which callers consistently treat as `text/plain`. Avoids running
+// a full JSON.parse just to inspect the result's type.
+export const isJsonStructured = (text) => {
+	if (typeof text !== "string") return false;
+	const c = text.charCodeAt(0);
+	return c === 123 || c === 91; // 123='{' 91='['
 };
 
 export const jsonContentTypePattern =
 	/^application\/([a-z0-9.+-]+\+)?json(;|$)/i;
 
-export const decodeBody = (event) => {
-	const { body, isBase64Encoded } = event;
-	if (typeof body === "undefined" || body === null) return body;
+// Decode a request body, transparently handling base64-encoded payloads.
+// Takes `body` and `isBase64Encoded` directly so callers (which already
+// destructure them from `request.event`) don't pay for a second destructure
+// inside this helper. Returns `body` unchanged when it's nullish so callers
+// can decide whether absence is an error.
+export const decodeBody = (body, isBase64Encoded) => {
+	if (body == null) return body;
 	return isBase64Encoded ? Buffer.from(body, "base64").toString() : body;
 };
 
@@ -647,10 +799,10 @@ export class HttpError extends Error {
 			options = message;
 			message = undefined;
 		}
-		message ??= httpErrorCodes[code];
+		message ??= STATUS_CODES[code];
 		super(message, options);
 
-		const name = (httpErrorCodes[code] ?? "Unknown").replace(
+		const name = (STATUS_CODES[code] ?? "Unknown").replace(
 			createErrorRegexp,
 			"",
 		);
@@ -663,71 +815,4 @@ export class HttpError extends Error {
 
 export const createError = (code, message, properties = {}) => {
 	return new HttpError(code, message, properties);
-};
-
-export const httpErrorCodes = {
-	100: "Continue",
-	101: "Switching Protocols",
-	102: "Processing",
-	103: "Early Hints",
-	200: "OK",
-	201: "Created",
-	202: "Accepted",
-	203: "Non-Authoritative Information",
-	204: "No Content",
-	205: "Reset Content",
-	206: "Partial Content",
-	207: "Multi-Status",
-	208: "Already Reported",
-	226: "IM Used",
-	300: "Multiple Choices",
-	301: "Moved Permanently",
-	302: "Found",
-	303: "See Other",
-	304: "Not Modified",
-	305: "Use Proxy",
-	306: "(Unused)",
-	307: "Temporary Redirect",
-	308: "Permanent Redirect",
-	400: "Bad Request",
-	401: "Unauthorized",
-	402: "Payment Required",
-	403: "Forbidden",
-	404: "Not Found",
-	405: "Method Not Allowed",
-	406: "Not Acceptable",
-	407: "Proxy Authentication Required",
-	408: "Request Timeout",
-	409: "Conflict",
-	410: "Gone",
-	411: "Length Required",
-	412: "Precondition Failed",
-	413: "Payload Too Large",
-	414: "URI Too Long",
-	415: "Unsupported Media Type",
-	416: "Range Not Satisfiable",
-	417: "Expectation Failed",
-	418: "I'm a teapot",
-	421: "Misdirected Request",
-	422: "Unprocessable Entity",
-	423: "Locked",
-	424: "Failed Dependency",
-	425: "Unordered Collection",
-	426: "Upgrade Required",
-	428: "Precondition Required",
-	429: "Too Many Requests",
-	431: "Request Header Fields Too Large",
-	451: "Unavailable For Legal Reasons",
-	500: "Internal Server Error",
-	501: "Not Implemented",
-	502: "Bad Gateway",
-	503: "Service Unavailable",
-	504: "Gateway Timeout",
-	505: "HTTP Version Not Supported",
-	506: "Variant Also Negotiates",
-	507: "Insufficient Storage",
-	508: "Loop Detected",
-	509: "Bandwidth Limit Exceeded",
-	510: "Not Extended",
-	511: "Network Authentication Required",
 };

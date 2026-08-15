@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -72,15 +73,27 @@ const optionSchema = {
 export const stsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+const cloneFetchData = (fetchData) => {
+	try {
+		return structuredClone(fetchData);
+	} catch (e) {
+		throw new Error(
+			`Invalid \`fetchData\` option: value is not cloneable (${e.message})`,
+			{ cause: { package: pkg } },
+		);
+	}
+};
+
 const stsMiddleware = (opts = {}) => {
 	const options = {
 		...defaults,
 		...opts,
-		fetchData: structuredClone({ ...defaults.fetchData, ...opts.fetchData }),
+		fetchData: cloneFetchData({ ...defaults.fetchData, ...opts.fetchData }),
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
-	const fetch = (request, cachedValues = {}) => {
+	const contextSpec = buildSetToContextSpec(options);
+	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 
 		for (const internalKey of fetchDataKeys) {
@@ -112,7 +125,7 @@ const stsMiddleware = (opts = {}) => {
 	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
-		processCache(options, fetch);
+		processCache(options, fetchRequest);
 	}
 
 	const stsMiddlewareBefore = async (request) => {
@@ -121,13 +134,14 @@ const stsMiddleware = (opts = {}) => {
 			client = await clientInit;
 		}
 
-		const { value } = processCache(options, fetch, request);
+		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns a Promise (cold path) or undefined (sync warm path); `await undefined` is a no-op, so forcing the guard to `true` is observationally identical.
+			if (pending) await pending;
 		}
 	};
 

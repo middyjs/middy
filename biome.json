@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -15,7 +15,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"complexity": {
 				"noBannedTypes": "off"
 			},
@@ -59,6 +59,33 @@
 			"css": {
 				"linter": {
 					"enabled": false
+				}
+			},
+			"linter": {
+				"rules": {
+					"a11y": {
+						"useSemanticElements": "warn"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.svg"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noSvgWithoutTitle": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["**/*.test.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noProto": "off"
+					}
 				}
 			}
 		}

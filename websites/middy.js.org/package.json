@@ -2,34 +2,37 @@
 	"name": "middy.js.org",
 	"description": "SvelteKit SSR",
 	"private": true,
-	"version": "7.4.0",
+	"version": "7.7.4",
 	"type": "module",
 	"scripts": {
+		"prestart": "node src/scripts/build-docs-mtimes.mjs",
 		"start": "vite dev",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
-		"build": "npm run build:svelte && npm run build:svg && npm run build:styles:extract && npm run build:styles:optimize",
+		"prepare": "node src/scripts/build-docs-mtimes.mjs && (svelte-kit sync || echo '')",
+		"prebuild": "node src/scripts/build-docs-mtimes.mjs",
+		"build": "npm run build:svelte && npm run build:workers && npm run build:svg && npm run build:styles:extract && npm run build:styles:optimize",
 		"build:svelte": "vite build",
 		"build:svg": "npx svgo --multipass --recursive ./.svelte-kit/ -o ./.svelte-kit/",
 		"build:styles:extract": "ds extract --input-dir ./.svelte-kit --theme ./src/styles/theme.css --output-dir src/styles/",
 		"build:styles:optimize": "ds optimize-styles ./.svelte-kit",
+		"build:workers": "cp -R .svelte-kit/output/server/_/immutable/workers .svelte-kit/cloudflare/_/immutable/workers",
 		"release:login": "wrangler login --browser false",
 		"release:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H 'Authorization: Bearer ${API_KEY_W_PAGES_EDIT}' -d '{\"name\": \"middy.js.org\"}'",
 		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
-		"@plausible-analytics/tracker": "0.4.4",
-		"@willfarrell-ds/svelte": "0.0.0-alpha.6",
-		"@willfarrell-ds/vanilla": "0.0.0-alpha.6",
+		"@plausible-analytics/tracker": "0.4.6",
+		"@willfarrell-ds/svelte": "0.0.0-alpha.8",
+		"@willfarrell-ds/vanilla": "0.0.0-alpha.8",
 		"hast-util-to-string": "3.0.1",
 		"mdast-util-to-string": "4.0.0",
-		"uuid": "14.0.0"
+		"uuid": "14.0.1"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.0.0",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@willfarrell-ds/cli": "0.0.0-alpha.6",
+		"@willfarrell-ds/cli": "0.0.0-alpha.8",
 		"esbuild": "^0.28.0",
 		"mdsvex": "^0.12.0",
 		"svelte": "^5.0.0",
@@ -38,10 +41,5 @@
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",
 		"wrangler": "^4.0.0"
-	},
-	"overrides": {
-		"@sveltejs/kit": {
-			"cookie": "0.7.2"
-		}
 	}
 }

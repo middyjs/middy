@@ -6,12 +6,13 @@ import {
 	SSMClient,
 } from "@aws-sdk/client-ssm";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonSafeParse,
 	modifyCache,
 	processCache,
@@ -68,6 +69,7 @@ const ssmMiddleware = (opts = {}) => {
 
 	const fetchDataKeys = Object.keys(options.fetchData);
 	const fetchDataValues = Object.values(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues) => {
 		const single = fetchSingleRequest(request, cachedValues);
 		const path = fetchByPathRequest(request, cachedValues);
@@ -110,6 +112,7 @@ const ssmMiddleware = (opts = {}) => {
 				.then((resp) => {
 					// Don't sanitize key, mapped to set value in options
 					const result = {};
+					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a bogus fetchKey whose indexOf is -1, so it only writes result[bogus]=Promise.reject and value[undefined]=undefined; neither is ever read back (only requested keys are resolved), so it is indistinguishable from the empty fallback.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
 						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
 						const value = getCache(options.cacheKey).value ?? {};
@@ -121,6 +124,7 @@ const ssmMiddleware = (opts = {}) => {
 							}),
 						);
 					}
+					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a string element whose .Name and .Value are undefined, so parseValue yields undefined and only result["undefined"]=undefined is added, which is indistinguishable from the key being absent.
 					for (const param of resp.Parameters ?? []) {
 						result[param.Name] = parseValue(param);
 					}
@@ -141,7 +145,7 @@ const ssmMiddleware = (opts = {}) => {
 						const matchingParamName = Object.keys(params).find((key) =>
 							fetchKey.endsWith(`:parameter${key}`),
 						);
-						return params[matchingParamName];
+						return params[matchingParamName] ?? params[fetchKey];
 					}
 
 					return params[options.fetchData[internalKey]];
@@ -215,9 +219,10 @@ const ssmMiddleware = (opts = {}) => {
 
 		Object.assign(request.internal, value);
 
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns a Promise or undefined; awaiting undefined (forced true) is a no-op with no observable difference.
+			if (pending) await pending;
 		}
 	};
 

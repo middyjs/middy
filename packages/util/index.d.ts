@@ -133,6 +133,12 @@ declare function jsonSafeParse(
 	reviver?: (key: string, value: unknown) => unknown,
 ): unknown;
 
+declare function jsonParseProtectProto(
+	text: string,
+	reviver?: (key: string, value: unknown) => unknown,
+	packageName?: string,
+): unknown;
+
 declare function normalizeHttpResponse(
 	request: middy.Request,
 	fallbackResponse?: Record<string, unknown>,
@@ -152,38 +158,20 @@ declare function catchInvalidSignatureException<Client, Command>(
 	command: Command,
 ): Promise<unknown>;
 
-declare function jsonSafeStringify(
-	value: unknown,
-	replacer?: (key: string, value: unknown) => unknown,
-	space?: string | number,
-): string | unknown;
+declare function isJsonStructured(text: unknown): boolean;
 
 declare const jsonContentTypePattern: RegExp;
 
-declare function decodeBody(event: {
-	body?: string | null;
-	isBase64Encoded?: boolean;
-}): string | null | undefined;
+declare function decodeBody(
+	body: string | null | undefined,
+	isBase64Encoded?: boolean,
+): string | null | undefined;
 
 declare const lambdaContextKeys: string[];
 
 declare const executionContextKeys: string[];
 
 declare function isExecutionModeDurable(context: LambdaContext): boolean;
-
-declare function executionContext(
-	request: middy.Request,
-	key: string,
-	context: LambdaContext,
-): unknown;
-
-declare function lambdaContext(
-	request: middy.Request,
-	key: string,
-	context: LambdaContext,
-): unknown;
-
-declare const httpErrorCodes: Record<number, string>;
 
 export type JsonSchemaType =
 	| "string"
@@ -207,8 +195,6 @@ export type NumberRule = {
 	minimum?: number;
 	maximum?: number;
 	exclusiveMinimum?: number;
-	exclusiveMaximum?: number;
-	multipleOf?: number;
 	enum?: readonly number[];
 	examples?: readonly number[];
 };

@@ -16,9 +16,6 @@ import P from "@design-system/elements/p.svelte";
 import Section from "@design-system/elements/section.svelte";
 import Span from "@design-system/elements/span.svelte";
 import Ul from "@design-system/elements/ul.svelte";
-import { page } from "$app/state";
-
-const { data } = page;
 
 const codeWithoutMiddy = `export const handler = (event, context) => {
   // BOILERPLATE!
@@ -54,8 +51,9 @@ export const handler = middy(lambdaHandler)
 
 <Seo
     title="Middy.js"
-    description="The stylish Node.js middleware engine for AWS Lambda"
+    description="The stylish Node.js middleware engine for AWS Lambda. Compose reusable middlewares for parsing, validation, auth, observability, and AWS service integration. 38 official packages, TypeScript-first, ESM."
     schemaType="WebSite"
+    includeSoftwareApplication
 />
 <LayoutSlices>
     <Section class="slice hero vertical">
@@ -75,7 +73,7 @@ export const handler = middy(lambdaHandler)
                 >Organise your Lambda code, remove code duplication, focus on
                 business logic. Simple, fast, and extensible.</P
             >
-            <Div role="group">
+            <Div>
                 <P>
                     <A href="/docs" class="button"
                         ><Span>Get started</Span>
@@ -95,7 +93,7 @@ export const handler = middy(lambdaHandler)
                 <Li class="stat">
                     <H3
                         ><Icon src="/img/icons.svg#download" />
-                        <Span>2M+</Span></H3
+                        <Span>3M+</Span></H3
                     >
                     <P>Monthly downloads</P>
                 </Li>

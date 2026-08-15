@@ -6,6 +6,7 @@ const name = "cloudformation-router";
 const pkg = `@middy/${name}`;
 
 const defaults = {
+	// Stryker disable next-line ArrayDeclaration: a stray default route is destructured to {requestType:undefined,handler:undefined} and keyed under `undefined`, which is unreachable since the runtime guard restricts requestType to Create/Update/Delete; no observable behavior changes.
 	routes: [],
 	notFoundResponse: ({ requestType }) => {
 		const err = new Error("Route does not exist", {
@@ -19,6 +20,7 @@ const defaults = {
 };
 
 const requestTypes = ["Create", "Update", "Delete"];
+const requestTypesSet = new Set(requestTypes);
 
 const optionSchema = {
 	type: "object",
@@ -63,7 +65,7 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 		const { RequestType: requestType } = event;
 		// Schema `enum` only validates route config at setup; this guard
 		// validates the incoming AWS event shape at invocation time.
-		if (!requestType || !requestTypes.includes(requestType)) {
+		if (!requestType || !requestTypesSet.has(requestType)) {
 			throw new Error(
 				`Unknown CloudFormation Custom Resource event format: 'RequestType' must be one of Create, Update, Delete. Received: ${requestType ?? "undefined"}`,
 				{
@@ -75,9 +77,11 @@ const cloudformationCustomResourceRouteHandler = (opts = {}) => {
 			);
 		}
 
-		// Static
-		if (Object.hasOwn(routesStatic, requestType)) {
-			const handler = routesStatic[requestType];
+		// Static. `routesStatic` is `Object.create(null)` and `requestType` is
+		// guarded above to one of {Create,Update,Delete}, so a single read +
+		// `=== undefined` check is safe (no prototype chain walk).
+		const handler = routesStatic[requestType];
+		if (handler !== undefined) {
 			return handler(event, context, abort);
 		}
 

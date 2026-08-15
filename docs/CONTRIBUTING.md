@@ -13,12 +13,21 @@ Ensure git history is pulled from the `develop` branch.
 
 ## 2. Setup
 
+Enable Corepack so the npm version pinned in `package.json` (`packageManager`) is used automatically:
+
 ```bash
-npm i -g nmq
+corepack enable
+```
+
+```bash
+npm i -g npq
 npm i -g lockfile-lint
 brew install semgrep
 brew install trivy
 brew install trufflehog
+brew install gitleaks
+brew install actionlint
+brew install zizmor
 echo $GITHUB_PAT | docker login ghcr.io -u $USERNAME
 docker pull ghcr.io/oss-review-toolkit/ort
 ```
@@ -43,9 +52,9 @@ We use `biome` with recommended configurations plus a few correctness additions.
 
 We use `node --test` with a minimum test coverage of:
 
-- lines: >=90%
-- branches: >=80%
-- functions: >=90%
+- lines: 100%
+- branches: 100%
+- functions: 100%
 
 Of course higher is always better. Bug fixes should always start with a failing unit test.
 New features should have acceptance and rejection tests.
@@ -56,7 +65,7 @@ We use `CodeQL` & `semgrep` to ensure code is written in a secure way.
 
 #### SCA
 
-We use `DependaBot` & `Trivy` to ensure dependancies as free of known vulnerabilities.
+We use `DependaBot` & `Trivy` to ensure dependencies as free of known vulnerabilities.
 
 ### DAST
 
@@ -79,7 +88,11 @@ Ensure git commits meet the following FLOSS Best Practices:
 
 ## 6. Pull Request (PR)
 
-Submit a PR to the `develop` branch. Keep PR in draft mode until all automated tests are successful. Once ready, at least 2 maintainers will review the PR and request changes if necessary. Reviewers will be evaluating for secure design principles.
+Submit a PR to the `develop` branch. Keep PR in draft mode until all automated tests are successful. A maintainer from [@middyjs/owners](https://github.com/orgs/middyjs/teams/owners) or [@middyjs/reviewers](https://github.com/orgs/middyjs/teams/reviewers) will review for secure design principles before merge.
+
+`develop` is an integration branch: its ruleset enforces signed commits, no force-push, and no deletion. PR review on `develop` is policy, not currently ruleset-enforced.
+
+The release boundary is `main`. The subsequent `develop → main` release PR (opened by `release-please`) is fully gated by the [main ruleset](../.github/rulesets/main.json): 2 approving reviews + CODEOWNERS review + all 18 required status checks + signed commits + CodeQL/zizmor code-scanning gates. Nothing reaches npm without passing that gate.
 
 ## 7. Release
 

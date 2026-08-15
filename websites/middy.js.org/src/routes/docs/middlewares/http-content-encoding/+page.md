@@ -1,9 +1,9 @@
 ---
 title: http-content-encoding
-description: "Compress HTTP response bodies with Brotli, gzip, or deflate encoding using Middy."
+description: "Compress HTTP response bodies with Brotli, gzip, deflate, or zstd encoding using Middy."
 ---
 
-This middleware take the `preferredEncoding` output from `@middy/http-content-negotiation` and applies the encoding to `response.body` when a string.
+This middleware take the `preferredEncoding` output from `@middy/http-content-negotiation` and applies the encoding to `response.body` when it is a string, a Buffer, or a stream.
 
 ## Install
 
@@ -18,6 +18,7 @@ npm install --save @middy/http-content-encoding
 - `br` (object) (default `{}`): `zlib.createBrotliCompress` [brotliOptions](https://nodejs.org/api/zlib.html#zlib_class_brotlioptions)
 - `gzip` (object) (default `{}`): `zlib.createGzip` [gzipOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
 - `deflate` (object) (default `{}`): `zlib.createDeflate` [deflateOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
+- `zstd` (object) (default `{}`): `zlib.createZstdCompress` [zstdOptions](https://nodejs.org/api/zlib.html#zlib_class_options)
 - `overridePreferredEncoding` (array[string]) (optional): Override the preferred encoding order, most browsers prefer `gzip` over `br`, even though `br` has higher compression. Default: `[]`
 
 NOTES:

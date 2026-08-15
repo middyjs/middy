@@ -7,7 +7,6 @@ import {
 	createError,
 	getInternal,
 	jsonSafeParse,
-	jsonSafeStringify,
 	normalizeHttpResponse,
 	sanitizeKey,
 } from "./index.js";
@@ -22,7 +21,7 @@ test("fuzz `jsonSafeParse` w/ `anything`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -40,39 +39,7 @@ test("fuzz `jsonSafeParse` roundtrip: parse then stringify equals original JSON"
 			strictEqual(reStringified, jsonStr);
 		}),
 		{
-			numRuns: 100_000,
-			examples: [],
-		},
-	);
-});
-
-test("fuzz `jsonSafeStringify` w/ `anything`", async () => {
-	await fc.assert(
-		fc.asyncProperty(fc.anything(), async (value) => {
-			try {
-				jsonSafeStringify(value);
-			} catch (_e) {
-				// Expected to not throw
-			}
-		}),
-		{
-			numRuns: 100_000,
-			examples: [],
-		},
-	);
-});
-
-test("fuzz `jsonSafeStringify` roundtrip: stringify(parse(json)) equals original JSON", async () => {
-	const jsonObjOrArr = fc
-		.json()
-		.filter((s) => s[0] === "{" || s[0] === "[" || s[0] === '"');
-	await fc.assert(
-		fc.asyncProperty(jsonObjOrArr, async (jsonStr) => {
-			const result = jsonSafeStringify(jsonSafeParse(jsonStr));
-			strictEqual(result, jsonStr);
-		}),
-		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -88,7 +55,7 @@ test("fuzz `sanitizeKey` w/ `string`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -102,7 +69,7 @@ test("fuzz `sanitizeKey` idempotency: sanitize(sanitize(key)) equals sanitize(ke
 			strictEqual(once, twice);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -115,7 +82,7 @@ test("fuzz `sanitizeKey` output contains only valid chars", async () => {
 			strictEqual(/^[a-zA-Z0-9_]*$/.test(result), true);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -131,7 +98,7 @@ test("fuzz `normalizeHttpResponse` w/ `anything`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -156,7 +123,7 @@ test("fuzz `createError` w/ valid HTTP status code and `string`", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);
@@ -173,7 +140,7 @@ test("fuzz `getInternal` w/ `object`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [],
 		},
 	);

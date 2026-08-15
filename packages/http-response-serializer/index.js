@@ -10,6 +10,10 @@ const defaults = {
 	defaultContentType: undefined,
 };
 
+const maxMediaTypeLength = 128;
+
+const mediaTypeGrammar = /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -53,15 +57,21 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 		];
 
 		outerLoop: for (const type of types) {
+			if (typeof type === "string" && type.length > maxMediaTypeLength) {
+				continue;
+			}
+
 			for (const s of serializers) {
 				s.regex.lastIndex = 0;
 				if (!s.regex.test(type)) {
 					continue;
 				}
 
-				request.response.headers["Content-Type"] = type;
+				if (typeof type === "string" && mediaTypeGrammar.test(type)) {
+					request.response.headers["Content-Type"] = type;
+				}
 				const result = s.serializer(request.response);
-				if (typeof result === "object" && "body" in result) {
+				if (result !== null && typeof result === "object" && "body" in result) {
 					request.response = result;
 				} else {
 					// otherwise only replace the body attribute

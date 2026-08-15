@@ -3,7 +3,7 @@ title: dynamodb
 description: "Fetch and cache DynamoDB configuration values in your Lambda with Middy."
 ---
 
-Fetches DynamoDB stored configuration and parses out JSON.
+Fetches DynamoDB stored configuration and unmarshalls the returned DynamoDB AttributeValues into native JavaScript values.
 
 ## Install
 
@@ -28,7 +28,7 @@ npm install --save-dev @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
 
 NOTES:
 
-- Lambda is required to have IAM permission for `dynamodb:BatchGetItemCommand`
+- Lambda is required to have IAM permission for `dynamodb:GetItem`
 
 ## Sample usage
 

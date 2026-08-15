@@ -15,21 +15,43 @@ const setupHandler = () => {
 	const baseHandler = () => true;
 	return middy(
 		router([
-			{
-				requestType: "Create",
-				handler: baseHandler,
-			},
+			{ requestType: "Create", handler: baseHandler },
+			{ requestType: "Update", handler: baseHandler },
+			{ requestType: "Delete", handler: baseHandler },
 		]),
 	);
 };
+const setupSingleHandler = () => {
+	const baseHandler = () => true;
+	return middy(router([{ requestType: "Create", handler: baseHandler }]));
+};
 
-const coldHandler = setupHandler();
+const allHandler = setupHandler();
+const singleHandler = setupSingleHandler();
 
-const defaultEvent = {};
+const eventCreate = { RequestType: "Create" };
+const eventUpdate = { RequestType: "Update" };
+const eventDelete = { RequestType: "Delete" };
+const eventInvalid = {};
+
 await bench
-	.add("without cache", async () => {
+	.add("invalid event (throw)", async () => {
 		try {
-			await coldHandler(defaultEvent, defaultContext);
+			await allHandler(eventInvalid, defaultContext);
+		} catch (_e) {}
+	})
+	.add("hit: Create (3 routes)", async () => {
+		await allHandler(eventCreate, defaultContext);
+	})
+	.add("hit: Update (3 routes)", async () => {
+		await allHandler(eventUpdate, defaultContext);
+	})
+	.add("hit: Delete (3 routes)", async () => {
+		await allHandler(eventDelete, defaultContext);
+	})
+	.add("miss → notFoundResponse", async () => {
+		try {
+			await singleHandler(eventUpdate, defaultContext);
 		} catch (_e) {}
 	})
 

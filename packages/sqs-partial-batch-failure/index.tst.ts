@@ -28,3 +28,18 @@ test("Options interface", () => {
 	};
 	expect(optionsWithLogger).type.toBeAssignableTo<Options>();
 });
+
+test("Options logger is optional", () => {
+	const noLogger: Options = {};
+	expect(noLogger).type.toBeAssignableTo<Options>();
+});
+
+test("Options logger receives two unknown arguments", () => {
+	const options: Options = {
+		logger: (reason, record) => {
+			expect(reason).type.toBe<unknown>();
+			expect(record).type.toBe<unknown>();
+		},
+	};
+	expect(options).type.toBeAssignableTo<Options>();
+});

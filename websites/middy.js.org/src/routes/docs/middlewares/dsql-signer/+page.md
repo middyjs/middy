@@ -1,6 +1,7 @@
 ---
 title: dsql-signer
 description: "Generate Aurora DSQL IAM authentication tokens for secure database connections in Lambda."
+status: alpha
 ---
 
 Fetches Aurora DSQL credentials to be used when connecting to a DSQL cluster with IAM roles.
@@ -34,6 +35,45 @@ NOTES:
 
 ## Sample usage
 
+### With @middy/dsql (recommended)
+
+```javascript
+import middy from '@middy/core'
+import dsqlSigner from '@middy/dsql-signer'
+import dsql from '@middy/dsql'
+import clientPgPool from '@middy/dsql/clientPgPool'
+
+export const handler = middy()
+  .use(
+    dsqlSigner({
+      fetchData: {
+        dsqlToken: {
+          hostname: 'cluster-id.dsql.us-east-1.on.aws',
+          username: 'admin',
+        },
+      },
+      cacheExpiry: 14 * 60 * 1000,
+    }),
+  )
+  .use(
+    dsql({
+      client: clientPgPool,
+      config: {
+        host: 'cluster-id.dsql.us-east-1.on.aws',
+        username: 'admin',
+        database: 'postgres',
+      },
+      internalKey: 'dsqlToken',
+    }),
+  )
+  .handler(async (event, context) => {
+    const { rows } = await context.dsql.query('SELECT 1')
+    return { statusCode: 200, body: JSON.stringify({ rows }) }
+  })
+```
+
+### Manual (advanced)
+
 ```javascript
 import middy from '@middy/core'
 import dsqlSigner from '@middy/dsql-signer'
@@ -49,18 +89,13 @@ const lambdaHandler = async (event, context) => {
     database: 'postgres',
     user: 'admin',
     password: dsqlToken,
-    ssl: true
+    ssl: true,
   })
   await client.connect()
-
   const { rows } = await client.query('SELECT 1')
   await client.end()
 
-  return {
-    statusCode: 200,
-    headers: {},
-    body: JSON.stringify({ rows })
-  }
+  return { statusCode: 200, body: JSON.stringify({ rows }) }
 }
 
 export const handler = middy()
@@ -69,10 +104,10 @@ export const handler = middy()
       fetchData: {
         dsqlToken: {
           hostname: 'cluster-id.dsql.us-east-1.on.aws',
-          username: 'admin'
-        }
-      }
-    })
+          username: 'admin',
+        },
+      },
+    }),
   )
   .handler(lambdaHandler)
 ```

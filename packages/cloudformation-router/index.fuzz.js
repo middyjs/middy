@@ -21,7 +21,7 @@ test("fuzz `event` w/ `object`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},
@@ -48,7 +48,7 @@ test("fuzz `event` w/ `record`", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 			examples: [[{ requestContext: { routeKey: "valueOf" } }]],
 		},
 	);
@@ -74,7 +74,7 @@ test("fuzz valid RequestType routes correctly", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},

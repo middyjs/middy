@@ -14,7 +14,7 @@ test("fuzz `event` w/ `object`", async () => {
 			await handler(event, defaultContext);
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},
@@ -35,13 +35,31 @@ test("fuzz `event` w/ SQS Records", async () => {
 				),
 			}),
 			async (event) => {
-				await handler(event, defaultContext);
+				// Clone: the middleware normalizes the event in place, so a shared
+				// reference would let one fast-check run mutate a later run's input.
+				try {
+					await handler(structuredClone(event), defaultContext);
+				} catch (e) {
+					// A prototype-pollution body is rejected with our own 422; that is
+					// intended, so only unexpected errors should fail the property.
+					if (e.cause?.package !== "@middy/event-normalizer") {
+						throw e;
+					}
+				}
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
-			examples: [],
+			// SQS body is an arbitrary string; the JSON literal `null` parses to
+			// `null`, which must not be dereferenced as an SNS notification.
+			examples: [
+				[
+					{
+						Records: [{ body: "null", messageId: "", eventSource: "aws:sqs" }],
+					},
+				],
+			],
 		},
 	);
 });

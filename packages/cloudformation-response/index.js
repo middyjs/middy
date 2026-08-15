@@ -29,7 +29,7 @@ const cloudformationCustomResourceMiddleware = () => {
 	const cloudformationCustomResourceMiddlewareOnError = (request) => {
 		const response = {
 			Status: "FAILED",
-			Reason: request.error.message,
+			Reason: request.error?.message ?? String(request.error),
 		};
 		request.response = response;
 		cloudformationCustomResourceMiddlewareAfter(request);

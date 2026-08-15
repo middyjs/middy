@@ -33,6 +33,25 @@ const setupHandler = () => {
 
 const warmHandler = setupHandler();
 
+// Larger router with many dynamic routes at varied depths — exercises the
+// segment-count short-circuit. Worst case is the last-registered route.
+const setupBigHandler = () => {
+	const h = () => {};
+	const routes = [];
+	for (let i = 0; i < 20; i++) {
+		routes.push({ method: "GET", path: `/a${i}/{x}`, handler: h }); // 2 slashes
+		routes.push({ method: "GET", path: `/b${i}/{x}/{y}`, handler: h }); // 3
+		routes.push({
+			method: "GET",
+			path: `/c${i}/{x}/{y}/{z}`,
+			handler: h,
+		}); // 4
+	}
+	routes.push({ method: "GET", path: "/target/{id}/last", handler: h }); // 3
+	return middy(router(routes));
+};
+const warmBigHandler = setupBigHandler();
+
 await bench
 	.add(
 		"short static",
@@ -118,6 +137,45 @@ await bench
 		) => {
 			try {
 				await warmHandler(event, defaultContext);
+			} catch (_e) {}
+		},
+	)
+	.add(
+		"vpc static no query",
+		async (event = { method: "GET", raw_path: "/user" }) => {
+			try {
+				await warmHandler(event, defaultContext);
+			} catch (_e) {}
+		},
+	)
+	.add(
+		"vpc static with query",
+		async (event = { method: "GET", raw_path: "/user?foo=bar&baz=qux" }) => {
+			try {
+				await warmHandler(event, defaultContext);
+			} catch (_e) {}
+		},
+	)
+	.add(
+		"vpc dynamic no query",
+		async (
+			event = { method: "GET", raw_path: "/user/lookup/username/john" },
+		) => {
+			try {
+				await warmHandler(event, defaultContext);
+			} catch (_e) {}
+		},
+	)
+	.add(
+		"big router: last-registered dynamic (3 segs)",
+		async (
+			event = {
+				version: "2.0",
+				requestContext: { http: { method: "GET", path: "/target/42/last" } },
+			},
+		) => {
+			try {
+				await warmBigHandler(event, defaultContext);
 			} catch (_e) {}
 		},
 	)

@@ -1,3 +1,5 @@
+import mtimes from "./docs-mtimes.json" with { type: "json" };
+
 const modules = import.meta.glob("/src/routes/docs/**/+page.md", {
 	query: "?raw",
 	import: "default",
@@ -44,13 +46,19 @@ export function getDocsRoutes() {
 	const routes = [];
 	for (const [key, content] of Object.entries(modules)) {
 		const meta = parseFrontmatter(content);
+		const href = fileToHref(key);
 		routes.push({
-			href: fileToHref(key),
+			href,
 			title: meta.title ?? "Untitled",
 			description: meta.description ?? "",
 			position: meta.position ? Number(meta.position) : undefined,
+			lastUpdated: mtimes[href] ?? undefined,
 		});
 	}
 	routes.sort((a, b) => a.href.localeCompare(b.href));
 	return routes;
+}
+
+export function getLastUpdated(href) {
+	return mtimes[href] ?? undefined;
 }

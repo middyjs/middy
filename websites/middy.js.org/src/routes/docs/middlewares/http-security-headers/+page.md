@@ -15,13 +15,13 @@ npm install --save @middy/http-security-headers
 
 ## Features
 - `dnsPrefetchControl` controls browser DNS prefetching
-- `frameguard` to prevent clickjacking
-- `hidePoweredBy` to remove the Server/X-Powered-By header
-- `hsts` for HTTP Strict Transport Security
-- `ieNoOpen` sets X-Download-Options for IE8+
-- `noSniff` to keep clients from sniffing the MIME type
+- `frameOptions` to prevent clickjacking
+- `poweredBy` to remove the Server/X-Powered-By header
+- `strictTransportSecurity` for HTTP Strict Transport Security
+- `downloadOptions` sets X-Download-Options for IE8+
+- `contentTypeOptions` to keep clients from sniffing the MIME type
 - `referrerPolicy` to hide the Referer header
-- `xssFilter` adds some small XSS protections
+- `xssProtection` sets `X-XSS-Protection: 0` to disable the legacy browser XSS filter
 
 ## Options
 

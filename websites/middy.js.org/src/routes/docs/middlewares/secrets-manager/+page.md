@@ -121,3 +121,14 @@ export const handler = middy()
   })
   .handler(lambdaHandler)
 ```
+
+## Pairs well with
+
+- [`@middy/sts`](/docs/middlewares/sts) - assume a role in a different account before fetching the secret (`awsClientAssumeRole`).
+- [`@middy/http-jwt`](/docs/middlewares/http-jwt) - source the JWT verification key from a Secrets Manager secret.
+- [Secrets rotation recipe](/docs/recipes/secrets-rotation) - force-refresh the cache on auth failure.
+
+## See also
+
+- [`@middy/secrets-manager-extension`](/docs/middlewares/secrets-manager-extension) - same surface, fetched via the Lambda Parameters & Secrets Extension layer instead of the SDK.
+- [Internal context](/docs/best-practices/internal-context) - how `internalKey` and `getInternal` work.

@@ -5,7 +5,6 @@ import H1 from "@design-system/components/Heading1.svelte";
 import H2 from "@design-system/components/Heading2.svelte";
 import LayoutCenter from "@design-system/components/LayoutCenter.svelte";
 import A from "@design-system/elements/a.svelte";
-import Li from "@design-system/elements/li.svelte";
 import P from "@design-system/elements/p.svelte";
 import Section from "@design-system/elements/section.svelte";
 import Span from "@design-system/elements/span.svelte";

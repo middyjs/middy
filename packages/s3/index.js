@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	jsonContentTypePattern,
 	jsonSafeParse,
 	modifyCache,
@@ -52,7 +53,7 @@ const optionSchema = {
 					ResponseContentType: { type: "string" },
 					VersionId: { type: "string" },
 					RequestPayer: { type: "string", enum: ["requester"] },
-					PartNumber: { type: "integer", minimum: 1 },
+					PartNumber: { type: "integer", minimum: 1, maximum: 10000 },
 					ChecksumMode: { type: "string", enum: ["ENABLED"] },
 				},
 				additionalProperties: true,
@@ -78,6 +79,7 @@ const s3Middleware = (opts = {}) => {
 		...opts,
 	};
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	const fetchRequest = (request, cachedValues = {}) => {
 		const values = {};
 		for (const internalKey of fetchDataKeys) {
@@ -87,6 +89,7 @@ const s3Middleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
+					if (!resp.Body) throw new Error("S3 GetObject response missing Body");
 					let value = await resp.Body.transformToString();
 					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);
@@ -115,9 +118,10 @@ const s3Middleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only undefined or a Promise; `if (true) await undefined` is a no-op, so forcing the condition true produces no observable behavior change.
+			if (pending) await pending;
 		}
 	};
 	return {

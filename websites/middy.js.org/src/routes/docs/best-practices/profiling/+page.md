@@ -58,7 +58,7 @@ const timePlugin = (opts = {}) => {
 }
 
 export const handler = middy(timePlugin())
-  .use(eventLogger())
+  .use(inputOutputLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
   .use(httpHeaderNormalizer())
@@ -155,7 +155,7 @@ const memoryPlugin = (opts = {}) => {
 }
 
 export const handler = middy(memoryPlugin())
-  .use(eventLogger())
+  .use(inputOutputLogger())
   .use(errorLogger())
   .use(httpEventNormalizer())
   .use(httpHeaderNormalizer())

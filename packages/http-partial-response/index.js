@@ -14,6 +14,9 @@ const defaults = {
 	filteringKeyName: "fields",
 };
 
+const maxFieldsLength = 2048;
+const maxFieldsDepth = 100;
+
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -33,15 +36,28 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		const fields = request.event?.queryStringParameters?.[filteringKeyName];
 		if (!fields) return;
 
-		normalizeHttpResponse(request);
-		const body = request.response.body;
+		// Reject abusive selectors before they reach json-mask.
+		if (fields.length > maxFieldsLength) return;
+		let depth = 0;
+		for (const char of fields) {
+			if (char === "/" || char === "(") depth += 1;
+		}
+		if (depth > maxFieldsDepth) return;
+
+		const body = request.response?.body;
 		const bodyIsString = typeof body === "string";
 
 		const parsedBody = jsonSafeParse(body);
 		if (!parsedBody || typeof parsedBody !== "object") return;
 
-		const filteredBody = mask(parsedBody, fields);
+		let filteredBody;
+		try {
+			filteredBody = mask(parsedBody, fields);
+		} catch {
+			return;
+		}
 
+		normalizeHttpResponse(request);
 		request.response.body = bodyIsString
 			? JSON.stringify(filteredBody)
 			: filteredBody;

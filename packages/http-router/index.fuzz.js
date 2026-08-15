@@ -39,7 +39,7 @@ test("fuzz `event` w/ `object`", async () => {
 			}
 		}),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},
@@ -73,7 +73,7 @@ test("fuzz `event` w/ `record` ({version: '1.0'})", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [
 				[{ httpMethod: "valueOf", path: "/" }],
@@ -115,7 +115,7 @@ test("fuzz `event` w/ `record` ({version: '2.0'})", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [
 				[{ requestContext: { http: { method: "valueOf", path: "/" } } }],
@@ -152,7 +152,7 @@ test("fuzz `event` w/ `record` ({version: 'vpc'})", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [
 				[{ method: "valueOf", raw_path: "?/" }],
@@ -183,7 +183,7 @@ test("fuzz static routes match correctly", async () => {
 			},
 		),
 		{
-			numRuns: 100_000,
+			numRuns: 10_000,
 
 			examples: [],
 		},

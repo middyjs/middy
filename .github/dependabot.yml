@@ -5,15 +5,18 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 14
     groups:
       everything:
         patterns:
           - "*"
   - package-ecosystem: npm
+    target-branch: develop
     directory: "/"
     ignore:
       - dependency-name: "@types/node" # Needs to be oldest LTS version
     schedule:
       interval: "weekly"
-      cooldown:
-          default-days: 15
+    cooldown:
+      default-days: 14

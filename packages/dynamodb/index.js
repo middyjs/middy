@@ -3,12 +3,13 @@
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
+	assignSetToContext,
+	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
 	getCache,
-	getInternal,
 	modifyCache,
 	processCache,
 	validateOptions,
@@ -85,6 +86,7 @@ const dynamodbMiddleware = (opts = {}) => {
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
+	const contextSpec = buildSetToContextSpec(options);
 	// force marshall of Key during cold start
 	for (const internalKey of fetchDataKeys) {
 		options.fetchData[internalKey].Key = marshall(
@@ -101,7 +103,7 @@ const dynamodbMiddleware = (opts = {}) => {
 			values[internalKey] = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
-				.then((resp) => unmarshall(resp.Item))
+				.then((resp) => (resp.Item ? unmarshall(resp.Item) : undefined))
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
 					value[internalKey] = undefined;
@@ -125,9 +127,10 @@ const dynamodbMiddleware = (opts = {}) => {
 		}
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-		if (options.setToContext) {
-			const data = await getInternal(fetchDataKeys, request);
-			Object.assign(request.context, data);
+		if (contextSpec) {
+			const pending = assignSetToContext(contextSpec, value, request);
+			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns either undefined (sync path) or a Promise; `await undefined` is a no-op, so guarding with `if (pending)` vs always awaiting is observationally identical.
+			if (pending) await pending;
 		}
 	};
 	return {
