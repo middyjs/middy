@@ -414,6 +414,10 @@ export const getInternal = async (variables, request) => {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
 				value = safeGet(value, part);
 			}
+			if (isPromise(value)) {
+				allSync = false;
+				break;
+			}
 		}
 		syncResults[i] = value;
 	}

@@ -160,19 +160,15 @@ const events = Object.assign(Object.create(null), {
 		events["aws:kafka"](event);
 	},
 	"aws:sns": (record, options) => {
-		record.Sns.Message = jsonParseProtectProto(
-			record.Sns.Message,
-			undefined,
-			pkg,
-		);
+		record.Sns.Message = protectedTextParse(record.Sns.Message);
 		parseEvent(record.Sns.Message, options);
 	},
 	"aws:sns:sqs": (record, options) => {
-		record.Message = jsonParseProtectProto(record.Message, undefined, pkg);
+		record.Message = protectedTextParse(record.Message);
 		parseEvent(record.Message, options);
 	},
 	"aws:sqs": (record, options) => {
-		record.body = jsonParseProtectProto(record.body, undefined, pkg);
+		record.body = protectedTextParse(record.body);
 		// SNS -> SQS Special Case
 		if (record.body?.Type === "Notification") {
 			events["aws:sns:sqs"](record.body, options);
@@ -182,15 +178,8 @@ const events = Object.assign(Object.create(null), {
 	},
 });
 const base64Decode = (data) => Buffer.from(data, "base64");
-// Base64 batch sources (Kinesis, Firehose, Kafka, RabbitMQ, ActiveMQ) can
-// carry non-JSON binary/text payloads, so we keep jsonSafeParse's forgiving
-// contract: only attempt a parse when the decoded text looks like JSON, and
-// fall back to the raw string on a genuine parse failure. We swap the inner
-// parser for jsonParseProtectProto so a JSON payload carrying a forbidden
-// `__proto__` / `constructor.prototype` key is rejected with a 422, matching
-// the sibling parsers (http-json-body-parser, ws-json-body-parser).
-const base64Parse = (data) => {
-	const text = base64Decode(data).toString("utf-8");
+const protectedTextParse = (text) => {
+	if (typeof text !== "string") return text;
 	const firstChar = text[0];
 	if (firstChar !== "{" && firstChar !== "[" && firstChar !== '"') {
 		return text;
@@ -204,6 +193,8 @@ const base64Parse = (data) => {
 		return text;
 	}
 };
+const base64Parse = (data) =>
+	protectedTextParse(base64Decode(data).toString("utf-8"));
 const normalizeS3Key = (key) =>
 	decodeURIComponent(key.replace(normalizeS3KeyReplacePlus, " ")); // decodeURIComponent(key.replaceAll('+', ' '))
 

@@ -39,6 +39,7 @@ export const executionModeStreamifyResponse = (
 
 			// See executionModeStandard for the .cause-chaining rationale.
 			let handlerError;
+			let hasError = false;
 			try {
 				if (typeof handlerBody === "string") {
 					await writeString(responseStream, handlerBody);
@@ -54,18 +55,21 @@ export const executionModeStreamifyResponse = (
 				}
 			} catch (err) {
 				handlerError = err;
+				hasError = true;
 			}
 			try {
 				const requestEndResult = plugin.requestEnd(request);
 				if (requestEndResult instanceof Promise) await requestEndResult;
 			} catch (hookErr) {
-				if (handlerError) {
-					handlerError.cause ??= hookErr;
+				if (hasError) {
+					if (typeof handlerError === "object" && handlerError !== null) {
+						handlerError.cause ??= hookErr;
+					}
 				} else {
 					throw hookErr;
 				}
 			}
-			if (handlerError) throw handlerError;
+			if (hasError) throw handlerError;
 		},
 	);
 

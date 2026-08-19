@@ -42,7 +42,6 @@ const validatorMiddleware = (opts = {}) => {
 
 	// AJV `$async` validators return a promise (and throw on invalid) instead of
 	// a boolean, so the synchronous validation paths below would silently treat
-	// every input as valid. Reject them at setup rather than failing open.
 	for (const [label, schema] of [
 		["eventSchema", eventSchema],
 		["contextSchema", contextSchema],
@@ -54,13 +53,29 @@ const validatorMiddleware = (opts = {}) => {
 				{ cause: { package: pkg } },
 			);
 		}
+		if (schema?.constructor?.name === "AsyncFunction") {
+			throw new Error(
+				`${pkg} ${label} is an async function; validators must return a boolean synchronously`,
+				{ cause: { package: pkg } },
+			);
+		}
 	}
+
+	const assertSyncResult = (label, valid) => {
+		if (typeof valid?.then === "function") {
+			throw new Error(
+				`${pkg} ${label} returned a promise; validators must return a boolean synchronously`,
+				{ cause: { package: pkg } },
+			);
+		}
+	};
 
 	const validatorMiddlewareBefore = (request) => {
 		if (eventSchema) {
 			// AJV-compiled validators are synchronous (unless `$async`);
 			// dropping `await` skips a per-hook microtask on the warm path.
 			const validEvent = eventSchema(request.event);
+			assertSyncResult("eventSchema", validEvent);
 
 			if (!validEvent) {
 				const lang = request.context.preferredLanguage;
@@ -83,6 +98,7 @@ const validatorMiddleware = (opts = {}) => {
 
 		if (contextSchema) {
 			const validContext = contextSchema(request.context);
+			assertSyncResult("contextSchema", validContext);
 
 			if (!validContext) {
 				// Internal Server Error
@@ -98,6 +114,7 @@ const validatorMiddleware = (opts = {}) => {
 
 	const validatorMiddlewareAfter = (request) => {
 		const validResponse = responseSchema(request.response);
+		assertSyncResult("responseSchema", validResponse);
 
 		if (!validResponse) {
 			// Internal Server Error

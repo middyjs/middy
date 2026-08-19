@@ -1038,3 +1038,45 @@ test("transpileSchema resets keywords so user keywords do not conflict with plug
 		keywords: [{ keyword: "typeof", validate: () => true }],
 	});
 });
+
+test("It should reject a hand-written async validator at setup rather than failing open", () => {
+	// `async () => false` returns a promise (truthy), so the synchronous
+	// validation path would treat every input as valid.
+	try {
+		validator({ eventSchema: async () => false });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("async"));
+		ok(e.message.includes("eventSchema"));
+	}
+});
+
+test("It should reject a hand-written async responseSchema validator", () => {
+	try {
+		validator({ responseSchema: async () => false });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("responseSchema"));
+	}
+});
+
+test("It should throw when a validator returns a promise at runtime", async (t) => {
+	// A transpiled async fn (or any promise-returning sync fn) has no
+	// AsyncFunction constructor and no $async flag; it must fail closed at
+	// runtime, not validate nothing.
+	const promiseValidator = () => Promise.resolve(false);
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: promiseValidator }),
+	);
+	let thrown = false;
+	try {
+		await handler({ hello: "world" }, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.cause.package, "@middy/validator");
+		ok(e.message.includes("promise"));
+	}
+	ok(thrown, "expected promise-returning validator to fail closed");
+});

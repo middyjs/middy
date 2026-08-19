@@ -101,14 +101,12 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 		const middlewares = Array.isArray(inputMiddleware)
 			? inputMiddleware
 			: [inputMiddleware];
+		const befores = [];
+		const afters = [];
+		const onErrors = [];
 		for (const middleware of middlewares) {
 			const { before, after, onError } = middleware;
-
-			if (before || after || onError) {
-				if (before) middy.before(before);
-				if (after) middy.after(after);
-				if (onError) middy.onError(onError);
-			} else {
+			if (!before && !after && !onError) {
 				throw new Error(
 					'Middleware must be an object containing at least one key among "before", "after", "onError"',
 					{
@@ -116,7 +114,13 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 					},
 				);
 			}
+			if (before) befores.push(before);
+			if (after) afters.push(after);
+			if (onError) onErrors.push(onError);
 		}
+		beforeMiddlewares.push(...befores);
+		afterMiddlewares.unshift(...afters.reverse());
+		onErrorMiddlewares.unshift(...onErrors.reverse());
 		return middy;
 	};
 
@@ -249,8 +253,8 @@ const runRequest = async (
 			clearTimeout(timeoutID);
 		}
 
-		// Reset response changes made by after stack before error thrown
 		request.response = undefined;
+		delete request.earlyResponse;
 		request.error = err;
 		try {
 			for (let i = 0, len = onErrorMiddlewares.length; i < len; i++) {
@@ -271,8 +275,10 @@ const runRequest = async (
 			// Save error that wasn't handled. When an onError middleware rethrows
 			// `request.error`, err === request.error; attaching it to itself would
 			// create self-references that loop cause-walking serializers, so only
-			// attach when the thrown error is distinct.
-			if (err !== request.error) {
+			// attach when the thrown error is distinct. Thrown primitives can't
+			// carry properties (assignment throws in strict mode), so only attach
+			// to objects; a primitive still propagates as-is below.
+			if (err !== request.error && typeof err === "object" && err !== null) {
 				err.originalError = request.error; // TODO remove in v8, use cause
 				err.cause ??= request.error;
 			}
