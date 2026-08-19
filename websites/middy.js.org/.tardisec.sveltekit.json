@@ -20,6 +20,7 @@
 				"style-src": ["self", "report-sample", "'report-sha256'"],
 				"style-src-attr": ["report-sample", "'report-sha256'"],
 				"style-src-elem": ["self", "report-sample", "'report-sha256'"],
+				"trusted-types": ["'none'"],
 				"upgrade-insecure-requests": true,
 				"worker-src": ["self"]
 			},
