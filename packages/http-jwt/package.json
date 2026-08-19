@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-jwt",
-	"version": "7.7.4",
+	"version": "7.8.0",
 	"description": "HTTP JWT authentication middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,7 +64,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.7.4"
+		"@middy/util": "7.8.0"
 	},
 	"peerDependencies": {
 		"jose": "^6.0.0"
@@ -75,9 +75,9 @@
 		}
 	},
 	"devDependencies": {
-		"@middy/core": "7.7.4",
+		"@middy/core": "7.8.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
-		"jose": "6.2.8"
+		"jose": "6.2.9"
 	}
 }
