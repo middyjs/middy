@@ -38,6 +38,23 @@ test("fuzz payment-signature header values never crash", async () => {
 	);
 });
 
+test("fuzz x-payment header values never crash", async () => {
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402(fuzzOptions),
+	);
+
+	await fc.assert(
+		fc.asyncProperty(fc.string(), async (headerValue) => {
+			const response = await handler(
+				{ headers: { "x-payment": headerValue } },
+				defaultContext,
+			);
+			strictEqual(typeof response.statusCode, "number");
+		}),
+		{ numRuns: 10_000, examples: [] },
+	);
+});
+
 test("fuzz arbitrary event objects never crash", async () => {
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
 		httpX402(fuzzOptions),

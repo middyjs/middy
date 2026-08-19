@@ -41,6 +41,21 @@ const warmHandler = setupHandler();
 const paymentHeader = Buffer.from(
 	JSON.stringify({
 		x402Version: 2,
+		accepted: {
+			scheme: "exact",
+			network: "eip155:8453",
+			amount: "1000",
+			asset: "0xasset",
+			payTo: "0xpayto",
+			maxTimeoutSeconds: 60,
+		},
+		payload: { signature: "0xsig", authorization: {} },
+	}),
+).toString("base64");
+
+const paymentHeaderV1 = Buffer.from(
+	JSON.stringify({
+		x402Version: 1,
 		scheme: "exact",
 		network: "eip155:8453",
 		payload: { signature: "0xsig", authorization: {} },
@@ -48,6 +63,7 @@ const paymentHeader = Buffer.from(
 ).toString("base64");
 
 const paidEvent = { headers: { "payment-signature": paymentHeader } };
+const paidEventV1 = { headers: { "x-payment": paymentHeaderV1 } };
 const unpaidEvent = { headers: {} };
 
 await bench
@@ -59,6 +75,11 @@ await bench
 	.add("Verify and Settle", async () => {
 		try {
 			await warmHandler(paidEvent, defaultContext);
+		} catch (_e) {}
+	})
+	.add("Verify and Settle (v1)", async () => {
+		try {
+			await warmHandler(paidEventV1, defaultContext);
 		} catch (_e) {}
 	})
 
