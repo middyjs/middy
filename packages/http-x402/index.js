@@ -317,7 +317,10 @@ const httpX402Middleware = (opts = {}) => {
 			const settleResponse = {
 				success: false,
 				errorReason: settleReason(error),
-				transaction: "",
+				// settlement_pending MUST carry the broadcast hash so the client
+				// can reconcile on chain; forward it when the thrown error has one.
+				transaction:
+					typeof error?.transaction === "string" ? error.transaction : "",
 				network: storedRequirements.network,
 			};
 			request.response.statusCode = 402;

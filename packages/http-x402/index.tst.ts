@@ -75,6 +75,34 @@ test("all options", () => {
 	>();
 });
 
+test("custom FacilitatorClient class is accepted", () => {
+	class CustomFacilitatorClient {
+		async verify(_payload: unknown, _requirements: unknown): Promise<unknown> {
+			return { isValid: true };
+		}
+		async settle(_payload: unknown, _requirements: unknown): Promise<unknown> {
+			return { success: true };
+		}
+	}
+	const middleware = httpX402({
+		price: 0.001,
+		payTo: "0xpayto",
+		asset: "0xasset",
+		FacilitatorClient: CustomFacilitatorClient,
+	});
+	expect(middleware).type.toBe<
+		middy.MiddlewareObj<RequestEvent, unknown, Error>
+	>();
+
+	httpX402({
+		price: 0.001,
+		payTo: "0xpayto",
+		asset: "0xasset",
+		// @ts-expect-error not assignable
+		FacilitatorClient: class {},
+	});
+});
+
 test("string price is accepted", () => {
 	const middleware = httpX402({
 		price: "0.001",

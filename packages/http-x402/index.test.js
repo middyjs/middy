@@ -2099,6 +2099,73 @@ test("settle throws with a string errorReason - reason is forwarded", async (t) 
 	strictEqual(settlement.errorReason, "insufficient_funds");
 });
 
+test("settle throws settlement_pending with a transaction - hash is forwarded", async (t) => {
+	const mockSettle = t.mock.fn(async () => {
+		const error = new Error("receipt timeout");
+		error.errorReason = "settlement_pending";
+		error.transaction = "0xabc123";
+		throw error;
+	});
+	class MockFacilitatorClient {
+		verify() {
+			return defaultVerifyResult;
+		}
+		settle(...args) {
+			return mockSettle(...args);
+		}
+	}
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const settlement = decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]);
+	strictEqual(settlement.errorReason, "settlement_pending");
+	strictEqual(settlement.transaction, "0xabc123");
+});
+
+test("settle throws with a non-string transaction - empty transaction", async (t) => {
+	const mockSettle = t.mock.fn(async () => {
+		const error = new Error("boom");
+		error.errorReason = "insufficient_funds";
+		error.transaction = 42;
+		throw error;
+	});
+	class MockFacilitatorClient {
+		verify() {
+			return defaultVerifyResult;
+		}
+		settle(...args) {
+			return mockSettle(...args);
+		}
+	}
+	const handler = middy(() => ({
+		statusCode: 200,
+		body: "ok",
+		headers: {},
+	})).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 402);
+	const settlement = decodeResponseHeader(response.headers["PAYMENT-RESPONSE"]);
+	strictEqual(settlement.transaction, "");
+});
+
 test("settle throws with a non-string errorReason - generic reason", async (t) => {
 	const mockSettle = t.mock.fn(async () => {
 		const error = new Error("boom");
