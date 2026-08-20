@@ -212,16 +212,13 @@ const checkRule = (rule, value, path, fail) => {
 		} = rule;
 		if (!checkTypeSpec(rawType, value, path, fail)) return;
 		const type = rawType.endsWith("?") ? rawType.slice(0, -1) : rawType;
-		// Stryker disable next-line ConditionalExpression: dropping the `minimum !== undefined` guard is equivalent; when minimum is undefined, `value < undefined` is always false.
-		if (minimum !== undefined && value < minimum) {
+		if (value < minimum) {
 			fail(`Option '${path}' must be >= ${minimum}`);
 		}
-		// Stryker disable next-line ConditionalExpression: dropping the `maximum !== undefined` guard is equivalent; `value > undefined` is always false.
-		if (maximum !== undefined && value > maximum) {
+		if (value > maximum) {
 			fail(`Option '${path}' must be <= ${maximum}`);
 		}
-		// Stryker disable next-line ConditionalExpression: dropping the `exclusiveMinimum !== undefined` guard is equivalent; `value <= undefined` is always false.
-		if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
+		if (value <= exclusiveMinimum) {
 			fail(`Option '${path}' must be > ${exclusiveMinimum}`);
 		}
 		const hasStringConstraint =
@@ -234,12 +231,10 @@ const checkRule = (rule, value, path, fail) => {
 		if (pattern !== undefined && value.match(pattern) === null) {
 			fail(`Option '${path}' must match pattern ${pattern}`);
 		}
-		// Stryker disable next-line ConditionalExpression: dropping the `minLength !== undefined` guard is equivalent; `value.length < undefined` is always false.
-		if (minLength !== undefined && value.length < minLength) {
+		if (value.length < minLength) {
 			fail(`Option '${path}' must have length >= ${minLength}`);
 		}
-		// Stryker disable next-line ConditionalExpression: dropping the `maxLength !== undefined` guard is equivalent; `value.length > undefined` is always false.
-		if (maxLength !== undefined && value.length > maxLength) {
+		if (value.length > maxLength) {
 			fail(`Option '${path}' must have length <= ${maxLength}`);
 		}
 		if (type === "array" && items !== undefined) {
@@ -419,6 +414,10 @@ export const getInternal = async (variables, request) => {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
 				value = safeGet(value, part);
 			}
+			if (isPromise(value)) {
+				allSync = false;
+				break;
+			}
 		}
 		syncResults[i] = value;
 	}
@@ -523,8 +522,7 @@ export const buildSetToContextSpec = (options) =>
 export const assignSetToContext = (spec, value, request) => {
 	for (let i = 0; i < spec.length; i++) {
 		const v = value[spec[i][0]];
-		// Stryker disable next-line ConditionalExpression: the `v !== null` operand is equivalent (redundant). The `typeof v?.then` optional chain already null-guards: `null?.then` is undefined, so `typeof undefined === "function"` is false whether or not the explicit null check is present.
-		if (v !== null && typeof v?.then === "function") {
+		if (typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
 			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
@@ -550,12 +548,7 @@ const defaultCacheMaxSize = 128;
 
 const validateCacheExpiry = (cacheExpiry) => {
 	if (cacheExpiry == null) return;
-	if (
-		// Stryker disable next-line ConditionalExpression: equivalent; any non-number value also fails `!Number.isInteger(cacheExpiry)` on the next line, so dropping this typeof guard rejects exactly the same inputs.
-		typeof cacheExpiry !== "number" ||
-		!Number.isInteger(cacheExpiry) ||
-		cacheExpiry < -1
-	) {
+	if (!Number.isInteger(cacheExpiry) || cacheExpiry < -1) {
 		throw new Error(
 			`Invalid cacheExpiry value: ${cacheExpiry}. Must be -1 (infinite), 0 (disabled), or a positive integer (ms duration or unix timestamp)`,
 			{ cause: { package: pkg } },

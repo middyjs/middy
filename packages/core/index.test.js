@@ -959,6 +959,119 @@ describe("middy core", () => {
 		}
 	});
 
+	test("Should propagate a primitive handler error when requestEnd hook also throws", async () => {
+		const handler = middy(
+			() => {
+				throw "boom";
+			},
+			{
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			strictEqual(e, "boom");
+		}
+	});
+
+	test("Should propagate a null handler error instead of resolving", async () => {
+		const handler = middy(() => {
+			throw null;
+		});
+		let thrown = false;
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			thrown = true;
+			strictEqual(e, null);
+		}
+		ok(thrown, "expected handler to reject with the thrown null");
+	});
+
+	test("Should propagate a primitive thrown by an onError middleware", async () => {
+		const handler = middy(() => {
+			throw new Error("handler failed");
+		}).onError(() => {
+			throw "onError boom";
+		});
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected onError error to propagate");
+		} catch (e) {
+			strictEqual(e, "onError boom");
+		}
+	});
+
+	test("Should not resolve with a stale earlyResponse set by a before middleware that throws", async () => {
+		const error = new Error("before failed");
+		const handler = middy(() => "handler")
+			.before((request) => {
+				request.earlyResponse = "early";
+				throw error;
+			})
+			.onError(() => {
+				// present but does not handle the error
+			});
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected before error to propagate");
+		} catch (e) {
+			strictEqual(e, error);
+		}
+	});
+
+	test("Should not resolve with a stale earlyResponse set by an after middleware that throws", async () => {
+		const error = new Error("after failed");
+		const handler = middy(() => "handler")
+			.after((request) => {
+				request.earlyResponse = "early";
+				throw error;
+			})
+			.onError(() => {
+				// present but does not handle the error
+			});
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected after error to propagate");
+		} catch (e) {
+			strictEqual(e, error);
+		}
+	});
+
+	test("Should still allow onError middlewares to set earlyResponse after a stale one is cleared", async () => {
+		const handler = middy(() => "handler")
+			.before((request) => {
+				request.earlyResponse = "early";
+				throw new Error("before failed");
+			})
+			.onError((request) => {
+				request.earlyResponse = "handled";
+			});
+		const response = await handler(defaultEvent, defaultContext);
+		strictEqual(response, "handled");
+	});
+
+	test('"use" with an array containing an invalid middleware should register nothing', async () => {
+		let called = false;
+		const handler = middy(() => "ok");
+		throws(() => {
+			handler.use([
+				{
+					before: () => {
+						called = true;
+					},
+				},
+				{ foo: "bar" },
+			]);
+		});
+		await handler(defaultEvent, defaultContext);
+		strictEqual(called, false);
+	});
+
 	test("Should abort handler when timeout expires", async (t) => {
 		const plugin = {
 			timeoutEarlyInMillis: 1,

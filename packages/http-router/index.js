@@ -194,6 +194,11 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 		.replace(regExpEscapeChars, "\\$&")
 		.replace(regExpDynamicWildcards, "(?:/(?<$1>.*))?")
 		.replace(regExpDynamicParameters, "/(?<$1>[^/]+)");
+	if (pathPartialRegExp.includes("\\{") || pathPartialRegExp.includes("\\}")) {
+		throw new Error("Invalid route path", {
+			cause: { package: pkg, data: { path } },
+		});
+	}
 	// SAST Skipped: Not accessible by users
 	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 	const pathRegExp = new RegExp(`^${pathPartialRegExp}/?$`); // Adds in optional `/`
@@ -213,7 +218,7 @@ const countSlashes = (s) => {
 	return n;
 };
 
-const getVersionRoute = {
+const getVersionRoute = Object.assign(Object.create(null), {
 	"1.0": (event) => ({
 		method: event.httpMethod,
 		path: event.path,
@@ -230,6 +235,6 @@ const getVersionRoute = {
 			path: q < 0 ? rawPath : rawPath.substring(0, q),
 		};
 	},
-};
+});
 
 export default httpRouteHandler;

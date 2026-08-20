@@ -9,7 +9,7 @@ import {
 	modifyCache,
 	processCache,
 	validateOptions,
-} from "../util/index.js";
+} from "@middy/util";
 
 const name = "ssm-extension";
 const pkg = `@middy/${name}`;

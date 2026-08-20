@@ -1,0 +1,56 @@
+{
+	"name": "@middy/test-events",
+	"private": true,
+	"type": "module",
+	"description": "E2E AWS event capture harness (see SPEC.md). Not published.",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"selfcheck": "node selfcheck.mjs",
+		"deploy": "./deploy.sh",
+		"trigger": "node trigger.mjs all",
+		"collect": "node collect.mjs",
+		"destroy": "./destroy.sh",
+		"build:broker-writer": "esbuild triggers/broker-writer/index.js --bundle --platform=node --target=node22 --format=cjs --external:@aws-sdk/* --outfile=triggers/broker-writer/dist/index.js"
+	},
+	"dependencies": {
+		"@aws-crypto/sha256-js": "^5.2.0",
+		"@aws-sdk/client-bedrock-agent-runtime": "^3.0.0",
+		"@aws-sdk/client-cloudformation": "^3.0.0",
+		"@aws-sdk/client-cloudwatch": "^3.0.0",
+		"@aws-sdk/client-cloudwatch-logs": "^3.0.0",
+		"@aws-sdk/client-codecommit": "^3.0.0",
+		"@aws-sdk/client-codepipeline": "^3.0.0",
+		"@aws-sdk/client-cognito-identity-provider": "^3.0.0",
+		"@aws-sdk/client-config-service": "^3.0.0",
+		"@aws-sdk/client-dynamodb": "^3.0.0",
+		"@aws-sdk/client-ec2": "^3.0.0",
+		"@aws-sdk/client-eventbridge": "^3.0.0",
+		"@aws-sdk/client-firehose": "^3.0.0",
+		"@aws-sdk/client-iot": "^3.0.0",
+		"@aws-sdk/client-iot-data-plane": "^3.0.0",
+		"@aws-sdk/client-kafka": "^3.0.0",
+		"@aws-sdk/client-kinesis": "^3.0.0",
+		"@aws-sdk/client-lambda": "^3.0.0",
+		"@aws-sdk/client-lex-runtime-v2": "^3.0.0",
+		"@aws-sdk/client-mq": "^3.0.0",
+		"@aws-sdk/client-s3": "^3.0.0",
+		"@aws-sdk/client-s3-control": "^3.0.0",
+		"@aws-sdk/client-secrets-manager": "^3.0.0",
+		"@aws-sdk/client-sesv2": "^3.0.0",
+		"@aws-sdk/client-sfn": "^3.0.0",
+		"@aws-sdk/client-sns": "^3.0.0",
+		"@aws-sdk/client-sqs": "^3.0.0",
+		"@aws-sdk/client-sts": "^3.0.0",
+		"@aws-sdk/client-transfer": "^3.0.0",
+		"@aws-sdk/credential-providers": "^3.0.0",
+		"@smithy/signature-v4": "^4.0.0"
+	},
+	"devDependencies": {
+		"esbuild": "^0.24.0",
+		"js-yaml": "^5.0.0",
+		"kafkajs": "^2.2.4",
+		"mongodb": "^6.8.0"
+	}
+}
