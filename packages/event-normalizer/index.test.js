@@ -713,6 +713,63 @@ test("It should parse SQS event body", async (t) => {
 	deepStrictEqual(response.Records[0].body, body);
 });
 
+test("It should pass through a plain-text SQS body unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const body = "id,name,qty\n1,widget,3\n2,gadget,5";
+	const event = createEvent.default("aws:sqs");
+	event.Records[0].body = body;
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, body);
+});
+
+test("It should pass through a non-JSON SQS body starting with a quote", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const body = '"id","name"\n"1","widget"';
+	const event = createEvent.default("aws:sqs");
+	event.Records[0].body = body;
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, body);
+});
+
+test("It should not coerce a numeric-string SQS body to a number", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:sqs");
+	event.Records[0].body = "1";
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, "1");
+});
+
+test("It should pass through a plain-text SNS message unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const message = "plain text notification";
+	const event = createEvent.default("aws:sns");
+	event.Records[0].Sns.Message = message;
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].Sns.Message, message);
+});
+
+test("It should pass through a plain-text SNS->SQS message unchanged", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:sqs");
+	event.Records[0].body = JSON.stringify({
+		Type: "Notification",
+		MessageId: "00e1a25f-b7c9-5cdf-a548-f838aec0e14b",
+		Message: "plain text notification",
+	});
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body.Message, "plain text notification");
+});
+
 // S3
 test("It should normalize S3 event key", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());
@@ -935,10 +992,39 @@ test("CloudWatch Logs: under the default 10 MiB cap does not throw", async () =>
 	deepStrictEqual(response.awslogs.data, eventJSON);
 });
 
+test("It should pass through an SQS body that is already parsed", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	// A nested SQS record inside an outer SQS body arrives already parsed
+	// (its body is a JSON object, not a string) when the outer body is decoded.
+	const nested = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: { message: "hello" },
+			},
+		],
+	};
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify(nested),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body.Records[0].body, {
+		message: "hello",
+	});
+});
+
 test("It should recursively parse an SQS body that is not an SNS Notification", async (t) => {
 	const handler = middy((event) => event).use(eventNormalizer());
 
-	// Body is a nested S3 event (else branch): record.body parsed by jsonSafeParse,
+	// Body is a nested S3 event (else branch): record.body parsed by protectedTextParse,
 	// then parseEvent applied recursively so the S3 key gets normalized.
 	const nested = {
 		Records: [

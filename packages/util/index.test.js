@@ -357,6 +357,18 @@ describe("getInternal", () => {
 		deepStrictEqual(values, nullObj({ promiseObject_key: "value" }));
 	});
 
+	test("getInternal should resolve a nested promise on the sync fast path", async (t) => {
+		// The root value is resolved but the walked value is itself a promise;
+		// the async fallback resolves it, so the fast path must match.
+		const syncRequest = {
+			internal: {
+				object: { key: Promise.resolve("value") },
+			},
+		};
+		const values = await getInternal("object.key", syncRequest);
+		deepStrictEqual(values, nullObj({ object_key: "value" }));
+	});
+
 	test("getInternal should get from internal store a nested value (sync)", async (t) => {
 		const syncRequest = {
 			internal: {

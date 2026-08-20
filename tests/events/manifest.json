@@ -1,0 +1,1151 @@
+{
+	"$comment": "Coverage contract for the middy e2e event harness (see SPEC.md). trigger: auto = fired by trigger.mjs, deploy = fired by stack deploy itself, manual = needs an operator-provided resource, documented = intentionally no infra (justification in SPEC.md). requires = stack Output that must exist or the kind reports skipped.",
+	"kinds": [
+		{
+			"id": "sqs.standard",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html"]
+		},
+		{
+			"id": "sqs.fifo",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html"]
+		},
+		{
+			"id": "sqs.sns",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html",
+				"https://docs.aws.amazon.com/sns/latest/dg/sns-large-payload-raw-message-delivery.html"
+			]
+		},
+		{
+			"id": "sqs.sns-raw",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/sns/latest/dg/sns-large-payload-raw-message-delivery.html"
+			]
+		},
+		{
+			"id": "sns.standard",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html"]
+		},
+		{
+			"id": "s3.put",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html",
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html"
+			]
+		},
+		{
+			"id": "s3.delete",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html"
+			]
+		},
+		{
+			"id": "s3.delete-marker",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html"
+			]
+		},
+		{
+			"id": "s3.sns",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html"]
+		},
+		{
+			"id": "s3.sns-sqs",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 180,
+			"note": "the full S3 -> SNS -> SQS -> Lambda walk event-normalizer documents",
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html"]
+		},
+		{
+			"id": "s3.sqs",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"aliases": ["sqs.s3"],
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html"]
+		},
+		{
+			"id": "s3.eventbridge",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/EventBridge.html"
+			]
+		},
+		{
+			"id": "s3batch.v1",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 600,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/services-s3-batch.html",
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-invoke-lambda.html"
+			]
+		},
+		{
+			"id": "s3object.get",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonS3/latest/userguide/olap-writing-lambda.html"
+			]
+		},
+		{
+			"id": "ddb.keys-only",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html"]
+		},
+		{
+			"id": "ddb.new-image",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html"]
+		},
+		{
+			"id": "ddb.old-image",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html"]
+		},
+		{
+			"id": "ddb.new-and-old",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html"]
+		},
+		{
+			"id": "ddb.windowed",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 180,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html"]
+		},
+		{
+			"id": "kinesis.standard",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html"]
+		},
+		{
+			"id": "kinesis.efo",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 180,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html"]
+		},
+		{
+			"id": "kinesis.windowed",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 180,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html"]
+		},
+		{
+			"id": "firehose.transform",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 300,
+			"docs": [
+				"https://docs.aws.amazon.com/firehose/latest/dev/data-transformation.html"
+			]
+		},
+		{
+			"id": "cwlogs.subscription",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#LambdaFunctionExample"
+			]
+		},
+		{
+			"id": "cwalarm.direct",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-actions-Lambda.html"
+			]
+		},
+		{
+			"id": "eventbridge.schedule-rule",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 150,
+			"note": "fires on its own every minute",
+			"docs": [
+				"https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is.html"
+			]
+		},
+		{
+			"id": "eventbridge.custom",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is.html"
+			]
+		},
+		{
+			"id": "eventbridge.ec2-state",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "manual",
+			"timeoutSec": 300,
+			"note": "pass --ec2-instance-id to stop/start a sacrificial instance",
+			"docs": [
+				"https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instance-state-changes.html"
+			]
+		},
+		{
+			"id": "eventbridge.cloudtrail",
+			"tier": "cloudtrail",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "TrailReady",
+			"timeoutSec": 1200,
+			"docs": [
+				"https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is.html"
+			]
+		},
+		{
+			"id": "eventbridge.scheduler",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 150,
+			"note": "Input delivered verbatim; context placeholders resolve inside it",
+			"docs": [
+				"https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-targets-templated.html",
+				"https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-schedule-context-attributes.html"
+			]
+		},
+		{
+			"id": "eventbridge.pipe-sqs",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes.html"
+			]
+		},
+		{
+			"id": "apigw.rest.proxy",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html",
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html"
+			]
+		},
+		{
+			"id": "apigw.rest.binary",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html"
+			]
+		},
+		{
+			"id": "apigw.rest.authorized",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-lambda-authorizer-input.html"
+			]
+		},
+		{
+			"id": "apigw.authorizer.rest-token",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-lambda-authorizer-input.html"
+			]
+		},
+		{
+			"id": "apigw.authorizer.rest-request",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-lambda-authorizer-input.html"
+			]
+		},
+		{
+			"id": "apigw.http.v1",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html"
+			]
+		},
+		{
+			"id": "apigw.http.v2",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html"
+			]
+		},
+		{
+			"id": "apigw.http.v2-jwt",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html"
+			]
+		},
+		{
+			"id": "apigw.http.v2-authorized",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-lambda-authorizer.html"
+			]
+		},
+		{
+			"id": "apigw.authorizer.http-simple",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-lambda-authorizer.html"
+			]
+		},
+		{
+			"id": "apigw.ws.connect",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-overview.html"
+			]
+		},
+		{
+			"id": "apigw.ws.message",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-overview.html"
+			]
+		},
+		{
+			"id": "apigw.ws.disconnect",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-overview.html"
+			]
+		},
+		{
+			"id": "apigw.authorizer.ws",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-websocket-api-overview.html"
+			]
+		},
+		{
+			"id": "functionurl.none",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html"
+			]
+		},
+		{
+			"id": "functionurl.iam",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html"
+			]
+		},
+		{
+			"id": "alb.single",
+			"tier": "vpc",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "AlbUrl",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html",
+				"https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html"
+			]
+		},
+		{
+			"id": "alb.multi",
+			"tier": "vpc",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "AlbUrl",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html"
+			]
+		},
+		{
+			"id": "lattice.v1",
+			"tier": "vpc",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "LatticeDomain",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html"
+			]
+		},
+		{
+			"id": "lattice.v2",
+			"tier": "vpc",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "LatticeDomain",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html"
+			]
+		},
+		{
+			"id": "cloudfront.viewer-request",
+			"tier": "edge",
+			"middy": "na",
+			"trigger": "auto",
+			"requires": "DistributionDomain",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-event-structure.html"
+			]
+		},
+		{
+			"id": "cloudfront.viewer-request-body",
+			"tier": "edge",
+			"middy": "na",
+			"trigger": "auto",
+			"requires": "DistributionDomain",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-event-structure.html"
+			]
+		},
+		{
+			"id": "cloudfront.origin-request",
+			"tier": "edge",
+			"middy": "na",
+			"trigger": "auto",
+			"requires": "DistributionDomain",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-event-structure.html"
+			]
+		},
+		{
+			"id": "cloudfront.origin-response",
+			"tier": "edge",
+			"middy": "na",
+			"trigger": "auto",
+			"requires": "DistributionDomain",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-event-structure.html"
+			]
+		},
+		{
+			"id": "cloudfront.viewer-response",
+			"tier": "edge",
+			"middy": "na",
+			"trigger": "auto",
+			"requires": "DistributionDomain",
+			"timeoutSec": 180,
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-event-structure.html"
+			]
+		},
+		{
+			"id": "cognito.pre-signup",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.post-confirmation",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.pre-auth",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.post-auth",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.pre-token",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html"
+			]
+		},
+		{
+			"id": "cognito.custom-message",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.define-auth",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.create-auth",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.verify-auth",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "cognito.user-migration",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-working-with-lambda-triggers.html"
+			]
+		},
+		{
+			"id": "appsync.resolver",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/appsync/latest/devguide/direct-lambda-reference.html"
+			]
+		},
+		{
+			"id": "lex.dialog",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": ["https://docs.aws.amazon.com/lexv2/latest/dg/lambda.html"]
+		},
+		{
+			"id": "lex.fulfillment",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": ["https://docs.aws.amazon.com/lexv2/latest/dg/lambda.html"]
+		},
+		{
+			"id": "bedrock.agent-api",
+			"tier": "bedrock",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"requires": "BedrockAgentId",
+			"timeoutSec": 240,
+			"note": "model-driven; trigger retries the prompt",
+			"docs": [
+				"https://docs.aws.amazon.com/bedrock/latest/userguide/agents-lambda.html"
+			]
+		},
+		{
+			"id": "bedrock.agent-function",
+			"tier": "bedrock",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"requires": "BedrockAgentId",
+			"timeoutSec": 240,
+			"docs": [
+				"https://docs.aws.amazon.com/bedrock/latest/userguide/agents-lambda.html"
+			]
+		},
+		{
+			"id": "ses.receipt",
+			"tier": "domain",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "SesTestAddress",
+			"timeoutSec": 300,
+			"docs": [
+				"https://docs.aws.amazon.com/ses/latest/dg/receiving-email-action-lambda.html",
+				"https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-contents.html"
+			]
+		},
+		{
+			"id": "msk.standard",
+			"tier": "brokers",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "MskClusterArn",
+			"timeoutSec": 300,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html"]
+		},
+		{
+			"id": "kafka.self-managed",
+			"tier": "brokers",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "MskClusterArn",
+			"timeoutSec": 600,
+			"note": "ESM created by trigger.mjs (bootstrap brokers are API-only)",
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html"]
+		},
+		{
+			"id": "mq.activemq",
+			"tier": "brokers",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "ActiveMqBrokerId",
+			"timeoutSec": 300,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html"]
+		},
+		{
+			"id": "mq.rabbitmq",
+			"tier": "brokers",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "RabbitMqBrokerId",
+			"timeoutSec": 300,
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/dg/with-mq.html"]
+		},
+		{
+			"id": "docdb.insert",
+			"tier": "brokers",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "BrokerWriterName",
+			"timeoutSec": 300,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/with-documentdb.html"
+			]
+		},
+		{
+			"id": "sfn.task",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/step-functions/latest/dg/connect-lambda.html",
+				"https://docs.aws.amazon.com/step-functions/latest/dg/input-output-contextobject.html"
+			]
+		},
+		{
+			"id": "sfn.task-token",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/step-functions/latest/dg/connect-lambda.html"
+			]
+		},
+		{
+			"id": "cfn.custom-resource",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "deploy",
+			"timeoutSec": 60,
+			"note": "Create fires at deploy, Update on CaptureSerial bump, Delete at teardown",
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/services-cloudformation.html",
+				"https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/crpg-ref.html"
+			]
+		},
+		{
+			"id": "lambda.dest-success",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html"
+			]
+		},
+		{
+			"id": "lambda.dest-failure",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 240,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html"
+			]
+		},
+		{
+			"id": "lambda.dlq",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 240,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html"
+			]
+		},
+		{
+			"id": "secrets.rotation",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_lambda.html"
+			]
+		},
+		{
+			"id": "iot.rule",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/services-iot.html",
+				"https://docs.aws.amazon.com/iot/latest/developerguide/iot-rule-actions.html"
+			]
+		},
+		{
+			"id": "config.rule",
+			"tier": "config",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "ConfigRuleName",
+			"timeoutSec": 900,
+			"docs": [
+				"https://docs.aws.amazon.com/lambda/latest/dg/governance-config.html",
+				"https://docs.aws.amazon.com/config/latest/developerguide/evaluate-config_develop-rules.html"
+			]
+		},
+		{
+			"id": "codecommit.push",
+			"tier": "codecommit",
+			"middy": "supported",
+			"trigger": "auto",
+			"requires": "CodeCommitRepoName",
+			"timeoutSec": 120,
+			"docs": [
+				"https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-notify-lambda-cc.html"
+			]
+		},
+		{
+			"id": "codepipeline.job",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 300,
+			"docs": [
+				"https://docs.aws.amazon.com/codepipeline/latest/userguide/actions-invoke-lambda-function.html"
+			]
+		},
+		{
+			"id": "direct.invoke",
+			"tier": "core",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": ["https://docs.aws.amazon.com/lambda/latest/api/API_Invoke.html"]
+		},
+		{
+			"id": "alexa.skill",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://developer.amazon.com/en-US/docs/alexa/custom-skills/host-a-custom-skill-as-an-aws-lambda-function.html"
+			]
+		},
+		{
+			"id": "connect.contact-flow",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/connect/latest/adminguide/connect-lambda-functions.html"
+			]
+		},
+		{
+			"id": "workmail.message-flow",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/workmail/latest/adminguide/lambda.html"
+			]
+		},
+		{
+			"id": "chime.sip-media",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/chime-sdk/latest/dg/what-is-chime-sdk.html"
+			]
+		},
+		{
+			"id": "pinpoint.custom-channel",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/pinpoint/latest/developerguide/welcome.html"
+			]
+		},
+		{
+			"id": "kendra.document-enrichment",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/kendra/latest/dg/custom-document-enrichment.html"
+			]
+		},
+		{
+			"id": "athena.udf",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": ["https://docs.aws.amazon.com/athena/latest/ug/querying-udf.html"]
+		},
+		{
+			"id": "redshift.udf",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/redshift/latest/dg/udf-creating-a-lambda-sql-udf.html"
+			]
+		},
+		{
+			"id": "swf.lambda-task",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/amazonswf/latest/developerguide/lambda-task.html"
+			]
+		},
+		{
+			"id": "aurora.native-invoke",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/PostgreSQL-Lambda.html"
+			]
+		},
+		{
+			"id": "rds.event-notification",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Events.html"
+			]
+		},
+		{
+			"id": "iotevents.action",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"note": "service closed to new customers; AWS docs retired (verified 2026-07)",
+			"docs": []
+		},
+		{
+			"id": "apigw.rest.cognito",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 90,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-integrate-with-cognito.html"
+			]
+		},
+		{
+			"id": "apigw.rest.iam",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html"
+			]
+		},
+		{
+			"id": "apigw.http.v2-iam",
+			"tier": "core",
+			"middy": "supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-access-control-iam.html"
+			]
+		},
+		{
+			"id": "iot.custom-authorizer",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 60,
+			"docs": [
+				"https://docs.aws.amazon.com/iot/latest/developerguide/config-custom-auth.html"
+			]
+		},
+		{
+			"id": "cfn.macro",
+			"tier": "core",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"timeoutSec": 300,
+			"note": "trigger.mjs deploys/deletes a probe stack with Transform",
+			"docs": [
+				"https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-macros.html"
+			]
+		},
+		{
+			"id": "transfer.custom-idp",
+			"tier": "transfer",
+			"middy": "not-supported",
+			"trigger": "auto",
+			"requires": "TransferServerId",
+			"timeoutSec": 120,
+			"note": "TestIdentityProvider, no SFTP client needed",
+			"docs": [
+				"https://docs.aws.amazon.com/transfer/latest/userguide/custom-lambda-idp.html"
+			]
+		},
+		{
+			"id": "transfer.workflow-step",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/transfer/latest/userguide/custom-step-details.html"
+			]
+		},
+		{
+			"id": "iot.provisioning-hook",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/iot/latest/developerguide/pre-provisioning-hook.html"
+			]
+		},
+		{
+			"id": "cfn.lambda-hook",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/lambda-hooks.html"
+			]
+		},
+		{
+			"id": "codedeploy.lifecycle-hook",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/codedeploy/latest/userguide/reference-appspec-file-structure-hooks.html"
+			]
+		},
+		{
+			"id": "appsync.events",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"note": "promote to auto once Events API Lambda data sources are exercised",
+			"docs": [
+				"https://docs.aws.amazon.com/appsync/latest/eventapi/event-api-welcome.html"
+			]
+		},
+		{
+			"id": "appconfig.extension",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/appconfig/latest/userguide/working-with-appconfig-extensions-creating-custom-lambda.html"
+			]
+		},
+		{
+			"id": "bedrock.kb-transform",
+			"tier": "none",
+			"middy": "not-supported",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/bedrock/latest/userguide/kb-custom-transformation.html"
+			]
+		},
+		{
+			"id": "ssm.automation-invoke",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/systems-manager/latest/userguide/automation-action-lamb.html"
+			]
+		},
+		{
+			"id": "sagemaker.pipeline-step",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"docs": [
+				"https://docs.aws.amazon.com/sagemaker/latest/dg/build-and-manage-steps.html"
+			]
+		},
+		{
+			"id": "greengrass.local",
+			"tier": "none",
+			"middy": "na",
+			"trigger": "documented",
+			"note": "Lambda runs on-device; not a cloud event delivery path",
+			"docs": [
+				"https://docs.aws.amazon.com/greengrass/v2/developerguide/run-lambda-functions.html"
+			]
+		}
+	]
+}

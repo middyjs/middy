@@ -120,18 +120,12 @@ const httpPasetoMiddleware = (opts = {}) => {
 		});
 	};
 
-	const baseVerifyOptions = {};
-	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `audience: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
-	if (options.audience !== undefined)
-		baseVerifyOptions.audience = options.audience;
-	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `issuer: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
-	if (options.issuer !== undefined) baseVerifyOptions.issuer = options.issuer;
-	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `clockTolerance: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
-	if (options.clockTolerance !== undefined)
-		baseVerifyOptions.clockTolerance = options.clockTolerance;
-	// Stryker disable next-line ConditionalExpression: forcing this `true` sets `maxTokenAge: undefined`, which paseto V4.verify treats identically to omitting it, so behavior is unchanged.
-	if (options.maxTokenAge !== undefined)
-		baseVerifyOptions.maxTokenAge = options.maxTokenAge;
+	const baseVerifyOptions = {
+		audience: options.audience,
+		issuer: options.issuer,
+		clockTolerance: options.clockTolerance,
+		maxTokenAge: options.maxTokenAge,
+	};
 
 	// Per-middleware-instance cache of imported KeyObjects, keyed by the
 	// keyData reference. createPublicKey reparses DER through OpenSSL on

@@ -33,6 +33,7 @@ export type RouteNotFoundResponseFn = (input: {
 	path: string;
 }) => unknown;
 
+// TODO v8: returns a plain handler fn, not MiddyfiedHandler (breaking type fix)
 declare function httpRouterHandler<
 	TEvent extends
 		| ALBEvent
@@ -47,7 +48,7 @@ declare function httpRouterHandler<
 		| Array<Route<TEvent, TResult>>
 		| {
 				routes: Array<Route<TEvent, TResult>>;
-				notFoundResponse: RouteNotFoundResponseFn;
+				notFoundResponse?: RouteNotFoundResponseFn;
 		  },
 ): middy.MiddyfiedHandler<TEvent, TResult>;
 

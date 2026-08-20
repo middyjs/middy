@@ -1332,3 +1332,82 @@ test("It should strip a VPC raw_path that is entirely a query string", async (t)
 		);
 	}
 });
+
+// Version dispatch table must not expose Object.prototype members (index.js:216)
+test("It should reject an event with version '__proto__' as an unknown format", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/", handler: () => true },
+	]);
+	let thrown = false;
+	try {
+		await handler(
+			{ version: "__proto__", httpMethod: "GET", path: "/" },
+			defaultContext,
+		);
+	} catch (e) {
+		thrown = true;
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
+	}
+	ok(thrown, "expected unknown-format error for version '__proto__'");
+});
+
+test("It should not dispatch an event with version 'constructor'", async (t) => {
+	let routed = false;
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/user",
+			handler: () => {
+				routed = true;
+				return true;
+			},
+		},
+	]);
+	// `getVersionRoute.constructor` is `Object`; calling it returns the event
+	// itself, so its own `method`/`path` fields would silently mis-dispatch.
+	let thrown = false;
+	try {
+		await handler(
+			{ version: "constructor", method: "GET", path: "/user" },
+			defaultContext,
+		);
+	} catch (e) {
+		thrown = true;
+		strictEqual(
+			e.message,
+			"Unknown HTTP event format: missing HTTP method. Expected 'httpMethod' (v1), 'requestContext.http.method' (v2), or 'method' (VPC)",
+		);
+	}
+	ok(thrown, "expected unknown-format error for version 'constructor'");
+	strictEqual(routed, false);
+});
+
+// Malformed dynamic paths must fail at construction, not at request time
+test("It should throw at construction for an unterminated dynamic path", async (t) => {
+	let thrown = false;
+	try {
+		httpRouter([{ method: "GET", path: "/users/{", handler: () => true }]);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.message, "Invalid route path");
+		deepStrictEqual(e.cause, {
+			package: "@middy/http-router",
+			data: { path: "/users/{" },
+		});
+	}
+	ok(thrown, "expected construction error for path '/users/{'");
+});
+
+test("It should throw at construction for an empty dynamic parameter", async (t) => {
+	let thrown = false;
+	try {
+		httpRouter([{ method: "GET", path: "/users/{}", handler: () => true }]);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.message, "Invalid route path");
+	}
+	ok(thrown, "expected construction error for path '/users/{}'");
+});

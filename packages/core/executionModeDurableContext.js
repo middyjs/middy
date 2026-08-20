@@ -27,6 +27,7 @@ export const executionModeDurableContext = (
 
 		// See executionModeStandard for the .cause-chaining rationale.
 		let handlerError;
+		let hasError = false;
 		let response;
 		try {
 			response = await runRequest(
@@ -39,18 +40,21 @@ export const executionModeDurableContext = (
 			);
 		} catch (err) {
 			handlerError = err;
+			hasError = true;
 		}
 		try {
 			const requestEndResult = plugin.requestEnd(request);
 			if (requestEndResult instanceof Promise) await requestEndResult;
 		} catch (hookErr) {
-			if (handlerError) {
-				handlerError.cause ??= hookErr;
+			if (hasError) {
+				if (typeof handlerError === "object" && handlerError !== null) {
+					handlerError.cause ??= hookErr;
+				}
 			} else {
 				throw hookErr;
 			}
 		}
-		if (handlerError) throw handlerError;
+		if (hasError) throw handlerError;
 		return response;
 	});
 	middy.handler = (replaceLambdaHandler) => {

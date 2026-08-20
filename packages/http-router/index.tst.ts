@@ -109,6 +109,21 @@ expect(middlewareRouteNotFoundReturn).type.toBe<
 	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
 >();
 
+// notFoundResponse has a default in the implementation, so it must be optional
+const middlewareRoutesOnly = httpRouterHandler({
+	routes: [
+		{
+			method: "GET",
+			path: "/",
+			handler: lambdaHandler,
+		},
+	],
+});
+
+expect(middlewareRoutesOnly).type.toBe<
+	middy.MiddyfiedHandler<APIGatewayProxyEvent, APIGatewayProxyResult>
+>();
+
 test("Method type", () => {
 	const method: Method = "GET";
 	expect(method).type.toBeAssignableTo<Method>();
