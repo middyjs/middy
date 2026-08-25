@@ -48,7 +48,7 @@ aws s3api head-bucket --bucket "$BOOT" 2>/dev/null || aws s3 mb "s3://${BOOT}"
 WRITER_PARAMS=()
 if [ "$BROKERS" = true ]; then
   echo "building triggers/broker-writer..."
-  [ -d node_modules ] || npm install
+  [ -d node_modules ] || npm ci --ignore-scripts
   npm run --silent build:broker-writer
   (cd triggers/broker-writer/dist && zip -q -X -o broker-writer.zip index.js)
   HASH="$(shasum -a 256 triggers/broker-writer/dist/broker-writer.zip | cut -c1-16)"

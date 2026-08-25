@@ -75,9 +75,10 @@ Middy's CI/CD pipeline is designed against the [OWASP Top 10 CI/CD Security Risk
 - Dependency sources are restricted to the public npm registry over HTTPS. `lockfile-lint --allowed-hosts npm --validate-https` enforces this on every PR.
 - Dependency signatures from the npm registry are verified by `npm audit signatures` in the `build` job of [release.yml](.github/workflows/release.yml), gating the build environment before any artifact is produced.
 - Vulnerability scanning runs on every PR (Trivy SCA in [test-sast.yml](.github/workflows/test-sast.yml)) and weekly on schedule. Dependabot opens patch PRs weekly against `develop`.
-- License compliance is enforced by Trivy license scan; permitted SPDX identifiers include 0BSD, Apache-2.0, BSD-1-Clause, BSD-2-Clause, BSD-3-Clause, CC0-1.0, CC-BY-4.0, ISC, MIT, Python-2.0. Any new dependency outside this set is rejected unless explicitly reviewed and added to the allowlist.
+- License compliance is enforced by Trivy license scan; permitted SPDX identifiers are 0BSD, Apache-2.0, BSD-1-Clause, BSD-2-Clause, BSD-3-Clause, BlueOak-1.0.0, CC0-1.0, CC-BY-4.0, ISC, LGPL-3.0-or-later, MIT, MPL-2.0, Python-2.0, Unlicense. The enforced list is the `--ignored-licenses` flag of the `test:sast:trivy` script in [package.json](package.json); this document mirrors it. Any new dependency outside this set is rejected unless explicitly reviewed and added to both.
 - Third-party GitHub Actions are pinned by full commit SHA with a version comment; Dependabot tracks updates. No `@main` / `@latest` action references.
-- New dependencies must be added via PR and reviewed by at least one maintainer per [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+- New dependencies must be added via PR and reviewed by at least one maintainer per [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Before first install, the reviewer verifies the exact package name against the intended project (repository link, publisher, download profile) to rule out typosquats, and reviews risk signals: install scripts, maintainer count, publication age, and a missing source repository are each grounds for rejection.
+- The runtime dependency inventory, with a recorded justification per dependency, lives in [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) and is updated in the same PR that changes a runtime dependency.
 
 ## Reporting a Vulnerability
 

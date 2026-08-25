@@ -49,11 +49,16 @@ At a given point in time, if you want to draft a new release, you need to follow
   - **Release description**: summarize the changes in the new version
 - Publish release
 
-### 4. Publish release on NPM
+### 4. Publish release on NPM (staged)
 
-This step will happen automatically from GitHub actions after a new release has been drafted. Make sure to double check the action and see if it completed successfully.
+Publishing is two-phase: CI stages, a maintainer approves.
 
-All packages are published using OpenID Connect. Each new package must be configured first.
+1. [release.yml](../.github/workflows/release.yml) runs build -> GitHub release -> publish. Approve the `npm-publish` environment when the Publish job requests review.
+2. The Publish job runs `npm stage publish` for every package: nothing is live yet.
+3. Run `npm run release:audit`: it lists every staged version with its actor and shasum, and fails if anything staged does not match the release version (see [docs/INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) path B step 7). Investigate anything unexpected before going further.
+4. Run `npm run release:approve` (requires npm login with 2FA) to take the release live. It only approves staged ids matching the release version.
+
+All packages are published using OpenID Connect with a stage-only trusted publisher. Each new package must be configured first.
 
 **Organization or user\*** middyjs
 **Repository\*** middy

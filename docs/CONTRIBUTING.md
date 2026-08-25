@@ -92,7 +92,7 @@ Submit a PR to the `develop` branch. Keep PR in draft mode until all automated t
 
 `develop` is an integration branch: its ruleset enforces signed commits, no force-push, and no deletion. PR review on `develop` is policy, not currently ruleset-enforced.
 
-The release boundary is `main`. The subsequent `develop → main` release PR (opened by `release-please`) is fully gated by the [main ruleset](../.github/rulesets/main.json): 2 approving reviews + CODEOWNERS review + all 18 required status checks + signed commits + CodeQL/zizmor code-scanning gates. Nothing reaches npm without passing that gate.
+The release boundary is `main`. The subsequent `develop → main` release PR (opened by a maintainer per [RELEASE.md](./RELEASE.md)) is fully gated by the [main ruleset](../.github/rulesets/main.json): 2 approving reviews + CODEOWNERS review + all required status checks in the ruleset + signed commits + CodeQL/zizmor code-scanning gates. Nothing reaches npm without passing that gate.
 
 ## 7. Release
 
