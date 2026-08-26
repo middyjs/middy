@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { clearCache, getInternal } from "@middy/util";
@@ -463,11 +463,6 @@ test("It should NOT set credentials to context by default", async (t) => {
 });
 
 test("It should generate a default RoleSessionName when none provided", async (t) => {
-	// Fix Math.random so the generated suffix is deterministic: with 0.5 the
-	// real `Math.ceil(0.5 * 99999)` is 50000, whereas a `/` mutant would yield
-	// `Math.ceil(0.5 / 99999)` === 1.
-	t.mock.method(Math, "random", () => 0.5);
-
 	let captured;
 	mockClient(STSClient)
 		.on(AssumeRoleCommand)
@@ -497,7 +492,10 @@ test("It should generate a default RoleSessionName when none provided", async (t
 
 	await handler(defaultEvent, defaultContext);
 
-	strictEqual(captured.RoleSessionName, "middy-sts-session-50000");
+	match(
+		captured.RoleSessionName,
+		/^@middy-sts-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+	);
 });
 
 test("It should preserve a provided RoleSessionName", async (t) => {
