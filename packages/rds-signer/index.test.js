@@ -263,7 +263,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(getAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -290,9 +290,12 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 	} catch (e) {
 		strictEqual(getAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
+				cause: {
+					package: "@middy/rds-signer",
+					data: { method: "getAuthToken" },
+				},
 			}),
 		]);
 	}
@@ -326,9 +329,12 @@ test("It should reject a token containing a different X-Amz-Security-Token-like 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
+				cause: {
+					package: "@middy/rds-signer",
+					data: { method: "getAuthToken" },
+				},
 			}),
 		]);
 	}

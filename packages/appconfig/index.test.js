@@ -565,7 +565,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(mockService.send.callCount, 2);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -594,7 +594,7 @@ test("It should catch if an error is returned from start configuration session c
 	} catch (e) {
 		strictEqual(mockService.send.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -1121,7 +1121,7 @@ test("It should rethrow when StartConfigurationSession rejects (catch handler re
 		() => handler(defaultEvent, defaultContext),
 		(e) => {
 			strictEqual(e.message, "Failed to resolve internal values");
-			deepStrictEqual(e.cause.data, [new Error("timeout")]);
+			deepStrictEqual(e.errors, [new Error("timeout")]);
 			return true;
 		},
 	);

@@ -197,7 +197,7 @@ test("It should reject a bound token sent with the Bearer scheme", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("DPoP authentication scheme"));
+	ok(result.cause.data.reason.includes("DPoP authentication scheme"));
 });
 
 test("It should accept a lower-case dpop scheme", async () => {
@@ -221,7 +221,7 @@ test("It should reject a bound token with no proof", async () => {
 	);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("Missing DPoP header"));
+	ok(result.cause.data.reason.includes("Missing DPoP header"));
 });
 
 test("It should reject a bound token with no authorization header", async () => {
@@ -246,7 +246,7 @@ test("It should reject a proof signed by a different key", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("confirmation claim"));
+	ok(result.cause.data.reason.includes("confirmation claim"));
 });
 
 test("It should reject a proof whose signature does not verify", async () => {
@@ -261,7 +261,7 @@ test("It should reject a proof whose signature does not verify", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("signature is invalid"));
+	ok(result.cause.data.reason.includes("signature is invalid"));
 });
 
 test("It should reject a proof minted for another method", async () => {
@@ -274,7 +274,7 @@ test("It should reject a proof minted for another method", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'htm'"));
+	ok(result.cause.data.reason.includes("'htm'"));
 });
 
 test("It should reject a proof minted for another path", async () => {
@@ -287,7 +287,7 @@ test("It should reject a proof minted for another path", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'htu'"));
+	ok(result.cause.data.reason.includes("'htu'"));
 });
 
 test("It should reject a proof minted for another host", async () => {
@@ -342,7 +342,7 @@ test("It should reject a proof older than maxAge", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'iat'"));
+	ok(result.cause.data.reason.includes("'iat'"));
 });
 
 test("It should honour a custom maxAge", async () => {
@@ -383,7 +383,7 @@ test("It should reject a proof with no jti", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'jti'"));
+	ok(result.cause.data.reason.includes("'jti'"));
 });
 
 test("It should reject a proof whose ath names another token", async () => {
@@ -396,7 +396,7 @@ test("It should reject a proof whose ath names another token", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'ath'"));
+	ok(result.cause.data.reason.includes("'ath'"));
 });
 
 test("It should reject a proof with no ath at all", async () => {
@@ -421,7 +421,7 @@ test("It should reject a JWT that is not a dpop+jwt", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'typ'"));
+	ok(result.cause.data.reason.includes("'typ'"));
 });
 
 test("It should reject an algorithm outside the configured list", async () => {
@@ -433,7 +433,7 @@ test("It should reject an algorithm outside the configured list", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'alg'"));
+	ok(result.cause.data.reason.includes("'alg'"));
 });
 
 test("It should accept an algorithm inside a narrowed list", async () => {
@@ -462,7 +462,7 @@ test("It should reject an RSA key wearing an ES256 alg", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("does not match"));
+	ok(result.cause.data.reason.includes("does not match"));
 });
 
 test("It should reject an EC key on the wrong curve for its alg", async () => {
@@ -475,7 +475,7 @@ test("It should reject an EC key on the wrong curve for its alg", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("does not match"));
+	ok(result.cause.data.reason.includes("does not match"));
 });
 
 test("It should reject a proof carrying private key material", async () => {
@@ -490,7 +490,7 @@ test("It should reject a proof carrying private key material", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("private key material"));
+	ok(result.cause.data.reason.includes("private key material"));
 });
 
 test("It should reject a proof with an unusable jwk", async () => {
@@ -542,7 +542,7 @@ test("It should reject a proof longer than maxProofLength", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("maxProofLength"));
+	ok(result.cause.data.reason.includes("maxProofLength"));
 });
 
 test("It should accept a single-entry repeated DPoP header", async () => {
@@ -634,7 +634,7 @@ test("It should throw a 500 when the request URI cannot be resolved", async () =
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 500);
-	ok(result.cause.data.includes("'origin' option"));
+	ok(result.cause.data.reason.includes("'origin' option"));
 });
 
 test("It should throw a 500 when the event carries no path", async () => {
@@ -653,7 +653,7 @@ test("It should throw a 500 when the event carries no path", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 500);
-	ok(result.cause.data.includes("'origin' option"));
+	ok(result.cause.data.reason.includes("'origin' option"));
 });
 
 test("It should throw a 500 when the origin option is not a URL", async () => {

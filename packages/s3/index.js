@@ -89,7 +89,11 @@ const s3Middleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then(async (resp) => {
-					if (!resp.Body) throw new Error("S3 GetObject response missing Body");
+					if (!resp.Body) {
+						throw new Error("S3 GetObject response missing Body", {
+							cause: { package: pkg, data: { internalKey } },
+						});
+					}
 					let value = await resp.Body.transformToString();
 					if (jsonContentTypePattern.test(resp.ContentType)) {
 						value = jsonSafeParse(value);

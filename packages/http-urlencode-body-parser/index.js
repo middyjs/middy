@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { parse as parseQuery } from "node:querystring";
-import { createError, decodeBody, validateOptions } from "@middy/util";
+import { decodeBody, HttpError, validateOptions } from "@middy/util";
 
 const name = "http-urlencode-body-parser";
 const pkg = `@middy/${name}`;
@@ -37,10 +37,10 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 			if (options.disableContentTypeError) {
 				return;
 			}
-			throw createError(415, "Unsupported Media Type", {
+			throw new HttpError(415, {
 				cause: {
 					package: pkg,
-					data: contentType,
+					data: { contentType },
 				},
 			});
 		}

@@ -321,7 +321,7 @@ test("It should propagate the original fetch error (catch rethrows, not swallows
 		await handler(event, context);
 		ok(false, "should have thrown");
 	} catch (e) {
-		const original = e.cause.data[0];
+		const original = e.errors[0];
 		equal(original.message, "@middy/secrets-manager-extension 404 Not Found");
 		strictEqual(original.cause.package, "@middy/secrets-manager-extension");
 	}

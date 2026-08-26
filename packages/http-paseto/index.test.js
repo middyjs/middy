@@ -1047,7 +1047,7 @@ test("It should throw 401 'Unauthorized' with the no-token cause when no token i
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -1063,7 +1063,7 @@ test("It should throw 401 'Unauthorized' with the unsupported-version cause for 
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
 		strictEqual(e.cause.package, "@middy/http-paseto");
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
+		strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
 	}
 });
 
@@ -1077,7 +1077,7 @@ test("It should require the exact v4.public. prefix (a v4.local token is rejecte
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
+		strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
 	}
 });
 
@@ -1094,7 +1094,10 @@ test("It should throw 500 'Internal Server Error' with the resolved-undefined ca
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.message, "Internal Server Error");
-		strictEqual(e.cause.data, "internalKey 'missing' resolved to undefined");
+		strictEqual(
+			e.cause.data.reason,
+			"internalKey 'missing' resolved to undefined",
+		);
 	}
 });
 

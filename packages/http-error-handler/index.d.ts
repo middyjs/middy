@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: ((error: Error) => void) | boolean;
+	logger?: ((request: middy.Request) => void) | boolean;
 	fallbackMessage?: string;
 }
 

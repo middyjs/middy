@@ -579,6 +579,27 @@ const nullResponseMiddleware: middy.MiddlewareObj<
 };
 handler = handler.use(nullResponseMiddleware);
 
+// An onError middleware that throws a distinct error makes core replace
+// `request.error` with an AggregateError of [handlerError, thrownError],
+// so the default `TErr = Error` has to accept one.
+const aggregateErrorMiddleware: middy.MiddlewareObj<
+	APIGatewayProxyEvent,
+	APIGatewayProxyResult,
+	Error
+> = {
+	onError: (request) => {
+		request.error = new AggregateError([new Error("handler"), "primitive"]);
+	},
+};
+handler = handler.use(aggregateErrorMiddleware);
+// Same 3-arg shape core constructs, pinning that the TS lib baseline carries
+// the ErrorOptions overload.
+expect(
+	new AggregateError([], "Error thrown in onError middleware", {
+		cause: { package: "@middy/core" },
+	}),
+).type.toBeAssignableTo<Error>();
+
 // Issue #1594 Third-party middleware (e.g. Powertools) with own Request type using null (not undefined)
 // Simulates @aws-lambda-powertools/commons MiddlewareLikeObj
 type ThirdPartyRequest<

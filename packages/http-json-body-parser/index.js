@@ -1,8 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
 	decodeBody,
+	HttpError,
 	jsonContentTypePattern,
 	jsonParseProtectProto,
 	validateOptions,
@@ -46,14 +46,17 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 			if (options.disableContentTypeError) {
 				return;
 			}
-			throw createError(415, "Unsupported Media Type", {
-				cause: { package: pkg, data: contentType },
+			throw new HttpError(415, {
+				cause: { package: pkg, data: { contentType } },
 			});
 		}
 
 		if (typeof body === "undefined") {
-			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: pkg, data: body },
+			throw new HttpError(422, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid or malformed JSON was provided", body },
+				},
 			});
 		}
 
@@ -68,11 +71,14 @@ const httpJsonBodyParserMiddleware = (opts = {}) => {
 			if (err.statusCode) {
 				throw err;
 			}
-			throw createError(422, "Invalid or malformed JSON was provided", {
+			throw new HttpError(422, {
 				cause: {
 					package: pkg,
-					data: body,
-					message: err.message,
+					data: {
+						reason: "Invalid or malformed JSON was provided",
+						body,
+						message: err.message,
+					},
 				},
 			});
 		}

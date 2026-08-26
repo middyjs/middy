@@ -656,7 +656,7 @@ test("It should throw error if InvalidParameters returned", async (t) => {
 		ok(false);
 	} catch (e) {
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("InvalidParameter invalid-ssm-param-name", {
 				cause: { package: "@middy/ssm" },
 			}),
@@ -690,7 +690,7 @@ test("It should catch if an error is returned from fetchSingle", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -717,7 +717,7 @@ test("It should catch if an error is returned from fetchPath", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 

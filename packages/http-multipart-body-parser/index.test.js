@@ -101,10 +101,10 @@ test("It should handle invalid form data (undefined) as an UnprocessableEntity",
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.body, undefined);
 	}
 });
 
@@ -130,10 +130,10 @@ test("It should handle invalid form data (null) as an UnprocessableEntity", asyn
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
-		strictEqual(e.cause.message, "May not write null values to stream");
+		strictEqual(e.cause.data.message, "May not write null values to stream");
 	}
 });
 
@@ -159,10 +159,10 @@ test("It should handle more invalid form data as an UnprocessableEntity", async 
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
-		strictEqual(e.cause.message, "Unexpected end of multipart data");
+		strictEqual(e.cause.data.message, "Unexpected end of multipart data");
 	}
 });
 
@@ -185,7 +185,7 @@ test("It shouldn't process the body if no headers are passed", async (t) => {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 	}
 });
 
@@ -210,7 +210,7 @@ test("It shouldn't process the body if the content type is not multipart/form-da
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
-		strictEqual(e.cause.data, "application/json");
+		strictEqual(e.cause.data.contentType, "application/json");
 	}
 });
 
@@ -257,7 +257,7 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 	}
 });
 
@@ -286,7 +286,7 @@ test("It should reject a field name larger than the default fieldNameSize cap", 
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
@@ -404,13 +404,13 @@ test("It should normalize a synchronous BusBoy constructor throw to a 422 when d
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		// The construction error must be captured and rejected from the catch
 		// block (not swallowed, which would later throw on an undefined busboy).
-		strictEqual(e.cause.message, "Unsupported Content-Type.");
+		strictEqual(e.cause.data.message, "Unsupported Content-Type.");
 	}
 });
 
@@ -432,7 +432,7 @@ test("It should normalize a synchronous BusBoy constructor throw to a 422 when c
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
@@ -801,7 +801,7 @@ test("It should throw 415 on an unsupported content-type when disableContentType
 	} catch (e) {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
-		strictEqual(e.cause.data, "application/json");
+		strictEqual(e.cause.data.contentType, "application/json");
 	}
 });
 
@@ -822,7 +822,7 @@ test("It should not throw a TypeError when event has no headers (handled as 415)
 	} catch (e) {
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 	}
 });
 
@@ -846,14 +846,14 @@ test("It should throw 422 when content-type is valid but body is undefined", asy
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.body, undefined);
 		// The dedicated missing-body guard throws before busboy is touched, so
 		// no downstream stream error message is attached. If the guard were
 		// skipped, busboy.write(undefined) would throw and populate cause.message.
-		strictEqual(e.cause.message, undefined);
+		strictEqual(e.cause.data.message, undefined);
 	}
 });
 
@@ -874,14 +874,14 @@ test("It should not throw a TypeError during busboy construction when headers ar
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 		// Null-safe header access means busboy receives an undefined
 		// content-type and reports a missing-header error, rather than the
 		// middleware throwing a raw TypeError on event.headers["..."].
-		strictEqual(e.cause.message, "Missing Content-Type-header.");
+		strictEqual(e.cause.data.message, "Missing Content-Type-header.");
 	}
 });
 
@@ -924,7 +924,7 @@ test("It should reject with a 413 when a file part exceeds the configured fileSi
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 413);
-		strictEqual(e.message, "Request Entity Too Large");
+		strictEqual(e.message, "Payload Too Large");
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
 	}
 });
@@ -967,7 +967,7 @@ test("It should reject a file field name exceeding the cap and pass at the bound
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.message, "Field name size limit exceeded");
+		strictEqual(e.cause.data.message, "Field name size limit exceeded");
 	}
 
 	const atHandler = middy((event) => event.body);
@@ -1005,7 +1005,7 @@ test("It should reject a non-file field name exceeding the cap and pass at the b
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.message, "Field name size limit exceeded");
+		strictEqual(e.cause.data.message, "Field name size limit exceeded");
 	}
 
 	const atHandler = middy((event) => event.body);
@@ -1066,7 +1066,7 @@ test("It should reject a malformed/corrupt multipart body with a 422 via the bus
 	} catch (e) {
 		strictEqual(e.statusCode, 422);
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Invalid or malformed multipart/form-data was provided",
 		);
 	}

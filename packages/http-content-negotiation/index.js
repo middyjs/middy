@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "http-content-negotiation";
 const pkg = `@middy/${name}`;
@@ -171,16 +171,15 @@ const parseHeader = (
 			context[desc.resultName] = availableValues[0];
 		} else if (failOnMismatch) {
 			// NotAcceptable
-			throw createError(
-				406,
-				`Unsupported ${type}. Acceptable values: ${availableValues.join(", ")}`,
-				{
-					cause: {
-						package: pkg,
-						data: { [headerName]: headerValue },
+			throw new HttpError(406, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: `Unsupported ${type}. Acceptable values: ${availableValues.join(", ")}`,
+						[headerName]: headerValue,
 					},
 				},
-			);
+			});
 		}
 	}
 };

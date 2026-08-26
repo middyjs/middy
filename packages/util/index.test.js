@@ -14,7 +14,6 @@ import {
 	catchInvalidSignatureException,
 	clearCache,
 	createClient,
-	createError,
 	createPrefetchClient,
 	decodeBody,
 	executionContextKeys,
@@ -277,11 +276,10 @@ describe("getInternal", () => {
 		try {
 			await getInternal(true, getInternalRejected);
 		} catch (e) {
+			ok(e instanceof AggregateError);
 			strictEqual(e.message, "Failed to resolve internal values");
-			deepStrictEqual(e.cause, {
-				package: "@middy/util",
-				data: [promiseRejectError, promiseThrowError],
-			});
+			deepStrictEqual(e.cause, { package: "@middy/util" });
+			deepStrictEqual(e.errors, [promiseRejectError, promiseThrowError]);
 		}
 	});
 
@@ -292,10 +290,8 @@ describe("getInternal", () => {
 			() => getInternal(true, getInternalRejected),
 			(e) => {
 				strictEqual(e.message, "Failed to resolve internal values");
-				deepStrictEqual(e.cause, {
-					package: "@middy/util",
-					data: [promiseRejectError, promiseThrowError],
-				});
+				deepStrictEqual(e.cause, { package: "@middy/util" });
+				deepStrictEqual(e.errors, [promiseRejectError, promiseThrowError]);
 				return true;
 			},
 		);
@@ -733,10 +729,8 @@ describe("processCache / clearCache", () => {
 				b: undefined,
 			});
 			strictEqual(e.message, "Failed to resolve internal values");
-			deepStrictEqual(e.cause, {
-				package: "@middy/util",
-				data: [new Error("error")],
-			});
+			deepStrictEqual(e.cause, { package: "@middy/util" });
+			deepStrictEqual(e.errors, [new Error("error")]);
 
 			processCache(options, fetchCached, cacheRequest);
 			cache = getCache(options.cacheKey);
@@ -1267,9 +1261,10 @@ describe("jsonSafeParse", () => {
 describe("jsonParseProtectProto", () => {
 	const isForbidden = (key) => (e) => {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.message, "Unprocessable Entity");
 		strictEqual(e.cause.package, "@middy/test");
-		strictEqual(e.cause.data, key);
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.key, key);
 		return true;
 	};
 
@@ -1494,11 +1489,11 @@ test("normalizeHttpResponse should update array response", async (t) => {
 
 // HttpError
 test("HttpError should create error", async (t) => {
-	const e = new HttpError(400, "message", { cause: "cause" });
+	const e = new HttpError(400, { cause: "cause" });
 	strictEqual(e.status, 400);
 	strictEqual(e.statusCode, 400);
 	strictEqual(e.name, "BadRequestError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Bad Request");
 	strictEqual(e.expose, true);
 	strictEqual(e.cause, "cause");
 });
@@ -1512,19 +1507,19 @@ test("HttpError should create error with expose false", async (t) => {
 	strictEqual(e.cause, "cause");
 });
 
-// createError
-test("createError should create error", async (t) => {
-	const e = createError(400, "message", { cause: "cause" });
+// HttpError
+test("HttpError should create error", async (t) => {
+	const e = new HttpError(400, { cause: "cause" });
 	strictEqual(e.status, 400);
 	strictEqual(e.statusCode, 400);
 	strictEqual(e.name, "BadRequestError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Bad Request");
 	strictEqual(e.expose, true);
 	strictEqual(e.cause, "cause");
 });
 
-test("createError should create error with expose false", async (t) => {
-	const e = createError(500);
+test("HttpError should create error with expose false", async (t) => {
+	const e = new HttpError(500);
 	strictEqual(e.status, 500);
 	strictEqual(e.statusCode, 500);
 	strictEqual(e.name, "InternalServerError");
@@ -1532,24 +1527,24 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.expose, false);
 });
 
-test("createError(306) falls through to the unknown-code path (306 is absent from node:http STATUS_CODES)", async (t) => {
-	const e = createError(306);
+test("new HttpError(306) falls through to the unknown-code path (306 is absent from node:http STATUS_CODES)", async (t) => {
+	const e = new HttpError(306);
 	strictEqual(e.message, "");
 	strictEqual(e.name, "UnknownError");
 });
 
 test("HttpError should default name to UnknownError for unknown status code", async (t) => {
-	const e = new HttpError(999, "message");
+	const e = new HttpError(999);
 	strictEqual(e.name, "UnknownError");
 	strictEqual(e.status, 999);
 });
 
 test("HttpError should create error with explicit expose", async (t) => {
-	const e = new HttpError(500, "message", { expose: true });
+	const e = new HttpError(500, { expose: true });
 	strictEqual(e.status, 500);
 	strictEqual(e.statusCode, 500);
 	strictEqual(e.name, "InternalServerError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Internal Server Error");
 	strictEqual(e.expose, true);
 });
 

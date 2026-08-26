@@ -285,7 +285,7 @@ test("It should throw 404 when route not found", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -662,7 +662,7 @@ test("It should not invoke an Object.prototype member as a static handler", asyn
 		await handler(event, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -682,7 +682,7 @@ test("It should throw 404 when method has no routes defined", async (t) => {
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -707,7 +707,7 @@ test("It should throw 404 when method has only static routes and no matching dyn
 	try {
 		await handler(event, defaultContext);
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -728,7 +728,7 @@ test("It should return 404 when dynamic route exists but path does not match", a
 		await handler(event, defaultContext);
 		fail("Should have thrown 404");
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -1015,7 +1015,7 @@ test("It should 404 when constructed with no routes option", async (t) => {
 		await handler({ httpMethod: "GET", path: "/" }, defaultContext);
 		ok(false, "expected 404");
 	} catch (e) {
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
 		strictEqual(e.statusCode, 404);
 	}
 });
@@ -1031,7 +1031,11 @@ test("It should attach cause package and data to the 404 error", async (t) => {
 	} catch (e) {
 		ok(e.cause, "cause present");
 		strictEqual(e.cause.package, "@middy/http-router");
-		deepStrictEqual(e.cause.data, { method: "POST", path: "/missing" });
+		deepStrictEqual(e.cause.data, {
+			reason: "Route does not exist",
+			method: "POST",
+			path: "/missing",
+		});
 	}
 });
 

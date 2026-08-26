@@ -224,7 +224,7 @@ test("middleware: caches undefined and rethrows on fetch failure", async () => {
 			strictEqual(e.message, "Failed to resolve internal values");
 			// The original rejection reason must survive untouched; the error-cache
 			// fallback must not replace it with an incidental TypeError.
-			strictEqual(e.cause.data[0].message, "glue boom");
+			strictEqual(e.errors[0].message, "glue boom");
 			return true;
 		},
 	);

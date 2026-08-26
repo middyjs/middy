@@ -149,7 +149,7 @@ import middy from '@middy/core'
 import kms from '@middy/kms'
 import httpPaseto from '@middy/http-paseto'
 import httpErrorHandler from '@middy/http-error-handler'
-import { createError } from '@middy/util'
+import { HttpError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = {}) => ({
   before: (request) => {
@@ -159,8 +159,11 @@ const requireRole = (requiredRole, { payloadKey = 'paseto', claim = 'roles' } = 
       ? roles.includes(requiredRole)
       : roles === requiredRole
     if (!has) {
-      throw createError(403, 'Forbidden', {
-        cause: { package: 'custom/require-role', data: `Missing role: ${requiredRole}` },
+      throw new HttpError(403, {
+        cause: {
+          package: 'custom/require-role',
+          data: { reason: 'Missing role', requiredRole },
+        },
       })
     }
   },

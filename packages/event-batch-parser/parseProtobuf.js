@@ -1,6 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
+const pkg = "@middy/event-batch-parser";
+
 export const parseProtobuf = (parserOpts = {}) => {
 	if (parserOpts.root && parserOpts.messageType) {
 		const Type = parserOpts.root.lookupType(parserOpts.messageType);
@@ -17,6 +19,7 @@ export const parseProtobuf = (parserOpts = {}) => {
 		if (!root || !messageType) {
 			throw new TypeError(
 				`parseProtobuf: requires { root, messageType } either as factory options or on request.internal["${internalKey}"]`,
+				{ cause: { package: pkg, data: { internalKey } } },
 			);
 		}
 		return root

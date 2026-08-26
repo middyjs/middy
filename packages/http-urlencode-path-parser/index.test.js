@@ -61,9 +61,9 @@ test("It should throw 400 for incomplete percent encoding", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
-		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.data.reason, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
-		strictEqual(e.cause.data, "id");
+		strictEqual(e.cause.data.key, "id");
 	}
 });
 
@@ -84,9 +84,9 @@ test("It should throw 400 for invalid percent sequence %ZZ", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
-		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.data.reason, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
-		strictEqual(e.cause.data, "name");
+		strictEqual(e.cause.data.key, "name");
 	}
 });
 
@@ -108,9 +108,9 @@ test("It should handle multiple path parameters with one malformed", async (t) =
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
-		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.data.reason, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
-		strictEqual(e.cause.data, "bad");
+		strictEqual(e.cause.data.key, "bad");
 	}
 });
 
@@ -149,9 +149,9 @@ test("It should throw error", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.statusCode, 400);
-		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.data.reason, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
-		strictEqual(e.cause.data, "char");
+		strictEqual(e.cause.data.key, "char");
 	}
 });
 
@@ -214,9 +214,9 @@ test("It should throw 400 (asserted) for invalid percent sequence", async (t) =>
 	} catch (e) {
 		threw = true;
 		strictEqual(e.statusCode, 400);
-		strictEqual(e.message, "Invalid path parameter encoding");
+		strictEqual(e.cause.data.reason, "Invalid path parameter encoding");
 		strictEqual(e.cause.package, "@middy/http-urlencode-path-parser");
-		strictEqual(e.cause.data, "char");
+		strictEqual(e.cause.data.key, "char");
 	}
 	ok(threw, "expected handler to throw on malformed encoding");
 });

@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import BusBoy from "@fastify/busboy";
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "http-multipart-body-parser";
 const pkg = `@middy/${name}`;
@@ -79,20 +79,24 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 			if (options.disableContentTypeError) {
 				return;
 			}
-			throw createError(415, "Unsupported Media Type", {
+			throw new HttpError(415, {
 				cause: {
 					package: pkg,
-					data: contentType,
+					data: { contentType },
 				},
 			});
 		}
 
 		if (typeof body === "undefined") {
-			throw createError(
-				422,
-				"Invalid or malformed multipart/form-data was provided",
-				{ cause: { package: pkg, data: body } },
-			);
+			throw new HttpError(422, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: "Invalid or malformed multipart/form-data was provided",
+						body,
+					},
+				},
+			});
 		}
 
 		return parseMultipartData(request.event, options)
@@ -104,17 +108,16 @@ const httpMultipartBodyParserMiddleware = (opts = {}) => {
 					throw err;
 				}
 				// UnprocessableEntity
-				throw createError(
-					422,
-					"Invalid or malformed multipart/form-data was provided",
-					{
-						cause: {
-							package: pkg,
-							data: body,
+				throw new HttpError(422, {
+					cause: {
+						package: pkg,
+						data: {
+							reason: "Invalid or malformed multipart/form-data was provided",
+							body,
 							message: err.message,
 						},
 					},
-				);
+				});
 			});
 	};
 
@@ -167,8 +170,8 @@ const parseMultipartData = (event, options) => {
 				file.on("end", () => {
 					if (file.truncated) {
 						reject(
-							createError(413, "Request Entity Too Large", {
-								cause: { package: pkg, data: filename },
+							new HttpError(413, {
+								cause: { package: pkg, data: { filename } },
 							}),
 						);
 						return;

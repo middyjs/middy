@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "validator";
 const pkg = `@middy/${name}`;
@@ -87,10 +87,13 @@ const validatorMiddleware = (opts = {}) => {
 				}
 
 				// Bad Request
-				throw createError(400, "Event object failed validation", {
+				throw new HttpError(400, {
 					cause: {
 						package: pkg,
-						data: eventSchema.errors,
+						data: {
+							reason: "Event object failed validation",
+							errors: eventSchema.errors,
+						},
 					},
 				});
 			}
@@ -102,10 +105,13 @@ const validatorMiddleware = (opts = {}) => {
 
 			if (!validContext) {
 				// Internal Server Error
-				throw createError(500, "Context object failed validation", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: contextSchema.errors,
+						data: {
+							reason: "Context object failed validation",
+							errors: contextSchema.errors,
+						},
 					},
 				});
 			}
@@ -118,10 +124,13 @@ const validatorMiddleware = (opts = {}) => {
 
 		if (!validResponse) {
 			// Internal Server Error
-			throw createError(500, "Response object failed validation", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: responseSchema.errors,
+					data: {
+						reason: "Response object failed validation",
+						errors: responseSchema.errors,
+					},
 				},
 			});
 		}

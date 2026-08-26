@@ -63,10 +63,10 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 	};
 
 	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		match(e.cause.message, /^Unexpected token/);
+		match(e.cause.data.message, /^Unexpected token/);
 		return true;
 	});
 });
@@ -107,10 +107,10 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	};
 
 	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		match(e.cause.message, /^Unexpected token/);
+		match(e.cause.data.message, /^Unexpected token/);
 		return true;
 	});
 });
@@ -126,10 +126,10 @@ test("It should handle missing body as an UnprocessableEntity", async (t) => {
 	const event = {};
 
 	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.statusCode, 422);
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 		// The missing-body guard throws directly (no JSON.parse), so the cause
 		// carries no parser `message`. A body that reached JSON.parse would.
 		ok(!("message" in e.cause));
@@ -148,9 +148,9 @@ test("It should reject a body containing a __proto__ key with 422", async (t) =>
 
 	await rejects(handler(event, defaultContext), (e) => {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		strictEqual(e.cause.data, "__proto__");
+		strictEqual(e.cause.data.key, "__proto__");
 		return true;
 	});
 	// Object.prototype must be untouched.
@@ -168,8 +168,8 @@ test("It should reject a deeply nested constructor.prototype payload with 422", 
 
 	await rejects(handler(event, defaultContext), (e) => {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
-		strictEqual(e.cause.data, "constructor");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.key, "constructor");
 		return true;
 	});
 });

@@ -320,7 +320,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -352,11 +352,11 @@ test("It should catch if a token without X-Amz-Security-Token is returned from f
 	}, /Failed to resolve internal values/);
 	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
 	strictEqual(caught.message, "Failed to resolve internal values");
-	deepStrictEqual(caught.cause.data, [
+	deepStrictEqual(caught.errors, [
 		new Error("X-Amz-Security-Token Missing", {
 			cause: {
 				package: "@middy/dsql-signer",
-				method: "getDbConnectAuthToken",
+				data: { method: "getDbConnectAuthToken" },
 			},
 		}),
 	]);

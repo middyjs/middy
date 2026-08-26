@@ -222,12 +222,14 @@ test("It should reject an HS256 token forged via algorithm confusion on a string
 		strictEqual(e.message, "Internal Server Error");
 		strictEqual(e.cause.package, "@middy/http-jwt");
 		ok(
-			e.cause.data.includes(
+			e.cause.data.reason.includes(
 				"internalKey 'pubkey' is a string secret but 'algorithm' includes a non-symmetric value",
 			),
 		);
 		ok(
-			e.cause.data.includes("string keys may only be used with HS* algorithms"),
+			e.cause.data.reason.includes(
+				"string keys may only be used with HS* algorithms",
+			),
 		);
 	}
 });
@@ -645,7 +647,7 @@ test("It should throw 500 when algorithm is incompatible with KMS keySpec", asyn
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.cause.package, "@middy/http-jwt");
-		ok(e.cause.data.includes("incompatible with KMS keySpec"));
+		ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 	}
 });
 
@@ -1163,7 +1165,7 @@ test("issuers: token with iss not in map throws 401 Unknown issuer", async (t) =
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			strictEqual(e.cause.data, "Unknown issuer");
+			strictEqual(e.cause.data.reason, "Unknown issuer");
 		}
 	} finally {
 		fetchStub.restore();
@@ -1246,7 +1248,7 @@ test("issuers: token with unknown kid throws 401", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("No key in JWKS with kid"));
+			ok(e.cause.data.reason.includes("No key in JWKS with kid"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1681,7 +1683,7 @@ test("issuers: JWK with alg not in configured allowlist throws 401", async (t) =
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("not in configured allowlist"));
+			ok(e.cause.data.reason.includes("not in configured allowlist"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1745,7 +1747,7 @@ test("issuers: JWK without alg + multi-alg allowlist rejects as ambiguous", asyn
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("cannot disambiguate"));
+			ok(e.cause.data.reason.includes("cannot disambiguate"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1788,7 +1790,7 @@ test("issuers: JWKS document without keys array throws 401", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("JWKS fetch failed"));
+			ok(e.cause.data.reason.includes("JWKS fetch failed"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2374,7 +2376,7 @@ for (const keySpec of ["RSA_2048", "RSA_3072", "RSA_4096"]) {
 		} catch (e) {
 			strictEqual(e.statusCode, 500);
 			strictEqual(e.message, "Internal Server Error");
-			ok(e.cause.data.includes("incompatible with KMS keySpec"));
+			ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 		}
 	});
 }
@@ -2403,7 +2405,7 @@ for (const { keySpec } of [
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 500);
-			ok(e.cause.data.includes("incompatible with KMS keySpec"));
+			ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 		}
 	});
 }
@@ -2590,7 +2592,7 @@ test("Cookie guard: a lone-quote (length 1) value is returned verbatim, not slic
 		}),
 	);
 	const e = await expect401(handler, 'access_token="');
-	ok(e.cause.data !== "No token found in configured sources");
+	ok(e.cause.data.reason !== "No token found in configured sources");
 });
 
 test('Cookie guard: an empty quoted-pair "" (length 2) is sliced to empty -> No token found', async (t) => {
@@ -2606,7 +2608,7 @@ test('Cookie guard: an empty quoted-pair "" (length 2) is sliced to empty -> No 
 		}),
 	);
 	const e = await expect401(handler, 'access_token=""');
-	strictEqual(e.cause.data, "No token found in configured sources");
+	strictEqual(e.cause.data.reason, "No token found in configured sources");
 });
 
 // --- factory-time validation error messages ---
@@ -2710,7 +2712,7 @@ test("It should reject an Authorization header with three space-separated parts"
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2729,7 +2731,7 @@ test("Cookie source: a null event yields a clean 401, not a TypeError", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2742,7 +2744,7 @@ test("Header source: a null event yields a clean 401, not a TypeError", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2759,7 +2761,7 @@ test("Query source: a null event yields a clean 401, not a TypeError", async (t)
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2791,7 +2793,7 @@ test("It should report 'No token found in configured sources' when token absent"
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2807,7 +2809,10 @@ test("It should report the undefined-internalKey 500 message and cause.data", as
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.message, "Internal Server Error");
-		strictEqual(e.cause.data, "internalKey 'missing' resolved to undefined");
+		strictEqual(
+			e.cause.data.reason,
+			"internalKey 'missing' resolved to undefined",
+		);
 	}
 });
 
@@ -2835,7 +2840,7 @@ test("issuers: malformed-token 401 message and cause.data", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.startsWith("Malformed token: "));
+			ok(e.cause.data.reason.startsWith("Malformed token: "));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2871,7 +2876,7 @@ test("issuers: unknown-issuer message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "Unknown issuer");
+			strictEqual(e.cause.data.reason, "Unknown issuer");
 		}
 	} finally {
 		fetchStub.restore();
@@ -2902,7 +2907,7 @@ test("issuers: JWKS-fetch-failed surfaces 'Unauthorized' message", async (t) => 
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.includes("JWKS fetch failed: HTTP 503"));
+			ok(e.cause.data.reason.includes("JWKS fetch failed: HTTP 503"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2938,7 +2943,7 @@ test("issuers: no-key-in-JWKS message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "No key in JWKS with kid 'ghost-kid'");
+			strictEqual(e.cause.data.reason, "No key in JWKS with kid 'ghost-kid'");
 		}
 	} finally {
 		fetchStub.restore();
@@ -2979,7 +2984,7 @@ test("issuers: invalid-JWKS-document message text (missing keys array)", async (
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(
-				e.cause.data.includes(
+				e.cause.data.reason.includes(
 					"JWKS fetch failed: Invalid JWKS document: missing keys array",
 				),
 			);
@@ -3014,7 +3019,10 @@ test("issuers: JWK-alg-not-in-allowlist message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "JWK alg 'RS512' not in configured allowlist");
+			strictEqual(
+				e.cause.data.reason,
+				"JWK alg 'RS512' not in configured allowlist",
+			);
 		}
 	} finally {
 		fetchStub.restore();
@@ -3048,7 +3056,7 @@ test("issuers: ambiguous-alg message text", async (t) => {
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
 			strictEqual(
-				e.cause.data,
+				e.cause.data.reason,
 				"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
 			);
 		}
@@ -3093,7 +3101,7 @@ test("issuers: JWK-import-failed message and cause.data", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.startsWith("JWK import failed: "));
+			ok(e.cause.data.reason.startsWith("JWK import failed: "));
 		}
 	} finally {
 		fetchStub.restore();
@@ -3389,7 +3397,7 @@ test("It should NOT fall back to the Authorization header when a custom source i
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -3439,7 +3447,7 @@ test("issuers: a missing kid triggers exactly one rotation refetch then 401", as
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
-			strictEqual(e.cause.data, "No key in JWKS with kid 'absent-kid'");
+			strictEqual(e.cause.data.reason, "No key in JWKS with kid 'absent-kid'");
 		}
 		// Exactly one network fetch: cooldown suppresses the rotation refetch.
 		strictEqual(fetchStub.calls.filter((c) => c.url === jwksUri).length, 1);

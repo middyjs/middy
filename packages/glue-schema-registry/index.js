@@ -164,7 +164,9 @@ export const resolveSchemaVersion = async (
 		typeof schemaVersionId !== "string" ||
 		!schemaVersionIdPattern.test(schemaVersionId)
 	) {
-		throw new TypeError("resolveSchemaVersion: schemaVersionId required");
+		throw new TypeError("resolveSchemaVersion: schemaVersionId required", {
+			cause: { package: pkg, data: { schemaVersionId } },
+		});
 	}
 	const merged = { ...defaults, ...options };
 	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;

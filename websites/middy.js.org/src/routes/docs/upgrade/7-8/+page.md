@@ -11,14 +11,40 @@ Version 8.x of Middy no longer supports Node.js versions 22.x. You are highly en
 
 - Deprecation of `callbackWaitsForEmptyEventLoop`
 - `executionModeDurablecontext` now skips onError middlewares
+- All error cause now follow a consistent shape `{cause: {package, data:{...}}}`
 
 ## Core
 
 - `executionModeDurablecontext` now skips `onError` middlewares **Breaking Change**
-- Deprecation of `originalError` on internal error object **Breaking Change**
+- Deprecation of `originalError` for `AggregateError` for internal error object **Breaking Change**
+- All error cause now follow a consistent shape `{cause: {package, data:{...}}}` **Breaking Change**
 - Deprecation of `callbackWaitsForEmptyEventLoop`
 
 ## Util
+
+- removed `createError`, use the exported `HttpError` class directly **Breaking Change**
+- `HttpError` no longer takes a `message`; it is always the reason phrase registered for the status code in `node:http`. Put the specific reason in `cause.data.reason` **Breaking Change**
+
+```javascript
+// 7.x
+import { createError } from '@middy/util'
+throw createError(422, 'Invalid or malformed JSON was provided', {
+  cause: { package: '@middy/http-json-body-parser', data: body }
+})
+
+// 8.x
+import { HttpError } from '@middy/util'
+throw new HttpError(422, {
+  cause: {
+    package: '@middy/http-json-body-parser',
+    data: { reason: 'Invalid or malformed JSON was provided', body }
+  }
+})
+```
+
+Because the message is now the status reason phrase, `http-error-handler` returns
+`Unprocessable Entity` where 7.x returned the custom message. The detail stays
+server-side in `cause.data`.
 
 ## Middleware
 

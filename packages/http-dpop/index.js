@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 import { constants, createHash, createPublicKey, verify } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
 	validateOptions,
 } from "@middy/util";
@@ -95,12 +95,16 @@ const PRIVATE_MEMBERS = ["d", "p", "q", "dp", "dq", "qi", "k"];
 export const jwkThumbprint = (jwk) => {
 	const members = THUMBPRINT_MEMBERS[jwk?.kty];
 	if (!members) {
-		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`);
+		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`, {
+			cause: { package: pkg, data: { kty: jwk?.kty } },
+		});
 	}
 	const canonical = {};
 	for (const member of members) {
 		if (typeof jwk[member] !== "string") {
-			throw new Error(`JWK is missing required member '${member}'`);
+			throw new Error(`JWK is missing required member '${member}'`, {
+				cause: { package: pkg, data: { member } },
+			});
 		}
 		canonical[member] = jwk[member];
 	}
@@ -295,10 +299,12 @@ const httpDpopMiddleware = (opts = {}) => {
 		const jkt = payload?.[options.confirmationClaim]?.jkt;
 		if (jkt === undefined) {
 			if (options.required) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `Token carries no '${options.confirmationClaim}.jkt', and 'required' is set`,
+						data: {
+							reason: `Token carries no '${options.confirmationClaim}.jkt', and 'required' is set`,
+						},
 					},
 				});
 			}
@@ -312,10 +318,13 @@ const httpDpopMiddleware = (opts = {}) => {
 		// proof together and talk its way back to bearer semantics.
 		const authorization = readAuthorization(headers);
 		if (!authorization?.toLowerCase().startsWith("dpop ")) {
-			throw createError(401, "Unauthorized", {
+			throw new HttpError(401, {
 				cause: {
 					package: pkg,
-					data: "A DPoP-bound token must be sent with the DPoP authentication scheme",
+					data: {
+						reason:
+							"A DPoP-bound token must be sent with the DPoP authentication scheme",
+					},
 				},
 			});
 		}
@@ -323,17 +332,19 @@ const httpDpopMiddleware = (opts = {}) => {
 
 		const proof = readProof(headers);
 		if (typeof proof !== "string" || !proof) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: "Missing DPoP header" },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: "Missing DPoP header" } },
 			});
 		}
 		// Bounded before anything parses it, so a hostile proof cannot hand
 		// `createPublicKey` a multi-megabyte RSA modulus to import.
 		if (proof.length > options.maxProofLength) {
-			throw createError(401, "Unauthorized", {
+			throw new HttpError(401, {
 				cause: {
 					package: pkg,
-					data: `DPoP header exceeds maxProofLength of ${options.maxProofLength}`,
+					data: {
+						reason: `DPoP header exceeds maxProofLength of ${options.maxProofLength}`,
+					},
 				},
 			});
 		}
@@ -350,10 +361,12 @@ const httpDpopMiddleware = (opts = {}) => {
 			url = undefined;
 		}
 		if (origin === undefined || path === undefined || url === undefined) {
-			throw createError(500, "Internal Server Error", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: "Cannot determine the request URI: set the 'origin' option",
+					data: {
+						reason: "Cannot determine the request URI: set the 'origin' option",
+					},
 				},
 			});
 		}
@@ -368,16 +381,18 @@ const httpDpopMiddleware = (opts = {}) => {
 				maxAge: options.maxAge,
 			});
 		} catch (e) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: e.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: e.message } },
 			});
 		}
 
 		if (verified.jkt !== jkt) {
-			throw createError(401, "Unauthorized", {
+			throw new HttpError(401, {
 				cause: {
 					package: pkg,
-					data: "Proof key does not match the token's confirmation claim",
+					data: {
+						reason: "Proof key does not match the token's confirmation claim",
+					},
 				},
 			});
 		}

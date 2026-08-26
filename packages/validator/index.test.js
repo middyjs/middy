@@ -312,8 +312,8 @@ test("It should handle invalid schema as a BadRequest", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -370,8 +370,8 @@ for (const c of cases) {
 			await handler(event, { ...defaultContext, preferredLanguage: c.lang });
 		} catch (e) {
 			strictEqual(e.cause.package, "@middy/validator");
-			strictEqual(e.message, "Event object failed validation");
-			deepStrictEqual(e.cause.data, [
+			strictEqual(e.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(e.cause.data.errors, [
 				{
 					instancePath: "",
 					keyword: "required",
@@ -422,8 +422,8 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -470,8 +470,8 @@ test("It should handle invalid schema as a BadRequest without i18n", async (t) =
 		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -511,8 +511,8 @@ for (const lang of prototypePollutionKeys) {
 		ok(error, "expected the event validation to throw");
 		strictEqual(error.cause.package, "@middy/validator");
 		strictEqual(error.statusCode, 400);
-		strictEqual(error.message, "Event object failed validation");
-		deepStrictEqual(error.cause.data, [
+		strictEqual(error.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(error.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -557,7 +557,7 @@ test("It should make requests with invalid context fails with an Internal Server
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
-		strictEqual(e.message, "Context object failed validation");
+		strictEqual(e.cause.data.reason, "Context object failed validation");
 	}
 });
 
@@ -616,7 +616,7 @@ test("It should make requests with invalid responses fail with an Internal Serve
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
-		strictEqual(e.message, "Response object failed validation");
+		strictEqual(e.cause.data.reason, "Response object failed validation");
 	}
 });
 
@@ -638,7 +638,7 @@ test("It should not allow bad email format", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data[0].message, 'must match format "email"');
+		strictEqual(e.cause.data.errors[0].message, 'must match format "email"');
 	}
 });
 
@@ -700,8 +700,8 @@ test("It should use out-of-the-box ajv-errors plugin", async (t) => {
 		await handler({ foo: "a" });
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "errorMessage",
@@ -840,8 +840,8 @@ test("It should throw a 400 when the event fails validation", async (t) => {
 	ok(error, "expected the event validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 400);
-	strictEqual(error.message, "Event object failed validation");
-	deepStrictEqual(error.cause.data, [
+	strictEqual(error.cause.data.reason, "Event object failed validation");
+	deepStrictEqual(error.cause.data.errors, [
 		{
 			instancePath: "",
 			keyword: "required",
@@ -924,9 +924,9 @@ test("It should run context validation and reject an invalid context with a 500"
 	ok(error, "expected context validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 500);
-	strictEqual(error.message, "Context object failed validation");
-	ok(Array.isArray(error.cause.data));
-	ok(error.cause.data.length > 0);
+	strictEqual(error.cause.data.reason, "Context object failed validation");
+	ok(Array.isArray(error.cause.data.errors));
+	ok(error.cause.data.errors.length > 0);
 });
 
 test("It should run context validation and pass a valid context", async (t) => {
@@ -966,9 +966,9 @@ test("It should run response validation and reject an invalid response with a 50
 	ok(error, "expected response validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 500);
-	strictEqual(error.message, "Response object failed validation");
-	ok(Array.isArray(error.cause.data));
-	ok(error.cause.data.length > 0);
+	strictEqual(error.cause.data.reason, "Response object failed validation");
+	ok(Array.isArray(error.cause.data.errors));
+	ok(error.cause.data.errors.length > 0);
 });
 
 test("It should run response validation and pass a valid response", async (t) => {

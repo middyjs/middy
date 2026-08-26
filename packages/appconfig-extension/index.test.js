@@ -267,8 +267,8 @@ test("It should throw if extension returns a non-2xx response", async (_t) => {
 	}
 	ok(thrown, "should have thrown");
 	ok(thrown instanceof Error);
-	// @middy/core wraps the failure; the original fetch error is in cause.data.
-	const cause = thrown.cause?.data?.[0];
+	// @middy/core wraps the failure; the original fetch error is in .errors.
+	const cause = thrown.errors?.[0];
 	ok(cause instanceof Error, "original fetch error should propagate");
 	// The propagated error must be the constructed HTTP error (lines 86/87),
 	// carrying status + statusText, NOT a TypeError from the catch handler

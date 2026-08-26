@@ -428,8 +428,8 @@ test("It should throw the package/status error message on non-2xx", async (_t) =
 		thrown = e;
 	}
 	ok(thrown, "handler should reject");
-	const inner = thrown.cause?.data?.[0];
-	ok(inner, "original fetch error should be present in cause.data");
+	const inner = thrown.errors?.[0];
+	ok(inner, "original fetch error should be present in .errors");
 	strictEqual(inner.message, "@middy/ssm-extension 404 Not Found");
 	strictEqual(inner.cause.package, "@middy/ssm-extension");
 });

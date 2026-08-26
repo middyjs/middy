@@ -26,6 +26,7 @@ export interface Options<Client, ClientOptions> {
 }
 
 export declare class HttpError extends Error {
+	constructor(code: number, properties?: Record<string, unknown>);
 	status: number;
 	statusCode: number;
 	expose: boolean;
@@ -143,12 +144,6 @@ declare function normalizeHttpResponse(
 	request: middy.Request,
 	fallbackResponse?: Record<string, unknown>,
 ): Record<string, unknown>;
-
-declare function createError(
-	code: number,
-	message: string,
-	properties?: Record<string, unknown>,
-): HttpError;
 
 declare function modifyCache(cacheKey: string, value: unknown): void;
 

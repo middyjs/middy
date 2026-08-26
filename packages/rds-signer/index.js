@@ -101,7 +101,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: pkg, method },
+							cause: { package: pkg, data: { method } },
 						});
 					}
 					return token;

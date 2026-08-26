@@ -277,16 +277,13 @@ const runRequest = async (
 				}
 			}
 		} catch (err) {
-			// Save error that wasn't handled. When an onError middleware rethrows
-			// `request.error`, err === request.error; attaching it to itself would
-			// create self-references that loop cause-walking serializers, so only
-			// attach when the thrown error is distinct. Thrown primitives can't
-			// carry properties (assignment throws in strict mode), so only attach
-			// to objects; a primitive still propagates as-is below.
-			if (err !== request.error && typeof err === "object" && err !== null) {
-				err.cause ??= request.error;
+			if (err !== request.error) {
+				request.error = new AggregateError(
+					[request.error, err],
+					"Error thrown in onError middleware",
+					{ cause: { package: pkg } },
+				);
 			}
-			request.error = err;
 
 			throw request.error;
 		}

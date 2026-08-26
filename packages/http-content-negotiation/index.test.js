@@ -288,8 +288,9 @@ test("It should fail when mismatching", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-content-negotiation");
+		strictEqual(e.message, "Not Acceptable");
 		strictEqual(
-			e.message,
+			e.cause.data.reason,
 			"Unsupported MediaType. Acceptable values: text/plain, text/x-dvi",
 		);
 	}
@@ -315,7 +316,11 @@ test("It should error when unfound preferred locale", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/http-content-negotiation");
-		strictEqual(e.message, "Unsupported Language. Acceptable values: en-CA");
+		strictEqual(e.message, "Not Acceptable");
+		strictEqual(
+			e.cause.data.reason,
+			"Unsupported Language. Acceptable values: en-CA",
+		);
 	}
 });
 
@@ -594,7 +599,10 @@ test("It should attach offending header name/value to the 406 cause data", async
 		thrown = e;
 	}
 	ok(thrown, "expected a 406 to be thrown");
-	deepStrictEqual(thrown.cause.data, { Accept: "application/json" });
+	deepStrictEqual(thrown.cause.data, {
+		reason: "Unsupported MediaType. Acceptable values: text/plain, text/x-dvi",
+		Accept: "application/json",
+	});
 });
 
 test("It should not throw on mismatch when failOnMismatch is false", async (t) => {

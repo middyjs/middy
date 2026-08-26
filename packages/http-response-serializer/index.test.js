@@ -1,6 +1,6 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
-import { createError } from "@middy/util";
+import { HttpError } from "@middy/util";
 import middy from "../core/index.js";
 import httpContentNegotiation from "../http-content-negotiation/index.js";
 import httpErrorHandler from "../http-error-handler/index.js";
@@ -300,7 +300,7 @@ test('It should replace the response object when the serializer returns an objec
 
 test("It should work with `http-error-handler` middleware", async (t) => {
 	const handler = middy((event, context) => {
-		throw createError(422);
+		throw new HttpError(422);
 	});
 
 	handler

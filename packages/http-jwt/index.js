@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 import { createPublicKey } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
 	validateOptions,
 } from "@middy/util";
@@ -290,8 +290,11 @@ const httpJwtMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "No token found in configured sources" },
+		throw new HttpError(401, {
+			cause: {
+				package: pkg,
+				data: { reason: "No token found in configured sources" },
+			},
 		});
 	};
 
@@ -322,29 +325,35 @@ const httpJwtMiddleware = (opts = {}) => {
 				header = decodeProtectedHeader(token);
 				payload = decodeJwt(token);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `Malformed token: ${e.message}` },
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: { reason: `Malformed token: ${e.message}` },
+					},
 				});
 			}
 			const entry = issuersMap.get(payload.iss);
 			if (!entry) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: "Unknown issuer" },
+				throw new HttpError(401, {
+					cause: { package: pkg, data: { reason: "Unknown issuer" } },
 				});
 			}
 			let jwk;
 			try {
 				jwk = await entry.resolver.getJwk(header.kid);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `JWKS fetch failed: ${e.message}` },
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: { reason: `JWKS fetch failed: ${e.message}` },
+					},
 				});
 			}
 			if (!jwk) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `No key in JWKS with kid '${header.kid}'`,
+						data: { reason: `No key in JWKS with kid '${header.kid}'` },
 					},
 				});
 			}
@@ -359,10 +368,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			let alg;
 			if (jwk.alg) {
 				if (!entry.algorithms.includes(jwk.alg)) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							data: {
+								reason: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							},
 						},
 					});
 				}
@@ -370,10 +381,13 @@ const httpJwtMiddleware = (opts = {}) => {
 			} else if (entry.algorithms.length === 1) {
 				alg = entry.algorithms[0];
 			} else {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: "JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						data: {
+							reason:
+								"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						},
 					},
 				});
 			}
@@ -384,10 +398,10 @@ const httpJwtMiddleware = (opts = {}) => {
 				try {
 					key = await importJWK(jwk, alg);
 				} catch (e) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK import failed: ${e.message}`,
+							data: { reason: `JWK import failed: ${e.message}` },
 						},
 					});
 				}
@@ -405,10 +419,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			const result = await getInternal(options.internalKey, request);
 			const keyData = result[sanitizeKey(options.internalKey)];
 			if (keyData === undefined) {
-				throw createError(500, "Internal Server Error", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: `internalKey '${options.internalKey}' resolved to undefined`,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to undefined`,
+						},
 					},
 				});
 			}
@@ -424,10 +440,12 @@ const httpJwtMiddleware = (opts = {}) => {
 				if (compatible) {
 					usableAlgs = topLevelAlgs.filter((a) => compatible.includes(a));
 					if (usableAlgs.length === 0) {
-						throw createError(500, "Internal Server Error", {
+						throw new HttpError(500, {
 							cause: {
 								package: pkg,
-								data: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${keyData.keySpec}'`,
+								data: {
+									reason: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${keyData.keySpec}'`,
+								},
 							},
 						});
 					}
@@ -455,10 +473,12 @@ const httpJwtMiddleware = (opts = {}) => {
 				}
 			} else {
 				if (usableAlgs.some((a) => !a.startsWith("HS"))) {
-					throw createError(500, "Internal Server Error", {
+					throw new HttpError(500, {
 						cause: {
 							package: pkg,
-							data: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+							data: {
+								reason: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+							},
 						},
 					});
 				}
@@ -474,8 +494,8 @@ const httpJwtMiddleware = (opts = {}) => {
 				request.context[options.payloadKey] = payload;
 			}
 		} catch (e) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: e.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: e.message } },
 			});
 		}
 	};

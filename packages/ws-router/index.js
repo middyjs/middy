@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "ws-router";
 const pkg = `@middy/${name}`;
@@ -9,8 +9,11 @@ const defaults = {
 	// Stryker disable next-line ArrayDeclaration: a non-empty default would only ever add a route whose destructured handler is `undefined` (string element has no `routeKey`/`handler`), so the `handler !== undefined` guard makes any such entry inert and unreachable; equivalent mutant.
 	routes: [],
 	notFoundResponse: ({ routeKey }) => {
-		const err = createError(404, "Route does not exist", {
-			cause: { package: pkg, data: { routeKey } },
+		const err = new HttpError(404, {
+			cause: {
+				package: pkg,
+				data: { reason: "Route does not exist", routeKey },
+			},
 		});
 		throw err;
 	},
@@ -58,13 +61,16 @@ const wsRouteHandler = (opts = {}) => {
 	const handler = (event, context, abort) => {
 		const { routeKey } = event.requestContext ?? {};
 		if (!routeKey) {
-			throw createError(
-				400,
-				"Unknown WebSocket event format: missing 'requestContext.routeKey'",
-				{
-					cause: { package: pkg, data: { routeKey } },
+			throw new HttpError(400, {
+				cause: {
+					package: pkg,
+					data: {
+						reason:
+							"Unknown WebSocket event format: missing 'requestContext.routeKey'",
+						routeKey,
+					},
 				},
-			);
+			});
 		}
 
 		// Static. `routesStatic` is `Object.create(null)`; handlers are

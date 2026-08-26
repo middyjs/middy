@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { inflateSync } from "node:zlib";
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "event-batch-parser";
 const pkg = `@middy/${name}`;
@@ -44,7 +44,7 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			throw new Error("Unsupported event source", {
 				cause: {
 					package: pkg,
-					data: eventSource ?? null,
+					data: { eventSource: eventSource ?? null },
 				},
 			});
 		}
@@ -106,12 +106,15 @@ const eventBatchParserMiddleware = (opts = {}) => {
 						parsed = await parsed;
 					}
 				} catch (err) {
-					throw createError(422, "Invalid record payload", {
+					throw new HttpError(422, {
 						cause: {
 							package: pkg,
-							source: eventSource,
-							field,
-							message: err.message,
+							data: {
+								reason: "Invalid record payload",
+								source: eventSource,
+								field,
+								message: err.message,
+							},
 						},
 					});
 				}
@@ -269,10 +272,13 @@ const decompress = (compressionByte, payload, maxOutputLength) => {
 		} catch (err) {
 			// Stryker disable next-line OptionalChaining: inflateSync only ever throws a non-null Error, so `err?.code` and `err.code` are indistinguishable; no input can make the suite observe the nullish-safety branch.
 			if (err?.code === "ERR_BUFFER_TOO_LARGE") {
-				throw createError(413, "Decompressed payload exceeds cap", {
+				throw new HttpError(413, {
 					cause: {
 						package: pkg,
-						maxDecompressedBytes: maxOutputLength,
+						data: {
+							reason: "Decompressed payload exceeds cap",
+							maxDecompressedBytes: maxOutputLength,
+						},
 					},
 				});
 			}

@@ -459,8 +459,8 @@ export const getInternal = async (variables, request) => {
 		}
 	}
 	if (errors) {
-		throw new Error("Failed to resolve internal values", {
-			cause: { package: pkg, data: errors },
+		throw new AggregateError(errors, "Failed to resolve internal values", {
+			cause: { package: pkg },
 		});
 	}
 	return obj;
@@ -741,8 +741,11 @@ export const jsonParseProtectProto = (text, reviver, packageName) => {
 			key === "__proto__" ||
 			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
 		) {
-			throw createError(422, "Forbidden key in JSON body", {
-				cause: { package: packageName, data: key },
+			throw new HttpError(422, {
+				cause: {
+					package: packageName,
+					data: { reason: "Forbidden key in JSON body", key },
+				},
 			});
 		}
 		return reviver ? reviver(key, value) : value;
@@ -793,20 +796,16 @@ export const normalizeHttpResponse = (request) => {
 	return response;
 };
 
-const createErrorRegexp = /[^a-zA-Z]/g;
+const httpErrorNameRegexp = /[^a-zA-Z]/g;
 export class HttpError extends Error {
-	constructor(code, optionalMessage, optionalOptions = {}) {
-		let message = optionalMessage;
-		let options = optionalOptions;
-		if (message && typeof message !== "string") {
-			options = message;
-			message = undefined;
-		}
-		message ??= STATUS_CODES[code];
-		super(message, options);
+	// The message is always the registered reason phrase for `code`. Anything
+	// specific to the failure belongs in `cause.data`, which stays server-side;
+	// http-error-handler only ever echoes the message to the client.
+	constructor(code, options = {}) {
+		super(STATUS_CODES[code], options);
 
 		const name = (STATUS_CODES[code] ?? "Unknown").replace(
-			createErrorRegexp,
+			httpErrorNameRegexp,
 			"",
 		);
 		this.name = !name.endsWith("Error") ? `${name}Error` : name;
@@ -815,7 +814,3 @@ export class HttpError extends Error {
 		this.expose = options.expose ?? code < 500;
 	}
 }
-
-export const createError = (code, message, properties = {}) => {
-	return new HttpError(code, message, properties);
-};

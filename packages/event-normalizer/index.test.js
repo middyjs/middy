@@ -1134,7 +1134,7 @@ test("DynamoDB N: out-of-range non-integer string throws BigInt conversion error
 				`${value} can't be converted to BigInt. Set options.wrapNumbers to get string value.`,
 			);
 			strictEqual(e.cause.package, "@middy/event-normalizer");
-			strictEqual(e.cause.value, value);
+			strictEqual(e.cause.data.value, value);
 			return true;
 		},
 	);
@@ -1155,9 +1155,10 @@ test("It should reject an SQS body containing a __proto__ key with 422", async (
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.message, "Unprocessable Entity");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 		strictEqual(e.cause.package, "@middy/event-normalizer");
-		strictEqual(e.cause.data, "__proto__");
+		strictEqual(e.cause.data.key, "__proto__");
 	}
 	ok(thrown, "expected handler to reject a __proto__ SQS body");
 	// Object.prototype must be untouched.
@@ -1179,9 +1180,10 @@ test("It should reject a Kinesis (base64) payload containing a __proto__ key wit
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.message, "Unprocessable Entity");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 		strictEqual(e.cause.package, "@middy/event-normalizer");
-		strictEqual(e.cause.data, "__proto__");
+		strictEqual(e.cause.data.key, "__proto__");
 	}
 	ok(thrown, "expected handler to reject a __proto__ Kinesis payload");
 	strictEqual({}.polluted, undefined);
@@ -1200,9 +1202,10 @@ test("It should reject an SNS message containing a constructor.prototype key wit
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.message, "Unprocessable Entity");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 		strictEqual(e.cause.package, "@middy/event-normalizer");
-		strictEqual(e.cause.data, "constructor");
+		strictEqual(e.cause.data.key, "constructor");
 	}
 	ok(thrown, "expected handler to reject a constructor.prototype SNS message");
 	strictEqual({}.polluted, undefined);

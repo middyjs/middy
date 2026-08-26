@@ -260,7 +260,7 @@ The patterns above are safe against the two classic JWT verification mistakes:
 ### Other notes for Cognito users
 
 - Use `audience: COGNITO_CLIENT_ID` for **ID tokens**. **Access tokens** carry `client_id` instead of `aud`; either drop the `audience` check and validate `payload.client_id` in a follow-up middleware, or restrict the handler to one token type.
-- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `createError(401, ...)` on mismatch.
+- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `new HttpError(401, ...)` on mismatch.
 
 ## Validating roles
 
@@ -270,7 +270,7 @@ The patterns above are safe against the two classic JWT verification mistakes:
 import middy from '@middy/core'
 import httpJwt from '@middy/http-jwt'
 import httpErrorHandler from '@middy/http-error-handler'
-import { createError } from '@middy/util'
+import { HttpError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {}) => ({
   before: (request) => {
@@ -280,8 +280,11 @@ const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {})
       ? roles.includes(requiredRole)
       : roles === requiredRole
     if (!has) {
-      throw createError(403, 'Forbidden', {
-        cause: { package: 'custom/require-role', data: `Missing role: ${requiredRole}` },
+      throw new HttpError(403, {
+        cause: {
+          package: 'custom/require-role',
+          data: { reason: 'Missing role', requiredRole },
+        },
       })
     }
   },

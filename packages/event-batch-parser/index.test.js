@@ -540,7 +540,7 @@ test("Glue framing: decompressed payload over cap throws 413", async () => {
 	ok(caught);
 	strictEqual(caught.statusCode, 413);
 	strictEqual(caught.cause.package, "@middy/event-batch-parser");
-	strictEqual(caught.cause.maxDecompressedBytes, 1024);
+	strictEqual(caught.cause.data.maxDecompressedBytes, 1024);
 });
 
 test("Glue framing: decompressed payload under cap succeeds", async () => {
@@ -705,7 +705,7 @@ test("parseProtobuf() throws when neither factory nor internal supplies root+mes
 	}
 	ok(caught);
 	strictEqual(caught.statusCode, 422);
-	ok(caught.cause.message.includes("missing"));
+	ok(caught.cause.data.message.includes("missing"));
 });
 
 test("Kafka event with no records falls back to empty iterator", async () => {
@@ -881,7 +881,7 @@ test("parseAvro({ internalKey }) async-throws when entry missing on request.inte
 	}
 	ok(caught);
 	strictEqual(caught.statusCode, 422);
-	ok(caught.cause.message.includes("missingSchema"));
+	ok(caught.cause.data.message.includes("missingSchema"));
 });
 
 test("parseAvro({ internalKey }) direct call covers buffer-only and missing-internal branches", async () => {
@@ -984,7 +984,7 @@ test("Unknown source with no eventSource (data: null) throws", async () => {
 	}
 	ok(caught);
 	strictEqual(caught.message, "Unsupported event source");
-	strictEqual(caught.cause.data, null);
+	strictEqual(caught.cause.data.eventSource, null);
 });
 
 test("parseProtobuf({ root, messageType }) decodes a Glue-framed payload via _payload", async () => {
@@ -1094,7 +1094,7 @@ test("Parser throw wraps in 422", async () => {
 	ok(caught);
 	strictEqual(caught.statusCode, 422);
 	strictEqual(caught.cause.package, "@middy/event-batch-parser");
-	strictEqual(caught.cause.field, "value");
+	strictEqual(caught.cause.data.field, "value");
 });
 
 // ---------- default decompression cap (10 MiB) ----------
@@ -1147,7 +1147,7 @@ test("default maxDecompressedBytes rejects a payload over 10 MiB with 413", asyn
 	}
 	ok(caught);
 	strictEqual(caught.statusCode, 413);
-	strictEqual(caught.cause.maxDecompressedBytes, 10 * 1024 * 1024);
+	strictEqual(caught.cause.data.maxDecompressedBytes, 10 * 1024 * 1024);
 });
 
 // ---------- error message text ----------
@@ -1197,7 +1197,8 @@ test("Parser-throw 422 carries the exact 'Invalid record payload' message", asyn
 		caught = e;
 	}
 	ok(caught);
-	strictEqual(caught.message, "Invalid record payload");
+	strictEqual(caught.message, "Unprocessable Entity");
+	strictEqual(caught.cause.data.reason, "Invalid record payload");
 });
 
 test("413 over-cap error carries the exact 'Decompressed payload exceeds cap' message", async () => {
@@ -1222,7 +1223,8 @@ test("413 over-cap error carries the exact 'Decompressed payload exceeds cap' me
 		caught = e;
 	}
 	ok(caught);
-	strictEqual(caught.message, "Decompressed payload exceeds cap");
+	strictEqual(caught.message, "Payload Too Large");
+	strictEqual(caught.cause.data.reason, "Decompressed payload exceeds cap");
 });
 
 test("Unsupported compression byte message hex-pads to two digits (0x07)", async () => {

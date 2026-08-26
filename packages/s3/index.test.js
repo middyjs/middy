@@ -248,7 +248,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -935,6 +935,6 @@ test("It should throw when S3 response is missing Body", async (t) => {
 		await handler(defaultEvent, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		ok(e.cause.data[0].message.includes("missing Body"));
+		ok(e.errors[0].message.includes("missing Body"));
 	}
 });

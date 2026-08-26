@@ -478,11 +478,14 @@ describe("middy core", () => {
 		const handler = middy(() => {
 			executed.push("handler");
 		}).use([middleware1(), middleware2()]);
+		let caught;
 		try {
 			await handler(defaultEvent, defaultContext);
 		} catch (e) {
-			deepStrictEqual(e, onErrorError);
+			caught = e;
 		}
+		ok(caught instanceof AggregateError);
+		deepStrictEqual(caught.errors, [afterError, onErrorError]);
 		deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "e2"]);
 	});
 
@@ -991,8 +994,9 @@ describe("middy core", () => {
 	});
 
 	test("Should propagate a primitive thrown by an onError middleware", async () => {
+		const handlerError = new Error("handler failed");
 		const handler = middy(() => {
-			throw new Error("handler failed");
+			throw handlerError;
 		}).onError(() => {
 			throw "onError boom";
 		});
@@ -1000,7 +1004,10 @@ describe("middy core", () => {
 			await handler(defaultEvent, defaultContext);
 			throw new Error("Expected onError error to propagate");
 		} catch (e) {
-			strictEqual(e, "onError boom");
+			// A primitive can't carry a `cause`, so aggregating is the only way
+			// to surface it without losing the handler error.
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, [handlerError, "onError boom"]);
 		}
 	});
 
@@ -1786,8 +1793,8 @@ describe("middy core", () => {
 		ok(!timeoutCalled);
 	});
 
-	// index.js:224 - a distinct rethrown error attaches cause
-	test('"onError" rethrowing a distinct error attaches cause', async (t) => {
+	// A distinct error thrown by onError aggregates with the handler error
+	test('"onError" throwing a distinct error aggregates both', async (t) => {
 		const handlerError = new Error("boom");
 		const rethrown = new Error("wrapped");
 		const handler = middy(() => {
@@ -1803,12 +1810,16 @@ describe("middy core", () => {
 		} catch (e) {
 			caught = e;
 		}
-		strictEqual(caught, rethrown);
-		strictEqual(caught.cause, handlerError);
+		ok(caught instanceof AggregateError);
+		strictEqual(caught.message, "Error thrown in onError middleware");
+		deepStrictEqual(caught.cause, { package: "@middy/core" });
+		// Chronological: handler error first, onError error second.
+		deepStrictEqual(caught.errors, [handlerError, rethrown]);
 	});
 
-	// index.js:226 - cause is not overwritten when already set on the rethrown error
-	test('"onError" rethrowing a distinct error preserves its existing cause', async (t) => {
+	// Aggregating never clobbers the thrown error's own `cause`, and never
+	// drops the handler error the way `cause ??=` did when one was already set.
+	test('"onError" throwing an error that already has a cause keeps both', async (t) => {
 		const handlerError = new Error("boom");
 		const existingCause = new Error("pre-existing");
 		const rethrown = new Error("wrapped", { cause: existingCause });
@@ -1825,9 +1836,8 @@ describe("middy core", () => {
 		} catch (e) {
 			caught = e;
 		}
-		strictEqual(caught, rethrown);
-		// ??= must not overwrite an already-set cause.
-		strictEqual(caught.cause, existingCause);
+		deepStrictEqual(caught.errors, [handlerError, rethrown]);
+		strictEqual(caught.errors[1].cause, existingCause);
 	});
 
 	// Durable execution owns retry/error semantics of its own: the onError

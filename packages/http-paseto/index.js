@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 import { createPublicKey } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
 	validateOptions,
 } from "@middy/util";
@@ -118,8 +118,11 @@ const httpPasetoMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "No token found in configured sources" },
+		throw new HttpError(401, {
+			cause: {
+				package: pkg,
+				data: { reason: "No token found in configured sources" },
+			},
 		});
 	};
 
@@ -141,8 +144,11 @@ const httpPasetoMiddleware = (opts = {}) => {
 		const token = parseToken(request.event);
 
 		if (!token.startsWith("v4.public.")) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: "Unsupported PASETO version or purpose" },
+			throw new HttpError(401, {
+				cause: {
+					package: pkg,
+					data: { reason: "Unsupported PASETO version or purpose" },
+				},
 			});
 		}
 
@@ -150,10 +156,12 @@ const httpPasetoMiddleware = (opts = {}) => {
 		const keyData = result[sanitizeKey(options.internalKey)];
 
 		if (keyData === undefined) {
-			throw createError(500, "Internal Server Error", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: `internalKey '${options.internalKey}' resolved to undefined`,
+					data: {
+						reason: `internalKey '${options.internalKey}' resolved to undefined`,
+					},
 				},
 			});
 		}
@@ -178,8 +186,8 @@ const httpPasetoMiddleware = (opts = {}) => {
 				request.context[options.payloadKey] = payload;
 			}
 		} catch (e) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: e.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: e.message } },
 			});
 		}
 	};

@@ -1,8 +1,8 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
 	decodeBody,
+	HttpError,
 	jsonParseProtectProto,
 	validateOptions,
 } from "@middy/util";
@@ -33,8 +33,11 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 		const event = request.event;
 		const { body, isBase64Encoded } = event;
 		if (typeof body === "undefined") {
-			throw createError(422, "Invalid or malformed JSON was provided", {
-				cause: { package: pkg, data: body },
+			throw new HttpError(422, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid or malformed JSON was provided", body },
+				},
 			});
 		}
 
@@ -48,11 +51,14 @@ const wsJsonBodyParserMiddleware = (opts = {}) => {
 				throw err;
 			}
 			// UnprocessableEntity
-			throw createError(422, "Invalid or malformed JSON was provided", {
+			throw new HttpError(422, {
 				cause: {
 					package: pkg,
-					data: body,
-					message: err.message,
+					data: {
+						reason: "Invalid or malformed JSON was provided",
+						body,
+						message: err.message,
+					},
 				},
 			});
 		}

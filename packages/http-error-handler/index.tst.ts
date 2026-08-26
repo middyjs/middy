@@ -9,8 +9,8 @@ test("use with default options", () => {
 
 test("use with all options", () => {
 	const middleware = httpErrorHandler({
-		logger: (error: Error) => {
-			console.error(error);
+		logger: (request: middy.Request) => {
+			console.error(request.error);
 		},
 		fallbackMessage: "whoopsiedoosie!",
 	});

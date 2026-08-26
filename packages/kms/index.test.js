@@ -123,7 +123,7 @@ test("It should clear cache and rethrow on fetch error", async (t) => {
 		// undefined (cacheExpiry 0), the error handler relies on the `?? {}` fallback
 		// to assign without throwing; the `&& {}` mutant would raise a different
 		// TypeError instead of surfacing the original "KMS unavailable".
-		strictEqual(e.cause.data[0].message, "KMS unavailable");
+		strictEqual(e.errors[0].message, "KMS unavailable");
 	}
 });
 
