@@ -16,7 +16,7 @@ assignees: ''
 **Any relevant logs, error output, etc?**
 
 **Environment:**
- - Node.js: [e.g. 22]
+ - Node.js: [e.g. 24]
  - Middy: [e.g. 6.0.0]
  - AWS SDK [e.g. 3.999.0]
 

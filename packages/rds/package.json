@@ -4,7 +4,7 @@
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -298,7 +298,7 @@
 	"devDependencies": {
 		"@middy/core": "7.8.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"pg": "^8.0.0",
 		"postgres": "^3.0.0"
 	}

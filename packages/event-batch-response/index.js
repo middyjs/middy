@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { isExecutionModeDurable } from "@middy/util";
 
 const name = "event-batch-response";
 const pkg = `@middy/${name}`;
@@ -215,8 +214,6 @@ const eventBatchResponseMiddleware = () => {
 	};
 
 	const eventBatchResponseMiddlewareOnError = (request) => {
-		// TODO remove in v8: core already skips the onError stack in durable mode.
-		if (isExecutionModeDurable(request.context)) throw request.error;
 		if (typeof request.response !== "undefined") return;
 		const cached = request.internal[pkg];
 		if (!cached) return;

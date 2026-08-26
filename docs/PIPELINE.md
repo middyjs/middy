@@ -39,7 +39,7 @@ These run on every PR and (where noted) on a weekly cron.
 | Workflow | Trigger | Purpose | SPVS controls |
 | --- | --- | --- | --- |
 | [test-lint.yml](../.github/workflows/test-lint.yml) | PR | Biome lint + format check | V2.2.1 - V2.2.4 |
-| [test-unit.yml](../.github/workflows/test-unit.yml) | PR | `node --test` with 100% lines/branches/functions coverage gate; Node 22 + Node 24 matrix | V2.2.5, V2.7.2 |
+| [test-unit.yml](../.github/workflows/test-unit.yml) | PR | `node --test` with 100% lines/branches/functions coverage gate; Node 24 + Node 26 matrix | V2.2.5, V2.7.2 |
 | [test-types.yml](../.github/workflows/test-types.yml) | PR | `tstyche` type tests | V2.7.1 |
 | [test-perf.yml](../.github/workflows/test-perf.yml) | PR | `tinybench` performance regression check | Defence-in-depth |
 | [test-dast.yml](../.github/workflows/test-dast.yml) | PR | Property-based fuzz tests via `fast-check` | V3.3.14 |

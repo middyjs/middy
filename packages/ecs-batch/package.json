@@ -4,7 +4,7 @@
 	"description": "ECS/Fargate batch event runtime for the middy framework — polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, RabbitMQ and dispatches to a Lambda-shaped handler",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -153,7 +153,7 @@
 		"@aws-sdk/client-sqs": "^3.0.0",
 		"@middy/core": "7.8.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"amqplib": "^2.0.0",
 		"aws-sdk-client-mock": "^4.0.0",
 		"kafkajs": "^2.0.0",

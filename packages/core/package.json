@@ -4,7 +4,7 @@
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (core package)",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -128,6 +128,6 @@
 		"@aws/durable-execution-sdk-js-testing": "^1.0.0",
 		"@datastream/core": "0.7.1",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }

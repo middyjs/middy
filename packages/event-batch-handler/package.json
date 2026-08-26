@@ -4,7 +4,7 @@
 	"description": "Per-record handler wrapper for Lambda batch events. Auto-checkpoints under Durable Functions. Pairs with @middy/event-batch-response.",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -73,6 +73,6 @@
 	"devDependencies": {
 		"@middy/core": "7.8.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }

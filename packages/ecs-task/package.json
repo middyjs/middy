@@ -4,7 +4,7 @@
 	"description": "ECS/Fargate single-shot task runtime for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -67,6 +67,6 @@
 	"devDependencies": {
 		"@middy/core": "7.8.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }
