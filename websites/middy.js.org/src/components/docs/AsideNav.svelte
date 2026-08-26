@@ -41,6 +41,7 @@ const nav = {
 		"http-content-encoding": "/docs/middlewares/http-content-encoding",
 		"http-content-negotiation": "/docs/middlewares/http-content-negotiation",
 		"http-cors": "/docs/middlewares/http-cors",
+		"http-dpop": "/docs/middlewares/http-dpop",
 		"http-error-handler": "/docs/middlewares/http-error-handler",
 		"http-event-normalizer": "/docs/middlewares/http-event-normalizer",
 		"http-header-normalizer": "/docs/middlewares/http-header-normalizer",

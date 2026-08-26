@@ -162,7 +162,7 @@ test("It should throw 401 when Authorization header is missing", async (t) => {
 	}
 });
 
-test("It should throw 401 when Authorization scheme is not Bearer", async (t) => {
+test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 
@@ -174,6 +174,25 @@ test("It should throw 401 when Authorization scheme is not Bearer", async (t) =>
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 	}
+});
+
+test("It should accept the DPoP scheme", async (t) => {
+	// RFC 9449 §7.1: a sender-constrained token travels under `DPoP`. Verifying
+	// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
+	// is the only thing that can read the token's `cnf` claim.
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+	const handler = makeHandlerWithKey(publicKey);
+
+	const result = await handler(makeEvent(`DPoP ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-1");
 });
 
 test("It should throw 401 when token is invalid", async (t) => {

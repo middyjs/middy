@@ -62,6 +62,10 @@ const readCookieValue = (event, cookieName) => {
 	return value;
 };
 
+// RFC 6750 `Bearer` and RFC 9449 `DPoP`. Both carry the token in the same
+// position; they differ only in what else the request must prove.
+const AUTH_SCHEMES = new Set(["bearer", "dpop"]);
+
 const readHeaderValue = (event, headerName) => {
 	const headers = event?.headers;
 	if (!headers) return undefined;
@@ -71,10 +75,9 @@ const readHeaderValue = (event, headerName) => {
 	const raw = Array.isArray(rawValue) ? rawValue[0] : rawValue;
 	if (!raw) return undefined;
 	// Authorization header carries the `Bearer <token>` scheme; strip it.
-	// Any other scheme means the token isn't here, fall through.
 	if (lowerName === "authorization") {
 		const parts = raw.split(" ");
-		if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+		if (parts.length !== 2 || !AUTH_SCHEMES.has(parts[0].toLowerCase())) {
 			return undefined;
 		}
 		return parts[1];
