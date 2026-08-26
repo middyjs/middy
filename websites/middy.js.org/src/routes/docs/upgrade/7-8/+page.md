@@ -13,6 +13,8 @@ Version 8.x of Middy no longer supports Node.js versions 22.x. You are highly en
 - `executionModeDurablecontext` now skips onError middlewares
 - All error cause now follow a consistent shape `{cause: {package, data:{...}}}`
 - Values are now published to `context.middyContext.{contextKey}` instead of the context root **Breaking Change**
+- Every `logger` now receives the `request` object, and every middleware with a `logger` gained `omitPaths` / `mask` for redacting PII before it reaches your log sink **Breaking Change**
+- `input-output-logger` is replaced by `event-logger` and `response-logger` **Breaking Change**
 
 ## Core
 
@@ -69,6 +71,48 @@ throw new HttpError(422, {
 Because the message is now the status reason phrase, `http-error-handler` returns
 `Unprocessable Entity` where 7.x returned the custom message. The detail stays
 server-side in `cause.data`.
+
+- added `buildPathTree(paths)` and `omit(value, pathTree, mask)`, the redaction
+  helpers behind the `omitPaths` / `mask` options. They were previously private to
+  the input/output logger
+
+`omit` returns the value untouched when no path matches, so an unconfigured logger
+pays nothing and still sees the real `Error`. Unlike a plain object walk, it
+normalizes `Error` instances first, which is what makes the non-enumerable `cause`,
+`stack` and `AggregateError.errors` reachable by path:
+
+```javascript
+import { buildPathTree, omit } from '@middy/util'
+
+const tree = buildPathTree(['error.cause.data.body'])
+omit(request, tree, '[redacted]')
+```
+
+## Logging and PII
+
+Every middleware that accepts a `logger` now hands it the `request` object, and
+accepts `omitPaths` and `mask` to redact before logging. Paths are dot-delimited
+and relative to the `request`, with `[]` to descend into arrays:
+
+```javascript
+import middy from '@middy/core'
+import httpErrorHandler from '@middy/http-error-handler'
+
+middy(lambdaHandler).use(
+  httpErrorHandler({
+    omitPaths: ['error.cause.data.body', 'event.headers.authorization'],
+    mask: '[redacted]'
+  })
+)
+```
+
+Without `mask` the matched key is removed instead of replaced. Redaction never
+mutates the real `request`; the logger gets a shallow copy of only the branches
+that changed.
+
+This matters most for `cause.data`. Parsers put the offending payload there, so
+`@middy/http-json-body-parser` failing on a request body means the whole body is
+one `console.error` away from CloudWatch.
 
 ## Middleware
 
@@ -128,11 +172,66 @@ No change
 
 ### [error-logger](/docs/middlewares/error-logger)
 
-No change
+- added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
 
 ### [event-batch-handler](/docs/middlewares/event-batch-handler)
 
 No change
+
+### [event-logger](/docs/middlewares/event-logger)
+
+New. Together with [response-logger](/docs/middlewares/response-logger) it replaces
+`input-output-logger` **Breaking Change**
+
+```javascript
+// 7.x
+import inputOutputLogger from '@middy/input-output-logger'
+middy(lambdaHandler).use(inputOutputLogger())
+
+// 8.x
+import eventLogger from '@middy/event-logger'
+import responseLogger from '@middy/response-logger'
+middy(lambdaHandler).use(eventLogger()).use(responseLogger())
+```
+
+Logging one direction is now just installing one package, and each side gets its
+own `omitPaths` / `mask`. The `logger` receives the `request` rather than a
+`{event}` wrapper, so a custom logger reads `request.event`:
+
+```javascript
+// 7.x
+inputOutputLogger({ logger: (message) => log(message.event ?? message.response) })
+
+// 8.x
+eventLogger({ logger: (request) => log(request.event) })
+responseLogger({ logger: (request) => log(request.response) })
+```
+
+`executionContext` and `lambdaContext` are gone. The logger now has
+`request.context`, so pick the keys you want directly **Breaking Change**
+
+```javascript
+// 7.x
+inputOutputLogger({ lambdaContext: true })
+
+// 8.x
+eventLogger({
+  logger: ({ event, context }) =>
+    console.log(
+      JSON.stringify({ event, context: { awsRequestId: context.awsRequestId } })
+    )
+})
+```
+
+Because the logger sees the whole request, `request.internal` and
+`request.context.middyContext` are reachable, and that is where middlewares such as
+[ssm](/docs/middlewares/ssm) publish resolved secrets. The default logger still
+prints only `{event}`; a custom one should stay narrow or add the matching
+`omitPaths`.
+
+- `omitPaths` and `mask` carry over unchanged, except that paths are now relative
+  to the `request` in every logger, and the underlying `omit` reaches into `Error`
+  values where 7.x silently left them in place **Breaking Change**
 
 ### [event-batch-parser](/docs/middlewares/event-batch-parser)
 
@@ -171,7 +270,8 @@ No change
 
 ### [http-error-handler](/docs/middlewares/http-error-handler)
 
-- logger not takes `request` object instead of `error` **Breaking Change**
+- logger now takes the `request` object instead of `error` **Breaking Change**
+- added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
 
 ### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
 
@@ -228,10 +328,6 @@ No change
 
 No change
 
-### [input-output-logger](/docs/middlewares/input-output-logger)
-
-No change
-
 ### [kms](/docs/middlewares/kms)
 
 - Fetched keys moved from the context root to `context.middyContext.kms` **Breaking Change**
@@ -246,6 +342,16 @@ No change
 
 - The auth token moved from the context root to `context.middyContext["rds-signer"]` **Breaking Change**
 - added `contextKey` option, defaults to `"rds-signer"`
+
+### [response-logger](/docs/middlewares/response-logger)
+
+New. Together with [event-logger](/docs/middlewares/event-logger) it replaces
+`input-output-logger`; see that entry for the full migration **Breaking Change**
+
+The streaming tee is unchanged: the response is teed rather than consumed, and
+logged once it flushes. Since the response is only complete after flush, the logger
+receives a copy of the `request` with the reconstructed body grafted onto
+`response`, and `omitPaths` still applies to it.
 
 ### [s3](/docs/middlewares/s3)
 
@@ -274,7 +380,24 @@ No change
 
 ### [sqs-partial-batch-failure](/docs/middlewares/sqs-partial-batch-failure)
 
-No change
+- logger now takes `(request, {reason, record})` instead of `(reason, record)` **Breaking Change**
+- added `omitPaths` and `mask` options. See [Logging and PII](#logging-and-pii)
+
+```javascript
+// 7.x
+sqsPartialBatchFailure({
+  logger: (reason, record) => console.error(record.messageId, reason)
+})
+
+// 8.x
+sqsPartialBatchFailure({
+  logger: (request, { reason, record }) => console.error(record.messageId, reason)
+})
+```
+
+`reason` and `record` are read out of the redacted copy, so `omitPaths` covers them
+too. `messageId` and the settled `status` are always read raw, so no redaction can
+change which records get reported as failed.
 
 ### [ssm](/docs/middlewares/ssm)
 

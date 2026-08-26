@@ -9,6 +9,7 @@ import {
 import { describe, test } from "node:test";
 import {
 	assignSetToContext,
+	buildPathTree,
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
@@ -28,6 +29,7 @@ import {
 	lambdaContextKeys,
 	modifyCache,
 	normalizeHttpResponse,
+	omit,
 	processCache,
 	resolveHttpEventVersion,
 	sanitizeKey,
@@ -1965,5 +1967,237 @@ describe("jsonSafeParse first-char gate", () => {
 	});
 	test("returns original text on parse failure of bracketed input", () => {
 		strictEqual(jsonSafeParse("[not json"), "[not json");
+	});
+});
+
+// omit / buildPathTree: shared redaction used by every logger middleware.
+describe("buildPathTree / omit", () => {
+	test("removes a configured leaf and leaves the rest untouched", () => {
+		const tree = buildPathTree(["event.headers.authorization"]);
+		const obj = {
+			event: { headers: { authorization: "Bearer x", accept: "*" } },
+		};
+		deepStrictEqual(omit(obj, tree), {
+			event: { headers: { accept: "*" } },
+		});
+	});
+	test("replaces a leaf with the mask when one is given", () => {
+		const tree = buildPathTree(["a.b"]);
+		deepStrictEqual(omit({ a: { b: "secret", c: 1 } }, tree, "**"), {
+			a: { b: "**", c: 1 },
+		});
+	});
+	test("returns the input untouched when no path tree applies", () => {
+		const obj = { a: 1 };
+		strictEqual(omit(obj, undefined), obj);
+		strictEqual(omit(obj, buildPathTree([])), obj);
+	});
+	test("walks arrays through the [] segment", () => {
+		const tree = buildPathTree(["records.[].body"]);
+		deepStrictEqual(omit({ records: [{ body: "s", id: 1 }] }, tree), {
+			records: [{ id: 1 }],
+		});
+	});
+	test("skips prototype-polluting paths", () => {
+		deepStrictEqual(
+			buildPathTree(["__proto__.x", "constructor.y", "a.prototype"]),
+			{},
+		);
+	});
+	test("a leaf path overrides a longer path on the same branch", () => {
+		const tree = buildPathTree(["a.b.c", "a.b"]);
+		deepStrictEqual(omit({ a: { b: { c: 1, d: 2 } } }, tree), { a: {} });
+	});
+	test("accepts pre-split array paths", () => {
+		const tree = buildPathTree([["a", "b"]]);
+		deepStrictEqual(omit({ a: { b: 1, c: 2 } }, tree), { a: { c: 2 } });
+	});
+	test("leaves non-plain values alone", () => {
+		const date = new Date(0);
+		strictEqual(omit(date, buildPathTree(["getTime"])), date);
+	});
+	test("does not mutate the input", () => {
+		const obj = { a: { b: 1 } };
+		omit(obj, buildPathTree(["a.b"]));
+		deepStrictEqual(obj, { a: { b: 1 } });
+	});
+	test("walks null-prototype objects", () => {
+		const headers = Object.assign(Object.create(null), {
+			authorization: "x",
+			accept: "*",
+		});
+		deepStrictEqual(
+			omit({ headers }, buildPathTree(["headers.authorization"])),
+			{
+				headers: { accept: "*" },
+			},
+		);
+	});
+
+	// Without normalization `omit` returns Errors unchanged and silently leaks
+	// whatever the path was meant to redact.
+	test("redacts own enumerable properties of an Error", () => {
+		const error = new Error("boom");
+		error.user = { ssn: "123", id: 1 };
+		const out = omit({ error }, buildPathTree(["error.user.ssn"]));
+		deepStrictEqual(out.error.user, { id: 1 });
+	});
+	test("keeps name, message and stack when normalizing an Error", () => {
+		const error = new TypeError("boom");
+		error.secret = "s";
+		const out = omit({ error }, buildPathTree(["error.secret"]));
+		strictEqual(out.error.name, "TypeError");
+		strictEqual(out.error.message, "boom");
+		strictEqual(out.error.stack, error.stack);
+		strictEqual(Object.hasOwn(out.error, "secret"), false);
+	});
+	test("redacts the non-enumerable cause carried by middy errors", () => {
+		const error = new HttpError(422, {
+			cause: {
+				package: "@middy/http-json-body-parser",
+				data: { body: "ssn=123" },
+			},
+		});
+		const out = omit(
+			{ error },
+			buildPathTree(["error.cause.data.body"]),
+			"[redacted]",
+		);
+		strictEqual(out.error.cause.data.body, "[redacted]");
+		strictEqual(out.error.cause.package, "@middy/http-json-body-parser");
+		strictEqual(out.error.statusCode, 422);
+	});
+	test("redacts through AggregateError.errors", () => {
+		const inner = new Error("inner");
+		inner.token = "t";
+		const error = new AggregateError([inner], "agg");
+		const out = omit({ error }, buildPathTree(["error.errors.[].token"]));
+		strictEqual(Object.hasOwn(out.error.errors[0], "token"), false);
+		strictEqual(out.error.errors[0].message, "inner");
+	});
+	test("leaves an Error untouched when no path reaches it", () => {
+		const error = new Error("boom");
+		strictEqual(omit({ error }, buildPathTree(["event.a"])).error, error);
+	});
+});
+
+// Copy-on-write, reference identity and the array walk.
+describe("omit mechanics", () => {
+	test("returns an array unchanged when no path tree applies", () => {
+		const arr = [1, 2, 3];
+		strictEqual(omit(arr, undefined), arr);
+	});
+
+	test("returns an array unchanged when no [] child path applies", () => {
+		const list = [{ x: 1 }, { x: 2 }];
+		const tree = buildPathTree(["list.x"]);
+		strictEqual(omit({ list }, tree).list, list);
+	});
+
+	test("omits inside array elements without mutating the source array", () => {
+		const list = [
+			{ secret: "a", keep: 1 },
+			{ keep: 2 },
+			{ secret: "c", keep: 3 },
+		];
+		const out = omit({ list }, buildPathTree(["list.[].secret"]));
+		deepStrictEqual(out.list, [{ keep: 1 }, { keep: 2 }, { keep: 3 }]);
+		// exactly the original length, no off-by-one trailing element
+		strictEqual(out.list.length, 3);
+		ok(Object.hasOwn(list[0], "secret"));
+	});
+
+	test("returns the same array reference when no element is omitted", () => {
+		const list = [{ keep: 1 }, { keep: 2 }];
+		const tree = buildPathTree(["list.[].secret"]);
+		strictEqual(omit({ list }, tree).list, list);
+	});
+
+	// Copy-on-write must not re-spread from the source and lose the first mask.
+	test("masks multiple keys on one object without losing earlier masks", () => {
+		const obj = { foo: "secret", baz: "secret2", bar: "bar" };
+		deepStrictEqual(omit(obj, buildPathTree(["foo", "baz"]), "*****"), {
+			foo: "*****",
+			baz: "*****",
+			bar: "bar",
+		});
+		deepStrictEqual(obj, { foo: "secret", baz: "secret2", bar: "bar" });
+	});
+
+	test("does not inject a phantom key when masking an absent path", () => {
+		const obj = { foo: "foo" };
+		strictEqual(omit(obj, buildPathTree(["absent"]), "*****"), obj);
+	});
+
+	// Zero-allocation cold path: no match means no clone.
+	test("returns the same object reference when the leaf key is absent", () => {
+		const obj = { foo: "foo" };
+		strictEqual(omit(obj, buildPathTree(["absent"])), obj);
+	});
+
+	test("omits two nested subtrees without losing changes or mutating source", () => {
+		const a = { secret: "sa", keep: "ka" };
+		const b = { secret: "sb", keep: "kb" };
+		const obj = { a, b };
+		deepStrictEqual(omit(obj, buildPathTree(["a.secret", "b.secret"])), {
+			a: { keep: "ka" },
+			b: { keep: "kb" },
+		});
+		deepStrictEqual(a, { secret: "sa", keep: "ka" });
+		deepStrictEqual(b, { secret: "sb", keep: "kb" });
+	});
+
+	test("does not treat primitives or class instances as records", () => {
+		class Custom {
+			constructor() {
+				this.secret = "keep";
+			}
+		}
+		const inst = new Custom();
+		const obj = { prim: 42, inst };
+		const out = omit(obj, buildPathTree(["prim.secret", "inst.secret"]));
+		strictEqual(out.prim, 42);
+		strictEqual(out.inst, inst);
+		strictEqual(out.inst.secret, "keep");
+	});
+
+	// A literal own `constructor` key still equal to Object keeps the payload a
+	// record, so it would be omitted if the guard did not skip the segment.
+	test("skips an omitPath containing the constructor segment", () => {
+		const obj = { foo: "bar" };
+		Object.defineProperty(obj, "constructor", {
+			value: Object,
+			enumerable: true,
+			configurable: true,
+			writable: true,
+		});
+		ok(
+			Object.hasOwn(
+				omit({ event: obj }, buildPathTree(["event.constructor"])).event,
+				"constructor",
+			),
+		);
+	});
+
+	test("skips an omitPath containing the prototype segment", () => {
+		const obj = { foo: "bar", prototype: "own-prototype" };
+		strictEqual(
+			omit({ event: obj }, buildPathTree(["event.prototype"])).event.prototype,
+			"own-prototype",
+		);
+	});
+
+	test("omits multiple nested leaves under a shared parent", () => {
+		deepStrictEqual(
+			omit({ a: { b: 1, c: 2, d: 3 } }, buildPathTree(["a.b", "a.c"])),
+			{ a: { d: 3 } },
+		);
+	});
+
+	test("does not mutate the caller-provided paths array", () => {
+		const paths = ["a.b", "c.d"];
+		const original = [...paths];
+		buildPathTree(paths);
+		deepStrictEqual(paths, original);
 	});
 });

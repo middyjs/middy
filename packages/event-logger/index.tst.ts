@@ -1,32 +1,41 @@
 import type middy from "@middy/core";
 import { expect, test } from "tstyche";
-import inputOutputLogger, { type Options } from "./index.js";
+import eventLogger, { type Options } from "./index.js";
 
 test("use with default options", () => {
-	const middleware = inputOutputLogger();
+	const middleware = eventLogger();
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
 test("use with all options", () => {
-	const middleware = inputOutputLogger({
-		logger: (...args) => {
-			console.log(...args);
+	const middleware = eventLogger({
+		logger: (request) => {
+			console.log(request.event);
 		},
-		executionContext: true,
-		lambdaContext: true,
-		omitPaths: ["a", "b", "c"],
+		omitPaths: ["event.headers.authorization"],
 		mask: "***",
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
-test("Options logger receives unknown message", () => {
+test("Options logger receives middy.Request", () => {
 	const options: Options = {
-		logger: (message) => {
-			expect(message).type.toBe<unknown>();
+		logger: (request) => {
+			expect(request).type.toBe<middy.Request>();
 		},
 	};
 	expect(options).type.toBeAssignableTo<Options>();
+});
+
+test("Options logger is optional", () => {
+	const noLogger: Options = {};
+	expect(noLogger).type.toBeAssignableTo<Options>();
+});
+
+test("Options logger accepts false to disable logging", () => {
+	const disabled: Options = { logger: false };
+	expect(disabled).type.toBeAssignableTo<Options>();
+	expect<true>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
 });
 
 test("Options omitPaths accepts string array", () => {
@@ -39,13 +48,4 @@ test("Options omitPaths accepts string array", () => {
 test("Options mask accepts string", () => {
 	expect<string>().type.toBeAssignableTo<NonNullable<Options["mask"]>>();
 	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
-});
-
-test("Options executionContext and lambdaContext are boolean", () => {
-	expect<boolean>().type.toBeAssignableTo<
-		NonNullable<Options["executionContext"]>
-	>();
-	expect<boolean>().type.toBeAssignableTo<
-		NonNullable<Options["lambdaContext"]>
-	>();
 });

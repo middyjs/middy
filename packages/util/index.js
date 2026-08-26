@@ -822,6 +822,108 @@ export const normalizeHttpResponse = (request) => {
 	return response;
 };
 
+// Paths are dot-delimited and relative to the `request`, with `[]` for array
+// elements: `event.headers.authorization`, `error.cause.data.body`.
+export const buildPathTree = (paths) => {
+	const tree = {};
+	// Copy before sorting so the caller-provided array is never mutated. Reverse
+	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
+	for (let path of [...paths].sort().reverse()) {
+		if (!Array.isArray(path)) path = path.split(".");
+		if (
+			path.includes("__proto__") ||
+			path.includes("constructor") ||
+			path.includes("prototype")
+		) {
+			continue;
+		}
+		path.reduce((a, b, idx) => {
+			if (idx < path.length - 1) {
+				a[b] ??= {};
+				return a[b];
+			}
+			a[b] = true;
+			// Stryker disable next-line BooleanLiteral: equivalent. This is the reduce's terminal return value; the leaf marker is written on the line above (a[b] = true), and the reduce result is discarded, so true vs false is unobservable.
+			return true;
+		}, tree);
+	}
+	return tree;
+};
+
+// Returns `obj` unchanged when no `pathTree` entry applies (zero allocations
+// on the cold subtree); otherwise returns a shallow clone with matched keys
+// masked or removed. Only branches present in `pathTree` are walked.
+export const omit = (obj, pathTree, mask) => {
+	if (!pathTree) return obj;
+	if (Array.isArray(obj)) return omitArray(obj, pathTree["[]"], mask);
+	// Errors are not plain objects, so without this branch `omitObject` would
+	// never run and the configured path would silently leak.
+	if (obj instanceof Error)
+		return omitObject(errorToObject(obj), pathTree, mask);
+	if (isRecord(obj)) return omitObject(obj, pathTree, mask);
+	return obj;
+};
+
+// `cause`, `stack` and `AggregateError.errors` are own but non-enumerable, so a
+// spread drops them, and `cause.data` is where middy puts the payload that
+// triggered the error. `name` is usually inherited, hence the seed.
+const errorToObject = (error) => {
+	const out = { name: error.name };
+	for (const key of Object.getOwnPropertyNames(error)) {
+		out[key] = error[key];
+	}
+	return out;
+};
+
+const omitArray = (arr, childTree, mask) => {
+	// Stryker disable next-line ConditionalExpression: equivalent. With childTree falsy, continuing into the loop calls omit(el, undefined) which short-circuits via `if (!pathTree) return obj`, returning each element unchanged, so the array is returned identical anyway.
+	if (!childTree) return arr;
+	let clone = arr;
+	// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads arr[l] === undefined; omit(undefined, childTree) returns undefined, and `undefined !== undefined` is false, so no extra element is ever written.
+	for (let i = 0, l = arr.length; i < l; i++) {
+		const next = omit(arr[i], childTree, mask);
+		if (next !== arr[i]) {
+			if (clone === arr) clone = arr.slice();
+			clone[i] = next;
+		}
+	}
+	return clone;
+};
+
+const omitObject = (obj, pathTree, mask) => {
+	let clone = obj;
+	for (const key in pathTree) {
+		const sub = pathTree[key];
+		if (sub === true) {
+			if (mask !== undefined) {
+				if (!Object.hasOwn(obj, key)) continue;
+				if (clone === obj) clone = { ...obj };
+				clone[key] = mask;
+			} else if (Object.hasOwn(obj, key)) {
+				if (clone === obj) clone = { ...obj };
+				delete clone[key];
+			}
+		} else {
+			const next = omit(obj[key], sub, mask);
+			if (next !== obj[key]) {
+				if (clone === obj) clone = { ...obj };
+				clone[key] = next;
+			}
+		}
+	}
+	return clone;
+};
+
+// Stricter than the schema validator's `isPlainObject`: a Date, Buffer or stream
+// must not be shallow-cloned into a bare record. Null-prototype maps (built by
+// httpHeaderNormalizer and event-normalizer) do count, or the keys they hold
+// would leak into the logs unredacted.
+const isRecord = (value) =>
+	// Stryker disable next-line ConditionalExpression: equivalent. Replacing `typeof value === "object"` with true is masked by the two checks that follow: only objects have constructor Object, and Object.getPrototypeOf on a primitive returns its wrapper prototype, never null, so a non-object still yields false.
+	value &&
+	typeof value === "object" &&
+	(value.constructor === Object || Object.getPrototypeOf(value) === null);
+
 const httpErrorNameRegexp = /[^a-zA-Z]/g;
 export class HttpError extends Error {
 	// The message is always the registered reason phrase for `code`. Anything

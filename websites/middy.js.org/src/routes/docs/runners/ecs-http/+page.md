@@ -27,7 +27,7 @@ npm install --save @middy/ecs-http
 
 NOTES:
 
-- The runner is silent. Wire request/response logging via Middy middleware (e.g. `input-output-logger`, `error-logger`).
+- The runner is silent. Wire request/response logging via Middy middleware (e.g. `event-logger`, `response-logger`, `error-logger`).
 - Errors thrown by the handler are mapped to HTTP responses: if the error has a numeric `.statusCode` (matching `http-errors`), it is honored; otherwise a `500` is returned.
 - `requestContext.requestId` is taken from the inbound `X-Amzn-Trace-Id` header. ALB and API Gateway always set it. If absent (typically only in local dev or behind a non-AWS load balancer) the request ID is an empty string. The runner deliberately does not mint a fallback UUID, since correlation in real deployments is provided by AWS, and per-request UUID generation is hot-path CPU that real handlers can use instead. Wire your own middleware if you need a fallback.
 - Client IP is resolved from the first hop of `X-Forwarded-For`, falling back to the socket's `remoteAddress`.

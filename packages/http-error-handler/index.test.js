@@ -431,3 +431,78 @@ test("httpErrorHandlerValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("fallbackMessage"));
 	}
 });
+
+test("It should redact omitPaths from the error before logging", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new HttpError(422, {
+			cause: {
+				package: "@middy/http-json-body-parser",
+				data: { reason: "Invalid JSON", body: "ssn=123-45-6789" },
+			},
+		});
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = request),
+			omitPaths: ["error.cause.data.body"],
+			mask: "[redacted]",
+		}),
+	);
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	strictEqual(captured.error.cause.data.body, "[redacted]");
+	strictEqual(captured.error.cause.data.reason, "Invalid JSON");
+	strictEqual(captured.error.statusCode, 422);
+	strictEqual(response.statusCode, 422);
+	strictEqual(response.body, "Unprocessable Entity");
+});
+
+test("It should redact omitPaths outside the error", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new HttpError(500);
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = request),
+			omitPaths: ["event.headers.authorization"],
+		}),
+	);
+
+	await handler(
+		{ headers: { authorization: "Bearer x", accept: "*" } },
+		defaultContext,
+	);
+
+	deepStrictEqual(captured.event, { headers: { accept: "*" } });
+});
+
+test("It should pass the request through untouched when no omitPaths are set", async (t) => {
+	const error = new HttpError(500);
+	let captured = null;
+
+	// Captured at log time: `request.error` is swapped for the fallback after.
+	const handler = middy(() => {
+		throw error;
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = { request, error: request.error }),
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(captured.error, error);
+});
+
+test("httpErrorHandlerValidateOptions accepts omitPaths and mask", () => {
+	httpErrorHandlerValidateOptions({ omitPaths: ["error.cause"], mask: "**" });
+	try {
+		httpErrorHandlerValidateOptions({ omitPaths: "error.cause" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("omitPaths"));
+	}
+});

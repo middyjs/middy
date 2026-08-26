@@ -7,19 +7,19 @@ export interface Options {
 	/**
 	 * Dot-delimited paths, relative to the `request`, to strip from the copy
 	 * handed to `logger`. Use `[]` to descend into arrays, e.g.
-	 * `error.cause.data.body`, `event.headers.authorization`.
+	 * `response.body`, `response.headers.set-cookie`.
 	 */
 	omitPaths?: string[];
 	/** Replace matched values with this string instead of removing the key. */
 	mask?: string;
 }
 
-declare function errorLogger(
+declare function responseLogger(
 	options?: Options,
 ): middy.MiddlewareObj<unknown, unknown, Error>;
 
-export declare function errorLoggerValidateOptions(
+export declare function responseLoggerValidateOptions(
 	options?: Record<string, unknown>,
 ): void;
 
-export default errorLogger;
+export default responseLogger;

@@ -1,8 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
+	buildPathTree,
 	isJsonStructured,
 	normalizeHttpResponse,
+	omit,
 	validateOptions,
 } from "@middy/util";
 
@@ -12,6 +14,9 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	logger: (request) => console.error(request.error),
 	fallbackMessage: undefined,
+	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
+	omitPaths: [],
+	mask: undefined,
 };
 
 const optionSchema = {
@@ -19,6 +24,8 @@ const optionSchema = {
 	properties: {
 		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
 		fallbackMessage: { type: "string" },
+		omitPaths: { type: "array", items: { type: "string" } },
+		mask: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -27,12 +34,14 @@ export const httpErrorHandlerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
-	const { logger, fallbackMessage } = { ...defaults, ...opts };
+	const { logger, fallbackMessage, omitPaths, mask } = { ...defaults, ...opts };
+
+	const omitPathTree = buildPathTree(omitPaths);
 
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;
 		if (typeof logger === "function") {
-			logger(request);
+			logger(omit(request, omitPathTree, mask));
 		}
 
 		const error =

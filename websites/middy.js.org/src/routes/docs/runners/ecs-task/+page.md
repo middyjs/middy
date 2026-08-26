@@ -145,6 +145,6 @@ The 2-minute Spot interruption warning is delivered via EventBridge only — it 
 
 ## Notes
 
-- The runner is silent. Wire logging via Middy middleware (e.g. `input-output-logger`, `error-logger`).
+- The runner is silent. Wire logging via Middy middleware (e.g. `event-logger`, `response-logger`, `error-logger`).
 - `onSuccess` / `onFailure` errors do not change the exit code — the handler's outcome wins.
 - The runner resolves before calling `process.exit`, so any pending I/O initiated synchronously in the hooks should be `await`ed there.

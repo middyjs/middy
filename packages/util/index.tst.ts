@@ -315,3 +315,17 @@ test("isExecutionModeDurable", () => {
 		util.isExecutionModeDurable(sampleRequest.context),
 	).type.toBe<boolean>();
 });
+
+test("buildPathTree", () => {
+	const tree = util.buildPathTree(["event.headers.authorization"]);
+	expect(tree).type.toBe<util.PathTree>();
+});
+
+test("omit preserves the value type", () => {
+	const tree = util.buildPathTree(["error.cause.data.body"]);
+	expect(util.omit(sampleRequest, tree)).type.toBe<typeof sampleRequest>();
+	expect(util.omit(sampleRequest, tree, "***")).type.toBe<
+		typeof sampleRequest
+	>();
+	expect(util.omit(sampleRequest)).type.toBe<typeof sampleRequest>();
+});

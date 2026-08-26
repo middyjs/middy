@@ -182,6 +182,24 @@ declare function normalizeHttpResponse(
 	fallbackResponse?: Record<string, unknown>,
 ): Record<string, unknown>;
 
+/**
+ * A compiled `omitPaths` lookup. `true` marks a leaf to remove or mask; `[]`
+ * is the segment used to descend into array elements.
+ */
+export type PathTree = { [segment: string]: PathTree | true };
+
+declare function buildPathTree(
+	paths: ReadonlyArray<string | string[]>,
+): PathTree;
+
+/**
+ * Returns `value` unchanged when no `pathTree` entry applies; otherwise a
+ * shallow clone with the matched leaves removed, or replaced by `mask`.
+ * `Error` values are normalized to a plain object first, so non-enumerable
+ * properties such as `cause` and `stack` are still reachable by path.
+ */
+declare function omit<T>(value: T, pathTree?: PathTree, mask?: string): T;
+
 declare function modifyCache(cacheKey: string, value: unknown): void;
 
 declare function catchInvalidSignatureException<Client, Command>(

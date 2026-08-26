@@ -1,12 +1,15 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+
 import { buildPathTree, omit, validateOptions } from "@middy/util";
 
-const name = "error-logger";
+const name = "event-logger";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	logger: ({ error }) => console.error(error),
+	logger: ({ event }) => {
+		console.log(JSON.stringify({ event }));
+	},
 	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
 	omitPaths: [],
 	mask: undefined,
@@ -22,20 +25,22 @@ const optionSchema = {
 	additionalProperties: false,
 };
 
-export const errorLoggerValidateOptions = (options) =>
+export const eventLoggerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-const errorLoggerMiddleware = (opts = {}) => {
+const eventLoggerMiddleware = (opts = {}) => {
 	const { logger, omitPaths, mask } = { ...defaults, ...opts };
+
+	if (typeof logger !== "function") return {};
 
 	const omitPathTree = buildPathTree(omitPaths);
 
-	const errorLoggerMiddlewareOnError = (request) => {
+	const eventLoggerMiddlewareBefore = (request) =>
 		logger(omit(request, omitPathTree, mask));
-	};
+
 	return {
-		onError:
-			typeof logger === "function" ? errorLoggerMiddlewareOnError : undefined,
+		before: eventLoggerMiddlewareBefore,
 	};
 };
-export default errorLoggerMiddleware;
+
+export default eventLoggerMiddleware;
