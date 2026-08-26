@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createPublicKey } from "node:crypto";
+import { createPublicKey, KeyObject } from "node:crypto";
 import {
 	createError,
 	getInternal,
@@ -21,6 +21,7 @@ const defaults = {
 	issuer: undefined,
 	clockTolerance: undefined,
 	maxTokenAge: undefined,
+	requiredClaims: undefined,
 	payloadKey: "paseto",
 	setToContext: false,
 };
@@ -36,6 +37,7 @@ const optionSchema = {
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		maxTokenAge: { type: "string" },
+		requiredClaims: { type: "object" },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
@@ -44,6 +46,13 @@ const optionSchema = {
 
 export const httpPasetoValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+const importKey = (entry) => {
+	if (entry instanceof KeyObject) return entry;
+	const bytes =
+		entry?.publicKey instanceof Uint8Array ? entry.publicKey : entry;
+	return createPublicKey({ key: bytes, format: "der", type: "spki" });
+};
 
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
@@ -130,6 +139,8 @@ const httpPasetoMiddleware = (opts = {}) => {
 		maxTokenAge: options.maxTokenAge,
 	};
 
+	const requiredClaims = Object.entries(options.requiredClaims ?? {});
+
 	// Per-middleware-instance cache of imported KeyObjects, keyed by the
 	// keyData reference. createPublicKey reparses DER through OpenSSL on
 	// every call (~tens of μs); since the resolved key is stable across
@@ -162,25 +173,61 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// so a single lookup works for all keyData shapes; cache writes happen
 		// only for object-shaped keys. `createPublicKey` accepts Uint8Array /
 		// Buffer directly — no copy needed.
-		let key = keyCache.get(keyData);
+		let keys = keyCache.get(keyData);
 		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical KeyObject); the verified payload is byte-identical, so the optimization is unobservable through the public interface.
-		if (key === undefined) {
-			const bytes =
-				keyData?.publicKey instanceof Uint8Array ? keyData.publicKey : keyData;
-			key = createPublicKey({ key: bytes, format: "der", type: "spki" });
-			keyCache.set(keyData, key);
+		if (keys === undefined) {
+			keys = (Array.isArray(keyData) ? keyData : [keyData]).map(importKey);
+			keyCache.set(keyData, keys);
 		}
 
-		try {
-			const payload = await V4.verify(token, key, baseVerifyOptions);
-			request.internal[options.payloadKey] = payload;
-			if (options.setToContext) {
-				request.context[options.payloadKey] = payload;
-			}
-		} catch (e) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: e.message },
+		// An empty array is a misconfiguration, not a rejection: with no key to try,
+		// the loop below would fall through and every token would fail for a reason
+		// nobody could act on. Same 500 as an unresolved internalKey.
+		if (keys.length === 0) {
+			throw createError(500, "Internal Server Error", {
+				cause: {
+					package: pkg,
+					data: `internalKey '${options.internalKey}' resolved to no keys`,
+				},
 			});
+		}
+
+		// Tried in order, first success wins. With one key this is the same single
+		// verify it always was; the loop exists for a rotation overlap, where two
+		// keys are genuinely current at once.
+		let payload;
+		let failure;
+		for (const key of keys) {
+			try {
+				payload = await V4.verify(token, key, baseVerifyOptions);
+				break;
+			} catch (e) {
+				// Stryker disable next-line LogicalOperator,AssignmentOperator: `??=` and a plain assign are equivalent here. V4.verify checks the signature before any claim, so a key that is not the signer always fails the same way, and every configured key therefore produces the same message. Keeping the first is intent, not behaviour: it names the current key rather than the one being retired.
+				failure ??= e;
+			}
+		}
+		if (payload === undefined) {
+			throw createError(401, "Unauthorized", {
+				cause: { package: pkg, data: failure.message },
+			});
+		}
+
+		// Claims the caller declared mandatory, checked before the payload is
+		// published so nothing downstream can read a payload this rejected.
+		for (const [claim, expected] of requiredClaims) {
+			if (payload[claim] !== expected) {
+				throw createError(401, "Unauthorized", {
+					cause: {
+						package: pkg,
+						data: `Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
+					},
+				});
+			}
+		}
+
+		request.internal[options.payloadKey] = payload;
+		if (options.setToContext) {
+			request.context[options.payloadKey] = payload;
 		}
 	};
 
