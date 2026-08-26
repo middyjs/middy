@@ -34,7 +34,7 @@ npm install --save jose
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
-- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 - `cacheExpiry` (number) (optional, `issuers` only): JWKS cache TTL in ms. Forwarded to `jose.createRemoteJWKSet`'s `cacheMaxAge`.
 - `cooldownDuration` (number) (optional, `issuers` only): Minimum interval in ms between JWKS refetches on `kid` miss. Forwarded to `jose.createRemoteJWKSet`'s `cooldownDuration`.
 - `disablePrefetch` (boolean) (default `false`, `issuers` only): Skip the warm-up fetch fired at factory time for each issuer entry.
@@ -61,7 +61,7 @@ const COGNITO_ISSUER = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${CO
 
 const lambdaHandler = async (event) => {
   // The verified payload is on request.internal.jwt by default.
-  // To use context.jwt as below, pass setToContext: true to httpJwt.
+  // To use context.middyContext.jwt as below, pass setToContext: true to httpJwt.
   return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 

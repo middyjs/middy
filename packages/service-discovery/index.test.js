@@ -150,7 +150,7 @@ test("It should set STS secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		deepStrictEqual(request.context.ec2, [
+		deepStrictEqual(request.context.middyContext["service-discovery"].ec2, [
 			{
 				Attributes: {
 					AWS_INSTANCE_IPV4: "172.2.1.3",
@@ -765,7 +765,7 @@ test("It should not write data to context by default", async (t) => {
 		const values = await getInternal(true, request);
 		deepStrictEqual(values.ec2, [instance]);
 		// ...but NOT copied onto context (setToContext defaults to false).
-		strictEqual(request.context.ec2, undefined);
+		strictEqual(request.context.middyContext["service-discovery"], undefined);
 	};
 
 	handler
@@ -783,7 +783,7 @@ test("It should not write data to context by default", async (t) => {
 		.before(middleware);
 
 	await handler(defaultEvent, context);
-	strictEqual(context.ec2, undefined);
+	strictEqual(context.middyContext["service-discovery"], undefined);
 });
 
 // Prefetch path: the prefetch client is used; the lazy `if (!client)` branch in
@@ -865,7 +865,9 @@ test("It should await the pending setToContext promise on a cold invocation", as
 		.on(DiscoverInstancesCommand)
 		.resolves({ Instances: [instance] });
 
-	const handler = middy((event, context) => context.ec2);
+	const handler = middy(
+		(event, context) => context.middyContext["service-discovery"]?.ec2,
+	);
 
 	handler.use(
 		serviceDiscovery({

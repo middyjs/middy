@@ -77,10 +77,10 @@ export const handler = middy()
     })
   )
   .before(async (request) => {
-    request.context.secrets = await getInternal(true, request)
+    request.context.middyContext.secrets = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context.secrets = { rdsSigner, secretsManager, ssm, sts }
+    // context.middyContext.secrets = { rdsSigner, secretsManager, ssm, sts }
   })
 ```
 
@@ -135,9 +135,9 @@ export const handler = middy()
     })
   )
   .before(async (request) => {
-    request.context.configs = await getInternal(true, request)
+    request.context.middyContext.configs = await getInternal(true, request)
   })
   .handler(async (event, context, { signal }) => {
-    // context.configs = { appConfig, dynamodb, s3, ssm }
+    // context.middyContext.configs = { appConfig, dynamodb, s3, ssm }
   })
 ```

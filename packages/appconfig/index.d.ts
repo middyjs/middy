@@ -6,7 +6,7 @@ import type {
 	StartConfigurationSessionRequest,
 } from "@aws-sdk/client-appconfigdata";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = StartConfigurationSessionRequest & {
@@ -29,11 +29,17 @@ export interface AppConfigOptions<AwsAppConfigClient = AppConfigDataClient>
 export type Context<TOptions extends AppConfigOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-						? T
-						: unknown;
-				}
+			? ContextNamespace<
+					TOptions,
+					"appconfig",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<
+							infer T
+						>
+							? T
+							: unknown;
+					}
+				>
 			: never
 		: LambdaContext;
 

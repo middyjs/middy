@@ -28,7 +28,7 @@ NOTES:
 - The response from the handler must match the allowed parameters for [`S3.writeGetObjectResponse`](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#writeGetObjectResponse-property), excluding `RequestRoute` and `RequestToken`.
 - XRay doesn't support tracing of `fetch`, you will need a workaround, see https://github.com/aws/aws-xray-sdk-node/issues/531#issuecomment-1378562164
 - Lambda is required to have IAM permission for `s3-object-lambda:WriteGetObjectResponse`
-- `context.s3ObjectFetch` is a pending `fetch` Promise kicked off in the `before` hook. **Your handler must `await` it** — otherwise a network/404/auth failure surfaces as an unhandled promise rejection rather than as a caught error in your handler. The samples below show the correct pattern.
+- `context.middyContext['s3-object-response']` is a pending `fetch` Promise kicked off in the `before` hook. **Your handler must `await` it** — otherwise a network/404/auth failure surfaces as an unhandled promise rejection rather than as a caught error in your handler. The samples below show the correct pattern.
 
 ## Sample usage
 
@@ -43,7 +43,9 @@ import {captureFetchGlobal} from 'aws-xray-sdk-fetch'
 captureFetchGlobal(true) // Enable XRay
 
 const lambdaHandler = (event, context) => {
-  const readStream = await context.s3ObjectFetch.then(res => res.body)
+  const readStream = await context.middyContext['s3-object-response'].then(
+    (res) => res.body
+  )
   const transformStream = zlib.createBrotliCompress()
   return {
     Body: readStream.pipe(transformStream)
@@ -61,7 +63,9 @@ import middy from '@middy/core'
 import s3ObjectResponse from '@middy/s3-object-response'
 
 const lambdaHandler = async (event, context) => {
-  let body = await context.s3ObjectFetch.then((res) => res.json())
+  let body = await context.middyContext['s3-object-response'].then((res) =>
+    res.json()
+  )
   // change body
   return {
     Body: JSON.stringify(body)

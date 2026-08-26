@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { HttpError, validateOptions } from "@middy/util";
+import { contextNamespace, HttpError, validateOptions } from "@middy/util";
 
 const name = "http-content-negotiation";
 const pkg = `@middy/${name}`;
@@ -27,6 +27,7 @@ const optionSchema = {
 		availableMediaTypes: { type: "array", items: { type: "string" } },
 		defaultToFirstMediaType: { type: "boolean" },
 		failOnMismatch: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -60,14 +61,16 @@ const defaults = {
 	availableMediaTypes: undefined,
 	defaultToFirstMediaType: false,
 	failOnMismatch: true,
+	contextKey: name,
 };
 
 const httpContentNegotiationMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const httpContentNegotiationMiddlewareBefore = (request) => {
-		const { event, context } = request;
+		const { event } = request;
 		if (!event.headers) return;
+		const context = contextNamespace(request, options.contextKey);
 		if (options.parseCharsets) {
 			parseHeader(
 				"Accept-Charset",

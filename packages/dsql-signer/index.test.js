@@ -210,7 +210,10 @@ test("It should set DSQL token to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, "X-Amz-Security-Token=token");
+		strictEqual(
+			request.context.middyContext["dsql-signer"].token,
+			"X-Amz-Security-Token=token",
+		);
 	};
 
 	handler
@@ -718,7 +721,7 @@ test("It should not set token to context by default", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext["dsql-signer"], undefined);
 	};
 
 	handler

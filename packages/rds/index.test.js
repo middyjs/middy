@@ -36,7 +36,7 @@ test("It should instantiate the client and attach it to context", async (t) => {
 
 	let captured;
 	handler.before(async (request) => {
-		captured = request.context.rds;
+		captured = request.context.middyContext.rds;
 	});
 
 	await handler(defaultEvent, newContext());
@@ -78,7 +78,10 @@ test("It should honour custom contextKey", async (t) => {
 
 	let captured;
 	handler.before(async (request) => {
-		captured = { rds: request.context.rds, db: request.context.db };
+		captured = {
+			rds: request.context.middyContext.rds,
+			db: request.context.middyContext.db,
+		};
 	});
 
 	await handler(defaultEvent, newContext());
@@ -355,7 +358,7 @@ test("It should surface a refreshed cache entry in before, not a stale prefetch"
 	const handler = middy(() => {}).use(rdsMiddleware(opts));
 	let captured;
 	handler.before(async (request) => {
-		captured = request.context.rds;
+		captured = request.context.middyContext.rds;
 	});
 	await handler(defaultEvent, newContext());
 	strictEqual(captured.mark, "client-1");

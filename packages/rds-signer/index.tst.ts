@@ -56,7 +56,9 @@ test("use with setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<string>();
+			expect(
+				request.context.middyContext["rds-signer"].foo,
+			).type.toBe<string>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<string>();

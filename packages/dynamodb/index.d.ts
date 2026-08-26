@@ -7,7 +7,7 @@ import type {
 } from "@aws-sdk/client-dynamodb";
 import type { NativeAttributeValue } from "@aws-sdk/util-dynamodb";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T extends Record<string, NativeAttributeValue>> =
@@ -32,11 +32,17 @@ export type Context<TOptions extends DynamoDbOptions | undefined> =
 		setToContext: true;
 	}
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-						? T
-						: NativeAttributeValue;
-				}
+			? ContextNamespace<
+					TOptions,
+					"dynamodb",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<
+							infer T
+						>
+							? T
+							: NativeAttributeValue;
+					}
+				>
 			: never
 		: LambdaContext;
 

@@ -496,6 +496,29 @@ export const resolveHttpEventVersion = (event) => {
 	return event.version ?? (event.method ? "vpc" : "1.0");
 };
 
+// Handler-facing namespace on the Lambda context.
+//
+// Middleware publish to `context.middyContext[contextKey]` (contextKey defaults to
+// the package name without the `@middy/` scope) instead of the context root,
+// so a fetched value named `functionName` can't clobber the AWS context.
+// `@middy/core` seeds `context.middyContext` per invocation; the `??=` here keeps a
+// hand-rolled request that never passed through core working, and keeps the
+// null prototype, which matters because keys come from user config and on a
+// plain object a key of `__proto__` would set the prototype instead of an own
+// property.
+const contextRoot = (request) =>
+	(request.context.middyContext ??= Object.create(null));
+
+// Get-or-create the merge target for key/value data (`setToContext`), so two
+// middleware sharing one contextKey merge rather than clobber.
+export const contextNamespace = (request, contextKey) =>
+	(contextRoot(request)[contextKey] ??= Object.create(null));
+
+// Publish a single opaque value (a client, a pool, a verified payload).
+export const setContextNamespace = (request, contextKey, value) => {
+	contextRoot(request)[contextKey] = value;
+};
+
 // setToContext fast-path
 //
 // Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
@@ -507,8 +530,8 @@ export const resolveHttpEventVersion = (event) => {
 // is dead work.
 //
 // `buildSetToContextSpec(options)` is called once at factory time and
-// returns either `null` (when `setToContext` is false) or the precomputed
-// `[[originalKey, sanitizedKey], …]` pairs.
+// returns either `null` (when `setToContext` is false) or the target
+// `contextKey` plus the precomputed `[[originalKey, sanitizedKey], …]` pairs.
 //
 // `assignSetToContext(spec, value, request)` is called once per invocation.
 // Returns `undefined` synchronously when all entries are resolved (the
@@ -516,26 +539,29 @@ export const resolveHttpEventVersion = (event) => {
 // caller should `if (p) await p` so the sync path keeps zero microtask hops.
 export const buildSetToContextSpec = (options) =>
 	options.setToContext
-		? Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)])
+		? {
+				contextKey: options.contextKey,
+				pairs: Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)]),
+			}
 		: null;
 
-export const assignSetToContext = (spec, value, request) => {
-	for (let i = 0; i < spec.length; i++) {
-		const v = value[spec[i][0]];
+export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
+	for (let i = 0; i < pairs.length; i++) {
+		const v = value[pairs[i][0]];
 		if (typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
 			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-			const keys = new Array(spec.length);
-			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
+			const keys = new Array(pairs.length);
+			for (let j = 0; j < pairs.length; j++) keys[j] = pairs[j][0];
 			return getInternal(keys, request).then((data) => {
-				Object.assign(request.context, data);
+				Object.assign(contextNamespace(request, contextKey), data);
 			});
 		}
 	}
-	const ctx = request.context;
-	for (let i = 0; i < spec.length; i++) {
-		ctx[spec[i][1]] = value[spec[i][0]];
+	const ctx = contextNamespace(request, contextKey);
+	for (let i = 0; i < pairs.length; i++) {
+		ctx[pairs[i][1]] = value[pairs[i][0]];
 	}
 };
 

@@ -87,7 +87,7 @@ test("chain of multiple ssm middleware", () => {
 			expect(data.defaults).type.toBe<string>();
 
 			// make sure data is set to context as well (only for the second instantiation of the middleware)
-			expect(request.context).type.toBeAssignableTo<{
+			expect(request.context.middyContext.ssm).type.toBeAssignableTo<{
 				accessToken: string;
 				dbParams: { user: string; pass: string };
 			}>();

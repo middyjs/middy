@@ -5,6 +5,7 @@ import {
 	getInternal,
 	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 import { decodeJwt, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
@@ -491,7 +492,7 @@ const httpJwtMiddleware = (opts = {}) => {
 			const { payload } = await jwtVerify(token, key, verifyOptions);
 			request.internal[options.payloadKey] = payload;
 			if (options.setToContext) {
-				request.context[options.payloadKey] = payload;
+				setContextNamespace(request, options.payloadKey, payload);
 			}
 		} catch (e) {
 			throw new HttpError(401, {

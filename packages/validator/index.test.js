@@ -11,6 +11,14 @@ import validator, { validatorValidateOptions } from "./index.js";
 import { transpileSchema } from "./transpile.js";
 
 const defaultEvent = {};
+const seedPreferredLanguage = (preferredLanguage) => ({
+	before: (request) => {
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredLanguage,
+		};
+	},
+});
+
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 	functionVersion: "$LATEST",
@@ -352,7 +360,7 @@ for (const c of cases) {
 			},
 		};
 
-		handler.use(
+		handler.use(seedPreferredLanguage(c.lang)).use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: {
@@ -367,7 +375,7 @@ for (const c of cases) {
 		};
 
 		try {
-			await handler(event, { ...defaultContext, preferredLanguage: c.lang });
+			await handler(event, defaultContext);
 		} catch (e) {
 			strictEqual(e.cause.package, "@middy/validator");
 			strictEqual(e.cause.data.reason, "Event object failed validation");
@@ -404,7 +412,7 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 		},
 	};
 
-	handler.use(
+	handler.use(seedPreferredLanguage("pt-BR")).use(
 		validator({
 			eventSchema: transpileSchema(schema),
 			languages: {
@@ -419,7 +427,7 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 	};
 
 	try {
-		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.cause.data.reason, "Event object failed validation");
@@ -467,7 +475,7 @@ test("It should handle invalid schema as a BadRequest without i18n", async (t) =
 	};
 
 	try {
-		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		strictEqual(e.cause.data.reason, "Event object failed validation");
@@ -495,7 +503,7 @@ for (const lang of prototypePollutionKeys) {
 			properties: { foo: { type: "string" } },
 		};
 
-		handler.use(
+		handler.use(seedPreferredLanguage(lang)).use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: { en: localize.en },
@@ -504,7 +512,7 @@ for (const lang of prototypePollutionKeys) {
 
 		let error;
 		try {
-			await handler({}, { ...defaultContext, preferredLanguage: lang });
+			await handler({}, defaultContext);
 		} catch (e) {
 			error = e;
 		}

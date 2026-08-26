@@ -11,6 +11,9 @@ const defaults = {
 	responseSchema: undefined,
 	defaultLanguage: "en",
 	languages: {},
+	// Where @middy/http-content-negotiation published its results; must match
+	// that middleware's `contextKey` when it has been overridden.
+	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
 const optionSchema = {
@@ -24,6 +27,7 @@ const optionSchema = {
 			type: "object",
 			additionalProperties: { instanceof: "Function" },
 		},
+		contextKeyHttpContentNegotiation: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -38,6 +42,7 @@ const validatorMiddleware = (opts = {}) => {
 		responseSchema,
 		defaultLanguage,
 		languages,
+		contextKeyHttpContentNegotiation,
 	} = { ...defaults, ...opts };
 
 	// AJV `$async` validators return a promise (and throw on invalid) instead of
@@ -78,7 +83,9 @@ const validatorMiddleware = (opts = {}) => {
 			assertSyncResult("eventSchema", validEvent);
 
 			if (!validEvent) {
-				const lang = request.context.preferredLanguage;
+				const lang =
+					request.context.middyContext?.[contextKeyHttpContentNegotiation]
+						?.preferredLanguage;
 				const localize =
 					(Object.hasOwn(languages, lang) ? languages[lang] : undefined) ??
 					languages[defaultLanguage];

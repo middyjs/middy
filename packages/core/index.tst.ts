@@ -655,3 +655,23 @@ expect(handlerWithCombinedEvent).type.toBe<
 		APIGatewayProxyResult
 	>
 >();
+
+// `context.middyContext` is reachable from the handler and from middleware, and the
+// middyfied handler is still invocable with a plain AWS context.
+middy(
+	async (
+		event: APIGatewayProxyEvent,
+		context: middy.WithMiddyContext<Context>,
+	) => {
+		expect(context.middyContext).type.toBe<middy.MiddyContext>();
+		return {} as APIGatewayProxyResult;
+	},
+);
+expect<middy.Request>().type.toHaveProperty("context");
+expect({} as middy.Request["context"]).type.toBeAssignableTo<{
+	middyContext: middy.MiddyContext;
+}>();
+expect(middy(lambdaHandler)).type.toBeCallableWith(
+	{} as APIGatewayProxyEvent,
+	{} as Context,
+);

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type { DsqlSigner, DsqlSignerConfig } from "@aws-sdk/dsql-signer";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -22,9 +22,11 @@ export type DsqlSignerOptions<AwsSigner = DsqlSigner> = Omit<
 export type Context<TOptions extends DsqlSignerOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: string;
-				}
+			? ContextNamespace<
+					TOptions,
+					"dsql-signer",
+					{ [Key in keyof TFetchData]: string }
+				>
 			: never
 		: LambdaContext;
 

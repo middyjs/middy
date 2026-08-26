@@ -103,7 +103,7 @@ test("It should set SSM param value to context", async (_t) => {
 			}),
 		)
 		.before(async (request) => {
-			equal(request.context.key, "key-value");
+			equal(request.context.middyContext["ssm-extension"].key, "key-value");
 		});
 
 	await handler(event, context);
@@ -122,12 +122,12 @@ test("It should set SSM param value to context on warm (cached) invocation", asy
 			}),
 		)
 		.before(async (request) => {
-			secondContextKey = request.context.key;
+			secondContextKey = request.context.middyContext["ssm-extension"].key;
 		});
 
 	// First invocation resolves and caches the value (cold path).
 	await handler(event, context);
-	equal(context.key, "key-value");
+	equal(context.middyContext["ssm-extension"].key, "key-value");
 	// Second invocation hits the warm cache: values are already resolved, so
 	// assignSetToContext copies synchronously and returns undefined. The value
 	// must still be present on context.
@@ -135,7 +135,7 @@ test("It should set SSM param value to context on warm (cached) invocation", asy
 	context = { getRemainingTimeInMillis: () => 1000 };
 	await handler(event, context);
 	equal(secondContextKey, "key-value");
-	equal(context.key, "key-value");
+	equal(context.middyContext["ssm-extension"].key, "key-value");
 	equal(fetchCount, 1);
 });
 
@@ -491,7 +491,7 @@ test("It should not set value to context by default (setToContext false)", async
 		.before(async (request) => {
 			const values = await getInternal(true, request);
 			equal(values.key, "key-value");
-			equal(request.context.key, undefined);
+			equal(request.context.middyContext["ssm-extension"], undefined);
 		});
 	await handler(event, context);
 });

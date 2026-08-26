@@ -24,7 +24,8 @@ npm install --save-dev @aws-sdk/client-dynamodb @aws-sdk/util-dynamodb
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `dynamodb`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store credentials to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.dynamodb`.
+- `contextKey` (string) (default `dynamodb`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 

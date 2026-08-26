@@ -1507,6 +1507,47 @@ describe("middy core", () => {
 		strictEqual(captured, "seed");
 	});
 
+	test("context.middyContext is a null-prototype object available to the handler", async (t) => {
+		let captured;
+		const handler = middy((event, context) => {
+			captured = context.middyContext;
+		});
+
+		await handler(defaultEvent, { ...defaultContext });
+
+		deepStrictEqual(captured, Object.create(null));
+		strictEqual(Object.getPrototypeOf(captured), null);
+	});
+
+	test("context.middyContext resists prototype pollution via __proto__", async (t) => {
+		let captured;
+		const handler = middy((event, context) => {
+			captured = context.middyContext;
+		}).before((request) => {
+			request.context.middyContext.__proto__ = { polluted: true };
+		});
+
+		await handler(defaultEvent, { ...defaultContext });
+
+		strictEqual(Object.getPrototypeOf(captured), null);
+		deepStrictEqual(captured.__proto__, { polluted: true });
+		strictEqual({}.polluted, undefined);
+	});
+
+	test("context.middyContext is reset per invocation (no leak on a reused context)", async (t) => {
+		const context = { ...defaultContext };
+		const seen = [];
+		const handler = middy(() => {}).before((request) => {
+			seen.push(request.context.middyContext.stale);
+			request.context.middyContext.stale = true;
+		});
+
+		await handler(defaultEvent, context);
+		await handler(defaultEvent, context);
+
+		deepStrictEqual(seen, [undefined, undefined]);
+	});
+
 	test("middyValidateOptions accepts valid options and rejects typos", () => {
 		middyValidateOptions({
 			timeoutEarlyInMillis: 5,

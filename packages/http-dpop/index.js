@@ -5,6 +5,7 @@ import {
 	getInternal,
 	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 
@@ -401,7 +402,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		// see the note on `jti` in the docs.
 		request.internal[options.proofKey] = verified.claims;
 		if (options.setToContext) {
-			request.context[options.proofKey] = verified.claims;
+			setContextNamespace(request, options.proofKey, verified.claims);
 		}
 	};
 

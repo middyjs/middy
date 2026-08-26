@@ -5,6 +5,7 @@ import {
 	getInternal,
 	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 import { V4 } from "paseto";
@@ -183,7 +184,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 			const payload = await V4.verify(token, key, baseVerifyOptions);
 			request.internal[options.payloadKey] = payload;
 			if (options.setToContext) {
-				request.context[options.payloadKey] = payload;
+				setContextNamespace(request, options.payloadKey, payload);
 			}
 		} catch (e) {
 			throw new HttpError(401, {

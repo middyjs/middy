@@ -38,6 +38,8 @@ npm install --save @middy/http-response-serializer
 }
 ```
 
+- `contextKeyHttpContentNegotiation` (string) (default `http-content-negotiation`): Where [http-content-negotiation](/docs/middlewares/http-content-negotiation) published its results. `preferredMediaTypes` is read from there. Set it to match if you overrode `contextKey` on that middleware.
+
 ## Serializer Functions
 
 When a matching serializer is found, the `Content-Type` header is set and the serializer function is run.
@@ -54,7 +56,7 @@ The header is not the only way the middleware decides which serializer to execut
 
 The content type is determined in the following order:
 
-- `context.preferredMediaTypes` -- allows the handler to override the default, but lets the request ask first
+- `context.middyContext['http-content-negotiation'].preferredMediaTypes`, published by [http-content-negotiation](/docs/middlewares/http-content-negotiation) -- allows the handler to override the default, but lets the request ask first. If you set a custom `contextKey` on that middleware, pass the same value as `contextKeyHttpContentNegotiation` here.
 - `defaultContentType` middleware configuration
 
 All options allow for multiple types to be specified in your order of preference, and the first matching serializer will be executed.
@@ -77,7 +79,7 @@ const lambdaHandler = (event, context) => {
 }
 
 export const handler = middy()
-  .use(httpContentNegotiation()) // Creates `context.preferredMediaTypes`
+  .use(httpContentNegotiation()) // Publishes context.middyContext['http-content-negotiation']
   .use(
     httpResponseSerializer({
       serializers: [

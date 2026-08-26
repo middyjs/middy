@@ -33,6 +33,16 @@ interface PluginObject {
 	executionMode?: PluginExecutionMode;
 }
 
+/**
+ * Handler-facing namespace middy seeds on every context. Middleware publish
+ * under their own key (e.g. `context.middyContext.ssm`) rather than the context root.
+ */
+export type MiddyContext = Record<string, unknown>;
+
+export type WithMiddyContext<TContext> = TContext & {
+	middyContext: MiddyContext;
+};
+
 export interface Request<
 	TEvent = unknown,
 	TResult = any,
@@ -41,7 +51,7 @@ export interface Request<
 	TInternal extends Record<string, unknown> = {},
 > {
 	event: TEvent;
-	context: TContext;
+	context: WithMiddyContext<TContext>;
 	response: TResult | null | undefined;
 	earlyResponse?: TResult | null | undefined;
 	error: TErr | null | undefined;
@@ -192,8 +202,10 @@ declare type MiddlewareHandler<
 	TResult = any,
 	TEvent = unknown,
 > =
+	// The handler you write receives `context.middyContext`; the middyfied handler AWS
+	// invokes does not require it, so only the input side is widened.
 	THandler extends LambdaHandler<TEvent, TResult> // always true
-		? MiddyInputHandler<TEvent, TResult, TContext>
+		? MiddyInputHandler<TEvent, TResult, WithMiddyContext<TContext>>
 		: never;
 
 /**
@@ -224,11 +236,13 @@ declare namespace middy {
 	export type {
 		MiddlewareFn,
 		MiddlewareObj,
+		MiddyContext,
 		MiddyfiedHandler,
 		PluginHook,
 		PluginHookWithMiddlewareName,
 		PluginObject,
 		Request,
+		WithMiddyContext,
 	};
 }
 

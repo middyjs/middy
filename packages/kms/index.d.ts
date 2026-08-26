@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type { KMSClient, KMSClientConfig } from "@aws-sdk/client-kms";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export interface KMSOptions<AwsKMSClient = KMSClient>
@@ -18,9 +18,11 @@ export interface KMSPublicKey {
 export type Context<TOptions extends KMSOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: KMSPublicKey;
-				}
+			? ContextNamespace<
+					TOptions,
+					"kms",
+					{ [Key in keyof TFetchData]: KMSPublicKey }
+				>
 			: never
 		: LambdaContext;
 

@@ -128,7 +128,10 @@ test("It should set secret value to context", async (_t) => {
 			}),
 		)
 		.before(async (request) => {
-			equal(request.context.token, "token");
+			equal(
+				request.context.middyContext["secrets-manager-extension"].token,
+				"token",
+			);
 		});
 
 	await handler(event, context);
@@ -477,7 +480,10 @@ test("It should not set values to context when setToContext defaults to false", 
 			}),
 		)
 		.before(async (request) => {
-			equal(request.context.token, undefined);
+			equal(
+				request.context.middyContext["secrets-manager-extension"],
+				undefined,
+			);
 			ok(!Object.hasOwn(request.context, "token"));
 		});
 	await handler(event, context);

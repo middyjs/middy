@@ -113,11 +113,14 @@ test("It should setToContext when enabled", async () => {
 	});
 
 	const handler = middy((event, context) => {
-		deepStrictEqual(context.user, {
-			schemaVersionId: "v-1",
-			schemaDefinition: AVRO_SCHEMA,
-			dataFormat: "AVRO",
-		});
+		deepStrictEqual(
+			{ ...context.middyContext["glue-schema-registry"].user },
+			{
+				schemaVersionId: "v-1",
+				schemaDefinition: AVRO_SCHEMA,
+				dataFormat: "AVRO",
+			},
+		);
 	});
 	handler.use(
 		glueSchemaRegistry({
@@ -734,7 +737,7 @@ test("defaults: setToContext defaults to false (context left untouched)", async 
 
 	let observedContextUser = "UNSET";
 	const handler = middy((event, context) => {
-		observedContextUser = context.user;
+		observedContextUser = context.middyContext["glue-schema-registry"]?.user;
 	});
 	handler.use(
 		glueSchemaRegistry({

@@ -22,12 +22,13 @@ const defaults = {
 	awsClientOptions: {},
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: { SchemaVersionId } | { SchemaId, SchemaVersionNumber } }
+	fetchData: {}, // { internalKey: { SchemaVersionId } | { SchemaId, SchemaVersionNumber } }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -45,6 +46,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		fetchData: {
 			type: "object",
 			additionalProperties: {

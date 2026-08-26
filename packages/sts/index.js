@@ -23,12 +23,13 @@ const defaults = {
 	awsClientOptions: {},
 	// awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
+	fetchData: {}, // { internalKey: {RoleArn, RoleSessionName} }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -46,6 +47,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		fetchData: {
 			type: "object",
 			additionalProperties: {

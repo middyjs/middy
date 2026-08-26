@@ -91,8 +91,8 @@ test("It should set KMS key to context when setToContext is true", async (t) => 
 	);
 
 	await handler(event, context);
-	strictEqual(context.signingKey.publicKey, publicKeyDer);
-	strictEqual(context.signingKey.keySpec, keySpec);
+	strictEqual(context.middyContext.kms.signingKey.publicKey, publicKeyDer);
+	strictEqual(context.middyContext.kms.signingKey.keySpec, keySpec);
 });
 
 test("It should clear cache and rethrow on fetch error", async (t) => {
@@ -382,7 +382,7 @@ test("It should NOT set KMS key to context by default (setToContext defaults fal
 	);
 
 	await handler(event, context);
-	strictEqual(context.signingKey, undefined);
+	strictEqual(context.middyContext.kms, undefined);
 });
 
 test("It should build the KMS command with the correct KeyId", async (t) => {

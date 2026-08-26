@@ -126,7 +126,7 @@ const makeEvent = ({
 // Stands in for @middy/http-jwt or @middy/http-paseto having verified the token
 // and written its payload to request.internal.
 const makeHandler = (payload, opts = {}) =>
-	middy((event, context) => context)
+	middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal[opts.payloadKey ?? "jwt"] = payload;
 		})
@@ -146,7 +146,7 @@ test("It should accept a bound token presented with a matching proof", async () 
 
 	strictEqual(result.dpop.jti, "proof-1");
 	strictEqual(result.dpop.htm, "GET");
-	strictEqual(ctx.dpop.htu, `https://${DOMAIN}${PATH}`);
+	strictEqual(ctx.middyContext.dpop.htu, `https://${DOMAIN}${PATH}`);
 });
 
 for (const alg of Object.keys(ALGORITHMS)) {
@@ -710,7 +710,7 @@ test("It should read an ALB event when origin is configured", async () => {
 
 test("It should use a custom payloadKey, proofKey and confirmationClaim", async () => {
 	const key = keyFor();
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.paseto = boundPayload(key, "confirmation");
 		})
@@ -743,7 +743,7 @@ test("It should write only to internal by default", async () => {
 
 	await handler(makeEvent({ dpop: proofFor(key) }), ctx);
 
-	strictEqual(ctx.dpop, undefined);
+	strictEqual(ctx.middyContext.dpop, undefined);
 });
 
 test("It should throw at construction on an unknown algorithm", () => {

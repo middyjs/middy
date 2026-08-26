@@ -6,6 +6,7 @@ import {
 	catchInvalidSignatureException,
 	createClient,
 	createPrefetchClient,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 
@@ -18,6 +19,7 @@ const defaults = {
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
 	disablePrefetch: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -28,6 +30,7 @@ const optionSchema = {
 		awsClientAssumeRole: { type: "string" },
 		awsClientCapture: { instanceof: "Function" },
 		disablePrefetch: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -49,9 +52,9 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 
 		const s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined;
 		// Suppress an unhandledRejection without swallowing the error: a consumer
-		// that awaits context.s3ObjectFetch still observes the real rejection.
+		// that awaits context.middyContext[contextKey] still observes the real rejection.
 		s3ObjectFetch?.catch(() => {});
-		request.context.s3ObjectFetch = s3ObjectFetch;
+		setContextNamespace(request, options.contextKey, s3ObjectFetch);
 	};
 
 	const s3ObjectResponseMiddlewareAfter = async (request) => {

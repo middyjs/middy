@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
-import type { Context as LambdaContext } from "aws-lambda";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 
 export type ParamType<T> = string & { __returnType?: T };
 export declare function s3ObjectResponseParam<T>(name: string): ParamType<T>;
@@ -16,11 +15,17 @@ export interface S3ObjectResponseOptions<AwsS3Client = S3Client>
 		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
-	> {}
+	> {
+	contextKey?: string;
+}
 
-export type Context = LambdaContext & {
-	s3ObjectFetch: Promise<Response> | undefined;
-};
+export type Context<
+	TOptions extends S3ObjectResponseOptions | undefined = undefined,
+> = ContextNamespace<
+	TOptions,
+	"s3-object-response",
+	Promise<Response> | undefined
+>;
 
 declare function s3ObjectResponse(
 	options?: S3ObjectResponseOptions,

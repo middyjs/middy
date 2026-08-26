@@ -351,7 +351,7 @@ test("It should set AppConfig param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key?.option, "value");
+		strictEqual(request.context.middyContext.appconfig.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -1225,7 +1225,7 @@ test("It defaults setToContext to false when omitted (value not copied to contex
 		const values = await getInternal(true, request);
 		strictEqual(values.key?.option, "value");
 		// setToContext defaults to false -> nothing copied to context
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.appconfig, undefined);
 	};
 
 	const handler = middy(() => {})

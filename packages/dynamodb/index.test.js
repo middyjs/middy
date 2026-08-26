@@ -144,7 +144,7 @@ test("It should set DynamoDB param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key?.value, "value");
+		strictEqual(request.context.middyContext.dynamodb.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -594,7 +594,7 @@ test("It should not set value to context by default (setToContext defaults to fa
 		const values = await getInternal(true, request);
 		strictEqual(values.key?.value, "value");
 		// setToContext omitted => default false => not assigned to context.
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.dynamodb, undefined);
 	};
 
 	const handler = middy(() => {})

@@ -10,7 +10,9 @@ const defaultContext = {
 };
 
 test("It should parse charset, encoding, language and media type", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-8"],
@@ -31,21 +33,25 @@ test("It should parse charset, encoding, language and media type", async (t) => 
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-8"],
-		preferredCharset: "utf-8",
-		preferredEncodings: ["*/*", "identity"],
-		preferredEncoding: "*/*",
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-		preferredMediaTypes: ["text/x-dvi", "text/plain"],
-		preferredMediaType: "text/x-dvi",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-8"],
+			preferredCharset: "utf-8",
+			preferredEncodings: ["*/*", "identity"],
+			preferredEncoding: "*/*",
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+			preferredMediaTypes: ["text/x-dvi", "text/plain"],
+			preferredMediaType: "text/x-dvi",
+		},
+	);
 });
 
 test("It should parse charset, encoding, language and media type with lowercase headers", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-16"],
@@ -66,21 +72,25 @@ test("It should parse charset, encoding, language and media type with lowercase 
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-16"],
-		preferredCharset: "utf-16",
-		preferredEncodings: ["gzip", "br"],
-		preferredEncoding: "gzip",
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-		preferredMediaTypes: ["text/x-dvi", "text/plain"],
-		preferredMediaType: "text/x-dvi",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-16"],
+			preferredCharset: "utf-16",
+			preferredEncodings: ["gzip", "br"],
+			preferredEncoding: "gzip",
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+			preferredMediaTypes: ["text/x-dvi", "text/plain"],
+			preferredMediaType: "text/x-dvi",
+		},
+	);
 });
 
 test("It should default charset, encoding, language and media type when there is a mismatch", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-16"],
@@ -105,17 +115,19 @@ test("It should default charset, encoding, language and media type when there is
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: [],
-		preferredCharset: "utf-16",
-		preferredEncodings: [],
-		preferredEncoding: "br",
-		preferredLanguages: [],
-		preferredLanguage: "en",
-		preferredMediaTypes: [],
-		preferredMediaType: "text/plain",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: [],
+			preferredCharset: "utf-16",
+			preferredEncodings: [],
+			preferredEncoding: "br",
+			preferredLanguages: [],
+			preferredLanguage: "en",
+			preferredMediaTypes: [],
+			preferredMediaType: "text/plain",
+		},
+	);
 });
 
 test("It should skip the middleware if no headers are sent", async (t) => {
@@ -139,7 +151,9 @@ test("It should skip the middleware if no headers are sent", async (t) => {
 });
 
 test("It should not parse charset if disabled", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -160,19 +174,23 @@ test("It should not parse charset if disabled", async (t) => {
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredEncodings: ["*/*", "identity"],
-		preferredEncoding: "*/*",
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-		preferredMediaTypes: ["text/x-dvi", "text/plain"],
-		preferredMediaType: "text/x-dvi",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredEncodings: ["*/*", "identity"],
+			preferredEncoding: "*/*",
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+			preferredMediaTypes: ["text/x-dvi", "text/plain"],
+			preferredMediaType: "text/x-dvi",
+		},
+	);
 });
 
 test("It should not parse encoding if disabled", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-8"],
@@ -193,19 +211,23 @@ test("It should not parse encoding if disabled", async (t) => {
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-8"],
-		preferredCharset: "utf-8",
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-		preferredMediaTypes: ["text/x-dvi", "text/plain"],
-		preferredMediaType: "text/x-dvi",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-8"],
+			preferredCharset: "utf-8",
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+			preferredMediaTypes: ["text/x-dvi", "text/plain"],
+			preferredMediaType: "text/x-dvi",
+		},
+	);
 });
 
 test("It should not parse language if disabled", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-8"],
@@ -226,19 +248,23 @@ test("It should not parse language if disabled", async (t) => {
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-8"],
-		preferredCharset: "utf-8",
-		preferredEncodings: ["*/*", "identity"],
-		preferredEncoding: "*/*",
-		preferredMediaTypes: ["text/x-dvi", "text/plain"],
-		preferredMediaType: "text/x-dvi",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-8"],
+			preferredCharset: "utf-8",
+			preferredEncodings: ["*/*", "identity"],
+			preferredEncoding: "*/*",
+			preferredMediaTypes: ["text/x-dvi", "text/plain"],
+			preferredMediaType: "text/x-dvi",
+		},
+	);
 });
 
 test("It should not parse media types if disabled", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableCharsets: ["utf-8"],
@@ -259,19 +285,23 @@ test("It should not parse media types if disabled", async (t) => {
 
 	const resultingContext = await handler(event, defaultContext);
 
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-8"],
-		preferredCharset: "utf-8",
-		preferredEncodings: ["*/*", "identity"],
-		preferredEncoding: "*/*",
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-8"],
+			preferredCharset: "utf-8",
+			preferredEncodings: ["*/*", "identity"],
+			preferredEncoding: "*/*",
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+		},
+	);
 });
 
 test("It should fail when mismatching", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			availableMediaTypes: ["text/plain", "text/x-dvi"],
@@ -297,7 +327,9 @@ test("It should fail when mismatching", async (t) => {
 });
 
 test("It should error when unfound preferred locale", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -325,7 +357,9 @@ test("It should error when unfound preferred locale", async (t) => {
 });
 
 test("It should find language when locale passed in when fallback set", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -341,15 +375,19 @@ test("It should find language when locale passed in when fallback set", async (t
 		},
 	};
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredLanguages: ["en"],
-		preferredLanguage: "en",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredLanguages: ["en"],
+			preferredLanguage: "en",
+		},
+	);
 });
 
 test("It should find locale when locale passed in when fallback set", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -365,15 +403,19 @@ test("It should find locale when locale passed in when fallback set", async (t) 
 		},
 	};
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredLanguages: ["en-ca", "en"],
-		preferredLanguage: "en-ca",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredLanguages: ["en-ca", "en"],
+			preferredLanguage: "en-ca",
+		},
+	);
 });
 
 test("It should find language when locale passed in", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -390,15 +432,19 @@ test("It should find language when locale passed in", async (t) => {
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredLanguages: ["en"],
-		preferredLanguage: "en",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredLanguages: ["en"],
+			preferredLanguage: "en",
+		},
+	);
 });
 
 test("It should find locale when language passed in", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -415,15 +461,19 @@ test("It should find locale when language passed in", async (t) => {
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredLanguages: ["en-ca"],
-		preferredLanguage: "en-ca",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredLanguages: ["en-ca"],
+			preferredLanguage: "en-ca",
+		},
+	);
 });
 
 test("It should read the uppercase Accept-Charset header value for negotiation", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseEncodings: false,
@@ -440,15 +490,19 @@ test("It should read the uppercase Accept-Charset header value for negotiation",
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredCharsets: ["utf-8", "iso-8859-5"],
-		preferredCharset: "utf-8",
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredCharsets: ["utf-8", "iso-8859-5"],
+			preferredCharset: "utf-8",
+		},
+	);
 });
 
 test("It should not set preferredCharsets when parseCharsets is false", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -465,15 +519,16 @@ test("It should not set preferredCharsets when parseCharsets is false", async (t
 		},
 	};
 
-	const context = { getRemainingTimeInMillis: () => 1000 };
-	const resultingContext = await handler(event, context);
-	deepStrictEqual(resultingContext, {
-		getRemainingTimeInMillis: context.getRemainingTimeInMillis,
+	const resultingContext = await handler(event, {
+		getRemainingTimeInMillis: () => 1000,
 	});
+	deepStrictEqual({ ...resultingContext }, {});
 });
 
 test("It should not set preferredEncodings when parseEncodings is false", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -490,15 +545,16 @@ test("It should not set preferredEncodings when parseEncodings is false", async 
 		},
 	};
 
-	const context = { getRemainingTimeInMillis: () => 1000 };
-	const resultingContext = await handler(event, context);
-	deepStrictEqual(resultingContext, {
-		getRemainingTimeInMillis: context.getRemainingTimeInMillis,
+	const resultingContext = await handler(event, {
+		getRemainingTimeInMillis: () => 1000,
 	});
+	deepStrictEqual({ ...resultingContext }, {});
 });
 
 test("It should not set preferredLanguages when parseLanguages is false", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -515,15 +571,16 @@ test("It should not set preferredLanguages when parseLanguages is false", async 
 		},
 	};
 
-	const context = { getRemainingTimeInMillis: () => 1000 };
-	const resultingContext = await handler(event, context);
-	deepStrictEqual(resultingContext, {
-		getRemainingTimeInMillis: context.getRemainingTimeInMillis,
+	const resultingContext = await handler(event, {
+		getRemainingTimeInMillis: () => 1000,
 	});
+	deepStrictEqual({ ...resultingContext }, {});
 });
 
 test("It should not set preferredMediaTypes when parseMediaTypes is false", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -540,15 +597,16 @@ test("It should not set preferredMediaTypes when parseMediaTypes is false", asyn
 		},
 	};
 
-	const context = { getRemainingTimeInMillis: () => 1000 };
-	const resultingContext = await handler(event, context);
-	deepStrictEqual(resultingContext, {
-		getRemainingTimeInMillis: context.getRemainingTimeInMillis,
+	const resultingContext = await handler(event, {
+		getRemainingTimeInMillis: () => 1000,
 	});
+	deepStrictEqual({ ...resultingContext }, {});
 });
 
 test("It should throw 406 by default on an unmatchable header", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -576,7 +634,9 @@ test("It should throw 406 by default on an unmatchable header", async (t) => {
 });
 
 test("It should attach offending header name/value to the 406 cause data", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -606,7 +666,9 @@ test("It should attach offending header name/value to the 406 cause data", async
 });
 
 test("It should not throw on mismatch when failOnMismatch is false", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -624,15 +686,19 @@ test("It should not throw on mismatch when failOnMismatch is false", async (t) =
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredMediaTypes: [],
-		preferredMediaType: undefined,
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredMediaTypes: [],
+			preferredMediaType: undefined,
+		},
+	);
 });
 
 test("It should return quietly when availableValues is an empty array on a mismatch", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -649,15 +715,19 @@ test("It should return quietly when availableValues is an empty array on a misma
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredMediaTypes: [],
-		preferredMediaType: undefined,
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredMediaTypes: [],
+			preferredMediaType: undefined,
+		},
+	);
 });
 
 test("It should return quietly when availableValues is missing on a mismatch", async (t) => {
-	const handler = middy((event, context) => context);
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
 	handler.use(
 		httpContentNegotiation({
 			parseCharsets: false,
@@ -674,11 +744,13 @@ test("It should return quietly when availableValues is missing on a mismatch", a
 	};
 
 	const resultingContext = await handler(event, defaultContext);
-	deepStrictEqual(resultingContext, {
-		...defaultContext,
-		preferredMediaTypes: [],
-		preferredMediaType: undefined,
-	});
+	deepStrictEqual(
+		{ ...resultingContext },
+		{
+			preferredMediaTypes: [],
+			preferredMediaType: undefined,
+		},
+	);
 });
 
 test("httpContentNegotiationValidateOptions accepts valid options and rejects typos", () => {

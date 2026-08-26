@@ -203,7 +203,7 @@ test("It should set SSM param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key, "key-value");
+		strictEqual(request.context.middyContext.ssm.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -1275,7 +1275,7 @@ test("It should not set values to context by default (setToContext defaults to f
 
 	const middleware = async (request) => {
 		// Default setToContext is false: the value must NOT be copied to context.
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.ssm, undefined);
 		const values = await getInternal(true, request);
 		strictEqual(values.key, "key-value");
 	};

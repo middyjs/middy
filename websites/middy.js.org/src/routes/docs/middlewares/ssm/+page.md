@@ -7,7 +7,7 @@ This middleware fetches parameters from [AWS Systems Manager Parameter Store](ht
 
 Parameters to fetch can be defined by path and by name (not mutually exclusive). See AWS docs [here](https://aws.amazon.com/blogs/mt/organize-parameters-by-hierarchy-tags-or-amazon-cloudwatch-events-with-amazon-ec2-systems-manager-parameter-store/).
 
-Parameters can be assigned to the function handler's `context` object by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
+Parameters can be published to `context.middyContext.ssm` by setting the `setToContext` flag to `true`. By default all parameters are added with uppercase names.
 
 The Middleware makes a single API request to fetch all the parameters defined by name, but must make an additional request per specified path. This is because the AWS SDK currently doesn't expose a method to retrieve parameters from multiple paths.
 
@@ -33,7 +33,8 @@ npm install --save-dev @aws-sdk/client-ssm
 - `cacheKey` (string) (default `@middy/ssm`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheKeyExpiry` (object) (default `{}`): Per-internal-key cache expiry overrides, keyed by internal key name with a millisecond value (`-1`: cache forever, `0`: never cache, `n`: cache for n ms).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store the fetched parameters to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.ssm`.
+- `contextKey` (string) (default `ssm`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 - `awsRequestLimit` (integer) (default `10`): Maximum number of parameters fetched by name in a single `GetParameters` request (1-10).
 
 NOTES:
@@ -64,7 +65,7 @@ export const handler = middy()
     })
   )
   .before((request) => {
-    globalDefaults = request.context.defaults.global
+    globalDefaults = request.context.middyContext.ssm.defaults.global
   })
   .handler(lambdaHandler)
 ```

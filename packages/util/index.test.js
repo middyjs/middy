@@ -1624,59 +1624,83 @@ describe("buildSetToContextSpec", () => {
 	test("returns null when setToContext is omitted", () => {
 		strictEqual(buildSetToContextSpec({ fetchData: { foo: "bar" } }), null);
 	});
-	test("returns [original, sanitized] pairs when setToContext is true", () => {
+	test("returns the contextKey and [original, sanitized] pairs when setToContext is true", () => {
 		const spec = buildSetToContextSpec({
 			setToContext: true,
+			contextKey: "ssm",
 			fetchData: { token: "x", "my-key": "y", "0num": "z" },
 		});
-		deepStrictEqual(spec, [
-			["token", "token"],
-			["my-key", "my_key"],
-			["0num", "_0num"],
-		]);
+		deepStrictEqual(spec, {
+			contextKey: "ssm",
+			pairs: [
+				["token", "token"],
+				["my-key", "my_key"],
+				["0num", "_0num"],
+			],
+		});
 	});
 });
 
+const contextSpec = (contextKey, pairs) => ({ contextKey, pairs });
+
 describe("assignSetToContext", () => {
-	test("warm path: copies sync values directly using sanitized keys", () => {
-		const spec = [
+	test("warm path: copies sync values under context.middyContext[contextKey]", () => {
+		const spec = contextSpec("ssm", [
 			["token", "token"],
 			["my-key", "my_key"],
-		];
+		]);
 		const value = { token: "tok", "my-key": "val" };
-		const request = { context: {} };
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, value, request);
 		strictEqual(result, undefined);
-		deepStrictEqual(request.context, { token: "tok", my_key: "val" });
+		deepStrictEqual(
+			{ ...request.context.middyContext.ssm },
+			{ token: "tok", my_key: "val" },
+		);
 	});
 	test("cold path: awaits getInternal when any value is a Promise", async () => {
-		const spec = [["token", "token"]];
+		const spec = contextSpec("ssm", [["token", "token"]]);
 		const tokenPromise = Promise.resolve("tok-async");
 		const value = { token: tokenPromise };
 		const request = {
-			context: {},
+			context: { middyContext: Object.create(null) },
 			internal: { token: tokenPromise },
 		};
 		const pending = assignSetToContext(spec, value, request);
 		ok(pending && typeof pending.then === "function");
 		await pending;
-		strictEqual(request.context.token, "tok-async");
+		strictEqual(request.context.middyContext.ssm.token, "tok-async");
 	});
 	test("ignores null values (treated as resolved, not promise)", () => {
-		const spec = [["token", "token"]];
-		const request = { context: {} };
+		const spec = contextSpec("ssm", [["token", "token"]]);
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, { token: null }, request);
 		strictEqual(result, undefined);
-		strictEqual(request.context.token, null);
+		strictEqual(request.context.middyContext.ssm.token, null);
 	});
 	test("handles a missing (undefined) value without throwing", () => {
 		// value has no entry for the spec key: the `.then` probe must use
 		// optional chaining so `undefined?.then` does not throw.
-		const spec = [["token", "token"]];
-		const request = { context: {} };
+		const spec = contextSpec("ssm", [["token", "token"]]);
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, {}, request);
 		strictEqual(result, undefined);
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext.ssm.token, undefined);
+	});
+	test("namespace is null-prototype and merges repeat writes to the same key", () => {
+		const request = { context: { middyContext: Object.create(null) } };
+		assignSetToContext(contextSpec("ssm", [["a", "a"]]), { a: 1 }, request);
+		const first = request.context.middyContext.ssm;
+		assignSetToContext(contextSpec("ssm", [["b", "b"]]), { b: 2 }, request);
+		strictEqual(request.context.middyContext.ssm, first);
+		strictEqual(Object.getPrototypeOf(first), null);
+		deepStrictEqual({ ...first }, { a: 1, b: 2 });
+	});
+	test("seeds context.middyContext when the request did not come from middy core", () => {
+		const request = { context: {} };
+		assignSetToContext(contextSpec("ssm", [["a", "a"]]), { a: 1 }, request);
+		strictEqual(Object.getPrototypeOf(request.context.middyContext), null);
+		strictEqual(request.context.middyContext.ssm.a, 1);
 	});
 });
 

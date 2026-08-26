@@ -12,6 +12,12 @@ export interface Options {
 		string,
 		(errors: ErrorObject[] | null | undefined) => void
 	>;
+	/**
+	 * Where @middy/http-content-negotiation published its results. Must match
+	 * that middleware's `contextKey` when it has been overridden.
+	 * @default "http-content-negotiation"
+	 */
+	contextKeyHttpContentNegotiation?: string;
 }
 
 declare function validator(

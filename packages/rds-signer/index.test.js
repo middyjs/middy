@@ -144,7 +144,7 @@ test("It should set Signer token to context", async (t) => {
 
 	const middleware = async (request) => {
 		strictEqual(
-			request.context.token,
+			request.context.middyContext["rds-signer"].token,
 			"https://rds.amazonaws.com?X-Amz-Security-Token=token",
 		);
 	};
@@ -730,7 +730,7 @@ test("It should NOT set token to context by default (setToContext defaults false
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext["rds-signer"], undefined);
 		const values = await getInternal(true, request);
 		strictEqual(
 			values.token,

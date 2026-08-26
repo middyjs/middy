@@ -30,7 +30,7 @@ npm install --save @middy/rds postgres
   - `database` (string) (optional): Database name.
   - `port` (integer) (optional): Database port.
   - Additional driver-specific options are passed through.
-- `contextKey` (string) (default `rds`): Key under which the connection is stored on `request.context`.
+- `contextKey` (string) (default `rds`): Key under `context.middyContext` where the connection is published.
 - `internalKey` (string) (optional): Internal key holding the IAM token from `@middy/rds-signer` or `@middy/dsql-signer`. When set, the resolved token is merged into `config.password` before the client is built.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Automatically disabled when `internalKey` is set.
 - `cacheKey` (string) (default `@middy/rds`): Cache key for the connection. Must be unique across all middleware.
@@ -106,7 +106,7 @@ import ssl from '@middy/rds/ssl'
 import ca from '@middy/rds/certificates/us-east-1'
 
 const lambdaHandler = async (event, context) => {
-  const pool = context.rds
+  const pool = context.middyContext.rds
   const { rows } = await pool.query('SELECT 1')
 
   return {

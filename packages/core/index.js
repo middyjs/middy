@@ -77,6 +77,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	const onErrorMiddlewares = [];
 
 	const middyRequest = (event = {}, context = {}) => {
+		context.middyContext = Object.create(null);
 		return {
 			event,
 			context,

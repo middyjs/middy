@@ -25,7 +25,8 @@ npm install --save-dev @aws-sdk/dsql-signer
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can.
 - `cacheKey` (string) (default `dsql-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Note: DSQL tokens have a default TTL of 900 s; cache for less than that to avoid using expired tokens on warm invocations.
-- `setToContext` (boolean) (default `false`): Store role tokens to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['dsql-signer']`.
+- `contextKey` (string) (default `dsql-signer`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 
@@ -67,7 +68,7 @@ export const handler = middy()
     }),
   )
   .handler(async (event, context) => {
-    const { rows } = await context.dsql.query('SELECT 1')
+    const { rows } = await context.middyContext.dsql.query('SELECT 1')
     return { statusCode: 200, body: JSON.stringify({ rows }) }
   })
 ```

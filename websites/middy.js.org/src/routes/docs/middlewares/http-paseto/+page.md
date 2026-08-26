@@ -34,7 +34,7 @@ npm install --save paseto
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
 - `requiredClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
-- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 
 NOTES:
 
@@ -53,7 +53,7 @@ import httpErrorHandler from '@middy/http-error-handler'
 
 const lambdaHandler = async (event) => {
   // The verified payload is on request.internal.paseto by default.
-  // To use context.paseto as below, pass setToContext: true to httpPaseto.
+  // To use context.middyContext.paseto as below, pass setToContext: true to httpPaseto.
   return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 

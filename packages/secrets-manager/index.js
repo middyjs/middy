@@ -35,6 +35,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1, // with fetchRotationDate: -1 expires at NextRotationDate; >=0 adds to the last change date, capped at NextRotationDate
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -62,6 +63,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };

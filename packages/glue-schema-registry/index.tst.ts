@@ -55,7 +55,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.user).type.toBe<ResolvedSchema>();
+			expect(
+				request.context.middyContext["glue-schema-registry"].user,
+			).type.toBe<ResolvedSchema>();
 
 			const data = await getInternal("user", request);
 			expect(data.user).type.toBe<ResolvedSchema>();

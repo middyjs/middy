@@ -30,7 +30,7 @@ There is no peer dependency: verification uses `node:crypto` only.
 - `maxAge` (number) (default `60`): How many seconds either side of now a proof's `iat` may fall.
 - `maxProofLength` (number) (default `8192`): Longest `DPoP` header accepted, checked before anything parses it.
 - `required` (boolean) (default `false`): When `true`, a token with no confirmation claim is rejected instead of passed through.
-- `setToContext` (boolean) (default `false`): When `true`, the verified proof claims are also written to `request.context[proofKey]`.
+- `setToContext` (boolean) (default `false`): When `true`, the verified proof claims are also published to `request.context.middyContext[proofKey]`. There is no separate `contextKey`: `proofKey` names both.
 
 NOTES:
 

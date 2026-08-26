@@ -1,15 +1,15 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 
-import { validateOptions } from "@middy/util";
+import { setContextNamespace, validateOptions } from "@middy/util";
 import awsEmbeddedMetrics from "aws-embedded-metrics";
 
 const name = "cloudwatch-metrics";
 const pkg = `@middy/${name}`;
 
-// Stryker disable next-line ObjectLiteral: value is already undefined, so dropping the key is observably identical after spread + destructuring
 const defaults = {
 	onFlushError: undefined,
+	contextKey: name,
 };
 
 // `dimensions` accepts either a single dimension set (object of
@@ -29,6 +29,7 @@ const optionSchema = {
 			oneOf: [dimensionSetSchema, { type: "array", items: dimensionSetSchema }],
 		},
 		onFlushError: { instanceof: "Function" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -37,7 +38,10 @@ export const cloudwatchMetricsValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const cloudwatchMetricsMiddleware = (opts = {}) => {
-	const { namespace, dimensions, onFlushError } = { ...defaults, ...opts };
+	const { namespace, dimensions, onFlushError, contextKey } = {
+		...defaults,
+		...opts,
+	};
 
 	if (dimensions) {
 		const dimensionSets = Array.isArray(dimensions) ? dimensions : [dimensions];
@@ -62,12 +66,12 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 		if (dimensions) {
 			metrics.setDimensions(dimensions);
 		}
-		Object.assign(request.context, { metrics });
+		setContextNamespace(request, contextKey, metrics);
 	};
 
 	const flushMetrics = async (request) => {
 		try {
-			await request.context.metrics?.flush();
+			await request.context.middyContext?.[contextKey]?.flush();
 		} catch (err) {
 			// Flush errors are swallowed to prevent metrics from crashing the
 			// handler. Users who need visibility (e.g., to catch IAM or network

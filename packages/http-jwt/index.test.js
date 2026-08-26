@@ -112,7 +112,7 @@ test("It should verify a valid HS256 JWT and set payload to internal", async (t)
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -140,7 +140,7 @@ test("It should always set payload to request.context", async (t) => {
 
 	await handler(makeEvent(`Bearer ${token}`), ctx);
 
-	strictEqual(ctx.jwt.sub, "user-1");
+	strictEqual(ctx.middyContext.jwt.sub, "user-1");
 });
 
 test("It should use a custom payloadKey", async (t) => {
@@ -158,7 +158,7 @@ test("It should use a custom payloadKey", async (t) => {
 	);
 
 	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-	strictEqual(result.auth.sub, "user-1");
+	strictEqual(result.middyContext.auth.sub, "user-1");
 });
 
 test("It should verify with RS256 using internalKey", async (t) => {
@@ -180,7 +180,7 @@ test("It should verify with RS256 using internalKey", async (t) => {
 		.setExpirationTime("1h")
 		.sign(importedPrivate);
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -271,7 +271,7 @@ test("It should accept the DPoP scheme", async (t) => {
 		.setExpirationTime("1h")
 		.sign(new TextEncoder().encode("secret"));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: "secret", algorithm: "HS256", setToContext: true }),
 	);
 
@@ -334,7 +334,7 @@ test("It should verify audience claim", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -403,7 +403,7 @@ test("It should accept lowercase authorization header", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -424,7 +424,7 @@ test("It should read JWT from a cookie when tokenCookieName is set", async (t) =
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -449,7 +449,7 @@ test("It should read JWT from capitalized Cookie header when lowercase is absent
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -519,7 +519,7 @@ test("It should verify a JWT with KMS-shape { publicKey, keySpec } when algorith
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -560,7 +560,7 @@ test("It should verify HS256 JWT when internalKey resolves to a plain string", a
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -582,7 +582,7 @@ test("It should include clockTolerance in verify options when set", async (t) =>
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", clockTolerance: 60 }),
 	);
 
@@ -610,7 +610,7 @@ test("It should use options.algorithm over KMS keySpec when both are present", a
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -669,7 +669,7 @@ test("It should narrow algorithms to the keySpec-compatible subset", async (t) =
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -703,7 +703,7 @@ test("It should verify JWT with KMS shape when keySpec is not in the algorithm m
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -736,7 +736,7 @@ test("It should verify RS256 JWT via internalKey (plain Uint8Array) with explici
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -757,7 +757,7 @@ test("It should verify HS256 JWT via internalKey (plain string) with explicit al
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -778,7 +778,7 @@ test("It should read JWT from a custom header when tokenHeaderName is set", asyn
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -803,7 +803,7 @@ test("It should read JWT from a lowercased custom header when literal case is ab
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -846,7 +846,7 @@ test("It should read JWT from a query parameter when tokenQueryStringName is set
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -895,7 +895,7 @@ test("It should chain cookie -> header -> query, cookie wins when present", asyn
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -928,7 +928,7 @@ test("It should fall through cookie -> header when cookie is absent", async (t) 
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -954,7 +954,7 @@ test("It should fall through header -> query when header is absent", async (t) =
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -994,7 +994,7 @@ test("It should fall through when Authorization header has wrong number of parts
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -1023,7 +1023,7 @@ test("It should fall through to next source when Authorization scheme is not Bea
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -1061,7 +1061,7 @@ test("issuers: single-issuer happy path", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri, audience: "clientA" } },
 				algorithm: "RS256",
@@ -1105,7 +1105,7 @@ test("issuers: multi-issuer routes by iss to the right JWKS", async (t) => {
 		[uriB]: jwksResponse({ keys: [fixB.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[issA]: { jwksUri: uriA, audience: "clientA" },
@@ -1409,7 +1409,7 @@ test("issuers: two requests to the same issuer share the cached JWKS", async (t)
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1499,7 +1499,7 @@ test("issuers: audience array on entry accepts any listed aud", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[iss]: { jwksUri, audience: ["client1", "client2", "client3"] },
@@ -1548,7 +1548,7 @@ test("issuers: per-issuer algorithm override (ES256 entry alongside RS256 defaul
 		[uriEc]: jwksResponse({ keys: [ec.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[issRsa]: { jwksUri: uriRsa }, // inherits RS256
@@ -1624,7 +1624,7 @@ test("issuers: array algorithm accepts a token with any listed alg, rejects othe
 		[jwksUri]: jwksResponse({ keys: [rsa.jwk, ec.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 				algorithm: "RS256",
@@ -1702,7 +1702,7 @@ test("issuers: JWK without alg + single-alg allowlist verifies", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [stripped] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1859,7 +1859,7 @@ test("issuers: clockTolerance is forwarded to jwtVerify", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1917,7 +1917,7 @@ test("setToContext: false (default) writes only to internal, not context", async
 		.sign(Buffer.from(secret));
 
 	const seen = {};
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -1945,7 +1945,7 @@ test("setToContext: true writes to both internal and context", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -2022,7 +2022,7 @@ test("It should accept Authorization header delivered as an array (multiValueHea
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -2042,7 +2042,7 @@ test("It should strip RFC 6265 surrounding double-quotes from a cookie value", a
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -2066,7 +2066,7 @@ test("It should accept a token without exp by default", async (t) => {
 		.setIssuedAt()
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -2105,7 +2105,7 @@ test("It should accept a token with exp when requireExp is set", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: true }),
 	);
 
@@ -2223,7 +2223,7 @@ test("issuers: requireExp accepts a token with exp", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -2249,7 +2249,7 @@ test("It should resolve a hyphenated internalKey without a spurious 500", async 
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal["jwt-key"] = secret;
 		})
@@ -2270,7 +2270,7 @@ test("It should resolve a dotted nested internalKey without a spurious 500", asy
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kms = { publicKey: secret };
 		})
@@ -2308,7 +2308,7 @@ const verifyKmsAlg = async ({ keySpec, alg, kty, curve }) => {
 		.setExpirationTime("1h")
 		.sign(importedPrivate);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -2529,7 +2529,7 @@ const buildToken = async (sub) => {
 };
 
 const cookieHandler = (secret) =>
-	middy((event, context) => context).use(
+	middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -3157,7 +3157,7 @@ test("It should accept any aud when no audience is configured (internalKey path)
 		.setIssuedAt()
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3174,7 +3174,7 @@ test("It should accept any iss when no issuer is configured (internalKey path)",
 		.setExpirationTime("1h")
 		.setIssuer("some-issuer")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3209,7 +3209,7 @@ test("It should accept an expired token within a generous clockTolerance (intern
 		.setIssuedAt()
 		.setExpirationTime("-30s")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", clockTolerance: 120 }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3288,7 +3288,7 @@ test("issuers: accepts any aud when no per-issuer audience configured", async (t
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3354,7 +3354,7 @@ test("issuers: pins issuer to the token's iss (cross-issuer aud reuse rejected)"
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [issA]: { jwksUri } },
 				algorithm: "RS256",
@@ -3477,7 +3477,7 @@ test("issuers: rotation refetch finds a newly-added kid after cooldown elapses",
 		},
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3509,7 +3509,7 @@ test("issuers: stale cache past cacheExpiry triggers a refetch", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3545,7 +3545,7 @@ test("issuers: fresh cache within cacheExpiry is reused (default cooldown/cache)
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3590,7 +3590,7 @@ test("issuers: concurrent first requests share a single in-flight JWKS fetch", a
 		return new Response("not found", { status: 404 });
 	};
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3634,7 +3634,7 @@ test("issuers: imported JWK key is reused across invocations (only one fetch, re
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3672,7 +3672,7 @@ test("issuers: a fresh cached doc is reused without refetch even when cooldown i
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3715,7 +3715,7 @@ test("issuers: a token without exp verifies when requireExp is not set", async (
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",

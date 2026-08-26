@@ -110,11 +110,14 @@ test("It should set STS secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		deepStrictEqual(request.context.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
+		deepStrictEqual(
+			{ ...request.context.middyContext.sts.role },
+			{
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			},
+		);
 	};
 
 	handler
@@ -441,7 +444,7 @@ test("It should NOT set credentials to context by default", async (t) => {
 
 	const handler = middy(() => {});
 	const middleware = async (request) => {
-		strictEqual(request.context.role, undefined);
+		strictEqual(request.context.middyContext.sts, undefined);
 	};
 	handler
 		.use(

@@ -44,13 +44,14 @@ test("cloudwatch-metrics", async (t) => {
 	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
 
 	await t.test(
-		"It should add MetricLogger instance on context.metrics",
+		"It should add MetricLogger instance on context.middyContext['cloudwatch-metrics']",
 		async () => {
 			const handler = middy((event, context) => {
-				ok(context.metrics);
-				strictEqual(typeof context.metrics.flush, "function");
-				strictEqual(typeof context.metrics.setNamespace, "function");
-				strictEqual(typeof context.metrics.setDimensions, "function");
+				const metrics = context.middyContext["cloudwatch-metrics"];
+				ok(metrics);
+				strictEqual(typeof metrics.flush, "function");
+				strictEqual(typeof metrics.setNamespace, "function");
+				strictEqual(typeof metrics.setDimensions, "function");
 			});
 			handler.use(cloudwatchMetricsMiddleware());
 			await handler(defaultEvent, defaultContext);
@@ -249,7 +250,7 @@ test("cloudwatchMetrics accepts a dimension set with exactly 30 dimensions", asy
 	ok(middleware);
 });
 
-test("cloudwatchMetrics flush handler does not throw when context.metrics is unset", async () => {
+test("cloudwatchMetrics flush handler does not throw when the metrics logger is unset", async () => {
 	const { default: cloudwatchMetricsMiddleware } = await import("./index.js");
 	let onFlushErrorCalled = false;
 	const middleware = cloudwatchMetricsMiddleware({

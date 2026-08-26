@@ -30,6 +30,17 @@ const standardConfiguration = {
 	defaultContentType: "application/json",
 };
 
+// Stands in for @middy/http-content-negotiation, which publishes its results to
+// context.middyContext. Seeding the incoming context would not work: @middy/core
+// resets context.middyContext on every invocation.
+const seedPreferredMediaTypes = (preferredMediaTypes) => ({
+	before: (request) => {
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredMediaTypes,
+		};
+	},
+});
+
 const createHttpResponse = () => ({
 	statusCode: 200,
 	body: "Hello World",
@@ -197,7 +208,7 @@ test("It should use the defaultContentType when no matching accept preferences a
 	});
 });
 
-test("It should use `context.preferredMediaTypes` instead of the defaultContentType", async (t) => {
+test("It should use the negotiated media types instead of the defaultContentType", async (t) => {
 	const handler = middy((event, context) => {
 		return createHttpResponse();
 	});
@@ -486,8 +497,8 @@ test("httpResponseSerializerValidateOptions rejects unknown keys on a serializer
 	}
 });
 
-test("preferredMediaTypes fallback is empty when context.preferredMediaTypes is absent", async (t) => {
-	// No http-content-negotiation, so request.context.preferredMediaTypes is
+test("preferredMediaTypes fallback is empty when the negotiation namespace is absent", async (t) => {
+	// No http-content-negotiation, so the negotiation namespace is
 	// nullish. With a catch-all serializer regex and NO defaultContentType, the
 	// candidate `types` list is exactly the preferredMediaTypes fallback plus
 	// the (undefined) defaultContentType. The real empty `[]` fallback means the
@@ -546,14 +557,12 @@ test("over-length attacker media type is skipped and not reflected (#9 ReDoS)", 
 	);
 
 	// Simulate http-content-negotiation putting the attacker subtype first.
+	handler.use(seedPreferredMediaTypes([longSubtype]));
+
 	const event = { headers: {} };
-	const context = {
-		...defaultContext,
-		preferredMediaTypes: [longSubtype],
-	};
 
 	const start = Date.now();
-	const response = await handler(event, context);
+	const response = await handler(event, { ...defaultContext });
 	const elapsed = Date.now() - start;
 
 	// The over-length candidate must never reach the serializer regex.
@@ -583,13 +592,10 @@ test("attacker media type with invalid chars is not reflected verbatim (#10)", a
 		}),
 	);
 
-	const event = { headers: {} };
-	const context = {
-		...defaultContext,
-		preferredMediaTypes: ["x/evil<script>json"],
-	};
+	handler.use(seedPreferredMediaTypes(["x/evil<script>json"]));
 
-	const response = await handler(event, context);
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
 
 	// The serializer still ran (it matched), but the invalid value is not echoed.
 	strictEqual(response.body, "serialized:Hello World");
@@ -600,13 +606,10 @@ test("valid media type still matches and sets Content-Type (#10 grammar pass)", 
 	const handler = middy((event, context) => createHttpResponse());
 	handler.use(httpResponseSerializer(standardConfiguration));
 
-	const event = { headers: {} };
-	const context = {
-		...defaultContext,
-		preferredMediaTypes: ["application/json"],
-	};
+	handler.use(seedPreferredMediaTypes(["application/json"]));
 
-	const response = await handler(event, context);
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
 
 	deepStrictEqual(response, {
 		statusCode: 200,

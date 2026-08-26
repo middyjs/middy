@@ -24,7 +24,8 @@ npm install --save-dev @aws-sdk/client-glue
 - `cacheKey` (string) (default `glue-schema-registry`): Cache key for fetched data.
 - `cacheKeyExpiry` (object) (optional): Per-key expiry overrides.
 - `cacheExpiry` (number) (default `-1`): How long to cache. `-1` = forever (recommended — schema versions are immutable). `0` = no cache.
-- `setToContext` (boolean) (default `false`): Also expose each `fetchData` entry on `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['glue-schema-registry']`.
+- `contextKey` (string) (default `glue-schema-registry`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 ## Internal output
 

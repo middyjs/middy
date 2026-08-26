@@ -159,7 +159,7 @@ test("It should set SecretsManager secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, "token");
+		strictEqual(request.context.middyContext["secrets-manager"].token, "token");
 	};
 
 	handler
@@ -1105,7 +1105,7 @@ test("It should not set secrets to context by default (setToContext default of f
 		const values = await getInternal(true, request);
 		strictEqual(values.tokenNoContext, "token");
 		// setToContext omitted: default false, so context must stay clean.
-		strictEqual(request.context.tokenNoContext, undefined);
+		strictEqual(request.context.middyContext["secrets-manager"], undefined);
 	};
 
 	handler

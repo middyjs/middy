@@ -29,7 +29,8 @@ npm install --save @middy/secrets-manager-extension
 - `cacheKey` (string) (default `@middy/secrets-manager-extension`): Cache key for the fetched data. Must be unique across middleware.
 - `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Set this to match `PARAMETERS_SECRETS_EXTENSION_CACHE_EXPIRATION` to avoid stale reads.
-- `setToContext` (boolean) (default `false`): Copy fetched values onto `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['secrets-manager-extension']`.
+- `contextKey` (string) (default `secrets-manager-extension`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 ## Notes
 

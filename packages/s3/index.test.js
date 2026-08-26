@@ -94,7 +94,7 @@ test("It should set S3 param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key?.option, "value");
+		strictEqual(request.context.middyContext.s3.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -618,7 +618,7 @@ test("It should not set values to context by default (setToContext defaults to f
 
 	const middleware = async (request) => {
 		// With default setToContext=false the value must NOT be copied to context
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.s3, undefined);
 		const values = await getInternal(true, request);
 		strictEqual(values.key?.option, "value");
 	};

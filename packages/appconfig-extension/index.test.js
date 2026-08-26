@@ -158,7 +158,10 @@ test("It should set config value to context", async (_t) => {
 			}),
 		)
 		.before(async (request) => {
-			strictEqual(request.context.config?.option, "value");
+			strictEqual(
+				request.context.middyContext["appconfig-extension"].config?.option,
+				"value",
+			);
 		});
 
 	await handler(event, context);

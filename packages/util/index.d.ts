@@ -23,7 +23,33 @@ export interface Options<Client, ClientOptions> {
 	cacheKeyExpiry?: Record<string, number>;
 	cacheMaxSize?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
+
+/**
+ * Resolves the `context.middyContext` key a middleware writes to: the `contextKey`
+ * option when set, otherwise the package name without the `@middy/` scope.
+ */
+export type ContextKey<
+	TOptions,
+	TDefaultKey extends string,
+> = TOptions extends {
+	contextKey: infer TKey extends string;
+}
+	? TKey
+	: TDefaultKey;
+
+/**
+ * A Lambda context carrying one middleware's values under
+ * `context.middyContext[contextKey]`.
+ */
+export type ContextNamespace<
+	TOptions,
+	TDefaultKey extends string,
+	TValues,
+> = LambdaContext & {
+	middyContext: { [Key in ContextKey<TOptions, TDefaultKey>]: TValues };
+};
 
 export declare class HttpError extends Error {
 	constructor(code: number, properties?: Record<string, unknown>);
@@ -116,6 +142,17 @@ declare function getInternal<
 			? Choose<DeepAwaited<TInternal>, TMap[P]>
 			: unknown; // path is not a string or a keyof TInternal
 }>;
+
+declare function contextNamespace(
+	request: middy.Request,
+	contextKey: string,
+): Record<string, unknown>;
+
+declare function setContextNamespace(
+	request: middy.Request,
+	contextKey: string,
+	value: unknown,
+): void;
 
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 

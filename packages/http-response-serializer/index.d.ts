@@ -13,6 +13,12 @@ export interface SerializerHandler {
 export interface Options {
 	serializers?: SerializerHandler[];
 	defaultContentType?: string;
+	/**
+	 * Where @middy/http-content-negotiation published its results. Must match
+	 * that middleware's `contextKey` when it has been overridden.
+	 * @default "http-content-negotiation"
+	 */
+	contextKeyHttpContentNegotiation?: string;
 }
 
 declare function httpResponseSerializer(

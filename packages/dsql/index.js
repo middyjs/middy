@@ -1,6 +1,11 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { canPrefetch, processCache, validateOptions } from "@middy/util";
+import {
+	canPrefetch,
+	processCache,
+	setContextNamespace,
+	validateOptions,
+} from "@middy/util";
 
 const name = "dsql";
 const pkg = `@middy/${name}`;
@@ -87,12 +92,12 @@ const dsqlMiddleware = (opts = {}) => {
 
 	const dsqlMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, () => fetch(request), request);
-		Object.assign(request.context, { [options.contextKey]: await value });
+		setContextNamespace(request, options.contextKey, await value);
 	};
 	const dsqlMiddlewareAfter = async (request) => {
 		try {
 			if (options.cacheExpiry === 0) {
-				await request.context[options.contextKey].end();
+				await request.context.middyContext?.[options.contextKey].end();
 			}
 		} catch (e) {
 			console.error("%s: cleanup error: %s", pkg, e.message);
