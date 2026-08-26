@@ -164,8 +164,7 @@ const asString = (value) => (typeof value === "string" ? value : undefined);
 const readMethod = (event) =>
 	asString(event?.requestContext?.http?.method) ?? asString(event?.httpMethod);
 
-const readPath = (event) =>
-	asString(event?.rawPath) ?? asString(event?.path) ?? undefined;
+const readPath = (event) => asString(event?.rawPath) ?? asString(event?.path);
 
 // Never the Host header: a client controls it, so trusting it would let a proof
 // be minted for any origin the attacker chose. `requestContext.domainName` is
