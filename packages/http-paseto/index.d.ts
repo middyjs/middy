@@ -26,7 +26,7 @@ export interface Options {
 	audience?: string;
 	issuer?: string;
 	clockTolerance?: string;
-	requiredClaims?: Record<string, unknown>;
+	expectedClaims?: Record<string, unknown>;
 	payloadKey?: string;
 	setToContext?: boolean;
 }

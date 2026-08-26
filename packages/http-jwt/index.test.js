@@ -3723,3 +3723,317 @@ test("issuers: a token without exp verifies when requireExp is not set", async (
 		fetchStub.restore();
 	}
 });
+
+// --- Key rotation on the static path, and KeyObject passthrough -------------
+//
+// The `issuers` path already rotates by `kid` through the JWKS. The `internalKey`
+// path did not: it took exactly one key. Neither an array nor a KeyObject used to
+// work, so accepting them is strictly new ground rather than a changed meaning.
+
+const makeStaticHandler = (keyData, opts = {}) =>
+	middy((event, context) => context)
+		.before((request) => {
+			request.internal.staticKey = keyData;
+		})
+		.use(
+			realHttpJwt({
+				setToContext: true,
+				internalKey: "staticKey",
+				...opts,
+			}),
+		);
+
+const spkiDer = (publicKey) =>
+	new Uint8Array(publicKey.export({ type: "spki", format: "der" }));
+
+test("It should verify against either key during a rotation overlap", async (t) => {
+	const retiring = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const keyData = [spkiDer(current.publicKey), spkiDer(retiring.publicKey)];
+
+	// Minted before the rotation and not yet expired, so it must still verify.
+	const old = await signToken({
+		privateKey: retiring.privateKey,
+		alg: "ES256",
+		claims: { sub: "minted-before" },
+	});
+	const fresh = await signToken({
+		privateKey: current.privateKey,
+		alg: "ES256",
+		claims: { sub: "minted-after" },
+	});
+
+	strictEqual(
+		(
+			await makeStaticHandler(keyData, { algorithm: "ES256" })(
+				makeEvent(`Bearer ${old}`),
+				{ ...defaultContext },
+			)
+		).jwt.sub,
+		"minted-before",
+	);
+	strictEqual(
+		(
+			await makeStaticHandler(keyData, { algorithm: "ES256" })(
+				makeEvent(`Bearer ${fresh}`),
+				{ ...defaultContext },
+			)
+		).jwt.sub,
+		"minted-after",
+	);
+});
+
+test("It should still reject a token signed by no configured key", async (t) => {
+	const stranger = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const a = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const b = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const token = await signToken({
+		privateKey: stranger.privateKey,
+		alg: "ES256",
+		claims: { sub: "nope" },
+	});
+
+	try {
+		await makeStaticHandler([spkiDer(a.publicKey), spkiDer(b.publicKey)], {
+			algorithm: "ES256",
+		})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+	}
+});
+
+test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
+	// A misconfiguration, not a rejection: with no key to try there is no reason
+	// to report that anyone could act on.
+	const { privateKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({ privateKey, alg: "ES256" });
+
+	try {
+		await makeStaticHandler([], { algorithm: "ES256" })(
+			makeEvent(`Bearer ${token}`),
+			{ ...defaultContext },
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("no keys"));
+	}
+});
+
+test("It should accept a KeyObject that the caller resolved itself", async (t) => {
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1" },
+	});
+
+	// Straight KeyObject, no DER round trip: what createPublicKey gives you for a
+	// PEM held in the environment. This used to land in the string-secret branch
+	// and fail closed with a 500.
+	const result = await makeStaticHandler(publicKey, { algorithm: "ES256" })(
+		makeEvent(`Bearer ${token}`),
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.jwt.sub, "user-1");
+});
+
+test("It should accept an array of KeyObjects", async (t) => {
+	const retiring = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const current = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const token = await signToken({
+		privateKey: retiring.privateKey,
+		alg: "ES256",
+		claims: { sub: "minted-before" },
+	});
+
+	const result = await makeStaticHandler(
+		[current.publicKey, retiring.publicKey],
+		{ algorithm: "ES256" },
+	)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+	strictEqual(result.jwt.sub, "minted-before");
+});
+
+test("It should narrow the algorithm per key from its own KMS keySpec", async (t) => {
+	// Each entry resolves independently, so a keySpec on one key must not narrow
+	// the allowlist used for another.
+	const p256 = await generateKeyPairAsync("ec", { namedCurve: "P-256" });
+	const rsa = await generateKeyPairAsync("rsa", { modulusLength: 2048 });
+	const keyData = [
+		{ publicKey: spkiDer(rsa.publicKey), keySpec: "RSA_2048" },
+		{ publicKey: spkiDer(p256.publicKey), keySpec: "ECC_NIST_P256" },
+	];
+	const token = await signToken({
+		privateKey: p256.privateKey,
+		alg: "ES256",
+		claims: { sub: "ec-signed" },
+	});
+
+	const result = await makeStaticHandler(keyData, {
+		algorithm: ["RS256", "ES256"],
+	})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+	strictEqual(result.jwt.sub, "ec-signed");
+});
+
+// --- expectedClaims ---------------------------------------------------------
+//
+// Named `expectedClaims`, not `requiredClaims`: jose already owns that name for a
+// list of claims that must be PRESENT, and this middleware passes it through for
+// `requireExp`. One name with two meanings would be a trap.
+
+test("It should accept a token whose expected claims all match", async (t) => {
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1", token_use: "access" },
+	});
+
+	const result = await makeStaticHandler(publicKey, {
+		algorithm: "ES256",
+		expectedClaims: { token_use: "access" },
+	})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+	strictEqual(result.jwt.sub, "user-1");
+});
+
+test("It should reject an ID token presented where an access token was meant", async (t) => {
+	// The Cognito shape: `token_use` is the only thing separating the two, and
+	// leaving it unchecked is a known hole.
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1", token_use: "id" },
+	});
+
+	try {
+		await makeStaticHandler(publicKey, {
+			algorithm: "ES256",
+			expectedClaims: { token_use: "access" },
+		})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("'token_use'"));
+	}
+});
+
+test("It should reject a token missing an expected claim entirely", async (t) => {
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1" },
+	});
+
+	try {
+		await makeStaticHandler(publicKey, {
+			algorithm: "ES256",
+			expectedClaims: { token_use: "access" },
+		})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+	}
+});
+
+test("It should check every expected claim, not just the first", async (t) => {
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1", token_use: "access", tier: "free" },
+	});
+
+	try {
+		await makeStaticHandler(publicKey, {
+			algorithm: "ES256",
+			expectedClaims: { token_use: "access", tier: "paid" },
+		})(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("'tier'"));
+	}
+});
+
+test("It should not publish a payload that expectedClaims rejected", async (t) => {
+	const { privateKey, publicKey } = await generateKeyPairAsync("ec", {
+		namedCurve: "P-256",
+	});
+	const token = await signToken({
+		privateKey,
+		alg: "ES256",
+		claims: { sub: "user-1", token_use: "id" },
+	});
+
+	const ctx = { ...defaultContext };
+	await makeStaticHandler(publicKey, {
+		algorithm: "ES256",
+		expectedClaims: { token_use: "access" },
+	})(makeEvent(`Bearer ${token}`), ctx).catch(() => {});
+
+	strictEqual(ctx.jwt, undefined);
+});
+
+test("It should apply expectedClaims on the JWKS path too", async (t) => {
+	const { privateKey, jwk, kid, alg } = await jwksFixture();
+	const jwksUri = nextJwksUri();
+	const iss = "https://issuer.example.com";
+	const token = await signToken({
+		privateKey,
+		alg,
+		kid,
+		iss,
+		claims: { sub: "user-1", token_use: "id" },
+	});
+	const { restore } = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+
+	// Built outside the try: a factory-time TypeError is a test bug, not the 401
+	// this is looking for, and catching it here would hide that.
+	const handler = middy((event, context) => context).use(
+		realHttpJwt({
+			setToContext: true,
+			algorithm: alg,
+			issuers: { [iss]: { jwksUri } },
+			expectedClaims: { token_use: "access" },
+		}),
+	);
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("'token_use'"));
+	} finally {
+		restore();
+	}
+});
+
+test("It should validate the new option", () => {
+	httpJwtValidateOptions({
+		internalKey: "staticKey",
+		algorithm: "ES256",
+		expectedClaims: { token_use: "access" },
+	});
+});

@@ -25,7 +25,7 @@ npm install --save jose
 ## Options
 
 - `issuers` (object) (one of `issuers`/`internalKey` required): Map of issuer URL → `{ jwksUri, audience?, algorithm? }`. See [Issuers options](#issuers-options) for entry shape.
-- `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, or a string symmetric secret.
+- `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, an already-resolved `KeyObject`, or a string symmetric secret. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
 - `algorithm` (string | string[]) (required for `issuers`; required for `internalKey` bare-key/HMAC shapes; auto-inferred for KMS shape): JWS algorithm allowlist. `'none'` is rejected. Empty arrays are rejected.
 - `tokenCookieName` (string) (optional): Cookie name to read the token from.
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
@@ -33,6 +33,7 @@ npm install --save jose
 - `audience` (string | string[]) (optional, ignored when `issuers` is used — per-entry audience is authoritative): Expected `aud` claim.
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
+- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
 - `cacheExpiry` (number) (optional, `issuers` only): JWKS cache TTL in ms. Forwarded to `jose.createRemoteJWKSet`'s `cacheMaxAge`.
@@ -261,6 +262,68 @@ The patterns above are safe against the two classic JWT verification mistakes:
 
 - Use `audience: COGNITO_CLIENT_ID` for **ID tokens**. **Access tokens** carry `client_id` instead of `aud`; either drop the `audience` check and validate `payload.client_id` in a follow-up middleware, or restrict the handler to one token type.
 - Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `createError(401, ...)` on mismatch.
+
+## Key rotation
+
+The `issuers` path needs nothing here: a JWKS already rotates by `kid`, and this middleware refetches on a `kid` miss.
+
+The `internalKey` path is the one that needs help. An asymmetric signing key cannot be rotated in place, so rotating a static key means standing up a **second** key and accepting both until the last token signed by the retiring one has expired. Point `internalKey` at an array to do that:
+
+```javascript
+export const handler = middy()
+  .before((request) => {
+    // Two keys are genuinely current during the overlap. Order matters only for
+    // which failure is reported, not for which tokens verify.
+    request.internal.signingKeys = [currentKey, retiringKey]
+  })
+  .use(httpJwt({ internalKey: 'signingKeys', algorithm: 'ES256' }))
+  .use(httpErrorHandler())
+  .handler(lambdaHandler)
+```
+
+Each entry resolves on its own, which matters for the `@middy/kms` shape: a `keySpec` narrows the algorithm allowlist for **that key only**, not for the middleware as a whole. So an RSA key and an EC key can sit in the same array with `algorithm: ['RS256', 'ES256']`, and each is checked against the algorithms it can actually carry.
+
+A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. An empty array is a `500`: there is no key to try, so no rejection reason anyone could act on.
+
+A resolved `KeyObject` is accepted alongside the raw bytes, for a key you already have in hand:
+
+```javascript
+import { createPublicKey } from 'node:crypto'
+
+const keys = process.env.JWT_PUBLIC_KEYS.split(/(?=-----BEGIN)/)
+  .map((pem) => createPublicKey(pem))
+
+export const handler = middy()
+  .use({ before: (request) => { request.internal.signingKeys = keys } })
+  .use(httpJwt({ internalKey: 'signingKeys', algorithm: 'ES256' }))
+  .handler(lambdaHandler)
+```
+
+Nothing here knows a `KeyObject`'s provenance, so the configured `algorithm` is trusted exactly as it is for raw DER. jose refuses the pair if the key cannot carry that algorithm.
+
+## Requiring claims
+
+A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is. Amazon Cognito's `token_use` is the well-known one: an ID token and an access token are both signed by the same key set, and only that claim tells them apart. Accepting an ID token where an access token was meant is a real and common hole.
+
+`expectedClaims` closes it declaratively:
+
+```javascript
+httpJwt({
+  issuers: {
+    'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123': {
+      jwksUri: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123/.well-known/jwks.json',
+    },
+  },
+  algorithm: 'RS256',
+  // An ID token from the same pool verifies perfectly. It is still not a token
+  // for calling this API.
+  expectedClaims: { token_use: 'access' },
+})
+```
+
+Comparison is strict equality, and it applies on both the `issuers` and `internalKey` paths. A claim the payload does not carry at all fails the same way a wrong value does, which is what you want: a token minted before the discriminator existed must not slide through.
+
+Do not confuse this with `requireExp`, which forwards jose's `requiredClaims` and only asserts that a claim is **present**. For anything beyond an exact match, such as a scope that must contain a value, write a small middleware; see [Validating roles](#validating-roles) below.
 
 ## Validating roles
 

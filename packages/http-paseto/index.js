@@ -13,6 +13,9 @@ const name = "http-paseto";
 const pkg = `@middy/${name}`;
 
 const defaults = {
+	// May resolve to one key or to an array of them. An array is a key rotation overlap:
+	// an asymmetric key cannot be rotated in place, so rotating means standing up a second
+	// key and accepting both until the last token signed by the retiring one has expired.
 	internalKey: undefined,
 	tokenCookieName: undefined,
 	tokenHeaderName: undefined,
@@ -21,7 +24,7 @@ const defaults = {
 	issuer: undefined,
 	clockTolerance: undefined,
 	maxTokenAge: undefined,
-	requiredClaims: undefined,
+	expectedClaims: undefined,
 	payloadKey: "paseto",
 	setToContext: false,
 };
@@ -37,7 +40,7 @@ const optionSchema = {
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		maxTokenAge: { type: "string" },
-		requiredClaims: { type: "object" },
+		expectedClaims: { type: "object" },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
@@ -47,6 +50,14 @@ const optionSchema = {
 export const httpPasetoValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// One entry of `internalKey` -> a KeyObject. Three shapes are accepted, and neither new
+// one used to work by accident: `createPublicKey` throws on a KeyObject and on an array.
+//   - `{ publicKey: Uint8Array }`, what @middy/kms returns
+//   - a Uint8Array / Buffer of DER SPKI bytes
+//   - a KeyObject, for a caller that resolved its own key, e.g. from a PEM in the
+//     environment. A KMS asymmetric key never rotates in place, so its public half is
+//     immutable and there is nothing to refetch, which makes a plain env var a
+//     reasonable place to keep it.
 const importKey = (entry) => {
 	if (entry instanceof KeyObject) return entry;
 	const bytes =
@@ -139,7 +150,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		maxTokenAge: options.maxTokenAge,
 	};
 
-	const requiredClaims = Object.entries(options.requiredClaims ?? {});
+	const expectedClaims = Object.entries(options.expectedClaims ?? {});
 
 	// Per-middleware-instance cache of imported KeyObjects, keyed by the
 	// keyData reference. createPublicKey reparses DER through OpenSSL on
@@ -212,9 +223,10 @@ const httpPasetoMiddleware = (opts = {}) => {
 			});
 		}
 
-		// Claims the caller declared mandatory, checked before the payload is
-		// published so nothing downstream can read a payload this rejected.
-		for (const [claim, expected] of requiredClaims) {
+		// Claims the caller declared mandatory, compared with strict equality and
+		// checked before the payload is published, so nothing downstream can read a
+		// payload this rejected.
+		for (const [claim, expected] of expectedClaims) {
 			if (payload[claim] !== expected) {
 				throw createError(401, "Unauthorized", {
 					cause: {

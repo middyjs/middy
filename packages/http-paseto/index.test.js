@@ -1312,6 +1312,25 @@ test("It should still reject a token signed by no configured key", async (t) => 
 	}
 });
 
+test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
+	// A misconfiguration, not a rejection: with no key to try there is no reason to
+	// report that anyone could act on.
+	const privateKey = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	try {
+		await makeHandlerWithKeys([])(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("no keys"));
+	}
+});
+
 test("It should accept a KeyObject that the caller resolved itself", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
@@ -1344,14 +1363,18 @@ test("It should accept an array of KeyObjects", async (t) => {
 	strictEqual(result.paseto.sub, "minted-before");
 });
 
-// --- requiredClaims --------------------------------------------------------
+// --- expectedClaims --------------------------------------------------------
 //
 // The generic case is a token type discriminator: PASETO's own `typ`, Cognito's
 // `token_use`, or any claim that separates an access token from a credential that
 // merely buys one. Leaving it unchecked is how an ID token gets accepted as an
 // access token.
+//
+// Named `expectedClaims`, not `requiredClaims`: jose already uses that name for a
+// list of claims that must be PRESENT, and @middy/http-jwt passes it through, so
+// reusing it for an equality check would mean one name and two meanings.
 
-test("It should accept a token whose required claims all match", async (t) => {
+test("It should accept a token whose expected claims all match", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1", typ: "access" }, privateKey, {
@@ -1359,7 +1382,7 @@ test("It should accept a token whose required claims all match", async (t) => {
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
-		requiredClaims: { typ: "access" },
+		expectedClaims: { typ: "access" },
 	});
 
 	strictEqual(
@@ -1369,7 +1392,7 @@ test("It should accept a token whose required claims all match", async (t) => {
 	);
 });
 
-test("It should reject a token whose required claim differs", async (t) => {
+test("It should reject a token whose expected claim differs", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
@@ -1381,7 +1404,7 @@ test("It should reject a token whose required claim differs", async (t) => {
 	);
 
 	const handler = makeHandlerWithKey(publicKey, {
-		requiredClaims: { typ: "access" },
+		expectedClaims: { typ: "access" },
 	});
 
 	try {
@@ -1393,7 +1416,7 @@ test("It should reject a token whose required claim differs", async (t) => {
 	}
 });
 
-test("It should reject a token missing a required claim entirely", async (t) => {
+test("It should reject a token missing an expected claim entirely", async (t) => {
 	// A credential minted before the discriminator existed carries no claim at all,
 	// and must be refused by the same comparison rather than sliding through.
 	const privateKey = await V4.generateKey("public");
@@ -1403,7 +1426,7 @@ test("It should reject a token missing a required claim entirely", async (t) => 
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
-		requiredClaims: { typ: "access" },
+		expectedClaims: { typ: "access" },
 	});
 
 	try {
@@ -1414,7 +1437,7 @@ test("It should reject a token missing a required claim entirely", async (t) => 
 	}
 });
 
-test("It should check every required claim, not just the first", async (t) => {
+test("It should check every expected claim, not just the first", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
@@ -1424,7 +1447,7 @@ test("It should check every required claim, not just the first", async (t) => {
 	);
 
 	const handler = makeHandlerWithKey(publicKey, {
-		requiredClaims: { typ: "access", tier: "paid" },
+		expectedClaims: { typ: "access", tier: "paid" },
 	});
 
 	try {
@@ -1436,7 +1459,7 @@ test("It should check every required claim, not just the first", async (t) => {
 	}
 });
 
-test("It should not publish a payload that requiredClaims rejected", async (t) => {
+test("It should not publish a payload that expectedClaims rejected", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
@@ -1449,7 +1472,7 @@ test("It should not publish a payload that requiredClaims rejected", async (t) =
 
 	const ctx = { ...defaultContext };
 	const handler = makeHandlerWithKey(publicKey, {
-		requiredClaims: { typ: "access" },
+		expectedClaims: { typ: "access" },
 	});
 
 	await handler(makeEvent(`Bearer ${token}`), ctx).catch(() => {});
@@ -1457,14 +1480,14 @@ test("It should not publish a payload that requiredClaims rejected", async (t) =
 	strictEqual(ctx.paseto, undefined);
 });
 
-test("It should ignore an empty requiredClaims object", async (t) => {
+test("It should ignore an empty expectedClaims object", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
 		expiresIn: "1h",
 	});
 
-	const handler = makeHandlerWithKey(publicKey, { requiredClaims: {} });
+	const handler = makeHandlerWithKey(publicKey, { expectedClaims: {} });
 
 	strictEqual(
 		(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext })).paseto
@@ -1476,25 +1499,6 @@ test("It should ignore an empty requiredClaims object", async (t) => {
 test("It should validate the new options", () => {
 	httpPasetoValidateOptions({
 		internalKey: "pubKey",
-		requiredClaims: { typ: "access" },
+		expectedClaims: { typ: "access" },
 	});
-});
-
-test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
-	// A misconfiguration, not a rejection: with no key to try there is no reason to
-	// report that anyone could act on.
-	const privateKey = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
-	});
-
-	try {
-		await makeHandlerWithKeys([])(makeEvent(`Bearer ${token}`), {
-			...defaultContext,
-		});
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("no keys"));
-	}
 });

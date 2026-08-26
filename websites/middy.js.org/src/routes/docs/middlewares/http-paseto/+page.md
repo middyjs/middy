@@ -32,7 +32,7 @@ npm install --save paseto
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
-- `requiredClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected.
+- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
 
@@ -125,14 +125,14 @@ export const handler = middy()
 
 A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is: PASETO's own `typ`, Amazon Cognito's `token_use`, or a claim of your own. Accepting an ID token where an access token was meant, or a long-lived credential where a short-lived token was meant, is a real and common hole.
 
-`requiredClaims` closes it declaratively:
+`expectedClaims` closes it declaratively:
 
 ```javascript
 httpPaseto({
   internalKey: 'pasetoKey',
   // Only a short-lived access token is a token for calling this API. A credential
   // that merely buys one is refused here, even though it verifies.
-  requiredClaims: { typ: 'access' },
+  expectedClaims: { typ: 'access' },
 })
 ```
 
