@@ -10,7 +10,7 @@ const name = "http-error-handler";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	logger: console.error,
+	logger: (request) => console.error(request.error),
 	fallbackMessage: undefined,
 };
 
@@ -32,7 +32,7 @@ const httpErrorHandlerMiddleware = (opts = {}) => {
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;
 		if (typeof logger === "function") {
-			logger(request.error);
+			logger(request);
 		}
 
 		const error =

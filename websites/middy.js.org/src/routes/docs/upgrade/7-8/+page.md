@@ -112,7 +112,7 @@ No change
 
 ### [http-error-handler](/docs/middlewares/http-error-handler)
 
-No change
+- logger not takes `request` object instead of `error` **Breaking Change**
 
 ### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
 
