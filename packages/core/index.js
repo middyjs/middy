@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { setTimeout } from "node:timers";
-import { validateOptions } from "@middy/util";
+import { isExecutionModeDurable, validateOptions } from "@middy/util";
 import { executionModeStandard } from "./executionModeStandard.js";
 
 const name = "core";
@@ -256,6 +256,11 @@ const runRequest = async (
 		request.response = undefined;
 		delete request.earlyResponse;
 		request.error = err;
+
+		if (isExecutionModeDurable(request.context)) {
+			throw request.error;
+		}
+
 		try {
 			for (let i = 0, len = onErrorMiddlewares.length; i < len; i++) {
 				const nextMiddleware = onErrorMiddlewares[i];
@@ -279,7 +284,6 @@ const runRequest = async (
 			// carry properties (assignment throws in strict mode), so only attach
 			// to objects; a primitive still propagates as-is below.
 			if (err !== request.error && typeof err === "object" && err !== null) {
-				err.originalError = request.error; // TODO remove in v8, use cause
 				err.cause ??= request.error;
 			}
 			request.error = err;

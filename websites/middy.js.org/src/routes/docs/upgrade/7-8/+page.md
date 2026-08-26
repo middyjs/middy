@@ -9,10 +9,14 @@ Version 8.x of Middy no longer supports Node.js versions 22.x. You are highly en
 
 ## Notable changes
 
-- Deprecation of `do-not-wait-for-empty-event-loop`
-- 
+- Deprecation of `callbackWaitsForEmptyEventLoop`
+- `executionModeDurablecontext` now skips onError middlewares
 
 ## Core
+
+- `executionModeDurablecontext` now skips `onError` middlewares **Breaking Change**
+- Deprecation of `originalError` on internal error object **Breaking Change**
+- Deprecation of `callbackWaitsForEmptyEventLoop`
 
 ## Util
 
@@ -212,7 +216,7 @@ No change
 
 ### [sts](/docs/middlewares/sts)
 
-- `RoleSessionName` is now `@middy/sts/{randomUUID}` to prevent collisions **Breaking Change**
+- `RoleSessionName` is now `@middy-sts-{randomUUID}` to prevent collisions **Breaking Change**
 
 ### [validator](/docs/middlewares/validator)
 

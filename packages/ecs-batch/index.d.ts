@@ -61,10 +61,7 @@ export declare function buildContext(args: {
 	invokedFunctionArn?: string;
 }): Pick<
 	LambdaContext,
-	| "awsRequestId"
-	| "invokedFunctionArn"
-	| "callbackWaitsForEmptyEventLoop"
-	| "getRemainingTimeInMillis"
+	"awsRequestId" | "invokedFunctionArn" | "getRemainingTimeInMillis"
 >;
 
 export default ecsBatchRunner;

@@ -200,7 +200,6 @@ test("buildTaskContext exposes Lambda-shape fields", () => {
 	});
 	strictEqual(ctx.awsRequestId, "abc");
 	strictEqual(ctx.invokedFunctionArn, "arn:aws:ecs:r:a:task/c/x");
-	strictEqual(ctx.callbackWaitsForEmptyEventLoop, false);
 	strictEqual(ctx.region, "r");
 	ok(ctx.getRemainingTimeInMillis() <= 1000);
 	ok(ctx.getRemainingTimeInMillis() >= 0);

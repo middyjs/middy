@@ -11,7 +11,6 @@ import { expect, test } from "tstyche";
 const createLambdaHandler: CloudFormationCustomResourceHandler = async (
 	_event,
 	_context,
-	_callback,
 ) => {
 	// ...
 };
@@ -19,7 +18,6 @@ const createLambdaHandler: CloudFormationCustomResourceHandler = async (
 const deleteLambdaHandler: CloudFormationCustomResourceHandler = async (
 	_event,
 	_context,
-	_callback,
 ) => {
 	// ...
 };

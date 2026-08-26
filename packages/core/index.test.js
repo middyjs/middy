@@ -481,7 +481,6 @@ describe("middy core", () => {
 		try {
 			await handler(defaultEvent, defaultContext);
 		} catch (e) {
-			onErrorError.originalError = afterError;
 			deepStrictEqual(e, onErrorError);
 		}
 		deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "e2"]);
@@ -503,9 +502,8 @@ describe("middy core", () => {
 			caught = e;
 		}
 		strictEqual(caught, handlerError);
-		// No self-references: walking .cause / .originalError must not loop back.
+		// No self-reference: walking .cause must not loop back.
 		ok(caught.cause !== caught);
-		ok(caught.originalError !== caught);
 	});
 
 	// Modifying shared resources
@@ -1267,9 +1265,7 @@ describe("middy core", () => {
 		// Pins the microtask budget of the fast path: sync handler, no
 		// middlewares, timeout disabled. The only await on the whole path is
 		// executionModeStandard awaiting runRequest's already-settled promise
-		// (tick 1); the invocation's own .then callback lands on tick 2.
-		// Any extra await/race re-introduced on this path adds a tick and
-		// fails the tick-2 assertion.
+
 		const handler = middy(() => "ok", { timeoutEarlyInMillis: 0 });
 
 		const invocation = handler(defaultEvent, defaultContext);
@@ -1790,8 +1786,8 @@ describe("middy core", () => {
 		ok(!timeoutCalled);
 	});
 
-	// index.js:224/226 - a distinct rethrown error gets originalError and cause
-	test('"onError" rethrowing a distinct error attaches originalError and cause', async (t) => {
+	// index.js:224 - a distinct rethrown error attaches cause
+	test('"onError" rethrowing a distinct error attaches cause', async (t) => {
 		const handlerError = new Error("boom");
 		const rethrown = new Error("wrapped");
 		const handler = middy(() => {
@@ -1808,7 +1804,6 @@ describe("middy core", () => {
 			caught = e;
 		}
 		strictEqual(caught, rethrown);
-		strictEqual(caught.originalError, handlerError);
 		strictEqual(caught.cause, handlerError);
 	});
 
@@ -1831,9 +1826,37 @@ describe("middy core", () => {
 			caught = e;
 		}
 		strictEqual(caught, rethrown);
-		strictEqual(caught.originalError, handlerError);
 		// ??= must not overwrite an already-set cause.
 		strictEqual(caught.cause, existingCause);
+	});
+
+	// Durable execution owns retry/error semantics of its own: the onError
+	// stack must never run under a durable context, regardless of which
+	// package registered it, and the original handler error must propagate
+	// untouched (no wrapping, no .cause rewrite).
+	test("onError stack is skipped entirely under a durable execution context", async (t) => {
+		const handlerError = new Error("boom");
+		const durableContext = {
+			[Symbol.for("@aws/durable-execution-sdk-js/durable-context")]: true,
+			getRemainingTimeInMillis: () => 1000,
+		};
+		const onErrorCalls = [];
+		const handler = middy(() => {
+			throw handlerError;
+		}).onError((request) => {
+			onErrorCalls.push(request);
+			request.response = { statusCode: 200 };
+		});
+
+		let caught;
+		try {
+			await handler(defaultEvent, durableContext);
+			throw new Error("Expected error to propagate");
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught, handlerError);
+		deepStrictEqual(onErrorCalls, []);
 	});
 
 	// #1661 contract: a store entered with enterWith() in a hook's

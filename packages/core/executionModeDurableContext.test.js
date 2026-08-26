@@ -1,6 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
+import { isExecutionModeDurable } from "@middy/util";
 import { executionModeDurableContext } from "./executionModeDurableContext.js";
 import middy from "./index.js";
 
@@ -27,6 +28,22 @@ describe("executionModeDurableContext", () => {
 	});
 	test.afterEach(async () => {
 		await LocalDurableTestRunner.teardownTestEnvironment();
+	});
+
+	test("Should detect the real SDK durable context via isExecutionModeDurable", async (t) => {
+		let detected;
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+		}).handler((event, context) => {
+			detected = isExecutionModeDurable(context);
+			return "ok";
+		});
+		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "SUCCEEDED");
+		strictEqual(detected, true);
 	});
 
 	test("Should return with executionMode:executionModeDurableContext using string", async (t) => {

@@ -113,7 +113,6 @@ export const buildTaskContext = ({
 }) => ({
 	awsRequestId,
 	invokedFunctionArn,
-	callbackWaitsForEmptyEventLoop: false,
 	getRemainingTimeInMillis: () =>
 		Math.max(0, timeout - (Date.now() - startTime)),
 	...ecs,

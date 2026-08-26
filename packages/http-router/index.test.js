@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import httpRouter, { httpRouterValidateOptions } from "./index.js";
@@ -113,23 +113,15 @@ test("It should route to a dynamic route with `{var_iable}`", async (t) => {
 	ok(response);
 });
 test("It should not route to a dynamic route with `{var-iable}`", async (t) => {
-	try {
-		httpRouter([
-			{
-				method: "GET",
-				path: "/user/{i-d}/",
-				handler: (event) => {
-					deepStrictEqual(event.pathParameters, { "i-d": "1" });
-					return true;
-				},
-			},
-		]);
-	} catch (e) {
-		strictEqual(
-			e.message,
-			"Invalid regular expression: /^/user/(?<i-d>[^/]+)/?$/: Invalid capture group name",
-		);
-	}
+	throws(
+		() =>
+			httpRouter([
+				{ method: "GET", path: "/user/{i-d}/", handler: () => true },
+			]),
+		(e) =>
+			e.name === "SyntaxError" &&
+			e.message.endsWith("Invalid capture group name"),
+	);
 });
 
 test("It should route to a dynamic route with `{variable}` with trailing slash", async (t) => {
@@ -1175,6 +1167,35 @@ test("It should attach cause package and data to the method-not-allowed error", 
 		ok(e.cause, "cause present");
 		strictEqual(e.cause.package, "@middy/http-router");
 		deepStrictEqual(e.cause.data, { method: "ALL" });
+	}
+});
+
+// Duplicate static routes throw at construction, without requiring the
+// caller to have run httpRouterValidateOptions first (index.js:180)
+test("It should throw on a duplicate static route even without validateOptions", () => {
+	try {
+		httpRouter([
+			{ method: "GET", path: "/a", handler: () => "first" },
+			{ method: "GET", path: "/a", handler: () => "second" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "GET", path: "/a" });
+	}
+});
+
+test("It should throw on a duplicate static route registered through method ANY", () => {
+	try {
+		httpRouter([
+			{ method: "ANY", path: "/a", handler: () => "any" },
+			{ method: "GET", path: "/a", handler: () => "get" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		deepStrictEqual(e.cause.data, { method: "GET", path: "/a" });
 	}
 });
 

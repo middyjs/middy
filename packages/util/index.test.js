@@ -1925,7 +1925,6 @@ describe("context key tables", () => {
 			"logStreamName",
 			"identity",
 			"clientContext",
-			"callbackWaitsForEmptyEventLoop",
 		]);
 	});
 	test("executionContextKeys lists the execution context keys", () => {

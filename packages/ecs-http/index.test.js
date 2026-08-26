@@ -150,7 +150,6 @@ test("buildContext exposes Lambda-shaped fields", () => {
 	});
 	strictEqual(ctx.awsRequestId, "abc");
 	strictEqual(ctx.invokedFunctionArn, "arn");
-	strictEqual(ctx.callbackWaitsForEmptyEventLoop, false);
 	ok(ctx.getRemainingTimeInMillis() > 900);
 });
 

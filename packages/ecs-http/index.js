@@ -298,7 +298,6 @@ export const buildContext = ({
 }) => ({
 	awsRequestId,
 	invokedFunctionArn,
-	callbackWaitsForEmptyEventLoop: false,
 	getRemainingTimeInMillis: () =>
 		Math.max(0, timeout - (Date.now() - requestStart)),
 });

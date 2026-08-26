@@ -13,7 +13,6 @@ import { transpileSchema } from "./transpile.js";
 const defaultEvent = {};
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
-	callbackWaitsForEmptyEventLoop: true,
 	functionVersion: "$LATEST",
 	functionName: "lambda",
 	memoryLimitInMB: "128",
@@ -108,9 +107,6 @@ const contextSchema = {
 				"env.locale",
 			],
 		},
-		callbackWaitsForEmptyEventLoop: {
-			type: "boolean",
-		},
 	},
 	required: [
 		"getRemainingTimeInMillis",
@@ -120,7 +116,6 @@ const contextSchema = {
 		"awsRequestId",
 		"logGroupName",
 		"logStreamName",
-		"callbackWaitsForEmptyEventLoop",
 	],
 };
 
@@ -553,7 +548,7 @@ test("It should make requests with invalid context fails with an Internal Server
 
 	handler
 		.before((request) => {
-			request.context.callbackWaitsForEmptyEventLoop = "fail";
+			request.context.memoryLimitInMB = {}; // schema requires a string
 		})
 		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
@@ -916,7 +911,7 @@ test("It should run context validation and reject an invalid context with a 500"
 
 	handler
 		.before((request) => {
-			request.context.callbackWaitsForEmptyEventLoop = "fail";
+			request.context.memoryLimitInMB = {}; // schema requires a string
 		})
 		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
@@ -940,9 +935,10 @@ test("It should run context validation and pass a valid context", async (t) => {
 
 	handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
+	// earlier tests mutate defaultContext in place; restore the valid value
 	const response = await handler(defaultEvent, {
 		...defaultContext,
-		callbackWaitsForEmptyEventLoop: true,
+		memoryLimitInMB: "128",
 	});
 	deepStrictEqual(response, expectedResponse);
 });

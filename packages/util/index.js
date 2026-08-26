@@ -713,7 +713,6 @@ export const lambdaContextKeys = [
 	"logStreamName",
 	"identity",
 	"clientContext",
-	"callbackWaitsForEmptyEventLoop",
 ];
 
 export const executionContextKeys = ["tenantId"];
