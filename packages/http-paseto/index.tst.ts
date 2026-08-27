@@ -24,6 +24,7 @@ test("use with all options", () => {
 		audience: "https://api.example.com",
 		issuer: "https://auth.example.com",
 		clockTolerance: "5 seconds",
+		expectedClaims: { typ: "access" },
 		payloadKey: "auth",
 	});
 	expect(middleware).type.toBe<

@@ -162,7 +162,7 @@ test("It should throw 401 when Authorization header is missing", async (t) => {
 	}
 });
 
-test("It should throw 401 when Authorization scheme is not Bearer", async (t) => {
+test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const publicKey = createPublicKey(privateKey);
 
@@ -174,6 +174,25 @@ test("It should throw 401 when Authorization scheme is not Bearer", async (t) =>
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 	}
+});
+
+test("It should accept the DPoP scheme", async (t) => {
+	// RFC 9449 §7.1: a sender-constrained token travels under `DPoP`. Verifying
+	// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
+	// is the only thing that can read the token's `cnf` claim.
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+	const handler = makeHandlerWithKey(publicKey);
+
+	const result = await handler(makeEvent(`DPoP ${token}`), {
+		...defaultContext,
+	});
+
+	strictEqual(result.paseto.sub, "user-1");
 });
 
 test("It should throw 401 when token is invalid", async (t) => {
@@ -1128,7 +1147,7 @@ test("It should 401 (not crash) when the cookie source gets null headers", async
 	}
 });
 
-test("It should surface an invalid-key-arg error (not a null-deref) when internalKey resolves to null", async (t) => {
+test("It should surface an unsupported-key-shape 500 (not a null-deref) when internalKey resolves to null", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: "1h" });
 
@@ -1139,15 +1158,16 @@ test("It should surface an invalid-key-arg error (not a null-deref) when interna
 		})
 		.use(httpPaseto({ internalKey: "k" }));
 
-	// Real code: `keyData?.publicKey` is undefined, bytes = null, and
-	// createPublicKey rejects null with ERR_INVALID_ARG_TYPE. Dropping the
-	// optional chain would instead throw "Cannot read properties of null"
-	// (no `code`).
+	// Real code: `keyData?.publicKey` is undefined, bytes = null, and null is not
+	// a shape we can import. Dropping the optional chain would instead throw
+	// "Cannot read properties of null".
 	try {
 		await handler(makeEvent(`Bearer ${token}`), defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.code, "ERR_INVALID_ARG_TYPE");
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
+		ok(!e.cause.data.includes("Cannot read properties"), e.cause.data);
 	}
 });
 
@@ -1220,5 +1240,353 @@ test("It should NOT strip a cookie value that has a leading quote but no trailin
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
+	}
+});
+
+// --- Key rotation: internalKey may resolve to several keys ------------------
+//
+// An asymmetric signing key cannot be rotated in place, so rotating means standing
+// up a second key and accepting both until the last token signed by the retiring
+// one has expired. Neither an array nor a KeyObject used to work: `createPublicKey`
+// throws on both, so accepting them is strictly new ground.
+
+const makeHandlerWithKeys = (keyData, opts = {}) =>
+	middy((event, context) => context)
+		.before((request) => {
+			request.internal.pubKey = keyData;
+		})
+		.use(httpPaseto({ internalKey: "pubKey", ...opts }));
+
+const derOf = (publicKey) =>
+	new Uint8Array(publicKey.export({ type: "spki", format: "der" }));
+
+test("It should verify against either key during a rotation overlap", async (t) => {
+	const retiring = await V4.generateKey("public");
+	const current = await V4.generateKey("public");
+	const keyData = [
+		derOf(createPublicKey(current)),
+		derOf(createPublicKey(retiring)),
+	];
+
+	// A token signed by the key being retired still verifies, which is the whole
+	// point: it was minted before the rotation and has not expired yet.
+	const old = await V4.sign({ sub: "minted-before" }, retiring, {
+		expiresIn: "1h",
+	});
+	const fresh = await V4.sign({ sub: "minted-after" }, current, {
+		expiresIn: "1h",
+	});
+
+	strictEqual(
+		(
+			await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${old}`), {
+				...defaultContext,
+			})
+		).paseto.sub,
+		"minted-before",
+	);
+	strictEqual(
+		(
+			await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${fresh}`), {
+				...defaultContext,
+			})
+		).paseto.sub,
+		"minted-after",
+	);
+});
+
+test("It should still reject a token signed by no configured key", async (t) => {
+	const stranger = await V4.generateKey("public");
+	const keyData = [
+		derOf(createPublicKey(await V4.generateKey("public"))),
+		derOf(createPublicKey(await V4.generateKey("public"))),
+	];
+	const token = await V4.sign({ sub: "nope" }, stranger, { expiresIn: "1h" });
+
+	try {
+		await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+	}
+});
+
+test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
+	// A misconfiguration, not a rejection: with no key to try there is no reason to
+	// report that anyone could act on.
+	const privateKey = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	try {
+		await makeHandlerWithKeys([])(makeEvent(`Bearer ${token}`), {
+			...defaultContext,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("no keys"));
+	}
+});
+
+test("It should accept a KeyObject that the caller resolved itself", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	// Straight KeyObject, no DER round trip: what you get from createPublicKey on a
+	// PEM held in the environment.
+	const result = await makeHandlerWithKeys(publicKey, { setToContext: true })(
+		makeEvent(`Bearer ${token}`),
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.paseto.sub, "user-1");
+});
+
+test("It should accept an array of KeyObjects", async (t) => {
+	const retiring = await V4.generateKey("public");
+	const current = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "minted-before" }, retiring, {
+		expiresIn: "1h",
+	});
+
+	const result = await makeHandlerWithKeys([
+		createPublicKey(current),
+		createPublicKey(retiring),
+	])(makeEvent(`Bearer ${token}`), { ...defaultContext });
+
+	strictEqual(result.paseto.sub, "minted-before");
+});
+
+// --- expectedClaims --------------------------------------------------------
+//
+// The generic case is a token type discriminator: PASETO's own `typ`, Cognito's
+// `token_use`, or any claim that separates an access token from a credential that
+// merely buys one. Leaving it unchecked is how an ID token gets accepted as an
+// access token.
+//
+// Named `expectedClaims`, not `requiredClaims`: jose already uses that name for a
+// list of claims that must be PRESENT, and @middy/http-jwt passes it through, so
+// reusing it for an equality check would mean one name and two meanings.
+
+test("It should accept a token whose expected claims all match", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-1", typ: "access" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, {
+		expectedClaims: { typ: "access" },
+	});
+
+	strictEqual(
+		(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext })).paseto
+			.sub,
+		"user-1",
+	);
+});
+
+test("It should reject a token whose expected claim differs", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign(
+		{ sub: "user-1", typ: "credential" },
+		privateKey,
+		{
+			expiresIn: "1h",
+		},
+	);
+
+	const handler = makeHandlerWithKey(publicKey, {
+		expectedClaims: { typ: "access" },
+	});
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("'typ'"));
+	}
+});
+
+test("It should reject a token missing an expected claim entirely", async (t) => {
+	// A credential minted before the discriminator existed carries no claim at all,
+	// and must be refused by the same comparison rather than sliding through.
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, {
+		expectedClaims: { typ: "access" },
+	});
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+	}
+});
+
+test("It should check every expected claim, not just the first", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign(
+		{ sub: "user-1", typ: "access", tier: "free" },
+		privateKey,
+		{ expiresIn: "1h" },
+	);
+
+	const handler = makeHandlerWithKey(publicKey, {
+		expectedClaims: { typ: "access", tier: "paid" },
+	});
+
+	try {
+		await handler(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("'tier'"));
+	}
+});
+
+test("It should not publish a payload that expectedClaims rejected", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign(
+		{ sub: "user-1", typ: "credential" },
+		privateKey,
+		{
+			expiresIn: "1h",
+		},
+	);
+
+	const ctx = { ...defaultContext };
+	const handler = makeHandlerWithKey(publicKey, {
+		expectedClaims: { typ: "access" },
+	});
+
+	await handler(makeEvent(`Bearer ${token}`), ctx).catch(() => {});
+
+	strictEqual(ctx.paseto, undefined);
+});
+
+test("It should ignore an empty expectedClaims object", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, { expectedClaims: {} });
+
+	strictEqual(
+		(await handler(makeEvent(`Bearer ${token}`), { ...defaultContext })).paseto
+			.sub,
+		"user-1",
+	);
+});
+
+test("It should validate the new options", () => {
+	httpPasetoValidateOptions({
+		internalKey: "pubKey",
+		expectedClaims: { typ: "access" },
+	});
+});
+
+test("It should reject an expectedClaims value that strict equality can never match", () => {
+	// An array or an object is compared by reference, so it would match nothing and
+	// 401 every request with a message reading `is 'a,b', expected 'a,b'`. Fail at
+	// construction instead, where the reason is legible.
+	for (const expectedClaims of [
+		{ scope: ["read", "write"] },
+		{ ctx: { tenant: "acme" } },
+		{ sub: null },
+	]) {
+		try {
+			httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims });
+			ok(false, `expected throw for ${JSON.stringify(expectedClaims)}`);
+		} catch (e) {
+			ok(e instanceof TypeError);
+		}
+	}
+});
+
+// --- Which failure is reported after a rotation overlap --------------------
+//
+// Every key that is not the signer fails identically, on the signature, and says
+// nothing about the request. Only the signing key can report why a token that IS
+// correctly signed was still refused. Reporting a signature miss in its place
+// turns every rotation-era 401 into a dead end.
+
+test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
+	const other = await V4.generateKey("public");
+	const signer = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, signer, {
+		expiresIn: "1h",
+		audience: "other-api",
+	});
+
+	try {
+		await makeHandlerWithKeys(
+			[derOf(createPublicKey(other)), derOf(createPublicKey(signer))],
+			{ audience: "my-api" },
+		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("audience"), e.cause.data);
+	}
+});
+
+test("It should keep the signing key's claim failure when a later key misses on signature", async (t) => {
+	// Same as above with the order flipped, so neither "keep the first" nor "keep
+	// the last" passes both.
+	const signer = await V4.generateKey("public");
+	const other = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, signer, {
+		expiresIn: "1h",
+		audience: "other-api",
+	});
+
+	try {
+		await makeHandlerWithKeys(
+			[derOf(createPublicKey(signer)), derOf(createPublicKey(other))],
+			{ audience: "my-api" },
+		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("audience"), e.cause.data);
+	}
+});
+
+test("It should refuse a key shape it cannot place with a 500, not a raw TypeError", async (t) => {
+	// `createPublicKey` throws a bare TypeError on anything it does not recognise,
+	// which escaped the middleware as an unlabelled 500. Name the problem instead.
+	const privateKey = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	try {
+		await makeHandlerWithKeys({ nonsense: true })(
+			makeEvent(`Bearer ${token}`),
+			{ ...defaultContext },
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
 	}
 });

@@ -1,6 +1,6 @@
 {
 	"name": "@middy/monorepo",
-	"version": "7.8.0",
+	"version": "7.9.0",
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda",
 	"private": true,
 	"type": "module",
@@ -40,7 +40,7 @@
 		"test:packages:fuzz": "node --no-warnings=ExperimentalWarning --no-addons --pending-deprecation --frozen-intrinsics --test ./packages/**/*.fuzz.js --experimental-test-module-mocks",
 		"rm": "npm run rm:macos && npm run rm:node_modules && npm run rm:lock",
 		"rm:macos": "find . -name '.DS_Store' -type f -delete",
-		"rm:lock": "find . -name 'package-lock.json' -type f -delete",
+		"rm:lock": "find . -name 'package-lock.json' -type f -not -path './tests/*' -delete",
 		"rm:node_modules": "find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +",
 		"update": "corepack up && npm run rm && npm install --workspaces",
 		"outdated": "npm outdated --workspaces",
@@ -48,7 +48,9 @@
 		"release:license:add": "license-check-and-add add -f .license.config.json",
 		"release:license:remove": "license-check-and-add remove -f .license.config.json",
 		"release:sync": "npm version $npm_package_version --workspaces; v=$(npm pkg get version | tr -d '\"'); find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": \\\"$v\\\"#g\" {} \\; && npm run rm && npm install && npm run lint",
-		"release:tag": "git tag $npm_package_version"
+		"release:tag": "git tag $npm_package_version",
+		"release:staged": "npm whoami >/dev/null && npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r '.[] | \"\\(.packageName)@\\(.version) \\(.actor) \\(.shasum)\"'",
+		"release:approve": "npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r --arg v \"$npm_package_version\" '.[] | select(.version == $v) | .id' | xargs -n1 -o npm stage approve"
 	},
 	"repository": {
 		"type": "git",

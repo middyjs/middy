@@ -18,7 +18,10 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          disable-sudo: true
           disable-telemetry: true
+          allowed-endpoints: >
+            api.github.com:443
       - name: Check for Developer Certificate of Origin (DCO) compiance
         uses: KineticCafe/actions-dco@5f160e3ee086af8fc0fb567b8add0937d074123e # v3.2.0

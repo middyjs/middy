@@ -25,13 +25,14 @@ npm install --save paseto
 
 ## Options
 
-- `internalKey` (string) (required): Key on `request.internal` holding the verification key. Typically the key populated by `@middy/kms` (`{ publicKey, keySpec }` where `keySpec` is `ECC_NIST_ED25519`).
+- `internalKey` (string) (required): Key on `request.internal` holding the verification key. Typically the key populated by `@middy/kms` (`{ publicKey, keySpec }` where `keySpec` is `ECC_NIST_ED25519`), but a `Uint8Array` of DER SPKI bytes and an already-resolved `KeyObject` are both accepted too. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
 - `tokenCookieName` (string) (optional): Cookie name to read the token from.
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
 - `tokenQueryStringName` (string) (optional): Query-string parameter to read the token from.
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
+- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
 
@@ -84,6 +85,60 @@ httpPaseto({
   tokenCookieName: 'session',
 })
 ```
+
+## Key rotation
+
+An asymmetric signing key cannot be rotated in place. AWS KMS, for one, offers automatic and on-demand rotation for symmetric keys only, so rotating a `v4.public` signing key means standing up a **second** key and accepting both until the last token signed by the retiring one has expired.
+
+Point `internalKey` at an array to do that. Each key is tried in order and the first success wins, so put the current key first:
+
+```javascript
+export const handler = middy()
+  .before((request) => {
+    // Two keys are genuinely current during the overlap. Order matters to
+    // nothing: the signing key's own failure is reported wherever it sits.
+    request.internal.pasetoKeys = [currentKey, retiringKey]
+  })
+  .use(httpPaseto({ internalKey: 'pasetoKeys' }))
+  .use(httpErrorHandler())
+  .handler(lambdaHandler)
+```
+
+A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. Once the retiring key's last token has expired, drop it. Assign a **new** array rather than mutating the existing one: imported keys are cached against the array's identity, so an in-place `splice` or `push` leaves the old set in use for the life of the container. (`@middy/http-jwt` caches per key instead, so it has no such constraint.)
+
+Because the public half of an asymmetric key never changes, there is nothing to refetch at runtime and no staleness to revalidate. That makes a plain environment variable a reasonable place to keep it, which is why a resolved `KeyObject` is accepted alongside the raw bytes:
+
+```javascript
+import { createPublicKey } from 'node:crypto'
+
+// PEM bundle in the environment -> KeyObject[], resolved once at module load.
+const keys = process.env.PASETO_PUBLIC_KEYS.split(/(?=-----BEGIN)/)
+  .map((pem) => createPublicKey(pem))
+
+export const handler = middy()
+  .use({ before: (request) => { request.internal.pasetoKeys = keys } })
+  .use(httpPaseto({ internalKey: 'pasetoKeys' }))
+  .handler(lambdaHandler)
+```
+
+## Requiring claims
+
+A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is: PASETO's own `typ`, Amazon Cognito's `token_use`, or a claim of your own. Accepting an ID token where an access token was meant, or a long-lived credential where a short-lived token was meant, is a real and common hole.
+
+`expectedClaims` closes it declaratively:
+
+```javascript
+httpPaseto({
+  internalKey: 'pasetoKey',
+  // Only a short-lived access token is a token for calling this API. A credential
+  // that merely buys one is refused here, even though it verifies.
+  expectedClaims: { typ: 'access' },
+})
+```
+
+Comparison is strict equality. A claim the payload does not carry at all fails the same way a wrong value does, which is what you want: a credential minted before the discriminator existed must not slide through.
+
+For anything beyond an exact match, such as a scope that must contain a value, write a small middleware; see [Validating roles](#validating-roles) below.
 
 ## Validating roles
 

@@ -24,17 +24,27 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          disable-sudo: true
           disable-telemetry: true
+          allowed-endpoints: >
+            api.cloudflare.com:443
+            api.github.com:443
+            github.com:443
+            nodejs.org:443
+            objects.githubusercontent.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6.4.0 # zizmor: ignore[cache-poisoning] no cache configured (no `cache:` input); reconsider if caching is added
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false # deployed artifacts must never touch the shared Actions cache
       - name: Install dependencies
         run: |
           npm ci --ignore-scripts --workspace websites/${{ env.DOMAIN_NAME }}
@@ -44,6 +54,8 @@ jobs:
           npm run build
       - name: Publish website
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        env:
+          WRANGLER_SEND_METRICS: "false"
         with:
           workingDirectory: websites/${{ env.DOMAIN_NAME }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

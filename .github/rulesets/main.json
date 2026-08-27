@@ -99,6 +99,10 @@
 						"integration_id": 15368
 					},
 					{
+						"context": "Dependency Review",
+						"integration_id": 15368
+					},
+					{
 						"context": "lockfile-lint: SAST package-lock.json",
 						"integration_id": 15368
 					},
