@@ -81,7 +81,15 @@ const optionSchema = {
 		issuer: stringOrStringArraySchema,
 		clockTolerance: { type: "number", minimum: 0 },
 		requireExp: { type: "boolean" },
-		expectedClaims: { type: "object" },
+		// Values are compared with strict equality, so an array or an object could
+		// only ever match itself by reference. Refuse them here rather than 401 every
+		// request with a message reading `is 'a,b', expected 'a,b'`.
+		expectedClaims: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+			},
+		},
 		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
@@ -320,16 +328,30 @@ const httpJwtMiddleware = (opts = {}) => {
 	const jwkKeyCache = new Map(); // key: `${kid}\0${alg}`; value: imported key
 	const publicKeyCache = new WeakMap(); // key: keyData ref; value: KeyObject
 
+	// SPKI DER bytes, either bare or under the `publicKey` of the `@middy/kms` shape.
+	const derToPublicKey = (entry) => {
+		let key = publicKeyCache.get(entry);
+		// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
+		if (!key) {
+			key = createPublicKey({
+				key: Buffer.from(entry.publicKey ?? entry),
+				format: "der",
+				type: "spki",
+			});
+			publicKeyCache.set(entry, key);
+		}
+		return key;
+	};
+
 	const httpJwtMiddlewareBefore = async (request) => {
 		const token = parseToken(request.event);
 
-		let key;
-		let verifyOptions;
 		// [{ key, verifyOptions }]. The JWKS path resolves exactly one, by `kid`.
 		// The static path resolves one per configured key.
 		let candidates;
 
 		if (issuersMap) {
+			let key;
 			let header;
 			let payload;
 			try {
@@ -407,7 +429,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				}
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
-			verifyOptions = {
+			const verifyOptions = {
 				issuer: payload.iss,
 				algorithms: [alg],
 				audience: entry.audience,
@@ -446,9 +468,11 @@ const httpJwtMiddleware = (opts = {}) => {
 				// topLevelAlgs is guaranteed non-empty here.
 				let usableAlgs = topLevelAlgs;
 				let entryKey;
-				if (entry instanceof KeyObject) {
-					// Already resolved by the caller, e.g. createPublicKey on a PEM held
-					// in the environment. Nothing here knows its provenance, so the
+				if (entry instanceof KeyObject || entry instanceof CryptoKey) {
+					// Already resolved by the caller: `createPublicKey` on a PEM held in
+					// the environment gives a KeyObject, jose's own `importSPKI` /
+					// `importJWK` / `generateKeyPair` give a CryptoKey, and `jwtVerify`
+					// takes either. Nothing here knows the key's provenance, so the
 					// configured algorithm is trusted exactly as it is for raw DER; jose
 					// refuses the pair if the key cannot carry that algorithm.
 					entryKey = entry;
@@ -469,28 +493,10 @@ const httpJwtMiddleware = (opts = {}) => {
 							});
 						}
 					}
-					entryKey = publicKeyCache.get(entry);
-					// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
-					if (!entryKey) {
-						entryKey = createPublicKey({
-							key: Buffer.from(entry.publicKey),
-							format: "der",
-							type: "spki",
-						});
-						publicKeyCache.set(entry, entryKey);
-					}
+					entryKey = derToPublicKey(entry);
 				} else if (entry instanceof Uint8Array) {
-					entryKey = publicKeyCache.get(entry);
-					// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
-					if (!entryKey) {
-						entryKey = createPublicKey({
-							key: Buffer.from(entry),
-							format: "der",
-							type: "spki",
-						});
-						publicKeyCache.set(entry, entryKey);
-					}
-				} else {
+					entryKey = derToPublicKey(entry);
+				} else if (typeof entry === "string") {
 					if (usableAlgs.some((a) => !a.startsWith("HS"))) {
 						throw createError(500, "Internal Server Error", {
 							cause: {
@@ -500,6 +506,16 @@ const httpJwtMiddleware = (opts = {}) => {
 						});
 					}
 					entryKey = Buffer.from(entry);
+				} else {
+					// Anything else has to say what it really is. Borrowing the string
+					// secret's message sent people looking at their `algorithm` option
+					// when the key was the problem.
+					throw createError(500, "Internal Server Error", {
+						cause: {
+							package: pkg,
+							data: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
+						},
+					});
 				}
 				return {
 					key: entryKey,
@@ -521,8 +537,16 @@ const httpJwtMiddleware = (opts = {}) => {
 				));
 				break;
 			} catch (e) {
-				// Stryker disable next-line LogicalOperator,AssignmentOperator: `??=` and a plain assign are equivalent here. jose checks the signature before any claim, so a key that is not the signer always fails the same way, and every configured key therefore produces the same message. Keeping the first is intent, not behaviour: it names the current key rather than the one being retired.
-				failure ??= e;
+				// A key that is not the signer fails on the signature and says nothing
+				// about the request. Only the signing key can report why a correctly
+				// signed token was still refused, so its failure outranks a signature
+				// miss from any position in the array.
+				if (
+					failure === undefined ||
+					failure.code === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED"
+				) {
+					failure = e;
+				}
 			}
 		}
 		if (verified === undefined) {

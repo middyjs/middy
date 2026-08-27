@@ -40,7 +40,15 @@ const optionSchema = {
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		maxTokenAge: { type: "string" },
-		expectedClaims: { type: "object" },
+		// Values are compared with strict equality, so an array or an object could
+		// only ever match itself by reference. Refuse them here rather than 401 every
+		// request with a message reading `is 'a,b', expected 'a,b'`.
+		expectedClaims: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+			},
+		},
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
@@ -62,6 +70,16 @@ const importKey = (entry) => {
 	if (entry instanceof KeyObject) return entry;
 	const bytes =
 		entry?.publicKey instanceof Uint8Array ? entry.publicKey : entry;
+	if (!(bytes instanceof Uint8Array)) {
+		// `createPublicKey` throws a bare TypeError on anything else, which escaped
+		// as an unlabelled 500. Name the problem instead.
+		throw createError(500, "Internal Server Error", {
+			cause: {
+				package: pkg,
+				data: "internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+			},
+		});
+	}
 	return createPublicKey({ key: bytes, format: "der", type: "spki" });
 };
 
@@ -213,8 +231,16 @@ const httpPasetoMiddleware = (opts = {}) => {
 				payload = await V4.verify(token, key, baseVerifyOptions);
 				break;
 			} catch (e) {
-				// Stryker disable next-line LogicalOperator,AssignmentOperator: `??=` and a plain assign are equivalent here. V4.verify checks the signature before any claim, so a key that is not the signer always fails the same way, and every configured key therefore produces the same message. Keeping the first is intent, not behaviour: it names the current key rather than the one being retired.
-				failure ??= e;
+				// A key that is not the signer fails on the signature and says nothing
+				// about the request. Only the signing key can report why a correctly
+				// signed token was still refused, so its failure outranks a signature
+				// miss from any position in the array.
+				if (
+					failure === undefined ||
+					failure.code === "ERR_PASETO_VERIFICATION_FAILED"
+				) {
+					failure = e;
+				}
 			}
 		}
 		if (payload === undefined) {

@@ -25,7 +25,7 @@ npm install --save jose
 ## Options
 
 - `issuers` (object) (one of `issuers`/`internalKey` required): Map of issuer URL → `{ jwksUri, audience?, algorithm? }`. See [Issuers options](#issuers-options) for entry shape.
-- `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, an already-resolved `KeyObject`, or a string symmetric secret. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
+- `internalKey` (string) (one of `issuers`/`internalKey` required): Key on `request.internal` holding the verification key. Accepts a `{ publicKey: Uint8Array, keySpec }` shape from `@middy/kms`, a bare `Uint8Array` SPKI DER public key, an already-resolved `KeyObject` or `CryptoKey`, or a string symmetric secret. It may also hold an **array** of any of those; see [Key rotation](#key-rotation).
 - `algorithm` (string | string[]) (required for `issuers`; required for `internalKey` bare-key/HMAC shapes; auto-inferred for KMS shape): JWS algorithm allowlist. `'none'` is rejected. Empty arrays are rejected.
 - `tokenCookieName` (string) (optional): Cookie name to read the token from.
 - `tokenHeaderName` (string) (optional): Custom header to read the token from. When the name is `Authorization` (case-insensitive), the `Bearer ` scheme is stripped; any other scheme causes the source to fall through. Other header names return the raw value.
@@ -33,7 +33,7 @@ npm install --save jose
 - `audience` (string | string[]) (optional, ignored when `issuers` is used — per-entry audience is authoritative): Expected `aud` claim.
 - `issuer` (string | string[]) (optional, ignored when `issuers` is used): Expected `iss` claim.
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
-- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence.
+- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
 - `cacheExpiry` (number) (optional, `issuers` only): JWKS cache TTL in ms. Forwarded to `jose.createRemoteJWKSet`'s `cacheMaxAge`.
@@ -272,8 +272,8 @@ The `internalKey` path is the one that needs help. An asymmetric signing key can
 ```javascript
 export const handler = middy()
   .before((request) => {
-    // Two keys are genuinely current during the overlap. Order matters only for
-    // which failure is reported, not for which tokens verify.
+    // Two keys are genuinely current during the overlap. Order matters to
+    // nothing: the signing key's own failure is reported wherever it sits.
     request.internal.signingKeys = [currentKey, retiringKey]
   })
   .use(httpJwt({ internalKey: 'signingKeys', algorithm: 'ES256' }))
@@ -285,7 +285,7 @@ Each entry resolves on its own, which matters for the `@middy/kms` shape: a `key
 
 A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. An empty array is a `500`: there is no key to try, so no rejection reason anyone could act on.
 
-A resolved `KeyObject` is accepted alongside the raw bytes, for a key you already have in hand:
+A resolved key is accepted alongside the raw bytes, for a key you already have in hand:
 
 ```javascript
 import { createPublicKey } from 'node:crypto'
@@ -299,7 +299,7 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
-Nothing here knows a `KeyObject`'s provenance, so the configured `algorithm` is trusted exactly as it is for raw DER. jose refuses the pair if the key cannot carry that algorithm.
+A `CryptoKey` works the same way, which is what jose's own `importSPKI`, `importJWK` and `generateKeyPair` hand back. Nothing here knows either one's provenance, so the configured `algorithm` is trusted exactly as it is for raw DER. jose refuses the pair if the key cannot carry that algorithm.
 
 ## Requiring claims
 

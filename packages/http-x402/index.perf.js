@@ -32,11 +32,6 @@ const setupHandler = () =>
 			price: 0.001,
 			payTo: "0xpayto",
 			asset: "0xasset",
-			// v1 acceptance is opt-in as of v8 (see index.js default `versions`);
-			// keep both versions enabled here so the v1 benchmark still exercises
-			// the full verify+settle round trip instead of the cheap
-			// "unsupported version" reject.
-			versions: [1, 2],
 			FacilitatorClient: MockFacilitatorClient,
 		}),
 	);

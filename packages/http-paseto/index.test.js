@@ -1147,7 +1147,7 @@ test("It should 401 (not crash) when the cookie source gets null headers", async
 	}
 });
 
-test("It should surface an invalid-key-arg error (not a null-deref) when internalKey resolves to null", async (t) => {
+test("It should surface an unsupported-key-shape 500 (not a null-deref) when internalKey resolves to null", async (t) => {
 	const privateKey = await V4.generateKey("public");
 	const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: "1h" });
 
@@ -1158,15 +1158,16 @@ test("It should surface an invalid-key-arg error (not a null-deref) when interna
 		})
 		.use(httpPaseto({ internalKey: "k" }));
 
-	// Real code: `keyData?.publicKey` is undefined, bytes = null, and
-	// createPublicKey rejects null with ERR_INVALID_ARG_TYPE. Dropping the
-	// optional chain would instead throw "Cannot read properties of null"
-	// (no `code`).
+	// Real code: `keyData?.publicKey` is undefined, bytes = null, and null is not
+	// a shape we can import. Dropping the optional chain would instead throw
+	// "Cannot read properties of null".
 	try {
 		await handler(makeEvent(`Bearer ${token}`), defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		strictEqual(e.code, "ERR_INVALID_ARG_TYPE");
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
+		ok(!e.cause.data.includes("Cannot read properties"), e.cause.data);
 	}
 });
 
@@ -1501,4 +1502,91 @@ test("It should validate the new options", () => {
 		internalKey: "pubKey",
 		expectedClaims: { typ: "access" },
 	});
+});
+
+test("It should reject an expectedClaims value that strict equality can never match", () => {
+	// An array or an object is compared by reference, so it would match nothing and
+	// 401 every request with a message reading `is 'a,b', expected 'a,b'`. Fail at
+	// construction instead, where the reason is legible.
+	for (const expectedClaims of [
+		{ scope: ["read", "write"] },
+		{ ctx: { tenant: "acme" } },
+		{ sub: null },
+	]) {
+		try {
+			httpPasetoValidateOptions({ internalKey: "pubKey", expectedClaims });
+			ok(false, `expected throw for ${JSON.stringify(expectedClaims)}`);
+		} catch (e) {
+			ok(e instanceof TypeError);
+		}
+	}
+});
+
+// --- Which failure is reported after a rotation overlap --------------------
+//
+// Every key that is not the signer fails identically, on the signature, and says
+// nothing about the request. Only the signing key can report why a token that IS
+// correctly signed was still refused. Reporting a signature miss in its place
+// turns every rotation-era 401 into a dead end.
+
+test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
+	const other = await V4.generateKey("public");
+	const signer = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, signer, {
+		expiresIn: "1h",
+		audience: "other-api",
+	});
+
+	try {
+		await makeHandlerWithKeys(
+			[derOf(createPublicKey(other)), derOf(createPublicKey(signer))],
+			{ audience: "my-api" },
+		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("audience"), e.cause.data);
+	}
+});
+
+test("It should keep the signing key's claim failure when a later key misses on signature", async (t) => {
+	// Same as above with the order flipped, so neither "keep the first" nor "keep
+	// the last" passes both.
+	const signer = await V4.generateKey("public");
+	const other = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, signer, {
+		expiresIn: "1h",
+		audience: "other-api",
+	});
+
+	try {
+		await makeHandlerWithKeys(
+			[derOf(createPublicKey(signer)), derOf(createPublicKey(other))],
+			{ audience: "my-api" },
+		)(makeEvent(`Bearer ${token}`), { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		ok(e.cause.data.includes("audience"), e.cause.data);
+	}
+});
+
+test("It should refuse a key shape it cannot place with a 500, not a raw TypeError", async (t) => {
+	// `createPublicKey` throws a bare TypeError on anything it does not recognise,
+	// which escaped the middleware as an unlabelled 500. Name the problem instead.
+	const privateKey = await V4.generateKey("public");
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	try {
+		await makeHandlerWithKeys({ nonsense: true })(
+			makeEvent(`Bearer ${token}`),
+			{ ...defaultContext },
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
+	}
 });

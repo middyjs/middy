@@ -66,11 +66,7 @@ test("no payment header returns 402 with v2 header challenge and v1 body challen
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler({ headers: {} }, defaultContext);
@@ -2359,11 +2355,7 @@ test("v1 X-PAYMENT payment verifies and settles with X-PAYMENT-RESPONSE", async 
 		body: "ok",
 		headers: {},
 	})).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2397,11 +2389,7 @@ test("v1 header is read in Title-Case form", async (t) => {
 		body: "ok",
 		headers: {},
 	})).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2424,11 +2412,7 @@ test("v1 header is read in canonical UPPERCASE form", async (t) => {
 		body: "ok",
 		headers: {},
 	})).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2447,11 +2431,7 @@ test("v1 rejections respond with a v1 body challenge, no PAYMENT-REQUIRED header
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2483,11 +2463,7 @@ test("v1 scheme mismatch is rejected without calling the facilitator", async (t)
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2514,11 +2490,7 @@ test("v1 undecodable X-PAYMENT is treated as missing payment", async (t) => {
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2540,11 +2512,7 @@ test("v1 payload with wrong x402Version returns 402 invalid_x402_version", async
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2570,11 +2538,7 @@ test("v1 verify failure returns 402 with invalidReason in the v1 body", async (t
 		defaultSettleResult,
 	);
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2600,11 +2564,7 @@ test("v1 verify throws - clean 402 v1 body without leaking message", async (t) =
 		settle() {}
 	}
 	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2637,11 +2597,7 @@ test("v1 settle failure returns 402 with X-PAYMENT-RESPONSE", async (t) => {
 		body: "ok",
 		headers: {},
 	})).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2678,11 +2634,7 @@ test("v1 settle throws - clean 402 with synthesized X-PAYMENT-RESPONSE", async (
 		body: "ok",
 		headers: {},
 	})).use(
-		httpX402({
-			...defaultOptions,
-			versions: [1, 2],
-			FacilitatorClient: MockFacilitatorClient,
-		}),
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 	);
 
 	const response = await handler(
@@ -2722,11 +2674,7 @@ test("v1 internal.x402 stores the payload and v1 requirements", async (t) => {
 			capturedStored = request.internal.x402;
 		})
 		.use(
-			httpX402({
-				...defaultOptions,
-				versions: [1, 2],
-				FacilitatorClient: MockFacilitatorClient,
-			}),
+			httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
 		);
 
 	await handler(
@@ -2754,7 +2702,6 @@ test("v1 requirements carry the extra option and per-request resource URL", asyn
 	})).use(
 		httpX402({
 			...defaultOptions,
-			versions: [1, 2],
 			extra,
 			FacilitatorClient: MockFacilitatorClient,
 		}),
@@ -2894,28 +2841,6 @@ test("advertised v2 requirements are frozen against cross-request mutation", asy
 });
 
 // versions toggle
-
-test("default versions [2]: v1 X-PAYMENT is no longer accepted (opt-in via versions: [1, 2])", async (t) => {
-	const { MockFacilitatorClient, mockVerify } = makeMockClient(
-		t,
-		defaultVerifyResult,
-		defaultSettleResult,
-	);
-	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
-		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
-	);
-
-	const response = await handler(
-		{ headers: { "x-payment": makePaymentHeader(testPayloadV1) } },
-		defaultContext,
-	);
-
-	strictEqual(response.statusCode, 402);
-	ok(response.headers["PAYMENT-REQUIRED"]);
-	const body = JSON.parse(response.body);
-	strictEqual(body.x402Version, 2);
-	strictEqual(mockVerify.mock.callCount(), 0);
-});
 
 test("versions [2]: v1 X-PAYMENT payment is re-challenged, facilitator untouched", async (t) => {
 	const { MockFacilitatorClient, mockVerify } = makeMockClient(
