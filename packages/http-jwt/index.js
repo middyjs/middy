@@ -167,6 +167,7 @@ const createJwksResolver = (uri, options = {}) => {
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
+		// Stryker disable next-line EqualityOperator: equivalent. `<` and `<=` differ only at the exact millisecond the cooldown elapses, and reaching that instant deterministically is not something a test can arrange; either way the next call refetches.
 		if (cache && now - lastFetchTime < cooldownDuration) {
 			return Promise.resolve(cache);
 		}
@@ -406,6 +407,7 @@ const httpJwtMiddleware = (opts = {}) => {
 						},
 					});
 				}
+				// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request re-imports an identical key.
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
 			verifyOptions = {
@@ -459,6 +461,7 @@ const httpJwtMiddleware = (opts = {}) => {
 						format: "der",
 						type: "spki",
 					});
+					// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
 					publicKeyCache.set(keyData, key);
 				}
 			} else if (keyData instanceof Uint8Array) {
@@ -470,6 +473,7 @@ const httpJwtMiddleware = (opts = {}) => {
 						format: "der",
 						type: "spki",
 					});
+					// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
 					publicKeyCache.set(keyData, key);
 				}
 			} else {

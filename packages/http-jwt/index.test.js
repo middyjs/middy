@@ -298,6 +298,11 @@ test("It should throw 401 when token is invalid", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
+		// The 401 message is a fixed reason phrase, so the underlying verify
+		// failure is only visible through cause.data.reason.
+		strictEqual(e.cause.package, "@middy/http-jwt");
+		ok(typeof e.cause.data.reason === "string");
+		ok(e.cause.data.reason.length > 0);
 	}
 });
 
