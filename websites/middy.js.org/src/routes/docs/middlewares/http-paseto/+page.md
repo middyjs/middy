@@ -32,7 +32,7 @@ npm install --save paseto
 - `audience` (string) (optional): Expected `aud` claim.
 - `issuer` (string) (optional): Expected `iss` claim.
 - `clockTolerance` (string) (optional): Clock skew tolerance forwarded to `paseto`'s `V4.verify` (e.g. `"5 seconds"`). See the [paseto docs](https://github.com/panva/paseto) for accepted formats.
-- `requiredClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected.
+- `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ typ: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `paseto`): Key under which the decoded payload is stored.
 - `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 
@@ -95,8 +95,8 @@ Point `internalKey` at an array to do that. Each key is tried in order and the f
 ```javascript
 export const handler = middy()
   .before((request) => {
-    // Two keys are genuinely current during the overlap. Order matters only for
-    // which failure is reported, not for which tokens verify.
+    // Two keys are genuinely current during the overlap. Order matters to
+    // nothing: the signing key's own failure is reported wherever it sits.
     request.internal.pasetoKeys = [currentKey, retiringKey]
   })
   .use(httpPaseto({ internalKey: 'pasetoKeys' }))
@@ -104,7 +104,7 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
-A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. Once the retiring key's last token has expired, drop it from the array.
+A token signed by any configured key verifies. A token signed by none is a `401`, the same as with a single key. Once the retiring key's last token has expired, drop it. Assign a **new** array rather than mutating the existing one: imported keys are cached against the array's identity, so an in-place `splice` or `push` leaves the old set in use for the life of the container. (`@middy/http-jwt` caches per key instead, so it has no such constraint.)
 
 Because the public half of an asymmetric key never changes, there is nothing to refetch at runtime and no staleness to revalidate. That makes a plain environment variable a reasonable place to keep it, which is why a resolved `KeyObject` is accepted alongside the raw bytes:
 
@@ -125,14 +125,14 @@ export const handler = middy()
 
 A token that verifies is not automatically a token for *this*. Most issuers stamp a discriminator saying what kind of token it is: PASETO's own `typ`, Amazon Cognito's `token_use`, or a claim of your own. Accepting an ID token where an access token was meant, or a long-lived credential where a short-lived token was meant, is a real and common hole.
 
-`requiredClaims` closes it declaratively:
+`expectedClaims` closes it declaratively:
 
 ```javascript
 httpPaseto({
   internalKey: 'pasetoKey',
   // Only a short-lived access token is a token for calling this API. A credential
   // that merely buys one is refused here, even though it verifies.
-  requiredClaims: { typ: 'access' },
+  expectedClaims: { typ: 'access' },
 })
 ```
 

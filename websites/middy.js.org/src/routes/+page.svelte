@@ -343,7 +343,7 @@ export const handler = middy(lambdaHandler)
         <Ul class="grid">
             <Li class="card sponsor">
                 <!-- 2023-07 - 2026-06 -->
-                <A href="https://fourtheorem.com">
+                <A href="https://fourtheorem.com?middy.js.org">
                     <Image
                         src="/img/sponsor/fourtheorem.svg"
                         alt="FourTheorem"
@@ -354,7 +354,7 @@ export const handler = middy(lambdaHandler)
             </Li>
             <Li class="card sponsor">
                 <!-- 2023-11-08 -->
-                <A href="https://github.com/aws">
+                <A href="https://github.com/aws?middy.js.org">
                     <Image
                         src="/img/sponsor/amazon-web-services.svg"
                         alt="Amazon Web Services"

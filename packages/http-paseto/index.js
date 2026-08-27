@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createPublicKey } from "node:crypto";
+import { createPublicKey, KeyObject } from "node:crypto";
 import {
 	getInternal,
 	HttpError,
@@ -14,6 +14,9 @@ const name = "http-paseto";
 const pkg = `@middy/${name}`;
 
 const defaults = {
+	// May resolve to one key or to an array of them. An array is a key rotation overlap:
+	// an asymmetric key cannot be rotated in place, so rotating means standing up a second
+	// key and accepting both until the last token signed by the retiring one has expired.
 	internalKey: undefined,
 	tokenCookieName: undefined,
 	tokenHeaderName: undefined,
@@ -22,6 +25,7 @@ const defaults = {
 	issuer: undefined,
 	clockTolerance: undefined,
 	maxTokenAge: undefined,
+	expectedClaims: undefined,
 	payloadKey: "paseto",
 	setToContext: false,
 };
@@ -37,6 +41,15 @@ const optionSchema = {
 		issuer: { type: "string" },
 		clockTolerance: { type: "string" },
 		maxTokenAge: { type: "string" },
+		// Values are compared with strict equality, so an array or an object could
+		// only ever match itself by reference. Refuse them here rather than 401 every
+		// request with a message reading `is 'a,b', expected 'a,b'`.
+		expectedClaims: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+			},
+		},
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
 	},
@@ -45,6 +58,34 @@ const optionSchema = {
 
 export const httpPasetoValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
+
+// One entry of `internalKey` -> a KeyObject. Three shapes are accepted, and neither new
+// one used to work by accident: `createPublicKey` throws on a KeyObject and on an array.
+//   - `{ publicKey: Uint8Array }`, what @middy/kms returns
+//   - a Uint8Array / Buffer of DER SPKI bytes
+//   - a KeyObject, for a caller that resolved its own key, e.g. from a PEM in the
+//     environment. A KMS asymmetric key never rotates in place, so its public half is
+//     immutable and there is nothing to refetch, which makes a plain env var a
+//     reasonable place to keep it.
+const importKey = (entry) => {
+	if (entry instanceof KeyObject) return entry;
+	const bytes =
+		entry?.publicKey instanceof Uint8Array ? entry.publicKey : entry;
+	if (!(bytes instanceof Uint8Array)) {
+		// `createPublicKey` throws a bare TypeError on anything else, which escaped
+		// as an unlabelled 500. Name the problem instead.
+		throw new HttpError(500, {
+			cause: {
+				package: pkg,
+				data: {
+					reason:
+						"internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+				},
+			},
+		});
+	}
+	return createPublicKey({ key: bytes, format: "der", type: "spki" });
+};
 
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
@@ -134,6 +175,8 @@ const httpPasetoMiddleware = (opts = {}) => {
 		maxTokenAge: options.maxTokenAge,
 	};
 
+	const expectedClaims = Object.entries(options.expectedClaims ?? {});
+
 	// Per-middleware-instance cache of imported KeyObjects, keyed by the
 	// keyData reference. createPublicKey reparses DER through OpenSSL on
 	// every call (~tens of μs); since the resolved key is stable across
@@ -171,26 +214,75 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// so a single lookup works for all keyData shapes; cache writes happen
 		// only for object-shaped keys. `createPublicKey` accepts Uint8Array /
 		// Buffer directly — no copy needed.
-		let key = keyCache.get(keyData);
+		let keys = keyCache.get(keyData);
 		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical KeyObject); the verified payload is byte-identical, so the optimization is unobservable through the public interface.
-		if (key === undefined) {
-			const bytes =
-				keyData?.publicKey instanceof Uint8Array ? keyData.publicKey : keyData;
-			key = createPublicKey({ key: bytes, format: "der", type: "spki" });
+		if (keys === undefined) {
+			keys = (Array.isArray(keyData) ? keyData : [keyData]).map(importKey);
 			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical KeyObject, which verifies to a byte-identical payload.
-			keyCache.set(keyData, key);
+			keyCache.set(keyData, keys);
 		}
 
-		try {
-			const payload = await V4.verify(token, key, baseVerifyOptions);
-			request.internal[options.payloadKey] = payload;
-			if (options.setToContext) {
-				setContextNamespace(request, options.payloadKey, payload);
-			}
-		} catch (e) {
-			throw new HttpError(401, {
-				cause: { package: pkg, data: { reason: e.message } },
+		// An empty array is a misconfiguration, not a rejection: with no key to try,
+		// the loop below would fall through and every token would fail for a reason
+		// nobody could act on. Same 500 as an unresolved internalKey.
+		if (keys.length === 0) {
+			throw new HttpError(500, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: `internalKey '${options.internalKey}' resolved to no keys`,
+					},
+				},
 			});
+		}
+
+		// Tried in order, first success wins. With one key this is the same single
+		// verify it always was; the loop exists for a rotation overlap, where two
+		// keys are genuinely current at once.
+		let payload;
+		let failure;
+		for (const key of keys) {
+			try {
+				payload = await V4.verify(token, key, baseVerifyOptions);
+				break;
+			} catch (e) {
+				// A key that is not the signer fails on the signature and says nothing
+				// about the request. Only the signing key can report why a correctly
+				// signed token was still refused, so its failure outranks a signature
+				// miss from any position in the array.
+				if (
+					failure === undefined ||
+					failure.code === "ERR_PASETO_VERIFICATION_FAILED"
+				) {
+					failure = e;
+				}
+			}
+		}
+		if (payload === undefined) {
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: failure.message } },
+			});
+		}
+
+		// Claims the caller declared mandatory, compared with strict equality and
+		// checked before the payload is published, so nothing downstream can read a
+		// payload this rejected.
+		for (const [claim, expected] of expectedClaims) {
+			if (payload[claim] !== expected) {
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: {
+							reason: `Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
+						},
+					},
+				});
+			}
+		}
+
+		request.internal[options.payloadKey] = payload;
+		if (options.setToContext) {
+			setContextNamespace(request, options.payloadKey, payload);
 		}
 	};
 

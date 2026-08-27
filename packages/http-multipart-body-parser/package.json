@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-multipart-body-parser",
-	"version": "7.8.0",
+	"version": "7.9.0",
 	"description": "HTTP multipart body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
@@ -64,10 +64,10 @@
 	},
 	"dependencies": {
 		"@fastify/busboy": "3.2.1",
-		"@middy/util": "7.8.0"
+		"@middy/util": "7.9.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.8.0",
+		"@middy/core": "7.9.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"type-fest": "^5.0.0"

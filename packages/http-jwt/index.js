@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createPublicKey } from "node:crypto";
+import { createPublicKey, KeyObject } from "node:crypto";
 import {
 	getInternal,
 	HttpError,
@@ -29,6 +29,11 @@ const KMS_COMPATIBLE_ALGS = {
 };
 
 const defaults = {
+	// May resolve to one key or to an array of them. An array is a key rotation overlap,
+	// for a deployment whose keys are static rather than served from a JWKS: an asymmetric
+	// key cannot be rotated in place, so rotating means standing up a second key and
+	// accepting both until the last token signed by the retiring one has expired. The
+	// `issuers` path needs none of this; a JWKS already rotates by `kid`.
 	internalKey: undefined,
 	issuers: undefined,
 	tokenCookieName: undefined,
@@ -39,6 +44,7 @@ const defaults = {
 	issuer: undefined,
 	clockTolerance: 0,
 	requireExp: false,
+	expectedClaims: undefined,
 	maxTokenAge: undefined,
 	payloadKey: "jwt",
 	setToContext: false,
@@ -76,6 +82,15 @@ const optionSchema = {
 		issuer: stringOrStringArraySchema,
 		clockTolerance: { type: "number", minimum: 0 },
 		requireExp: { type: "boolean" },
+		// Values are compared with strict equality, so an array or an object could
+		// only ever match itself by reference. Refuse them here rather than 401 every
+		// request with a message reading `is 'a,b', expected 'a,b'`.
+		expectedClaims: {
+			type: "object",
+			additionalProperties: {
+				oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }],
+			},
+		},
 		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
@@ -308,19 +323,41 @@ const httpJwtMiddleware = (opts = {}) => {
 	};
 	if (options.requireExp) baseVerifyOptions.requiredClaims = ["exp"];
 
+	// Distinct from jose's `requiredClaims` above, which lists claims that must be
+	// PRESENT. These must be present AND equal to the given value.
+	const expectedClaims = Object.entries(options.expectedClaims ?? {});
+
 	// Cache imported keys per-middleware-instance. `importJWK` and
 	// `createPublicKey` reparse via OpenSSL on every call (~tens of μs);
 	// these results are stable across warm invocations.
 	const jwkKeyCache = new Map(); // key: `${kid}\0${alg}`; value: imported key
 	const publicKeyCache = new WeakMap(); // key: keyData ref; value: KeyObject
 
+	// SPKI DER bytes, either bare or under the `publicKey` of the `@middy/kms` shape.
+	const derToPublicKey = (entry) => {
+		let key = publicKeyCache.get(entry);
+		// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
+		if (!key) {
+			key = createPublicKey({
+				key: Buffer.from(entry.publicKey ?? entry),
+				format: "der",
+				type: "spki",
+			});
+			// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
+			publicKeyCache.set(entry, key);
+		}
+		return key;
+	};
+
 	const httpJwtMiddlewareBefore = async (request) => {
 		const token = parseToken(request.event);
 
-		let key;
-		let verifyOptions;
+		// [{ key, verifyOptions }]. The JWKS path resolves exactly one, by `kid`.
+		// The static path resolves one per configured key.
+		let candidates;
 
 		if (issuersMap) {
+			let key;
 			let header;
 			let payload;
 			try {
@@ -410,7 +447,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request re-imports an identical key.
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
-			verifyOptions = {
+			const verifyOptions = {
 				issuer: payload.iss,
 				algorithms: [alg],
 				audience: entry.audience,
@@ -418,6 +455,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				maxTokenAge: options.maxTokenAge,
 			};
 			if (options.requireExp) verifyOptions.requiredClaims = ["exp"];
+			candidates = [{ key, verifyOptions }];
 		} else {
 			const result = await getInternal(options.internalKey, request);
 			const keyData = result[sanitizeKey(options.internalKey)];
@@ -431,77 +469,139 @@ const httpJwtMiddleware = (opts = {}) => {
 					},
 				});
 			}
-			// algorithm is required at factory time when internalKey is set, so
-			// topLevelAlgs is guaranteed non-empty here.
-			let usableAlgs = topLevelAlgs;
-			if (keyData?.publicKey instanceof Uint8Array) {
-				// KMS shape: validate configured algorithm against keySpec. When
-				// the keySpec is known, narrow the verify allowlist to the
-				// intersection; if no overlap, fail closed (misconfiguration).
-				// When keySpec is absent or unknown, trust the user's config.
-				const compatible = KMS_COMPATIBLE_ALGS[keyData.keySpec];
-				if (compatible) {
-					usableAlgs = topLevelAlgs.filter((a) => compatible.includes(a));
-					if (usableAlgs.length === 0) {
+
+			// One key, or several during a rotation overlap. Each resolves on its own,
+			// because a KMS keySpec narrows the algorithm list per key rather than for
+			// the middleware as a whole.
+			const entries = Array.isArray(keyData) ? keyData : [keyData];
+			if (entries.length === 0) {
+				throw new HttpError(500, {
+					cause: {
+						package: pkg,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to no keys`,
+						},
+					},
+				});
+			}
+
+			candidates = entries.map((entry) => {
+				// algorithm is required at factory time when internalKey is set, so
+				// topLevelAlgs is guaranteed non-empty here.
+				let usableAlgs = topLevelAlgs;
+				let entryKey;
+				if (entry instanceof KeyObject || entry instanceof CryptoKey) {
+					// Already resolved by the caller: `createPublicKey` on a PEM held in
+					// the environment gives a KeyObject, jose's own `importSPKI` /
+					// `importJWK` / `generateKeyPair` give a CryptoKey, and `jwtVerify`
+					// takes either. Nothing here knows the key's provenance, so the
+					// configured algorithm is trusted exactly as it is for raw DER; jose
+					// refuses the pair if the key cannot carry that algorithm.
+					entryKey = entry;
+				} else if (entry?.publicKey instanceof Uint8Array) {
+					// KMS shape: validate configured algorithm against keySpec. When
+					// the keySpec is known, narrow the verify allowlist to the
+					// intersection; if no overlap, fail closed (misconfiguration).
+					// When keySpec is absent or unknown, trust the user's config.
+					const compatible = KMS_COMPATIBLE_ALGS[entry.keySpec];
+					if (compatible) {
+						usableAlgs = topLevelAlgs.filter((a) => compatible.includes(a));
+						if (usableAlgs.length === 0) {
+							throw new HttpError(500, {
+								cause: {
+									package: pkg,
+									data: {
+										reason: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${entry.keySpec}'`,
+									},
+								},
+							});
+						}
+					}
+					entryKey = derToPublicKey(entry);
+				} else if (entry instanceof Uint8Array) {
+					entryKey = derToPublicKey(entry);
+				} else if (typeof entry === "string") {
+					if (usableAlgs.some((a) => !a.startsWith("HS"))) {
 						throw new HttpError(500, {
 							cause: {
 								package: pkg,
 								data: {
-									reason: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${keyData.keySpec}'`,
+									reason: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
 								},
 							},
 						});
 					}
-				}
-				key = publicKeyCache.get(keyData);
-				// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
-				if (!key) {
-					key = createPublicKey({
-						key: Buffer.from(keyData.publicKey),
-						format: "der",
-						type: "spki",
-					});
-					// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
-					publicKeyCache.set(keyData, key);
-				}
-			} else if (keyData instanceof Uint8Array) {
-				key = publicKeyCache.get(keyData);
-				// Stryker disable next-line ConditionalExpression: forcing this true only rebuilds the same KeyObject from identical DER bytes (cache is a pure performance optimization, no observable behavior change).
-				if (!key) {
-					key = createPublicKey({
-						key: Buffer.from(keyData),
-						format: "der",
-						type: "spki",
-					});
-					// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
-					publicKeyCache.set(keyData, key);
-				}
-			} else {
-				if (usableAlgs.some((a) => !a.startsWith("HS"))) {
+					entryKey = Buffer.from(entry);
+				} else {
+					// Anything else has to say what it really is. Borrowing the string
+					// secret's message sent people looking at their `algorithm` option
+					// when the key was the problem.
 					throw new HttpError(500, {
 						cause: {
 							package: pkg,
 							data: {
-								reason: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+								reason: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
 							},
 						},
 					});
 				}
-				key = Buffer.from(keyData);
-			}
-			verifyOptions = { ...baseVerifyOptions, algorithms: usableAlgs };
+				return {
+					key: entryKey,
+					verifyOptions: { ...baseVerifyOptions, algorithms: usableAlgs },
+				};
+			});
 		}
 
-		try {
-			const { payload } = await jwtVerify(token, key, verifyOptions);
-			request.internal[options.payloadKey] = payload;
-			if (options.setToContext) {
-				setContextNamespace(request, options.payloadKey, payload);
+		// Tried in order, first success wins. With one candidate this is the same
+		// single verify it always was; the loop exists for a rotation overlap.
+		let verified;
+		let failure;
+		for (const candidate of candidates) {
+			try {
+				({ payload: verified } = await jwtVerify(
+					token,
+					candidate.key,
+					candidate.verifyOptions,
+				));
+				break;
+			} catch (e) {
+				// A key that is not the signer fails on the signature and says nothing
+				// about the request. Only the signing key can report why a correctly
+				// signed token was still refused, so its failure outranks a signature
+				// miss from any position in the array.
+				if (
+					failure === undefined ||
+					failure.code === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED"
+				) {
+					failure = e;
+				}
 			}
-		} catch (e) {
+		}
+		if (verified === undefined) {
 			throw new HttpError(401, {
-				cause: { package: pkg, data: { reason: e.message } },
+				cause: { package: pkg, data: { reason: failure.message } },
 			});
+		}
+
+		// Claims the caller declared mandatory, compared with strict equality and
+		// checked before the payload is published, so nothing downstream can read a
+		// payload this rejected.
+		for (const [claim, expected] of expectedClaims) {
+			if (verified[claim] !== expected) {
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: {
+							reason: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+						},
+					},
+				});
+			}
+		}
+
+		request.internal[options.payloadKey] = verified;
+		if (options.setToContext) {
+			setContextNamespace(request, options.payloadKey, verified);
 		}
 	};
 

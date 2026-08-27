@@ -24,6 +24,7 @@ export interface Options {
 	audience?: string | string[];
 	issuer?: string | string[];
 	clockTolerance?: number;
+	expectedClaims?: Record<string, string | number | boolean>;
 	payloadKey?: string;
 	setToContext?: boolean;
 	cacheExpiry?: number;

@@ -493,6 +493,25 @@ test("It should reject a proof carrying private key material", async () => {
 	ok(result.cause.data.reason.includes("private key material"));
 });
 
+test("It should reject an RSA jwk with an oversized public exponent", async () => {
+	// A multi-thousand-bit exponent still fits inside maxProofLength and costs
+	// ~100x a normal verify. Every real key uses 65537, which is three bytes.
+	const key = keyFor("RS256");
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		makeEvent({
+			dpop: proofFor(key, {
+				jwk: { ...key.jwk, e: Buffer.alloc(383, 0xff).toString("base64url") },
+			}),
+		}),
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 401);
+	ok(result.cause.data.reason.includes("exponent"));
+});
+
 test("It should reject a proof with an unusable jwk", async () => {
 	const key = keyFor();
 	const handler = makeHandler(boundPayload(key));
@@ -600,6 +619,55 @@ test("It should reject two DPoP headers", async () => {
 	strictEqual(result.statusCode, 401);
 });
 
+test("It should signal the scheme and its algorithms on a 401", async () => {
+	// RFC 9449 §7.1. `http-error-handler` copies `error.headers` onto the
+	// response, so a client learns which proofs this resource will accept.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key), {
+		algorithm: ["ES256", "EdDSA"],
+	});
+
+	const result = await handler(makeEvent(), { ...defaultContext }).catch(
+		(e) => e,
+	);
+
+	strictEqual(result.statusCode, 401);
+	deepEqual(result.headers, { "WWW-Authenticate": 'DPoP algs="ES256 EdDSA"' });
+});
+
+test("It should advertise every algorithm it accepts by default", async () => {
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(makeEvent(), { ...defaultContext }).catch(
+		(e) => e,
+	);
+
+	strictEqual(
+		result.headers["WWW-Authenticate"],
+		'DPoP algs="ES256 ES384 ES512 PS256 RS256 EdDSA"',
+	);
+});
+
+test("It should not signal the scheme on a 500", async () => {
+	// The scheme header answers "how do I authenticate"; a misconfigured
+	// deployment is not a question the client can act on.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			rawPath: PATH,
+			headers: { authorization: `DPoP ${TOKEN}`, dpop: proofFor(key) },
+			requestContext: {},
+		},
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+	strictEqual(result.headers, undefined);
+});
+
 test("It should prefer the origin option over the request domain", async () => {
 	const key = keyFor();
 	const handler = makeHandler(boundPayload(key), {
@@ -611,6 +679,35 @@ test("It should prefer the origin option over the request domain", async () => {
 			domainName: "internal.execute-api.amazonaws.com",
 			dpop: proofFor(key, { htu: `https://public.example.com${PATH}` }),
 		}),
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.dpop.jti, "proof-1");
+});
+
+test("It should tolerate a trailing slash on origin", async () => {
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key), {
+		origin: `https://${DOMAIN}/`,
+	});
+
+	const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+		...defaultContext,
+	});
+
+	strictEqual(result.dpop.jti, "proof-1");
+});
+
+test("It should accept a base path on origin", async () => {
+	// A custom domain's API mapping does not appear in `rawPath`, so the base
+	// path is configured alongside the origin.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key), {
+		origin: `https://${DOMAIN}/v1`,
+	});
+
+	const result = await handler(
+		makeEvent({ dpop: proofFor(key, { htu: `https://${DOMAIN}/v1${PATH}` }) }),
 		{ ...defaultContext },
 	);
 
@@ -656,15 +753,11 @@ test("It should throw a 500 when the event carries no path", async () => {
 	ok(result.cause.data.reason.includes("'origin' option"));
 });
 
-test("It should throw a 500 when the origin option is not a URL", async () => {
-	const key = keyFor();
-	const handler = makeHandler(boundPayload(key), { origin: "not a url" });
-
-	const result = await handler(makeEvent({ dpop: proofFor(key) }), {
-		...defaultContext,
-	}).catch((e) => e);
-
-	strictEqual(result.statusCode, 500);
+test("It should throw at construction on an origin that is not a URL", () => {
+	// A misconfigured origin cannot produce a working request, so it is a
+	// deployment that should never start rather than a 500 per request.
+	throws(() => realHttpDpop({ origin: "not a url" }), { name: "TypeError" });
+	throws(() => realHttpDpop({ origin: 42 }), { name: "TypeError" });
 });
 
 test("It should read an API Gateway REST event", async () => {
@@ -680,6 +773,32 @@ test("It should read an API Gateway REST event", async () => {
 				dpop: proofFor(key),
 			},
 			requestContext: { domainName: DOMAIN },
+		},
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.dpop.jti, "proof-1");
+});
+
+test("It should read the stage from an API Gateway REST event", async () => {
+	// API Gateway strips the stage from `event.path`, so it is not the path the
+	// client requested. `requestContext.path` is, which is what `htu` names.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			path: PATH,
+			httpMethod: "GET",
+			headers: {
+				authorization: `DPoP ${TOKEN}`,
+				dpop: proofFor(key, { htu: `https://${DOMAIN}/prod${PATH}` }),
+			},
+			requestContext: {
+				domainName: DOMAIN,
+				stage: "prod",
+				path: `/prod${PATH}`,
+			},
 		},
 		{ ...defaultContext },
 	);
@@ -750,6 +869,10 @@ test("It should throw at construction on an unknown algorithm", () => {
 	throws(() => realHttpDpop({ algorithm: "HS256" }), {
 		name: "TypeError",
 	});
+	// An algorithm naming a member of Object.prototype must not resolve to one.
+	for (const algorithm of ["constructor", "toString", "valueOf", "__proto__"]) {
+		throws(() => realHttpDpop({ algorithm }), { name: "TypeError" });
+	}
 });
 
 test("It should validate its options", () => {
@@ -786,6 +909,10 @@ test("jwkThumbprint matches the RFC 7638 worked example", () => {
 test("jwkThumbprint rejects a key type it cannot name", () => {
 	throws(() => jwkThumbprint({ kty: "oct", k: "abc" }), /Unsupported JWK/);
 	throws(() => jwkThumbprint(undefined), /Unsupported JWK/);
+	// A `kty` naming a member of Object.prototype must not resolve to one.
+	for (const kty of ["constructor", "toString", "valueOf", "__proto__"]) {
+		throws(() => jwkThumbprint({ kty }), /Unsupported JWK/);
+	}
 	throws(() => jwkThumbprint({ kty: "EC", crv: "P-256", x: "a" }), /'y'/);
 });
 
