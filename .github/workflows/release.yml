@@ -34,7 +34,7 @@ jobs:
           egress-policy: block
           disable-sudo: true
           disable-telemetry: true
-          # truststore.pki.*rds.amazonaws.com:433 for building RDS certs
+          # truststore.pki.*rds.amazonaws.com:443 for building RDS certs
           allowed-endpoints: >
             api.github.com:443
             fulcio.sigstore.dev:443
@@ -44,7 +44,7 @@ jobs:
             registry.npmjs.org:443
             rekor.sigstore.dev:443
             release-assets.githubusercontent.com:443
-            truststore.pki.rds.amazonaws.com:433
+            truststore.pki.rds.amazonaws.com:443
             truststore.pki.us-gov-west-1.rds.amazonaws.com:443
             tuf-repo-cdn.sigstore.dev:443
       - name: Checkout repository
