@@ -64,7 +64,7 @@
 	},
 	"dependencies": {
 		"@middy/util": "7.9.1",
-		"negotiator": "1.0.0"
+		"negotiator": "1.1.0"
 	},
 	"devDependencies": {
 		"@middy/core": "7.9.1",

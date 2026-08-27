@@ -89,6 +89,6 @@
 		"@types/aws-lambda": "^8.0.0",
 		"@types/http-errors": "^2.0.0",
 		"@types/node": "^22.0.0",
-		"ajv-cmd": "^0.15.0"
+		"ajv-cmd": "^0.16.0"
 	}
 }

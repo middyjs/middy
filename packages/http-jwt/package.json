@@ -78,6 +78,6 @@
 		"@middy/core": "7.9.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0",
-		"jose": "6.2.9"
+		"jose": "^6.0.0"
 	}
 }

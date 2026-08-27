@@ -48,7 +48,7 @@
 		"@smithy/signature-v4": "^4.0.0"
 	},
 	"devDependencies": {
-		"esbuild": "^0.28.2",
+		"esbuild": "^0.28.0",
 		"js-yaml": "^5.0.0",
 		"kafkajs": "^2.2.4",
 		"mongodb": "^6.8.0"
