@@ -853,3 +853,15 @@ test("dynamodbValidateOptions allows additional native GetItemCommand fields", (
 		},
 	});
 });
+
+test("dynamodbValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	dynamodbValidateOptions({ contextKey: "custom" });
+	try {
+		dynamodbValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

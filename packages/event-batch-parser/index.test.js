@@ -1629,3 +1629,72 @@ test("parseProtobuf throws when exactly one of root/messageType is supplied via 
 	}
 	ok(caught instanceof TypeError);
 });
+
+// ---------- parser guard causes ----------
+
+test("parseAvro() without schema or internalKey reports the cause", () => {
+	// The message alone does not pin `cause`; the package and the (absent)
+	// internalKey are what a caller acts on.
+	let thrown;
+	try {
+		parseAvro();
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown instanceof TypeError);
+	strictEqual(thrown.cause.package, "@middy/event-batch-parser");
+	ok("internalKey" in thrown.cause.data);
+	strictEqual(thrown.cause.data.internalKey, undefined);
+});
+
+test("parseAvro() reports the internalKey when the schema is unresolved", async () => {
+	const parse = parseAvro({ internalKey: "userSchema" });
+	let thrown;
+	try {
+		await parse(Buffer.from(""), {}, { internal: {} }, undefined);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown instanceof TypeError);
+	strictEqual(thrown.cause.package, "@middy/event-batch-parser");
+	strictEqual(thrown.cause.data.internalKey, "userSchema");
+});
+
+test("parseProtobuf() reports the internalKey when root/messageType are unresolved", async () => {
+	const parse = parseProtobuf({ internalKey: "userProto" });
+	let thrown;
+	try {
+		await parse(Buffer.from(""), {}, { internal: {} }, undefined);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown instanceof TypeError);
+	strictEqual(thrown.cause.package, "@middy/event-batch-parser");
+	strictEqual(thrown.cause.data.internalKey, "userProto");
+});
+
+test("parseAvro() caches the compiled type across records", async () => {
+	// The cache is keyed on the schema definition string; without the `set` the
+	// map never fills and every record recompiles.
+	const schemaDefinition = AVRO_USER_SCHEMA;
+	const type = avro.parse(schemaDefinition);
+	const buffer = type.toBuffer({ id: "u1", name: "ada" });
+
+	let parseCount = 0;
+	const originalParse = avro.parse;
+	avro.parse = (...args) => {
+		parseCount += 1;
+		return originalParse.apply(avro, args);
+	};
+
+	try {
+		const parse = parseAvro({ internalKey: "userSchema" });
+		const request = { internal: { userSchema: { schemaDefinition } } };
+		// avro-js returns a generated record class, so compare fields not shape.
+		strictEqual((await parse(buffer, {}, request, undefined)).id, "u1");
+		strictEqual((await parse(buffer, {}, request, undefined)).name, "ada");
+		strictEqual(parseCount, 1, "second record must reuse the cached type");
+	} finally {
+		avro.parse = originalParse;
+	}
+});

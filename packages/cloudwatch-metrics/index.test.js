@@ -265,6 +265,11 @@ test("cloudwatchMetrics flush handler does not throw when the metrics logger is 
 	// `.flush()` would throw a TypeError caught and routed to onFlushError).
 	await middleware.after({ context: {} });
 	await middleware.onError({ context: {} });
+	// `context: {}` only exercises the first `?.`. core seeds middyContext on
+	// every invocation, so the realistic shape is a seeded namespace with no
+	// logger in it, which is the only way to reach the second `?.`.
+	await middleware.after({ context: { middyContext: {} } });
+	await middleware.onError({ context: { middyContext: {} } });
 	strictEqual(onFlushErrorCalled, false);
 });
 
@@ -289,5 +294,20 @@ test("cloudwatchMetricsValidateOptions rejects wrong type", async () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e instanceof TypeError);
+	}
+});
+
+test("cloudwatchMetricsValidateOptions validates contextKey as a string", async (t) => {
+	// Dynamic import to match the rest of this file; the validator needs no
+	// aws-embedded-metrics mock, so the real module is fine here.
+	const { cloudwatchMetricsValidateOptions } = await import("./index.js");
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	cloudwatchMetricsValidateOptions({ contextKey: "custom" });
+	try {
+		cloudwatchMetricsValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

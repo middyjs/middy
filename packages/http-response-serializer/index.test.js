@@ -695,3 +695,138 @@ test("onError serializes a defined error response", async (t) => {
 		},
 	});
 });
+
+test("httpResponseSerializerValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	httpResponseSerializerValidateOptions({
+		contextKeyHttpContentNegotiation: "custom",
+	});
+	try {
+		httpResponseSerializerValidateOptions({
+			contextKeyHttpContentNegotiation: 123,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKeyHttpContentNegotiation"));
+	}
+});
+
+test("It should serialize with the default content type when no negotiation ran", async (t) => {
+	// A catch-all serializer makes the `?? []` seed observable: any bogus entry
+	// prepended to `types` would be matched and serialized ahead of the
+	// defaultContentType, and would not set a Content-Type header either.
+	const handler = middy(() => ({ statusCode: 200, body: "hello" })).use(
+		httpResponseSerializer({
+			serializers: [
+				{
+					regex: /^.*$/,
+					serializer: ({ body }) => `served:${body}`,
+				},
+			],
+			defaultContentType: "text/plain",
+		}),
+	);
+
+	const response = await handler({ headers: {} }, defaultContext);
+
+	strictEqual(response.body, "served:hello");
+	strictEqual(response.headers["Content-Type"], "text/plain");
+});
+
+test("It should not set Content-Type from a non-string preferred media type", async (t) => {
+	// `preferredMediaTypes` is read straight off the negotiation namespace, so a
+	// non-string entry must not reach the Content-Type header. It has to
+	// stringify to a valid media type, otherwise the grammar test rejects it on
+	// its own and the string guard is doing no work.
+	const notAString = { toString: () => "text/plain" };
+	const handler = middy(() => ({ statusCode: 200, body: "hello" }))
+		.use({
+			before: (request) => {
+				request.context.middyContext["http-content-negotiation"] = {
+					preferredMediaTypes: [notAString],
+				};
+			},
+		})
+		.use(
+			httpResponseSerializer({
+				serializers: [{ regex: /^.*$/, serializer: ({ body }) => body }],
+				defaultContentType: "text/plain",
+			}),
+		);
+
+	const response = await handler({ headers: {} }, defaultContext);
+
+	strictEqual(response.headers["Content-Type"], undefined);
+});
+
+test("It should accept a media type of exactly the maximum length", async (t) => {
+	// The length gate is `> 128`, so a 128-character type must still be
+	// serialized; `>= 128` would skip it and fall through to the default.
+	const suffix = "a".repeat(128 - "application/".length);
+	const longType = `application/${suffix}`;
+	strictEqual(longType.length, 128);
+
+	const handler = middy(() => ({ statusCode: 200, body: "hello" }))
+		.use({
+			before: (request) => {
+				request.context.middyContext["http-content-negotiation"] = {
+					preferredMediaTypes: [longType],
+				};
+			},
+		})
+		.use(
+			httpResponseSerializer({
+				serializers: [
+					{ regex: /^application\//, serializer: ({ body }) => `long:${body}` },
+					{ regex: /^text\/plain$/, serializer: ({ body }) => `plain:${body}` },
+				],
+				defaultContentType: "text/plain",
+			}),
+		);
+
+	const response = await handler({ headers: {} }, defaultContext);
+
+	strictEqual(response.body, `long:hello`);
+	strictEqual(response.headers["Content-Type"], longType);
+});
+
+test("It should not set Content-Type when the media type is not anchored at the start", async (t) => {
+	// mediaTypeGrammar is anchored with `^`. Without the anchor a value with
+	// leading junk would still match and be echoed into the header.
+	const handler = middy(() => ({ statusCode: 200, body: "hello" }))
+		.use({
+			before: (request) => {
+				request.context.middyContext["http-content-negotiation"] = {
+					preferredMediaTypes: ["  text/plain"],
+				};
+			},
+		})
+		.use(
+			httpResponseSerializer({
+				serializers: [{ regex: /text\/plain/, serializer: ({ body }) => body }],
+				defaultContentType: "text/plain",
+			}),
+		);
+
+	const response = await handler({ headers: {} }, defaultContext);
+
+	strictEqual(response.headers["Content-Type"], undefined);
+});
+
+test("It should not throw when context.middyContext is absent", async (t) => {
+	// core seeds middyContext, so only a direct call reaches the `?.` guard.
+	const middleware = httpResponseSerializer({
+		serializers: [{ regex: /^text\/plain$/, serializer: ({ body }) => body }],
+		defaultContentType: "text/plain",
+	});
+	const request = {
+		event: { headers: {} },
+		context: {},
+		response: { statusCode: 200, headers: {}, body: "hello" },
+	};
+
+	await middleware.after(request);
+
+	strictEqual(request.response.body, "hello");
+});

@@ -7,12 +7,6 @@ const name = "http-urlencode-body-parser";
 const pkg = `@middy/${name}`;
 
 const mimePattern = /^application\/x-www-form-urlencoded(;.*)?$/i;
-// Stryker disable next-line ObjectLiteral: `{}` is equivalent; both flags are only read for truthiness, so explicit `false` and absent (`undefined`) produce identical behavior on every path.
-const defaults = {
-	disableContentTypeCheck: false,
-	disableContentTypeError: false,
-};
-
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -25,7 +19,7 @@ const optionSchema = {
 export const httpUrlencodeBodyParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const { disableContentTypeCheck, disableContentTypeError } = opts;
 
 	const httpUrlencodeBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
@@ -33,8 +27,8 @@ const httpUrlencodeBodyParserMiddleware = (opts = {}) => {
 
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (!options.disableContentTypeCheck && !mimePattern.test(contentType)) {
-			if (options.disableContentTypeError) {
+		if (!disableContentTypeCheck && !mimePattern.test(contentType)) {
+			if (disableContentTypeError) {
 				return;
 			}
 			throw new HttpError(415, {

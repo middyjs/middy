@@ -531,3 +531,15 @@ test("It should fall back to request.response.body when Body is absent", async (
 
 	strictEqual(captured.input.Body, "lowercase-body");
 });
+
+test("s3ObjectResponseValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	s3ObjectResponseValidateOptions({ contextKey: "custom" });
+	try {
+		s3ObjectResponseValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

@@ -867,6 +867,28 @@ describe("middy core", () => {
 		strictEqual(plugin.requestEnd.mock.callCount(), 1);
 	});
 
+	test("Should trigger middleware hooks around onError middlewares", async (t) => {
+		// The hooks are wrapped around all three loops, but only the before/after
+		// loops are covered above; the onError loop needs its own assertion.
+		const plugin = {
+			beforeMiddleware: t.mock.fn(),
+			afterMiddleware: t.mock.fn(),
+		};
+		const onErrorMiddleware = t.mock.fn((request) => {
+			request.response = "handled";
+		});
+
+		const handler = middy(() => {
+			throw new Error("boom");
+		}, plugin).onError(onErrorMiddleware);
+
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(onErrorMiddleware.mock.callCount(), 1);
+		strictEqual(plugin.beforeMiddleware.mock.callCount(), 1);
+		strictEqual(plugin.afterMiddleware.mock.callCount(), 1);
+	});
+
 	test("Should propagate requestEnd hook error when handler succeeds", async () => {
 		const hookErr = new Error("requestEnd failed");
 		const handler = middy(() => "ok", {
@@ -976,6 +998,28 @@ describe("middy core", () => {
 			throw new Error("Expected handler error to propagate");
 		} catch (e) {
 			strictEqual(e, "boom");
+		}
+	});
+
+	test("Should propagate a null handler error when requestEnd hook also throws", async () => {
+		// `typeof null === "object"`, so only the explicit null check keeps the
+		// `cause` assignment off it; without that the hook error becomes a
+		// TypeError and replaces the handler error.
+		const handler = middy(
+			() => {
+				throw null;
+			},
+			{
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			strictEqual(e, null);
 		}
 	});
 

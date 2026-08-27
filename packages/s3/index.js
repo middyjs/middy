@@ -117,18 +117,21 @@ const s3Middleware = (opts = {}) => {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
 	}
-	const s3MiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
+	const s3MiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only undefined or a Promise; `if (true) await undefined` is a no-op, so forcing the condition true produces no observable behavior change.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const s3MiddlewareBefore = (request) => {
+		if (client) return s3MiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return s3MiddlewareFetch(request);
+		});
 	};
 	return {
 		before: s3MiddlewareBefore,

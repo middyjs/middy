@@ -33,6 +33,7 @@ const optionSchema = {
 			type: "array",
 			items: { type: "string", enum: ["br", "deflate", "gzip", "zstd"] },
 		},
+		contextKeyHttpContentNegotiation: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -60,6 +61,9 @@ const defaults = {
 	gzip: undefined,
 	zstd: undefined,
 	overridePreferredEncoding: [],
+	// Where @middy/http-content-negotiation published its results; must match
+	// that middleware's `contextKey` when it has been overridden.
+	contextKeyHttpContentNegotiation: "http-content-negotiation",
 };
 
 export const getContentEncodingStream = (preferredEncoding, encoderOptions) => {
@@ -71,12 +75,14 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 
 	const supportedContentEncodings = Object.keys(contentEncodingStreams);
 
-	const httpContentEncodingMiddlewareAfter = async (request) => {
+	const contextKeyHttpContentNegotiation =
+		options.contextKeyHttpContentNegotiation;
+
+	const httpContentEncodingMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
-		const {
-			context: { preferredEncoding, preferredEncodings },
-			response,
-		} = request;
+		const { response } = request;
+		const { preferredEncoding, preferredEncodings } =
+			request.context.middyContext?.[contextKeyHttpContentNegotiation] ?? {};
 
 		// Encoding not supported, already encoded, or doesn't need to
 		const eventCacheControl =
@@ -155,9 +161,9 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 		request.response = response;
 	};
 
-	const httpContentEncodingMiddlewareOnError = async (request) => {
+	const httpContentEncodingMiddlewareOnError = (request) => {
 		if (typeof request.response === "undefined") return;
-		await httpContentEncodingMiddlewareAfter(request);
+		httpContentEncodingMiddlewareAfter(request);
 	};
 
 	return {

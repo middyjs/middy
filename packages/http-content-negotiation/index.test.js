@@ -889,3 +889,49 @@ test("httpContentNegotiationValidateOptions rejects non-boolean defaultToFirstMe
 		"Option 'defaultToFirstMediaType' must be boolean",
 	);
 });
+
+test("httpContentNegotiationValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	httpContentNegotiationValidateOptions({ contextKey: "custom" });
+	try {
+		httpContentNegotiationValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should leave the preferred value unset on a mismatch when defaultToFirst is off", async (t) => {
+	// The mirror of the defaultToFirst*: true test above. Without it the `false`
+	// defaults are never exercised on a mismatching header, so flipping them
+	// changes nothing any assertion can see.
+	const handler = middy(
+		(event, context) => context.middyContext["http-content-negotiation"],
+	);
+	handler.use(
+		httpContentNegotiation({
+			availableCharsets: ["utf-16"],
+			availableEncodings: ["br"],
+			availableLanguages: ["en"],
+			availableMediaTypes: ["text/plain"],
+			// Otherwise the mismatch raises a 406 before the context is readable.
+			failOnMismatch: false,
+		}),
+	);
+
+	const event = {
+		headers: {
+			"accept-charset": "iso-8859-5",
+			"accept-encoding": "deflate",
+			"accept-language": "da",
+			accept: "text/plain",
+		},
+	};
+
+	const resultingContext = await handler(event, defaultContext);
+
+	strictEqual(resultingContext.preferredCharset, undefined);
+	strictEqual(resultingContext.preferredEncoding, undefined);
+	strictEqual(resultingContext.preferredLanguage, undefined);
+});

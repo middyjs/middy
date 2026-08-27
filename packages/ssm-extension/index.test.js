@@ -595,3 +595,15 @@ test("ssmExtensionValidateOptions rejects non-number cacheKeyExpiry value", () =
 		ok(e instanceof TypeError);
 	}
 });
+
+test("ssmExtensionValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	ssmExtensionValidateOptions({ contextKey: "custom" });
+	try {
+		ssmExtensionValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

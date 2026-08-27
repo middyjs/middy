@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { STATUS_CODES } from "node:http";
 
 // Option validation helper.
 // Schema values:
@@ -414,6 +413,7 @@ export const getInternal = async (variables, request) => {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
 				value = safeGet(value, part);
 			}
+			// Stryker disable next-line ConditionalExpression: equivalent; forcing the promise branch abandons the sync fast-path for the async fallback below, which resolves to the same object. Only the fast path's saved microtask is lost, matching the disable on that fallback.
 			if (isPromise(value)) {
 				allSync = false;
 				break;
@@ -761,8 +761,22 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
+// A forbidden key only reaches the guard reviver if it is spelled in the raw
+// source, so a body carrying neither spelling skips the per-key callback and
+// lets JSON.parse stay on its native path (~8x). Each character matches either
+// literally or as the \uXXXX escape JSON.parse decodes back to it, so no
+// spelling slips past; a false positive only costs the guarded parse.
+const suspectKeyRx =
+	/"(?:(?:_|\\u005[Ff]){2}(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff]){2}|(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072))"\s*:/;
+
 export const jsonParseProtectProto = (text, reviver, packageName) => {
-	return JSON.parse(text, (key, value) => {
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent by construction. This is a pure fast path: skipping it routes every body through the guarded reviver below, which returns the same value and binds the same `this`. Only the ~8x native-parse win is lost, so no assertion can tell the two apart.
+	if (!suspectKeyRx.test(text)) {
+		return JSON.parse(text, reviver);
+	}
+	// `function`, not an arrow: the user reviver needs the `this` the fast path
+	// above binds.
+	return JSON.parse(text, function (key, value) {
 		if (
 			key === "__proto__" ||
 			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
@@ -774,7 +788,7 @@ export const jsonParseProtectProto = (text, reviver, packageName) => {
 				},
 			});
 		}
-		return reviver ? reviver(key, value) : value;
+		return reviver ? reviver.call(this, key, value) : value;
 	});
 };
 
@@ -837,15 +851,12 @@ export const buildPathTree = (paths) => {
 		) {
 			continue;
 		}
-		path.reduce((a, b, idx) => {
-			if (idx < path.length - 1) {
-				a[b] ??= {};
-				return a[b];
-			}
-			a[b] = true;
-			// Stryker disable next-line BooleanLiteral: equivalent. This is the reduce's terminal return value; the leaf marker is written on the line above (a[b] = true), and the reduce result is discarded, so true vs false is unobservable.
-			return true;
-		}, tree);
+		let node = tree;
+		for (let i = 0; i < path.length - 1; i++) {
+			node[path[i]] ??= {};
+			node = node[path[i]];
+		}
+		node[path[path.length - 1]] = true;
 	}
 	return tree;
 };
@@ -875,12 +886,15 @@ const errorToObject = (error) => {
 	return out;
 };
 
+// A falsy `childTree` needs no guard: every `omit` below then returns its
+// element unchanged, so the same array reference comes back.
+// Counting down: `.entries()` allocates a tuple per element, and a forward
+// `i < l` bound widened to `i <= l` is unobservable. `while (i--)` carries no
+// bound arithmetic to widen either, so every mutation of it is observable.
 const omitArray = (arr, childTree, mask) => {
-	// Stryker disable next-line ConditionalExpression: equivalent. With childTree falsy, continuing into the loop calls omit(el, undefined) which short-circuits via `if (!pathTree) return obj`, returning each element unchanged, so the array is returned identical anyway.
-	if (!childTree) return arr;
 	let clone = arr;
-	// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads arr[l] === undefined; omit(undefined, childTree) returns undefined, and `undefined !== undefined` is false, so no extra element is ever written.
-	for (let i = 0, l = arr.length; i < l; i++) {
+	let i = arr.length;
+	while (i--) {
 		const next = omit(arr[i], childTree, mask);
 		if (next !== arr[i]) {
 			if (clone === arr) clone = arr.slice();
@@ -892,37 +906,114 @@ const omitArray = (arr, childTree, mask) => {
 
 const omitObject = (obj, pathTree, mask) => {
 	let clone = obj;
+	let dropped = false;
 	for (const key in pathTree) {
 		const sub = pathTree[key];
 		if (sub === true) {
-			if (mask !== undefined) {
-				if (!Object.hasOwn(obj, key)) continue;
-				if (clone === obj) clone = { ...obj };
-				clone[key] = mask;
-			} else if (Object.hasOwn(obj, key)) {
-				if (clone === obj) clone = { ...obj };
-				delete clone[key];
+			if (!Object.hasOwn(obj, key)) continue;
+			if (mask === undefined) {
+				dropped = true;
+				continue;
 			}
-		} else {
-			const next = omit(obj[key], sub, mask);
-			if (next !== obj[key]) {
-				if (clone === obj) clone = { ...obj };
-				clone[key] = next;
-			}
+			if (clone === obj) clone = { ...obj };
+			clone[key] = mask;
+			continue;
+		}
+		const next = omit(obj[key], sub, mask);
+		if (next !== obj[key]) {
+			if (clone === obj) clone = { ...obj };
+			clone[key] = next;
 		}
 	}
-	return clone;
+	if (!dropped) return clone;
+	// Copying the survivors, not spread-then-delete: `delete` drops the object
+	// into dictionary mode, making the logger's later reads ~28x slower.
+	// `pathTree[key] === true` already identifies every dropped leaf, so no list
+	// of them is accumulated and the check stays a property read, not a scan.
+	const survivors = {};
+	for (const key in clone) {
+		if (pathTree[key] !== true) survivors[key] = clone[key];
+	}
+	return survivors;
 };
 
 // Stricter than the schema validator's `isPlainObject`: a Date, Buffer or stream
 // must not be shallow-cloned into a bare record. Null-prototype maps (built by
 // httpHeaderNormalizer and event-normalizer) do count, or the keys they hold
 // would leak into the logs unredacted.
+// No `typeof value === "object"` check: only objects have `constructor` Object,
+// and `Object.getPrototypeOf` on a primitive returns its wrapper prototype,
+// never null, so a primitive already fails both arms.
 const isRecord = (value) =>
-	// Stryker disable next-line ConditionalExpression: equivalent. Replacing `typeof value === "object"` with true is masked by the two checks that follow: only objects have constructor Object, and Object.getPrototypeOf on a primitive returns its wrapper prototype, never null, so a non-object still yields false.
 	value &&
-	typeof value === "object" &&
 	(value.constructor === Object || Object.getPrototypeOf(value) === null);
+
+// import { STATUS_CODES } from "node:http"; // cost ~14ms
+const STATUS_CODES = {
+	100: "Continue",
+	101: "Switching Protocols",
+	102: "Processing",
+	103: "Early Hints",
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	203: "Non-Authoritative Information",
+	204: "No Content",
+	205: "Reset Content",
+	206: "Partial Content",
+	207: "Multi-Status",
+	208: "Already Reported",
+	226: "IM Used",
+	300: "Multiple Choices",
+	301: "Moved Permanently",
+	302: "Found",
+	303: "See Other",
+	304: "Not Modified",
+	305: "Use Proxy",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+	400: "Bad Request",
+	401: "Unauthorized",
+	402: "Payment Required",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	406: "Not Acceptable",
+	407: "Proxy Authentication Required",
+	408: "Request Timeout",
+	409: "Conflict",
+	410: "Gone",
+	411: "Length Required",
+	412: "Precondition Failed",
+	413: "Payload Too Large",
+	414: "URI Too Long",
+	415: "Unsupported Media Type",
+	416: "Range Not Satisfiable",
+	417: "Expectation Failed",
+	418: "I'm a Teapot",
+	421: "Misdirected Request",
+	422: "Unprocessable Entity",
+	423: "Locked",
+	424: "Failed Dependency",
+	425: "Too Early",
+	426: "Upgrade Required",
+	428: "Precondition Required",
+	429: "Too Many Requests",
+	431: "Request Header Fields Too Large",
+	451: "Unavailable For Legal Reasons",
+	500: "Internal Server Error",
+	501: "Not Implemented",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
+	505: "HTTP Version Not Supported",
+	506: "Variant Also Negotiates",
+	507: "Insufficient Storage",
+	508: "Loop Detected",
+	509: "Bandwidth Limit Exceeded",
+	510: "Not Extended",
+	511: "Network Authentication Required",
+};
 
 const httpErrorNameRegexp = /[^a-zA-Z]/g;
 export class HttpError extends Error {

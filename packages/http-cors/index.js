@@ -182,6 +182,8 @@ const httpCorsMiddleware = (opts = {}) => {
 	const getOriginOptionsCredentials = { ...options, credentials: true };
 	const getOriginOptionsNoCredentials = { ...options, credentials: false };
 
+	const maxAge = options.maxAge ? String(options.maxAge) : options.maxAge;
+
 	const modifyHeaders = (headers, options, request) => {
 		let credentials = options.credentials;
 		if (Object.hasOwn(headers, "Access-Control-Allow-Credentials")) {
@@ -246,8 +248,8 @@ const httpCorsMiddleware = (opts = {}) => {
 		) {
 			headers["Access-Control-Expose-Headers"] = options.exposeHeaders;
 		}
-		if (options.maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
-			headers["Access-Control-Max-Age"] = String(options.maxAge);
+		if (maxAge && !Object.hasOwn(headers, "Access-Control-Max-Age")) {
+			headers["Access-Control-Max-Age"] = maxAge;
 		}
 		const httpMethod = getVersionHttpMethod[request.event.version ?? "1.0"]?.(
 			request.event,
@@ -313,6 +315,8 @@ const httpCorsMiddleware = (opts = {}) => {
 
 	const httpCorsMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
+		// Cloned, not mutated: a handler may return a module-level constant as its
+		// `headers`, which would leak one invocation's origin into the next.
 		const headers = { ...request.response.headers };
 		modifyHeaders(headers, options, request);
 		request.response.headers = headers;

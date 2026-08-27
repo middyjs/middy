@@ -97,7 +97,7 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 						: res.text();
 				})
 				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
+					const value = { ...getCache(options.cacheKey).value };
 					value[internalKey] = undefined;
 					modifyCache(options.cacheKey, value);
 					throw e;
@@ -110,13 +110,11 @@ const appConfigExtensionMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const appConfigExtensionMiddlewareBefore = async (request) => {
+	const appConfigExtensionMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns either a Promise (cold path) or undefined (sync path). Replacing the guard with `true` only adds `await undefined` on the sync path, which resolves immediately with no observable difference.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

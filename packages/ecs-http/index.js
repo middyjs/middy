@@ -102,7 +102,9 @@ const isTextContentType = (contentType) => {
 
 export const lowercaseHeaders = (rawHeaders) => {
 	const headers = {};
-	for (const [k, v] of Object.entries(rawHeaders)) {
+	// `for...in` for the same reason as buildMultiValueHeaders below.
+	for (const k in rawHeaders) {
+		const v = rawHeaders[k];
 		headers[k.toLowerCase()] = Array.isArray(v) ? v.join(",") : v;
 	}
 	return headers;
@@ -155,7 +157,21 @@ const splitUrl = (rawUrl) => {
 	};
 };
 
+// Only v1 carries multiValueQueryStringParameters; v2 and ALB would otherwise
+// allocate the multi-value map on every request and discard it.
 const collectQuery = (queryString) => {
+	const single = Object.create(null);
+	if (!queryString) return { single, size: 0 };
+	const params = new URLSearchParams(queryString);
+	let size = 0;
+	for (const [k, v] of params.entries()) {
+		single[k] = v;
+		size++;
+	}
+	return { single, size };
+};
+
+const collectQueryMultiValue = (queryString) => {
 	const single = Object.create(null);
 	const multi = Object.create(null);
 	if (!queryString) return { single, multi, size: 0 };
@@ -235,7 +251,7 @@ export const buildEventV1 = (input) => {
 		single: queryStringParameters,
 		multi: multiValueQueryStringParameters,
 		size,
-	} = collectQuery(url.queryString);
+	} = collectQueryMultiValue(url.queryString);
 	const v1Body = encodeBody(body, isBase64Encoded);
 	return {
 		resource: url.path,

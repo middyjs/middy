@@ -5,7 +5,7 @@ import {
 	GetParametersCommand,
 	SSMClient,
 } from "@aws-sdk/client-ssm";
-import { clearCache, getInternal } from "@middy/util";
+import { clearCache, getCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import ssm, { ssmValidateOptions } from "./index.js";
@@ -1294,4 +1294,57 @@ test("It should not set values to context by default (setToContext defaults to f
 		.before(middleware);
 
 	await handler(event, context);
+});
+
+test("ssmValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	ssmValidateOptions({ contextKey: "custom" });
+	try {
+		ssmValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should blank only the invalid parameter in the cache and keep its siblings", async (t) => {
+	// Two keys are needed to tell the catch block's seed apart: with a single
+	// key an empty `{}` seed and a copy of the cached value look identical.
+	const goodArn = "/dev/service_name/good";
+	const badArn = "/dev/service_name/bad";
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: goodArn, Value: "good-value" }],
+			InvalidParameters: [badArn],
+		});
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheKey: "ssm-partial",
+				cacheExpiry: -1,
+				disablePrefetch: true,
+				fetchData: { good: goodArn, bad: badArn },
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+
+	try {
+		await handler(event, context);
+		ok(false, "expected the invalid parameter to reject");
+	} catch (_e) {
+		const cached = getCache("ssm-partial").value;
+		// Blanked so the next invocation refetches rather than reusing the
+		// rejected promise; without modifyCache it would still be that promise.
+		strictEqual(cached.bad, undefined);
+		// The sibling that resolved survives; a `{}` seed would drop it.
+		ok(cached.good !== undefined);
+	} finally {
+		clearCache();
+	}
 });

@@ -926,6 +926,9 @@ test("It should reject with a 413 when a file part exceeds the configured fileSi
 		strictEqual(e.statusCode, 413);
 		strictEqual(e.message, "Payload Too Large");
 		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		// With several parts in a form, the filename is the only thing telling
+		// the caller which one blew the limit.
+		strictEqual(e.cause.data.filename, "f.txt");
 	}
 });
 

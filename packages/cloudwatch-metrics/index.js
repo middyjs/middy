@@ -54,7 +54,7 @@ const cloudwatchMetricsMiddleware = (opts = {}) => {
 			}
 		}
 	}
-	const cloudwatchMetricsBefore = async (request) => {
+	const cloudwatchMetricsBefore = (request) => {
 		const metrics = awsEmbeddedMetrics.createMetricsLogger();
 
 		// If not set, defaults to aws-embedded-metrics

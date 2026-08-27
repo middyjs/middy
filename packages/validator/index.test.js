@@ -1084,3 +1084,103 @@ test("It should throw when a validator returns a promise at runtime", async (t) 
 	}
 	ok(thrown, "expected promise-returning validator to fail closed");
 });
+
+test("validatorValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	validatorValidateOptions({ contextKeyHttpContentNegotiation: "custom" });
+	try {
+		validatorValidateOptions({ contextKeyHttpContentNegotiation: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKeyHttpContentNegotiation"));
+	}
+});
+
+test("It should name the failing schema when a validator returns a promise", async (t) => {
+	// The label is the only thing telling the three call sites apart in the
+	// error message, so each has to be asserted by name.
+	const promiseValidator = () => Promise.resolve(false);
+
+	const cases = [
+		["eventSchema", { eventSchema: promiseValidator }],
+		["contextSchema", { contextSchema: promiseValidator }],
+		["responseSchema", { responseSchema: promiseValidator }],
+	];
+
+	for (const [label, options] of cases) {
+		const handler = middy((event) => event).use(validator(options));
+		let thrown;
+		try {
+			await handler({ hello: "world" }, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, `expected ${label} to fail closed`);
+		ok(
+			thrown.message.includes(label),
+			`expected the error to name ${label}, got: ${thrown.message}`,
+		);
+	}
+});
+
+test("It should treat an undefined validator result as a validation failure", async (t) => {
+	// `typeof valid?.then` has to tolerate a nullish result: without the `?.`
+	// this becomes a TypeError instead of the documented 400.
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: () => undefined }),
+	);
+
+	let thrown;
+	try {
+		await handler({ hello: "world" }, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+	strictEqual(thrown.cause.package, "@middy/validator");
+});
+
+test("It should build without throwing for a schema that has no constructor", () => {
+	// `schema?.constructor?.name` must tolerate a null-prototype schema;
+	// dropping the second `?.` throws while merely constructing the middleware.
+	const middleware = validator({ eventSchema: Object.create(null) });
+	ok(middleware);
+});
+
+test("It should validate when context.middyContext is absent", async (t) => {
+	// core seeds middyContext, so only a direct call reaches the `?.` guard on
+	// the negotiation lookup used to localize error messages.
+	const middleware = validator({ eventSchema: () => false });
+	const request = { event: {}, context: {}, internal: {} };
+
+	let thrown;
+	try {
+		await middleware.before(request);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+});
+
+test("It should compile schemas using draft-2019 formats", async (t) => {
+	// `ajv-formats` alone does not register `idn-hostname`, and ajv runs in
+	// strict mode here, so dropping ajvFormatsDraft2019() makes this schema
+	// fail to compile rather than silently validating differently.
+	const schema = transpileSchema({
+		type: "object",
+		required: ["host"],
+		properties: {
+			host: { type: "string", format: "idn-hostname" },
+		},
+	});
+
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: schema }),
+	);
+
+	const event = { host: "example.com" };
+	deepStrictEqual(await handler(event, defaultContext), event);
+});

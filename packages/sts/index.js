@@ -131,21 +131,21 @@ const stsMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const stsMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const stsMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns a Promise (cold path) or undefined (sync warm path); `await undefined` is a no-op, so forcing the guard to `true` is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const stsMiddlewareBefore = (request) => {
+		if (client) return stsMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return stsMiddlewareFetch(request);
+		});
 	};
 
 	return {

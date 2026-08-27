@@ -132,7 +132,7 @@ test("It should handle missing body as an UnprocessableEntity", async (t) => {
 		strictEqual(e.cause.data.contentType, undefined);
 		// The missing-body guard throws directly (no JSON.parse), so the cause
 		// carries no parser `message`. A body that reached JSON.parse would.
-		ok(!("message" in e.cause));
+		ok(!("message" in e.cause.data));
 		return true;
 	});
 });

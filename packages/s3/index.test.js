@@ -936,5 +936,21 @@ test("It should throw when S3 response is missing Body", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.errors[0].message.includes("missing Body"));
+		// The cause is the only thing naming which fetchData key failed, and a
+		// bucket with several keys gives no other way to tell.
+		strictEqual(e.errors[0].cause.package, "@middy/s3");
+		strictEqual(e.errors[0].cause.data.internalKey, "key");
+	}
+});
+
+test("s3ValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	s3ValidateOptions({ contextKey: "custom" });
+	try {
+		s3ValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

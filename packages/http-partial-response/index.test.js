@@ -321,3 +321,75 @@ test("httpPartialResponseValidateOptions rejects wrong type", () => {
 		ok(e.message.includes("filteringKeyName"));
 	}
 });
+
+test("It should still filter a selector of exactly the maximum length", async (t) => {
+	// The gate is `> 2048`, so exactly 2048 must pass; `>= 2048` would bail out
+	// and return the response unfiltered.
+	const handler = middy(() => createDefaultObjectResponse());
+	handler.use(httpPartialResponse());
+
+	const fields = "firstname".padEnd(2048, ",a");
+	strictEqual(fields.length, 2048);
+
+	const response = await handler(
+		{ headers: {}, queryStringParameters: { fields } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response.body, { firstname: "john" });
+});
+
+test("It should still filter a selector at exactly the maximum depth", async (t) => {
+	// The gate is `> 100`, so exactly 100 separators must pass; `>= 100` would
+	// bail out and return the response unfiltered.
+	const handler = middy(() => createDefaultObjectResponse());
+	handler.use(httpPartialResponse());
+
+	// 100 "(" characters, closed again, wrapped around a real field name.
+	const open = "a(".repeat(100);
+	const fields = `firstname,${open}b${")".repeat(100)}`;
+	strictEqual((fields.match(/[/(]/g) ?? []).length, 100);
+
+	const response = await handler(
+		{ headers: {}, queryStringParameters: { fields } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response.body, { firstname: "john" });
+});
+
+test("It should only count separators toward the depth cap", async (t) => {
+	// A long but flat selector has depth 0. Counting every character instead
+	// (or inverting either comparison) pushes it past the cap and silently
+	// disables filtering.
+	const handler = middy(() => createDefaultObjectResponse());
+	handler.use(httpPartialResponse());
+
+	const fields = `firstname${",a".repeat(200)}`;
+	ok(fields.length > 100);
+
+	const response = await handler(
+		{ headers: {}, queryStringParameters: { fields } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response.body, { firstname: "john" });
+});
+
+test("It should normalize a response that carries no statusCode or headers", async (t) => {
+	// A bare body object must be normalized before the filtered body is written
+	// back, otherwise the handler returns a response with no statusCode.
+	const handler = middy(() => ({
+		body: { firstname: "john", lastname: "doe" },
+	}));
+	handler.use(httpPartialResponse());
+
+	const response = await handler(
+		{ headers: {}, queryStringParameters: { fields: "firstname" } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 500);
+	deepStrictEqual(response.headers, {});
+	deepStrictEqual(response.body, { firstname: "john" });
+});

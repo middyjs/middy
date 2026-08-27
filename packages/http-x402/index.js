@@ -250,7 +250,7 @@ const httpX402Middleware = (opts = {}) => {
 		request.internal.x402 = { payload, requirements: requirementsV1 };
 	};
 
-	const httpX402MiddlewareBefore = async (request) => {
+	const httpX402MiddlewareBefore = (request) => {
 		if (human?.(request)) return;
 
 		// A disabled version's payment header is not a payment header for this

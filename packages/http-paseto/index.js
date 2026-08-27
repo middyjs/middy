@@ -177,6 +177,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 			const bytes =
 				keyData?.publicKey instanceof Uint8Array ? keyData.publicKey : keyData;
 			key = createPublicKey({ key: bytes, format: "der", type: "spki" });
+			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical KeyObject, which verifies to a byte-identical payload.
 			keyCache.set(keyData, key);
 		}
 

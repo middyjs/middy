@@ -11,13 +11,6 @@ import {
 const name = "http-json-body-parser";
 const pkg = `@middy/${name}`;
 
-// Stryker disable next-line ObjectLiteral: replacing the defaults with `{}` is equivalent: reviver/disableContentTypeCheck/disableContentTypeError are only ever read via truthiness, and absent keys are also falsy/undefined.
-const defaults = {
-	reviver: undefined,
-	disableContentTypeCheck: false,
-	disableContentTypeError: false,
-};
-
 const optionSchema = {
 	type: "object",
 	properties: {
@@ -32,18 +25,14 @@ export const httpJsonBodyParserValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpJsonBodyParserMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
-	const { reviver } = options;
+	const { reviver, disableContentTypeCheck, disableContentTypeError } = opts;
 	const httpJsonBodyParserMiddlewareBefore = (request) => {
 		const event = request.event;
 		const { headers, body, isBase64Encoded } = event;
 		const contentType = headers?.["content-type"] ?? headers?.["Content-Type"];
 
-		if (
-			!options.disableContentTypeCheck &&
-			!jsonContentTypePattern.test(contentType)
-		) {
-			if (options.disableContentTypeError) {
+		if (!disableContentTypeCheck && !jsonContentTypePattern.test(contentType)) {
+			if (disableContentTypeError) {
 				return;
 			}
 			throw new HttpError(415, {

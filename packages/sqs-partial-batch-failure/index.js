@@ -7,8 +7,7 @@ const pkg = `@middy/${name}`;
 
 const defaults = {
 	logger: (request, { reason }) => console.error(reason),
-	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
-	omitPaths: [],
+	omitPaths: undefined,
 	mask: undefined,
 };
 
@@ -28,7 +27,7 @@ export const sqsPartialBatchFailureValidateOptions = (options) =>
 const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 	const { logger, omitPaths, mask } = { ...defaults, ...opts };
 
-	const omitPathTree = buildPathTree(omitPaths);
+	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	const sqsPartialBatchFailureMiddlewareAfter = (request) => {
 		const {
@@ -47,16 +46,13 @@ const sqsPartialBatchFailureMiddleware = (opts = {}) => {
 			// redaction can never change which records are reported failed.
 			const safeRequest = omit(request, omitPathTree, mask);
 			const safeRecords = safeRequest.event.Records;
-			const safeSettled = Array.isArray(safeRequest.response)
-				? safeRequest.response
-				: [];
 			for (const [idx, record] of Records.entries()) {
 				const { status } = settled[idx] ?? {};
 				if (status === "fulfilled") continue;
 				batchItemFailures.push({ itemIdentifier: record.messageId });
 				if (typeof logger === "function") {
 					logger(safeRequest, {
-						reason: safeSettled[idx]?.reason,
+						reason: safeRequest.response?.[idx]?.reason,
 						record: safeRecords[idx],
 					});
 				}

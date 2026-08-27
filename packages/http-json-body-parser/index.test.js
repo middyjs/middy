@@ -190,6 +190,29 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 	ok(thrown, "expected handler to throw 415 on missing content-type");
 });
 
+test("It should report the offending content-type on the 415 cause", async (t) => {
+	// The two 415 tests above send no content-type at all, so `data: {}` and
+	// `data: { contentType: undefined }` are indistinguishable. A wrong-but-
+	// present type is the only way to pin the cause payload.
+	const handler = middy((event) => event.body);
+	handler.use(jsonBodyParser());
+
+	const event = {
+		headers: { "Content-Type": "text/plain" },
+		body: JSON.stringify({ foo: "bar" }),
+	};
+
+	let thrown = false;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.cause.data.contentType, "text/plain");
+	}
+	ok(thrown, "expected 415 on a non-JSON content-type");
+});
+
 test("It should throw 415 by default when content-type is missing", async (t) => {
 	// No options at all: the default `disableContentTypeError: false` must
 	// cause a 415 to be thrown (kills the BooleanLiteral default mutant).
@@ -281,7 +304,7 @@ test("It should throw 422 when body is undefined even if content-type check disa
 		// JSON.parse(undefined) and the catch attaches a `cause.message`, so
 		// asserting its absence kills the guard mutants.
 		strictEqual(e.cause.data.contentType, undefined);
-		strictEqual(e.cause.message, undefined);
+		strictEqual(e.cause.data.message, undefined);
 	}
 	ok(thrown, "expected 422 when body is undefined");
 });

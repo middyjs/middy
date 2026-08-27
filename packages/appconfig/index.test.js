@@ -1376,3 +1376,145 @@ test("It reuses the prefetched client instead of creating a new one in before", 
 	await handler(defaultEvent, defaultContext);
 	strictEqual(instances, 1);
 });
+
+test("appConfigValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	appConfigValidateOptions({ contextKey: "custom" });
+	try {
+		appConfigValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+// Both fetch catch blocks blank the failed key in the cache so the next
+// invocation refetches. With `cacheExpiry: 0` nothing is cached, so only a
+// live cache can show the difference: without modifyCache the rejected
+// promise stays cached and the retry fails without touching the client.
+const retryFetchData = {
+	key: {
+		ApplicationIdentifier: "app",
+		ConfigurationProfileIdentifier: "cpi",
+		EnvironmentIdentifier: "ei",
+	},
+};
+
+test("It should clear the cache when the session command fails so the next invocation retries", async (t) => {
+	const mockService = mockClient(AppConfigDataClient);
+	mockService
+		.on(StartConfigurationSessionCommand)
+		.rejectsOnce("timeout")
+		.resolves({
+			ContentType: "application/json",
+			InitialConfigurationToken: "token",
+		})
+		.on(GetLatestConfigurationCommand)
+		.resolves({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "next",
+		});
+
+	const handler = middy(() => {}).use(
+		appConfig({
+			AwsClient: AppConfigDataClient,
+			cacheKey: "appconfig-retry-session",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+			fetchData: retryFetchData,
+			setToContext: true,
+		}),
+	);
+
+	await rejects(handler(defaultEvent, defaultContext));
+	const callsAfterFailure = mockService.send.callCount;
+
+	await handler(defaultEvent, defaultContext);
+	ok(
+		mockService.send.callCount > callsAfterFailure,
+		"expected the retry to reach the client again",
+	);
+	strictEqual(
+		getCache("appconfig-retry-session").value.key !== undefined,
+		true,
+	);
+});
+
+test("It should clear the cache when the configuration command fails so the next invocation retries", async (t) => {
+	const mockService = mockClient(AppConfigDataClient);
+	mockService.on(StartConfigurationSessionCommand).resolves({
+		ContentType: "application/json",
+		InitialConfigurationToken: "token",
+	});
+	mockService
+		.on(GetLatestConfigurationCommand)
+		.rejectsOnce("timeout")
+		.resolves({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "next",
+		});
+
+	const handler = middy(() => {}).use(
+		appConfig({
+			AwsClient: AppConfigDataClient,
+			cacheKey: "appconfig-retry-config",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+			fetchData: retryFetchData,
+			setToContext: true,
+		}),
+	);
+
+	await rejects(handler(defaultEvent, defaultContext));
+	const callsAfterFailure = mockService.send.callCount;
+
+	await handler(defaultEvent, defaultContext);
+	ok(
+		mockService.send.callCount > callsAfterFailure,
+		"expected the retry to reach the client again",
+	);
+});
+
+// The inner (configuration-command) catch only runs alone on the warm path,
+// where the session token is already cached and there is no outer catch to
+// mask it. Reaching it needs the value cache to expire while the token cache
+// stays warm.
+test("It should blank the cached value when a warm configuration fetch fails", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	const mockService = mockClient(AppConfigDataClient);
+	mockService.on(StartConfigurationSessionCommand).resolves({
+		ContentType: "application/json",
+		InitialConfigurationToken: "token",
+	});
+	mockService
+		.on(GetLatestConfigurationCommand)
+		.resolvesOnce({
+			ContentType: "application/json",
+			Configuration: strToUintArray('{"option":"value"}'),
+			NextPollConfigurationToken: "next",
+		})
+		.rejects("timeout");
+
+	const handler = middy(() => {}).use(
+		appConfig({
+			AwsClient: AppConfigDataClient,
+			cacheKey: "appconfig-warm-fail",
+			cacheExpiry: 100,
+			disablePrefetch: true,
+			fetchData: retryFetchData,
+			setToContext: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	ok(getCache("appconfig-warm-fail").value.key !== undefined);
+
+	t.mock.timers.tick(200);
+	await rejects(handler(defaultEvent, defaultContext));
+
+	// Without modifyCache the cache keeps the previously resolved value.
+	strictEqual(getCache("appconfig-warm-fail").value.key, undefined);
+});

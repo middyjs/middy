@@ -1019,3 +1019,141 @@ test("resolveSchemaVersion assumes role: credentials reach the client (no-prefet
 		secretAccessKey: "SK",
 	});
 });
+
+test("glueSchemaRegistryValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	glueSchemaRegistryValidateOptions({ contextKey: "custom" });
+	try {
+		glueSchemaRegistryValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("resolveSchemaVersion rejects an id with junk before the uuid", async () => {
+	// The pattern is anchored at both ends; without `^` a valid uuid preceded
+	// by junk would be accepted as a schema version id.
+	await rejects(
+		resolveSchemaVersion(
+			"junk00000000-0000-0000-0000-0000000000d1",
+			{ AwsClient: GlueClient, disablePrefetch: true },
+			{ internal: {}, context: {} },
+		),
+		/schemaVersionId required/,
+	);
+});
+
+test("resolveSchemaVersion rejects an id with junk after the uuid", async () => {
+	// Without `$` a valid uuid followed by junk would be accepted.
+	await rejects(
+		resolveSchemaVersion(
+			"00000000-0000-0000-0000-0000000000d1junk",
+			{ AwsClient: GlueClient, disablePrefetch: true },
+			{ internal: {}, context: {} },
+		),
+		/schemaVersionId required/,
+	);
+});
+
+test("resolveSchemaVersion rejects a non-string that stringifies to a uuid", async () => {
+	// The `typeof !== "string"` arm has to do the work here: the pattern test
+	// coerces its argument, so this value passes the regex on its own.
+	const notAString = { toString: () => "00000000-0000-0000-0000-0000000000d1" };
+	await rejects(
+		resolveSchemaVersion(
+			notAString,
+			{ AwsClient: GlueClient, disablePrefetch: true },
+			{ internal: {}, context: {} },
+		),
+		/schemaVersionId required/,
+	);
+});
+
+test("resolveSchemaVersion reports the offending id on the error cause", async () => {
+	let thrown;
+	try {
+		await resolveSchemaVersion(
+			"not-a-uuid",
+			{ AwsClient: GlueClient, disablePrefetch: true },
+			{ internal: {}, context: {} },
+		);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.cause.package, "@middy/glue-schema-registry");
+	strictEqual(thrown.cause.data.schemaVersionId, "not-a-uuid");
+});
+
+test("It should blank only the failed key in the cache and keep its siblings", async (t) => {
+	// Two keys are needed to tell the catch block's seed apart: with a single
+	// key an empty `{}` seed and a copy of the cached value look identical.
+	const mock = mockClient(GlueClient);
+	mock
+		.on(GetSchemaVersionCommand, { SchemaVersionId: "good-id" })
+		.resolves({
+			SchemaVersionId: "good-id",
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		})
+		.on(GetSchemaVersionCommand, { SchemaVersionId: "bad-id" })
+		.rejects("boom");
+
+	const handler = middy(() => {}).use(
+		glueSchemaRegistry({
+			AwsClient: GlueClient,
+			cacheKey: "glue-partial",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+			fetchData: {
+				good: { SchemaVersionId: "good-id" },
+				bad: { SchemaVersionId: "bad-id" },
+			},
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+		ok(false, "expected the failing schema to reject");
+	} catch (_e) {
+		const cached = getCache("glue-partial").value;
+		// Blanked so the next invocation refetches rather than reusing the
+		// rejected promise; without modifyCache it would still be that promise.
+		strictEqual(cached.bad, undefined);
+		// The sibling that resolved survives; a `{}` seed would drop it.
+		ok(cached.good !== undefined);
+	} finally {
+		clearCache();
+	}
+});
+
+test("resolveSchemaVersion retries after a failed fetch", async () => {
+	const id = "00000000-0000-0000-0000-0000000000e1";
+	const mock = mockClient(GlueClient)
+		.on(GetSchemaVersionCommand)
+		.rejectsOnce("boom")
+		.resolves({
+			SchemaVersionId: id,
+			SchemaDefinition: AVRO_SCHEMA,
+			DataFormat: "AVRO",
+		});
+
+	const opts = {
+		AwsClient: GlueClient,
+		cacheKey: "glue-retry",
+		cacheExpiry: -1,
+		disablePrefetch: true,
+	};
+	const request = { internal: {}, context: {} };
+
+	await rejects(resolveSchemaVersion(id, opts, request));
+
+	// Without modifyCache the rejected promise stays cached and this second
+	// call fails again without ever reaching the client.
+	const resolved = await resolveSchemaVersion(id, opts, request);
+	strictEqual(resolved.schemaVersionId, id);
+	strictEqual(mock.commandCalls(GetSchemaVersionCommand).length, 2);
+	clearCache();
+});

@@ -518,3 +518,15 @@ test("It should reuse the prefetched client without recreating it", async (t) =>
 	// Still only the single prefetch construction; before handler reused it.
 	strictEqual(createClientCalls, 1);
 });
+
+test("kmsValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	kmsValidateOptions({ contextKey: "custom" });
+	try {
+		kmsValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

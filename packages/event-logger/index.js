@@ -10,8 +10,7 @@ const defaults = {
 	logger: ({ event }) => {
 		console.log(JSON.stringify({ event }));
 	},
-	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
-	omitPaths: [],
+	omitPaths: undefined,
 	mask: undefined,
 };
 
@@ -33,7 +32,7 @@ const eventLoggerMiddleware = (opts = {}) => {
 
 	if (typeof logger !== "function") return {};
 
-	const omitPathTree = buildPathTree(omitPaths);
+	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	const eventLoggerMiddlewareBefore = (request) =>
 		logger(omit(request, omitPathTree, mask));

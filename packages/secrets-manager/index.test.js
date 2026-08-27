@@ -1399,3 +1399,15 @@ test("It should accept fetchRotationDate explicitly set to undefined", async (t)
 	handler.before(middleware);
 	await handler(defaultEvent, defaultContext);
 });
+
+test("secretsManagerValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	secretsManagerValidateOptions({ contextKey: "custom" });
+	try {
+		secretsManagerValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

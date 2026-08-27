@@ -14,8 +14,7 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	logger: (request) => console.error(request.error),
 	fallbackMessage: undefined,
-	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
-	omitPaths: [],
+	omitPaths: undefined,
 	mask: undefined,
 };
 
@@ -36,7 +35,7 @@ export const httpErrorHandlerValidateOptions = (options) =>
 const httpErrorHandlerMiddleware = (opts = {}) => {
 	const { logger, fallbackMessage, omitPaths, mask } = { ...defaults, ...opts };
 
-	const omitPathTree = buildPathTree(omitPaths);
+	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;

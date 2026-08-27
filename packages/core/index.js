@@ -237,6 +237,7 @@ const runRequest = async (
 				const nextMiddleware = afterMiddlewares[i];
 				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
 				let res = nextMiddleware(request);
+				// Stryker disable next-line ConditionalExpression: equivalent; `await` on a non-Promise is a no-op, so forcing the branch only costs the microtask this guard exists to save.
 				if (res instanceof Promise) res = await res;
 				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
 				if (typeof res !== "undefined") {
@@ -267,6 +268,7 @@ const runRequest = async (
 				const nextMiddleware = onErrorMiddlewares[i];
 				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
 				let res = nextMiddleware(request);
+				// Stryker disable next-line ConditionalExpression: equivalent; `await` on a non-Promise is a no-op, so forcing the branch only costs the microtask this guard exists to save.
 				if (res instanceof Promise) res = await res;
 				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
 				if (typeof res !== "undefined") {

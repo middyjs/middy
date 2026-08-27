@@ -8,10 +8,22 @@ const bench = new Bench({
 	warmupIterations: 1_000,
 });
 
+// Stands in for @middy/http-content-negotiation. Without it nothing is ever
+// compressed and the benchmark silently measures the early return instead.
+const seedPreferredEncoding = () => ({
+	before: (request) => {
+		const { preferredEncoding, preferredEncodings } = request.context;
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredEncoding,
+			preferredEncodings,
+		};
+	},
+});
+
 const setupHandler = () => {
 	const response = JSON.stringify(new Array(100000).fill(0));
 	const baseHandler = () => response;
-	return middy(baseHandler).use(middleware());
+	return middy(baseHandler).use(seedPreferredEncoding()).use(middleware());
 };
 
 const warmHandler = setupHandler();

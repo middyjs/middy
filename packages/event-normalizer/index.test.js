@@ -1251,3 +1251,116 @@ test("It should return a base64 payload unchanged when it looks like JSON but is
 
 	strictEqual(response.Records[0].kinesis.data, malformed);
 });
+
+test("It should parse an SQS body that is a JSON array", async (t) => {
+	// The first-character gate lists `[` explicitly; dropping it leaves array
+	// bodies as raw strings.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [{ eventSource: "aws:sqs", body: "[1,2]" }],
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, [1, 2]);
+});
+
+test("It should parse an SQS body that is a quoted JSON string", async (t) => {
+	// Same gate, `"` branch.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [{ eventSource: "aws:sqs", body: '"hello"' }],
+	};
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, "hello");
+});
+
+test("It should leave an SQS body that is not JSON-shaped untouched", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [{ eventSource: "aws:sqs", body: "plain text" }],
+	};
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, "plain text");
+});
+
+test("It should not throw for an SQS record with no body", async (t) => {
+	// `record.body?.Type` must tolerate a missing body; without the optional
+	// chaining this is a TypeError.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [{ eventSource: "aws:sqs" }] };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, undefined);
+	strictEqual(response.Records[0].eventSource, "aws:sqs");
+});
+
+test("It should leave a null SQS body untouched", async (t) => {
+	// `record.body !== null` guards the recursive parse; forcing it true makes
+	// parseEvent read properties off null.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = { Records: [{ eventSource: "aws:sqs", body: null }] };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body, null);
+});
+
+test("It should normalize records nested inside an SNS message", async (t) => {
+	// The SNS handler re-enters parseEvent on the decoded message, so a Kinesis
+	// payload wrapped in SNS still gets its data base64-decoded.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const inner = {
+		Records: [
+			{
+				eventSource: "aws:kinesis",
+				kinesis: { data: Buffer.from("nested").toString("base64") },
+			},
+		],
+	};
+	const event = {
+		Records: [
+			{ EventSource: "aws:sns", Sns: { Message: JSON.stringify(inner) } },
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+	const decoded = response.Records[0].Sns.Message.Records[0].kinesis.data;
+	strictEqual(decoded.toString(), "nested");
+});
+
+test("It should normalize records nested inside an SNS-to-SQS message", async (t) => {
+	// SQS carrying an SNS notification re-enters parseEvent on the decoded
+	// Message, so a Kinesis payload two levels down still gets decoded.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const inner = {
+		Records: [
+			{
+				eventSource: "aws:kinesis",
+				kinesis: { data: Buffer.from("nested-sqs").toString("base64") },
+			},
+		],
+	};
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({
+					Type: "Notification",
+					Message: JSON.stringify(inner),
+				}),
+			},
+		],
+	};
+
+	const response = await handler(event, defaultContext);
+	const decoded = response.Records[0].body.Message.Records[0].kinesis.data;
+	strictEqual(decoded.toString(), "nested-sqs");
+});

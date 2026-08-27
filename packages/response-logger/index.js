@@ -12,8 +12,7 @@ const defaults = {
 	logger: ({ response }) => {
 		console.log(JSON.stringify({ response }));
 	},
-	// Stryker disable next-line ArrayDeclaration: equivalent. A non-empty default keys the tree by its first path segment (e.g. "Stryker"), never a request key, so nothing on the request is ever matched, same as [].
-	omitPaths: [],
+	omitPaths: undefined,
 	mask: undefined,
 };
 
@@ -35,7 +34,7 @@ const responseLoggerMiddleware = (opts = {}) => {
 
 	if (typeof logger !== "function") return {};
 
-	const omitPathTree = buildPathTree(omitPaths);
+	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	// A streamed response is only logged after flush, by which point `core` may
 	// have cleared `request.response`, so the reconstructed body is grafted onto
@@ -72,17 +71,16 @@ const isWebStream = (value) => value instanceof ReadableStream;
 // reattached inside the flush callback. Each tee owns its own accumulation, so
 // no decoder state leaks between streams on a warm container.
 const teeStream = (request, log, makeTee) => {
-	// Stryker disable next-line OptionalChaining: equivalent. teeStream is only reached from logResponse after a truthy `response` was confirmed to be (or to carry) a stream, so request.response is never null/undefined here and the `?.` never short-circuits.
-	const hasBody = !!request.response?.body;
-	const source = hasBody ? request.response.body : request.response;
-	const snapshot = hasBody ? request.response : null;
-	const onBody = (body) => {
-		log(request, hasBody ? { ...snapshot, body } : body);
-	};
-	const piped = makeTee(source, onBody);
-	// Stryker disable next-line ConditionalExpression: equivalent. The tee transform pulls from the original `source` stream regardless; whether `piped` is reattached to .body only changes which equivalent stream object the host pipes, and both deliver the same bytes and trigger the same flush/log.
-	if (hasBody) request.response.body = piped;
-	else request.response = piped;
+	// `response` is a stream, or carries one on `.body`: the caller only reaches
+	// here once one of those held, so neither access needs guarding.
+	const { response } = request;
+	if (response.body) {
+		response.body = makeTee(response.body, (body) =>
+			log(request, { ...response, body }),
+		);
+	} else {
+		request.response = makeTee(response, (body) => log(request, body));
+	}
 };
 
 const makeNodeTee = (source, onBody) => {
@@ -109,13 +107,12 @@ const makeWebTee = (source, onBody) => {
 	// A fresh decoder per stream, so state never carries over on a warm container.
 	const decoder = new TextDecoder();
 	let body = "";
-	const decodeWebChunk = (chunk) => {
-		// Stryker disable next-line ConditionalExpression,StringLiteral: equivalent. Skipping the string fast-path lets a string chunk fall through to `return String(chunk)`, and String(str) === str, so the returned value is identical.
-		if (typeof chunk === "string") return chunk;
-		if (chunk instanceof Uint8Array)
-			return decoder.decode(chunk, { stream: true });
-		return String(chunk);
-	};
+	// `String(chunk)` is a no-op on the string chunks the streaming API also
+	// emits, so bytes are the only case needing the decoder.
+	const decodeWebChunk = (chunk) =>
+		chunk instanceof Uint8Array
+			? decoder.decode(chunk, { stream: true })
+			: String(chunk);
 	return source.pipeThrough(
 		new TransformStream({
 			transform(chunk, controller) {

@@ -886,3 +886,44 @@ test("It should await the pending setToContext promise on a cold invocation", as
 	});
 	deepStrictEqual(result, [instance]);
 });
+
+test("serviceDiscoveryValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	serviceDiscoveryValidateOptions({ contextKey: "custom" });
+	try {
+		serviceDiscoveryValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should prefetch at factory time when prefetch is enabled", async (t) => {
+	const mockService = mockClient(ServiceDiscoveryClient)
+		.on(DiscoverInstancesCommand)
+		.resolves({
+			Instances: [
+				{
+					Attributes: { AWS_INSTANCE_IPV4: "172.2.1.3" },
+					InstanceId: "myservice-1",
+					NamespaceName: "example.com",
+					ServiceName: "myservice",
+				},
+			],
+		});
+
+	// canPrefetch() is true with the defaults, so the factory itself must issue
+	// the fetch, before any invocation. Without that call the first invocation
+	// would still fetch and every other assertion would look identical.
+	serviceDiscovery({
+		AwsClient: ServiceDiscoveryClient,
+		cacheKey: "sd-prefetch",
+		fetchData: {
+			instances: { NamespaceName: "example.com", ServiceName: "myservice" },
+		},
+	});
+
+	strictEqual(mockService.send.callCount, 1);
+	clearCache();
+});

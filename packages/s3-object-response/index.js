@@ -47,7 +47,7 @@ const s3ObjectResponseMiddleware = (opts = {}) => {
 		client = createPrefetchClient(options);
 	}
 
-	const s3ObjectResponseMiddlewareBefore = async (request) => {
+	const s3ObjectResponseMiddlewareBefore = (request) => {
 		const { inputS3Url } = request.event.getObjectContext ?? {};
 
 		const s3ObjectFetch = inputS3Url ? fetch(inputS3Url) : undefined;

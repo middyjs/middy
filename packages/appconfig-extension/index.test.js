@@ -1,7 +1,7 @@
 import { equal, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout } from "node:timers/promises";
-import { clearCache, getInternal, modifyCache } from "@middy/util";
+import { clearCache, getCache, getInternal, modifyCache } from "@middy/util";
 import middy from "../core/index.js";
 import appConfigExtension, {
 	appConfigExtensionParam,
@@ -463,7 +463,10 @@ test("It should prefetch at factory time when using defaults", async (_t) => {
 		.before(async (request) => {
 			const values = await getInternal(true, request);
 			strictEqual(values.config?.option, "value");
-			seen.contextHasConfig = "config" in request.context;
+			// v8 publishes to context.middyContext[contextKey], not the context
+			// root, so the root is empty either way and cannot show the default.
+			seen.contextHasConfig =
+				"appconfig-extension" in request.context.middyContext;
 		});
 	await handler(event, context);
 	// setToContext defaults to false (line 23): config must NOT land on context.
@@ -677,5 +680,54 @@ test("appConfigExtensionValidateOptions rejects fetchData entry missing required
 		ok(
 			e.message.includes("environment") || e.message.includes("configuration"),
 		);
+	}
+});
+
+test("appConfigExtensionValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	appConfigExtensionValidateOptions({ contextKey: "custom" });
+	try {
+		appConfigExtensionValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should blank only the failed key in the cache and keep its siblings", async (_t) => {
+	// Two keys are required to tell the catch block's seed apart: with a single
+	// key an empty `{}` seed and a copy of the cached value look identical.
+	const badUrl = `${baseUrl}/bad_config`;
+	mockFetch(badUrl, null, "application/json", 500);
+
+	const handler = middy(() => {}).use(
+		appConfigExtension({
+			cacheKey: "ac-partial",
+			cacheExpiry: -1,
+			disablePrefetch: true,
+			fetchData: {
+				config: fetchParam,
+				bad: {
+					application: "my_app",
+					environment: "dev",
+					configuration: "bad_config",
+				},
+			},
+		}),
+	);
+
+	try {
+		await handler(event, context);
+		ok(false, "should have thrown");
+	} catch (_e) {
+		const cached = getCache("ac-partial").value;
+		// Blanked so the next invocation refetches instead of reusing a
+		// rejected promise; without modifyCache it would still be that promise.
+		strictEqual(cached.bad, undefined);
+		// The sibling that resolved survives; a `{}` seed would drop it.
+		ok(cached.config !== undefined);
+	} finally {
+		clearCache();
 	}
 });

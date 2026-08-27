@@ -605,3 +605,15 @@ test("secretsManagerExtensionValidateOptions rejects non-string fetchData value"
 		ok(e instanceof TypeError);
 	}
 });
+
+test("secretsManagerExtensionValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	secretsManagerExtensionValidateOptions({ contextKey: "custom" });
+	try {
+		secretsManagerExtensionValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});

@@ -3,7 +3,19 @@ import fc from "fast-check";
 import middy from "../core/index.js";
 import middleware from "./index.js";
 
-const handler = middy((event) => event).use(middleware());
+// Stands in for @middy/http-content-negotiation, which is where the middleware
+// reads preferredEncoding from. Without it the fuzzer never reaches the encoder.
+const seedPreferredEncoding = () => ({
+	before: (request) => {
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredEncoding: request.context.preferredEncoding,
+		};
+	},
+});
+
+const handler = middy((event) => event)
+	.use(seedPreferredEncoding())
+	.use(middleware());
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 	preferredEncoding: "br",

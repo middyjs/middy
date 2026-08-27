@@ -3102,3 +3102,26 @@ test("httpX402ValidateOptions - valid versions pass", () => {
 		versions: [2],
 	});
 });
+
+test("settlement normalizes a response that omits headers", async (t) => {
+	// Every other settlement test hands back an explicit `headers: {}`, so the
+	// normalize call is invisible. A handler that omits headers is the only way
+	// to show it: without normalizing, writing the settlement header throws.
+	const { MockFacilitatorClient, mockSettle } = makeMockClient(
+		t,
+		defaultVerifyResult,
+		defaultSettleResult,
+	);
+	const handler = middy(() => ({ statusCode: 200, body: "ok" })).use(
+		httpX402({ ...defaultOptions, FacilitatorClient: MockFacilitatorClient }),
+	);
+
+	const response = await handler(
+		{ headers: { "payment-signature": makePaymentHeader(testPayload) } },
+		defaultContext,
+	);
+
+	strictEqual(response.statusCode, 200);
+	ok(response.headers["PAYMENT-RESPONSE"]);
+	strictEqual(mockSettle.mock.callCount(), 1);
+});

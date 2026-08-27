@@ -38,9 +38,12 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 
 		// Reject abusive selectors before they reach json-mask.
 		if (fields.length > maxFieldsLength) return;
+		// 47 = '/', 40 = '('
 		let depth = 0;
-		for (const char of fields) {
-			if (char === "/" || char === "(") depth += 1;
+		// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads charCodeAt(l), which is NaN and never equals 47 or 40, so the depth is identical. Kept as an index loop on purpose: `for...of` over a string allocates a one-character string per iteration on a per-request path bounded by maxFieldsLength.
+		for (let i = 0, l = fields.length; i < l; i++) {
+			const code = fields.charCodeAt(i);
+			if (code === 47 || code === 40) depth += 1;
 		}
 		if (depth > maxFieldsDepth) return;
 

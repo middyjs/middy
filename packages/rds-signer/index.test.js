@@ -787,3 +787,15 @@ test("It should cache forever by default (cacheExpiry defaults -1)", async (t) =
 
 	strictEqual(getAuthToken.mock.callCount(), 1);
 });
+
+test("rdsSignerValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	rdsSignerValidateOptions({ contextKey: "custom" });
+	try {
+		rdsSignerValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
