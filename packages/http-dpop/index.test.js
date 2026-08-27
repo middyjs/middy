@@ -637,6 +637,25 @@ test("It should throw a 500 when the request URI cannot be resolved", async () =
 	ok(result.cause.data.includes("'origin' option"));
 });
 
+test("It should throw a 500 when the event carries no path", async () => {
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			headers: {
+				authorization: `DPoP ${TOKEN}`,
+				dpop: proofFor(key),
+			},
+			requestContext: { domainName: DOMAIN },
+		},
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+	ok(result.cause.data.includes("'origin' option"));
+});
+
 test("It should throw a 500 when the origin option is not a URL", async () => {
 	const key = keyFor();
 	const handler = makeHandler(boundPayload(key), { origin: "not a url" });
