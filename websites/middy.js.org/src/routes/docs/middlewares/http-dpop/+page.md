@@ -25,7 +25,7 @@ There is no peer dependency: verification uses `node:crypto` only.
 - `payloadKey` (string) (default `jwt`): Key on `request.internal` holding the verified token payload. Set it to `paseto` when pairing with `@middy/http-paseto`, or to whatever `payloadKey` you configured on the verifier.
 - `proofKey` (string) (default `dpop`): Key under which the verified proof claims are stored.
 - `confirmationClaim` (string) (default `cnf`): Claim holding `{ jkt }`. Only change this if your authorization server puts the thumbprint somewhere non-standard.
-- `origin` (string) (optional): The `https://host` the proof's `htu` must name. When omitted it is derived from `requestContext.domainName`, which API Gateway sets from the domain that served the request. Set it explicitly behind a CDN, a custom proxy, or an ALB.
+- `origin` (string) (optional): The `https://host` the proof's `htu` must name. When omitted it is derived from `requestContext.domainName`, which API Gateway sets from the domain that served the request. Set it explicitly behind a CDN, a custom proxy, or an ALB. It may carry a base path (`https://api.example.com/v1`), which is what a custom domain's API mapping needs; see the note below. A trailing slash is trimmed, and a value that is not a URL throws at construction rather than failing every request.
 - `algorithm` (string | string[]) (optional): Allowed proof algorithms. Defaults to all of `ES256`, `ES384`, `ES512`, `PS256`, `RS256`, `EdDSA`. Narrow it if you control every client.
 - `maxAge` (number) (default `60`): How many seconds either side of now a proof's `iat` may fall.
 - `maxProofLength` (number) (default `8192`): Longest `DPoP` header accepted, checked before anything parses it.
@@ -34,11 +34,16 @@ There is no peer dependency: verification uses `node:crypto` only.
 
 NOTES:
 
-- Every rejection is a `401 Unauthorized`. Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to turn it into a response.
+- Every rejection is a `401 Unauthorized` carrying `WWW-Authenticate: DPoP algs="..."`, so a client learns which proofs you accept (RFC 9449 §7.1). Pair with [`http-error-handler`](/docs/middlewares/http-error-handler) to turn it into a response; it copies the header across for you.
 - The `htu` is built from `origin` and the request path, **never** from the `Host` header. A client controls `Host`, so trusting it would let anyone mint a proof for an origin of their choosing.
+- The request path comes from `rawPath` (HTTP API), then `requestContext.path` (REST API), then `path` (ALB). REST is read from `requestContext.path` because API Gateway strips the stage from `event.path`, and the client signs the URL it actually called.
+- **On a REST API or an ALB, put [`http-header-normalizer`](/docs/middlewares/http-header-normalizer) in front.** Those two pass the client's header casing through verbatim, so a client sending `DPOP:` instead of `DPoP:` is refused for the wrong reason. HTTP APIs already lower-case everything.
+- **Behind a custom domain with an API mapping, put the base path on `origin`.** AWS does not include the mapping in `rawPath`, so a request to `https://api.example.com/v1/orders` arrives as `/orders`; `origin: 'https://api.example.com/v1'` restores it.
 - The `htu` comparison ignores the query string and fragment, per RFC 9449 §4.3, so a client does not have to reproduce your query serialization.
 - Only asymmetric algorithms are accepted. `none` and the `HS*` family have no public half, so there is nothing a proof could demonstrate possession of.
 - Each algorithm is pinned to the key type it must be paired with. Without that, `alg: "ES256"` carrying an RSA JWK would verify as RSA-SHA256 against a key the sender picked.
+- An RSA public exponent longer than 64 bits is refused before the key is imported. OpenSSL only caps the exponent above a 3072-bit modulus, which leaves a proof that fits well inside `maxProofLength` but costs a hundred times a normal verify. Every real key uses 65537.
+- A `cnf` claim without a `jkt` member counts as unbound, so a token bound some other way (mTLS `x5t#S256`, [RFC 8705](https://www.rfc-editor.org/rfc/rfc8705)) passes through here even under `required: true`. Enforcing that binding is the job of whatever middleware understands it.
 
 ## Sample usage
 

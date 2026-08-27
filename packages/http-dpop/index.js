@@ -93,12 +93,13 @@ const THUMBPRINT_MEMBERS = {
 const PRIVATE_MEMBERS = ["d", "p", "q", "dp", "dq", "qi", "k"];
 
 export const jwkThumbprint = (jwk) => {
-	const members = THUMBPRINT_MEMBERS[jwk?.kty];
-	if (!members) {
+	// `hasOwn`, not a truthiness check: `kty: "constructor"` otherwise resolves
+	// to a member of Object.prototype and this reads as a supported key type.
+	if (!Object.hasOwn(THUMBPRINT_MEMBERS, jwk?.kty)) {
 		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`);
 	}
 	const canonical = {};
-	for (const member of members) {
+	for (const member of THUMBPRINT_MEMBERS[jwk.kty]) {
 		if (typeof jwk[member] !== "string") {
 			throw new Error(`JWK is missing required member '${member}'`);
 		}
@@ -142,11 +143,32 @@ const httpUri = (url, label) => {
 	return `${parsed.origin}${parsed.pathname}`;
 };
 
+// Parsed at construction, like `algorithm`: an origin that cannot be a URL
+// cannot serve any request, so it should stop a deployment rather than 500 on
+// every one of them. The trailing slash goes here too, because it doubles the
+// `/` in front of every path and then fails every comparison as silently as a
+// genuinely wrong `htu`.
+const normalizeOrigin = (origin) => {
+	if (origin === undefined) return undefined;
+	let uri;
+	try {
+		uri = httpUri(origin, "Option 'origin'");
+	} catch {
+		throw new TypeError(`Option 'origin' is not a URL: '${origin}'`, {
+			cause: { package: pkg },
+		});
+	}
+	return uri.replace(/\/+$/, "");
+};
+
 const normalizeAlgorithms = (algorithm) => {
 	if (algorithm === undefined) return ALGORITHM_NAMES;
 	const list = Array.isArray(algorithm) ? algorithm : [algorithm];
 	for (const alg of list) {
-		if (!ALGORITHMS[alg]) {
+		// `hasOwn` for the same reason as in `jwkThumbprint`: `'constructor'`
+		// would otherwise pass here and then resolve to a table entry with no
+		// `kty`, which every real JWK fails against for the wrong reason.
+		if (!Object.hasOwn(ALGORITHMS, alg)) {
 			throw new TypeError(
 				`Unsupported algorithm '${alg}', expected one of ${ALGORITHM_NAMES.join(", ")}`,
 				{ cause: { package: pkg } },
@@ -164,7 +186,15 @@ const asString = (value) => (typeof value === "string" ? value : undefined);
 const readMethod = (event) =>
 	asString(event?.requestContext?.http?.method) ?? asString(event?.httpMethod);
 
-const readPath = (event) => asString(event?.rawPath) ?? asString(event?.path);
+// `htu` names the URI the client requested, so the path has to be the one that
+// arrived rather than the one the router matched. API Gateway REST strips the
+// stage from `event.path` and keeps it on `requestContext.path`, so preferring
+// the latter is what makes a stage other than `$default` work at all. HTTP
+// (v2) has no `requestContext.path`; ALB has neither, and only `path`.
+const readPath = (event) =>
+	asString(event?.rawPath) ??
+	asString(event?.requestContext?.path) ??
+	asString(event?.path);
 
 // Never the Host header: a client controls it, so trusting it would let a proof
 // be minted for any origin the attacker chose. `requestContext.domainName` is
@@ -229,6 +259,18 @@ export const verifyDpopProof = (
 		}
 	}
 
+	// OpenSSL only caps the public exponent above a 3072-bit modulus, so a
+	// 3072-bit modulus paired with an exponent almost as large fits inside any
+	// sane `maxProofLength` and costs ~100x a normal verify. 64 bits is the
+	// ceiling OpenSSL itself applies to larger moduli, and is far above 65537.
+	if (
+		jwk.kty === "RSA" &&
+		typeof jwk.e === "string" &&
+		Buffer.byteLength(jwk.e, "base64url") > 8
+	) {
+		throw new Error("Proof 'jwk' has an oversized RSA public exponent");
+	}
+
 	let key;
 	try {
 		key = createPublicKey({ key: jwk, format: "jwk" });
@@ -283,6 +325,24 @@ export const verifyDpopProof = (
 const httpDpopMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const algorithms = normalizeAlgorithms(options.algorithm);
+	const origin = normalizeOrigin(options.origin);
+
+	// RFC 9449 §7.1: a resource that refuses a request SHOULD name the scheme it
+	// wants and the proof algorithms it will accept, so a client can answer
+	// rather than guess. `http-error-handler` copies `error.headers` onto the
+	// response. No `error` parameter: `invalid_dpop_proof` would be a lie on the
+	// refusals below that are about the token rather than the proof.
+	const wwwAuthenticate = {
+		"WWW-Authenticate": `DPoP algs="${algorithms.join(" ")}"`,
+	};
+
+	const unauthorized = (data) => {
+		const error = createError(401, "Unauthorized", {
+			cause: { package: pkg, data },
+		});
+		error.headers = wwwAuthenticate;
+		return error;
+	};
 
 	const httpDpopMiddlewareBefore = async (request) => {
 		const result = await getInternal(options.payloadKey, request);
@@ -295,12 +355,9 @@ const httpDpopMiddleware = (opts = {}) => {
 		const jkt = payload?.[options.confirmationClaim]?.jkt;
 		if (jkt === undefined) {
 			if (options.required) {
-				throw createError(401, "Unauthorized", {
-					cause: {
-						package: pkg,
-						data: `Token carries no '${options.confirmationClaim}.jkt', and 'required' is set`,
-					},
-				});
+				throw unauthorized(
+					`Token carries no '${options.confirmationClaim}.jkt', and 'required' is set`,
+				);
 			}
 			return;
 		}
@@ -312,44 +369,42 @@ const httpDpopMiddleware = (opts = {}) => {
 		// proof together and talk its way back to bearer semantics.
 		const authorization = readAuthorization(headers);
 		if (!authorization?.toLowerCase().startsWith("dpop ")) {
-			throw createError(401, "Unauthorized", {
-				cause: {
-					package: pkg,
-					data: "A DPoP-bound token must be sent with the DPoP authentication scheme",
-				},
-			});
+			throw unauthorized(
+				"A DPoP-bound token must be sent with the DPoP authentication scheme",
+			);
 		}
 		const accessToken = authorization.slice("dpop ".length);
 
 		const proof = readProof(headers);
 		if (typeof proof !== "string" || !proof) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: "Missing DPoP header" },
-			});
+			throw unauthorized("Missing DPoP header");
 		}
 		// Bounded before anything parses it, so a hostile proof cannot hand
 		// `createPublicKey` a multi-megabyte RSA modulus to import.
 		if (proof.length > options.maxProofLength) {
-			throw createError(401, "Unauthorized", {
-				cause: {
-					package: pkg,
-					data: `DPoP header exceeds maxProofLength of ${options.maxProofLength}`,
-				},
-			});
+			throw unauthorized(
+				`DPoP header exceeds maxProofLength of ${options.maxProofLength}`,
+			);
 		}
 
-		// Resolved and parsed here rather than inside the proof check, so a bad
-		// `origin` option is a 500 the operator can act on and never a 401 the
-		// caller is left to guess at.
-		const origin = readOrigin(request.event, options.origin);
+		// Resolved and parsed here rather than inside the proof check, so an
+		// undeterminable request URI — an ALB, or anything else with no
+		// `requestContext.domainName`, and no `origin` configured — is a 500 the
+		// operator can act on and never a 401 the caller is left to guess at. A
+		// malformed `origin` never reaches this point; it fails at construction.
+		const requestOrigin = readOrigin(request.event, origin);
 		const path = readPath(request.event);
 		let url;
 		try {
-			url = httpUri(`${origin}${path}`, "The request URI");
+			url = httpUri(`${requestOrigin}${path}`, "The request URI");
 		} catch {
 			url = undefined;
 		}
-		if (origin === undefined || path === undefined || url === undefined) {
+		if (
+			requestOrigin === undefined ||
+			path === undefined ||
+			url === undefined
+		) {
 			throw createError(500, "Internal Server Error", {
 				cause: {
 					package: pkg,
@@ -368,18 +423,13 @@ const httpDpopMiddleware = (opts = {}) => {
 				maxAge: options.maxAge,
 			});
 		} catch (e) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: e.message },
-			});
+			throw unauthorized(e.message);
 		}
 
 		if (verified.jkt !== jkt) {
-			throw createError(401, "Unauthorized", {
-				cause: {
-					package: pkg,
-					data: "Proof key does not match the token's confirmation claim",
-				},
-			});
+			throw unauthorized(
+				"Proof key does not match the token's confirmation claim",
+			);
 		}
 
 		// Published so a later middleware can add replay protection of its own;
