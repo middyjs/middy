@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ecs-task",
-	"version": "7.9.0",
+	"version": "7.9.1",
 	"description": "ECS/Fargate single-shot task runtime for the middy framework",
 	"type": "module",
 	"engines": {
@@ -62,10 +62,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.0"
+		"@middy/util": "7.9.1"
 	},
 	"devDependencies": {
-		"@middy/core": "7.9.0",
+		"@middy/core": "7.9.1",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^22.0.0"
 	}
