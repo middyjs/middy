@@ -326,7 +326,8 @@ No change
 
 ### [http-x402](/docs/middlewares/http-x402)
 
-No change
+- `versions` now defaults to `[2]`, so protocol v1 (`X-PAYMENT`) payments are re-challenged as v2 instead of being verified **Breaking Change**
+- pass `versions: [1, 2]` to keep accepting v1 clients
 
 ### [kms](/docs/middlewares/kms)
 

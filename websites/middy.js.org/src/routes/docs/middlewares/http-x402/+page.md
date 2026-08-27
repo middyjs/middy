@@ -4,7 +4,7 @@ description: "Gate Lambda HTTP endpoints behind x402 on-chain micropayments: ver
 status: alpha
 ---
 
-Implements the [x402 payment protocol](https://x402.org) for API Gateway and Function URL handlers, serving protocol v2 and v1 clients side by side (configurable via `versions`). The version is detected per request from the payment header: v2 clients send `PAYMENT-SIGNATURE`, v1 clients send `X-PAYMENT` (v2 wins when both are present). The middleware verifies the payment with a facilitator, runs the handler, then settles the payment on-chain. An unpaid 402 challenges both generations at once: the v2 challenge travels in the `PAYMENT-REQUIRED` header and the v1 challenge in the JSON body. Settlement results are returned in `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) on success and failure alike.
+Implements the [x402 payment protocol](https://x402.org) for API Gateway and Function URL handlers, serving protocol v2 by default and v1 clients alongside it when opted in via `versions`. The version is detected per request from the payment header: v2 clients send `PAYMENT-SIGNATURE`, v1 clients send `X-PAYMENT` (v2 wins when both are present). The middleware verifies the payment with a facilitator, runs the handler, then settles the payment on-chain. An unpaid 402 challenges both generations at once: the v2 challenge travels in the `PAYMENT-REQUIRED` header and the v1 challenge in the JSON body. Settlement results are returned in `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) on success and failure alike.
 
 After settlement, payer info is available via `request.internal.x402` for downstream use (e.g. logging, rate-limiting per wallet).
 
@@ -22,7 +22,7 @@ npm install --save @middy/http-x402 @x402/core
 - `amount` (string) (optional): Payment amount as an integer string in atomic token units. Takes precedence over `price` and `decimals`.
 - `payTo` (string) (required): Wallet address that receives the payment.
 - `asset` (string) (required): On-chain asset contract address (e.g. USDC on Base).
-- `versions` (array of `1 | 2`) (default `[1, 2]`): Protocol versions to accept and advertise. A disabled version's payment header is ignored and the client is re-challenged with the enabled formats only, before any facilitator call. Pin `[2]` to reduce attack surface on new deployments. The default will drop `1` in the next major version; pass `versions: [1, 2]` explicitly if you need v1 long term.
+- `versions` (array of `1 | 2`) (default `[2]`): Protocol versions to accept and advertise. A disabled version's payment header is ignored and the client is re-challenged with the enabled formats only, before any facilitator call. v1 is opt-in: pass `versions: [1, 2]` to also accept `X-PAYMENT` clients.
 - `FacilitatorClient` (class) (default `HTTPFacilitatorClient` from `@x402/core`): Facilitator client class. Override for custom facilitators.
 - `facilitatorUrl` (string) (default `"https://x402.org/facilitator"`): URL of the x402 facilitator service.
 - `decimals` (integer) (default `6`): Asset decimal places used to convert `price` to on-chain units.
@@ -77,9 +77,9 @@ export const handler = middy()
   })
 ```
 
-### Harden to v2 only
+### Also accept v1 clients
 
-Pinning `versions` shrinks the accepted protocol surface: v1 payment headers are ignored, agents are only ever challenged with v2 terms, and no facilitator call is spent on v1 traffic.
+The default `versions: [2]` shrinks the accepted protocol surface: v1 payment headers are ignored, agents are only ever challenged with v2 terms, and no facilitator call is spent on v1 traffic. Opt back in to v1 when you still serve `X-PAYMENT` clients.
 
 ```javascript
 import middy from '@middy/core'
@@ -91,7 +91,7 @@ export const handler = middy()
       price: 0.001,
       payTo: '0xYourWalletAddress',
       asset: '0xYourAssetAddress',
-      versions: [2],
+      versions: [1, 2],
     }),
   )
   .handler(async (event, context) => {
@@ -105,7 +105,7 @@ Per the v2 HTTP transport all protocol information is communicated through heade
 
 | Outcome | Status | Where the protocol object lands |
 | --- | --- | --- |
-| No payment header | 402 | v2 challenge in `PAYMENT-REQUIRED`, v1 challenge in the body |
+| No payment header | 402 | v2 challenge in `PAYMENT-REQUIRED`, v1 challenge in the body when v1 is enabled |
 | Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v2 request) | 402 | `PAYMENT-REQUIRED` with `error` set |
 | Undecodable payment, unsupported `x402Version`, requirements mismatch, or verification failure (v1 request) | 402 | v1 challenge in the body with `error` set |
 | Settlement failure | 402 | `PAYMENT-RESPONSE` (v2) or `X-PAYMENT-RESPONSE` (v1) with `success: false` and `errorReason` |
