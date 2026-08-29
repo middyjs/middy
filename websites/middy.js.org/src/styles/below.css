@@ -22,4 +22,6 @@
 @import "@willfarrell-ds/vanilla/classes/.group.css";
 @import "@willfarrell-ds/vanilla/classes/.icon.css";
 @import "@willfarrell-ds/vanilla/components/ds-card.css";
+@import "@willfarrell-ds/vanilla/components/ds-codeblock.css";
+@import "@willfarrell-ds/vanilla/components/ds-copy-pre.css";
 @import "@willfarrell-ds/vanilla/components/ds-input-focus.css";
