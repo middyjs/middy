@@ -48,7 +48,7 @@
 		"release:license:add": "license-check-and-add add -f .license.config.json",
 		"release:license:remove": "license-check-and-add remove -f .license.config.json",
 		"release:sync": "npm version $npm_package_version --workspaces; v=$(npm pkg get version | tr -d '\"'); find ./packages -name \"package.json\" -exec sed -i '' -E \"s#\\\"@middy/(.*)\\\": ([^,]*)#\\\"@middy/\\1\\\": \\\"$v\\\"#g\" {} \\; && npm run rm && npm install && npm run lint",
-		"release:tag": "git tag $npm_package_version",
+		"release:tag": "git tag -s -m $npm_package_version $npm_package_version",
 		"release:staged": "npm whoami >/dev/null && npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r '.[] | \"\\(.packageName)@\\(.version) \\(.actor) \\(.shasum)\"'",
 		"release:approve": "npm query '.workspace:not([private])' | jq -r '.[].name' | xargs -n1 -I{} npm stage list {} --json | jq -r --arg v \"$npm_package_version\" '.[] | select(.version == $v) | .id' | xargs -n1 -o npm stage approve"
 	},
