@@ -1,7 +1,3 @@
-/*
-Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
-SPDX-License-Identifier: MIT
-*/
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   middy e2e event capture harness (tests/events/SPEC.md). One capture Lambda per
