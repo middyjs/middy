@@ -6,7 +6,7 @@ import type {
 	S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type GetObjectCommandInputNoChecksumMode = Omit<
@@ -35,11 +35,15 @@ export type Context<TOptions extends S3Options | undefined> = TOptions extends {
 	setToContext: true;
 }
 	? TOptions extends { fetchData: infer TFetchData }
-		? LambdaContext & {
-				[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-					? T
-					: unknown;
-			}
+		? ContextNamespace<
+				TOptions,
+				"s3",
+				{
+					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
+						? T
+						: unknown;
+				}
+			>
 		: never
 	: LambdaContext;
 

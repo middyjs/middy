@@ -6,7 +6,7 @@ import type {
 	GlueClientConfig,
 } from "@aws-sdk/client-glue";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -60,9 +60,11 @@ export interface GlueSchemaRegistryOptions<AwsGlueClient = GlueClient>
 export type Context<TOptions extends GlueSchemaRegistryOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: ResolvedSchema;
-				}
+			? ContextNamespace<
+					TOptions,
+					"glue-schema-registry",
+					{ [Key in keyof TFetchData]: ResolvedSchema }
+				>
 			: LambdaContext
 		: LambdaContext;
 

@@ -35,6 +35,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1, // with fetchRotationDate: -1 expires at NextRotationDate; >=0 adds to the last change date, capped at NextRotationDate
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -62,6 +63,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -182,10 +184,10 @@ const secretsManagerMiddleware = (opts = {}) => {
 	// cache entry (processCache reads the override by `options.cacheKey`). The
 	// stale entry is evicted first so processCache stores a fresh value under the
 	// new expiry rather than reusing the old value masked by a future override.
-	const refreshRotationExpiry = async () => {
+	const refreshRotationExpiry = () => {
 		if (!rotationEnabled || cacheUnexpired()) return;
 		clearCache([options.cacheKey]);
-		await fetchRotationDates();
+		return fetchRotationDates();
 	};
 
 	let client;
@@ -197,23 +199,29 @@ const secretsManagerMiddleware = (opts = {}) => {
 			.catch(() => {});
 	}
 
-	const secretsManagerMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
-		await refreshRotationExpiry();
-
+	const secretsManagerMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent - pending is either a Promise (awaited under both) or undefined, and `await undefined` resolves immediately with no observable effect
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const secretsManagerMiddlewareRefreshThenFetch = (request) => {
+		const rotation = refreshRotationExpiry();
+		if (rotation) {
+			return rotation.then(() => secretsManagerMiddlewareFetch(request));
+		}
+		return secretsManagerMiddlewareFetch(request);
+	};
+
+	const secretsManagerMiddlewareBefore = (request) => {
+		if (client) return secretsManagerMiddlewareRefreshThenFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return secretsManagerMiddlewareRefreshThenFetch(request);
+		});
 	};
 
 	return {

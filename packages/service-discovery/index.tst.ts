@@ -43,7 +43,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<HttpInstanceSummary[]>();
+			expect(request.context.middyContext["service-discovery"].foo).type.toBe<
+				HttpInstanceSummary[]
+			>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<HttpInstanceSummary[]>();

@@ -35,7 +35,7 @@ npm install --save jose
 - `clockTolerance` (number) (default `0`): Clock skew tolerance in seconds applied to `exp`/`nbf` checks.
 - `expectedClaims` (object) (optional): Claims the payload must carry, compared with strict equality, e.g. `{ token_use: 'access' }`. A claim that is absent fails the same way a claim with the wrong value does. Checked after the signature and before the payload is published, so nothing downstream can read a payload this rejected. Distinct from jose's `requiredClaims`, which only asserts presence. Values must be a string, number, or boolean: an array or object could only match itself by reference, so it is refused at construction.
 - `payloadKey` (string) (default `jwt`): Key under which the decoded payload is stored.
-- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also written to `request.context[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`).
+- `setToContext` (boolean) (default `false`): When `true`, the verified payload is also published to `request.context.middyContext[payloadKey]`. By default it is written only to `request.internal[payloadKey]` (matches `@middy/ssm` and `@middy/secrets-manager`). There is no separate `contextKey`: `payloadKey` names both.
 - `cacheExpiry` (number) (optional, `issuers` only): JWKS cache TTL in ms. Forwarded to `jose.createRemoteJWKSet`'s `cacheMaxAge`.
 - `cooldownDuration` (number) (optional, `issuers` only): Minimum interval in ms between JWKS refetches on `kid` miss. Forwarded to `jose.createRemoteJWKSet`'s `cooldownDuration`.
 - `disablePrefetch` (boolean) (default `false`, `issuers` only): Skip the warm-up fetch fired at factory time for each issuer entry.
@@ -62,7 +62,7 @@ const COGNITO_ISSUER = `https://cognito-idp.${COGNITO_REGION}.amazonaws.com/${CO
 
 const lambdaHandler = async (event) => {
   // The verified payload is on request.internal.jwt by default.
-  // To use context.jwt as below, pass setToContext: true to httpJwt.
+  // To use context.middyContext.jwt as below, pass setToContext: true to httpJwt.
   return { statusCode: 200, body: JSON.stringify({ ok: true }) }
 }
 
@@ -261,7 +261,7 @@ The patterns above are safe against the two classic JWT verification mistakes:
 ### Other notes for Cognito users
 
 - Use `audience: COGNITO_CLIENT_ID` for **ID tokens**. **Access tokens** carry `client_id` instead of `aud`; either drop the `audience` check and validate `payload.client_id` in a follow-up middleware, or restrict the handler to one token type.
-- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `createError(401, ...)` on mismatch.
+- Cognito tokens also carry a `token_use` claim (`id` or `access`). To enforce which type your handler accepts, add a small middleware after `http-jwt` that reads `request.internal.jwt.token_use` and throws `new HttpError(401, ...)` on mismatch.
 
 ## Key rotation
 
@@ -333,7 +333,7 @@ Do not confuse this with `requireExp`, which forwards jose's `requiredClaims` an
 import middy from '@middy/core'
 import httpJwt from '@middy/http-jwt'
 import httpErrorHandler from '@middy/http-error-handler'
-import { createError } from '@middy/util'
+import { HttpError } from '@middy/util'
 
 const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {}) => ({
   before: (request) => {
@@ -343,8 +343,11 @@ const requireRole = (requiredRole, { payloadKey = 'jwt', claim = 'roles' } = {})
       ? roles.includes(requiredRole)
       : roles === requiredRole
     if (!has) {
-      throw createError(403, 'Forbidden', {
-        cause: { package: 'custom/require-role', data: `Missing role: ${requiredRole}` },
+      throw new HttpError(403, {
+        cause: {
+          package: 'custom/require-role',
+          data: { reason: 'Missing role', requiredRole },
+        },
       })
     }
   },

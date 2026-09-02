@@ -88,6 +88,7 @@ const sampleRequest: middy.Request<
 		done: () => {},
 		fail: () => {},
 		succeed: () => {},
+		middyContext: {},
 	},
 	response: undefined,
 	error: undefined,
@@ -256,14 +257,15 @@ test("normalizeHttpResponse", () => {
 	expect(normalizedResponse).type.toBe<Record<string, unknown>>();
 });
 
-test("createError", () => {
-	const err = util.createError(500, "An unexpected error occurred");
+test("HttpError", () => {
+	const err = new util.HttpError(500, {
+		cause: { package: "@middy/util", data: { reason: "unexpected" } },
+	});
 	expect(err).type.toBe<util.HttpError>();
-	// err instanceof util.HttpError // would throw a type error if not a class
 });
 
 test("HttpError properties", () => {
-	const err = util.createError(404, "Not Found");
+	const err = new util.HttpError(404);
 	expect(err).type.toBe<util.HttpError>();
 	expect(err.status).type.toBe<number>();
 	expect(err.statusCode).type.toBe<number>();
@@ -312,4 +314,18 @@ test("isExecutionModeDurable", () => {
 	expect(
 		util.isExecutionModeDurable(sampleRequest.context),
 	).type.toBe<boolean>();
+});
+
+test("buildPathTree", () => {
+	const tree = util.buildPathTree(["event.headers.authorization"]);
+	expect(tree).type.toBe<util.PathTree>();
+});
+
+test("omit preserves the value type", () => {
+	const tree = util.buildPathTree(["error.cause.data.body"]);
+	expect(util.omit(sampleRequest, tree)).type.toBe<typeof sampleRequest>();
+	expect(util.omit(sampleRequest, tree, "***")).type.toBe<
+		typeof sampleRequest
+	>();
+	expect(util.omit(sampleRequest)).type.toBe<typeof sampleRequest>();
 });

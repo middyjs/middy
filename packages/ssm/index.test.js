@@ -5,7 +5,7 @@ import {
 	GetParametersCommand,
 	SSMClient,
 } from "@aws-sdk/client-ssm";
-import { clearCache, getInternal } from "@middy/util";
+import { clearCache, getCache, getInternal } from "@middy/util";
 import { mockClient } from "aws-sdk-client-mock";
 import middy from "../core/index.js";
 import ssm, { ssmValidateOptions } from "./index.js";
@@ -203,7 +203,7 @@ test("It should set SSM param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key, "key-value");
+		strictEqual(request.context.middyContext.ssm.key, "key-value");
 	};
 
 	const handler = middy(() => {})
@@ -656,7 +656,7 @@ test("It should throw error if InvalidParameters returned", async (t) => {
 		ok(false);
 	} catch (e) {
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("InvalidParameter invalid-ssm-param-name", {
 				cause: { package: "@middy/ssm" },
 			}),
@@ -690,7 +690,7 @@ test("It should catch if an error is returned from fetchSingle", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -717,7 +717,7 @@ test("It should catch if an error is returned from fetchPath", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -1275,7 +1275,7 @@ test("It should not set values to context by default (setToContext defaults to f
 
 	const middleware = async (request) => {
 		// Default setToContext is false: the value must NOT be copied to context.
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.ssm, undefined);
 		const values = await getInternal(true, request);
 		strictEqual(values.key, "key-value");
 	};
@@ -1294,4 +1294,57 @@ test("It should not set values to context by default (setToContext defaults to f
 		.before(middleware);
 
 	await handler(event, context);
+});
+
+test("ssmValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	ssmValidateOptions({ contextKey: "custom" });
+	try {
+		ssmValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should blank only the invalid parameter in the cache and keep its siblings", async (t) => {
+	// Two keys are needed to tell the catch block's seed apart: with a single
+	// key an empty `{}` seed and a copy of the cached value look identical.
+	const goodArn = "/dev/service_name/good";
+	const badArn = "/dev/service_name/bad";
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: goodArn, Value: "good-value" }],
+			InvalidParameters: [badArn],
+		});
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheKey: "ssm-partial",
+				cacheExpiry: -1,
+				disablePrefetch: true,
+				fetchData: { good: goodArn, bad: badArn },
+			}),
+		)
+		.before(async (request) => {
+			await getInternal(true, request);
+		});
+
+	try {
+		await handler(event, context);
+		ok(false, "expected the invalid parameter to reject");
+	} catch (_e) {
+		const cached = getCache("ssm-partial").value;
+		// Blanked so the next invocation refetches rather than reusing the
+		// rejected promise; without modifyCache it would still be that promise.
+		strictEqual(cached.bad, undefined);
+		// The sibling that resolved survives; a `{}` seed would drop it.
+		ok(cached.good !== undefined);
+	} finally {
+		clearCache();
+	}
 });

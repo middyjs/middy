@@ -78,7 +78,9 @@ test("use with setToContext: true", () => {
 			unknown,
 			unknown,
 			Error,
-			LambdaContext & Record<"config", unknown>,
+			LambdaContext & {
+				middyContext: Record<"appconfig", Record<"config", unknown>>;
+			},
 			Record<"config", unknown>
 		>
 	>();
@@ -129,7 +131,7 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expect(request.context.config).type.toBe<{
+		expect(request.context.middyContext.appconfig.config).type.toBe<{
 			config1: string;
 			config2: string;
 			config3: number;

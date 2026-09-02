@@ -4,7 +4,7 @@
 	"type": "module",
 	"description": "E2E AWS event capture harness (see SPEC.md). Not published.",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"scripts": {
 		"selfcheck": "node selfcheck.mjs",

@@ -33,7 +33,8 @@ npm install --save-dev @aws-sdk/client-secrets-manager
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `secrets-manager`): Cache key for the fetched data responses. Must be unique across all middleware.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
-- `setToContext` (boolean) (default `false`): Store secrets to `request.context`.
+- `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['secrets-manager']`.
+- `contextKey` (string) (default `secrets-manager`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 NOTES:
 
@@ -66,8 +67,8 @@ export const handler = middy()
 // Before running the function handler, the middleware will fetch from Secrets Manager
 handler(event, context, (_, response) => {
   // assuming the dev/api_token has two keys, 'Username' and 'Password'
-  strictEqual(context.apiToken.Username, 'username')
-  strictEqual(context.apiToken.Password, 'password')
+  strictEqual(context.middyContext['secrets-manager'].apiToken.Username, 'username')
+  strictEqual(context.middyContext['secrets-manager'].apiToken.Password, 'password')
 })
 ```
 
@@ -116,8 +117,8 @@ export const handler = middy()
     // data.someSecret.User (string)
     // data.someSecret.Password (string)
     // or, since we have `setToContext: true`
-    // request.context.someSecret.User (string)
-    // request.context.someSecret.Password (string)
+    // request.context.middyContext['secrets-manager'].someSecret.User (string)
+    // request.context.middyContext['secrets-manager'].someSecret.Password (string)
   })
   .handler(lambdaHandler)
 ```

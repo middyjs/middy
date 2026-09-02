@@ -365,7 +365,7 @@ test("Should degrade gracefully when handler returns a null response", async (t)
 	});
 	strictEqual(logger.mock.callCount(), 1);
 	// The buggy path surfaces "Cannot read properties of null" as the reason.
-	const [reason] = logger.mock.calls[0].arguments;
+	const [, { reason }] = logger.mock.calls[0].arguments;
 	strictEqual(reason, undefined);
 });
 
@@ -393,7 +393,7 @@ test("Should degrade gracefully when handler returns a non-array object response
 		})),
 	});
 	strictEqual(logger.mock.callCount(), 1);
-	const [reason] = logger.mock.calls[0].arguments;
+	const [, { reason }] = logger.mock.calls[0].arguments;
 	strictEqual(reason, undefined);
 });
 
@@ -428,7 +428,7 @@ test("Should log request.error as the reason for every record in onError", async
 	// receives the thrown error (kills mutants that empty/blank the per-record
 	// object, drop the map return value, or zero-out the Array.from length).
 	for (let i = 0; i < event.Records.length; i++) {
-		const [reason, record] = logger.mock.calls[i].arguments;
+		const [, { reason, record }] = logger.mock.calls[i].arguments;
 		strictEqual(reason, thrown);
 		strictEqual(record.messageId, event.Records[i].messageId);
 	}
@@ -491,5 +491,99 @@ test("sqsPartialBatchFailureValidateOptions rejects wrong type", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("logger"));
+	}
+});
+
+test("Should pass the request as the first logger argument", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "reject" } },
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	const handler = middy(lambdaHandler).use(sqsPartialBatchFailure({ logger }));
+
+	await handler(event, defaultContext);
+
+	strictEqual(logger.mock.callCount(), 1);
+	const [request, { record }] = logger.mock.calls[0].arguments;
+	strictEqual(request.event, event);
+	strictEqual(request.context, defaultContext);
+	strictEqual(record.messageId, event.Records[0].messageId);
+});
+
+test("Should redact omitPaths from the record handed to the logger", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "reject" } },
+				body: "ssn=123-45-6789",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+
+	const handler = middy(lambdaHandler).use(
+		sqsPartialBatchFailure({ logger, omitPaths: ["event.Records.[].body"] }),
+	);
+
+	const response = await handler(event, defaultContext);
+
+	const [request, { record }] = logger.mock.calls[0].arguments;
+	strictEqual(Object.hasOwn(record, "body"), false);
+	strictEqual(record.messageId, event.Records[0].messageId);
+	strictEqual(request.event.Records[0].body, undefined);
+	strictEqual(event.Records[0].body, "ssn=123-45-6789");
+	deepStrictEqual(response, {
+		batchItemFailures: [{ itemIdentifier: event.Records[0].messageId }],
+	});
+});
+
+test("Should redact omitPaths from the reason handed to the logger", async (t) => {
+	const event = createEvent.default("aws:sqs", {
+		Records: [
+			{
+				messageAttributes: { resolveOrReject: { stringValue: "resolve" } },
+				body: "",
+			},
+		],
+	});
+	const logger = t.mock.fn();
+	const thrown = new Error("handler error", {
+		cause: { package: "@middy/test", data: { card: "4111111111111111" } },
+	});
+
+	const handler = middy(async () => {
+		throw thrown;
+	}).use(
+		sqsPartialBatchFailure({
+			logger,
+			omitPaths: ["response.[].reason.cause.data.card"],
+			mask: "[redacted]",
+		}),
+	);
+
+	await handler(event, defaultContext);
+
+	const [, { reason }] = logger.mock.calls[0].arguments;
+	strictEqual(reason.cause.data.card, "[redacted]");
+	strictEqual(reason.message, "handler error");
+	strictEqual(thrown.cause.data.card, "4111111111111111");
+});
+
+test("sqsPartialBatchFailureValidateOptions accepts omitPaths and mask", () => {
+	sqsPartialBatchFailureValidateOptions({
+		omitPaths: ["event.Records.[].body"],
+		mask: "**",
+	});
+	try {
+		sqsPartialBatchFailureValidateOptions({ omitPaths: "event.Records" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("omitPaths"));
 	}
 });

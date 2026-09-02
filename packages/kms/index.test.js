@@ -91,8 +91,8 @@ test("It should set KMS key to context when setToContext is true", async (t) => 
 	);
 
 	await handler(event, context);
-	strictEqual(context.signingKey.publicKey, publicKeyDer);
-	strictEqual(context.signingKey.keySpec, keySpec);
+	strictEqual(context.middyContext.kms.signingKey.publicKey, publicKeyDer);
+	strictEqual(context.middyContext.kms.signingKey.keySpec, keySpec);
 });
 
 test("It should clear cache and rethrow on fetch error", async (t) => {
@@ -123,7 +123,7 @@ test("It should clear cache and rethrow on fetch error", async (t) => {
 		// undefined (cacheExpiry 0), the error handler relies on the `?? {}` fallback
 		// to assign without throwing; the `&& {}` mutant would raise a different
 		// TypeError instead of surfacing the original "KMS unavailable".
-		strictEqual(e.cause.data[0].message, "KMS unavailable");
+		strictEqual(e.errors[0].message, "KMS unavailable");
 	}
 });
 
@@ -382,7 +382,7 @@ test("It should NOT set KMS key to context by default (setToContext defaults fal
 	);
 
 	await handler(event, context);
-	strictEqual(context.signingKey, undefined);
+	strictEqual(context.middyContext.kms, undefined);
 });
 
 test("It should build the KMS command with the correct KeyId", async (t) => {
@@ -517,4 +517,16 @@ test("It should reuse the prefetched client without recreating it", async (t) =>
 	await handler(event, context);
 	// Still only the single prefetch construction; before handler reused it.
 	strictEqual(createClientCalls, 1);
+});
+
+test("kmsValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	kmsValidateOptions({ contextKey: "custom" });
+	try {
+		kmsValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
 });

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { createPublicKey, KeyObject } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 import { decodeJwt, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
@@ -181,6 +182,7 @@ const createJwksResolver = (uri, options = {}) => {
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
+		// Stryker disable next-line EqualityOperator: equivalent. `<` and `<=` differ only at the exact millisecond the cooldown elapses, and reaching that instant deterministically is not something a test can arrange; either way the next call refetches.
 		if (cache && now - lastFetchTime < cooldownDuration) {
 			return Promise.resolve(cache);
 		}
@@ -305,8 +307,11 @@ const httpJwtMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "No token found in configured sources" },
+		throw new HttpError(401, {
+			cause: {
+				package: pkg,
+				data: { reason: "No token found in configured sources" },
+			},
 		});
 	};
 
@@ -338,6 +343,7 @@ const httpJwtMiddleware = (opts = {}) => {
 				format: "der",
 				type: "spki",
 			});
+			// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request rebuilds an identical KeyObject.
 			publicKeyCache.set(entry, key);
 		}
 		return key;
@@ -358,29 +364,35 @@ const httpJwtMiddleware = (opts = {}) => {
 				header = decodeProtectedHeader(token);
 				payload = decodeJwt(token);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `Malformed token: ${e.message}` },
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: { reason: `Malformed token: ${e.message}` },
+					},
 				});
 			}
 			const entry = issuersMap.get(payload.iss);
 			if (!entry) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: "Unknown issuer" },
+				throw new HttpError(401, {
+					cause: { package: pkg, data: { reason: "Unknown issuer" } },
 				});
 			}
 			let jwk;
 			try {
 				jwk = await entry.resolver.getJwk(header.kid);
 			} catch (e) {
-				throw createError(401, "Unauthorized", {
-					cause: { package: pkg, data: `JWKS fetch failed: ${e.message}` },
+				throw new HttpError(401, {
+					cause: {
+						package: pkg,
+						data: { reason: `JWKS fetch failed: ${e.message}` },
+					},
 				});
 			}
 			if (!jwk) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `No key in JWKS with kid '${header.kid}'`,
+						data: { reason: `No key in JWKS with kid '${header.kid}'` },
 					},
 				});
 			}
@@ -395,10 +407,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			let alg;
 			if (jwk.alg) {
 				if (!entry.algorithms.includes(jwk.alg)) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							data: {
+								reason: `JWK alg '${jwk.alg}' not in configured allowlist`,
+							},
 						},
 					});
 				}
@@ -406,10 +420,13 @@ const httpJwtMiddleware = (opts = {}) => {
 			} else if (entry.algorithms.length === 1) {
 				alg = entry.algorithms[0];
 			} else {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: "JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						data: {
+							reason:
+								"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
+						},
 					},
 				});
 			}
@@ -420,13 +437,14 @@ const httpJwtMiddleware = (opts = {}) => {
 				try {
 					key = await importJWK(jwk, alg);
 				} catch (e) {
-					throw createError(401, "Unauthorized", {
+					throw new HttpError(401, {
 						cause: {
 							package: pkg,
-							data: `JWK import failed: ${e.message}`,
+							data: { reason: `JWK import failed: ${e.message}` },
 						},
 					});
 				}
+				// Stryker disable next-line CallExpression: same pure-performance cache as the guard above. Dropping the write only means the next request re-imports an identical key.
 				jwkKeyCache.set(jwkCacheKey, key);
 			}
 			const verifyOptions = {
@@ -442,10 +460,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			const result = await getInternal(options.internalKey, request);
 			const keyData = result[sanitizeKey(options.internalKey)];
 			if (keyData === undefined) {
-				throw createError(500, "Internal Server Error", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: `internalKey '${options.internalKey}' resolved to undefined`,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to undefined`,
+						},
 					},
 				});
 			}
@@ -455,10 +475,12 @@ const httpJwtMiddleware = (opts = {}) => {
 			// the middleware as a whole.
 			const entries = Array.isArray(keyData) ? keyData : [keyData];
 			if (entries.length === 0) {
-				throw createError(500, "Internal Server Error", {
+				throw new HttpError(500, {
 					cause: {
 						package: pkg,
-						data: `internalKey '${options.internalKey}' resolved to no keys`,
+						data: {
+							reason: `internalKey '${options.internalKey}' resolved to no keys`,
+						},
 					},
 				});
 			}
@@ -485,10 +507,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					if (compatible) {
 						usableAlgs = topLevelAlgs.filter((a) => compatible.includes(a));
 						if (usableAlgs.length === 0) {
-							throw createError(500, "Internal Server Error", {
+							throw new HttpError(500, {
 								cause: {
 									package: pkg,
-									data: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${entry.keySpec}'`,
+									data: {
+										reason: `algorithm ${JSON.stringify(topLevelAlgs)} incompatible with KMS keySpec '${entry.keySpec}'`,
+									},
 								},
 							});
 						}
@@ -498,10 +522,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					entryKey = derToPublicKey(entry);
 				} else if (typeof entry === "string") {
 					if (usableAlgs.some((a) => !a.startsWith("HS"))) {
-						throw createError(500, "Internal Server Error", {
+						throw new HttpError(500, {
 							cause: {
 								package: pkg,
-								data: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+								data: {
+									reason: `internalKey '${options.internalKey}' is a string secret but 'algorithm' includes a non-symmetric value ${JSON.stringify(usableAlgs)}; string keys may only be used with HS* algorithms`,
+								},
 							},
 						});
 					}
@@ -510,10 +536,12 @@ const httpJwtMiddleware = (opts = {}) => {
 					// Anything else has to say what it really is. Borrowing the string
 					// secret's message sent people looking at their `algorithm` option
 					// when the key was the problem.
-					throw createError(500, "Internal Server Error", {
+					throw new HttpError(500, {
 						cause: {
 							package: pkg,
-							data: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
+							data: {
+								reason: `internalKey '${options.internalKey}' holds an unsupported key shape; expected a KeyObject, a CryptoKey, SPKI DER bytes, a { publicKey } object, or a string secret`,
+							},
 						},
 					});
 				}
@@ -550,8 +578,8 @@ const httpJwtMiddleware = (opts = {}) => {
 			}
 		}
 		if (verified === undefined) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: failure.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: failure.message } },
 			});
 		}
 
@@ -560,10 +588,12 @@ const httpJwtMiddleware = (opts = {}) => {
 		// payload this rejected.
 		for (const [claim, expected] of expectedClaims) {
 			if (verified[claim] !== expected) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+						data: {
+							reason: `Claim '${claim}' is '${verified[claim]}', expected '${expected}'`,
+						},
 					},
 				});
 			}
@@ -571,7 +601,7 @@ const httpJwtMiddleware = (opts = {}) => {
 
 		request.internal[options.payloadKey] = verified;
 		if (options.setToContext) {
-			request.context[options.payloadKey] = verified;
+			setContextNamespace(request, options.payloadKey, verified);
 		}
 	};
 

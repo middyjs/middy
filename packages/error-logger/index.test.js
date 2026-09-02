@@ -151,3 +151,96 @@ test("errorLoggerValidateOptions rejects logger: true", () => {
 		ok(e.message.includes("logger"));
 	}
 });
+
+test("It should redact omitPaths from the error before logging", async (t) => {
+	const error = new Error("boom");
+	error.user = { ssn: "123-45-6789", id: 7 };
+	let captured = null;
+
+	const handler = middy(() => {
+		throw error;
+	}).use(
+		errorLogger({
+			logger: (request) => (captured = request),
+			omitPaths: ["error.user.ssn"],
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (_e) {}
+
+	deepStrictEqual(captured.error.user, { id: 7 });
+	strictEqual(captured.error.message, "boom");
+	strictEqual(error.user.ssn, "123-45-6789");
+});
+
+test("It should mask omitPaths when a mask is set", async (t) => {
+	const error = new Error("boom", {
+		cause: { package: "@middy/http-json-body-parser", data: { body: "ssn=1" } },
+	});
+	let captured = null;
+
+	const handler = middy(() => {
+		throw error;
+	}).use(
+		errorLogger({
+			logger: (request) => (captured = request),
+			omitPaths: ["error.cause.data.body"],
+			mask: "[redacted]",
+		}),
+	);
+
+	try {
+		await handler(defaultEvent, defaultContext);
+	} catch (_e) {}
+
+	strictEqual(captured.error.cause.data.body, "[redacted]");
+	strictEqual(captured.error.cause.package, "@middy/http-json-body-parser");
+});
+
+test("It should redact omitPaths outside the error", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new Error("boom");
+	}).use(
+		errorLogger({
+			logger: (request) => (captured = request),
+			omitPaths: ["event.headers.authorization"],
+		}),
+	);
+
+	try {
+		await handler(
+			{ headers: { authorization: "Bearer x", accept: "*" } },
+			defaultContext,
+		);
+	} catch (_e) {}
+
+	deepStrictEqual(captured.event, { headers: { accept: "*" } });
+});
+
+test("It should pass the request through untouched when no omitPaths are set", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new Error("boom");
+	}).use(errorLogger({ logger: (request) => (captured = request) }));
+
+	try {
+		await handler({ foo: "bar" }, defaultContext);
+	} catch (_e) {}
+
+	ok(captured.error instanceof Error);
+});
+
+test("errorLoggerValidateOptions accepts omitPaths and mask", () => {
+	errorLoggerValidateOptions({ omitPaths: ["error.cause"], mask: "**" });
+	try {
+		errorLoggerValidateOptions({ omitPaths: "error.cause" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("omitPaths"));
+	}
+});

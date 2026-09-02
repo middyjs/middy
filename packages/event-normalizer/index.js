@@ -224,7 +224,7 @@ const convertValue = {
 					{
 						cause: {
 							package: pkg,
-							value,
+							data: { value },
 						},
 					},
 				);

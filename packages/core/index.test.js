@@ -478,12 +478,14 @@ describe("middy core", () => {
 		const handler = middy(() => {
 			executed.push("handler");
 		}).use([middleware1(), middleware2()]);
+		let caught;
 		try {
 			await handler(defaultEvent, defaultContext);
 		} catch (e) {
-			onErrorError.originalError = afterError;
-			deepStrictEqual(e, onErrorError);
+			caught = e;
 		}
+		ok(caught instanceof AggregateError);
+		deepStrictEqual(caught.errors, [afterError, onErrorError]);
 		deepStrictEqual(executed, ["b1", "b2", "handler", "a2", "e2"]);
 	});
 
@@ -503,9 +505,8 @@ describe("middy core", () => {
 			caught = e;
 		}
 		strictEqual(caught, handlerError);
-		// No self-references: walking .cause / .originalError must not loop back.
+		// No self-reference: walking .cause must not loop back.
 		ok(caught.cause !== caught);
-		ok(caught.originalError !== caught);
 	});
 
 	// Modifying shared resources
@@ -866,6 +867,28 @@ describe("middy core", () => {
 		strictEqual(plugin.requestEnd.mock.callCount(), 1);
 	});
 
+	test("Should trigger middleware hooks around onError middlewares", async (t) => {
+		// The hooks are wrapped around all three loops, but only the before/after
+		// loops are covered above; the onError loop needs its own assertion.
+		const plugin = {
+			beforeMiddleware: t.mock.fn(),
+			afterMiddleware: t.mock.fn(),
+		};
+		const onErrorMiddleware = t.mock.fn((request) => {
+			request.response = "handled";
+		});
+
+		const handler = middy(() => {
+			throw new Error("boom");
+		}, plugin).onError(onErrorMiddleware);
+
+		await handler(defaultEvent, defaultContext);
+
+		strictEqual(onErrorMiddleware.mock.callCount(), 1);
+		strictEqual(plugin.beforeMiddleware.mock.callCount(), 1);
+		strictEqual(plugin.afterMiddleware.mock.callCount(), 1);
+	});
+
 	test("Should propagate requestEnd hook error when handler succeeds", async () => {
 		const hookErr = new Error("requestEnd failed");
 		const handler = middy(() => "ok", {
@@ -978,6 +1001,28 @@ describe("middy core", () => {
 		}
 	});
 
+	test("Should propagate a null handler error when requestEnd hook also throws", async () => {
+		// `typeof null === "object"`, so only the explicit null check keeps the
+		// `cause` assignment off it; without that the hook error becomes a
+		// TypeError and replaces the handler error.
+		const handler = middy(
+			() => {
+				throw null;
+			},
+			{
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			},
+		);
+		try {
+			await handler(defaultEvent, defaultContext);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			strictEqual(e, null);
+		}
+	});
+
 	test("Should propagate a null handler error instead of resolving", async () => {
 		const handler = middy(() => {
 			throw null;
@@ -993,8 +1038,9 @@ describe("middy core", () => {
 	});
 
 	test("Should propagate a primitive thrown by an onError middleware", async () => {
+		const handlerError = new Error("handler failed");
 		const handler = middy(() => {
-			throw new Error("handler failed");
+			throw handlerError;
 		}).onError(() => {
 			throw "onError boom";
 		});
@@ -1002,7 +1048,10 @@ describe("middy core", () => {
 			await handler(defaultEvent, defaultContext);
 			throw new Error("Expected onError error to propagate");
 		} catch (e) {
-			strictEqual(e, "onError boom");
+			// A primitive can't carry a `cause`, so aggregating is the only way
+			// to surface it without losing the handler error.
+			ok(e instanceof AggregateError);
+			deepStrictEqual(e.errors, [handlerError, "onError boom"]);
 		}
 	});
 
@@ -1267,9 +1316,7 @@ describe("middy core", () => {
 		// Pins the microtask budget of the fast path: sync handler, no
 		// middlewares, timeout disabled. The only await on the whole path is
 		// executionModeStandard awaiting runRequest's already-settled promise
-		// (tick 1); the invocation's own .then callback lands on tick 2.
-		// Any extra await/race re-introduced on this path adds a tick and
-		// fails the tick-2 assertion.
+
 		const handler = middy(() => "ok", { timeoutEarlyInMillis: 0 });
 
 		const invocation = handler(defaultEvent, defaultContext);
@@ -1502,6 +1549,47 @@ describe("middy core", () => {
 
 		await handler(defaultEvent, defaultContext);
 		strictEqual(captured, "seed");
+	});
+
+	test("context.middyContext is a null-prototype object available to the handler", async (t) => {
+		let captured;
+		const handler = middy((event, context) => {
+			captured = context.middyContext;
+		});
+
+		await handler(defaultEvent, { ...defaultContext });
+
+		deepStrictEqual(captured, Object.create(null));
+		strictEqual(Object.getPrototypeOf(captured), null);
+	});
+
+	test("context.middyContext resists prototype pollution via __proto__", async (t) => {
+		let captured;
+		const handler = middy((event, context) => {
+			captured = context.middyContext;
+		}).before((request) => {
+			request.context.middyContext.__proto__ = { polluted: true };
+		});
+
+		await handler(defaultEvent, { ...defaultContext });
+
+		strictEqual(Object.getPrototypeOf(captured), null);
+		deepStrictEqual(captured.__proto__, { polluted: true });
+		strictEqual({}.polluted, undefined);
+	});
+
+	test("context.middyContext is reset per invocation (no leak on a reused context)", async (t) => {
+		const context = { ...defaultContext };
+		const seen = [];
+		const handler = middy(() => {}).before((request) => {
+			seen.push(request.context.middyContext.stale);
+			request.context.middyContext.stale = true;
+		});
+
+		await handler(defaultEvent, context);
+		await handler(defaultEvent, context);
+
+		deepStrictEqual(seen, [undefined, undefined]);
 	});
 
 	test("middyValidateOptions accepts valid options and rejects typos", () => {
@@ -1790,8 +1878,8 @@ describe("middy core", () => {
 		ok(!timeoutCalled);
 	});
 
-	// index.js:224/226 - a distinct rethrown error gets originalError and cause
-	test('"onError" rethrowing a distinct error attaches originalError and cause', async (t) => {
+	// A distinct error thrown by onError aggregates with the handler error
+	test('"onError" throwing a distinct error aggregates both', async (t) => {
 		const handlerError = new Error("boom");
 		const rethrown = new Error("wrapped");
 		const handler = middy(() => {
@@ -1807,13 +1895,16 @@ describe("middy core", () => {
 		} catch (e) {
 			caught = e;
 		}
-		strictEqual(caught, rethrown);
-		strictEqual(caught.originalError, handlerError);
-		strictEqual(caught.cause, handlerError);
+		ok(caught instanceof AggregateError);
+		strictEqual(caught.message, "Error thrown in onError middleware");
+		deepStrictEqual(caught.cause, { package: "@middy/core" });
+		// Chronological: handler error first, onError error second.
+		deepStrictEqual(caught.errors, [handlerError, rethrown]);
 	});
 
-	// index.js:226 - cause is not overwritten when already set on the rethrown error
-	test('"onError" rethrowing a distinct error preserves its existing cause', async (t) => {
+	// Aggregating never clobbers the thrown error's own `cause`, and never
+	// drops the handler error the way `cause ??=` did when one was already set.
+	test('"onError" throwing an error that already has a cause keeps both', async (t) => {
 		const handlerError = new Error("boom");
 		const existingCause = new Error("pre-existing");
 		const rethrown = new Error("wrapped", { cause: existingCause });
@@ -1830,10 +1921,37 @@ describe("middy core", () => {
 		} catch (e) {
 			caught = e;
 		}
-		strictEqual(caught, rethrown);
-		strictEqual(caught.originalError, handlerError);
-		// ??= must not overwrite an already-set cause.
-		strictEqual(caught.cause, existingCause);
+		deepStrictEqual(caught.errors, [handlerError, rethrown]);
+		strictEqual(caught.errors[1].cause, existingCause);
+	});
+
+	// Durable execution owns retry/error semantics of its own: the onError
+	// stack must never run under a durable context, regardless of which
+	// package registered it, and the original handler error must propagate
+	// untouched (no wrapping, no .cause rewrite).
+	test("onError stack is skipped entirely under a durable execution context", async (t) => {
+		const handlerError = new Error("boom");
+		const durableContext = {
+			[Symbol.for("@aws/durable-execution-sdk-js/durable-context")]: true,
+			getRemainingTimeInMillis: () => 1000,
+		};
+		const onErrorCalls = [];
+		const handler = middy(() => {
+			throw handlerError;
+		}).onError((request) => {
+			onErrorCalls.push(request);
+			request.response = { statusCode: 200 };
+		});
+
+		let caught;
+		try {
+			await handler(defaultEvent, durableContext);
+			throw new Error("Expected error to propagate");
+		} catch (e) {
+			caught = e;
+		}
+		strictEqual(caught, handlerError);
+		deepStrictEqual(onErrorCalls, []);
 	});
 
 	// #1661 contract: a store entered with enterWith() in a hook's

@@ -4,6 +4,7 @@ import {
 	canPrefetch,
 	getInternal,
 	processCache,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 
@@ -96,12 +97,12 @@ const rdsMiddleware = (opts = {}) => {
 	const rdsMiddlewareBefore = async (request) => {
 		const { value } = processCache(options, () => fetch(request), request);
 		const resolved = await value;
-		Object.assign(request.context, { [options.contextKey]: resolved });
+		setContextNamespace(request, options.contextKey, resolved);
 	};
 	const rdsMiddlewareAfter = async (request) => {
 		try {
 			if (options.cacheExpiry === 0) {
-				await request.context[options.contextKey].end();
+				await request.context.middyContext?.[options.contextKey].end();
 			}
 		} catch (e) {
 			console.error("%s: cleanup error: %s", pkg, e.message);

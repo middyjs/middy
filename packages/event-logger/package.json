@@ -1,10 +1,10 @@
 {
-	"name": "@middy/input-output-logger",
-	"version": "7.9.2",
-	"description": "Input and output logger middleware for the middy framework",
+	"name": "@middy/event-logger",
+	"version": "7.9.0",
+	"description": "Event logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -41,8 +41,7 @@
 		"AWS",
 		"AWS Lambda",
 		"Middy",
-		"Input",
-		"Output",
+		"Event",
 		"Logger"
 	],
 	"author": {
@@ -52,7 +51,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/input-output-logger"
+		"directory": "packages/event-logger"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
@@ -63,12 +62,11 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "7.9.0"
 	},
 	"devDependencies": {
-		"@datastream/core": "0.7.1",
-		"@middy/core": "7.9.2",
+		"@middy/core": "7.9.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }

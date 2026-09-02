@@ -23,7 +23,7 @@ Every input crossing a trust boundary must be validated before your business log
 
 Without structured logging you cannot debug production. Without consistent error reporting you cannot run an on-call rotation.
 
-- [`@middy/input-output-logger`](/docs/middlewares/input-output-logger) - log every request and response with redaction hooks.
+- [`@middy/event-logger`](/docs/middlewares/event-logger) and [`@middy/response-logger`](/docs/middlewares/response-logger) - log every request and response with redaction hooks.
 - [`@middy/error-logger`](/docs/middlewares/error-logger) - log thrown errors with stack and context.
 - [`@middy/cloudwatch-metrics`](/docs/middlewares/cloudwatch-metrics) - emit Embedded Metric Format metrics.
 - Pairs cleanly with [AWS Lambda Powertools](/docs/integrations/lambda-powertools) for Logger / Tracer / Metrics if you prefer those primitives.

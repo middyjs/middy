@@ -56,7 +56,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<unknown>();
+			expect(
+				request.context.middyContext["secrets-manager"].foo,
+			).type.toBe<unknown>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<unknown>();
@@ -91,7 +93,9 @@ test("setToContext: true, use return type hint function", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someSecret).type.toBe<{
+			expect(
+				request.context.middyContext["secrets-manager"].someSecret,
+			).type.toBe<{
 				User: string;
 				Password: string;
 			}>();

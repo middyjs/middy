@@ -22,22 +22,14 @@ const setupHandler = (options) => {
 	);
 };
 
-const warmHandler = setupHandler({
-	executionContext: false,
-	lambdaContext: false,
-	omitPaths: [],
-});
+const warmHandler = setupHandler({ omitPaths: [] });
 
 const shallowHandler = setupHandler({
-	executionContext: false,
-	lambdaContext: false,
-	omitPaths: ["event.zooloo", "event.hoo", "response.hoo"],
+	omitPaths: ["response.zooloo", "response.hoo"],
 });
 
 const deepHandler = setupHandler({
-	executionContext: false,
-	lambdaContext: false,
-	omitPaths: ["event.hoo", "response.foo.[].foo"],
+	omitPaths: ["response.hoo", "response.foo.[].foo"],
 });
 
 const smallEvent = {

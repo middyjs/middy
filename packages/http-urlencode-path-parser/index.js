@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createError, validateOptions } from "@middy/util";
+import { HttpError, validateOptions } from "@middy/util";
 
 const name = "http-urlencode-path-parser";
 const pkg = `@middy/${name}`;
@@ -27,8 +27,11 @@ const httpUrlencodePathParserMiddlewareBefore = (request) => {
 		try {
 			params[key] = decodeURIComponent(value);
 		} catch (_e) {
-			throw createError(400, "Invalid path parameter encoding", {
-				cause: { package: pkg, data: key },
+			throw new HttpError(400, {
+				cause: {
+					package: pkg,
+					data: { reason: "Invalid path parameter encoding", key },
+				},
 			});
 		}
 	}

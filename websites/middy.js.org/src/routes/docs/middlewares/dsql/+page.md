@@ -25,7 +25,7 @@ npm install --save @middy/dsql @middy/dsql-signer postgres
 
 - `client` (function) (required): Adapter function `(config) => client | Promise<client>`. Use one of the bundled adapters: `@middy/dsql/clientPg`, `@middy/dsql/clientPgPool`, or `@middy/dsql/clientPostgres`.
 - `config` (object) (required): Connection config. Must include `host`. Standard fields: `username`, `database`, `port`. Anything extra is forwarded to the underlying driver. `ssl` defaults to `true` and can be overridden.
-- `contextKey` (string) (default `dsql`): Key on `request.context` where the client is attached.
+- `contextKey` (string) (default `dsql`): Key under `context.middyContext` where the client is published.
 - `internalKey` (string) (optional): Key in `request.internal` holding the auth token from `@middy/dsql-signer`. When set, the token is merged as `password` into the connection config. Prefetch is disabled when this is set.
 - `disablePrefetch` (boolean) (default `false`): On cold start, requests will trigger early if they can. Ignored when `internalKey` is set.
 - `cacheKey` (string) (default `@middy/dsql`): Cache key for the instantiated client. Must be unique across middleware.
@@ -49,7 +49,7 @@ import dsql from '@middy/dsql'
 import clientPgPool from '@middy/dsql/clientPgPool'
 
 const lambdaHandler = async (event, context) => {
-  const { rows } = await context.dsql.query('SELECT now()')
+  const { rows } = await context.middyContext.dsql.query('SELECT now()')
   return { statusCode: 200, body: JSON.stringify(rows) }
 }
 
@@ -105,7 +105,7 @@ export const handler = middy()
     }),
   )
   .handler(async (event, context) => {
-    const { rows } = await context.dsql.query('SELECT now()')
+    const { rows } = await context.middyContext.dsql.query('SELECT now()')
     return rows
   })
 ```
@@ -135,7 +135,7 @@ export const handler = middy()
     }),
   )
   .handler(async (event, context) => {
-    return context.dsql`SELECT now()`
+    return context.middyContext.dsql`SELECT now()`
   })
 ```
 

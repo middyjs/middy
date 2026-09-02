@@ -6,7 +6,7 @@ import type {
 	STSClientConfig,
 } from "@aws-sdk/client-sts";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -43,9 +43,11 @@ export interface STSOptions<AwsSTSClient = STSClient>
 export type Context<TOptions extends STSOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: AssumedRoleCredentials;
-				}
+			? ContextNamespace<
+					TOptions,
+					"sts",
+					{ [Key in keyof TFetchData]: AssumedRoleCredentials }
+				>
 			: never
 		: LambdaContext;
 

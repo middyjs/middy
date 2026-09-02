@@ -112,7 +112,7 @@ test("It should verify a valid HS256 JWT and set payload to internal", async (t)
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -140,7 +140,7 @@ test("It should always set payload to request.context", async (t) => {
 
 	await handler(makeEvent(`Bearer ${token}`), ctx);
 
-	strictEqual(ctx.jwt.sub, "user-1");
+	strictEqual(ctx.middyContext.jwt.sub, "user-1");
 });
 
 test("It should use a custom payloadKey", async (t) => {
@@ -158,7 +158,7 @@ test("It should use a custom payloadKey", async (t) => {
 	);
 
 	const result = await handler(makeEvent(`Bearer ${token}`), ctx);
-	strictEqual(result.auth.sub, "user-1");
+	strictEqual(result.middyContext.auth.sub, "user-1");
 });
 
 test("It should verify with RS256 using internalKey", async (t) => {
@@ -180,7 +180,7 @@ test("It should verify with RS256 using internalKey", async (t) => {
 		.setExpirationTime("1h")
 		.sign(importedPrivate);
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -222,12 +222,14 @@ test("It should reject an HS256 token forged via algorithm confusion on a string
 		strictEqual(e.message, "Internal Server Error");
 		strictEqual(e.cause.package, "@middy/http-jwt");
 		ok(
-			e.cause.data.includes(
+			e.cause.data.reason.includes(
 				"internalKey 'pubkey' is a string secret but 'algorithm' includes a non-symmetric value",
 			),
 		);
 		ok(
-			e.cause.data.includes("string keys may only be used with HS* algorithms"),
+			e.cause.data.reason.includes(
+				"string keys may only be used with HS* algorithms",
+			),
 		);
 	}
 });
@@ -269,7 +271,7 @@ test("It should accept the DPoP scheme", async (t) => {
 		.setExpirationTime("1h")
 		.sign(new TextEncoder().encode("secret"));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: "secret", algorithm: "HS256", setToContext: true }),
 	);
 
@@ -296,6 +298,11 @@ test("It should throw 401 when token is invalid", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
+		// The 401 message is a fixed reason phrase, so the underlying verify
+		// failure is only visible through cause.data.reason.
+		strictEqual(e.cause.package, "@middy/http-jwt");
+		ok(typeof e.cause.data.reason === "string");
+		ok(e.cause.data.reason.length > 0);
 	}
 });
 
@@ -332,7 +339,7 @@ test("It should verify audience claim", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -401,7 +408,7 @@ test("It should accept lowercase authorization header", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -422,7 +429,7 @@ test("It should read JWT from a cookie when tokenCookieName is set", async (t) =
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -447,7 +454,7 @@ test("It should read JWT from capitalized Cookie header when lowercase is absent
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -517,7 +524,7 @@ test("It should verify a JWT with KMS-shape { publicKey, keySpec } when algorith
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -558,7 +565,7 @@ test("It should verify HS256 JWT when internalKey resolves to a plain string", a
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -580,7 +587,7 @@ test("It should include clockTolerance in verify options when set", async (t) =>
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", clockTolerance: 60 }),
 	);
 
@@ -608,7 +615,7 @@ test("It should use options.algorithm over KMS keySpec when both are present", a
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -645,7 +652,7 @@ test("It should throw 500 when algorithm is incompatible with KMS keySpec", asyn
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.cause.package, "@middy/http-jwt");
-		ok(e.cause.data.includes("incompatible with KMS keySpec"));
+		ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 	}
 });
 
@@ -667,7 +674,7 @@ test("It should narrow algorithms to the keySpec-compatible subset", async (t) =
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -701,7 +708,7 @@ test("It should verify JWT with KMS shape when keySpec is not in the algorithm m
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -734,7 +741,7 @@ test("It should verify RS256 JWT via internalKey (plain Uint8Array) with explici
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -755,7 +762,7 @@ test("It should verify HS256 JWT via internalKey (plain string) with explicit al
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -776,7 +783,7 @@ test("It should read JWT from a custom header when tokenHeaderName is set", asyn
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -801,7 +808,7 @@ test("It should read JWT from a lowercased custom header when literal case is ab
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -844,7 +851,7 @@ test("It should read JWT from a query parameter when tokenQueryStringName is set
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -893,7 +900,7 @@ test("It should chain cookie -> header -> query, cookie wins when present", asyn
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -926,7 +933,7 @@ test("It should fall through cookie -> header when cookie is absent", async (t) 
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -952,7 +959,7 @@ test("It should fall through header -> query when header is absent", async (t) =
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -992,7 +999,7 @@ test("It should fall through when Authorization header has wrong number of parts
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -1021,7 +1028,7 @@ test("It should fall through to next source when Authorization scheme is not Bea
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -1059,7 +1066,7 @@ test("issuers: single-issuer happy path", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri, audience: "clientA" } },
 				algorithm: "RS256",
@@ -1103,7 +1110,7 @@ test("issuers: multi-issuer routes by iss to the right JWKS", async (t) => {
 		[uriB]: jwksResponse({ keys: [fixB.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[issA]: { jwksUri: uriA, audience: "clientA" },
@@ -1163,7 +1170,7 @@ test("issuers: token with iss not in map throws 401 Unknown issuer", async (t) =
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			strictEqual(e.cause.data, "Unknown issuer");
+			strictEqual(e.cause.data.reason, "Unknown issuer");
 		}
 	} finally {
 		fetchStub.restore();
@@ -1246,7 +1253,7 @@ test("issuers: token with unknown kid throws 401", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("No key in JWKS with kid"));
+			ok(e.cause.data.reason.includes("No key in JWKS with kid"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1407,7 +1414,7 @@ test("issuers: two requests to the same issuer share the cached JWKS", async (t)
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1497,7 +1504,7 @@ test("issuers: audience array on entry accepts any listed aud", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[iss]: { jwksUri, audience: ["client1", "client2", "client3"] },
@@ -1546,7 +1553,7 @@ test("issuers: per-issuer algorithm override (ES256 entry alongside RS256 defaul
 		[uriEc]: jwksResponse({ keys: [ec.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: {
 					[issRsa]: { jwksUri: uriRsa }, // inherits RS256
@@ -1622,7 +1629,7 @@ test("issuers: array algorithm accepts a token with any listed alg, rejects othe
 		[jwksUri]: jwksResponse({ keys: [rsa.jwk, ec.jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri, algorithm: ["RS256", "ES256"] } },
 				algorithm: "RS256",
@@ -1681,7 +1688,7 @@ test("issuers: JWK with alg not in configured allowlist throws 401", async (t) =
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("not in configured allowlist"));
+			ok(e.cause.data.reason.includes("not in configured allowlist"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1700,7 +1707,7 @@ test("issuers: JWK without alg + single-alg allowlist verifies", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [stripped] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1745,7 +1752,7 @@ test("issuers: JWK without alg + multi-alg allowlist rejects as ambiguous", asyn
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("cannot disambiguate"));
+			ok(e.cause.data.reason.includes("cannot disambiguate"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1788,7 +1795,7 @@ test("issuers: JWKS document without keys array throws 401", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.cause.package, "@middy/http-jwt");
-			ok(e.cause.data.includes("JWKS fetch failed"));
+			ok(e.cause.data.reason.includes("JWKS fetch failed"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -1857,7 +1864,7 @@ test("issuers: clockTolerance is forwarded to jwtVerify", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -1915,7 +1922,7 @@ test("setToContext: false (default) writes only to internal, not context", async
 		.sign(Buffer.from(secret));
 
 	const seen = {};
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -1943,7 +1950,7 @@ test("setToContext: true writes to both internal and context", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.hmacKey = secret;
 		})
@@ -2020,7 +2027,7 @@ test("It should accept Authorization header delivered as an array (multiValueHea
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -2040,7 +2047,7 @@ test("It should strip RFC 6265 surrounding double-quotes from a cookie value", a
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -2064,7 +2071,7 @@ test("It should accept a token without exp by default", async (t) => {
 		.setIssuedAt()
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 
@@ -2103,7 +2110,7 @@ test("It should accept a token with exp when requireExp is set", async (t) => {
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", requireExp: true }),
 	);
 
@@ -2221,7 +2228,7 @@ test("issuers: requireExp accepts a token with exp", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -2247,7 +2254,7 @@ test("It should resolve a hyphenated internalKey without a spurious 500", async 
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal["jwt-key"] = secret;
 		})
@@ -2268,7 +2275,7 @@ test("It should resolve a dotted nested internalKey without a spurious 500", asy
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
 
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kms = { publicKey: secret };
 		})
@@ -2306,7 +2313,7 @@ const verifyKmsAlg = async ({ keySpec, alg, kty, curve }) => {
 		.setExpirationTime("1h")
 		.sign(importedPrivate);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -2374,7 +2381,7 @@ for (const keySpec of ["RSA_2048", "RSA_3072", "RSA_4096"]) {
 		} catch (e) {
 			strictEqual(e.statusCode, 500);
 			strictEqual(e.message, "Internal Server Error");
-			ok(e.cause.data.includes("incompatible with KMS keySpec"));
+			ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 		}
 	});
 }
@@ -2403,7 +2410,7 @@ for (const { keySpec } of [
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 500);
-			ok(e.cause.data.includes("incompatible with KMS keySpec"));
+			ok(e.cause.data.reason.includes("incompatible with KMS keySpec"));
 		}
 	});
 }
@@ -2527,7 +2534,7 @@ const buildToken = async (sub) => {
 };
 
 const cookieHandler = (secret) =>
-	middy((event, context) => context).use(
+	middy((event, context) => context.middyContext).use(
 		httpJwt({
 			secretKey: secret,
 			algorithm: "HS256",
@@ -2590,7 +2597,7 @@ test("Cookie guard: a lone-quote (length 1) value is returned verbatim, not slic
 		}),
 	);
 	const e = await expect401(handler, 'access_token="');
-	ok(e.cause.data !== "No token found in configured sources");
+	ok(e.cause.data.reason !== "No token found in configured sources");
 });
 
 test('Cookie guard: an empty quoted-pair "" (length 2) is sliced to empty -> No token found', async (t) => {
@@ -2606,7 +2613,7 @@ test('Cookie guard: an empty quoted-pair "" (length 2) is sliced to empty -> No 
 		}),
 	);
 	const e = await expect401(handler, 'access_token=""');
-	strictEqual(e.cause.data, "No token found in configured sources");
+	strictEqual(e.cause.data.reason, "No token found in configured sources");
 });
 
 // --- factory-time validation error messages ---
@@ -2710,7 +2717,7 @@ test("It should reject an Authorization header with three space-separated parts"
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2729,7 +2736,7 @@ test("Cookie source: a null event yields a clean 401, not a TypeError", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2742,7 +2749,7 @@ test("Header source: a null event yields a clean 401, not a TypeError", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2759,7 +2766,7 @@ test("Query source: a null event yields a clean 401, not a TypeError", async (t)
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2777,8 +2784,14 @@ test("internalKey: null keyData is an unsupported shape, not a publicKey access 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
-		ok(!e.cause.data.includes("Cannot read properties"), e.cause.data);
+		ok(
+			e.cause.data.reason.includes("unsupported key shape"),
+			e.cause.data.reason,
+		);
+		ok(
+			!e.cause.data.reason.includes("Cannot read properties"),
+			e.cause.data.reason,
+		);
 	}
 });
 
@@ -2792,7 +2805,7 @@ test("It should report 'No token found in configured sources' when token absent"
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -2808,7 +2821,10 @@ test("It should report the undefined-internalKey 500 message and cause.data", as
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.message, "Internal Server Error");
-		strictEqual(e.cause.data, "internalKey 'missing' resolved to undefined");
+		strictEqual(
+			e.cause.data.reason,
+			"internalKey 'missing' resolved to undefined",
+		);
 	}
 });
 
@@ -2836,7 +2852,7 @@ test("issuers: malformed-token 401 message and cause.data", async (t) => {
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.startsWith("Malformed token: "));
+			ok(e.cause.data.reason.startsWith("Malformed token: "));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2872,7 +2888,7 @@ test("issuers: unknown-issuer message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "Unknown issuer");
+			strictEqual(e.cause.data.reason, "Unknown issuer");
 		}
 	} finally {
 		fetchStub.restore();
@@ -2903,7 +2919,7 @@ test("issuers: JWKS-fetch-failed surfaces 'Unauthorized' message", async (t) => 
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.includes("JWKS fetch failed: HTTP 503"));
+			ok(e.cause.data.reason.includes("JWKS fetch failed: HTTP 503"));
 		}
 	} finally {
 		fetchStub.restore();
@@ -2939,7 +2955,7 @@ test("issuers: no-key-in-JWKS message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "No key in JWKS with kid 'ghost-kid'");
+			strictEqual(e.cause.data.reason, "No key in JWKS with kid 'ghost-kid'");
 		}
 	} finally {
 		fetchStub.restore();
@@ -2980,7 +2996,7 @@ test("issuers: invalid-JWKS-document message text (missing keys array)", async (
 			ok(false, "expected throw");
 		} catch (e) {
 			ok(
-				e.cause.data.includes(
+				e.cause.data.reason.includes(
 					"JWKS fetch failed: Invalid JWKS document: missing keys array",
 				),
 			);
@@ -3015,7 +3031,10 @@ test("issuers: JWK-alg-not-in-allowlist message text", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			strictEqual(e.cause.data, "JWK alg 'RS512' not in configured allowlist");
+			strictEqual(
+				e.cause.data.reason,
+				"JWK alg 'RS512' not in configured allowlist",
+			);
 		}
 	} finally {
 		fetchStub.restore();
@@ -3049,7 +3068,7 @@ test("issuers: ambiguous-alg message text", async (t) => {
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
 			strictEqual(
-				e.cause.data,
+				e.cause.data.reason,
 				"JWK omits 'alg' and multiple algorithms configured; cannot disambiguate",
 			);
 		}
@@ -3094,7 +3113,7 @@ test("issuers: JWK-import-failed message and cause.data", async (t) => {
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.message, "Unauthorized");
-			ok(e.cause.data.startsWith("JWK import failed: "));
+			ok(e.cause.data.reason.startsWith("JWK import failed: "));
 		}
 	} finally {
 		fetchStub.restore();
@@ -3150,7 +3169,7 @@ test("It should accept any aud when no audience is configured (internalKey path)
 		.setIssuedAt()
 		.setExpirationTime("1h")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3167,7 +3186,7 @@ test("It should accept any iss when no issuer is configured (internalKey path)",
 		.setExpirationTime("1h")
 		.setIssuer("some-issuer")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256" }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3202,7 +3221,7 @@ test("It should accept an expired token within a generous clockTolerance (intern
 		.setIssuedAt()
 		.setExpirationTime("-30s")
 		.sign(Buffer.from(secret));
-	const handler = middy((event, context) => context).use(
+	const handler = middy((event, context) => context.middyContext).use(
 		httpJwt({ secretKey: secret, algorithm: "HS256", clockTolerance: 120 }),
 	);
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -3281,7 +3300,7 @@ test("issuers: accepts any aud when no per-issuer audience configured", async (t
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3347,7 +3366,7 @@ test("issuers: pins issuer to the token's iss (cross-issuer aud reuse rejected)"
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [issA]: { jwksUri } },
 				algorithm: "RS256",
@@ -3390,7 +3409,7 @@ test("It should NOT fall back to the Authorization header when a custom source i
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -3440,7 +3459,7 @@ test("issuers: a missing kid triggers exactly one rotation refetch then 401", as
 			ok(false, "expected throw");
 		} catch (e) {
 			strictEqual(e.statusCode, 401);
-			strictEqual(e.cause.data, "No key in JWKS with kid 'absent-kid'");
+			strictEqual(e.cause.data.reason, "No key in JWKS with kid 'absent-kid'");
 		}
 		// Exactly one network fetch: cooldown suppresses the rotation refetch.
 		strictEqual(fetchStub.calls.filter((c) => c.url === jwksUri).length, 1);
@@ -3470,7 +3489,7 @@ test("issuers: rotation refetch finds a newly-added kid after cooldown elapses",
 		},
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3502,7 +3521,7 @@ test("issuers: stale cache past cacheExpiry triggers a refetch", async (t) => {
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3538,7 +3557,7 @@ test("issuers: fresh cache within cacheExpiry is reused (default cooldown/cache)
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3583,7 +3602,7 @@ test("issuers: concurrent first requests share a single in-flight JWKS fetch", a
 		return new Response("not found", { status: 404 });
 	};
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3627,7 +3646,7 @@ test("issuers: imported JWK key is reused across invocations (only one fetch, re
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3665,7 +3684,7 @@ test("issuers: a fresh cached doc is reused without refetch even when cooldown i
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3708,7 +3727,7 @@ test("issuers: a token without exp verifies when requireExp is not set", async (
 		[jwksUri]: jwksResponse({ keys: [jwk] }),
 	});
 	try {
-		const handler = middy((event, context) => context).use(
+		const handler = middy((event, context) => context.middyContext).use(
 			httpJwt({
 				issuers: { [iss]: { jwksUri } },
 				algorithm: "RS256",
@@ -3732,7 +3751,7 @@ test("issuers: a token without exp verifies when requireExp is not set", async (
 // work, so accepting them is strictly new ground rather than a changed meaning.
 
 const makeStaticHandler = (keyData, opts = {}) =>
-	middy((event, context) => context)
+	middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.staticKey = keyData;
 		})
@@ -3820,7 +3839,7 @@ test("It should throw 500 when internalKey resolves to an empty array", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("no keys"));
+		ok(e.cause.data.reason.includes("no keys"));
 	}
 });
 
@@ -3928,7 +3947,7 @@ test("It should reject an ID token presented where an access token was meant", a
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'token_use'"));
+		ok(e.cause.data.reason.includes("'token_use'"));
 	}
 });
 
@@ -3971,7 +3990,7 @@ test("It should check every expected claim, not just the first", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'tier'"));
+		ok(e.cause.data.reason.includes("'tier'"));
 	}
 });
 
@@ -4025,7 +4044,7 @@ test("It should apply expectedClaims on the JWKS path too", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'token_use'"));
+		ok(e.cause.data.reason.includes("'token_use'"));
 	} finally {
 		restore();
 	}
@@ -4086,7 +4105,7 @@ test("It should report the signing key's claim failure, not an earlier key's sig
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("aud"), e.cause.data);
+		ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
 	}
 });
 
@@ -4110,7 +4129,7 @@ test("It should keep the signing key's claim failure when a later key misses on 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("aud"), e.cause.data);
+		ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
 	}
 });
 
@@ -4162,7 +4181,13 @@ test("It should still refuse a key shape it cannot place", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
-		ok(!e.cause.data.includes("is a string secret"), e.cause.data);
+		ok(
+			e.cause.data.reason.includes("unsupported key shape"),
+			e.cause.data.reason,
+		);
+		ok(
+			!e.cause.data.reason.includes("is a string secret"),
+			e.cause.data.reason,
+		);
 	}
 });

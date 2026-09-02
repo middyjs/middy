@@ -10,17 +10,49 @@ During `before` these promises can be stored into `internal` then resolved only 
 take advantage of the async nature of node especially when you have multiple middleware that require reaching out the
 external APIs.
 
+## Publishing to the handler
+
+`internal` is only visible to middleware. When the handler itself needs a value,
+publish it to `context.middyContext`, the namespace Middy seeds on every context:
+
+```javascript
+context.middyContext[contextKey] = value
+```
+
+Never assign to the context root. Keys there come from user configuration, and a
+fetched value named `functionName` or `awsRequestId` would silently overwrite the
+AWS context. `context.middyContext` is a null-prototype object, so a key of `__proto__`
+becomes an ordinary own property instead of changing the prototype.
+
+By convention `contextKey` is an option defaulting to your package name without
+the `@middy/` scope, so `@middy/ssm` writes to `context.middyContext.ssm` and users can
+point a second instance somewhere else with `contextKey: 'ssmAdmin'`. Only add
+the option if your middleware actually writes to the context.
+
+`@middy/util` exports two helpers that create the namespace if it is missing:
+
+- `contextNamespace(request, contextKey)` returns the object to merge key/value data into, so two middleware sharing a key merge rather than clobber.
+- `setContextNamespace(request, contextKey, value)` publishes a single opaque value such as a client, a connection pool, or a verified token payload.
+
 Here is a middleware boilerplate using this pattern:
 
 ```javascript
-import { canPrefetch, getInternal, processCache } from '@middy/util'
+import {
+  canPrefetch,
+  contextNamespace,
+  getInternal,
+  processCache
+} from '@middy/util'
+
+const name = 'custom'
 
 const defaults = {
   fetchData: {}, // { internalKey: params }
   disablePrefetch: false,
-  cacheKey: 'custom',
+  cacheKey: name,
   cacheExpiry: -1,
-  setToContext: false
+  setToContext: false,
+  contextKey: name // values land on context.middyContext[contextKey]
 }
 
 const customMiddleware = (opts = {}) => {
@@ -48,7 +80,7 @@ const customMiddleware = (opts = {}) => {
     Object.assign(request.internal, value)
     if (options.setToContext) {
       const data = await getInternal(Object.keys(options.fetchData), request)
-      Object.assign(request.context, data)
+      Object.assign(contextNamespace(request, options.contextKey), data)
     }
   }
 

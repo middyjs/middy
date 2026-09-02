@@ -37,7 +37,7 @@ npm install --save amqplib                             # for pollRmq
 
 NOTES:
 
-- The runner is silent. Wire batch logging via Middy middleware (`input-output-logger`, `error-logger`).
+- The runner is silent. Wire batch logging via Middy middleware (`event-logger`, `response-logger`, `error-logger`).
 - When the handler **throws**, the runner skips `acknowledge` and lets the source's native retry path take over (SQS visibility timeout requeues, Kafka offset stays uncommitted, RabbitMQ leaves the message unacked).
 - When the handler **returns** `{ batchItemFailures: [...] }`, the runner acknowledges the successful records only. Failed records are left for native redelivery.
 - For Kafka, offsets are committed sequentially per partition; on the first failed offset the runner stops committing further offsets in that batch so the failed message and everything after it redeliver in order.

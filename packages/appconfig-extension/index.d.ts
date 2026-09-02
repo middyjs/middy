@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
+import type { ContextNamespace } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export interface AppConfigExtensionFetchParam<T = unknown> {
@@ -27,13 +28,17 @@ export interface AppConfigExtensionOptions {
 export type Context<TOptions extends AppConfigExtensionOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends AppConfigExtensionFetchParam<
-						infer T
-					>
-						? T
-						: unknown;
-				}
+			? ContextNamespace<
+					TOptions,
+					"appconfig-extension",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends AppConfigExtensionFetchParam<
+							infer T
+						>
+							? T
+							: unknown;
+					}
+				>
 			: never
 		: LambdaContext;
 

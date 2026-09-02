@@ -42,9 +42,13 @@ test("It should throw 404 when route not found", async (t) => {
 	} catch (e) {
 		threw = true;
 		strictEqual(e.cause.package, "@middy/ws-router");
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
+		strictEqual(e.cause.data.reason, "Route does not exist");
 		strictEqual(e.statusCode, 404);
-		deepStrictEqual(e.cause.data, { routeKey: "missing" });
+		deepStrictEqual(e.cause.data, {
+			reason: "Route does not exist",
+			routeKey: "missing",
+		});
 	}
 	ok(threw, "expected notFoundResponse to throw");
 });
@@ -63,7 +67,10 @@ test("It should throw 404 when no routes are configured (default routes)", async
 		threw = true;
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
-		deepStrictEqual(e.cause.data, { routeKey: "$connect" });
+		deepStrictEqual(e.cause.data, {
+			reason: "Route does not exist",
+			routeKey: "$connect",
+		});
 	}
 	ok(threw, "expected default empty routes to yield not found");
 });
@@ -152,7 +159,8 @@ test("It should not match inherited properties like __proto__ as routes", async 
 		// Should hit "not found" rather than matching an inherited property
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
+		strictEqual(e.cause.data.reason, "Route does not exist");
 	}
 });
 
@@ -174,7 +182,8 @@ test("It should not match inherited properties like constructor as routes", asyn
 		// Should hit "not found", not invoke Object.prototype.constructor
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
+		strictEqual(e.cause.data.reason, "Route does not exist");
 	}
 });
 
@@ -195,7 +204,8 @@ test("It should not match inherited properties like toString as routes", async (
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/ws-router");
 		strictEqual(e.statusCode, 404);
-		strictEqual(e.message, "Route does not exist");
+		strictEqual(e.message, "Not Found");
+		strictEqual(e.cause.data.reason, "Route does not exist");
 	}
 });
 
@@ -217,11 +227,12 @@ test("It should throw when not a ws event", async (t) => {
 	} catch (e) {
 		threw = true;
 		strictEqual(e.cause.package, "@middy/ws-router");
-		strictEqual(
-			e.message,
-			"Unknown WebSocket event format: missing 'requestContext.routeKey'",
-		);
-		deepStrictEqual(e.cause.data, { routeKey: undefined });
+		strictEqual(e.message, "Bad Request");
+		deepStrictEqual(e.cause.data, {
+			reason:
+				"Unknown WebSocket event format: missing 'requestContext.routeKey'",
+			routeKey: undefined,
+		});
 		ok("routeKey" in e.cause.data);
 	}
 	ok(threw, "expected missing routeKey to throw");

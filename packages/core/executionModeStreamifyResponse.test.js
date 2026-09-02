@@ -583,6 +583,122 @@ describe("executionModeStreamifyResponse", () => {
 		}
 	});
 
+	test("Should emit a single write for an empty string body", async (t) => {
+		// The single-shot branch writes the body even when empty; the chunked
+		// branch's `while (position < length)` would skip it entirely. Both end
+		// up with empty output, so only the write itself tells them apart.
+		const writes = [];
+		const stream = {
+			write: (chunk) => {
+				writes.push(chunk);
+				return true;
+			},
+			end: (cb) => cb?.(),
+			once: () => {},
+			on: () => {},
+		};
+		const handler = middy(async () => "", {
+			executionMode: executionModeStreamifyResponse,
+		});
+
+		await handler(event, stream, context);
+
+		strictEqual(writes.length, 1);
+		strictEqual(writes[0], "");
+	});
+
+	// The `handlerError` these guards protect is a *stream write* failure, not
+	// the handler's throw, so it can only be a primitive if the response stream
+	// itself throws one.
+	const throwingStream = (thrown) => ({
+		write: () => {
+			throw thrown;
+		},
+		end: (cb) => cb?.(),
+		once: () => {},
+		on: () => {},
+	});
+
+	test("Should keep a primitive stream error when requestEnd also throws in streamify mode", async (t) => {
+		const handler = middy(async () => "ok", {
+			executionMode: executionModeStreamifyResponse,
+			requestEnd: () => {
+				throw new Error("requestEnd failed");
+			},
+		});
+
+		try {
+			await handler(event, throwingStream("write boom"), context);
+			throw new Error("Expected stream error to propagate");
+		} catch (e) {
+			strictEqual(e, "write boom");
+		}
+	});
+
+	test("Should keep a null stream error when requestEnd also throws in streamify mode", async (t) => {
+		const handler = middy(async () => "ok", {
+			executionMode: executionModeStreamifyResponse,
+			requestEnd: () => {
+				throw new Error("requestEnd failed");
+			},
+		});
+
+		try {
+			await handler(event, throwingStream(null), context);
+			throw new Error("Expected stream error to propagate");
+		} catch (e) {
+			strictEqual(e, null);
+		}
+	});
+
+	test("Should keep a primitive handler error when requestEnd also throws in streamify mode", async (t) => {
+		// Primitives cannot carry a `cause`; assigning one throws in strict mode,
+		// so the guard must skip it and let the handler error propagate.
+		const handler = middy(
+			async () => {
+				throw "boom";
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			},
+		);
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		try {
+			await handler(event, responseStream, context);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			strictEqual(e, "boom");
+		}
+	});
+
+	test("Should keep a null handler error when requestEnd also throws in streamify mode", async (t) => {
+		// `typeof null === "object"`, so only the explicit null check keeps the
+		// `cause` assignment off it.
+		const handler = middy(
+			async () => {
+				throw null;
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			},
+		);
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		try {
+			await handler(event, responseStream, context);
+			throw new Error("Expected handler error to propagate");
+		} catch (e) {
+			strictEqual(e, null);
+		}
+	});
+
 	test("Should not await a thenable returned by requestEnd in streamify mode", async (t) => {
 		// Real-Promises-only contract: only a real Promise from requestEnd is
 		// awaited; a plain thenable is ignored, so its then() must never run.

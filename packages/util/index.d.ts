@@ -23,9 +23,36 @@ export interface Options<Client, ClientOptions> {
 	cacheKeyExpiry?: Record<string, number>;
 	cacheMaxSize?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
+/**
+ * Resolves the `context.middyContext` key a middleware writes to: the `contextKey`
+ * option when set, otherwise the package name without the `@middy/` scope.
+ */
+export type ContextKey<
+	TOptions,
+	TDefaultKey extends string,
+> = TOptions extends {
+	contextKey: infer TKey extends string;
+}
+	? TKey
+	: TDefaultKey;
+
+/**
+ * A Lambda context carrying one middleware's values under
+ * `context.middyContext[contextKey]`.
+ */
+export type ContextNamespace<
+	TOptions,
+	TDefaultKey extends string,
+	TValues,
+> = LambdaContext & {
+	middyContext: { [Key in ContextKey<TOptions, TDefaultKey>]: TValues };
+};
+
 export declare class HttpError extends Error {
+	constructor(code: number, properties?: Record<string, unknown>);
 	status: number;
 	statusCode: number;
 	expose: boolean;
@@ -116,6 +143,17 @@ declare function getInternal<
 			: unknown; // path is not a string or a keyof TInternal
 }>;
 
+declare function contextNamespace(
+	request: middy.Request,
+	contextKey: string,
+): Record<string, unknown>;
+
+declare function setContextNamespace(
+	request: middy.Request,
+	contextKey: string,
+	value: unknown,
+): void;
+
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 declare function processCache<Client, ClientOptions>(
@@ -144,11 +182,23 @@ declare function normalizeHttpResponse(
 	fallbackResponse?: Record<string, unknown>,
 ): Record<string, unknown>;
 
-declare function createError(
-	code: number,
-	message: string,
-	properties?: Record<string, unknown>,
-): HttpError;
+/**
+ * A compiled `omitPaths` lookup. `true` marks a leaf to remove or mask; `[]`
+ * is the segment used to descend into array elements.
+ */
+export type PathTree = { [segment: string]: PathTree | true };
+
+declare function buildPathTree(
+	paths: ReadonlyArray<string | string[]>,
+): PathTree;
+
+/**
+ * Returns `value` unchanged when no `pathTree` entry applies; otherwise a
+ * shallow clone with the matched leaves removed, or replaced by `mask`.
+ * `Error` values are normalized to a plain object first, so non-enumerable
+ * properties such as `cause` and `stack` are still reachable by path.
+ */
+declare function omit<T>(value: T, pathTree?: PathTree, mask?: string): T;
 
 declare function modifyCache(cacheKey: string, value: unknown): void;
 

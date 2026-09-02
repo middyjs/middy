@@ -6,6 +6,7 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
+	clearCache,
 	createClient,
 	createPrefetchClient,
 	getCache,
@@ -22,12 +23,13 @@ const defaults = {
 	awsClientOptions: {},
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: { SchemaVersionId } | { SchemaId, SchemaVersionNumber } }
+	fetchData: {}, // { internalKey: { SchemaVersionId } | { SchemaId, SchemaVersionNumber } }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -45,6 +47,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		fetchData: {
 			type: "object",
 			additionalProperties: {
@@ -115,7 +118,9 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 					dataFormat: resp.DataFormat,
 				}))
 				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
+					// Copy rather than mutate in place, so the cache is only updated
+					// through `modifyCache` and its refresh timer is rescheduled with it.
+					const value = { ...getCache(options.cacheKey).value };
 					value[internalKey] = undefined;
 					modifyCache(options.cacheKey, value);
 					throw e;
@@ -132,19 +137,21 @@ const glueSchemaRegistryMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const glueSchemaRegistryMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const glueSchemaRegistryMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent — assignSetToContext returns undefined on the warm path, and `await undefined` is a no-op, so forcing the await is observationally identical
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const glueSchemaRegistryMiddlewareBefore = (request) => {
+		if (client) return glueSchemaRegistryMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return glueSchemaRegistryMiddlewareFetch(request);
+		});
 	};
 
 	return {
@@ -164,7 +171,9 @@ export const resolveSchemaVersion = async (
 		typeof schemaVersionId !== "string" ||
 		!schemaVersionIdPattern.test(schemaVersionId)
 	) {
-		throw new TypeError("resolveSchemaVersion: schemaVersionId required");
+		throw new TypeError("resolveSchemaVersion: schemaVersionId required", {
+			cause: { package: pkg, data: { schemaVersionId } },
+		});
 	}
 	const merged = { ...defaults, ...options };
 	const cacheKey = `${merged.cacheKey}:${schemaVersionId}`;
@@ -209,9 +218,10 @@ export const resolveSchemaVersion = async (
 					dataFormat: resp.DataFormat,
 				}))
 				.catch((e) => {
-					const v = getCache(cacheKey).value ?? {};
-					v[schemaVersionId] = undefined;
-					modifyCache(cacheKey, v);
+					// This cacheKey is per schema version, so the entry holds only
+					// this id. Dropping it outright is equivalent to blanking the
+					// single key, and leaves nothing for the next call to reuse.
+					clearCache([cacheKey]);
 					throw e;
 				}),
 		};

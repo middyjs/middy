@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
-	createError,
+	HttpError,
 	resolveHttpEventVersion,
 	validateOptions,
 } from "@middy/util";
@@ -12,8 +12,11 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	routes: [],
 	notFoundResponse: ({ method, path }) => {
-		const err = createError(404, "Route does not exist", {
-			cause: { package: pkg, data: { method, path } },
+		const err = new HttpError(404, {
+			cause: {
+				package: pkg,
+				data: { reason: "Route does not exist", method, path },
+			},
 		});
 		throw err;
 	},
@@ -176,7 +179,11 @@ const attachStaticRoute = (method, path, handler, routesType) => {
 		return;
 	}
 	routesType[method] ??= Object.create(null);
-	// TODO v8 when duplicates throw error
+	if (routesType[method][path]) {
+		throw new Error("Duplicate route", {
+			cause: { package: pkg, data: { method, path } },
+		});
+	}
 	routesType[method][path] = handler;
 	routesType[method][`${path}/`] = handler; // Optional `/`
 };

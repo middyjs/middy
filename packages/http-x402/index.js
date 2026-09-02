@@ -9,9 +9,9 @@ const pkg = `@middy/${name}`;
 const defaults = {
 	FacilitatorClient: HTTPFacilitatorClient,
 	facilitatorUrl: "https://x402.org/facilitator",
-	// TODO remove in v8: drop 1 from the default versions so v1 acceptance
-	// becomes opt-in (smaller attack surface, no legacy facilitator path).
-	versions: [1, 2],
+	// v1 acceptance is opt-in (smaller attack surface, no legacy facilitator
+	// path): pass `versions: [1, 2]` to also accept the X-PAYMENT v1 flow.
+	versions: [2],
 	price: undefined,
 	amount: undefined,
 	decimals: 6,
@@ -250,7 +250,7 @@ const httpX402Middleware = (opts = {}) => {
 		request.internal.x402 = { payload, requirements: requirementsV1 };
 	};
 
-	const httpX402MiddlewareBefore = async (request) => {
+	const httpX402MiddlewareBefore = (request) => {
 		if (human?.(request)) return;
 
 		// A disabled version's payment header is not a payment header for this

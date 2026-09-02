@@ -28,12 +28,13 @@ const defaults = {
 	awsClientOptions: {},
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: fetchKey, contextPrefix: fetchPath/ }
+	fetchData: {}, // { internalKey: fetchKey } | { internalKey: fetchPath/ }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 	awsRequestLimit: 10,
 };
 
@@ -56,6 +57,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
 	},
 	additionalProperties: false,
@@ -115,7 +117,10 @@ const ssmMiddleware = (opts = {}) => {
 					// Stryker disable next-line ArrayDeclaration: a non-empty fallback injects a bogus fetchKey whose indexOf is -1, so it only writes result[bogus]=Promise.reject and value[undefined]=undefined; neither is ever read back (only requested keys are resolved), so it is indistinguishable from the empty fallback.
 					for (const fetchKey of resp.InvalidParameters ?? []) {
 						const internalKey = internalKeys[fetchKeys.indexOf(fetchKey)];
-						const value = getCache(options.cacheKey).value ?? {};
+						// Copy rather than mutate the cached object in place, so the
+						// cache is only updated through `modifyCache` and its refresh
+						// timer is rescheduled with it.
+						const value = { ...getCache(options.cacheKey).value };
 						value[internalKey] = undefined;
 						modifyCache(options.cacheKey, value);
 						result[fetchKey] = Promise.reject(
@@ -209,21 +214,21 @@ const ssmMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const ssmMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const ssmMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns a Promise or undefined; awaiting undefined (forced true) is a no-op with no observable difference.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const ssmMiddlewareBefore = (request) => {
+		if (client) return ssmMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return ssmMiddlewareFetch(request);
+		});
 	};
 
 	return {

@@ -57,7 +57,11 @@ test("use with setToContext: true", () => {
 			unknown,
 			unknown,
 			Error,
-			LambdaContext & { configurationObjFromDynamo: Record<string, any> },
+			LambdaContext & {
+				middyContext: {
+					dynamodb: { configurationObjFromDynamo: Record<string, any> };
+				};
+			},
 			{ configurationObjFromDynamo: Record<string, any> }
 		>
 	>();
@@ -129,9 +133,9 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expect(request.context.configurationObjFromDynamo).type.toBe<
-			Record<string, any>
-		>();
+		expect(
+			request.context.middyContext.dynamodb.configurationObjFromDynamo,
+		).type.toBe<Record<string, any>>();
 
 		const data = await getInternal("configurationObjFromDynamo", request);
 		expect(data.configurationObjFromDynamo).type.toBe<Record<string, any>>();
@@ -181,7 +185,9 @@ handler
 		}),
 	)
 	.before(async (request) => {
-		expect(request.context.configurationObjFromDynamo).type.toBe<{
+		expect(
+			request.context.middyContext.dynamodb.configurationObjFromDynamo,
+		).type.toBe<{
 			param1: string;
 			param2: string;
 			param3: number;

@@ -13,6 +13,13 @@ test("ca() throws when NODE_EXTRA_CA_CERTS is not set", () => {
 	delete process.env.NODE_EXTRA_CA_CERTS;
 	try {
 		throws(() => getCa(), /NODE_EXTRA_CA_CERTS/);
+		// The message alone does not pin the cause; assert the package and the
+		// env var it names, which is the actionable part for the caller.
+		throws(getCa, (e) => {
+			strictEqual(e.cause.package, "@middy/rds");
+			strictEqual(e.cause.data.env, "NODE_EXTRA_CA_CERTS");
+			return true;
+		});
 	} finally {
 		if (saved !== undefined) process.env.NODE_EXTRA_CA_CERTS = saved;
 	}

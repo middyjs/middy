@@ -42,8 +42,8 @@ test("It should fetch and forward Body", async (t) => {
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		ok(typeof context.s3ObjectFetch.then === "function");
-		const res = await context.s3ObjectFetch;
+		ok(typeof context.middyContext["s3-object-response"].then === "function");
+		const res = await context.middyContext["s3-object-response"];
 		return {
 			Body: await res.text(),
 		};
@@ -76,8 +76,8 @@ test("It should fetch and forward body", async (t) => {
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		ok(typeof context.s3ObjectFetch.then === "function");
-		const res = await context.s3ObjectFetch;
+		ok(typeof context.middyContext["s3-object-response"].then === "function");
+		const res = await context.middyContext["s3-object-response"];
 		return {
 			body: await res.text(),
 		};
@@ -110,8 +110,8 @@ test("It should fetch and forward Body w/ {disablePrefetch:true}", async (t) => 
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		ok(typeof context.s3ObjectFetch.then === "function");
-		const res = await context.s3ObjectFetch;
+		ok(typeof context.middyContext["s3-object-response"].then === "function");
+		const res = await context.middyContext["s3-object-response"];
 		return {
 			Body: await res.text(),
 		};
@@ -135,7 +135,7 @@ test("It should not throw when handler returns undefined", async (t) => {
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		await context.s3ObjectFetch;
+		await context.middyContext["s3-object-response"];
 		// handler returns nothing
 	});
 
@@ -161,7 +161,7 @@ test("It should not emit unhandledRejection when prefetch fetch rejects and hand
 	const onUnhandled = (reason) => unhandled.push(reason);
 	process.on("unhandledRejection", onUnhandled);
 
-	// Handler never awaits context.s3ObjectFetch, so its rejection must be
+	// Handler never awaits the fetch promise, so its rejection must be
 	// swallowed by an internal .catch to avoid an unhandledRejection.
 	const handler = middy(async (event, context) => {
 		return { Body: "ok" };
@@ -182,7 +182,7 @@ test("It should not emit unhandledRejection when prefetch fetch rejects and hand
 	deepStrictEqual(unhandled, []);
 });
 
-test("It should surface the real fetch error to a consumer that awaits context.s3ObjectFetch", async (t) => {
+test("It should surface the real fetch error to a consumer that awaits the fetch promise", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => {
 		throw new Error("fetch failed");
 	});
@@ -193,7 +193,7 @@ test("It should surface the real fetch error to a consumer that awaits context.s
 	// A consumer that awaits the prefetched value must see the real error, not a
 	// swallowed `undefined`.
 	const handler = middy(async (event, context) => {
-		await context.s3ObjectFetch;
+		await context.middyContext["s3-object-response"];
 	});
 
 	handler.use(
@@ -219,7 +219,7 @@ test("It should handle event without getObjectContext", async (t) => {
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		strictEqual(context.s3ObjectFetch, undefined);
+		strictEqual(context.middyContext["s3-object-response"], undefined);
 		return {
 			Body: responseBody,
 		};
@@ -243,7 +243,7 @@ test("It should handle event with getObjectContext but no inputS3Url", async (t)
 		.resolvesOnce({ statusCode: 200 });
 
 	const handler = middy(async (event, context) => {
-		strictEqual(context.s3ObjectFetch, undefined);
+		strictEqual(context.middyContext["s3-object-response"], undefined);
 		return {
 			Body: responseBody,
 		};
@@ -530,4 +530,16 @@ test("It should fall back to request.response.body when Body is absent", async (
 	await handler(defaultEvent, defaultContext);
 
 	strictEqual(captured.input.Body, "lowercase-body");
+});
+
+test("s3ObjectResponseValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	s3ObjectResponseValidateOptions({ contextKey: "custom" });
+	try {
+		s3ObjectResponseValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
 });

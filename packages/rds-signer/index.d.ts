@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type { Signer, SignerConfig } from "@aws-sdk/rds-signer";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -20,9 +20,11 @@ export type RdsSignerOptions<AwsSigner = Signer> = Omit<
 export type Context<TOptions extends RdsSignerOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: string;
-				}
+			? ContextNamespace<
+					TOptions,
+					"rds-signer",
+					{ [Key in keyof TFetchData]: string }
+				>
 			: never
 		: LambdaContext;
 

@@ -144,7 +144,7 @@ test("It should set Signer token to context", async (t) => {
 
 	const middleware = async (request) => {
 		strictEqual(
-			request.context.token,
+			request.context.middyContext["rds-signer"].token,
 			"https://rds.amazonaws.com?X-Amz-Security-Token=token",
 		);
 	};
@@ -263,7 +263,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(getAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -290,9 +290,12 @@ test("It should catch if an invalid response is returned from fetch", async (t) 
 	} catch (e) {
 		strictEqual(getAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
+				cause: {
+					package: "@middy/rds-signer",
+					data: { method: "getAuthToken" },
+				},
 			}),
 		]);
 	}
@@ -326,9 +329,12 @@ test("It should reject a token containing a different X-Amz-Security-Token-like 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [
+		deepStrictEqual(e.errors, [
 			new Error("X-Amz-Security-Token Missing", {
-				cause: { package: "@middy/rds-signer", method: "getAuthToken" },
+				cause: {
+					package: "@middy/rds-signer",
+					data: { method: "getAuthToken" },
+				},
 			}),
 		]);
 	}
@@ -724,7 +730,7 @@ test("It should NOT set token to context by default (setToContext defaults false
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext["rds-signer"], undefined);
 		const values = await getInternal(true, request);
 		strictEqual(
 			values.token,
@@ -780,4 +786,16 @@ test("It should cache forever by default (cacheExpiry defaults -1)", async (t) =
 	await handler(defaultEvent, defaultContext);
 
 	strictEqual(getAuthToken.mock.callCount(), 1);
+});
+
+test("rdsSignerValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	rdsSignerValidateOptions({ contextKey: "custom" });
+	try {
+		rdsSignerValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
 });

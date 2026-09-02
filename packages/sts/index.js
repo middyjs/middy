@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { randomUUID } from "node:crypto";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import {
 	assignSetToContext,
@@ -22,12 +23,13 @@ const defaults = {
 	awsClientOptions: {},
 	// awsClientAssumeRole: undefined, // Not Applicable, as this is the middleware that defines the roles
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: {RoleArn, RoleSessionName} }
+	fetchData: {}, // { internalKey: {RoleArn, RoleSessionName} }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -45,6 +47,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 		fetchData: {
 			type: "object",
 			additionalProperties: {
@@ -100,7 +103,7 @@ const stsMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 			const assumeRoleOptions = options.fetchData[internalKey];
 			// Date cannot be used here to assign default session name, possibility of collision when > 1 role defined
-			assumeRoleOptions.RoleSessionName ??= `middy-sts-session-${Math.ceil(Math.random() * 99999)}`;
+			assumeRoleOptions.RoleSessionName ??= `@middy-sts-${randomUUID()}`;
 			const command = new AssumeRoleCommand(assumeRoleOptions);
 			values[internalKey] = client
 				.send(command)
@@ -128,21 +131,21 @@ const stsMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const stsMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const stsMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent mutant. assignSetToContext returns a Promise (cold path) or undefined (sync warm path); `await undefined` is a no-op, so forcing the guard to `true` is observationally identical.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const stsMiddlewareBefore = (request) => {
+		if (client) return stsMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return stsMiddlewareFetch(request);
+		});
 	};
 
 	return {

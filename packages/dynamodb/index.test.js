@@ -144,7 +144,7 @@ test("It should set DynamoDB param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key?.value, "value");
+		strictEqual(request.context.middyContext.dynamodb.key?.value, "value");
 	};
 
 	const handler = middy(() => {})
@@ -323,7 +323,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -594,7 +594,7 @@ test("It should not set value to context by default (setToContext defaults to fa
 		const values = await getInternal(true, request);
 		strictEqual(values.key?.value, "value");
 		// setToContext omitted => default false => not assigned to context.
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.dynamodb, undefined);
 	};
 
 	const handler = middy(() => {})
@@ -852,4 +852,16 @@ test("dynamodbValidateOptions allows additional native GetItemCommand fields", (
 			},
 		},
 	});
+});
+
+test("dynamodbValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	dynamodbValidateOptions({ contextKey: "custom" });
+	try {
+		dynamodbValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
 });

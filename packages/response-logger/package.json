@@ -1,10 +1,10 @@
 {
-	"name": "@middy/do-not-wait-for-empty-event-loop",
-	"version": "7.9.2",
-	"description": "Middleware for the middy framework that allows to easily disable the wait for empty event loop in a Lambda function",
+	"name": "@middy/response-logger",
+	"version": "7.9.0",
+	"description": "Response logger middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -41,7 +41,8 @@
 		"AWS",
 		"AWS Lambda",
 		"Middy",
-		"Event loop"
+		"Response",
+		"Logger"
 	],
 	"author": {
 		"name": "Middy contributors",
@@ -50,7 +51,7 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/middyjs/middy.git",
-		"directory": "packages/do-not-wait-for-empty-event-loop"
+		"directory": "packages/response-logger"
 	},
 	"bugs": {
 		"url": "https://github.com/middyjs/middy/issues"
@@ -61,11 +62,12 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "7.9.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.9.2",
+		"@datastream/core": "0.7.1",
+		"@middy/core": "7.9.0",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	}
 }

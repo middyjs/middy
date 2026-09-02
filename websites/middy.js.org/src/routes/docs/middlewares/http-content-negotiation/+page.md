@@ -43,6 +43,16 @@ npm install --save @middy/http-content-negotiation
 - `availableMediaTypes` (defaults to `undefined`) - Allows defining the list of media types supported by the Lambda function
 - `defaultToFirstMediaType` (defaults to `false`) - When negotiation produces no preferred media type, fall back to the first value in `availableMediaTypes` instead of failing
 - `failOnMismatch` (defaults to `true`) - If set to true it will throw an HTTP `NotAcceptable` (406) exception when the negotiation fails for one of the headers (e.g. none of the languages requested are supported by the app)
+- `contextKey` (defaults to `'http-content-negotiation'`) - The key under `context.middyContext` the results are published to
+
+## Consumed by
+
+The results land on `context.middyContext['http-content-negotiation']` as `preferredCharsets`/`preferredCharset`, `preferredEncodings`/`preferredEncoding`, `preferredLanguages`/`preferredLanguage`, and `preferredMediaTypes`/`preferredMediaType`.
+
+Two middleware read from there. Each takes a `contextKeyHttpContentNegotiation` option, named for this middleware because they only read the namespace and never write one of their own. Set it to match if you override `contextKey` above:
+
+- [http-response-serializer](/docs/middlewares/http-response-serializer) reads `preferredMediaTypes` to pick a serializer
+- [validator](/docs/middlewares/validator) reads `preferredLanguage` to localize validation errors
 
 ## Sample usage
 
@@ -55,7 +65,10 @@ import httpErrorHandler from '@middy/http-error-handler'
 const lambdaHandler = (event, context) => {
   let message, body
 
-  switch (context.preferredLanguage) {
+  const { preferredLanguage, preferredMediaType } =
+    context.middyContext['http-content-negotiation']
+
+  switch (preferredLanguage) {
     case 'it-it':
       message = 'Ciao Mondo'
       break
@@ -66,7 +79,7 @@ const lambdaHandler = (event, context) => {
       message = 'Hello world'
   }
 
-  switch (context.preferredMediaType) {
+  switch (preferredMediaType) {
     case 'application/xml':
       body = `<message>${message}</message>`
       break

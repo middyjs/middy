@@ -1,7 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
-import { createError } from "../util/index.js";
+import { HttpError } from "../util/index.js";
 import httpErrorHandler, { httpErrorHandlerValidateOptions } from "./index.js";
 
 const defaultEvent = {};
@@ -11,7 +11,7 @@ const defaultContext = {
 
 test("It should create a response for HTTP errors (string)", async (t) => {
 	const handler = middy(() => {
-		throw createError(422, "Unprocessable Entity");
+		throw new HttpError(422);
 	});
 
 	handler.use(httpErrorHandler({ logger: false }));
@@ -81,7 +81,7 @@ test("It should handle non HTTP errors when fallback set", async (t) => {
 });
 
 test("It should be possible to pass a custom logger function", async (t) => {
-	const expectedError = createError(422);
+	const expectedError = new HttpError(422);
 	const logger = t.mock.fn();
 
 	const handler = middy(() => {
@@ -92,12 +92,12 @@ test("It should be possible to pass a custom logger function", async (t) => {
 
 	await handler(defaultEvent, defaultContext);
 
-	deepStrictEqual(logger.mock.calls[0].arguments, [expectedError]);
+	strictEqual(logger.mock.calls[0].arguments[0].error, expectedError);
 });
 
 test("It should be possible to pass in headers with error", async (t) => {
 	const handler = middy(() => {
-		const error = createError(422, "Unprocessable Entity");
+		const error = new HttpError(422);
 		error.headers = {
 			Location: "https://example.org/500",
 		};
@@ -139,7 +139,7 @@ test("It should create a response for HTTP errors created with a generic error",
 });
 
 test("It should expose of error to user", async (t) => {
-	const expectedError = createError(404, "NotFound");
+	const expectedError = new HttpError(404);
 
 	const handler = middy(() => {
 		throw expectedError;
@@ -152,7 +152,7 @@ test("It should expose of error to user", async (t) => {
 	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 404,
-		body: "NotFound",
+		body: "Not Found",
 		headers: {
 			"Content-Type": "text/plain",
 		},
@@ -160,7 +160,7 @@ test("It should expose of error to user", async (t) => {
 });
 
 test("It should be possible to prevent expose of error to user", async (t) => {
-	const expectedError = createError(404, "NotFound", { expose: false });
+	const expectedError = new HttpError(404, { expose: false });
 
 	const handler = middy(() => {
 		throw expectedError;
@@ -181,7 +181,7 @@ test("It should be possible to prevent expose of error to user", async (t) => {
 });
 
 test("It should not send error to user", async (t) => {
-	const expectedError = createError(500, "InternalError");
+	const expectedError = new HttpError(500);
 
 	const handler = middy(() => {
 		throw expectedError;
@@ -202,7 +202,7 @@ test("It should not send error to user", async (t) => {
 });
 
 test("It should be possible to force expose of error to user", async (t) => {
-	const expectedError = createError(500, "OkayError", { expose: true });
+	const expectedError = new HttpError(500, { expose: true });
 
 	const handler = middy(() => {
 		throw expectedError;
@@ -215,7 +215,7 @@ test("It should be possible to force expose of error to user", async (t) => {
 	const response = await handler(defaultEvent, defaultContext);
 	deepStrictEqual(response, {
 		statusCode: 500,
-		body: "OkayError",
+		body: "Internal Server Error",
 		headers: {
 			"Content-Type": "text/plain",
 		},
@@ -224,7 +224,7 @@ test("It should be possible to force expose of error to user", async (t) => {
 
 test("It should allow later middleware to modify the response", async (t) => {
 	const handler = middy(() => {
-		throw createError(422, "Unprocessable Entity");
+		throw new HttpError(422);
 	});
 
 	handler
@@ -247,7 +247,7 @@ test("It should allow later middleware to modify the response", async (t) => {
 
 test("It should not handle error is response is set", async (t) => {
 	const handler = middy(() => {
-		throw createError(422);
+		throw new HttpError(422);
 	});
 
 	handler.use(httpErrorHandler({ logger: false })).onError((request) => {
@@ -289,7 +289,7 @@ test("It should return the 500 fallback when a primitive is thrown", async (t) =
 
 test("It should keep an error-supplied Content-Type header", async (t) => {
 	const handler = middy(() => {
-		const error = createError(422, "<error>Unprocessable</error>");
+		const error = new HttpError(422);
 		error.headers = {
 			"Content-Type": "application/xml",
 		};
@@ -302,7 +302,7 @@ test("It should keep an error-supplied Content-Type header", async (t) => {
 
 	deepStrictEqual(response, {
 		statusCode: 422,
-		body: "<error>Unprocessable</error>",
+		body: "Unprocessable Entity",
 		headers: {
 			"Content-Type": "application/xml",
 		},
@@ -313,7 +313,7 @@ test("It should use the default console.error logger when none is provided", asy
 	const write = t.mock.method(process.stderr, "write", () => true);
 
 	const handler = middy(() => {
-		throw createError(422, "Unprocessable Entity");
+		throw new HttpError(422);
 	});
 
 	handler.use(httpErrorHandler());
@@ -332,7 +332,7 @@ test("It should use the default console.error logger when none is provided", asy
 
 test("It should leave an already-set response untouched", async (t) => {
 	const handler = middy(() => {
-		throw createError(422, "Unprocessable Entity");
+		throw new HttpError(422);
 	});
 
 	handler.use(httpErrorHandler({ logger: false })).onError((request) => {
@@ -429,5 +429,80 @@ test("httpErrorHandlerValidateOptions rejects wrong type", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("fallbackMessage"));
+	}
+});
+
+test("It should redact omitPaths from the error before logging", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new HttpError(422, {
+			cause: {
+				package: "@middy/http-json-body-parser",
+				data: { reason: "Invalid JSON", body: "ssn=123-45-6789" },
+			},
+		});
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = request),
+			omitPaths: ["error.cause.data.body"],
+			mask: "[redacted]",
+		}),
+	);
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	strictEqual(captured.error.cause.data.body, "[redacted]");
+	strictEqual(captured.error.cause.data.reason, "Invalid JSON");
+	strictEqual(captured.error.statusCode, 422);
+	strictEqual(response.statusCode, 422);
+	strictEqual(response.body, "Unprocessable Entity");
+});
+
+test("It should redact omitPaths outside the error", async (t) => {
+	let captured = null;
+
+	const handler = middy(() => {
+		throw new HttpError(500);
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = request),
+			omitPaths: ["event.headers.authorization"],
+		}),
+	);
+
+	await handler(
+		{ headers: { authorization: "Bearer x", accept: "*" } },
+		defaultContext,
+	);
+
+	deepStrictEqual(captured.event, { headers: { accept: "*" } });
+});
+
+test("It should pass the request through untouched when no omitPaths are set", async (t) => {
+	const error = new HttpError(500);
+	let captured = null;
+
+	// Captured at log time: `request.error` is swapped for the fallback after.
+	const handler = middy(() => {
+		throw error;
+	}).use(
+		httpErrorHandler({
+			logger: (request) => (captured = { request, error: request.error }),
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(captured.error, error);
+});
+
+test("httpErrorHandlerValidateOptions accepts omitPaths and mask", () => {
+	httpErrorHandlerValidateOptions({ omitPaths: ["error.cause"], mask: "**" });
+	try {
+		httpErrorHandlerValidateOptions({ omitPaths: "error.cause" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("omitPaths"));
 	}
 });

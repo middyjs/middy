@@ -23,6 +23,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -51,6 +52,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -101,7 +103,7 @@ const rdsSignerMiddleware = (opts = {}) => {
 					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: pkg, method },
+							cause: { package: pkg, data: { method } },
 						});
 					}
 					return token;
@@ -121,15 +123,13 @@ const rdsSignerMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const rdsSignerMiddlewareBefore = async (request) => {
+	const rdsSignerMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: equivalent. assignSetToContext returns undefined on the sync path (context already assigned) or a Promise otherwise; `await undefined` is a no-op, so forcing the guard to true changes only an unobservable microtask hop, not behavior.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

@@ -4,7 +4,7 @@
 	"description": "🛵 The stylish Node.js middleware engine for AWS Lambda (util package)",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -60,7 +60,7 @@
 		"@aws-sdk/client-ssm": "^3.0.0",
 		"@middy/core": "7.9.2",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0"
+		"@types/node": "^24.0.0"
 	},
 	"homepage": "https://middy.js.org",
 	"funding": {

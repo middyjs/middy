@@ -1,6 +1,7 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
 import { describe, test } from "node:test";
 import { LocalDurableTestRunner } from "@aws/durable-execution-sdk-js-testing";
+import { isExecutionModeDurable } from "@middy/util";
 import { executionModeDurableContext } from "./executionModeDurableContext.js";
 import middy from "./index.js";
 
@@ -27,6 +28,22 @@ describe("executionModeDurableContext", () => {
 	});
 	test.afterEach(async () => {
 		await LocalDurableTestRunner.teardownTestEnvironment();
+	});
+
+	test("Should detect the real SDK durable context via isExecutionModeDurable", async (t) => {
+		let detected;
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+		}).handler((event, context) => {
+			detected = isExecutionModeDurable(context);
+			return "ok";
+		});
+		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "SUCCEEDED");
+		strictEqual(detected, true);
 	});
 
 	test("Should return with executionMode:executionModeDurableContext using string", async (t) => {
@@ -139,6 +156,46 @@ describe("executionModeDurableContext", () => {
 
 		strictEqual(execution.getStatus(), "FAILED");
 		strictEqual(execution.getError().errorMessage, "requestEnd failed");
+	});
+
+	test("Should keep a primitive handler error when requestEnd also throws in durable context", async (t) => {
+		// Primitives cannot carry a `cause`; assigning one throws in strict mode,
+		// so the guard must skip the assignment and keep the handler error.
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+			requestEnd: () => {
+				throw new Error("requestEnd failed");
+			},
+		}).handler(() => {
+			throw "boom";
+		});
+		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "FAILED");
+		// The durable SDK reports a non-Error throw as "Unknown error". Assigning
+		// a cause to the primitive instead would surface a TypeError message.
+		strictEqual(execution.getError().errorMessage, "Unknown error");
+	});
+
+	test("Should keep a null handler error when requestEnd also throws in durable context", async (t) => {
+		// `typeof null === "object"`, so only the explicit null check keeps the
+		// `cause` assignment off it.
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+			requestEnd: () => {
+				throw new Error("requestEnd failed");
+			},
+		}).handler(() => {
+			throw null;
+		});
+		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "FAILED");
+		strictEqual(execution.getError().errorMessage, "Unknown error");
 	});
 
 	test("Should not await a thenable returned by requestEnd in durable context", async (t) => {

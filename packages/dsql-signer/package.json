@@ -4,7 +4,7 @@
 	"description": "Aurora DSQL credentials middleware for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -77,7 +77,7 @@
 		"@aws-sdk/dsql-signer": "^3.0.0",
 		"@middy/core": "7.9.2",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"aws-xray-sdk": "^3.0.0"
 	}
 }

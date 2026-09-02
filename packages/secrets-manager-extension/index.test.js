@@ -128,7 +128,10 @@ test("It should set secret value to context", async (_t) => {
 			}),
 		)
 		.before(async (request) => {
-			equal(request.context.token, "token");
+			equal(
+				request.context.middyContext["secrets-manager-extension"].token,
+				"token",
+			);
 		});
 
 	await handler(event, context);
@@ -321,7 +324,7 @@ test("It should propagate the original fetch error (catch rethrows, not swallows
 		await handler(event, context);
 		ok(false, "should have thrown");
 	} catch (e) {
-		const original = e.cause.data[0];
+		const original = e.errors[0];
 		equal(original.message, "@middy/secrets-manager-extension 404 Not Found");
 		strictEqual(original.cause.package, "@middy/secrets-manager-extension");
 	}
@@ -477,7 +480,10 @@ test("It should not set values to context when setToContext defaults to false", 
 			}),
 		)
 		.before(async (request) => {
-			equal(request.context.token, undefined);
+			equal(
+				request.context.middyContext["secrets-manager-extension"],
+				undefined,
+			);
 			ok(!Object.hasOwn(request.context, "token"));
 		});
 	await handler(event, context);
@@ -597,5 +603,17 @@ test("secretsManagerExtensionValidateOptions rejects non-string fetchData value"
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e instanceof TypeError);
+	}
+});
+
+test("secretsManagerExtensionValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	secretsManagerExtensionValidateOptions({ contextKey: "custom" });
+	try {
+		secretsManagerExtensionValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

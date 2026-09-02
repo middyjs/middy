@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 import type { SSMClient, SSMClientConfig } from "@aws-sdk/client-ssm";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -17,11 +17,17 @@ export interface SSMOptions<AwsSSMClient = SSMClient>
 export type Context<TOptions extends SSMOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<infer T>
-						? T
-						: unknown;
-				}
+			? ContextNamespace<
+					TOptions,
+					"ssm",
+					{
+						[Key in keyof TFetchData]: TFetchData[Key] extends ParamType<
+							infer T
+						>
+							? T
+							: unknown;
+					}
+				>
 			: never
 		: LambdaContext;
 

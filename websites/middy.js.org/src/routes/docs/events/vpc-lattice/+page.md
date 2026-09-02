@@ -23,7 +23,8 @@ We recommend using `@middy/http-event-normalizer` if you place to use any of the
 ```javascript
 import middy from '@middy/core'
 import errorLoggerMiddleware from '@middy/error-logger'
-import inputOutputLoggerMiddleware from '@middy/input-output-logger'
+import eventLoggerMiddleware from '@middy/event-logger'
+import responseLoggerMiddleware from '@middy/response-logger'
 import httpContentNegotiationMiddleware from '@middy/http-content-negotiation'
 import httpContentEncodingMiddleware from '@middy/http-content-encoding'
 import httpCorsMiddleware from '@middy/http-cors'

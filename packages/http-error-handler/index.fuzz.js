@@ -2,7 +2,7 @@ import { ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
-import { createError } from "../util/index.js";
+import { HttpError } from "../util/index.js";
 import middleware from "./index.js";
 
 const handler = middy((event) => event).use(middleware());
@@ -25,7 +25,7 @@ test("fuzz `event` w/ `object`", async () => {
 
 test("fuzz errors produce valid HTTP response", async () => {
 	const errorHandler = middy(() => {
-		throw createError(422, "test");
+		throw new HttpError(422);
 	}).use(middleware({ logger: false }));
 	await fc.assert(
 		fc.asyncProperty(fc.object(), async (event) => {

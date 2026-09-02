@@ -126,7 +126,7 @@ const makeEvent = ({
 // Stands in for @middy/http-jwt or @middy/http-paseto having verified the token
 // and written its payload to request.internal.
 const makeHandler = (payload, opts = {}) =>
-	middy((event, context) => context)
+	middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal[opts.payloadKey ?? "jwt"] = payload;
 		})
@@ -146,7 +146,7 @@ test("It should accept a bound token presented with a matching proof", async () 
 
 	strictEqual(result.dpop.jti, "proof-1");
 	strictEqual(result.dpop.htm, "GET");
-	strictEqual(ctx.dpop.htu, `https://${DOMAIN}${PATH}`);
+	strictEqual(ctx.middyContext.dpop.htu, `https://${DOMAIN}${PATH}`);
 });
 
 for (const alg of Object.keys(ALGORITHMS)) {
@@ -197,7 +197,7 @@ test("It should reject a bound token sent with the Bearer scheme", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("DPoP authentication scheme"));
+	ok(result.cause.data.reason.includes("DPoP authentication scheme"));
 });
 
 test("It should accept a lower-case dpop scheme", async () => {
@@ -221,7 +221,7 @@ test("It should reject a bound token with no proof", async () => {
 	);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("Missing DPoP header"));
+	ok(result.cause.data.reason.includes("Missing DPoP header"));
 });
 
 test("It should reject a bound token with no authorization header", async () => {
@@ -246,7 +246,7 @@ test("It should reject a proof signed by a different key", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("confirmation claim"));
+	ok(result.cause.data.reason.includes("confirmation claim"));
 });
 
 test("It should reject a proof whose signature does not verify", async () => {
@@ -261,7 +261,7 @@ test("It should reject a proof whose signature does not verify", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("signature is invalid"));
+	ok(result.cause.data.reason.includes("signature is invalid"));
 });
 
 test("It should reject a proof minted for another method", async () => {
@@ -274,7 +274,7 @@ test("It should reject a proof minted for another method", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'htm'"));
+	ok(result.cause.data.reason.includes("'htm'"));
 });
 
 test("It should reject a proof minted for another path", async () => {
@@ -287,7 +287,7 @@ test("It should reject a proof minted for another path", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'htu'"));
+	ok(result.cause.data.reason.includes("'htu'"));
 });
 
 test("It should reject a proof minted for another host", async () => {
@@ -342,7 +342,7 @@ test("It should reject a proof older than maxAge", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'iat'"));
+	ok(result.cause.data.reason.includes("'iat'"));
 });
 
 test("It should honour a custom maxAge", async () => {
@@ -383,7 +383,7 @@ test("It should reject a proof with no jti", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'jti'"));
+	ok(result.cause.data.reason.includes("'jti'"));
 });
 
 test("It should reject a proof whose ath names another token", async () => {
@@ -396,7 +396,7 @@ test("It should reject a proof whose ath names another token", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'ath'"));
+	ok(result.cause.data.reason.includes("'ath'"));
 });
 
 test("It should reject a proof with no ath at all", async () => {
@@ -421,7 +421,7 @@ test("It should reject a JWT that is not a dpop+jwt", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'typ'"));
+	ok(result.cause.data.reason.includes("'typ'"));
 });
 
 test("It should reject an algorithm outside the configured list", async () => {
@@ -433,7 +433,7 @@ test("It should reject an algorithm outside the configured list", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("'alg'"));
+	ok(result.cause.data.reason.includes("'alg'"));
 });
 
 test("It should accept an algorithm inside a narrowed list", async () => {
@@ -462,7 +462,7 @@ test("It should reject an RSA key wearing an ES256 alg", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("does not match"));
+	ok(result.cause.data.reason.includes("does not match"));
 });
 
 test("It should reject an EC key on the wrong curve for its alg", async () => {
@@ -475,7 +475,7 @@ test("It should reject an EC key on the wrong curve for its alg", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("does not match"));
+	ok(result.cause.data.reason.includes("does not match"));
 });
 
 test("It should reject a proof carrying private key material", async () => {
@@ -490,7 +490,7 @@ test("It should reject a proof carrying private key material", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("private key material"));
+	ok(result.cause.data.reason.includes("private key material"));
 });
 
 test("It should reject an RSA jwk with an oversized public exponent", async () => {
@@ -509,7 +509,7 @@ test("It should reject an RSA jwk with an oversized public exponent", async () =
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("exponent"));
+	ok(result.cause.data.reason.includes("exponent"));
 });
 
 test("It should reject a proof with an unusable jwk", async () => {
@@ -561,7 +561,7 @@ test("It should reject a proof longer than maxProofLength", async () => {
 	}).catch((e) => e);
 
 	strictEqual(result.statusCode, 401);
-	ok(result.cause.data.includes("maxProofLength"));
+	ok(result.cause.data.reason.includes("maxProofLength"));
 });
 
 test("It should accept a single-entry repeated DPoP header", async () => {
@@ -731,7 +731,7 @@ test("It should throw a 500 when the request URI cannot be resolved", async () =
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 500);
-	ok(result.cause.data.includes("'origin' option"));
+	ok(result.cause.data.reason.includes("'origin' option"));
 });
 
 test("It should throw a 500 when the event carries no path", async () => {
@@ -750,7 +750,7 @@ test("It should throw a 500 when the event carries no path", async () => {
 	).catch((e) => e);
 
 	strictEqual(result.statusCode, 500);
-	ok(result.cause.data.includes("'origin' option"));
+	ok(result.cause.data.reason.includes("'origin' option"));
 });
 
 test("It should throw at construction on an origin that is not a URL", () => {
@@ -829,7 +829,7 @@ test("It should read an ALB event when origin is configured", async () => {
 
 test("It should use a custom payloadKey, proofKey and confirmationClaim", async () => {
 	const key = keyFor();
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.paseto = boundPayload(key, "confirmation");
 		})
@@ -862,7 +862,7 @@ test("It should write only to internal by default", async () => {
 
 	await handler(makeEvent({ dpop: proofFor(key) }), ctx);
 
-	strictEqual(ctx.dpop, undefined);
+	strictEqual(ctx.middyContext.dpop, undefined);
 });
 
 test("It should throw at construction on an unknown algorithm", () => {
@@ -962,4 +962,425 @@ test("verifyDpopProof throws a plain Error on junk", () => {
 	throws(() => verifyDpopProof(undefined), { name: "Error" });
 	throws(() => verifyDpopProof(42), { name: "Error" });
 	throws(() => verifyDpopProof("a.b"), { name: "Error" });
+});
+
+// ---------- verifyDpopProof guard messages ----------
+// The middleware turns every one of these into the same 401, so the guards are
+// only distinguishable through verifyDpopProof's own error text. Asserting the
+// exact message is what pins which guard fired.
+
+const VERIFY_OPTS = {
+	method: "GET",
+	url: `https://${DOMAIN}${PATH}`,
+	accessToken: TOKEN,
+};
+
+const expectMessage = (fn, message) => {
+	throws(fn, (e) => {
+		strictEqual(e.message, message);
+		return true;
+	});
+};
+
+test("verifyDpopProof names the guard that rejected the proof", () => {
+	const key = keyFor();
+
+	expectMessage(
+		() => verifyDpopProof(42, VERIFY_OPTS),
+		"Proof is not a string",
+	);
+	expectMessage(
+		() => verifyDpopProof("a.b", VERIFY_OPTS),
+		"Proof is not a JWS Compact Serialization",
+	);
+	expectMessage(
+		() => verifyDpopProof("!!!.b.c", VERIFY_OPTS),
+		"Proof header is not JSON",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				`${Buffer.from("[1,2]").toString("base64url")}.b.c`,
+				VERIFY_OPTS,
+			),
+		"Proof header is not an object",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { typ: "jwt" }), VERIFY_OPTS),
+		"Proof 'typ' is 'jwt', expected 'dpop+jwt'",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(proofFor(key), { ...VERIFY_OPTS, algorithms: ["ES384"] }),
+		"Proof 'alg' is 'ES256', which is not allowed",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, crv: "P-384" } }),
+				VERIFY_OPTS,
+			),
+		"Proof 'jwk' does not match 'ES256'",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, x: "not-a-point" } }),
+				VERIFY_OPTS,
+			),
+		"Proof 'jwk' is not a usable public key",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { htm: "POST" }), VERIFY_OPTS),
+		"Proof 'htm' is 'POST', expected 'GET'",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { htm: null }), VERIFY_OPTS),
+		"Proof 'htm' is 'undefined', expected 'GET'",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { htu: null }), VERIFY_OPTS),
+		`Proof 'htu' is 'undefined', expected '${VERIFY_OPTS.url}'`,
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { htu: "not a url" }), VERIFY_OPTS),
+		"Proof 'htu' is not a URL",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key), { ...VERIFY_OPTS, url: "not a url" }),
+		"The request URI is not a URL",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { iat: null }), VERIFY_OPTS),
+		"Proof 'iat' is outside the acceptable window",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { jti: "" }), VERIFY_OPTS),
+		"Proof is missing 'jti'",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { jti: 7 }), VERIFY_OPTS),
+		"Proof is missing 'jti'",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { ath: "wrong" }), VERIFY_OPTS),
+		"Proof 'ath' does not match the presented access token",
+	);
+});
+
+// The signature is checked before the payload is decoded, so a tampered
+// payload fails on the signature first. Reaching the payload guards needs a
+// proof genuinely signed over the malformed segment.
+const proofWithRawPayload = (key, payloadSegment) => {
+	const header = Buffer.from(
+		JSON.stringify({ typ: "dpop+jwt", alg: key.alg, jwk: key.jwk }),
+	).toString("base64url");
+	const spec = ALGORITHMS[key.alg];
+	const signature = sign(
+		spec.hash,
+		Buffer.from(`${header}.${payloadSegment}`),
+		{ key: key.privateKey, ...spec.options },
+	).toString("base64url");
+	return `${header}.${payloadSegment}.${signature}`;
+};
+
+test("verifyDpopProof rejects a payload that is not a JSON object", () => {
+	const key = keyFor();
+
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofWithRawPayload(key, Buffer.from("not json").toString("base64url")),
+				VERIFY_OPTS,
+			),
+		"Proof payload is not JSON",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofWithRawPayload(key, Buffer.from("[1,2]").toString("base64url")),
+				VERIFY_OPTS,
+			),
+		"Proof payload is not an object",
+	);
+});
+
+test("verifyDpopProof rejects every private JWK member", () => {
+	// Each member of the private-material list must be rejected on its own; a
+	// list missing one would let that member through unnoticed.
+	const key = keyFor();
+	for (const member of ["d", "p", "q", "dp", "dq", "qi", "k"]) {
+		expectMessage(
+			() =>
+				verifyDpopProof(
+					proofFor(key, { jwk: { ...key.jwk, [member]: "x" } }),
+					VERIFY_OPTS,
+				),
+			"Proof 'jwk' carries private key material",
+		);
+	}
+});
+
+test("jwkThumbprint reports the offending key type and member on the cause", () => {
+	// The message names the problem; the cause is what a caller can branch on.
+	throws(
+		() => jwkThumbprint({ kty: "oct", k: "abc" }),
+		(e) => {
+			strictEqual(e.message, "Unsupported JWK key type 'oct'");
+			strictEqual(e.cause.package, "@middy/http-dpop");
+			strictEqual(e.cause.data.kty, "oct");
+			return true;
+		},
+	);
+	throws(
+		() => jwkThumbprint(undefined),
+		(e) => {
+			strictEqual(e.message, "Unsupported JWK key type 'undefined'");
+			strictEqual(e.cause.data.kty, undefined);
+			return true;
+		},
+	);
+	throws(
+		() => jwkThumbprint({ kty: "EC", crv: "P-256", x: "a" }),
+		(e) => {
+			strictEqual(e.message, "JWK is missing required member 'y'");
+			strictEqual(e.cause.package, "@middy/http-dpop");
+			strictEqual(e.cause.data.member, "y");
+			return true;
+		},
+	);
+});
+
+test("jwkThumbprint hashes only the members RFC 7638 names for each key type", () => {
+	// An extra member must not change the thumbprint, and each key type has its
+	// own member list.
+	const okp = { kty: "OKP", crv: "Ed25519", x: "abc" };
+	strictEqual(jwkThumbprint(okp), jwkThumbprint({ ...okp, use: "sig" }));
+	throws(
+		() => jwkThumbprint({ kty: "OKP", crv: "Ed25519" }),
+		(e) => {
+			strictEqual(e.cause.data.member, "x");
+			return true;
+		},
+	);
+
+	const rsa = { kty: "RSA", e: "AQAB", n: "abc" };
+	strictEqual(jwkThumbprint(rsa), jwkThumbprint({ ...rsa, alg: "RS256" }));
+	throws(
+		() => jwkThumbprint({ kty: "RSA", e: "AQAB" }),
+		(e) => {
+			strictEqual(e.cause.data.member, "n");
+			return true;
+		},
+	);
+});
+
+test("verifyDpopProof rejects a JSON null header or payload", () => {
+	// `null` is typeof "object", so only the explicit null check rejects it.
+	const key = keyFor();
+	const nullSegment = Buffer.from("null").toString("base64url");
+
+	expectMessage(
+		() => verifyDpopProof(`${nullSegment}.b.c`, VERIFY_OPTS),
+		"Proof header is not an object",
+	);
+	expectMessage(
+		() => verifyDpopProof(proofWithRawPayload(key, nullSegment), VERIFY_OPTS),
+		"Proof payload is not an object",
+	);
+});
+
+// ---------- middleware rejection reasons and event readers ----------
+
+test("It should name the reason when a required binding is absent", async () => {
+	// Every rejection is a 401, so the reason string is the only way to tell
+	// which guard fired.
+	const handler = makeHandler({ sub: "user" }, { required: true });
+
+	const result = await handler(makeEvent(), { ...defaultContext }).catch(
+		(e) => e,
+	);
+
+	strictEqual(result.statusCode, 401);
+	strictEqual(
+		result.cause.data.reason,
+		"Token carries no 'cnf.jkt', and 'required' is set",
+	);
+	strictEqual(result.cause.package, "@middy/http-dpop");
+});
+
+test("It should name the confirmationClaim option in the required reason", async () => {
+	const handler = makeHandler(
+		{ sub: "user" },
+		{ required: true, confirmationClaim: "binding" },
+	);
+
+	const result = await handler(makeEvent(), { ...defaultContext }).catch(
+		(e) => e,
+	);
+
+	strictEqual(
+		result.cause.data.reason,
+		"Token carries no 'binding.jkt', and 'required' is set",
+	);
+});
+
+test("It should reject when the event carries no origin and none is configured", async () => {
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			rawPath: PATH,
+			requestContext: { http: { method: "GET" } },
+			headers: { authorization: `DPoP ${TOKEN}`, dpop: proofFor(key) },
+		},
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+});
+
+test("It should ignore a non-string dpop header value", async () => {
+	// asString() keeps a non-string header from reaching the parser; without it
+	// the proof guard would see a truthy non-string.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(makeEvent({ dpop: 42 }), {
+		...defaultContext,
+	}).catch((e) => e);
+
+	strictEqual(result.statusCode, 401);
+	strictEqual(result.cause.data.reason, "Missing DPoP header");
+});
+
+test("It should name the unsupported algorithm and its allowed set", () => {
+	// The message is the only place the caller learns which algorithms exist.
+	throws(
+		() => realHttpDpop({ algorithm: "HS256" }),
+		(e) => {
+			ok(
+				e.message.startsWith("Unsupported algorithm 'HS256', expected one of "),
+			);
+			ok(e.message.includes("ES256, "));
+			strictEqual(e.cause.package, "@middy/http-dpop");
+			return true;
+		},
+	);
+});
+
+test("It should tolerate a null event", async () => {
+	// Lambda hands middy whatever the caller sent; `event = {}` only defaults an
+	// absent event, so every reader has to survive an explicit null.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	// With no headers at all the authorization check rejects first; the point
+	// is that reading a null event raises that 401 rather than a TypeError.
+	const result = await handler(null, { ...defaultContext }).catch((e) => e);
+
+	strictEqual(result.statusCode, 401);
+});
+
+test("It should tolerate an event with no headers", async () => {
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key), {
+		origin: `https://${DOMAIN}`,
+	});
+
+	const result = await handler(
+		{ rawPath: PATH, requestContext: { http: { method: "GET" } } },
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 401);
+});
+
+test("It should reject an empty DPoP header", async () => {
+	// An empty string is a string, so the emptiness check has to be a separate
+	// arm of the guard rather than folded into the type check.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(makeEvent({ dpop: "" }), {
+		...defaultContext,
+	}).catch((e) => e);
+
+	strictEqual(result.statusCode, 401);
+	strictEqual(result.cause.data.reason, "Missing DPoP header");
+});
+
+test("verifyDpopProof rejects a header that decodes to a bare JSON value", () => {
+	// Not null, not an array, but not an object either.
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				`${Buffer.from("5").toString("base64url")}.b.c`,
+				VERIFY_OPTS,
+			),
+		"Proof header is not an object",
+	);
+});
+
+test("verifyDpopProof rejects a jwk whose kty is wrong but crv matches", () => {
+	// Both arms of the jwk check must stand alone: a matching crv cannot excuse
+	// a mismatched kty.
+	const key = keyFor();
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, kty: "RSA" } }),
+				VERIFY_OPTS,
+			),
+		"Proof 'jwk' does not match 'ES256'",
+	);
+	expectMessage(
+		// `undefined` would re-select proofFor's default; `null` omits the member.
+		() => verifyDpopProof(proofFor(key, { jwk: null }), VERIFY_OPTS),
+		"Proof 'jwk' does not match 'ES256'",
+	);
+});
+
+test("verifyDpopProof accepts a proof exactly maxAge seconds old", () => {
+	// The window is inclusive: `> maxAge` rejects, `>= maxAge` would reject the
+	// boundary too.
+	const key = keyFor();
+	const now = Math.floor(Date.now() / 1000);
+	const proof = proofFor(key, { iat: now - 60 });
+
+	const { jkt } = verifyDpopProof(proof, { ...VERIFY_OPTS, maxAge: 60 });
+	strictEqual(jkt, key.jkt);
+});
+
+test("It should pass through when no verified payload was written", async () => {
+	// The token middleware may not have run at all; reading its payload key
+	// then yields undefined, which must be treated as an unbound request rather
+	// than crashing.
+	const key = keyFor();
+	const handler = middy((event, context) => context.middyContext).use(
+		httpDpop(),
+	);
+
+	const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+		...defaultContext,
+	});
+
+	strictEqual(result.dpop, undefined);
+});
+
+test("It should accept a proof of exactly maxProofLength", async () => {
+	// The cap is `>`, so a proof of exactly the limit is still allowed;
+	// `>=` would reject it.
+	const key = keyFor();
+	const proof = proofFor(key);
+	const handler = makeHandler(boundPayload(key), {
+		maxProofLength: proof.length,
+	});
+
+	const result = await handler(makeEvent({ dpop: proof }), {
+		...defaultContext,
+	});
+
+	strictEqual(result.dpop.jti, "proof-1");
 });

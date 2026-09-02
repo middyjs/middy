@@ -7,7 +7,7 @@ import type {
 	ServiceDiscoveryClientConfig,
 } from "@aws-sdk/client-servicediscovery";
 import type middy from "@middy/core";
-import type { Options as MiddyOptions } from "@middy/util";
+import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
 export type ParamType<T> = string & { __returnType?: T };
@@ -33,9 +33,11 @@ export interface ServiceDiscoveryOptions<
 export type Context<TOptions extends ServiceDiscoveryOptions | undefined> =
 	TOptions extends { setToContext: true }
 		? TOptions extends { fetchData: infer TFetchData }
-			? LambdaContext & {
-					[Key in keyof TFetchData]: HttpInstanceSummary[];
-				}
+			? ContextNamespace<
+					TOptions,
+					"service-discovery",
+					{ [Key in keyof TFetchData]: HttpInstanceSummary[] }
+				>
 			: never
 		: LambdaContext;
 

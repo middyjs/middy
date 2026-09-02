@@ -58,7 +58,9 @@ test("use with setToContext: true", () => {
 			unknown,
 			unknown,
 			Error,
-			Context<typeof options> & { someS3Object: unknown },
+			Context<typeof options> & {
+				middyContext: { s3: { someS3Object: unknown } };
+			},
 			{ someS3Object: unknown }
 		>
 	>();
@@ -103,7 +105,7 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someS3Object).type.toBe<unknown>();
+			expect(request.context.middyContext.s3.someS3Object).type.toBe<unknown>();
 
 			const data = await getInternal("someS3Object", request);
 			expect(data.someS3Object).type.toBe<unknown>();
@@ -143,7 +145,7 @@ test("s3Param with setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.someS3Object).type.toBe<{
+			expect(request.context.middyContext.s3.someS3Object).type.toBe<{
 				param1: string;
 				param2: string;
 				param3: number;

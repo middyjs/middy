@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { clearCache, getInternal } from "@middy/util";
@@ -110,11 +110,14 @@ test("It should set STS secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		deepStrictEqual(request.context.role, {
-			accessKeyId: "accessKeyId",
-			secretAccessKey: "secretAccessKey",
-			sessionToken: "sessionToken",
-		});
+		deepStrictEqual(
+			{ ...request.context.middyContext.sts.role },
+			{
+				accessKeyId: "accessKeyId",
+				secretAccessKey: "secretAccessKey",
+				sessionToken: "sessionToken",
+			},
+		);
 	};
 
 	handler
@@ -248,7 +251,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -441,7 +444,7 @@ test("It should NOT set credentials to context by default", async (t) => {
 
 	const handler = middy(() => {});
 	const middleware = async (request) => {
-		strictEqual(request.context.role, undefined);
+		strictEqual(request.context.middyContext.sts, undefined);
 	};
 	handler
 		.use(
@@ -463,11 +466,6 @@ test("It should NOT set credentials to context by default", async (t) => {
 });
 
 test("It should generate a default RoleSessionName when none provided", async (t) => {
-	// Fix Math.random so the generated suffix is deterministic: with 0.5 the
-	// real `Math.ceil(0.5 * 99999)` is 50000, whereas a `/` mutant would yield
-	// `Math.ceil(0.5 / 99999)` === 1.
-	t.mock.method(Math, "random", () => 0.5);
-
 	let captured;
 	mockClient(STSClient)
 		.on(AssumeRoleCommand)
@@ -497,7 +495,10 @@ test("It should generate a default RoleSessionName when none provided", async (t
 
 	await handler(defaultEvent, defaultContext);
 
-	strictEqual(captured.RoleSessionName, "middy-sts-session-50000");
+	match(
+		captured.RoleSessionName,
+		/^@middy-sts-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+	);
 });
 
 test("It should preserve a provided RoleSessionName", async (t) => {
@@ -688,5 +689,17 @@ test("It should throw a clear, package-tagged error for non-cloneable fetchData"
 			`message should mention fetchData, got: ${e.message}`,
 		);
 		strictEqual(e.cause.package, "@middy/sts");
+	}
+});
+
+test("stsValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	stsValidateOptions({ contextKey: "custom" });
+	try {
+		stsValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { createPublicKey, KeyObject } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 import { V4 } from "paseto";
@@ -73,10 +74,13 @@ const importKey = (entry) => {
 	if (!(bytes instanceof Uint8Array)) {
 		// `createPublicKey` throws a bare TypeError on anything else, which escaped
 		// as an unlabelled 500. Name the problem instead.
-		throw createError(500, "Internal Server Error", {
+		throw new HttpError(500, {
 			cause: {
 				package: pkg,
-				data: "internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+				data: {
+					reason:
+						"internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+				},
 			},
 		});
 	}
@@ -156,8 +160,11 @@ const httpPasetoMiddleware = (opts = {}) => {
 			const token = source(event);
 			if (token) return token;
 		}
-		throw createError(401, "Unauthorized", {
-			cause: { package: pkg, data: "No token found in configured sources" },
+		throw new HttpError(401, {
+			cause: {
+				package: pkg,
+				data: { reason: "No token found in configured sources" },
+			},
 		});
 	};
 
@@ -181,8 +188,11 @@ const httpPasetoMiddleware = (opts = {}) => {
 		const token = parseToken(request.event);
 
 		if (!token.startsWith("v4.public.")) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: "Unsupported PASETO version or purpose" },
+			throw new HttpError(401, {
+				cause: {
+					package: pkg,
+					data: { reason: "Unsupported PASETO version or purpose" },
+				},
 			});
 		}
 
@@ -190,10 +200,12 @@ const httpPasetoMiddleware = (opts = {}) => {
 		const keyData = result[sanitizeKey(options.internalKey)];
 
 		if (keyData === undefined) {
-			throw createError(500, "Internal Server Error", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: `internalKey '${options.internalKey}' resolved to undefined`,
+					data: {
+						reason: `internalKey '${options.internalKey}' resolved to undefined`,
+					},
 				},
 			});
 		}
@@ -206,6 +218,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical KeyObject); the verified payload is byte-identical, so the optimization is unobservable through the public interface.
 		if (keys === undefined) {
 			keys = (Array.isArray(keyData) ? keyData : [keyData]).map(importKey);
+			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical KeyObject, which verifies to a byte-identical payload.
 			keyCache.set(keyData, keys);
 		}
 
@@ -213,10 +226,12 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// the loop below would fall through and every token would fail for a reason
 		// nobody could act on. Same 500 as an unresolved internalKey.
 		if (keys.length === 0) {
-			throw createError(500, "Internal Server Error", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: `internalKey '${options.internalKey}' resolved to no keys`,
+					data: {
+						reason: `internalKey '${options.internalKey}' resolved to no keys`,
+					},
 				},
 			});
 		}
@@ -244,8 +259,8 @@ const httpPasetoMiddleware = (opts = {}) => {
 			}
 		}
 		if (payload === undefined) {
-			throw createError(401, "Unauthorized", {
-				cause: { package: pkg, data: failure.message },
+			throw new HttpError(401, {
+				cause: { package: pkg, data: { reason: failure.message } },
 			});
 		}
 
@@ -254,10 +269,12 @@ const httpPasetoMiddleware = (opts = {}) => {
 		// payload this rejected.
 		for (const [claim, expected] of expectedClaims) {
 			if (payload[claim] !== expected) {
-				throw createError(401, "Unauthorized", {
+				throw new HttpError(401, {
 					cause: {
 						package: pkg,
-						data: `Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
+						data: {
+							reason: `Claim '${claim}' is '${payload[claim]}', expected '${expected}'`,
+						},
 					},
 				});
 			}
@@ -265,7 +282,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 
 		request.internal[options.payloadKey] = payload;
 		if (options.setToContext) {
-			request.context[options.payloadKey] = payload;
+			setContextNamespace(request, options.payloadKey, payload);
 		}
 	};
 

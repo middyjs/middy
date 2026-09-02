@@ -3,7 +3,20 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: (reason: unknown, record: unknown) => void;
+	logger?:
+		| ((
+				request: middy.Request,
+				failure: { reason: unknown; record: unknown },
+		  ) => void)
+		| false;
+	/**
+	 * Dot-delimited paths, relative to the `request`, to strip from the copy
+	 * handed to `logger`. Use `[]` to descend into arrays, e.g.
+	 * `event.Records.[].body`, `response.[].reason.cause.data`.
+	 */
+	omitPaths?: string[];
+	/** Replace matched values with this string instead of removing the key. */
+	mask?: string;
 }
 
 declare function sqsPartialBatchFailure(

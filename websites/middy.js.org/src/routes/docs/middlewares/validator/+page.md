@@ -42,10 +42,12 @@ npm install --save-dev ajv-cmd # Optional: for pre-transpiling
   to validate the output (`request.response`) of the Lambda handler.
 - `defaultLanguage` (string) (default `en`): When language not found, what language to fallback to.
 - `languages` (object) (default: `{}`): Localization overrides
+- `contextKeyHttpContentNegotiation` (string) (default `http-content-negotiation`): Where [http-content-negotiation](/docs/middlewares/http-content-negotiation) published its results. `preferredLanguage` is read from there to pick a `languages` entry. Set it to match if you overrode `contextKey` on that middleware.
 
 NOTES:
 
 - At least one of `eventSchema`, `contextSchema`, or `responseSchema` may be supplied.
+- `contextSchema` validates the whole `request.context`, which always carries the `middyContext` namespace. A schema with `additionalProperties: false` must allow it.
 - If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data`, the original response can be found at `request.error.response`.
 - **Important** Transpiling schemas & locales on the fly will cause a 50-150ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 

@@ -111,9 +111,9 @@ test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
-		match(e.cause.message, /^Unexpected token/);
+		match(e.cause.data.message, /^Unexpected token/);
 	}
 	ok(thrown, "expected handler to throw on invalid JSON");
 });
@@ -139,9 +139,9 @@ test("It should handle undefined as an UnprocessableEntity", async (t) => {
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 	}
 	ok(thrown, "expected handler to throw on undefined body");
 });
@@ -185,9 +185,32 @@ test("It shouldn't process the body and throw error if no header is passed", asy
 		strictEqual(e.statusCode, 415);
 		strictEqual(e.message, "Unsupported Media Type");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
-		strictEqual(e.cause.data, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
 	}
 	ok(thrown, "expected handler to throw 415 on missing content-type");
+});
+
+test("It should report the offending content-type on the 415 cause", async (t) => {
+	// The two 415 tests above send no content-type at all, so `data: {}` and
+	// `data: { contentType: undefined }` are indistinguishable. A wrong-but-
+	// present type is the only way to pin the cause payload.
+	const handler = middy((event) => event.body);
+	handler.use(jsonBodyParser());
+
+	const event = {
+		headers: { "Content-Type": "text/plain" },
+		body: JSON.stringify({ foo: "bar" }),
+	};
+
+	let thrown = false;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		thrown = true;
+		strictEqual(e.statusCode, 415);
+		strictEqual(e.cause.data.contentType, "text/plain");
+	}
+	ok(thrown, "expected 415 on a non-JSON content-type");
 });
 
 test("It should throw 415 by default when content-type is missing", async (t) => {
@@ -275,13 +298,13 @@ test("It should throw 422 when body is undefined even if content-type check disa
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		// The dedicated body-undefined guard reports the raw body and carries
 		// NO parser `message`. If the guard is removed, control falls through to
 		// JSON.parse(undefined) and the catch attaches a `cause.message`, so
 		// asserting its absence kills the guard mutants.
-		strictEqual(e.cause.data, undefined);
-		strictEqual(e.cause.message, undefined);
+		strictEqual(e.cause.data.contentType, undefined);
+		strictEqual(e.cause.data.message, undefined);
 	}
 	ok(thrown, "expected 422 when body is undefined");
 });
@@ -370,9 +393,9 @@ test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t)
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Invalid or malformed JSON was provided");
+		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
-		match(e.cause.message, /^Unexpected token/);
+		match(e.cause.data.message, /^Unexpected token/);
 	}
 	ok(thrown, "expected handler to throw on invalid base64 JSON");
 });
@@ -395,9 +418,9 @@ test("It should reject a body containing a __proto__ key with 422", async (t) =>
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
 		strictEqual(e.cause.package, "@middy/http-json-body-parser");
-		strictEqual(e.cause.data, "__proto__");
+		strictEqual(e.cause.data.key, "__proto__");
 	}
 	ok(thrown, "expected handler to reject a __proto__ body");
 	// Object.prototype must be untouched.
@@ -422,8 +445,8 @@ test("It should reject a constructor.prototype payload with 422", async (t) => {
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
-		strictEqual(e.cause.data, "constructor");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.key, "constructor");
 	}
 	ok(thrown, "expected handler to reject a constructor.prototype body");
 	strictEqual({}.polluted, undefined);
@@ -474,8 +497,8 @@ test("It should reject a deeply nested __proto__ key with 422", async (t) => {
 	} catch (e) {
 		thrown = true;
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
-		strictEqual(e.cause.data, "__proto__");
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.key, "__proto__");
 	}
 	ok(thrown, "expected handler to reject a nested __proto__ body");
 	strictEqual({}.polluted, undefined);

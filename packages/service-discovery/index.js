@@ -25,12 +25,13 @@ const defaults = {
 	awsClientOptions: {},
 	awsClientAssumeRole: undefined,
 	awsClientCapture: undefined,
-	fetchData: {}, // { contextKey: {NamespaceName, ServiceName, HealthStatus} }
+	fetchData: {}, // { internalKey: {NamespaceName, ServiceName, HealthStatus} }
 	disablePrefetch: false,
 	cacheKey: pkg,
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -73,6 +74,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -116,23 +118,21 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const serviceDiscoveryMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const serviceDiscoveryMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
-
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: forcing the guard to
-			// `true` is equivalent; `await undefined` (warm/sync path) is a no-op and
-			// the cold path already returns a truthy promise.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const serviceDiscoveryMiddlewareBefore = (request) => {
+		if (client) return serviceDiscoveryMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return serviceDiscoveryMiddlewareFetch(request);
+		});
 	};
 
 	return {

@@ -1,6 +1,5 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { STATUS_CODES } from "node:http";
 
 // Option validation helper.
 // Schema values:
@@ -414,6 +413,7 @@ export const getInternal = async (variables, request) => {
 			for (const part of internalKey.substring(dotIndex + 1).split(".")) {
 				value = safeGet(value, part);
 			}
+			// Stryker disable next-line ConditionalExpression: equivalent; forcing the promise branch abandons the sync fast-path for the async fallback below, which resolves to the same object. Only the fast path's saved microtask is lost, matching the disable on that fallback.
 			if (isPromise(value)) {
 				allSync = false;
 				break;
@@ -459,8 +459,8 @@ export const getInternal = async (variables, request) => {
 		}
 	}
 	if (errors) {
-		throw new Error("Failed to resolve internal values", {
-			cause: { package: pkg, data: errors },
+		throw new AggregateError(errors, "Failed to resolve internal values", {
+			cause: { package: pkg },
 		});
 	}
 	return obj;
@@ -496,6 +496,29 @@ export const resolveHttpEventVersion = (event) => {
 	return event.version ?? (event.method ? "vpc" : "1.0");
 };
 
+// Handler-facing namespace on the Lambda context.
+//
+// Middleware publish to `context.middyContext[contextKey]` (contextKey defaults to
+// the package name without the `@middy/` scope) instead of the context root,
+// so a fetched value named `functionName` can't clobber the AWS context.
+// `@middy/core` seeds `context.middyContext` per invocation; the `??=` here keeps a
+// hand-rolled request that never passed through core working, and keeps the
+// null prototype, which matters because keys come from user config and on a
+// plain object a key of `__proto__` would set the prototype instead of an own
+// property.
+const contextRoot = (request) =>
+	(request.context.middyContext ??= Object.create(null));
+
+// Get-or-create the merge target for key/value data (`setToContext`), so two
+// middleware sharing one contextKey merge rather than clobber.
+export const contextNamespace = (request, contextKey) =>
+	(contextRoot(request)[contextKey] ??= Object.create(null));
+
+// Publish a single opaque value (a client, a pool, a verified payload).
+export const setContextNamespace = (request, contextKey, value) => {
+	contextRoot(request)[contextKey] = value;
+};
+
 // setToContext fast-path
 //
 // Many middlewares (kms/ssm/secrets-manager/dynamodb/s3/sts/…) follow the
@@ -507,8 +530,8 @@ export const resolveHttpEventVersion = (event) => {
 // is dead work.
 //
 // `buildSetToContextSpec(options)` is called once at factory time and
-// returns either `null` (when `setToContext` is false) or the precomputed
-// `[[originalKey, sanitizedKey], …]` pairs.
+// returns either `null` (when `setToContext` is false) or the target
+// `contextKey` plus the precomputed `[[originalKey, sanitizedKey], …]` pairs.
 //
 // `assignSetToContext(spec, value, request)` is called once per invocation.
 // Returns `undefined` synchronously when all entries are resolved (the
@@ -516,26 +539,29 @@ export const resolveHttpEventVersion = (event) => {
 // caller should `if (p) await p` so the sync path keeps zero microtask hops.
 export const buildSetToContextSpec = (options) =>
 	options.setToContext
-		? Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)])
+		? {
+				contextKey: options.contextKey,
+				pairs: Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)]),
+			}
 		: null;
 
-export const assignSetToContext = (spec, value, request) => {
-	for (let i = 0; i < spec.length; i++) {
-		const v = value[spec[i][0]];
+export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
+	for (let i = 0; i < pairs.length; i++) {
+		const v = value[pairs[i][0]];
 		if (typeof v?.then === "function") {
 			// Cold path: at least one value still pending; defer to
 			// `getInternal` for the standard await+sanitize+assign flow.
 			// Stryker disable next-line ArrayDeclaration: equivalent; new Array() vs new Array(n) both accept the same indexed assignments.
-			const keys = new Array(spec.length);
-			for (let j = 0; j < spec.length; j++) keys[j] = spec[j][0];
+			const keys = new Array(pairs.length);
+			for (let j = 0; j < pairs.length; j++) keys[j] = pairs[j][0];
 			return getInternal(keys, request).then((data) => {
-				Object.assign(request.context, data);
+				Object.assign(contextNamespace(request, contextKey), data);
 			});
 		}
 	}
-	const ctx = request.context;
-	for (let i = 0; i < spec.length; i++) {
-		ctx[spec[i][1]] = value[spec[i][0]];
+	const ctx = contextNamespace(request, contextKey);
+	for (let i = 0; i < pairs.length; i++) {
+		ctx[pairs[i][1]] = value[pairs[i][0]];
 	}
 };
 
@@ -713,7 +739,6 @@ export const lambdaContextKeys = [
 	"logStreamName",
 	"identity",
 	"clientContext",
-	"callbackWaitsForEmptyEventLoop",
 ];
 
 export const executionContextKeys = ["tenantId"];
@@ -736,17 +761,34 @@ export const jsonSafeParse = (text, reviver) => {
 	}
 };
 
+// A forbidden key only reaches the guard reviver if it is spelled in the raw
+// source, so a body carrying neither spelling skips the per-key callback and
+// lets JSON.parse stay on its native path (~8x). Each character matches either
+// literally or as the \uXXXX escape JSON.parse decodes back to it, so no
+// spelling slips past; a false positive only costs the guarded parse.
+const suspectKeyRx =
+	/"(?:(?:_|\\u005[Ff]){2}(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff]){2}|(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072))"\s*:/;
+
 export const jsonParseProtectProto = (text, reviver, packageName) => {
-	return JSON.parse(text, (key, value) => {
+	// Stryker disable next-line ConditionalExpression,BlockStatement: equivalent by construction. This is a pure fast path: skipping it routes every body through the guarded reviver below, which returns the same value and binds the same `this`. Only the ~8x native-parse win is lost, so no assertion can tell the two apart.
+	if (!suspectKeyRx.test(text)) {
+		return JSON.parse(text, reviver);
+	}
+	// `function`, not an arrow: the user reviver needs the `this` the fast path
+	// above binds.
+	return JSON.parse(text, function (key, value) {
 		if (
 			key === "__proto__" ||
 			(key === "constructor" && value && Object.hasOwn(value, "prototype"))
 		) {
-			throw createError(422, "Forbidden key in JSON body", {
-				cause: { package: packageName, data: key },
+			throw new HttpError(422, {
+				cause: {
+					package: packageName,
+					data: { reason: "Forbidden key in JSON body", key },
+				},
 			});
 		}
-		return reviver ? reviver(key, value) : value;
+		return reviver ? reviver.call(this, key, value) : value;
 	});
 };
 
@@ -794,20 +836,195 @@ export const normalizeHttpResponse = (request) => {
 	return response;
 };
 
-const createErrorRegexp = /[^a-zA-Z]/g;
-export class HttpError extends Error {
-	constructor(code, optionalMessage, optionalOptions = {}) {
-		let message = optionalMessage;
-		let options = optionalOptions;
-		if (message && typeof message !== "string") {
-			options = message;
-			message = undefined;
+// Paths are dot-delimited and relative to the `request`, with `[]` for array
+// elements: `event.headers.authorization`, `error.cause.data.body`.
+export const buildPathTree = (paths) => {
+	const tree = {};
+	// Copy before sorting so the caller-provided array is never mutated. Reverse
+	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
+	for (let path of [...paths].sort().reverse()) {
+		if (!Array.isArray(path)) path = path.split(".");
+		if (
+			path.includes("__proto__") ||
+			path.includes("constructor") ||
+			path.includes("prototype")
+		) {
+			continue;
 		}
-		message ??= STATUS_CODES[code];
-		super(message, options);
+		let node = tree;
+		for (let i = 0; i < path.length - 1; i++) {
+			node[path[i]] ??= {};
+			node = node[path[i]];
+		}
+		node[path[path.length - 1]] = true;
+	}
+	return tree;
+};
+
+// Returns `obj` unchanged when no `pathTree` entry applies (zero allocations
+// on the cold subtree); otherwise returns a shallow clone with matched keys
+// masked or removed. Only branches present in `pathTree` are walked.
+export const omit = (obj, pathTree, mask) => {
+	if (!pathTree) return obj;
+	if (Array.isArray(obj)) return omitArray(obj, pathTree["[]"], mask);
+	// Errors are not plain objects, so without this branch `omitObject` would
+	// never run and the configured path would silently leak.
+	if (obj instanceof Error)
+		return omitObject(errorToObject(obj), pathTree, mask);
+	if (isRecord(obj)) return omitObject(obj, pathTree, mask);
+	return obj;
+};
+
+// `cause`, `stack` and `AggregateError.errors` are own but non-enumerable, so a
+// spread drops them, and `cause.data` is where middy puts the payload that
+// triggered the error. `name` is usually inherited, hence the seed.
+const errorToObject = (error) => {
+	const out = { name: error.name };
+	for (const key of Object.getOwnPropertyNames(error)) {
+		out[key] = error[key];
+	}
+	return out;
+};
+
+// A falsy `childTree` needs no guard: every `omit` below then returns its
+// element unchanged, so the same array reference comes back.
+// Counting down: `.entries()` allocates a tuple per element, and a forward
+// `i < l` bound widened to `i <= l` is unobservable. `while (i--)` carries no
+// bound arithmetic to widen either, so every mutation of it is observable.
+const omitArray = (arr, childTree, mask) => {
+	let clone = arr;
+	let i = arr.length;
+	while (i--) {
+		const next = omit(arr[i], childTree, mask);
+		if (next !== arr[i]) {
+			if (clone === arr) clone = arr.slice();
+			clone[i] = next;
+		}
+	}
+	return clone;
+};
+
+const omitObject = (obj, pathTree, mask) => {
+	let clone = obj;
+	let dropped = false;
+	for (const key in pathTree) {
+		const sub = pathTree[key];
+		if (sub === true) {
+			if (!Object.hasOwn(obj, key)) continue;
+			if (mask === undefined) {
+				dropped = true;
+				continue;
+			}
+			if (clone === obj) clone = { ...obj };
+			clone[key] = mask;
+			continue;
+		}
+		const next = omit(obj[key], sub, mask);
+		if (next !== obj[key]) {
+			if (clone === obj) clone = { ...obj };
+			clone[key] = next;
+		}
+	}
+	if (!dropped) return clone;
+	// Copying the survivors, not spread-then-delete: `delete` drops the object
+	// into dictionary mode, making the logger's later reads ~28x slower.
+	// `pathTree[key] === true` already identifies every dropped leaf, so no list
+	// of them is accumulated and the check stays a property read, not a scan.
+	const survivors = {};
+	for (const key in clone) {
+		if (pathTree[key] !== true) survivors[key] = clone[key];
+	}
+	return survivors;
+};
+
+// Stricter than the schema validator's `isPlainObject`: a Date, Buffer or stream
+// must not be shallow-cloned into a bare record. Null-prototype maps (built by
+// httpHeaderNormalizer and event-normalizer) do count, or the keys they hold
+// would leak into the logs unredacted.
+// No `typeof value === "object"` check: only objects have `constructor` Object,
+// and `Object.getPrototypeOf` on a primitive returns its wrapper prototype,
+// never null, so a primitive already fails both arms.
+const isRecord = (value) =>
+	value &&
+	(value.constructor === Object || Object.getPrototypeOf(value) === null);
+
+// import { STATUS_CODES } from "node:http"; // cost ~14ms
+const STATUS_CODES = {
+	100: "Continue",
+	101: "Switching Protocols",
+	102: "Processing",
+	103: "Early Hints",
+	200: "OK",
+	201: "Created",
+	202: "Accepted",
+	203: "Non-Authoritative Information",
+	204: "No Content",
+	205: "Reset Content",
+	206: "Partial Content",
+	207: "Multi-Status",
+	208: "Already Reported",
+	226: "IM Used",
+	300: "Multiple Choices",
+	301: "Moved Permanently",
+	302: "Found",
+	303: "See Other",
+	304: "Not Modified",
+	305: "Use Proxy",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+	400: "Bad Request",
+	401: "Unauthorized",
+	402: "Payment Required",
+	403: "Forbidden",
+	404: "Not Found",
+	405: "Method Not Allowed",
+	406: "Not Acceptable",
+	407: "Proxy Authentication Required",
+	408: "Request Timeout",
+	409: "Conflict",
+	410: "Gone",
+	411: "Length Required",
+	412: "Precondition Failed",
+	413: "Payload Too Large",
+	414: "URI Too Long",
+	415: "Unsupported Media Type",
+	416: "Range Not Satisfiable",
+	417: "Expectation Failed",
+	418: "I'm a Teapot",
+	421: "Misdirected Request",
+	422: "Unprocessable Entity",
+	423: "Locked",
+	424: "Failed Dependency",
+	425: "Too Early",
+	426: "Upgrade Required",
+	428: "Precondition Required",
+	429: "Too Many Requests",
+	431: "Request Header Fields Too Large",
+	451: "Unavailable For Legal Reasons",
+	500: "Internal Server Error",
+	501: "Not Implemented",
+	502: "Bad Gateway",
+	503: "Service Unavailable",
+	504: "Gateway Timeout",
+	505: "HTTP Version Not Supported",
+	506: "Variant Also Negotiates",
+	507: "Insufficient Storage",
+	508: "Loop Detected",
+	509: "Bandwidth Limit Exceeded",
+	510: "Not Extended",
+	511: "Network Authentication Required",
+};
+
+const httpErrorNameRegexp = /[^a-zA-Z]/g;
+export class HttpError extends Error {
+	// The message is always the registered reason phrase for `code`. Anything
+	// specific to the failure belongs in `cause.data`, which stays server-side;
+	// http-error-handler only ever echoes the message to the client.
+	constructor(code, options = {}) {
+		super(STATUS_CODES[code], options);
 
 		const name = (STATUS_CODES[code] ?? "Unknown").replace(
-			createErrorRegexp,
+			httpErrorNameRegexp,
 			"",
 		);
 		this.name = !name.endsWith("Error") ? `${name}Error` : name;
@@ -816,7 +1033,3 @@ export class HttpError extends Error {
 		this.expose = options.expose ?? code < 500;
 	}
 }
-
-export const createError = (code, message, properties = {}) => {
-	return new HttpError(code, message, properties);
-};

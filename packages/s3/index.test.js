@@ -94,7 +94,7 @@ test("It should set S3 param value to context", async (t) => {
 		});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.key?.option, "value");
+		strictEqual(request.context.middyContext.s3.key?.option, "value");
 	};
 
 	const handler = middy(() => {})
@@ -248,7 +248,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -618,7 +618,7 @@ test("It should not set values to context by default (setToContext defaults to f
 
 	const middleware = async (request) => {
 		// With default setToContext=false the value must NOT be copied to context
-		strictEqual(request.context.key, undefined);
+		strictEqual(request.context.middyContext.s3, undefined);
 		const values = await getInternal(true, request);
 		strictEqual(values.key?.option, "value");
 	};
@@ -935,6 +935,22 @@ test("It should throw when S3 response is missing Body", async (t) => {
 		await handler(defaultEvent, defaultContext);
 		ok(false, "expected throw");
 	} catch (e) {
-		ok(e.cause.data[0].message.includes("missing Body"));
+		ok(e.errors[0].message.includes("missing Body"));
+		// The cause is the only thing naming which fetchData key failed, and a
+		// bucket with several keys gives no other way to tell.
+		strictEqual(e.errors[0].cause.package, "@middy/s3");
+		strictEqual(e.errors[0].cause.data.internalKey, "key");
+	}
+});
+
+test("s3ValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	s3ValidateOptions({ contextKey: "custom" });
+	try {
+		s3ValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

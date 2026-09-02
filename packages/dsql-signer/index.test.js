@@ -210,7 +210,10 @@ test("It should set DSQL token to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, "X-Amz-Security-Token=token");
+		strictEqual(
+			request.context.middyContext["dsql-signer"].token,
+			"X-Amz-Security-Token=token",
+		);
 	};
 
 	handler
@@ -320,7 +323,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -352,11 +355,11 @@ test("It should catch if a token without X-Amz-Security-Token is returned from f
 	}, /Failed to resolve internal values/);
 	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
 	strictEqual(caught.message, "Failed to resolve internal values");
-	deepStrictEqual(caught.cause.data, [
+	deepStrictEqual(caught.errors, [
 		new Error("X-Amz-Security-Token Missing", {
 			cause: {
 				package: "@middy/dsql-signer",
-				method: "getDbConnectAuthToken",
+				data: { method: "getDbConnectAuthToken" },
 			},
 		}),
 	]);
@@ -718,7 +721,7 @@ test("It should not set token to context by default", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext["dsql-signer"], undefined);
 	};
 
 	handler
@@ -790,4 +793,16 @@ test("It should fall back to PGUSER for the default username", async (t) => {
 	await handler(defaultEvent, defaultContext);
 	strictEqual(getDbConnectAdminAuthToken.mock.callCount(), 1);
 	strictEqual(getDbConnectAuthToken.mock.callCount(), 0);
+});
+
+test("dsqlSignerValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	dsqlSignerValidateOptions({ contextKey: "custom" });
+	try {
+		dsqlSignerValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
 });

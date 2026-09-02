@@ -1,8 +1,10 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
+	buildPathTree,
 	isJsonStructured,
 	normalizeHttpResponse,
+	omit,
 	validateOptions,
 } from "@middy/util";
 
@@ -10,8 +12,10 @@ const name = "http-error-handler";
 const pkg = `@middy/${name}`;
 
 const defaults = {
-	logger: console.error,
+	logger: (request) => console.error(request.error),
 	fallbackMessage: undefined,
+	omitPaths: undefined,
+	mask: undefined,
 };
 
 const optionSchema = {
@@ -19,6 +23,8 @@ const optionSchema = {
 	properties: {
 		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
 		fallbackMessage: { type: "string" },
+		omitPaths: { type: "array", items: { type: "string" } },
+		mask: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -27,12 +33,14 @@ export const httpErrorHandlerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const httpErrorHandlerMiddleware = (opts = {}) => {
-	const { logger, fallbackMessage } = { ...defaults, ...opts };
+	const { logger, fallbackMessage, omitPaths, mask } = { ...defaults, ...opts };
+
+	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
 	const httpErrorHandlerMiddlewareOnError = (request) => {
 		if (typeof request.response !== "undefined") return;
 		if (typeof logger === "function") {
-			logger(request.error);
+			logger(omit(request, omitPathTree, mask));
 		}
 
 		const error =

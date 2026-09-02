@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 import { constants, createHash, createPublicKey, verify } from "node:crypto";
 import {
-	createError,
 	getInternal,
+	HttpError,
 	sanitizeKey,
+	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
 
@@ -96,12 +97,16 @@ export const jwkThumbprint = (jwk) => {
 	// `hasOwn`, not a truthiness check: `kty: "constructor"` otherwise resolves
 	// to a member of Object.prototype and this reads as a supported key type.
 	if (!Object.hasOwn(THUMBPRINT_MEMBERS, jwk?.kty)) {
-		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`);
+		throw new Error(`Unsupported JWK key type '${jwk?.kty}'`, {
+			cause: { package: pkg, data: { kty: jwk?.kty } },
+		});
 	}
 	const canonical = {};
 	for (const member of THUMBPRINT_MEMBERS[jwk.kty]) {
 		if (typeof jwk[member] !== "string") {
-			throw new Error(`JWK is missing required member '${member}'`);
+			throw new Error(`JWK is missing required member '${member}'`, {
+				cause: { package: pkg, data: { member } },
+			});
 		}
 		canonical[member] = jwk[member];
 	}
@@ -184,6 +189,7 @@ const asString = (value) => (typeof value === "string" ? value : undefined);
 
 // Covers API Gateway HTTP (v2), API Gateway REST (v1) and ALB.
 const readMethod = (event) =>
+	// Stryker disable next-line OptionalChaining: equivalent. Both readers only run once the authorization and proof headers have been read off the event, which cannot happen for a null event, so the `event?.` links never short-circuit in practice. They stay because the readers are defensive about a shape Lambda does not guarantee.
 	asString(event?.requestContext?.http?.method) ?? asString(event?.httpMethod);
 
 // `htu` names the URI the client requested, so the path has to be the one that
@@ -191,6 +197,7 @@ const readMethod = (event) =>
 // stage from `event.path` and keeps it on `requestContext.path`, so preferring
 // the latter is what makes a stage other than `$default` work at all. HTTP
 // (v2) has no `requestContext.path`; ALB has neither, and only `path`.
+// Stryker disable next-line OptionalChaining: equivalent, for the same reason as readMethod above.
 const readPath = (event) =>
 	asString(event?.rawPath) ??
 	asString(event?.requestContext?.path) ??
@@ -202,6 +209,7 @@ const readPath = (event) =>
 // why it is a safe fallback. Behind a CDN or any other proxy, set `origin`.
 const readOrigin = (event, configured) => {
 	if (configured) return configured;
+	// Stryker disable next-line OptionalChaining: equivalent, for the same reason as readMethod above.
 	const domainName = asString(event?.requestContext?.domainName);
 	return domainName ? `https://${domainName}` : undefined;
 };
@@ -210,6 +218,7 @@ const readOrigin = (event, configured) => {
 // repeated header as an array, and two proofs is ambiguous rather than merely
 // redundant, so it is refused instead of resolved.
 const readProof = (headers) => {
+	// Stryker disable next-line OptionalChaining: equivalent. readAuthorization runs first and rejects when `headers` is absent, so this reader is never reached with an undefined `headers`.
 	const raw = headers?.dpop ?? headers?.DPoP ?? headers?.Dpop;
 	if (Array.isArray(raw)) {
 		return raw.length === 1 ? asString(raw[0]) : undefined;
@@ -250,6 +259,7 @@ export const verifyDpopProof = (
 	const algorithm = ALGORITHMS[header.alg];
 
 	const jwk = header.jwk;
+	// Stryker disable next-line OptionalChaining: equivalent. `||` only evaluates the second arm when the first is false, which requires `jwk.kty` to have matched, so `jwk` is never nullish here.
 	if (jwk?.kty !== algorithm.kty || jwk?.crv !== algorithm.crv) {
 		throw new Error(`Proof 'jwk' does not match '${header.alg}'`);
 	}
@@ -336,9 +346,9 @@ const httpDpopMiddleware = (opts = {}) => {
 		"WWW-Authenticate": `DPoP algs="${algorithms.join(" ")}"`,
 	};
 
-	const unauthorized = (data) => {
-		const error = createError(401, "Unauthorized", {
-			cause: { package: pkg, data },
+	const unauthorized = (reason) => {
+		const error = new HttpError(401, {
+			cause: { package: pkg, data: { reason } },
 		});
 		error.headers = wwwAuthenticate;
 		return error;
@@ -376,6 +386,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		const accessToken = authorization.slice("dpop ".length);
 
 		const proof = readProof(headers);
+		// Stryker disable next-line ConditionalExpression: equivalent. readProof returns a string or undefined, so the type check can only be true when the value is also falsy; `!proof` alone covers every reachable case.
 		if (typeof proof !== "string" || !proof) {
 			throw unauthorized("Missing DPoP header");
 		}
@@ -396,19 +407,24 @@ const httpDpopMiddleware = (opts = {}) => {
 		const path = readPath(request.event);
 		let url;
 		try {
+			// Stryker disable next-line StringLiteral: equivalent. The label only appears in the error httpUri throws, which this catch discards in favour of `url = undefined`.
 			url = httpUri(`${requestOrigin}${path}`, "The request URI");
 		} catch {
-			url = undefined;
+			// `url` was declared without an initialiser, so it is already
+			// undefined here; the check below is what reports it.
 		}
+		// Stryker disable next-line ConditionalExpression: equivalent. An undefined requestOrigin makes the template above unparseable, so `url` is undefined too and the third arm already rejects.
 		if (
 			requestOrigin === undefined ||
 			path === undefined ||
 			url === undefined
 		) {
-			throw createError(500, "Internal Server Error", {
+			throw new HttpError(500, {
 				cause: {
 					package: pkg,
-					data: "Cannot determine the request URI: set the 'origin' option",
+					data: {
+						reason: "Cannot determine the request URI: set the 'origin' option",
+					},
 				},
 			});
 		}
@@ -436,7 +452,7 @@ const httpDpopMiddleware = (opts = {}) => {
 		// see the note on `jti` in the docs.
 		request.internal[options.proofKey] = verified.claims;
 		if (options.setToContext) {
-			request.context[options.proofKey] = verified.claims;
+			setContextNamespace(request, options.proofKey, verified.claims);
 		}
 	};
 

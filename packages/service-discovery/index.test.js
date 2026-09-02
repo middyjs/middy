@@ -150,7 +150,7 @@ test("It should set STS secret to context", async (t) => {
 	const handler = middy(() => {});
 
 	const middleware = async (request) => {
-		deepStrictEqual(request.context.ec2, [
+		deepStrictEqual(request.context.middyContext["service-discovery"].ec2, [
 			{
 				Attributes: {
 					AWS_INSTANCE_IPV4: "172.2.1.3",
@@ -327,7 +327,7 @@ test("It should catch if an error is returned from fetch", async (t) => {
 	} catch (e) {
 		strictEqual(sendStub.callCount, 1);
 		strictEqual(e.message, "Failed to resolve internal values");
-		deepStrictEqual(e.cause.data, [new Error("timeout")]);
+		deepStrictEqual(e.errors, [new Error("timeout")]);
 	}
 });
 
@@ -765,7 +765,7 @@ test("It should not write data to context by default", async (t) => {
 		const values = await getInternal(true, request);
 		deepStrictEqual(values.ec2, [instance]);
 		// ...but NOT copied onto context (setToContext defaults to false).
-		strictEqual(request.context.ec2, undefined);
+		strictEqual(request.context.middyContext["service-discovery"], undefined);
 	};
 
 	handler
@@ -783,7 +783,7 @@ test("It should not write data to context by default", async (t) => {
 		.before(middleware);
 
 	await handler(defaultEvent, context);
-	strictEqual(context.ec2, undefined);
+	strictEqual(context.middyContext["service-discovery"], undefined);
 });
 
 // Prefetch path: the prefetch client is used; the lazy `if (!client)` branch in
@@ -865,7 +865,9 @@ test("It should await the pending setToContext promise on a cold invocation", as
 		.on(DiscoverInstancesCommand)
 		.resolves({ Instances: [instance] });
 
-	const handler = middy((event, context) => context.ec2);
+	const handler = middy(
+		(event, context) => context.middyContext["service-discovery"]?.ec2,
+	);
 
 	handler.use(
 		serviceDiscovery({
@@ -883,4 +885,45 @@ test("It should await the pending setToContext promise on a cold invocation", as
 		getRemainingTimeInMillis: () => 1000,
 	});
 	deepStrictEqual(result, [instance]);
+});
+
+test("serviceDiscoveryValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	serviceDiscoveryValidateOptions({ contextKey: "custom" });
+	try {
+		serviceDiscoveryValidateOptions({ contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
+	}
+});
+
+test("It should prefetch at factory time when prefetch is enabled", async (t) => {
+	const mockService = mockClient(ServiceDiscoveryClient)
+		.on(DiscoverInstancesCommand)
+		.resolves({
+			Instances: [
+				{
+					Attributes: { AWS_INSTANCE_IPV4: "172.2.1.3" },
+					InstanceId: "myservice-1",
+					NamespaceName: "example.com",
+					ServiceName: "myservice",
+				},
+			],
+		});
+
+	// canPrefetch() is true with the defaults, so the factory itself must issue
+	// the fetch, before any invocation. Without that call the first invocation
+	// would still fetch and every other assertion would look identical.
+	serviceDiscovery({
+		AwsClient: ServiceDiscoveryClient,
+		cacheKey: "sd-prefetch",
+		fetchData: {
+			instances: { NamespaceName: "example.com", ServiceName: "myservice" },
+		},
+	});
+
+	strictEqual(mockService.send.callCount, 1);
+	clearCache();
 });

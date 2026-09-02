@@ -22,7 +22,7 @@ const makeEvent = (authorization) => ({
 
 const makeHandlerWithKey = (publicKey, opts = {}) => {
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	return middy((event, context) => context)
+	return middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -44,7 +44,7 @@ test("It should verify a valid v4.public PASETO token and set payload to interna
 
 	strictEqual(result.paseto.sub, "user-1");
 	strictEqual(result.paseto.role, "admin");
-	strictEqual(ctx.paseto.sub, "user-1");
+	strictEqual(ctx.middyContext.paseto.sub, "user-1");
 });
 
 test("It should always set payload to context", async (t) => {
@@ -60,7 +60,7 @@ test("It should always set payload to context", async (t) => {
 
 	await handler(makeEvent(`Bearer ${token}`), ctx);
 
-	strictEqual(ctx.paseto.sub, "user-1");
+	strictEqual(ctx.middyContext.paseto.sub, "user-1");
 });
 
 test("It should use a custom payloadKey", async (t) => {
@@ -130,7 +130,7 @@ test("It should respect clockTolerance option for expired tokens", async (t) => 
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -214,6 +214,10 @@ test("It should throw 401 when token is invalid", async (t) => {
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
 		strictEqual(e.cause.package, "@middy/http-paseto");
+		// The 401 message is a fixed reason phrase, so the underlying verify
+		// failure is only visible through cause.data.reason.
+		ok(typeof e.cause.data.reason === "string");
+		ok(e.cause.data.reason.length > 0);
 	}
 });
 
@@ -361,7 +365,7 @@ test("It should read PASETO from a cookie when tokenCookieName is set", async (t
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -386,7 +390,7 @@ test("It should read PASETO from capitalized Cookie header when lowercase is abs
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -455,7 +459,7 @@ test("It should handle KMS { publicKey, keySpec } shape from internalKey", async
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kmsKey = {
 				publicKey: new Uint8Array(spkiDer),
@@ -496,7 +500,7 @@ test("It should read PASETO from a custom header when tokenHeaderName is set", a
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -519,7 +523,7 @@ test("It should read PASETO from a lowercased custom header when literal case is
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -562,7 +566,7 @@ test("It should read PASETO from a query parameter when tokenQueryStringName is 
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -625,7 +629,7 @@ test("It should fall through when Authorization header has wrong number of parts
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -660,7 +664,7 @@ test("It should chain cookie -> header -> query, cookie wins when present for PA
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -696,7 +700,7 @@ test("It should fall through to query when cookie and header are absent for PASE
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
@@ -726,14 +730,14 @@ test("setToContext: false (default) writes only to internal, not context for PAS
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
 	const seen = {};
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = new Uint8Array(spkiDer);
 		})
 		.use(realHttpPaseto({ internalKey: "pubKey" }))
 		.before((request) => {
 			seen.internal = request.internal.paseto?.sub;
-			seen.context = request.context.paseto?.sub;
+			seen.context = request.context.middyContext.paseto?.sub;
 		});
 
 	const result = await handler(makeEvent(`Bearer ${token}`), {
@@ -802,7 +806,7 @@ test("It should resolve a hyphenated internalKey without a spurious 500", async 
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal["paseto-key"] = new Uint8Array(spkiDer);
 		})
@@ -823,7 +827,7 @@ test("It should resolve a dotted nested internalKey without a spurious 500", asy
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
-	const handler = middy((event, context) => context)
+	const handler = middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.kms = { publicKey: new Uint8Array(spkiDer) };
 		})
@@ -1047,7 +1051,7 @@ test("It should throw 401 'Unauthorized' with the no-token cause when no token i
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
-		strictEqual(e.cause.data, "No token found in configured sources");
+		strictEqual(e.cause.data.reason, "No token found in configured sources");
 	}
 });
 
@@ -1063,7 +1067,7 @@ test("It should throw 401 'Unauthorized' with the unsupported-version cause for 
 		strictEqual(e.statusCode, 401);
 		strictEqual(e.message, "Unauthorized");
 		strictEqual(e.cause.package, "@middy/http-paseto");
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
+		strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
 	}
 });
 
@@ -1077,7 +1081,7 @@ test("It should require the exact v4.public. prefix (a v4.local token is rejecte
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		strictEqual(e.cause.data, "Unsupported PASETO version or purpose");
+		strictEqual(e.cause.data.reason, "Unsupported PASETO version or purpose");
 	}
 });
 
@@ -1094,7 +1098,10 @@ test("It should throw 500 'Internal Server Error' with the resolved-undefined ca
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
 		strictEqual(e.message, "Internal Server Error");
-		strictEqual(e.cause.data, "internalKey 'missing' resolved to undefined");
+		strictEqual(
+			e.cause.data.reason,
+			"internalKey 'missing' resolved to undefined",
+		);
 	}
 });
 
@@ -1166,8 +1173,14 @@ test("It should surface an unsupported-key-shape 500 (not a null-deref) when int
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
-		ok(!e.cause.data.includes("Cannot read properties"), e.cause.data);
+		ok(
+			e.cause.data.reason.includes("unsupported key shape"),
+			e.cause.data.reason,
+		);
+		ok(
+			!e.cause.data.reason.includes("Cannot read properties"),
+			e.cause.data.reason,
+		);
 	}
 });
 
@@ -1251,7 +1264,7 @@ test("It should NOT strip a cookie value that has a leading quote but no trailin
 // throws on both, so accepting them is strictly new ground.
 
 const makeHandlerWithKeys = (keyData, opts = {}) =>
-	middy((event, context) => context)
+	middy((event, context) => context.middyContext)
 		.before((request) => {
 			request.internal.pubKey = keyData;
 		})
@@ -1328,7 +1341,7 @@ test("It should throw 500 when internalKey resolves to an empty array", async (t
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("no keys"));
+		ok(e.cause.data.reason.includes("no keys"));
 	}
 });
 
@@ -1413,7 +1426,7 @@ test("It should reject a token whose expected claim differs", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'typ'"));
+		ok(e.cause.data.reason.includes("'typ'"));
 	}
 });
 
@@ -1456,7 +1469,7 @@ test("It should check every expected claim, not just the first", async (t) => {
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("'tier'"));
+		ok(e.cause.data.reason.includes("'tier'"));
 	}
 });
 
@@ -1545,7 +1558,7 @@ test("It should report the signing key's claim failure, not an earlier key's sig
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("audience"), e.cause.data);
+		ok(e.cause.data.reason.includes("audience"), e.cause.data.reason);
 	}
 });
 
@@ -1567,7 +1580,7 @@ test("It should keep the signing key's claim failure when a later key misses on 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.includes("audience"), e.cause.data);
+		ok(e.cause.data.reason.includes("audience"), e.cause.data.reason);
 	}
 });
 
@@ -1587,6 +1600,9 @@ test("It should refuse a key shape it cannot place with a 500, not a raw TypeErr
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 500);
-		ok(e.cause.data.includes("unsupported key shape"), e.cause.data);
+		ok(
+			e.cause.data.reason.includes("unsupported key shape"),
+			e.cause.data.reason,
+		);
 	}
 });

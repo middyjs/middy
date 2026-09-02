@@ -38,7 +38,9 @@ test("setToContext: true", () => {
 			}),
 		)
 		.before(async (request) => {
-			expect(request.context.foo).type.toBe<AssumedRoleCredentials>();
+			expect(
+				request.context.middyContext.sts.foo,
+			).type.toBe<AssumedRoleCredentials>();
 
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<AssumedRoleCredentials>();

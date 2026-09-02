@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Middy `do-not-wait-for-empty-event-loop` middleware</h1>
+  <h1>Middy `event-logger` middleware</h1>
   <img alt="Middy logo" src="https://raw.githubusercontent.com/middyjs/middy/main/docs/img/middy-logo.svg"/>
-  <p><strong>"Do not wait for empty event loop" middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
+  <p><strong>Event logger middleware for the middy framework, the stylish Node.js middleware engine for AWS Lambda</strong></p>
   <p>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-unit.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-unit.yml/badge.svg" alt="GitHub Actions unit test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-dast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-dast.yml/badge.svg" alt="GitHub Actions dast test status"></a>
@@ -9,11 +9,11 @@
     <a href="https://github.com/middyjs/middy/actions/workflows/test-sast.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-sast.yml/badge.svg" alt="GitHub Actions SAST test status"></a>
     <a href="https://github.com/middyjs/middy/actions/workflows/test-lint.yml"><img src="https://github.com/middyjs/middy/actions/workflows/test-lint.yml/badge.svg" alt="GitHub Actions lint test status"></a>
     <br/>
-    <a href="https://www.npmjs.com/package/@middy/do-not-wait-for-empty-event-loop"><img alt="npm version" src="https://img.shields.io/npm/v/@middy/do-not-wait-for-empty-event-loop.svg"></a>
-    <a href="https://packagephobia.com/result?p=@middy/do-not-wait-for-empty-event-loop"><img src="https://packagephobia.com/badge?p=@middy/do-not-wait-for-empty-event-loop" alt="npm install size"></a>
-    <a href="https://www.npmjs.com/package/@middy/do-not-wait-for-empty-event-loop">
-    <img alt="npm weekly downloads" src="https://img.shields.io/npm/dw/@middy/do-not-wait-for-empty-event-loop.svg"></a>
-    <a href="https://www.npmjs.com/package/@middy/do-not-wait-for-empty-event-loop#provenance">
+    <a href="https://www.npmjs.com/package/@middy/event-logger"><img alt="npm version" src="https://img.shields.io/npm/v/@middy/event-logger.svg"></a>
+    <a href="https://packagephobia.com/result?p=@middy/event-logger"><img src="https://packagephobia.com/badge?p=@middy/event-logger" alt="npm install size"></a>
+    <a href="https://www.npmjs.com/package/@middy/event-logger">
+    <img alt="npm weekly downloads" src="https://img.shields.io/npm/dw/@middy/event-logger.svg"></a>
+    <a href="https://www.npmjs.com/package/@middy/event-logger#provenance">
     <img alt="npm provenance" src="https://img.shields.io/badge/provenance-Yes-brightgreen"></a>
     <br/>
     <a href="https://scorecard.dev/viewer/?uri=github.com/middyjs/middy"><img src="https://api.scorecard.dev/projects/github.com/middyjs/middy/badge" alt="Open Source Security Foundation (OpenSSF) Scorecard"></a>
@@ -25,19 +25,19 @@
     <img alt="code coverage" src="https://img.shields.io/badge/code%20coverage-100%25-brightgreen"></a>
     <br/>
   </p>
-<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop">https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop</a></p>
+<p>You can read the documentation at: <a href="https://middy.js.org/docs/middlewares/event-logger">https://middy.js.org/docs/middlewares/event-logger</a></p>
 </div>
 
 ## Install
 
 ```bash
-npm install --save @middy/do-not-wait-for-empty-event-loop
+npm install --save @middy/event-logger
 ```
 
 
 ## Documentation and examples
 
-For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/do-not-wait-for-empty-event-loop).
+For documentation and examples, refer to the main [Middy monorepo on GitHub](https://github.com/middyjs/middy) or [Middy official website](https://middy.js.org/docs/middlewares/event-logger).
 
 
 ## Contributing

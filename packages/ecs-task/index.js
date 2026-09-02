@@ -113,7 +113,6 @@ export const buildTaskContext = ({
 }) => ({
 	awsRequestId,
 	invokedFunctionArn,
-	callbackWaitsForEmptyEventLoop: false,
 	getRemainingTimeInMillis: () =>
 		Math.max(0, timeout - (Date.now() - startTime)),
 	...ecs,
@@ -123,7 +122,9 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 	const options = { ...defaults, ...opts };
 	ecsTaskValidateOptions(options);
 
-	const exitImpl = deps.exit ?? process.exit;
+	// Destructured default rather than `??`: a mutated `deps.exit && process.exit`
+	// would hand the real process.exit to the test suite and terminate it.
+	const { exit: exitImpl = process.exit } = deps;
 	const procImpl = deps.process ?? process;
 	const argv = deps.argv ?? process.argv;
 	const env = deps.env ?? process.env;
@@ -174,6 +175,7 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 		procImpl.removeListener?.("SIGTERM", onSigterm);
 		return exitImpl(0);
 	} catch (err) {
+		// Stryker disable next-line ConditionalExpression: equivalent. Forcing the branch calls `undefined(...)`, and the TypeError that raises is swallowed by the very catch below, so the task still exits 1 with the handler's error.
 		if (typeof options.onFailure === "function") {
 			try {
 				await options.onFailure(err, context);

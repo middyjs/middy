@@ -28,6 +28,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -49,6 +50,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -88,20 +90,21 @@ const kmsMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const kmsMiddlewareBefore = async (request) => {
-		if (!client) {
-			clientInit ??= createClient(options, request);
-			client = await clientInit;
-		}
-
+	const kmsMiddlewareFetch = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 		Object.assign(request.internal, value);
-
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns only `undefined` (sync path, context already assigned) or a Promise; `if (true) await pending` differs only by awaiting `undefined`, a no-op with no observable effect.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
+	};
+
+	const kmsMiddlewareBefore = (request) => {
+		if (client) return kmsMiddlewareFetch(request);
+		clientInit ??= createClient(options, request);
+		return clientInit.then((resolvedClient) => {
+			client = resolvedClient;
+			return kmsMiddlewareFetch(request);
+		});
 	};
 
 	return {

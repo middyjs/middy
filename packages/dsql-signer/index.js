@@ -23,6 +23,7 @@ const defaults = {
 	cacheKeyExpiry: {},
 	cacheExpiry: -1,
 	setToContext: false,
+	contextKey: name,
 };
 
 const optionSchema = {
@@ -54,6 +55,7 @@ const optionSchema = {
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
 		setToContext: { type: "boolean" },
+		contextKey: { type: "string" },
 	},
 	additionalProperties: false,
 };
@@ -103,7 +105,7 @@ const dsqlSignerMiddleware = (opts = {}) => {
 					// A missing token usually indicates a credential or signing problem.
 					if (!token.includes("X-Amz-Security-Token=")) {
 						throw new Error("X-Amz-Security-Token Missing", {
-							cause: { package: pkg, method },
+							cause: { package: pkg, data: { method } },
 						});
 					}
 					return token;
@@ -123,15 +125,13 @@ const dsqlSignerMiddleware = (opts = {}) => {
 		processCache(options, fetchRequest);
 	}
 
-	const dsqlSignerMiddlewareBefore = async (request) => {
+	const dsqlSignerMiddlewareBefore = (request) => {
 		const { value } = processCache(options, fetchRequest, request);
 
 		Object.assign(request.internal, value);
 
 		if (contextSpec) {
-			const pending = assignSetToContext(contextSpec, value, request);
-			// Stryker disable next-line ConditionalExpression: assignSetToContext returns either a Promise (truthy) or undefined; `await undefined` on the sync path is a no-op, so forcing the branch to true is behaviourally equivalent.
-			if (pending) await pending;
+			return assignSetToContext(contextSpec, value, request);
 		}
 	};
 

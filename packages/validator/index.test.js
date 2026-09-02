@@ -11,9 +11,16 @@ import validator, { validatorValidateOptions } from "./index.js";
 import { transpileSchema } from "./transpile.js";
 
 const defaultEvent = {};
+const seedPreferredLanguage = (preferredLanguage) => ({
+	before: (request) => {
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredLanguage,
+		};
+	},
+});
+
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
-	callbackWaitsForEmptyEventLoop: true,
 	functionVersion: "$LATEST",
 	functionName: "lambda",
 	memoryLimitInMB: "128",
@@ -108,9 +115,6 @@ const contextSchema = {
 				"env.locale",
 			],
 		},
-		callbackWaitsForEmptyEventLoop: {
-			type: "boolean",
-		},
 	},
 	required: [
 		"getRemainingTimeInMillis",
@@ -120,7 +124,6 @@ const contextSchema = {
 		"awsRequestId",
 		"logGroupName",
 		"logStreamName",
-		"callbackWaitsForEmptyEventLoop",
 	],
 };
 
@@ -317,8 +320,8 @@ test("It should handle invalid schema as a BadRequest", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -357,7 +360,7 @@ for (const c of cases) {
 			},
 		};
 
-		handler.use(
+		handler.use(seedPreferredLanguage(c.lang)).use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: {
@@ -372,11 +375,11 @@ for (const c of cases) {
 		};
 
 		try {
-			await handler(event, { ...defaultContext, preferredLanguage: c.lang });
+			await handler(event, defaultContext);
 		} catch (e) {
 			strictEqual(e.cause.package, "@middy/validator");
-			strictEqual(e.message, "Event object failed validation");
-			deepStrictEqual(e.cause.data, [
+			strictEqual(e.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(e.cause.data.errors, [
 				{
 					instancePath: "",
 					keyword: "required",
@@ -409,7 +412,7 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 		},
 	};
 
-	handler.use(
+	handler.use(seedPreferredLanguage("pt-BR")).use(
 		validator({
 			eventSchema: transpileSchema(schema),
 			languages: {
@@ -424,11 +427,11 @@ test("It should handle invalid schema as a BadRequest in a different language (w
 	};
 
 	try {
-		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -472,11 +475,11 @@ test("It should handle invalid schema as a BadRequest without i18n", async (t) =
 	};
 
 	try {
-		await handler(event, { ...defaultContext, preferredLanguage: "pt-BR" });
+		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -500,7 +503,7 @@ for (const lang of prototypePollutionKeys) {
 			properties: { foo: { type: "string" } },
 		};
 
-		handler.use(
+		handler.use(seedPreferredLanguage(lang)).use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: { en: localize.en },
@@ -509,15 +512,15 @@ for (const lang of prototypePollutionKeys) {
 
 		let error;
 		try {
-			await handler({}, { ...defaultContext, preferredLanguage: lang });
+			await handler({}, defaultContext);
 		} catch (e) {
 			error = e;
 		}
 		ok(error, "expected the event validation to throw");
 		strictEqual(error.cause.package, "@middy/validator");
 		strictEqual(error.statusCode, 400);
-		strictEqual(error.message, "Event object failed validation");
-		deepStrictEqual(error.cause.data, [
+		strictEqual(error.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(error.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "required",
@@ -553,7 +556,7 @@ test("It should make requests with invalid context fails with an Internal Server
 
 	handler
 		.before((request) => {
-			request.context.callbackWaitsForEmptyEventLoop = "fail";
+			request.context.memoryLimitInMB = {}; // schema requires a string
 		})
 		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
@@ -562,7 +565,7 @@ test("It should make requests with invalid context fails with an Internal Server
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
-		strictEqual(e.message, "Context object failed validation");
+		strictEqual(e.cause.data.reason, "Context object failed validation");
 	}
 });
 
@@ -621,7 +624,7 @@ test("It should make requests with invalid responses fail with an Internal Serve
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
 		notStrictEqual(e, null);
-		strictEqual(e.message, "Response object failed validation");
+		strictEqual(e.cause.data.reason, "Response object failed validation");
 	}
 });
 
@@ -643,7 +646,7 @@ test("It should not allow bad email format", async (t) => {
 		await handler(event, defaultContext);
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data[0].message, 'must match format "email"');
+		strictEqual(e.cause.data.errors[0].message, 'must match format "email"');
 	}
 });
 
@@ -705,8 +708,8 @@ test("It should use out-of-the-box ajv-errors plugin", async (t) => {
 		await handler({ foo: "a" });
 	} catch (e) {
 		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.message, "Event object failed validation");
-		deepStrictEqual(e.cause.data, [
+		strictEqual(e.cause.data.reason, "Event object failed validation");
+		deepStrictEqual(e.cause.data.errors, [
 			{
 				instancePath: "",
 				keyword: "errorMessage",
@@ -845,8 +848,8 @@ test("It should throw a 400 when the event fails validation", async (t) => {
 	ok(error, "expected the event validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 400);
-	strictEqual(error.message, "Event object failed validation");
-	deepStrictEqual(error.cause.data, [
+	strictEqual(error.cause.data.reason, "Event object failed validation");
+	deepStrictEqual(error.cause.data.errors, [
 		{
 			instancePath: "",
 			keyword: "required",
@@ -916,7 +919,7 @@ test("It should run context validation and reject an invalid context with a 500"
 
 	handler
 		.before((request) => {
-			request.context.callbackWaitsForEmptyEventLoop = "fail";
+			request.context.memoryLimitInMB = {}; // schema requires a string
 		})
 		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
@@ -929,9 +932,9 @@ test("It should run context validation and reject an invalid context with a 500"
 	ok(error, "expected context validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 500);
-	strictEqual(error.message, "Context object failed validation");
-	ok(Array.isArray(error.cause.data));
-	ok(error.cause.data.length > 0);
+	strictEqual(error.cause.data.reason, "Context object failed validation");
+	ok(Array.isArray(error.cause.data.errors));
+	ok(error.cause.data.errors.length > 0);
 });
 
 test("It should run context validation and pass a valid context", async (t) => {
@@ -940,9 +943,10 @@ test("It should run context validation and pass a valid context", async (t) => {
 
 	handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
 
+	// earlier tests mutate defaultContext in place; restore the valid value
 	const response = await handler(defaultEvent, {
 		...defaultContext,
-		callbackWaitsForEmptyEventLoop: true,
+		memoryLimitInMB: "128",
 	});
 	deepStrictEqual(response, expectedResponse);
 });
@@ -970,9 +974,9 @@ test("It should run response validation and reject an invalid response with a 50
 	ok(error, "expected response validation to throw");
 	strictEqual(error.cause.package, "@middy/validator");
 	strictEqual(error.statusCode, 500);
-	strictEqual(error.message, "Response object failed validation");
-	ok(Array.isArray(error.cause.data));
-	ok(error.cause.data.length > 0);
+	strictEqual(error.cause.data.reason, "Response object failed validation");
+	ok(Array.isArray(error.cause.data.errors));
+	ok(error.cause.data.errors.length > 0);
 });
 
 test("It should run response validation and pass a valid response", async (t) => {
@@ -1079,4 +1083,104 @@ test("It should throw when a validator returns a promise at runtime", async (t) 
 		ok(e.message.includes("promise"));
 	}
 	ok(thrown, "expected promise-returning validator to fail closed");
+});
+
+test("validatorValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	validatorValidateOptions({ contextKeyHttpContentNegotiation: "custom" });
+	try {
+		validatorValidateOptions({ contextKeyHttpContentNegotiation: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKeyHttpContentNegotiation"));
+	}
+});
+
+test("It should name the failing schema when a validator returns a promise", async (t) => {
+	// The label is the only thing telling the three call sites apart in the
+	// error message, so each has to be asserted by name.
+	const promiseValidator = () => Promise.resolve(false);
+
+	const cases = [
+		["eventSchema", { eventSchema: promiseValidator }],
+		["contextSchema", { contextSchema: promiseValidator }],
+		["responseSchema", { responseSchema: promiseValidator }],
+	];
+
+	for (const [label, options] of cases) {
+		const handler = middy((event) => event).use(validator(options));
+		let thrown;
+		try {
+			await handler({ hello: "world" }, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, `expected ${label} to fail closed`);
+		ok(
+			thrown.message.includes(label),
+			`expected the error to name ${label}, got: ${thrown.message}`,
+		);
+	}
+});
+
+test("It should treat an undefined validator result as a validation failure", async (t) => {
+	// `typeof valid?.then` has to tolerate a nullish result: without the `?.`
+	// this becomes a TypeError instead of the documented 400.
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: () => undefined }),
+	);
+
+	let thrown;
+	try {
+		await handler({ hello: "world" }, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+	strictEqual(thrown.cause.package, "@middy/validator");
+});
+
+test("It should build without throwing for a schema that has no constructor", () => {
+	// `schema?.constructor?.name` must tolerate a null-prototype schema;
+	// dropping the second `?.` throws while merely constructing the middleware.
+	const middleware = validator({ eventSchema: Object.create(null) });
+	ok(middleware);
+});
+
+test("It should validate when context.middyContext is absent", async (t) => {
+	// core seeds middyContext, so only a direct call reaches the `?.` guard on
+	// the negotiation lookup used to localize error messages.
+	const middleware = validator({ eventSchema: () => false });
+	const request = { event: {}, context: {}, internal: {} };
+
+	let thrown;
+	try {
+		await middleware.before(request);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+});
+
+test("It should compile schemas using draft-2019 formats", async (t) => {
+	// `ajv-formats` alone does not register `idn-hostname`, and ajv runs in
+	// strict mode here, so dropping ajvFormatsDraft2019() makes this schema
+	// fail to compile rather than silently validating differently.
+	const schema = transpileSchema({
+		type: "object",
+		required: ["host"],
+		properties: {
+			host: { type: "string", format: "idn-hostname" },
+		},
+	});
+
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: schema }),
+	);
+
+	const event = { host: "example.com" };
+	deepStrictEqual(await handler(event, defaultContext), event);
 });

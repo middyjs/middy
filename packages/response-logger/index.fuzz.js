@@ -1,10 +1,10 @@
-import { strictEqual } from "node:assert/strict";
+import { deepStrictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import middy from "../core/index.js";
 import middleware from "./index.js";
 
-const handler = middy((event) => event).use(middleware());
+const handler = middy((event) => event).use(middleware({ logger: () => {} }));
 const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
@@ -22,15 +22,11 @@ test("fuzz `event` w/ `object`", async () => {
 	);
 });
 
-test("fuzz sets callbackWaitsForEmptyEventLoop to false", async () => {
+test("fuzz handler return value is preserved", async () => {
 	await fc.assert(
-		fc.asyncProperty(fc.object(), async (event) => {
-			const ctx = {
-				getRemainingTimeInMillis: () => 1000,
-				callbackWaitsForEmptyEventLoop: true,
-			};
-			await handler(event, ctx);
-			strictEqual(ctx.callbackWaitsForEmptyEventLoop, false);
+		fc.asyncProperty(fc.jsonValue(), async (value) => {
+			const result = await handler({ value }, defaultContext);
+			deepStrictEqual(result, { value });
 		}),
 		{
 			numRuns: 10_000,

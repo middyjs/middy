@@ -4,7 +4,7 @@
 	"description": "ECS/Fargate HTTP server runtime for the middy framework",
 	"type": "module",
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"engineStrict": true,
 	"publishConfig": {
@@ -29,8 +29,7 @@
 		"test": "npm run test:unit && npm run test:fuzz",
 		"test:unit": "node --test",
 		"test:fuzz": "node --test index.fuzz.js",
-		"test:perf": "node --test index.perf.js",
-		"test:bench": "node index.bench.js"
+		"test:perf": "node --test index.perf.js"
 	},
 	"license": "MIT",
 	"keywords": [
@@ -71,7 +70,7 @@
 	"devDependencies": {
 		"@middy/core": "7.9.2",
 		"@types/aws-lambda": "^8.0.0",
-		"@types/node": "^22.0.0",
+		"@types/node": "^24.0.0",
 		"autocannon": "^8.0.0"
 	}
 }

@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { setTimeout } from "node:timers";
-import { validateOptions } from "@middy/util";
+import { isExecutionModeDurable, validateOptions } from "@middy/util";
 import { executionModeStandard } from "./executionModeStandard.js";
 
 const name = "core";
@@ -77,6 +77,7 @@ export const middy = (setupLambdaHandler, pluginConfig) => {
 	const onErrorMiddlewares = [];
 
 	const middyRequest = (event = {}, context = {}) => {
+		context.middyContext = Object.create(null);
 		return {
 			event,
 			context,
@@ -236,6 +237,7 @@ const runRequest = async (
 				const nextMiddleware = afterMiddlewares[i];
 				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
 				let res = nextMiddleware(request);
+				// Stryker disable next-line ConditionalExpression: equivalent; `await` on a non-Promise is a no-op, so forcing the branch only costs the microtask this guard exists to save.
 				if (res instanceof Promise) res = await res;
 				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
 				if (typeof res !== "undefined") {
@@ -256,11 +258,17 @@ const runRequest = async (
 		request.response = undefined;
 		delete request.earlyResponse;
 		request.error = err;
+
+		if (isExecutionModeDurable(request.context)) {
+			throw request.error;
+		}
+
 		try {
 			for (let i = 0, len = onErrorMiddlewares.length; i < len; i++) {
 				const nextMiddleware = onErrorMiddlewares[i];
 				if (beforeMiddlewareHook) beforeMiddlewareHook(nextMiddleware.name);
 				let res = nextMiddleware(request);
+				// Stryker disable next-line ConditionalExpression: equivalent; `await` on a non-Promise is a no-op, so forcing the branch only costs the microtask this guard exists to save.
 				if (res instanceof Promise) res = await res;
 				if (afterMiddlewareHook) afterMiddlewareHook(nextMiddleware.name);
 				if (typeof res !== "undefined") {
@@ -272,17 +280,13 @@ const runRequest = async (
 				}
 			}
 		} catch (err) {
-			// Save error that wasn't handled. When an onError middleware rethrows
-			// `request.error`, err === request.error; attaching it to itself would
-			// create self-references that loop cause-walking serializers, so only
-			// attach when the thrown error is distinct. Thrown primitives can't
-			// carry properties (assignment throws in strict mode), so only attach
-			// to objects; a primitive still propagates as-is below.
-			if (err !== request.error && typeof err === "object" && err !== null) {
-				err.originalError = request.error; // TODO remove in v8, use cause
-				err.cause ??= request.error;
+			if (err !== request.error) {
+				request.error = new AggregateError(
+					[request.error, err],
+					"Error thrown in onError middleware",
+					{ cause: { package: pkg } },
+				);
 			}
-			request.error = err;
 
 			throw request.error;
 		}

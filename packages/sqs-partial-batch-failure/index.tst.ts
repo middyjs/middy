@@ -12,6 +12,8 @@ test("use with all options", () => {
 		logger: (...args) => {
 			console.error(...args);
 		},
+		omitPaths: ["event.Records.[].body"],
+		mask: "***",
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
@@ -21,9 +23,9 @@ test("Options interface", () => {
 	expect(options).type.toBeAssignableTo<Options>();
 
 	const optionsWithLogger: Options = {
-		logger: (reason, record) => {
-			expect(reason).type.toBe<unknown>();
-			expect(record).type.toBe<unknown>();
+		logger: (request, failure) => {
+			expect(request).type.toBe<middy.Request>();
+			expect(failure).type.toBe<{ reason: unknown; record: unknown }>();
 		},
 	};
 	expect(optionsWithLogger).type.toBeAssignableTo<Options>();
@@ -34,12 +36,20 @@ test("Options logger is optional", () => {
 	expect(noLogger).type.toBeAssignableTo<Options>();
 });
 
-test("Options logger receives two unknown arguments", () => {
-	const options: Options = {
-		logger: (reason, record) => {
-			expect(reason).type.toBe<unknown>();
-			expect(record).type.toBe<unknown>();
-		},
-	};
-	expect(options).type.toBeAssignableTo<Options>();
+test("Options logger accepts false to disable logging", () => {
+	const disabled: Options = { logger: false };
+	expect(disabled).type.toBeAssignableTo<Options>();
+	expect<true>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
+});
+
+test("Options omitPaths accepts string array", () => {
+	expect<string[]>().type.toBeAssignableTo<NonNullable<Options["omitPaths"]>>();
+	expect<number[]>().type.not.toBeAssignableTo<
+		NonNullable<Options["omitPaths"]>
+	>();
+});
+
+test("Options mask accepts string", () => {
+	expect<string>().type.toBeAssignableTo<NonNullable<Options["mask"]>>();
+	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["mask"]>>();
 });

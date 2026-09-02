@@ -152,7 +152,7 @@ Evidence links point to files in this repository unless otherwise noted.
 | ID | Level | Requirement | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | V2.7.1 | 2 | Security unit tests in development process | :white_check_mark: | Property-based fuzz tests via `fast-check` in [test-dast.yml](../.github/workflows/test-dast.yml); type tests via `tstyche` in [test-types.yml](../.github/workflows/test-types.yml) |
-| V2.7.2 | 2 | Unit tests automated, run on every change | :white_check_mark: | [test-unit.yml](../.github/workflows/test-unit.yml) on every PR, Node 22 + 24 matrix |
+| V2.7.2 | 2 | Unit tests automated, run on every change | :white_check_mark: | [test-unit.yml](../.github/workflows/test-unit.yml) on every PR, Node 24 + 26 matrix |
 
 ---
 

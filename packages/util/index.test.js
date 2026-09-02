@@ -6,15 +6,17 @@ import {
 	strictEqual,
 	throws,
 } from "node:assert/strict";
+import { STATUS_CODES } from "node:http";
 import { describe, test } from "node:test";
 import {
 	assignSetToContext,
+	buildPathTree,
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
 	clearCache,
+	contextNamespace,
 	createClient,
-	createError,
 	createPrefetchClient,
 	decodeBody,
 	executionContextKeys,
@@ -29,9 +31,12 @@ import {
 	lambdaContextKeys,
 	modifyCache,
 	normalizeHttpResponse,
+	omit,
 	processCache,
 	resolveHttpEventVersion,
 	sanitizeKey,
+	setContextNamespace,
+	validateOptions,
 } from "./index.js";
 
 process.env.AWS_REGION = "ca-central-1";
@@ -277,11 +282,10 @@ describe("getInternal", () => {
 		try {
 			await getInternal(true, getInternalRejected);
 		} catch (e) {
+			ok(e instanceof AggregateError);
 			strictEqual(e.message, "Failed to resolve internal values");
-			deepStrictEqual(e.cause, {
-				package: "@middy/util",
-				data: [promiseRejectError, promiseThrowError],
-			});
+			deepStrictEqual(e.cause, { package: "@middy/util" });
+			deepStrictEqual(e.errors, [promiseRejectError, promiseThrowError]);
 		}
 	});
 
@@ -292,10 +296,8 @@ describe("getInternal", () => {
 			() => getInternal(true, getInternalRejected),
 			(e) => {
 				strictEqual(e.message, "Failed to resolve internal values");
-				deepStrictEqual(e.cause, {
-					package: "@middy/util",
-					data: [promiseRejectError, promiseThrowError],
-				});
+				deepStrictEqual(e.cause, { package: "@middy/util" });
+				deepStrictEqual(e.errors, [promiseRejectError, promiseThrowError]);
 				return true;
 			},
 		);
@@ -733,10 +735,8 @@ describe("processCache / clearCache", () => {
 				b: undefined,
 			});
 			strictEqual(e.message, "Failed to resolve internal values");
-			deepStrictEqual(e.cause, {
-				package: "@middy/util",
-				data: [new Error("error")],
-			});
+			deepStrictEqual(e.cause, { package: "@middy/util" });
+			deepStrictEqual(e.errors, [new Error("error")]);
 
 			processCache(options, fetchCached, cacheRequest);
 			cache = getCache(options.cacheKey);
@@ -1083,11 +1083,15 @@ test("processCache should keep auto-refresh alive after modifyCache (duration)",
 	const entry = getCache(options.cacheKey);
 	ok(entry.refresh, "modified re-fetch should reschedule a refresh timer");
 
-	// Advancing past the duration must trigger the auto-refresh fetch.
+	// Advancing past the duration must trigger the auto-refresh fetch exactly
+	// once: initial fetch, modified re-fetch, then one refresh. A lower bound
+	// would also accept the timer modifyCache was supposed to cancel firing
+	// alongside the rescheduled one.
 	t.mock.timers.tick(100);
-	ok(
-		fetchRequest.mock.callCount() >= 3,
-		`expected auto-refresh after modify, got ${fetchRequest.mock.callCount()} calls`,
+	strictEqual(
+		fetchRequest.mock.callCount(),
+		3,
+		`expected exactly one auto-refresh after modify, got ${fetchRequest.mock.callCount()} calls`,
 	);
 	clearCache();
 });
@@ -1267,9 +1271,10 @@ describe("jsonSafeParse", () => {
 describe("jsonParseProtectProto", () => {
 	const isForbidden = (key) => (e) => {
 		strictEqual(e.statusCode, 422);
-		strictEqual(e.message, "Forbidden key in JSON body");
+		strictEqual(e.message, "Unprocessable Entity");
 		strictEqual(e.cause.package, "@middy/test");
-		strictEqual(e.cause.data, key);
+		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+		strictEqual(e.cause.data.key, key);
 		return true;
 	};
 
@@ -1283,6 +1288,27 @@ describe("jsonParseProtectProto", () => {
 		deepStrictEqual(jsonParseProtectProto('{"foo":"bar"}', reviver), {
 			foo: "BAR",
 		});
+	});
+
+	// A clean body takes the fast path and never enters the guard reviver, so
+	// this is the only way to reach the `reviver.call(this, …)` line: a body
+	// that trips `suspectConstructorRx` but is not actually forbidden (the
+	// `constructor` value carries no own `prototype`).
+	test("applies the user reviver on the guarded parse path", () => {
+		const holders = [];
+		const reviver = function (_key, value) {
+			holders.push(this);
+			return typeof value === "number" ? value * 2 : value;
+		};
+		deepStrictEqual(
+			jsonParseProtectProto('{"constructor":{"x":1},"n":2}', reviver),
+			{ constructor: { x: 2 }, n: 4 },
+		);
+		// `.call(this, …)` hands the reviver the holder object that JSON.parse
+		// binds on the unguarded fast path; a plain `reviver(key, value)` call
+		// would leave `this` undefined.
+		ok(holders.some((holder) => Object.hasOwn(holder, "n")));
+		ok(holders.every((holder) => holder !== undefined));
 	});
 
 	// __proto__ vector
@@ -1337,6 +1363,59 @@ describe("jsonParseProtectProto", () => {
 		);
 	});
 
+	// The regex spells every character both literally and as its \uXXXX escape.
+	// The escape branches for the "o" characters are only exercised when a body
+	// actually uses them, one position at a time.
+	test("rejects a __proto__ key whose inner o is unicode-escaped", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"__pr\\u006Fto__":{"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a constructor key whose leading o is unicode-escaped", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"c\\u006Fnstructor":{"prototype":{"x":1}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("constructor"),
+		);
+	});
+
+	test("rejects a constructor key whose trailing o is unicode-escaped", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"construct\\u006Fr":{"prototype":{"x":1}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("constructor"),
+		);
+	});
+
+	// Only `constructor` is forbidden by the prototype-carrying rule. A body
+	// that trips the suspect-key scan must still let unrelated keys through,
+	// even when their value happens to carry an own `prototype`.
+	test("allows a non-constructor key whose value carries a prototype member", () => {
+		deepStrictEqual(
+			jsonParseProtectProto(
+				'{"constructor":{"x":1},"foo":{"prototype":1}}',
+				undefined,
+				"@middy/test",
+			),
+			{ constructor: { x: 1 }, foo: { prototype: 1 } },
+		);
+	});
+
 	test("rejects a deeply nested constructor.prototype payload", () => {
 		throws(
 			() =>
@@ -1379,6 +1458,75 @@ describe("jsonParseProtectProto", () => {
 		deepStrictEqual(jsonParseProtectProto('{"name":"__proto__"}'), {
 			name: "__proto__",
 		});
+	});
+
+	// The escape-form cases below pin every spelling JSON.parse decodes back to
+	// a forbidden key. They matter because the guard reviver is skipped unless
+	// the raw source is flagged, so a spelling missed by the scan would be a
+	// silent bypass rather than a slow path.
+	test("rejects an upper-case unicode-escaped __proto__ key", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"\\u005F\\u005Fproto\\u005F\\u005F":{"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a partially escaped __proto__ key", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"\\u005F_p\\u0072ot\\u006F__":{"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a __proto__ key separated from its colon by whitespace", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"__proto__"\n\t : {"x":1}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("__proto__"),
+		);
+	});
+
+	test("rejects a partially escaped constructor key", () => {
+		throws(
+			() =>
+				jsonParseProtectProto(
+					'{"co\\u006Estructo\\u0072":{"prototype":{"x":1}}}',
+					undefined,
+					"@middy/test",
+				),
+			isForbidden("constructor"),
+		);
+	});
+
+	test("allows a string value that mimics a forbidden key", () => {
+		// Reads as a forbidden key to a source scan, but is a value. Parsing has
+		// to be what decides, not the scan.
+		deepStrictEqual(jsonParseProtectProto('{"a":"\\"__proto__\\": 1"}'), {
+			a: '"__proto__": 1',
+		});
+	});
+
+	test("applies the user reviver to a body carrying a forbidden-looking value", () => {
+		const reviver = (_key, value) =>
+			typeof value === "string" ? value.toUpperCase() : value;
+		deepStrictEqual(
+			jsonParseProtectProto('{"a":"\\"constructor\\": 1"}', reviver),
+			{ a: '"CONSTRUCTOR": 1' },
+		);
 	});
 });
 
@@ -1494,11 +1642,11 @@ test("normalizeHttpResponse should update array response", async (t) => {
 
 // HttpError
 test("HttpError should create error", async (t) => {
-	const e = new HttpError(400, "message", { cause: "cause" });
+	const e = new HttpError(400, { cause: "cause" });
 	strictEqual(e.status, 400);
 	strictEqual(e.statusCode, 400);
 	strictEqual(e.name, "BadRequestError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Bad Request");
 	strictEqual(e.expose, true);
 	strictEqual(e.cause, "cause");
 });
@@ -1512,19 +1660,19 @@ test("HttpError should create error with expose false", async (t) => {
 	strictEqual(e.cause, "cause");
 });
 
-// createError
-test("createError should create error", async (t) => {
-	const e = createError(400, "message", { cause: "cause" });
+// HttpError
+test("HttpError should create error", async (t) => {
+	const e = new HttpError(400, { cause: "cause" });
 	strictEqual(e.status, 400);
 	strictEqual(e.statusCode, 400);
 	strictEqual(e.name, "BadRequestError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Bad Request");
 	strictEqual(e.expose, true);
 	strictEqual(e.cause, "cause");
 });
 
-test("createError should create error with expose false", async (t) => {
-	const e = createError(500);
+test("HttpError should create error with expose false", async (t) => {
+	const e = new HttpError(500);
 	strictEqual(e.status, 500);
 	strictEqual(e.statusCode, 500);
 	strictEqual(e.name, "InternalServerError");
@@ -1532,24 +1680,24 @@ test("createError should create error with expose false", async (t) => {
 	strictEqual(e.expose, false);
 });
 
-test("createError(306) falls through to the unknown-code path (306 is absent from node:http STATUS_CODES)", async (t) => {
-	const e = createError(306);
+test("new HttpError(306) falls through to the unknown-code path (306 is absent from node:http STATUS_CODES)", async (t) => {
+	const e = new HttpError(306);
 	strictEqual(e.message, "");
 	strictEqual(e.name, "UnknownError");
 });
 
 test("HttpError should default name to UnknownError for unknown status code", async (t) => {
-	const e = new HttpError(999, "message");
+	const e = new HttpError(999);
 	strictEqual(e.name, "UnknownError");
 	strictEqual(e.status, 999);
 });
 
 test("HttpError should create error with explicit expose", async (t) => {
-	const e = new HttpError(500, "message", { expose: true });
+	const e = new HttpError(500, { expose: true });
 	strictEqual(e.status, 500);
 	strictEqual(e.statusCode, 500);
 	strictEqual(e.name, "InternalServerError");
-	strictEqual(e.message, "message");
+	strictEqual(e.message, "Internal Server Error");
 	strictEqual(e.expose, true);
 });
 
@@ -1629,59 +1777,83 @@ describe("buildSetToContextSpec", () => {
 	test("returns null when setToContext is omitted", () => {
 		strictEqual(buildSetToContextSpec({ fetchData: { foo: "bar" } }), null);
 	});
-	test("returns [original, sanitized] pairs when setToContext is true", () => {
+	test("returns the contextKey and [original, sanitized] pairs when setToContext is true", () => {
 		const spec = buildSetToContextSpec({
 			setToContext: true,
+			contextKey: "ssm",
 			fetchData: { token: "x", "my-key": "y", "0num": "z" },
 		});
-		deepStrictEqual(spec, [
-			["token", "token"],
-			["my-key", "my_key"],
-			["0num", "_0num"],
-		]);
+		deepStrictEqual(spec, {
+			contextKey: "ssm",
+			pairs: [
+				["token", "token"],
+				["my-key", "my_key"],
+				["0num", "_0num"],
+			],
+		});
 	});
 });
 
+const contextSpec = (contextKey, pairs) => ({ contextKey, pairs });
+
 describe("assignSetToContext", () => {
-	test("warm path: copies sync values directly using sanitized keys", () => {
-		const spec = [
+	test("warm path: copies sync values under context.middyContext[contextKey]", () => {
+		const spec = contextSpec("ssm", [
 			["token", "token"],
 			["my-key", "my_key"],
-		];
+		]);
 		const value = { token: "tok", "my-key": "val" };
-		const request = { context: {} };
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, value, request);
 		strictEqual(result, undefined);
-		deepStrictEqual(request.context, { token: "tok", my_key: "val" });
+		deepStrictEqual(
+			{ ...request.context.middyContext.ssm },
+			{ token: "tok", my_key: "val" },
+		);
 	});
 	test("cold path: awaits getInternal when any value is a Promise", async () => {
-		const spec = [["token", "token"]];
+		const spec = contextSpec("ssm", [["token", "token"]]);
 		const tokenPromise = Promise.resolve("tok-async");
 		const value = { token: tokenPromise };
 		const request = {
-			context: {},
+			context: { middyContext: Object.create(null) },
 			internal: { token: tokenPromise },
 		};
 		const pending = assignSetToContext(spec, value, request);
 		ok(pending && typeof pending.then === "function");
 		await pending;
-		strictEqual(request.context.token, "tok-async");
+		strictEqual(request.context.middyContext.ssm.token, "tok-async");
 	});
 	test("ignores null values (treated as resolved, not promise)", () => {
-		const spec = [["token", "token"]];
-		const request = { context: {} };
+		const spec = contextSpec("ssm", [["token", "token"]]);
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, { token: null }, request);
 		strictEqual(result, undefined);
-		strictEqual(request.context.token, null);
+		strictEqual(request.context.middyContext.ssm.token, null);
 	});
 	test("handles a missing (undefined) value without throwing", () => {
 		// value has no entry for the spec key: the `.then` probe must use
 		// optional chaining so `undefined?.then` does not throw.
-		const spec = [["token", "token"]];
-		const request = { context: {} };
+		const spec = contextSpec("ssm", [["token", "token"]]);
+		const request = { context: { middyContext: Object.create(null) } };
 		const result = assignSetToContext(spec, {}, request);
 		strictEqual(result, undefined);
-		strictEqual(request.context.token, undefined);
+		strictEqual(request.context.middyContext.ssm.token, undefined);
+	});
+	test("namespace is null-prototype and merges repeat writes to the same key", () => {
+		const request = { context: { middyContext: Object.create(null) } };
+		assignSetToContext(contextSpec("ssm", [["a", "a"]]), { a: 1 }, request);
+		const first = request.context.middyContext.ssm;
+		assignSetToContext(contextSpec("ssm", [["b", "b"]]), { b: 2 }, request);
+		strictEqual(request.context.middyContext.ssm, first);
+		strictEqual(Object.getPrototypeOf(first), null);
+		deepStrictEqual({ ...first }, { a: 1, b: 2 });
+	});
+	test("seeds context.middyContext when the request did not come from middy core", () => {
+		const request = { context: {} };
+		assignSetToContext(contextSpec("ssm", [["a", "a"]]), { a: 1 }, request);
+		strictEqual(Object.getPrototypeOf(request.context.middyContext), null);
+		strictEqual(request.context.middyContext.ssm.a, 1);
 	});
 });
 
@@ -1768,6 +1940,25 @@ describe("HttpError code name/message derivation", () => {
 			strictEqual(e.name, name);
 		});
 	}
+
+	// util carries its own copy of the reason phrases so it does not have to
+	// import node:http. This is what stops the copy drifting from Node's.
+	test("every reason phrase matches node:http STATUS_CODES", () => {
+		for (const [code, phrase] of Object.entries(STATUS_CODES)) {
+			strictEqual(
+				new HttpError(Number(code)).message,
+				phrase,
+				`status ${code} diverged from node:http`,
+			);
+		}
+	});
+
+	test("covers every code node:http knows about", () => {
+		deepStrictEqual(
+			Object.keys(expected).sort(),
+			Object.keys(STATUS_CODES).sort(),
+		);
+	});
 });
 
 // createPrefetchClient: covers the X-Ray capture branch outside handler scope.
@@ -1925,7 +2116,6 @@ describe("context key tables", () => {
 			"logStreamName",
 			"identity",
 			"clientContext",
-			"callbackWaitsForEmptyEventLoop",
 		]);
 	});
 	test("executionContextKeys lists the execution context keys", () => {
@@ -1948,4 +2138,442 @@ describe("jsonSafeParse first-char gate", () => {
 	test("returns original text on parse failure of bracketed input", () => {
 		strictEqual(jsonSafeParse("[not json"), "[not json");
 	});
+});
+
+// omit / buildPathTree: shared redaction used by every logger middleware.
+describe("buildPathTree / omit", () => {
+	test("removes a configured leaf and leaves the rest untouched", () => {
+		const tree = buildPathTree(["event.headers.authorization"]);
+		const obj = {
+			event: { headers: { authorization: "Bearer x", accept: "*" } },
+		};
+		deepStrictEqual(omit(obj, tree), {
+			event: { headers: { accept: "*" } },
+		});
+	});
+	test("replaces a leaf with the mask when one is given", () => {
+		const tree = buildPathTree(["a.b"]);
+		deepStrictEqual(omit({ a: { b: "secret", c: 1 } }, tree, "**"), {
+			a: { b: "**", c: 1 },
+		});
+	});
+	test("returns the input untouched when no path tree applies", () => {
+		const obj = { a: 1 };
+		strictEqual(omit(obj, undefined), obj);
+		strictEqual(omit(obj, buildPathTree([])), obj);
+	});
+	test("walks arrays through the [] segment", () => {
+		const tree = buildPathTree(["records.[].body"]);
+		deepStrictEqual(omit({ records: [{ body: "s", id: 1 }] }, tree), {
+			records: [{ id: 1 }],
+		});
+	});
+	test("skips prototype-polluting paths", () => {
+		deepStrictEqual(
+			buildPathTree(["__proto__.x", "constructor.y", "a.prototype"]),
+			{},
+		);
+		// `tree.__proto__ ??= {}` would leave the tree empty while writing the
+		// leaf straight onto Object.prototype, so an empty tree is not on its own
+		// proof the guard held.
+		strictEqual({}.x, undefined);
+		strictEqual(Object.prototype.y, undefined);
+	});
+	test("a leaf path overrides a longer path on the same branch", () => {
+		const tree = buildPathTree(["a.b.c", "a.b"]);
+		deepStrictEqual(omit({ a: { b: { c: 1, d: 2 } } }, tree), { a: {} });
+	});
+	test("accepts pre-split array paths", () => {
+		const tree = buildPathTree([["a", "b"]]);
+		deepStrictEqual(omit({ a: { b: 1, c: 2 } }, tree), { a: { c: 2 } });
+	});
+	test("leaves non-plain values alone", () => {
+		const date = new Date(0);
+		strictEqual(omit(date, buildPathTree(["getTime"])), date);
+	});
+	test("does not mutate the input", () => {
+		const obj = { a: { b: 1 } };
+		omit(obj, buildPathTree(["a.b"]));
+		deepStrictEqual(obj, { a: { b: 1 } });
+	});
+	test("walks null-prototype objects", () => {
+		const headers = Object.assign(Object.create(null), {
+			authorization: "x",
+			accept: "*",
+		});
+		deepStrictEqual(
+			omit({ headers }, buildPathTree(["headers.authorization"])),
+			{
+				headers: { accept: "*" },
+			},
+		);
+	});
+
+	// Without normalization `omit` returns Errors unchanged and silently leaks
+	// whatever the path was meant to redact.
+	test("redacts own enumerable properties of an Error", () => {
+		const error = new Error("boom");
+		error.user = { ssn: "123", id: 1 };
+		const out = omit({ error }, buildPathTree(["error.user.ssn"]));
+		deepStrictEqual(out.error.user, { id: 1 });
+	});
+	test("keeps name, message and stack when normalizing an Error", () => {
+		const error = new TypeError("boom");
+		error.secret = "s";
+		const out = omit({ error }, buildPathTree(["error.secret"]));
+		strictEqual(out.error.name, "TypeError");
+		strictEqual(out.error.message, "boom");
+		strictEqual(out.error.stack, error.stack);
+		strictEqual(Object.hasOwn(out.error, "secret"), false);
+	});
+	test("redacts the non-enumerable cause carried by middy errors", () => {
+		const error = new HttpError(422, {
+			cause: {
+				package: "@middy/http-json-body-parser",
+				data: { body: "ssn=123" },
+			},
+		});
+		const out = omit(
+			{ error },
+			buildPathTree(["error.cause.data.body"]),
+			"[redacted]",
+		);
+		strictEqual(out.error.cause.data.body, "[redacted]");
+		strictEqual(out.error.cause.package, "@middy/http-json-body-parser");
+		strictEqual(out.error.statusCode, 422);
+	});
+	test("redacts through AggregateError.errors", () => {
+		const inner = new Error("inner");
+		inner.token = "t";
+		const error = new AggregateError([inner], "agg");
+		const out = omit({ error }, buildPathTree(["error.errors.[].token"]));
+		strictEqual(Object.hasOwn(out.error.errors[0], "token"), false);
+		strictEqual(out.error.errors[0].message, "inner");
+	});
+	test("leaves an Error untouched when no path reaches it", () => {
+		const error = new Error("boom");
+		strictEqual(omit({ error }, buildPathTree(["event.a"])).error, error);
+	});
+});
+
+// Copy-on-write, reference identity and the array walk.
+describe("omit mechanics", () => {
+	test("returns an array unchanged when no path tree applies", () => {
+		const arr = [1, 2, 3];
+		strictEqual(omit(arr, undefined), arr);
+	});
+
+	test("returns an array unchanged when no [] child path applies", () => {
+		const list = [{ x: 1 }, { x: 2 }];
+		const tree = buildPathTree(["list.x"]);
+		strictEqual(omit({ list }, tree).list, list);
+	});
+
+	test("omits inside array elements without mutating the source array", () => {
+		const list = [
+			{ secret: "a", keep: 1 },
+			{ keep: 2 },
+			{ secret: "c", keep: 3 },
+		];
+		const out = omit({ list }, buildPathTree(["list.[].secret"]));
+		deepStrictEqual(out.list, [{ keep: 1 }, { keep: 2 }, { keep: 3 }]);
+		// exactly the original length, no off-by-one trailing element
+		strictEqual(out.list.length, 3);
+		ok(Object.hasOwn(list[0], "secret"));
+	});
+
+	test("returns the same array reference when no element is omitted", () => {
+		const list = [{ keep: 1 }, { keep: 2 }];
+		const tree = buildPathTree(["list.[].secret"]);
+		strictEqual(omit({ list }, tree).list, list);
+	});
+
+	// Copy-on-write must not re-spread from the source and lose the first mask.
+	test("masks multiple keys on one object without losing earlier masks", () => {
+		const obj = { foo: "secret", baz: "secret2", bar: "bar" };
+		deepStrictEqual(omit(obj, buildPathTree(["foo", "baz"]), "*****"), {
+			foo: "*****",
+			baz: "*****",
+			bar: "bar",
+		});
+		deepStrictEqual(obj, { foo: "secret", baz: "secret2", bar: "bar" });
+	});
+
+	test("does not inject a phantom key when masking an absent path", () => {
+		const obj = { foo: "foo" };
+		strictEqual(omit(obj, buildPathTree(["absent"]), "*****"), obj);
+	});
+
+	// Zero-allocation cold path: no match means no clone.
+	test("returns the same object reference when the leaf key is absent", () => {
+		const obj = { foo: "foo" };
+		strictEqual(omit(obj, buildPathTree(["absent"])), obj);
+	});
+
+	// Same cold path, one level down: an unchanged subtree must not clone the
+	// parent either.
+	test("returns the same object reference when a nested path matches nothing", () => {
+		const obj = { a: { b: 1 } };
+		strictEqual(omit(obj, buildPathTree(["a.absent"])), obj);
+	});
+
+	test("omits two nested subtrees without losing changes or mutating source", () => {
+		const a = { secret: "sa", keep: "ka" };
+		const b = { secret: "sb", keep: "kb" };
+		const obj = { a, b };
+		deepStrictEqual(omit(obj, buildPathTree(["a.secret", "b.secret"])), {
+			a: { keep: "ka" },
+			b: { keep: "kb" },
+		});
+		deepStrictEqual(a, { secret: "sa", keep: "ka" });
+		deepStrictEqual(b, { secret: "sb", keep: "kb" });
+	});
+
+	test("does not treat primitives or class instances as records", () => {
+		class Custom {
+			constructor() {
+				this.secret = "keep";
+			}
+		}
+		const inst = new Custom();
+		const obj = { prim: 42, inst };
+		const out = omit(obj, buildPathTree(["prim.secret", "inst.secret"]));
+		strictEqual(out.prim, 42);
+		strictEqual(out.inst, inst);
+		strictEqual(out.inst.secret, "keep");
+	});
+
+	// A literal own `constructor` key still equal to Object keeps the payload a
+	// record, so it would be omitted if the guard did not skip the segment.
+	test("skips an omitPath containing the constructor segment", () => {
+		const obj = { foo: "bar" };
+		Object.defineProperty(obj, "constructor", {
+			value: Object,
+			enumerable: true,
+			configurable: true,
+			writable: true,
+		});
+		ok(
+			Object.hasOwn(
+				omit({ event: obj }, buildPathTree(["event.constructor"])).event,
+				"constructor",
+			),
+		);
+	});
+
+	test("skips an omitPath containing the prototype segment", () => {
+		const obj = { foo: "bar", prototype: "own-prototype" };
+		strictEqual(
+			omit({ event: obj }, buildPathTree(["event.prototype"])).event.prototype,
+			"own-prototype",
+		);
+	});
+
+	test("omits multiple nested leaves under a shared parent", () => {
+		deepStrictEqual(
+			omit({ a: { b: 1, c: 2, d: 3 } }, buildPathTree(["a.b", "a.c"])),
+			{ a: { d: 3 } },
+		);
+	});
+
+	// Dropping a key rebuilds the object rather than spreading and deleting, so
+	// these pin the properties that rebuild has to preserve.
+	test("drops a key and rewrites a nested subtree on the same object", () => {
+		const source = { token: "t", keep: 1, nested: { secret: "s", keep: 2 } };
+		const out = omit(source, buildPathTree(["token", "nested.secret"]));
+		deepStrictEqual(out, { keep: 1, nested: { keep: 2 } });
+		deepStrictEqual(source, {
+			token: "t",
+			keep: 1,
+			nested: { secret: "s", keep: 2 },
+		});
+	});
+
+	test("drops several keys from one object", () => {
+		const source = { a: 1, token: "t", b: 2, secret: "s", c: 3 };
+		const out = omit(source, buildPathTree(["token", "secret"]));
+		deepStrictEqual(out, { a: 1, b: 2, c: 3 });
+	});
+
+	test("preserves the order of the surviving keys", () => {
+		const source = { first: 1, token: "t", second: 2, third: 3 };
+		const out = omit(source, buildPathTree(["token"]));
+		deepStrictEqual(Object.keys(out), ["first", "second", "third"]);
+	});
+
+	test("drops a key from a null-prototype object", () => {
+		const source = Object.assign(Object.create(null), { token: "t", keep: 1 });
+		const out = omit(source, buildPathTree(["token"]));
+		deepStrictEqual({ ...out }, { keep: 1 });
+		ok(!Object.hasOwn(out, "token"));
+	});
+
+	test("does not mutate the caller-provided paths array", () => {
+		const paths = ["a.b", "c.d"];
+		const original = [...paths];
+		buildPathTree(paths);
+		deepStrictEqual(paths, original);
+	});
+});
+
+// stableStringify releases each value from `seen` on the way out, so a value
+// reached twice through sibling paths serializes in full both times. Without
+// that release the second occurrence collapses to "[Circular]", and two items
+// that are genuinely equal stop comparing equal.
+describe("uniqueItems repeated sibling references", () => {
+	const schema = {
+		type: "object",
+		properties: {
+			routes: { type: "array", uniqueItems: true },
+		},
+		additionalProperties: false,
+	};
+
+	test("treats a shared sibling reference as equal to an identical literal", () => {
+		const shared = { a: 1 };
+		throws(
+			() =>
+				validateOptions("@middy/test", schema, {
+					routes: [
+						{ x: shared, y: shared },
+						{ x: { a: 1 }, y: { a: 1 } },
+					],
+				}),
+			/Duplicate item/,
+		);
+	});
+
+	test("still reports genuinely distinct items as unique", () => {
+		const shared = { a: 1 };
+		validateOptions("@middy/test", schema, {
+			routes: [
+				{ x: shared, y: shared },
+				{ x: { a: 2 }, y: { a: 2 } },
+			],
+		});
+	});
+});
+
+// Both context helpers are exercised indirectly through the middleware that
+// call them, but nothing pins their own behaviour: emptying either body leaves
+// every existing assertion green.
+describe("contextNamespace / setContextNamespace", () => {
+	test("contextNamespace seeds middyContext and merges on repeat calls", () => {
+		const request = { context: {} };
+
+		const first = contextNamespace(request, "demo");
+		first.a = 1;
+		const second = contextNamespace(request, "demo");
+		second.b = 2;
+
+		// Same namespace object both times, so two middleware sharing a
+		// contextKey merge rather than clobber.
+		strictEqual(first, second);
+		deepStrictEqual({ ...request.context.middyContext.demo }, { a: 1, b: 2 });
+		strictEqual(Object.getPrototypeOf(request.context.middyContext), null);
+	});
+
+	test("setContextNamespace publishes the value under the key", () => {
+		const request = { context: {} };
+		const client = { mark: "client" };
+
+		setContextNamespace(request, "demo", client);
+
+		strictEqual(request.context.middyContext.demo, client);
+	});
+
+	test("setContextNamespace replaces a previously published value", () => {
+		const request = { context: {} };
+		setContextNamespace(request, "demo", "first");
+		setContextNamespace(request, "demo", "second");
+
+		strictEqual(request.context.middyContext.demo, "second");
+	});
+});
+
+test("processCache should cancel the refresh timer of an evicted entry", async (t) => {
+	// Eviction must clear the outgoing entry's refresh timer, otherwise the
+	// timer keeps firing and re-fetches a key that is no longer cached.
+	const evicted = t.mock.fn(() => ({ a: "evicted" }));
+	const kept = t.mock.fn(() => ({ a: "kept" }));
+
+	processCache(
+		{ cacheKey: "evict-timer-1", cacheExpiry: 100, cacheMaxSize: 1 },
+		evicted,
+		{ internal: {} },
+	);
+	strictEqual(evicted.mock.callCount(), 1);
+
+	// Second key exceeds cacheMaxSize, evicting the first.
+	processCache(
+		{ cacheKey: "evict-timer-2", cacheExpiry: 100, cacheMaxSize: 1 },
+		kept,
+		{ internal: {} },
+	);
+	deepStrictEqual(getCache("evict-timer-1"), {});
+
+	t.mock.timers.tick(100);
+	strictEqual(
+		evicted.mock.callCount(),
+		1,
+		"evicted entry must not refresh after eviction",
+	);
+	clearCache();
+});
+
+test("processCache should not refetch from a timer modifyCache was meant to cancel", async (t) => {
+	// modifyCache clears the entry's refresh timer before the modified re-fetch
+	// schedules a new one. While the entry stays cached the stray timer is
+	// harmless (the refresh callback re-validates), so it only shows up once
+	// the cache is emptied: the orphan then misses and refetches.
+	const fetchRequest = t.mock.fn(() => ({ a: "value" }));
+	const options = { cacheKey: "orphan-timer", cacheExpiry: 100 };
+
+	const cached = processCache(options, fetchRequest, { internal: {} });
+	modifyCache(options.cacheKey, cached.value);
+	processCache(options, fetchRequest, { internal: {} });
+	strictEqual(fetchRequest.mock.callCount(), 2);
+
+	clearCache();
+	t.mock.timers.tick(100);
+
+	strictEqual(
+		fetchRequest.mock.callCount(),
+		2,
+		"no timer should survive clearCache and repopulate the cache",
+	);
+	clearCache();
+});
+
+test("processCache should silence rejections from a modified re-fetch", async (t) => {
+	// The modified branch re-fetches into a stored value that nobody awaits
+	// until a later invocation, so a rejection there surfaces as an
+	// unhandledRejection unless it is pre-silenced.
+	const unhandled = [];
+	const onUnhandled = (reason) => unhandled.push(reason);
+	process.on("unhandledRejection", onUnhandled);
+
+	try {
+		const options = { cacheKey: "silence-modified", cacheExpiry: 100 };
+		let attempt = 0;
+		const fetchRequest = t.mock.fn(() => {
+			attempt += 1;
+			// First call resolves so the entry caches; the modified re-fetch rejects.
+			return attempt === 1
+				? { a: Promise.resolve("ok") }
+				: { a: Promise.reject(new Error("refetch boom")) };
+		});
+
+		const cached = processCache(options, fetchRequest, { internal: {} });
+		modifyCache(options.cacheKey, cached.value);
+		processCache(options, fetchRequest, { internal: {} });
+
+		// Let any unhandled rejection be reported before asserting.
+		await new Promise((resolve) => setImmediate(resolve));
+
+		deepStrictEqual(unhandled, []);
+	} finally {
+		process.off("unhandledRejection", onUnhandled);
+		clearCache();
+	}
 });

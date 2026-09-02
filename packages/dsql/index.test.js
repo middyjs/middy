@@ -34,7 +34,7 @@ test("It should instantiate the client and attach it to context", async (t) => {
 
 	let captured;
 	handler.before(async (request) => {
-		captured = request.context.dsql;
+		captured = request.context.middyContext.dsql;
 	});
 
 	await handler(defaultEvent, newContext());
@@ -232,7 +232,10 @@ test("It should honour custom contextKey", async (t) => {
 
 	let captured;
 	handler.before(async (request) => {
-		captured = { dsql: request.context.dsql, db: request.context.db };
+		captured = {
+			dsql: request.context.middyContext.dsql,
+			db: request.context.middyContext.db,
+		};
 	});
 
 	await handler(defaultEvent, newContext());
@@ -389,7 +392,7 @@ test("It should surface a refreshed cache entry in before, not a stale prefetch"
 	const handler = middy(() => {}).use(dsqlMiddleware(opts));
 	let captured;
 	handler.before(async (request) => {
-		captured = request.context.dsql;
+		captured = request.context.middyContext.dsql;
 	});
 	await handler(defaultEvent, newContext());
 	strictEqual(captured.mark, "client-1");
@@ -597,5 +600,44 @@ test("dsqlValidateOptions rejects out-of-range port", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e instanceof TypeError);
+	}
+});
+
+test("It should not report a cleanup error when middyContext is absent", async (t) => {
+	const { client } = buildClient(t);
+	const middleware = dsqlMiddleware({
+		client,
+		config: { host: validHost, username: "admin" },
+		cacheExpiry: 0,
+		disablePrefetch: true,
+	});
+
+	// onError shares the cleanup handler, so it can fire before `before` ever
+	// ran and seeded the namespace. The optional chaining must swallow that;
+	// without it the TypeError is caught and logged as a cleanup error.
+	const logged = [];
+	const originalError = console.error;
+	console.error = (...args) => logged.push(args);
+	try {
+		await middleware.after({ context: {} });
+		await middleware.onError({ context: {} });
+	} finally {
+		console.error = originalError;
+	}
+
+	strictEqual(logged.length, 0);
+});
+
+test("dsqlValidateOptions validates contextKey as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	const client = () => {};
+	const config = { host: validHost, username: "admin" };
+	dsqlValidateOptions({ client, config, contextKey: "custom" });
+	try {
+		dsqlValidateOptions({ client, config, contextKey: 123 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKey"));
 	}
 });

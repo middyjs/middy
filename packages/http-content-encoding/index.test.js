@@ -11,6 +11,7 @@ import {
 } from "node:zlib";
 import { createReadableStream, streamToBuffer } from "@datastream/core";
 import middy from "../core/index.js";
+import httpContentNegotiation from "../http-content-negotiation/index.js";
 import httpContentEncoding, {
 	httpContentEncodingValidateOptions,
 } from "./index.js";
@@ -19,12 +20,33 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
+// Stands in for @middy/http-content-negotiation, republishing the preferred*
+// values a test puts on the incoming context into context.middyContext, where
+// the middleware reads them. Seeding context.middyContext directly would not
+// work: @middy/core resets it on every invocation.
+const seedPreferredEncoding = () => ({
+	before: (request) => {
+		const { preferredEncoding, preferredEncodings } = request.context;
+		request.context.middyContext["http-content-negotiation"] = {
+			preferredEncoding,
+			preferredEncodings,
+		};
+	},
+});
+
+// The pairing under test in every case below. `.use()` accepts an array, so the
+// stand-in stays out of the individual test bodies.
+const contentEncodingStack = (options) => [
+	seedPreferredEncoding(),
+	httpContentEncoding(options),
+];
+
 const compressibleBody = JSON.stringify(new Array(100).fill(0));
 
 test("It should encode string using br", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -48,7 +70,7 @@ test("It should pass br options to sync encoder for string body", async (t) => {
 		params: { [constants.BROTLI_PARAM_QUALITY]: 3 },
 	};
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding({ br: brOptions }),
+		contentEncodingStack({ br: brOptions }),
 	);
 
 	const event = { headers: {} };
@@ -69,7 +91,7 @@ test("It should pass gzip options to sync encoder for string body", async (t) =>
 	const body = compressibleBody;
 	const gzipOptions = { level: 1 };
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding({ gzip: gzipOptions }),
+		contentEncodingStack({ gzip: gzipOptions }),
 	);
 
 	const event = { headers: {} };
@@ -90,7 +112,7 @@ test("It should pass br options to sync encoder for Buffer body", async (t) => {
 		params: { [constants.BROTLI_PARAM_QUALITY]: 3 },
 	};
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding({ br: brOptions }),
+		contentEncodingStack({ br: brOptions }),
 	);
 
 	const event = { headers: {} };
@@ -109,7 +131,7 @@ test("It should encode stream using br", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
 		body: createReadableStream(body),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -129,7 +151,7 @@ test("It should encode stream using br", async (t) => {
 test("It should encode string using gzip", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -152,7 +174,7 @@ test("It should encode stream using gzip", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
 		body: createReadableStream(body),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -172,7 +194,7 @@ test("It should encode stream using gzip", async (t) => {
 test("It should encode string using deflate", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -194,7 +216,7 @@ test("It should encode stream using deflate", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
 		body: createReadableStream(body),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -221,7 +243,7 @@ test("It should encode using br when context.preferredEncoding is gzip, but has 
 		},
 	}));
 	handler.use(
-		httpContentEncoding({
+		contentEncodingStack({
 			overridePreferredEncoding: ["br", "gzip", "deflate"],
 		}),
 	);
@@ -245,7 +267,7 @@ test("It should encode using br when context.preferredEncoding is gzip, but has 
 test("It should not encode when missing context.preferredEncoding", async (t) => {
 	const body = "test";
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -257,7 +279,7 @@ test("It should not encode when missing context.preferredEncoding", async (t) =>
 test("It should not encode when missing context.preferredEncoding === `identity`", async (t) => {
 	const body = "test";
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -277,7 +299,7 @@ test("It should not encode when response.isBase64Encoded is already set to true"
 		body,
 		isBase64Encoded: true,
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -297,7 +319,7 @@ test("It should not encode when response.isBase64Encoded is already set to true"
 test("It should not encode when response.body is not a string", async (t) => {
 	const body = 0;
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -312,7 +334,7 @@ test("It should not encode when response.body is not a string", async (t) => {
 test("It should not encode when response.body is empty string", async (t) => {
 	const body = "";
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -327,7 +349,7 @@ test("It should not encode when response.body is empty string", async (t) => {
 test("It should not encode when response.body is different type", async (t) => {
 	const body = null;
 	const handler = middy((event, context) => ({ statusCode: 200, body }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -341,7 +363,7 @@ test("It should not encode when response.body is different type", async (t) => {
 
 test("It should not encode when response.body is undefined", async (t) => {
 	const handler = middy((event, context) => ({ statusCode: 200 }));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -361,7 +383,7 @@ test('It should not encode when response.headers["Cache-Control"] is `no-transfo
 		},
 		body: "body",
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -383,7 +405,7 @@ test('It should not encode when event.headers["Cache-Control"] is `no-transform`
 
 		body: "body",
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = {
 		headers: {
@@ -407,7 +429,7 @@ test("It should not encode when error is not handled", async (t) => {
 	const handler = middy((event, context) => {
 		throw new Error("error");
 	});
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -446,7 +468,7 @@ test("It should pass options to getContentEncodingStream encoder", async (t) => 
 test("It should handle errors in onError middleware when response is defined", async (t) => {
 	const handler = middy((event, context) => {
 		throw new Error("test error");
-	}).use(httpContentEncoding());
+	}).use(contentEncodingStack());
 
 	handler.onError(async (request) => {
 		request.response = {
@@ -474,7 +496,7 @@ test("It should skip override encodings not in preferredEncodings", async (t) =>
 		body,
 	}));
 	handler.use(
-		httpContentEncoding({
+		contentEncodingStack({
 			// Try to override with br and zstd, but only gzip is in preferredEncodings
 			overridePreferredEncoding: ["br", "zstd", "gzip"],
 		}),
@@ -504,7 +526,7 @@ test("It should not throw when overridePreferredEncoding is set but context.pref
 		body,
 	}));
 	handler.use(
-		httpContentEncoding({
+		contentEncodingStack({
 			overridePreferredEncoding: ["br", "gzip", "deflate"],
 		}),
 	);
@@ -530,7 +552,7 @@ test("It should not throw when overridePreferredEncoding is set but context.pref
 test("It should encode Buffer body", async (t) => {
 	const body = Buffer.from(compressibleBody);
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -558,7 +580,7 @@ test("It should not encode when compressed body is larger than original", async 
 		};
 	});
 
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -584,7 +606,7 @@ test("It should append no-transform when event has Cache-Control: no-transform a
 		},
 		body: "body",
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = {
 		headers: {
@@ -609,7 +631,7 @@ test("It should handle lowercase cache-control in event headers", async (t) => {
 		statusCode: 200,
 		body: "body",
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = {
 		headers: {
@@ -637,7 +659,7 @@ test("It should handle lowercase cache-control header when appending no-transfor
 		},
 		body: "body",
 	}));
-	handler.use(httpContentEncoding());
+	handler.use(contentEncodingStack());
 
 	const event = {
 		headers: {
@@ -668,7 +690,7 @@ test("It should encode Web API ReadableStream using br", async (t) => {
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -695,7 +717,7 @@ test("It should encode Web API ReadableStream using gzip", async (t) => {
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -722,7 +744,7 @@ test("It should encode Web API ReadableStream using deflate", async (t) => {
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -749,7 +771,7 @@ test("It should encode Web API ReadableStream using zstd", async (t) => {
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -777,7 +799,7 @@ test("It should not encode Web API ReadableStream when missing preferredEncoding
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, defaultContext);
@@ -802,7 +824,7 @@ test("It should not encode Web API ReadableStream when response.isBase64Encoded 
 			},
 		}),
 		isBase64Encoded: true,
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -826,7 +848,7 @@ test("It should not encode Web API ReadableStream when response Cache-Control is
 				controller.close();
 			},
 		}),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -848,7 +870,7 @@ test("It should encode Node.js stream using zstd", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
 		body: createReadableStream(body),
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 	const response = await handler(event, {
@@ -914,7 +936,7 @@ test("It should not apply override when overridePreferredEncoding default is emp
 	// ignored and the context preferredEncoding (gzip) is used as-is.
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -936,7 +958,7 @@ test("It should not apply override when overridePreferredEncoding default is emp
 test("It should encode when event has no headers property", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	// No `headers` key at all: the optional chaining on event.headers must not throw.
@@ -958,7 +980,7 @@ test("It should encode when event has no headers property", async (t) => {
 test("It should encode when event itself is undefined", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	// Undefined event: optional chaining on event must not throw.
@@ -978,7 +1000,7 @@ test("It should encode when event itself is undefined", async (t) => {
 test("It should not add Cache-Control when event Cache-Control is not no-transform", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = {
@@ -1008,7 +1030,7 @@ test("It should encode when response Cache-Control is set but not no-transform",
 		statusCode: 200,
 		headers: { "Cache-Control": "max-age=3600" },
 		body,
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -1036,7 +1058,7 @@ test("It should not encode when response lowercase cache-control is no-transform
 		statusCode: 200,
 		headers: { "cache-control": "no-transform" },
 		body,
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -1058,7 +1080,7 @@ test("It should not re-encode when response already has Content-Encoding header"
 		statusCode: 200,
 		headers: { "Content-Encoding": "gzip" },
 		body,
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -1080,7 +1102,7 @@ test("It should not re-encode when response already has lowercase content-encodi
 		statusCode: 200,
 		headers: { "content-encoding": "gzip" },
 		body,
-	})).use(httpContentEncoding());
+	})).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -1101,7 +1123,7 @@ test("It should not encode when response.body is a non-empty number", async (t) 
 	// body-type guard rather than being coerced and compressed.
 	const body = 42;
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -1121,7 +1143,7 @@ test("It should not encode when compressed length equals input length", async (t
 	const body = `${"a".repeat(23)}bcdefghij`;
 	strictEqual(gzipSync(body).length, Buffer.byteLength(body));
 	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
-		httpContentEncoding(),
+		contentEncodingStack(),
 	);
 
 	const event = { headers: {} };
@@ -1138,7 +1160,7 @@ test("It should encode the error response set during onError", async (t) => {
 	const body = compressibleBody;
 	const handler = middy((event, context) => {
 		throw new Error("boom");
-	}).use(httpContentEncoding());
+	}).use(contentEncodingStack());
 
 	handler.onError(async (request) => {
 		request.response = { statusCode: 500, headers: {}, body };
@@ -1162,7 +1184,7 @@ test("It should encode the error response set during onError", async (t) => {
 test("It should not handle onError when response is undefined and rethrow", async (t) => {
 	const handler = middy((event, context) => {
 		throw new Error("boom");
-	}).use(httpContentEncoding());
+	}).use(contentEncodingStack());
 
 	const event = { headers: {} };
 
@@ -1188,7 +1210,11 @@ test("It should not throw reading event Cache-Control when request.event is unde
 	const { after } = httpContentEncoding();
 	const request = {
 		event: undefined,
-		context: { preferredEncoding: "gzip" },
+		context: {
+			middyContext: {
+				"http-content-negotiation": { preferredEncoding: "gzip" },
+			},
+		},
 		response: { statusCode: 200, headers: {}, body },
 	};
 
@@ -1202,6 +1228,28 @@ test("It should not throw reading event Cache-Control when request.event is unde
 	});
 });
 
+test("It should not throw when context.middyContext is absent", async (t) => {
+	// core seeds `context.middyContext` on every invocation, so only a direct
+	// call reaches the `context.middyContext?.` short-circuit. Without a
+	// negotiation namespace there is no preferredEncoding, so the body is left
+	// untouched rather than throwing.
+	const body = compressibleBody;
+	const { after } = httpContentEncoding();
+	const request = {
+		event: {},
+		context: {},
+		response: { statusCode: 200, headers: {}, body },
+	};
+
+	await after(request);
+
+	deepStrictEqual(request.response, {
+		statusCode: 200,
+		headers: {},
+		body,
+	});
+});
+
 test("It should not throw reading event Cache-Control when request.event is null", async (t) => {
 	// null is a valid event value; `request.event?.headers` must short-circuit
 	// rather than throwing on property access.
@@ -1209,7 +1257,11 @@ test("It should not throw reading event Cache-Control when request.event is null
 	const { after } = httpContentEncoding();
 	const request = {
 		event: null,
-		context: { preferredEncoding: "gzip" },
+		context: {
+			middyContext: {
+				"http-content-negotiation": { preferredEncoding: "gzip" },
+			},
+		},
 		response: { statusCode: 200, headers: {}, body },
 	};
 
@@ -1221,4 +1273,42 @@ test("It should not throw reading event Cache-Control when request.event is null
 		body: gzipSync(body).toString("base64"),
 		isBase64Encoded: true,
 	});
+});
+
+// Paired with the real @middy/http-content-negotiation, which is the only way
+// preferredEncoding is produced in practice. Every other test in this file
+// stands in for it, so a mismatch between where negotiation publishes and where
+// this middleware reads is invisible to them.
+test("It should encode when paired with @middy/http-content-negotiation", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body }))
+		.use(httpContentNegotiation())
+		.use(httpContentEncoding());
+
+	const event = { headers: { "accept-encoding": "br" } };
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
+test("httpContentEncodingValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
+	// Pins the rule itself: an empty `{}` rule would accept the number below,
+	// and a blank `type` would reject the valid string above.
+	httpContentEncodingValidateOptions({
+		contextKeyHttpContentNegotiation: "custom",
+	});
+	try {
+		httpContentEncodingValidateOptions({
+			contextKeyHttpContentNegotiation: 123,
+		});
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("contextKeyHttpContentNegotiation"));
+	}
 });
