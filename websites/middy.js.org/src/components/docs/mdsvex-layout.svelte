@@ -10,6 +10,7 @@ import Hgroup from "@design-system/elements/hgroup.svelte";
 import Li from "@design-system/elements/li.svelte";
 import Ol from "@design-system/elements/ol.svelte";
 import P from "@design-system/elements/p.svelte";
+import copyPreUrl from "@willfarrell-ds/vanilla/components/ds-copy-pre.js?worker&url";
 import { page } from "$app/state";
 import { getLastUpdated } from "$lib/docs-content.js";
 import AsideNav from "./AsideNav.svelte";
@@ -31,6 +32,9 @@ const sourceUrl = $derived.by(() => {
 	return `https://github.com/middyjs/middy/tree/main/packages/${slug}`;
 });
 </script>
+<svelte:head>
+	<link rel="modulepreload" href={copyPreUrl} />
+</svelte:head>
 <Seo
 	{title}
 	{description}

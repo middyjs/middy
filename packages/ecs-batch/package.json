@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ecs-batch",
-	"version": "7.9.0",
+	"version": "7.9.2",
 	"description": "ECS/Fargate batch event runtime for the middy framework — polls SQS, Kinesis, DynamoDB Streams, Kafka, ActiveMQ, RabbitMQ and dispatches to a Lambda-shaped handler",
 	"type": "module",
 	"engines": {
@@ -117,7 +117,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.0"
+		"@middy/util": "7.9.2"
 	},
 	"peerDependencies": {
 		"@aws-sdk/client-sqs": "^3.0.0",
@@ -151,7 +151,7 @@
 		"@aws-sdk/client-dynamodb-streams": "^3.0.0",
 		"@aws-sdk/client-kinesis": "^3.0.0",
 		"@aws-sdk/client-sqs": "^3.0.0",
-		"@middy/core": "7.9.0",
+		"@middy/core": "7.9.2",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"amqplib": "^2.0.0",
