@@ -1,6 +1,6 @@
 {
 	"name": "@middy/glue-schema-registry",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "AWS Glue Schema Registry middleware for the middy framework",
 	"type": "module",
 	"engines": {

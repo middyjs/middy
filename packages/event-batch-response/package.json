@@ -1,6 +1,6 @@
 {
 	"name": "@middy/event-batch-response",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "Batch response middleware for the middy framework (SQS, Kinesis, DynamoDB Streams, Kafka, S3 Batch, Firehose)",
 	"type": "module",
 	"engines": {

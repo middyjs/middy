@@ -1,6 +1,6 @@
 {
 	"name": "@middy/warmup",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "Warmup (cold start mitigation) middleware for the middy framework",
 	"type": "module",
 	"engines": {

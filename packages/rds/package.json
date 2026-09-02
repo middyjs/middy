@@ -1,6 +1,6 @@
 {
 	"name": "@middy/rds",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "RDS (Relational Database Service) connection middleware for the middy framework",
 	"type": "module",
 	"engines": {

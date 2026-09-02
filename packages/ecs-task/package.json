@@ -1,6 +1,6 @@
 {
 	"name": "@middy/ecs-task",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "ECS/Fargate single-shot task runtime for the middy framework",
 	"type": "module",
 	"engines": {

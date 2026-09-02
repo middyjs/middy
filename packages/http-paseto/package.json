@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-paseto",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "HTTP PASETO authentication middleware for the middy framework",
 	"type": "module",
 	"engines": {

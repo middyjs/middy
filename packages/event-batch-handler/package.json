@@ -1,6 +1,6 @@
 {
 	"name": "@middy/event-batch-handler",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "Per-record handler wrapper for Lambda batch events. Auto-checkpoints under Durable Functions. Pairs with @middy/event-batch-response.",
 	"type": "module",
 	"engines": {

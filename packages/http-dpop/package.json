@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-dpop",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "HTTP DPoP (RFC 9449) sender-constrained token middleware for the middy framework",
 	"type": "module",
 	"engines": {

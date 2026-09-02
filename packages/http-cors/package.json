@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-cors",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "CORS (Cross-Origin Resource Sharing) middleware for the middy framework",
 	"type": "module",
 	"engines": {

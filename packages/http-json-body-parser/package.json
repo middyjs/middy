@@ -1,6 +1,6 @@
 {
 	"name": "@middy/http-json-body-parser",
-	"version": "7.9.2",
+	"version": "8.0.0-alpha.0",
 	"description": "HTTP JSON body parser middleware for the middy framework",
 	"type": "module",
 	"engines": {
