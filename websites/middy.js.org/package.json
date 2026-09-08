@@ -15,28 +15,26 @@
 		"build:svg": "npx svgo --multipass --recursive ./.svelte-kit/ -o ./.svelte-kit/",
 		"build:styles:extract": "ds extract --input-dir ./.svelte-kit --theme ./src/styles/theme.css --output-dir src/styles/",
 		"build:styles:optimize": "ds optimize-styles ./.svelte-kit",
-		"build:workers": "cp -R .svelte-kit/output/server/_/immutable/workers .svelte-kit/cloudflare/_/immutable/workers",
+		"build:workers": "mkdir -p .svelte-kit/cloudflare/_/immutable/workers && cp -R .svelte-kit/output/server/_/immutable/workers/. .svelte-kit/cloudflare/_/immutable/workers/",
 		"release:login": "wrangler login --browser false",
-		"release:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H 'Authorization: Bearer ${API_KEY_W_PAGES_EDIT}' -d '{\"name\": \"middy.js.org\"}'",
+		"release:domain": "curl https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/middy/domains -H 'Content-Type: application/json' -H \"Authorization: Bearer ${API_KEY_W_PAGES_EDIT}\" -d '{\"name\": \"middy.js.org\"}'",
 		"release:deploy": "wrangler pages deploy"
 	},
 	"dependencies": {
-		"@plausible-analytics/tracker": "0.4.6",
 		"@willfarrell-ds/svelte": "0.0.0-beta.0",
 		"@willfarrell-ds/vanilla": "0.0.0-beta.0",
 		"hast-util-to-string": "3.0.1",
-		"mdast-util-to-string": "4.0.0",
-		"uuid": "14.0.2"
+		"mdast-util-to-string": "4.0.0"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.0.0",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@willfarrell-ds/cli": "0.0.0-beta.0",
-		"esbuild": "^0.28.0",
 		"mdsvex": "^0.12.0",
 		"svelte": "^5.0.0",
 		"svgo": "^4.0.0",
+		"unist-util-visit": "^2",
 		"vite": "^8.0.0",
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",

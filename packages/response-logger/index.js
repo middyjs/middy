@@ -19,7 +19,7 @@ const defaults = {
 const optionSchema = {
 	type: "object",
 	properties: {
-		logger: { oneOf: [{ instanceof: "Function" }, { const: false }] },
+		logger: { instanceof: "Function" },
 		omitPaths: { type: "array", items: { type: "string" } },
 		mask: { type: "string" },
 	},
@@ -30,9 +30,24 @@ export const responseLoggerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const responseLoggerMiddleware = (opts = {}) => {
-	const { logger, omitPaths, mask } = { ...defaults, ...opts };
+	// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override
+	// the default; the destructuring default restores it, matching the option
+	// validator, which treats an undefined property as absent.
+	const {
+		logger = defaults.logger,
+		omitPaths,
+		mask,
+	} = { ...defaults, ...opts };
 
-	if (typeof logger !== "function") return {};
+	// Logging is this middleware's only job, so there is no "off" setting: omit
+	// the middleware instead. The validator keeps the generic option wording;
+	// this names the fix.
+	if (typeof logger !== "function") {
+		throw new TypeError(
+			`Option 'logger' must be a function; ${pkg} only logs, omit the middleware to disable logging`,
+			{ cause: { package: pkg } },
+		);
+	}
 
 	const omitPathTree = omitPaths && buildPathTree(omitPaths);
 
@@ -96,11 +111,27 @@ const makeNodeTee = (source, onBody) => {
 			callback();
 		},
 		flush(callback) {
-			onBody(Buffer.concat(chunks).toString("utf8"));
+			logBody(onBody, Buffer.concat(chunks).toString("utf8"));
 			callback();
 		},
 	});
+	// A consumer that destroys the tee early (client gone, pipeline error)
+	// would otherwise leave the source unpiped, paused and never destroyed.
+	transform.once("close", () => {
+		// Stryker disable next-line ConditionalExpression: equivalent; Readable.destroy() returns early on an already-destroyed stream, so the guard only skips a no-op call.
+		if (!source.destroyed) source.destroy();
+	});
 	return source.on("error", (e) => transform.destroy(e)).pipe(transform);
+};
+
+// The logger runs inside the tee's flush, so a throw there would surface as a
+// stream error and fail a response whose body has already been written out.
+const logBody = (onBody, body) => {
+	try {
+		onBody(body);
+	} catch (e) {
+		console.error(e);
+	}
 };
 
 const makeWebTee = (source, onBody) => {
@@ -122,7 +153,7 @@ const makeWebTee = (source, onBody) => {
 			flush() {
 				// Drain any buffered partial multi-byte bytes from the decoder.
 				body += decoder.decode();
-				onBody(body);
+				logBody(onBody, body);
 			},
 		}),
 	);

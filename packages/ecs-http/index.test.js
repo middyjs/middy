@@ -7,8 +7,10 @@ import {
 	strictEqual,
 	throws,
 } from "node:assert/strict";
+import nodeCluster from "node:cluster";
+import { EventEmitter } from "node:events";
 import http from "node:http";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import {
 	buildContext,
 	buildEventAlb,
@@ -28,15 +30,40 @@ import {
 	writeResponse,
 } from "./index.js";
 
+// Guard: nothing in this suite may fork real workers. Under mutation testing a
+// mutant that drops the injected fake cluster once spawned ~10k processes.
+mock.method(nodeCluster, "fork", () => {
+	throw new Error("real cluster.fork called in tests");
+});
+// Guard: nothing in this suite may end the process. A mutant that swaps an
+// injected `exit` for the real one would otherwise call process.exit(0) from a
+// test and turn every later failure into a green run.
+mock.method(process, "exit", () => {
+	throw new Error("real process.exit called in tests");
+});
+
 const noop = () => {};
 
+// Fake node:http request: a plain EventEmitter so body chunks, "end" and
+// "error" can be driven by hand without a socket.
 const makeReq = ({
 	method = "GET",
 	url = "/",
 	headers = {},
 	httpVersion = "1.1",
 	socket = { remoteAddress: "127.0.0.1" },
-} = {}) => ({ method, url, headers, httpVersion, socket });
+} = {}) => {
+	const req = new EventEmitter();
+	Object.assign(req, { method, url, headers, httpVersion, socket });
+	req.destroyed = false;
+	req.destroy = () => {
+		req.destroyed = true;
+	};
+	return req;
+};
+
+// Query maps are null-prototype objects; deepStrictEqual compares prototypes.
+const nullProto = (o) => Object.assign(Object.create(null), o);
 
 const startServer = async (handler) => {
 	const server = http.createServer(handler);
@@ -78,10 +105,82 @@ test("ecsHttpValidateOptions rejects unknown eventVersion", () => {
 	);
 });
 
+test("ecsHttpValidateOptions accepts trustedProxies 0", () => {
+	ecsHttpValidateOptions({ handler: noop, trustedProxies: 0 });
+});
+
+test("ecsHttpValidateOptions rejects negative trustedProxies", () => {
+	throws(
+		() => ecsHttpValidateOptions({ handler: noop, trustedProxies: -1 }),
+		TypeError,
+	);
+});
+
+test("ecsHttpValidateOptions rejects non-integer trustedProxies", () => {
+	throws(
+		() => ecsHttpValidateOptions({ handler: noop, trustedProxies: 1.5 }),
+		TypeError,
+	);
+});
+
 test("ecsHttpValidateOptions rejects unknown property", () => {
 	throws(
 		() => ecsHttpValidateOptions({ handler: noop, foo: "bar" }),
 		TypeError,
+	);
+});
+
+test("ecsHttpValidateOptions names the package in the error cause", () => {
+	throws(() => ecsHttpValidateOptions({}), {
+		name: "TypeError",
+		message: "Missing required option 'handler'",
+		cause: { package: "@middy/ecs-http" },
+	});
+});
+
+test("ecsHttpValidateOptions accepts every documented eventVersion", () => {
+	for (const eventVersion of ["1.0", "2.0", "alb"]) {
+		ecsHttpValidateOptions({ handler: noop, eventVersion });
+	}
+});
+
+test("ecsHttpValidateOptions accepts arbitrary requestContext fields", () => {
+	ecsHttpValidateOptions({
+		handler: noop,
+		requestContext: { elb: { targetGroupArn: "arn:tg" }, stage: "prod" },
+	});
+});
+
+test("ecsHttpValidateOptions accepts contextOverride.awsRequestId function", () => {
+	ecsHttpValidateOptions({
+		handler: noop,
+		contextOverride: { awsRequestId: () => "id" },
+	});
+});
+
+test("ecsHttpValidateOptions rejects non-function contextOverride.awsRequestId", () => {
+	throws(
+		() =>
+			ecsHttpValidateOptions({
+				handler: noop,
+				contextOverride: { awsRequestId: "id" },
+			}),
+		{
+			name: "TypeError",
+			message:
+				"Option 'contextOverride.awsRequestId' must be instanceof Function",
+		},
+	);
+});
+
+test("ecsHttpValidateOptions rejects unknown contextOverride keys", () => {
+	throws(
+		() =>
+			ecsHttpValidateOptions({
+				handler: noop,
+				contextOverride: { awsRequestId: () => "id", foo: 1 },
+			}),
+		{ name: "TypeError", message: "Unknown option 'contextOverride.foo'" },
 	);
 });
 
@@ -94,10 +193,69 @@ test("lowercaseHeaders lowercases keys and joins arrays", () => {
 	);
 });
 
-test("resolveSourceIp prefers X-Forwarded-For first hop", () => {
+test("resolveSourceIp takes the last X-Forwarded-For hop by default", () => {
+	// ALB appends the connecting client's address as the final hop; earlier
+	// hops are whatever the client sent and cannot be trusted.
 	strictEqual(
 		resolveSourceIp({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" }, "127.0.0.1"),
-		"9.9.9.9",
+		"10.0.0.1",
+	);
+});
+
+test("resolveSourceIp ignores a client-supplied hop prepended before the ALB hop", () => {
+	strictEqual(
+		resolveSourceIp({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }, "127.0.0.1"),
+		"203.0.113.9",
+	);
+});
+
+test("resolveSourceIp takes the single hop when only the ALB appended one", () => {
+	strictEqual(
+		resolveSourceIp({ "x-forwarded-for": "203.0.113.9" }, "127.0.0.1"),
+		"203.0.113.9",
+	);
+});
+
+test("resolveSourceIp with trustedProxies 2 takes the second-to-last hop", () => {
+	// e.g. CloudFront appends the client, then ALB appends CloudFront.
+	strictEqual(
+		resolveSourceIp(
+			{ "x-forwarded-for": "6.6.6.6, 203.0.113.9, 130.176.0.1" },
+			"127.0.0.1",
+			2,
+		),
+		"203.0.113.9",
+	);
+});
+
+test("resolveSourceIp with trustedProxies 0 ignores X-Forwarded-For", () => {
+	strictEqual(
+		resolveSourceIp({ "x-forwarded-for": "6.6.6.6" }, "127.0.0.1", 0),
+		"127.0.0.1",
+	);
+});
+
+test("resolveSourceIp falls back to socket when fewer hops than trustedProxies", () => {
+	strictEqual(
+		resolveSourceIp({ "x-forwarded-for": "203.0.113.9" }, "127.0.0.1", 2),
+		"127.0.0.1",
+	);
+});
+
+test("resolveSourceIp trims whitespace around the selected hop", () => {
+	strictEqual(
+		resolveSourceIp(
+			{ "x-forwarded-for": "6.6.6.6 , 203.0.113.9 " },
+			"127.0.0.1",
+		),
+		"203.0.113.9",
+	);
+});
+
+test("resolveSourceIp falls back to socket when the selected hop is empty", () => {
+	strictEqual(
+		resolveSourceIp({ "x-forwarded-for": "6.6.6.6," }, "127.0.0.1"),
+		"127.0.0.1",
 	);
 });
 
@@ -114,6 +272,65 @@ test("resolveSourceIp falls back to socket when XFF is empty", () => {
 		resolveSourceIp({ "x-forwarded-for": " " }, "10.0.0.1"),
 		"10.0.0.1",
 	);
+});
+
+// With routing.http.xff_client_port.enabled ALB appends "ip:port" for IPv4
+// and "[ip]:port" for IPv6; the event carries the address only.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
+test("resolveSourceIp strips the client port ALB appends to an IPv4 hop", () => {
+	strictEqual(
+		resolveSourceIp(
+			{ "x-forwarded-for": "6.6.6.6, 12.34.56.78:8080" },
+			"127.0.0.1",
+		),
+		"12.34.56.78",
+	);
+});
+
+test("resolveSourceIp strips the brackets and client port from an IPv6 hop", () => {
+	strictEqual(
+		resolveSourceIp(
+			{ "x-forwarded-for": "[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080" },
+			"127.0.0.1",
+		),
+		"2001:db8:85a3:8d3:1319:8a2e:370:7348",
+	);
+});
+
+test("resolveSourceIp keeps a bare IPv6 hop intact", () => {
+	strictEqual(
+		resolveSourceIp(
+			{ "x-forwarded-for": "2001:DB8::21f:5bff:febf:ce22:8a2e" },
+			"127.0.0.1",
+		),
+		"2001:DB8::21f:5bff:febf:ce22:8a2e",
+	);
+});
+
+test("resolveSourceIp keeps bare IPv6 hops with all-digit hextets intact", () => {
+	// Digit-only hextets look like "host:port" to a sloppy matcher; the
+	// port strip must only fire on a whole "ip:port" / "[ip]:port" hop.
+	for (const hop of [
+		"2001:4860:4860::8888",
+		"2001:db8:85a3::8a2e:370:7348",
+		"2001:db8:85a3:0:0:8a2e:370:7348",
+	]) {
+		strictEqual(resolveSourceIp({ "x-forwarded-for": hop }, "127.0.0.1"), hop);
+	}
+});
+
+test("resolveSourceIp passes a malformed hop through verbatim", () => {
+	// A hop that is not exactly "ip:port" or "[ip]:port" is never rewritten;
+	// synthesising an address from a garbage hop would let a client-controlled
+	// entry masquerade as a clean IP once trustedProxies overshoots.
+	for (const hop of [
+		"x[2001:db8::1]:8080",
+		"[2001:db8::1]:8080x",
+		"x:1.2.3.4:8080",
+		"1.2.3.4:8080x",
+	]) {
+		strictEqual(resolveSourceIp({ "x-forwarded-for": hop }, "127.0.0.1"), hop);
+	}
 });
 
 test("resolveRequestId honors X-Amzn-Trace-Id", () => {
@@ -166,29 +383,139 @@ test("buildContext clamps remaining time to zero", async () => {
 // --- event builders ---------------------------------------------------------
 
 test("buildEventV2 produces a v2 event", () => {
+	const headers = { host: "h", "user-agent": "ua/1", cookie: "x=1; y=2" };
 	const event = buildEventV2({
-		req: makeReq({
-			method: "POST",
-			url: "/users?a=1&b=2",
-			headers: { "user-agent": "ua/1", cookie: "x=1; y=2" },
-		}),
+		req: makeReq({ method: "POST", url: "/users?a=1&b=2", headers }),
 		body: Buffer.from("hello"),
 		isBase64Encoded: false,
 		requestContext: { accountId: "111" },
 		sourceIp: "9.9.9.9",
 		requestId: "rid-1",
+		requestStart: 1_700_000_000_000,
 	});
-	strictEqual(event.version, "2.0");
-	strictEqual(event.rawPath, "/users");
-	strictEqual(event.rawQueryString, "a=1&b=2");
+	deepStrictEqual(event, {
+		version: "2.0",
+		routeKey: "$default",
+		rawPath: "/users",
+		rawQueryString: "a=1&b=2",
+		cookies: ["x=1", "y=2"],
+		headers,
+		queryStringParameters: nullProto({ a: "1", b: "2" }),
+		requestContext: {
+			accountId: "111",
+			requestId: "rid-1",
+			http: {
+				method: "POST",
+				path: "/users",
+				protocol: "HTTP/1.1",
+				sourceIp: "9.9.9.9",
+				userAgent: "ua/1",
+			},
+			timeEpoch: 1_700_000_000_000,
+		},
+		body: "hello",
+		isBase64Encoded: false,
+	});
+});
+
+test("buildEventV2 minimal request: empty fields, timeEpoch from the clock", (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: 5_000 });
+	const headers = { host: "h" };
+	const event = buildEventV2({
+		req: makeReq({ headers }),
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "",
+		requestId: "r",
+	});
+	deepStrictEqual(event, {
+		version: "2.0",
+		routeKey: "$default",
+		rawPath: "/",
+		rawQueryString: "",
+		cookies: undefined,
+		headers,
+		queryStringParameters: undefined,
+		requestContext: {
+			requestId: "r",
+			http: {
+				method: "GET",
+				path: "/",
+				protocol: "HTTP/1.1",
+				sourceIp: "",
+				userAgent: "",
+			},
+			timeEpoch: 5_000,
+		},
+		body: undefined,
+		isBase64Encoded: false,
+	});
+});
+
+test("buildEventV2 uses pre-split url and headers from the request handler", () => {
+	// The hot path passes its own parsed inputs; the builder must not re-read
+	// req.url / req.headers when they are supplied.
+	const headers = { host: "h" };
+	const event = buildEventV2({
+		req: makeReq({ url: "/ignored?z=1", headers: { host: "other" } }),
+		headers,
+		url: { path: "/given", queryString: "a=1" },
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "",
+		requestId: "r",
+		requestStart: 7,
+	});
+	strictEqual(event.rawPath, "/given");
+	strictEqual(event.rawQueryString, "a=1");
+	strictEqual(event.headers, headers);
+	strictEqual(event.requestContext.timeEpoch, 7);
+});
+
+test("buildEventV2 reports the request protocol for every cached HTTP version", () => {
+	for (const [httpVersion, protocol] of [
+		["1.0", "HTTP/1.0"],
+		["1.1", "HTTP/1.1"],
+		["2.0", "HTTP/2.0"],
+	]) {
+		const event = buildEventV2({
+			req: makeReq({ httpVersion }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "r",
+		});
+		strictEqual(event.requestContext.http.protocol, protocol);
+	}
+});
+
+test("buildEventV2 drops empty cookie entries", () => {
+	const event = buildEventV2({
+		req: makeReq({ headers: { cookie: "x=1;; y=2; " } }),
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "",
+		requestId: "r",
+	});
 	deepStrictEqual(event.cookies, ["x=1", "y=2"]);
-	strictEqual(event.requestContext.http.method, "POST");
-	strictEqual(event.requestContext.http.sourceIp, "9.9.9.9");
-	strictEqual(event.requestContext.requestId, "rid-1");
-	strictEqual(event.requestContext.accountId, "111");
-	strictEqual(event.body, "hello");
-	strictEqual(event.isBase64Encoded, false);
-	deepStrictEqual({ ...event.queryStringParameters }, { a: "1", b: "2" });
+});
+
+test("buildEventV2 splits a url that is only a query string", () => {
+	const event = buildEventV2({
+		req: makeReq({ url: "?a=1" }),
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "",
+		requestId: "r",
+	});
+	strictEqual(event.rawPath, "");
+	strictEqual(event.rawQueryString, "a=1");
+	deepStrictEqual(event.queryStringParameters, nullProto({ a: "1" }));
 });
 
 test("buildEventV2 omits body when empty and uses base64 when flagged", () => {
@@ -217,28 +544,40 @@ test("buildEventV2 omits body when empty and uses base64 when flagged", () => {
 });
 
 test("buildEventV1 produces a v1 event with multi-value fields", () => {
+	const headers = { host: "h", "user-agent": "ua/1", "x-a": ["1", "2"] };
 	const event = buildEventV1({
-		req: makeReq({
-			method: "GET",
-			url: "/x?a=1&a=2",
-			headers: { "x-a": ["1", "2"] },
-		}),
+		req: makeReq({ method: "GET", url: "/x?a=1&a=2", headers }),
 		body: Buffer.alloc(0),
 		isBase64Encoded: false,
-		requestContext: {},
+		requestContext: { accountId: "111" },
 		sourceIp: "1.1.1.1",
 		requestId: "rid",
 	});
-	strictEqual(event.httpMethod, "GET");
-	strictEqual(event.path, "/x");
-	deepStrictEqual({ ...event.queryStringParameters }, { a: "2" });
-	deepStrictEqual(
-		{ ...event.multiValueQueryStringParameters },
-		{ a: ["1", "2"] },
-	);
-	deepStrictEqual(event.multiValueHeaders["x-a"], ["1", "2"]);
-	strictEqual(event.body, null);
-	strictEqual(event.requestContext.identity.sourceIp, "1.1.1.1");
+	deepStrictEqual(event, {
+		resource: "/x",
+		path: "/x",
+		httpMethod: "GET",
+		headers,
+		multiValueHeaders: {
+			host: ["h"],
+			"user-agent": ["ua/1"],
+			"x-a": ["1", "2"],
+		},
+		queryStringParameters: nullProto({ a: "2" }),
+		multiValueQueryStringParameters: nullProto({ a: ["1", "2"] }),
+		pathParameters: null,
+		stageVariables: null,
+		requestContext: {
+			accountId: "111",
+			requestId: "rid",
+			httpMethod: "GET",
+			path: "/x",
+			protocol: "HTTP/1.1",
+			identity: { sourceIp: "1.1.1.1", userAgent: "ua/1" },
+		},
+		body: null,
+		isBase64Encoded: false,
+	});
 });
 
 test("buildEventV1 emits null query params when none", () => {
@@ -269,19 +608,51 @@ test("buildEventV1 base64-encodes binary body", () => {
 });
 
 test("buildEventAlb produces an ALB event", () => {
+	const headers = { host: "h", "user-agent": "elb/1" };
 	const event = buildEventAlb({
-		req: makeReq({ url: "/health?ok=1", headers: { "user-agent": "elb/1" } }),
+		req: makeReq({ url: "/health?ok=1", headers }),
 		body: Buffer.alloc(0),
 		isBase64Encoded: false,
 		requestContext: { elb: { targetGroupArn: "arn:..." } },
 		sourceIp: "10.0.0.1",
 		requestId: "rid",
 	});
-	strictEqual(event.httpMethod, "GET");
-	strictEqual(event.path, "/health");
-	deepStrictEqual({ ...event.queryStringParameters }, { ok: "1" });
-	strictEqual(event.requestContext.elb.targetGroupArn, "arn:...");
-	strictEqual(event.body, "");
+	deepStrictEqual(event, {
+		requestContext: { elb: { targetGroupArn: "arn:..." }, requestId: "rid" },
+		httpMethod: "GET",
+		path: "/health",
+		queryStringParameters: nullProto({ ok: "1" }),
+		headers,
+		body: "",
+		isBase64Encoded: false,
+	});
+});
+
+test("buildEventAlb emits an empty queryStringParameters map when there is no query", () => {
+	const event = buildEventAlb({
+		req: makeReq({ url: "/health" }),
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "",
+		requestId: "r",
+	});
+	deepStrictEqual(event.queryStringParameters, nullProto({}));
+});
+
+test("buildEventAlb does not emit requestContext.identity", () => {
+	// ALB events carry only requestContext.elb; identity is an API Gateway
+	// REST field (@types/aws-lambda ALBEventRequestContext has no identity).
+	const event = buildEventAlb({
+		req: makeReq({ headers: { "x-forwarded-for": "203.0.113.9" } }),
+		body: Buffer.alloc(0),
+		isBase64Encoded: false,
+		requestContext: {},
+		sourceIp: "203.0.113.9",
+		requestId: "r",
+	});
+	ok(!("identity" in event.requestContext));
+	deepStrictEqual(Object.keys(event.requestContext), ["elb", "requestId"]);
 });
 
 test("buildEventAlb defaults elb.targetGroupArn when missing", () => {
@@ -300,15 +671,22 @@ test("buildEventAlb defaults elb.targetGroupArn when missing", () => {
 // --- writeResponse ----------------------------------------------------------
 
 const fakeRes = () => {
-	const calls = { writeHead: null, body: null, ended: false, destroyed: false };
+	const calls = {
+		writeHead: null,
+		body: null,
+		endArgs: null,
+		ended: false,
+		destroyed: false,
+	};
 	return {
 		headersSent: false,
 		writeHead(code, headers) {
 			calls.writeHead = { code, headers };
 			this.headersSent = true;
 		},
-		end(body) {
-			calls.body = body;
+		end(...args) {
+			calls.endArgs = args;
+			calls.body = args[0];
 			calls.ended = true;
 		},
 		destroy() {
@@ -341,8 +719,11 @@ test("writeResponse honors {statusCode, headers, body}", () => {
 		cookies: ["a=1", "b=2"],
 	});
 	strictEqual(res._calls.writeHead.code, 201);
-	deepStrictEqual(res._calls.writeHead.headers["set-cookie"], ["a=1", "b=2"]);
-	strictEqual(res._calls.body, "ok");
+	deepStrictEqual(res._calls.writeHead.headers, {
+		"x-trace": "t",
+		"set-cookie": ["a=1", "b=2"],
+	});
+	deepStrictEqual(res._calls.endArgs, ["ok"]);
 });
 
 test("writeResponse decodes base64 body", () => {
@@ -359,16 +740,23 @@ test("writeResponse decodes base64 body", () => {
 test("writeResponse handles null result", () => {
 	const res = fakeRes();
 	writeResponse(res, null);
-	strictEqual(res._calls.writeHead.code, 200);
-	strictEqual(res._calls.body, undefined);
-	ok(res._calls.ended);
+	deepStrictEqual(res._calls.writeHead, { code: 200, headers: {} });
+	// No body: the response is ended without a chunk argument.
+	deepStrictEqual(res._calls.endArgs, []);
 });
 
 test("writeResponse handles {statusCode} with no body", () => {
 	const res = fakeRes();
 	writeResponse(res, { statusCode: 204 });
-	strictEqual(res._calls.writeHead.code, 204);
-	strictEqual(res._calls.body, undefined);
+	deepStrictEqual(res._calls.writeHead, { code: 204, headers: {} });
+	deepStrictEqual(res._calls.endArgs, []);
+});
+
+test("writeResponse treats an empty-string body as no body", () => {
+	const res = fakeRes();
+	writeResponse(res, { statusCode: 200, body: "" });
+	deepStrictEqual(res._calls.writeHead, { code: 200, headers: {} });
+	deepStrictEqual(res._calls.endArgs, []);
 });
 
 // --- createRequestHandler integration --------------------------------------
@@ -400,6 +788,45 @@ test("integration: contextOverride.awsRequestId overrides resolved requestId", a
 	const body = await res.json();
 	strictEqual(body.requestContext.requestId, "custom-1");
 	await close();
+});
+
+test("integration: sourceIp is the last X-Forwarded-For hop by default", async () => {
+	const { url, close } = await startWith();
+	try {
+		const res = await fetch(`${url}/`, {
+			headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.9" },
+		});
+		const body = await res.json();
+		strictEqual(body.requestContext.http.sourceIp, "203.0.113.9");
+	} finally {
+		await close();
+	}
+});
+
+test("integration: trustedProxies 0 uses the socket address", async () => {
+	const { url, close } = await startWith({ trustedProxies: 0 });
+	try {
+		const res = await fetch(`${url}/`, {
+			headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.9" },
+		});
+		const body = await res.json();
+		strictEqual(body.requestContext.http.sourceIp, "127.0.0.1");
+	} finally {
+		await close();
+	}
+});
+
+test("integration: trustedProxies 2 skips the trailing proxy hop", async () => {
+	const { url, close } = await startWith({ trustedProxies: 2 });
+	try {
+		const res = await fetch(`${url}/`, {
+			headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.9, 130.176.0.1" },
+		});
+		const body = await res.json();
+		strictEqual(body.requestContext.http.sourceIp, "203.0.113.9");
+	} finally {
+		await close();
+	}
 });
 
 test("integration: GET v2 returns event with merged requestContext", async () => {
@@ -544,24 +971,40 @@ test("readEcsEnv returns empty when no vars set", () => {
 	deepStrictEqual(readEcsEnv({}), {});
 });
 
-test("fetchEcsMetadata returns {} when env unset", async () => {
-	deepStrictEqual(await fetchEcsMetadata(undefined, async () => ({})), {});
+test("fetchEcsMetadata returns {} without fetching when env unset", async () => {
+	const urls = [];
+	const fakeFetch = async (url) => {
+		urls.push(url);
+		return { ok: true, json: async () => ({ Family: "fam" }) };
+	};
+	deepStrictEqual(await fetchEcsMetadata(undefined, fakeFetch), {});
+	deepStrictEqual(await fetchEcsMetadata("", fakeFetch), {});
+	deepStrictEqual(urls, []);
 });
 
 test("fetchEcsMetadata parses task metadata", async () => {
-	const fakeFetch = async () => ({
-		ok: true,
-		json: async () => ({
-			TaskARN: "arn:aws:ecs:us-east-1:111:task/cluster/abcdef",
-			Family: "fam",
-			Revision: 7,
-		}),
-	});
+	const urls = [];
+	const fakeFetch = async (url) => {
+		urls.push(url);
+		return {
+			ok: true,
+			json: async () => ({
+				TaskARN: "arn:aws:ecs:us-east-1:111:task/cluster/abcdef",
+				Family: "fam",
+				Revision: 7,
+			}),
+		};
+	};
 	const meta = await fetchEcsMetadata("http://localhost/x", fakeFetch);
-	strictEqual(meta.accountId, "111");
-	strictEqual(meta.region, "us-east-1");
-	strictEqual(meta.family, "fam");
-	strictEqual(meta.revision, "7");
+	// The v4 endpoint exposes task metadata under `${uri}/task`.
+	deepStrictEqual(urls, ["http://localhost/x/task"]);
+	deepStrictEqual(meta, {
+		accountId: "111",
+		region: "us-east-1",
+		taskArn: "arn:aws:ecs:us-east-1:111:task/cluster/abcdef",
+		family: "fam",
+		revision: "7",
+	});
 });
 
 test("fetchEcsMetadata returns {} when fetch errors", async () => {
@@ -595,6 +1038,35 @@ test("runWorker starts http server, handles requests, and drains on SIGTERM", as
 	strictEqual(process.listenerCount("SIGTERM"), listenerCount);
 	server.closeAllConnections?.();
 	await new Promise((r) => server.close(r));
+});
+
+test("runWorker threads trustedProxies through to the request handler", async () => {
+	const { server, onSigterm } = await runWorker({
+		handler: async (event) => ({
+			statusCode: 200,
+			body: event.requestContext.http.sourceIp,
+		}),
+		eventVersion: "2.0",
+		requestContext: {},
+		port: 0,
+		timeout: 1000,
+		bodyLimit: 1024,
+		trustedProxies: 0,
+	});
+	try {
+		const { port } = server.address();
+		const res = await fetch(`http://127.0.0.1:${port}/`, {
+			headers: { "x-forwarded-for": "6.6.6.6, 203.0.113.9" },
+		});
+		// The worker listens dual-stack, so the socket address may be reported
+		// as the IPv4-mapped form (`::ffff:127.0.0.1`).
+		const sourceIp = await res.text();
+		ok(sourceIp.endsWith("127.0.0.1"), sourceIp);
+	} finally {
+		process.removeListener("SIGTERM", onSigterm);
+		server.closeAllConnections?.();
+		await new Promise((r) => server.close(r));
+	}
 });
 
 test("runWorker composes invokedFunctionArn from MIDDY_ECS_* env", async () => {
@@ -666,28 +1138,226 @@ test("runPrimary forks workers and registers SIGTERM forwarder", async () => {
 	delete process.env.MIDDY_ECS_REVISION;
 });
 
-test("runPrimary cluster.on('exit') re-forks", async () => {
-	let exitHandler;
-	let forkCount = 0;
-	const fakeCluster = {
+// Minimal node:cluster stand-in. `crash(id)` mirrors the primary's bookkeeping:
+// the worker leaves cluster.workers before the last of its exit/disconnect
+// events fires (order between the two is not guaranteed by Node).
+const makeFakeCluster = () => {
+	const handlers = {};
+	const killed = [];
+	let nextId = 1;
+	const cluster = {
 		isPrimary: true,
 		workers: {},
-		fork: () => {
-			forkCount++;
-			return { process: { kill: noop } };
+		forks: 0,
+		killed,
+		fork() {
+			const id = nextId++;
+			const worker = {
+				id,
+				process: { kill: (signal) => killed.push([id, signal]) },
+			};
+			cluster.workers = { ...cluster.workers, [id]: worker };
+			cluster.forks++;
+			return worker;
 		},
-		on: (ev, fn) => {
-			if (ev === "exit") exitHandler = fn;
+		on(ev, fn) {
+			handlers[ev] = fn;
+		},
+		emit(ev, id, ...args) {
+			handlers[ev]?.(cluster.workers[id], ...args);
+		},
+		remove(id) {
+			const { [id]: _gone, ...rest } = cluster.workers;
+			cluster.workers = rest;
+		},
+		// node:cluster's exit event: (worker, code, signal); code is null when
+		// a signal killed the worker.
+		exit(id, code, signal = null) {
+			cluster.remove(id);
+			handlers.exit(undefined, code, signal);
+		},
+		crash(id) {
+			cluster.exit(id, 1);
 		},
 	};
+	return cluster;
+};
+
+const noMeta = async () => ({ ok: false });
+
+test("runPrimary re-forks a crashed worker after a backoff that doubles up to 30 s", async (t) => {
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+	const cluster = makeFakeCluster();
 	const { onSigterm } = await runPrimary(
 		{ workers: 1, requestContext: {} },
-		{ cluster: fakeCluster, fetch: async () => ({ ok: false }) },
+		{ cluster, fetch: noMeta },
 	);
-	strictEqual(forkCount, 1);
-	exitHandler();
-	strictEqual(forkCount, 2);
 	process.removeListener("SIGTERM", onSigterm);
+	strictEqual(cluster.forks, 1);
+	for (const delayMs of [1000, 2000, 4000, 8000, 16000, 30000, 30000]) {
+		const before = cluster.forks;
+		cluster.crash(before);
+		t.mock.timers.tick(delayMs - 1);
+		strictEqual(cluster.forks, before, `no re-fork before ${delayMs}ms`);
+		t.mock.timers.tick(1);
+		strictEqual(cluster.forks, before + 1, `re-fork at ${delayMs}ms`);
+	}
+});
+
+test("runPrimary resets the re-fork backoff after 60 s without a worker exit", async (t) => {
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+	const cluster = makeFakeCluster();
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	cluster.crash(1);
+	t.mock.timers.tick(1000);
+	cluster.crash(2);
+	t.mock.timers.tick(2000);
+	strictEqual(cluster.forks, 3);
+	// Worker 2 died at t=1 s; worker 3 dies at t=61 s, exactly 60 s later. The
+	// healthy window is inclusive, so the next delay starts over at 1 s rather
+	// than doubling to 4 s.
+	t.mock.timers.tick(58_000);
+	cluster.crash(3);
+	t.mock.timers.tick(999);
+	strictEqual(cluster.forks, 3);
+	t.mock.timers.tick(1);
+	strictEqual(cluster.forks, 4);
+});
+
+test("runPrimary SIGTERM signals workers, stops re-forking and exits once all are gone", async (t) => {
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 2, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	onSigterm();
+	deepStrictEqual(cluster.killed, [
+		[1, "SIGTERM"],
+		[2, "SIGTERM"],
+	]);
+	deepStrictEqual(exits, []);
+	cluster.exit(1, 0);
+	t.mock.timers.tick(60_000);
+	strictEqual(cluster.forks, 2, "drained worker is not replaced");
+	deepStrictEqual(exits, []);
+	cluster.exit(2, 0);
+	deepStrictEqual(exits, [0]);
+	t.mock.timers.tick(60_000);
+	strictEqual(cluster.forks, 2);
+	deepStrictEqual(exits, [0], "primary exits exactly once");
+});
+
+test("runPrimary exits with the highest exit code a worker reported during the drain", async () => {
+	// A worker that died non-zero while draining must not let the task report
+	// success to ECS.
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 3, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	onSigterm();
+	cluster.exit(1, 2);
+	deepStrictEqual(exits, []);
+	cluster.exit(2, 1);
+	deepStrictEqual(exits, []);
+	cluster.exit(3, 0);
+	deepStrictEqual(exits, [2]);
+});
+
+test("runPrimary treats a signal-killed worker as a failed exit", async () => {
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	onSigterm();
+	cluster.exit(1, null, "SIGKILL");
+	deepStrictEqual(exits, [1]);
+});
+
+test("runPrimary ignores a worker crash before SIGTERM when computing its exit code", async (t) => {
+	// A worker that crashed hours earlier was replaced; only the drain decides
+	// whether the task reports success to ECS.
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 2, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	cluster.crash(1);
+	t.mock.timers.tick(1000);
+	strictEqual(cluster.forks, 3, "crashed worker is replaced");
+	deepStrictEqual(exits, []);
+	onSigterm();
+	deepStrictEqual(cluster.killed, [
+		[2, "SIGTERM"],
+		[3, "SIGTERM"],
+	]);
+	cluster.exit(2, 0);
+	cluster.exit(3, 0);
+	deepStrictEqual(exits, [0]);
+});
+
+test("runPrimary SIGTERM during a re-fork backoff exits at once and drops the pending fork", async (t) => {
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	cluster.crash(1);
+	onSigterm();
+	deepStrictEqual(cluster.killed, []);
+	// The crash happened before the drain, so it does not taint the exit code.
+	deepStrictEqual(exits, [0]);
+	t.mock.timers.tick(1000);
+	strictEqual(cluster.forks, 1, "pending re-fork is cancelled");
+});
+
+test("runPrimary exits after the last worker's disconnect when it fires after exit", async () => {
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	onSigterm();
+	// exit fires first while the worker is still listed; node:cluster removes
+	// it before emitting the trailing disconnect.
+	cluster.emit("exit", 1, 0);
+	deepStrictEqual(exits, []);
+	cluster.remove(1);
+	cluster.emit("disconnect", 1);
+	deepStrictEqual(exits, [0]);
+});
+
+test("runPrimary ignores worker disconnects while running", async () => {
+	const cluster = makeFakeCluster();
+	const exits = [];
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: (code) => exits.push(code) },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	cluster.remove(1);
+	cluster.emit("disconnect", 1);
+	deepStrictEqual(exits, []);
 });
 
 test("ecsHttpRunner dispatches to runPrimary when cluster.isPrimary", async () => {
@@ -734,17 +1404,23 @@ test("runPrimary uses default cluster impl when none injected", async () => {
 	process.removeListener("SIGTERM", onSigterm);
 });
 
-test("runPrimary onSigterm tolerates missing cluster.workers", async () => {
+test("runPrimary onSigterm tolerates missing cluster.workers and exits at once", async () => {
 	const fakeCluster = {
 		isPrimary: true,
 		fork: noop,
 		on: noop,
 	};
+	const exits = [];
 	const { onSigterm } = await runPrimary(
 		{ workers: 0, requestContext: {} },
-		{ cluster: fakeCluster, fetch: async () => ({ ok: false }) },
+		{
+			cluster: fakeCluster,
+			fetch: async () => ({ ok: false }),
+			exit: (code) => exits.push(code),
+		},
 	);
 	onSigterm();
+	deepStrictEqual(exits, [0]);
 	process.removeListener("SIGTERM", onSigterm);
 });
 
@@ -1044,4 +1720,470 @@ test("runWorker onSigterm drains and exits via injected exit", async () => {
 	await onSigterm();
 	strictEqual(exited, 0);
 	strictEqual(server.listening, false);
+});
+
+// --- createRequestHandler driven with a fake request -----------------------
+//
+// Body chunks are emitted after the handler has attached its listeners, then
+// "end", so the whole read path runs without a socket. `capture` records the
+// event/context the handler saw so tests can assert complete shapes.
+
+const dispatch = async (
+	requestHandler,
+	req,
+	chunks = [],
+	{ end = true } = {},
+) => {
+	const res = fakeRes();
+	const pending = requestHandler(req, res);
+	for (const chunk of chunks) req.emit("data", Buffer.from(chunk));
+	if (end) req.emit("end");
+	await pending;
+	return res._calls;
+};
+
+const capture = (overrides = {}) => {
+	const seen = {};
+	const requestHandler = createRequestHandler({
+		handler: async (event, context) => {
+			seen.event = event;
+			seen.context = context;
+			return { statusCode: 200, body: "" };
+		},
+		eventVersion: "2.0",
+		requestContext: {},
+		timeout: 1000,
+		bodyLimit: 1024,
+		trustedProxies: 1,
+		invokedFunctionArn: undefined,
+		...overrides,
+	});
+	return { seen, requestHandler };
+};
+
+test("request handler: a request with neither content-length nor transfer-encoding has no body", async () => {
+	const { seen, requestHandler } = capture();
+	const req = makeReq({
+		method: "POST",
+		headers: { "content-type": "application/octet-stream" },
+	});
+	const calls = await dispatch(requestHandler, req);
+	strictEqual(calls.writeHead.code, 200);
+	// The body is never read, so no stream listeners are attached at all.
+	strictEqual(req.listenerCount("data"), 0);
+	strictEqual(seen.event.body, undefined);
+	strictEqual(seen.event.isBase64Encoded, false);
+});
+
+test("request handler: content-length 0 or empty means no body", async () => {
+	for (const cl of ["0", ""]) {
+		const { seen, requestHandler } = capture();
+		const req = makeReq({
+			method: "POST",
+			headers: {
+				"content-type": "application/octet-stream",
+				"content-length": cl,
+			},
+		});
+		const calls = await dispatch(requestHandler, req);
+		strictEqual(calls.writeHead.code, 200);
+		strictEqual(req.listenerCount("data"), 0, `content-length ${cl}`);
+		strictEqual(seen.event.body, undefined);
+		strictEqual(seen.event.isBase64Encoded, false);
+	}
+});
+
+test("request handler: chunked transfer-encoding without content-length reads the body", async () => {
+	const { seen, requestHandler } = capture();
+	const req = makeReq({
+		method: "POST",
+		headers: { "transfer-encoding": "chunked" },
+	});
+	const calls = await dispatch(requestHandler, req, ["ab", "c"]);
+	strictEqual(calls.writeHead.code, 200);
+	strictEqual(seen.event.body, "abc");
+	strictEqual(seen.event.isBase64Encoded, false);
+});
+
+test("request handler: a body exactly at bodyLimit is accepted", async () => {
+	const { seen, requestHandler } = capture({ bodyLimit: 16 });
+	const req = makeReq({
+		method: "POST",
+		headers: { "content-length": "16" },
+	});
+	const calls = await dispatch(requestHandler, req, ["x".repeat(16)]);
+	strictEqual(calls.writeHead.code, 200);
+	strictEqual(seen.event.body, "x".repeat(16));
+	strictEqual(req.destroyed, false);
+});
+
+test("request handler: a body over bodyLimit is rejected with 413 and the socket destroyed", async () => {
+	const { seen, requestHandler } = capture({ bodyLimit: 16 });
+	const req = makeReq({
+		method: "POST",
+		headers: { "content-length": "17" },
+	});
+	// "end" still fires after the oversize chunk; the 413 already written wins.
+	const calls = await dispatch(requestHandler, req, ["x".repeat(17)]);
+	deepStrictEqual(calls.writeHead, {
+		code: 413,
+		headers: { "content-type": "application/json" },
+	});
+	deepStrictEqual(calls.endArgs, ['{"message":"Payload too large"}']);
+	strictEqual(req.destroyed, true);
+	strictEqual(seen.event, undefined, "handler is not invoked");
+});
+
+test("request handler: a stream error while reading the body yields 500", async () => {
+	const { seen, requestHandler } = capture();
+	const req = makeReq({
+		method: "POST",
+		headers: { "content-length": "3" },
+	});
+	const res = fakeRes();
+	const pending = requestHandler(req, res);
+	req.emit("error", new Error("aborted"));
+	await pending;
+	deepStrictEqual(res._calls.writeHead, {
+		code: 500,
+		headers: { "content-type": "application/json" },
+	});
+	deepStrictEqual(res._calls.endArgs, ['{"message":"Internal Server Error"}']);
+	strictEqual(seen.event, undefined);
+});
+
+test("request handler: text detection by content-type", async () => {
+	for (const [contentType, isBase64Encoded] of [
+		["application/json", false],
+		["APPLICATION/JSON", false],
+		["application/json; charset=utf-8", false],
+		["text/plain; charset=utf-8", false],
+		["application/xml", false],
+		["application/vnd.github+json", false],
+		["application/vnd.api+json", false],
+		["application/x-www-form-urlencoded", false],
+		["application/octet-stream", true],
+		["image/png", true],
+		// A text type mentioned inside a parameter does not make the body text.
+		["multipart/related; type=text/html; boundary=b", true],
+		["multipart/form-data; boundary=text/", true],
+		["multipart/related; type=application/json;", true],
+	]) {
+		const { seen, requestHandler } = capture();
+		const req = makeReq({
+			method: "POST",
+			headers: { "content-type": contentType, "content-length": "2" },
+		});
+		await dispatch(requestHandler, req, ["hi"]);
+		strictEqual(seen.event.isBase64Encoded, isBase64Encoded, contentType);
+		strictEqual(seen.event.body, isBase64Encoded ? "aGk=" : "hi", contentType);
+	}
+});
+
+test("request handler: builds the whole v2 event and context", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: 10_000 });
+	const { seen, requestHandler } = capture({
+		requestContext: { accountId: "111" },
+		invokedFunctionArn: "arn:aws:ecs:us-east-1:111:service/svc",
+	});
+	const headers = {
+		host: "h",
+		"user-agent": "ua/1",
+		"x-forwarded-for": "6.6.6.6, 203.0.113.9",
+		"x-amzn-trace-id": "Root=1-abc",
+		"content-type": "text/plain",
+		"content-length": "2",
+	};
+	const req = makeReq({ method: "PUT", url: "/p?a=1", headers });
+	const calls = await dispatch(requestHandler, req, ["hi"]);
+	deepStrictEqual(calls.writeHead, { code: 200, headers: {} });
+	deepStrictEqual(seen.event, {
+		version: "2.0",
+		routeKey: "$default",
+		rawPath: "/p",
+		rawQueryString: "a=1",
+		cookies: undefined,
+		headers,
+		queryStringParameters: nullProto({ a: "1" }),
+		requestContext: {
+			accountId: "111",
+			requestId: "Root=1-abc",
+			http: {
+				method: "PUT",
+				path: "/p",
+				protocol: "HTTP/1.1",
+				sourceIp: "203.0.113.9",
+				userAgent: "ua/1",
+			},
+			timeEpoch: 10_000,
+		},
+		body: "hi",
+		isBase64Encoded: false,
+	});
+	strictEqual(seen.context.awsRequestId, "Root=1-abc");
+	strictEqual(
+		seen.context.invokedFunctionArn,
+		"arn:aws:ecs:us-east-1:111:service/svc",
+	);
+	strictEqual(seen.context.getRemainingTimeInMillis(), 1000);
+});
+
+test("request handler: a request whose socket is gone gets an empty sourceIp", async () => {
+	const { seen, requestHandler } = capture();
+	const calls = await dispatch(requestHandler, makeReq({ socket: null }));
+	strictEqual(calls.writeHead.code, 200);
+	strictEqual(seen.event.requestContext.http.sourceIp, "");
+});
+
+test("request handler: error responses are JSON with the error's status", async () => {
+	const requestHandler = createRequestHandler({
+		handler: () => {
+			const e = new Error("nope");
+			e.statusCode = 418;
+			throw e;
+		},
+		eventVersion: "2.0",
+		requestContext: {},
+		timeout: 1000,
+		bodyLimit: 1024,
+	});
+	const calls = await dispatch(requestHandler, makeReq());
+	deepStrictEqual(calls.writeHead, {
+		code: 418,
+		headers: { "content-type": "application/json" },
+	});
+	deepStrictEqual(calls.endArgs, ['{"message":"nope"}']);
+});
+
+test("request handler: only a numeric statusCode >= 400 is honored, else 500", async () => {
+	for (const thrown of [
+		{ statusCode: "418", message: "string code" },
+		{ statusCode: 302, message: "redirect" },
+		{ statusCode: 399, message: "below 400" },
+		null,
+		undefined,
+	]) {
+		const requestHandler = createRequestHandler({
+			handler: () => {
+				throw thrown;
+			},
+			eventVersion: "2.0",
+			requestContext: {},
+			timeout: 1000,
+			bodyLimit: 1024,
+		});
+		const calls = await dispatch(requestHandler, makeReq());
+		deepStrictEqual(
+			calls.writeHead,
+			{ code: 500, headers: { "content-type": "application/json" } },
+			JSON.stringify(thrown),
+		);
+		deepStrictEqual(calls.endArgs, ['{"message":"Internal Server Error"}']);
+	}
+});
+
+// --- runWorker / ecsHttpRunner with an injected http module ----------------
+
+const fakeHttp = () => {
+	const calls = { listen: undefined };
+	const server = {
+		listen(port, cb) {
+			calls.listen = port;
+			cb();
+		},
+		close(cb) {
+			cb();
+		},
+		listening: true,
+	};
+	return {
+		calls,
+		server,
+		http: {
+			createServer(requestHandler) {
+				calls.requestHandler = requestHandler;
+				return server;
+			},
+		},
+	};
+};
+
+const ecsEnvKeys = ["ACCOUNTID", "REGION", "TASKARN", "FAMILY", "REVISION"];
+const withEcsEnv = (t, values) => {
+	for (const key of ecsEnvKeys) delete process.env[`MIDDY_ECS_${key}`];
+	for (const [key, value] of Object.entries(values)) {
+		process.env[`MIDDY_ECS_${key}`] = value;
+	}
+	t.after(() => {
+		for (const key of ecsEnvKeys) delete process.env[`MIDDY_ECS_${key}`];
+	});
+};
+
+test("runWorker merges ECS env and requestContext option into the event", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: 42 });
+	withEcsEnv(t, { ACCOUNTID: "999", REGION: "us-west-2", FAMILY: "svc-name" });
+	const seen = {};
+	const { calls, http, server } = fakeHttp();
+	const { onSigterm } = await runWorker(
+		{
+			handler: async (event, context) => {
+				seen.event = event;
+				seen.context = context;
+				return { statusCode: 200, body: "" };
+			},
+			eventVersion: "2.0",
+			requestContext: { stage: "prod" },
+			port: 8080,
+			timeout: 5000,
+			bodyLimit: 1024,
+			trustedProxies: 1,
+		},
+		{ http, exit: noop },
+	);
+	ok(process.listeners("SIGTERM").includes(onSigterm));
+	process.removeListener("SIGTERM", onSigterm);
+	strictEqual(calls.listen, 8080);
+	strictEqual(server.requestTimeout, 5000);
+	strictEqual(server.keepAliveTimeout, 65_000);
+	strictEqual(server.headersTimeout, 70_000);
+	const headers = { host: "h" };
+	await dispatch(calls.requestHandler, makeReq({ headers }));
+	deepStrictEqual(seen.event.requestContext, {
+		accountId: "999",
+		region: "us-west-2",
+		family: "svc-name",
+		stage: "prod",
+		requestId: "",
+		http: {
+			method: "GET",
+			path: "/",
+			protocol: "HTTP/1.1",
+			sourceIp: "127.0.0.1",
+			userAgent: "",
+		},
+		timeEpoch: 42,
+	});
+	strictEqual(
+		seen.context.invokedFunctionArn,
+		"arn:aws:ecs:us-west-2:999:service/svc-name",
+	);
+});
+
+test("runWorker leaves invokedFunctionArn undefined unless region, account and family are all known", async (t) => {
+	for (const env of [
+		{ ACCOUNTID: "999", FAMILY: "svc-name" },
+		{ REGION: "us-west-2", FAMILY: "svc-name" },
+		{ ACCOUNTID: "999", REGION: "us-west-2" },
+	]) {
+		withEcsEnv(t, env);
+		const seen = {};
+		const { calls, http } = fakeHttp();
+		const { onSigterm } = await runWorker(
+			{
+				handler: async (_event, context) => {
+					seen.context = context;
+					return "";
+				},
+				eventVersion: "2.0",
+				requestContext: {},
+				port: 0,
+				timeout: 1000,
+				bodyLimit: 1024,
+			},
+			{ http, exit: noop },
+		);
+		process.removeListener("SIGTERM", onSigterm);
+		await dispatch(calls.requestHandler, makeReq());
+		strictEqual(
+			seen.context.invokedFunctionArn,
+			undefined,
+			JSON.stringify(env),
+		);
+	}
+});
+
+test("ecsHttpRunner applies the documented defaults to the worker", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: 1_000 });
+	const seen = {};
+	const { calls, http, server } = fakeHttp();
+	const { onSigterm } = await ecsHttpRunner(
+		{
+			handler: async (event, context) => {
+				seen.event = event;
+				seen.context = context;
+				return { statusCode: 200, body: "" };
+			},
+		},
+		{ cluster: { isPrimary: false }, http, exit: noop },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	strictEqual(calls.listen, 80);
+	strictEqual(server.requestTimeout, 60_000);
+	const headers = { host: "h", "x-forwarded-for": "6.6.6.6, 203.0.113.9" };
+	await dispatch(calls.requestHandler, makeReq({ headers }));
+	deepStrictEqual(seen.event, {
+		version: "2.0",
+		routeKey: "$default",
+		rawPath: "/",
+		rawQueryString: "",
+		cookies: undefined,
+		headers,
+		queryStringParameters: undefined,
+		requestContext: {
+			requestId: "",
+			http: {
+				method: "GET",
+				path: "/",
+				protocol: "HTTP/1.1",
+				sourceIp: "203.0.113.9",
+				userAgent: "",
+			},
+			timeEpoch: 1_000,
+		},
+		body: undefined,
+		isBase64Encoded: false,
+	});
+	strictEqual(seen.context.getRemainingTimeInMillis(), 60_000);
+});
+
+test("ecsHttpRunner default bodyLimit is 10 MiB", async () => {
+	const limit = 10 * 1024 * 1024;
+	const { calls, http } = fakeHttp();
+	const { onSigterm } = await ecsHttpRunner(
+		{
+			handler: async (event) => ({
+				statusCode: 200,
+				body: String(event.body.length),
+			}),
+		},
+		{ cluster: { isPrimary: false }, http, exit: noop },
+	);
+	process.removeListener("SIGTERM", onSigterm);
+	const post = (size) =>
+		dispatch(
+			calls.requestHandler,
+			makeReq({
+				method: "POST",
+				headers: {
+					"content-type": "text/plain",
+					"content-length": String(size),
+				},
+			}),
+			[Buffer.alloc(size, "x")],
+		);
+	const atLimit = await post(limit);
+	strictEqual(atLimit.writeHead.code, 200);
+	deepStrictEqual(atLimit.endArgs, [String(limit)]);
+	const overLimit = await post(limit + 1);
+	strictEqual(overLimit.writeHead.code, 413);
+});
+
+test("runPrimary registers onSigterm as a SIGTERM listener", async () => {
+	const cluster = makeFakeCluster();
+	const { onSigterm } = await runPrimary(
+		{ workers: 1, requestContext: {} },
+		{ cluster, fetch: noMeta, exit: noop },
+	);
+	ok(process.listeners("SIGTERM").includes(onSigterm));
+	process.removeListener("SIGTERM", onSigterm);
 });

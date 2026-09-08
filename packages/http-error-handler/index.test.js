@@ -383,11 +383,13 @@ test("It should not expose a generic 500 error (statusCode === 500 boundary)", a
 
 // `request.error` is replaced with the generic fallback for non-http errors,
 // and stays visible to any onError middleware registered ahead of this one
-// (onError runs in reverse registration order). Pin that published shape.
-test("It should replace a non-http error with an exposable generic 500", async (t) => {
+// (onError runs in reverse registration order). Pin that published shape: an
+// `Error` carrying the original as `cause`, so nothing is lost downstream.
+test("It should replace a non-http error with an exposable generic 500 that keeps the original as cause", async (t) => {
+	const original = new Error("A leaky internal detail");
 	let captured;
 	const handler = middy(() => {
-		throw new Error("A leaky internal detail");
+		throw original;
 	})
 		.use({
 			onError: (request) => {
@@ -401,13 +403,41 @@ test("It should replace a non-http error with an exposable generic 500", async (
 			}),
 		);
 
-	await handler(defaultEvent, defaultContext);
+	const response = await handler(defaultEvent, defaultContext);
 
-	deepStrictEqual(captured, {
+	ok(captured instanceof Error);
+	strictEqual(captured.cause, original);
+	strictEqual(captured.statusCode, 500);
+	strictEqual(captured.message, "Internal Server Error");
+	strictEqual(captured.expose, true);
+	deepStrictEqual(response, {
 		statusCode: 500,
-		message: "Internal Server Error",
-		expose: true,
+		body: "Internal Server Error",
+		headers: {
+			"Content-Type": "text/plain",
+		},
 	});
+});
+
+test("It should keep a non-exposed http error as the cause of the generic 500", async (t) => {
+	const original = new HttpError(503, { expose: false });
+	let captured;
+	const handler = middy(() => {
+		throw original;
+	})
+		.use({
+			onError: (request) => {
+				captured = request.error;
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	ok(captured instanceof Error);
+	strictEqual(captured.cause, original);
+	strictEqual(captured.statusCode, 500);
+	deepStrictEqual(response, { statusCode: 500, headers: {} });
 });
 
 test("httpErrorHandlerValidateOptions accepts valid options and rejects typos", () => {
@@ -505,4 +535,80 @@ test("httpErrorHandlerValidateOptions accepts omitPaths and mask", () => {
 	} catch (e) {
 		ok(e.message.includes("omitPaths"));
 	}
+});
+
+// `message` and `cause` are non-enumerable on an Error, so a downstream logger
+// that does `JSON.stringify(request.error)` would otherwise see only
+// `{ statusCode, expose }`.
+test("It should serialize the generic 500 fallback to JSON with its message and cause", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw new Error("A leaky internal detail");
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(
+			httpErrorHandler({
+				logger: false,
+				fallbackMessage: "Internal Server Error",
+			}),
+		);
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "Internal Server Error",
+		expose: true,
+		cause: "A leaky internal detail",
+	});
+});
+
+test("It should serialize a primitive cause on the generic 500 fallback as a string", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw "boom";
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: "boom",
+	});
+});
+
+// `throw null` reaches onError as `request.error === null`; the fallback still
+// has to serialize (a downstream logger must not blow up on a nullish cause).
+test("It should serialize a null cause on the generic 500 fallback as a string", async (t) => {
+	let serialized;
+	const handler = middy(() => {
+		throw null;
+	})
+		.use({
+			onError: (request) => {
+				serialized = JSON.stringify(request.error);
+			},
+		})
+		.use(httpErrorHandler({ logger: false }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(JSON.parse(serialized), {
+		statusCode: 500,
+		message: "",
+		expose: true,
+		cause: "null",
+	});
 });

@@ -6,9 +6,9 @@ import { captureAWSv3Client } from "aws-xray-sdk";
 import { expect, test } from "tstyche";
 import glueSchemaRegistry, {
 	type Context,
+	type GlueSchemaRegistryOptions,
 	type Internal,
 	type ResolvedSchema,
-	type SchemaSlot,
 } from "./index.js";
 
 test("use with default options", () => {
@@ -64,20 +64,73 @@ test("setToContext: true", () => {
 		});
 });
 
-test("consolidated slot present in internal", () => {
+test("internal holds only the fetchData entries", () => {
+	// The runtime writes each fetchData entry onto request.internal and nothing
+	// else, so the Internal type must not promise extra slots.
+	expect<
+		Internal<{ fetchData: { user: { SchemaVersionId: string } } }>
+	>().type.toBe<{ user: ResolvedSchema }>();
+	expect<keyof Internal<undefined>>().type.toBe<never>();
+});
+
+test("SchemaVersionNumber takes the SDK object form", () => {
+	const schemaId = { SchemaName: "orders", RegistryName: "default" };
+	expect(glueSchemaRegistry).type.toBeCallableWith({
+		fetchData: {
+			orders: { SchemaId: schemaId, SchemaVersionNumber: { VersionNumber: 3 } },
+		},
+	});
+	expect(glueSchemaRegistry).type.toBeCallableWith({
+		fetchData: {
+			orders: {
+				SchemaId: schemaId,
+				SchemaVersionNumber: { LatestVersion: true },
+			},
+		},
+	});
+	expect(glueSchemaRegistry).type.not.toBeCallableWith({
+		fetchData: {
+			orders: { SchemaId: schemaId, SchemaVersionNumber: 3 },
+		},
+	});
+});
+
+test("setToContext: true with contextKey", () => {
 	handler
 		.use(
 			glueSchemaRegistry({
 				...options,
 				fetchData: { user: { SchemaVersionId: "abc" } },
+				setToContext: true,
+				contextKey: "schemas" as const,
 			}),
 		)
 		.before(async (request) => {
-			// getInternal sanitizes "-" to "_" in returned object keys; verify
-			// the property is reachable in the typed result. Map methods get
-			// erased to {} through getInternal's return-type construction, so we
-			// only assert the wider object shape (assignable-from).
-			const data = await getInternal("glue-schema-registry", request);
-			expect(data.glue_schema_registry).type.toBeAssignableFrom<SchemaSlot>();
+			expect(
+				request.context.middyContext.schemas.user,
+			).type.toBe<ResolvedSchema>();
+		});
+});
+
+test("options declare contextKey", () => {
+	expect<GlueSchemaRegistryOptions["contextKey"]>().type.toBe<
+		string | undefined
+	>();
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			glueSchemaRegistry({
+				...options,
+				fetchData: { user: { SchemaVersionId: "abc" } },
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.user,
+			).type.toBe<ResolvedSchema>();
 		});
 });

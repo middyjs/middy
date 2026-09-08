@@ -24,11 +24,14 @@ export interface Options {
 	audience?: string | string[];
 	issuer?: string | string[];
 	clockTolerance?: number;
+	requireExp?: boolean;
+	maxTokenAge?: string | number;
 	expectedClaims?: Record<string, string | number | boolean>;
 	payloadKey?: string;
 	setToContext?: boolean;
 	cacheExpiry?: number;
 	cooldownDuration?: number;
+	jwksTimeoutMs?: number;
 	disablePrefetch?: boolean;
 }
 

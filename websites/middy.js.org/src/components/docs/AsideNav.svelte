@@ -101,6 +101,7 @@ const nav = {
 		"ecs-task": "/docs/runners/ecs-task",
 	},
 	Upgrade: {
+		"Upgrade 7.x -> 8.x": "/docs/upgrade/7-8",
 		"Upgrade 6.x -> 7.x": "/docs/upgrade/6-7",
 		"Upgrade 5.x -> 6.x": "/docs/upgrade/5-6",
 		"Upgrade 4.x -> 5.x": "/docs/upgrade/4-5",

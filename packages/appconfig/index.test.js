@@ -825,6 +825,17 @@ test("appConfigValidateOptions accepts valid options", () => {
 	appConfigValidateOptions({});
 });
 
+test("appConfigValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	appConfigValidateOptions({ cacheMaxSize: 10 });
+	try {
+		appConfigValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
+	}
+});
+
 test("appConfigValidateOptions rejects unknown key with correct cause.package", () => {
 	try {
 		appConfigValidateOptions({ cachExpiry: 60 });

@@ -1,6 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
+import {
+	deepStrictEqual,
+	match,
+	ok,
+	strictEqual,
+	throws,
+} from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import {
@@ -320,7 +326,10 @@ test("ecsTaskRunner SIGTERM forces exit(124) after stopTimeout when handler hang
 	await runPromise;
 });
 
-test("ecsTaskRunner awsRequestId is empty string when taskArn has no slash and no override", async () => {
+const uuidPattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+test("ecsTaskRunner awsRequestId is a random UUID when taskArn has no slash and no override", async () => {
 	let captured;
 	const { deps } = makeDeps({
 		env: {
@@ -336,10 +345,10 @@ test("ecsTaskRunner awsRequestId is empty string when taskArn has no slash and n
 		},
 		deps,
 	);
-	strictEqual(captured.awsRequestId, "");
+	match(captured.awsRequestId, uuidPattern);
 });
 
-test("ecsTaskRunner awsRequestId is empty string when no ECS metadata and no override", async () => {
+test("ecsTaskRunner awsRequestId is a random UUID when no ECS metadata and no override", async () => {
 	let captured;
 	const { deps } = makeDeps({
 		env: { MIDDY_ECS_TASK_EVENT: "{}" },
@@ -352,7 +361,7 @@ test("ecsTaskRunner awsRequestId is empty string when no ECS metadata and no ove
 		},
 		deps,
 	);
-	strictEqual(captured.awsRequestId, "");
+	match(captured.awsRequestId, uuidPattern);
 	strictEqual(captured.invokedFunctionArn, undefined);
 });
 
@@ -704,7 +713,7 @@ test("ecsTaskRunner tolerates a contextOverride without awsRequestId", async () 
 		},
 		deps,
 	);
-	strictEqual(seen, "");
+	match(seen, uuidPattern);
 });
 
 test("ecsTaskRunner tolerates a timer handle with no unref", async () => {

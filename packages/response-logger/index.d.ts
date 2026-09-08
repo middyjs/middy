@@ -3,7 +3,7 @@
 import type middy from "@middy/core";
 
 export interface Options {
-	logger?: ((request: middy.Request) => void) | false;
+	logger?: (request: middy.Request) => void;
 	/**
 	 * Dot-delimited paths, relative to the `request`, to strip from the copy
 	 * handed to `logger`. Use `[]` to descend into arrays, e.g.

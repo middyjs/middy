@@ -1364,3 +1364,101 @@ test("It should normalize records nested inside an SNS-to-SQS message", async (t
 	const decoded = response.Records[0].body.Message.Records[0].kinesis.data;
 	strictEqual(decoded.toString(), "nested-sqs");
 });
+
+// ---------- malformed nested records ----------
+
+test("It should leave an SNS-to-SQS notification without a Message untouched", async (t) => {
+	// The SNS -> SQS special case must not recurse into a missing Message.
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [{ eventSource: "aws:sqs", body: '{"Type":"Notification"}' }],
+	};
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.Records[0].body, { Type: "Notification" });
+});
+
+test("It should not recurse into an SNS-to-SQS Message that is not an object", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ Type: "Notification", Message: '"text"' }),
+			},
+		],
+	};
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body.Message, "text");
+});
+
+test("It should not recurse into an SNS Message that is null", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = createEvent.default("aws:sns");
+	event.Records[0].Sns.Message = null;
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].Sns.Message, null);
+});
+
+test("It should not recurse into an SNS-to-SQS Message that is null", async (t) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+
+	const event = {
+		Records: [
+			{
+				eventSource: "aws:sqs",
+				body: JSON.stringify({ Type: "Notification", Message: null }),
+			},
+		],
+	};
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.Records[0].body.Message, null);
+});
+
+const expectMalformedRecord = async (event, eventSource) => {
+	const handler = middy((event) => event).use(eventNormalizer());
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught, "expected a throw");
+	strictEqual(caught.statusCode, 422);
+	strictEqual(caught.cause.package, "@middy/event-normalizer");
+	strictEqual(caught.cause.data.reason, "Malformed event record");
+	strictEqual(caught.cause.data.eventSource, eventSource);
+	strictEqual(typeof caught.cause.data.message, "string");
+};
+
+test("It should reject a Kafka event without records with a 422", async (t) => {
+	await expectMalformedRecord({ eventSource: "aws:kafka" }, "aws:kafka");
+});
+
+test("It should reject a DynamoDB record without dynamodb with a 422", async (t) => {
+	await expectMalformedRecord(
+		{ Records: [{ eventSource: "aws:dynamodb" }] },
+		"aws:dynamodb",
+	);
+});
+
+test("It should reject an SNS record without Sns with a 422", async (t) => {
+	await expectMalformedRecord(
+		{ Records: [{ EventSource: "aws:sns" }] },
+		"aws:sns",
+	);
+});
+
+test("It should reject a nested S3 record without s3 with a 422", async (t) => {
+	const nested = { Records: [{ eventSource: "aws:s3" }] };
+	await expectMalformedRecord(
+		{ Records: [{ eventSource: "aws:sqs", body: JSON.stringify(nested) }] },
+		"aws:s3",
+	);
+});

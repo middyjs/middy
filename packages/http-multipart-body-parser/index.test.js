@@ -1101,3 +1101,249 @@ test("httpMultipartBodyParserValidateOptions rejects bad busboy field types", ()
 		ok(e instanceof TypeError);
 	}
 });
+
+// Busboy's `field` and `file` callbacks run from stream events on a later
+// tick. A throw inside one of them used to escape as an uncaughtException and
+// leave the parse promise pending forever, so the request never answered.
+const withUncaughtGuard = async (fn) => {
+	const escaped = [];
+	const onUncaught = (e) => escaped.push(e);
+	process.on("uncaughtException", onUncaught);
+	let timer;
+	try {
+		const settled = await Promise.race([
+			fn().then(
+				(value) => ({ value }),
+				(error) => ({ error }),
+			),
+			new Promise((resolve) => {
+				timer = setTimeout(() => resolve("pending"), 200);
+			}),
+		]);
+		return { settled, escaped };
+	} finally {
+		clearTimeout(timer);
+		process.off("uncaughtException", onUncaught);
+	}
+};
+
+test("It should fold a scalar field into an array when a bracketed field of the same name follows", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n--TEST\r\nContent-Disposition: form-data; name="a[]"\r\n\r\n2\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const { settled, escaped } = await withUncaughtGuard(() =>
+		handler(event, defaultContext),
+	);
+
+	deepStrictEqual(escaped, []);
+	deepStrictEqual(settled, {
+		value: Object.assign(Object.create(null), { a: ["1", "2"] }),
+	});
+});
+
+test("It should append every bracketed field of the same name to one flat array", async () => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	const part = (value) =>
+		`--TEST\r\nContent-Disposition: form-data; name="a[]"\r\n\r\n${value}\r\n`;
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: `${part("1")}${part("2")}${part("3")}--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { a: ["1", "2", "3"] }),
+	);
+});
+
+test("It should reject with a 422 when a handler throws inside busboy's callback instead of escaping as an uncaughtException", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	// The file `end` handler runs on a later tick than `busboy.write()`, so a
+	// throw there cannot be caught by the promise executor. Fault-inject the
+	// one call it makes.
+	t.mock.method(Buffer, "concat", () => {
+		throw new Error("boom");
+	});
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const { settled, escaped } = await withUncaughtGuard(() =>
+		handler(event, defaultContext),
+	);
+
+	deepStrictEqual(escaped, []);
+	notStrictEqual(settled, "pending");
+	strictEqual(settled.error.statusCode, 422);
+	strictEqual(settled.error.cause.package, "@middy/http-multipart-body-parser");
+	strictEqual(settled.error.cause.data.message, "boom");
+});
+
+test("It should reject with a 413 when a field value exceeds the configured fieldSize limit instead of silently truncating", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(
+		httpMultipartBodyParser({ busboy: { limits: { fieldSize: 4 } } }),
+	);
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="a"\r\n\r\n0123456789\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 413);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.cause.data.fieldname, "a");
+	}
+});
+
+test("It should reject with a 413 when the number of fields exceeds the configured fields limit instead of silently dropping", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser({ busboy: { limits: { fields: 1 } } }));
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n--TEST\r\nContent-Disposition: form-data; name="b"\r\n\r\n2\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 413);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.cause.data.limit, "fields");
+	}
+});
+
+test("It should reject with a 413 when the number of files exceeds the configured files limit instead of silently dropping", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser({ busboy: { limits: { files: 0 } } }));
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 413);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.cause.data.limit, "files");
+	}
+});
+
+test("It should reject with a 413 when the number of parts exceeds the configured parts limit instead of silently dropping", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser({ busboy: { limits: { parts: 1 } } }));
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="a"\r\n\r\n1\r\n--TEST\r\nContent-Disposition: form-data; name="b"\r\n\r\n2\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	try {
+		await handler(event, defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 413);
+		strictEqual(e.cause.package, "@middy/http-multipart-body-parser");
+		strictEqual(e.cause.data.limit, "parts");
+	}
+});
+
+// A body that ends inside a file part (no closing boundary after the file)
+// rejects with a 422, and busboy then emits `error` on the part stream on a
+// later tick. Without a listener that second emit is an uncaughtException.
+test("It should reject with a 422 when the body ends inside a file part instead of crashing the process", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="file"; filename="f.txt"\r\nContent-Type: text/plain\r\n\r\nhello',
+		isBase64Encoded: false,
+	};
+
+	const { settled, escaped } = await withUncaughtGuard(() =>
+		handler(event, defaultContext),
+	);
+
+	deepStrictEqual(escaped, []);
+	notStrictEqual(settled, "pending");
+	strictEqual(settled.error.statusCode, 422);
+	strictEqual(settled.error.cause.package, "@middy/http-multipart-body-parser");
+});
+
+test("It should push a scalar field into an existing array when a bracketed field of the same name precedes it", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: '--TEST\r\nContent-Disposition: form-data; name="a[]"\r\n\r\n1\r\n--TEST\r\nContent-Disposition: form-data; name="a"\r\n\r\n2\r\n--TEST--',
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { a: ["1", "2"] }),
+	);
+});
+
+test("It should keep folding in both directions across a mixed scalar and bracketed sequence", async (t) => {
+	const handler = middy((event) => event.body);
+
+	handler.use(httpMultipartBodyParser());
+
+	const part = (name, value) =>
+		`--TEST\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+	const event = {
+		headers: { "content-type": "multipart/form-data; boundary=TEST" },
+		body: `${part("a", "1")}${part("a[]", "2")}${part("a", "3")}--TEST--`,
+		isBase64Encoded: false,
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(
+		response,
+		Object.assign(Object.create(null), { a: ["1", "2", "3"] }),
+	);
+});

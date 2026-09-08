@@ -6,12 +6,11 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
+	evictCacheOnFailure,
 	jsonContentTypePattern,
 	jsonSafeParse,
-	modifyCache,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -67,6 +66,7 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
+		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 	},
@@ -102,17 +102,12 @@ const s3Middleware = (opts = {}) => {
 					}
 					return value;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
 		}
 		return values;
 	};
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -127,8 +122,7 @@ const s3Middleware = (opts = {}) => {
 
 	const s3MiddlewareBefore = (request) => {
 		if (client) return s3MiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return s3MiddlewareFetch(request);
 		});

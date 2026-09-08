@@ -350,7 +350,31 @@ test("It should handle reportTo with non-default group", async (t) => {
 	strictEqual(response.statusCode, 200);
 	strictEqual(
 		response.headers["Report-To"],
-		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }, { "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://custom.example.com" } ] }',
+		'{ "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }, { "group": "custom", "max_age": 31536000, "endpoints": [ { "url": "https://custom.example.com" } ] }',
+	);
+});
+
+test("It should name each Report-To group after its key", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+	}));
+
+	handler.use(
+		httpSecurityHeaders({
+			reportTo: {
+				csp: "https://csp.example.com",
+				default: "https://default.example.com",
+			},
+		}),
+	);
+
+	const event = { httpMethod: "GET" };
+	const response = await handler(event, defaultContext);
+
+	strictEqual(response.statusCode, 200);
+	strictEqual(
+		response.headers["Report-To"],
+		'{ "group": "csp", "max_age": 31536000, "endpoints": [ { "url": "https://csp.example.com" } ] }, { "group": "default", "max_age": 31536000, "endpoints": [ { "url": "https://default.example.com" } ], "include_subdomains": true }',
 	);
 });
 

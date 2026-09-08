@@ -14,9 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit:
+  perf:
     name: Tests (perf)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Harden runner

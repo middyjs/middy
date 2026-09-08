@@ -43,6 +43,7 @@ export const pollKinesisValidateOptions = (options) =>
 const toBase64 = (data) => {
 	if (data == null) return "";
 	if (typeof data === "string") return data;
+	// Stryker disable next-line ConditionalExpression: equivalent; a Buffer is a Uint8Array, so the next branch copies and encodes the same bytes.
 	if (Buffer.isBuffer(data)) return data.toString("base64");
 	if (data instanceof Uint8Array) return Buffer.from(data).toString("base64");
 	return Buffer.from(String(data)).toString("base64");
@@ -67,9 +68,13 @@ const toLambdaRecord = (record, streamArn, awsRegion, shardId) => ({
 	eventSourceARN: streamArn,
 });
 
+// arn:aws:kinesis:<region>:<account>:stream/<name>
+const regionFromArn = (streamArn) => streamArn?.split(":")[3];
+
 export const pollKinesis = (opts) => {
 	pollKinesisValidateOptions(opts);
 	const client = opts.client ?? new KinesisClient({});
+	const awsRegion = opts.awsRegion ?? regionFromArn(opts.streamArn);
 	const shardIteratorType = opts.shardIteratorType ?? "LATEST";
 	const limit = opts.limit ?? 1000;
 	const pollingDelay = opts.pollingDelay ?? 1000;
@@ -114,7 +119,7 @@ export const pollKinesis = (opts) => {
 				if (records.length) {
 					yield {
 						Records: records.map((r) =>
-							toLambdaRecord(r, opts.streamArn, opts.awsRegion, opts.shardId),
+							toLambdaRecord(r, opts.streamArn, awsRegion, opts.shardId),
 						),
 					};
 				} else if (pollingDelay > 0) {

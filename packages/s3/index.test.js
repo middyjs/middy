@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { clearCache, getInternal } from "@middy/util";
@@ -472,6 +472,17 @@ test("s3ValidateOptions accepts valid options and rejects typos", () => {
 	} catch (e) {
 		ok(e instanceof TypeError);
 		strictEqual(e.cause.package, "@middy/s3");
+	}
+});
+
+test("s3ValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	s3ValidateOptions({ cacheMaxSize: 10 });
+	try {
+		s3ValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
 	}
 });
 
@@ -953,4 +964,43 @@ test("s3ValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should retry client init after a rejected attempt", async (t) => {
+	mockClient(S3Client)
+		.on(GetObjectCommand)
+		.resolves({
+			ContentType: "application/json",
+			Body: s3Response('{"option":"value"}'),
+		});
+
+	let constructed = 0;
+	class FlakyS3Client extends S3Client {
+		constructor(...args) {
+			constructed++;
+			if (constructed === 1) throw new Error("init boom");
+			super(...args);
+		}
+	}
+
+	const handler = middy(() => {})
+		.use(
+			s3({
+				AwsClient: FlakyS3Client,
+				cacheExpiry: -1,
+				fetchData: {
+					key: { Bucket: "...", Key: "..." },
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.key?.option, "value");
+		});
+
+	// A rejected init must not be memoized for the life of the container.
+	await rejects(() => handler(defaultEvent, defaultContext), /init boom/);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 2);
 });

@@ -22,6 +22,7 @@ jobs:
   trivy-vuln:
     name: "Trivy: SCA"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -57,6 +58,7 @@ jobs:
   trivy-license:
     name: "Trivy: Licensing"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -101,6 +103,7 @@ jobs:
   lockfile:
     name: "lockfile-lint: SAST package-lock.json"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: (github.actor != 'dependabot[bot]')
 
     steps:
@@ -133,11 +136,46 @@ jobs:
         run: |
           ./node_modules/.bin/lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https
 
+  license-headers:
+    name: "License headers"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          disable-telemetry: true
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            nodejs.org:443
+            objects.githubusercontent.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts --workspace .github
+      - name: License headers
+        run: |
+          npm run test:sast:license
+
 
   # https://github.com/github/codeql-action
   codeql:
     name: "CodeQL: SAST"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read
@@ -184,6 +222,7 @@ jobs:
   semgrep:
     name: "semgrep: SAST"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     container:
       # https://hub.docker.com/r/semgrep/semgrep/tags
@@ -201,6 +240,7 @@ jobs:
   actionlint:
     name: "actionlint: GitHub Actions lint"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -226,6 +266,7 @@ jobs:
   zizmor:
     name: "zizmor: GitHub Actions SAST"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       actions: read
@@ -253,6 +294,7 @@ jobs:
   dependency-review:
     name: "Dependency Review"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.event_name == 'pull_request'
     steps:
       - name: Harden runner
@@ -281,6 +323,7 @@ jobs:
   trufflehog:
     name: 'TruffleHog: secrets'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -305,6 +348,7 @@ jobs:
   gitleaks:
     name: 'gitleaks: secrets'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
     steps:
@@ -320,6 +364,11 @@ jobs:
             github.com:443
             objects.githubusercontent.com:443
             release-assets.githubusercontent.com:443
+      - name: Require GITLEAKS_LICENSE
+        if: env.GITLEAKS_LICENSE == '' && github.event.pull_request.head.repo.fork != true && github.actor != 'dependabot[bot]'
+        run: |
+          echo "::error::GITLEAKS_LICENSE secret is not set; gitleaks cannot run"
+          exit 1
       - name: Checkout repository
         if: env.GITLEAKS_LICENSE != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -1,4 +1,9 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import {
 	DiscoverInstancesCommand,
@@ -926,4 +931,44 @@ test("It should prefetch at factory time when prefetch is enabled", async (t) =>
 
 	strictEqual(mockService.send.callCount, 1);
 	clearCache();
+});
+
+test("It should retry client init after a rejected attempt", async (t) => {
+	mockClient(ServiceDiscoveryClient)
+		.on(DiscoverInstancesCommand)
+		.resolves({
+			Instances: [{ InstanceId: "myservice-53", ServiceName: "myservice" }],
+		});
+
+	let constructed = 0;
+	class FlakyClient extends ServiceDiscoveryClient {
+		constructor(...args) {
+			constructed++;
+			if (constructed === 1) throw new Error("init boom");
+			super(...args);
+		}
+	}
+
+	const handler = middy(() => {})
+		.use(
+			serviceDiscovery({
+				AwsClient: FlakyClient,
+				cacheExpiry: -1,
+				fetchData: {
+					ec2: { NamespaceName: "example.com", ServiceName: "myservice" },
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			deepStrictEqual(values.ec2, [
+				{ InstanceId: "myservice-53", ServiceName: "myservice" },
+			]);
+		});
+
+	// A rejected init must not be memoized for the life of the container.
+	await assertRejects(() => handler(defaultEvent, defaultContext), /init boom/);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 2);
 });

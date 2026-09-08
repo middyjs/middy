@@ -17,8 +17,6 @@ const fuzzOptions = {
 	price: 0.001,
 	payTo: "0xpayto",
 	asset: "0xasset",
-	// v1 is opt-in as of v8; keep it on so the X-PAYMENT decode path is fuzzed
-	// instead of short-circuiting on the "unsupported version" reject.
 	versions: [1, 2],
 	FacilitatorClient: AlwaysInvalidFacilitatorClient,
 };

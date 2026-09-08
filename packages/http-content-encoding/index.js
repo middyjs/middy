@@ -74,6 +74,12 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 
 	const supportedContentEncodings = Object.keys(contentEncodingStreams);
+	// `{ [encoding]: false }` disables that encoder.
+	const disabledContentEncodings = new Set(
+		supportedContentEncodings.filter((encoding) => options[encoding] === false),
+	);
+	const isEnabledContentEncoding = (encoding) =>
+		!disabledContentEncodings.has(encoding);
 
 	const contextKeyHttpContentNegotiation =
 		options.contextKeyHttpContentNegotiation;
@@ -81,8 +87,17 @@ const httpContentEncodingMiddleware = (opts = {}) => {
 	const httpContentEncodingMiddlewareAfter = (request) => {
 		normalizeHttpResponse(request);
 		const { response } = request;
-		const { preferredEncoding, preferredEncodings } =
+		let { preferredEncoding, preferredEncodings } =
 			request.context.middyContext?.[contextKeyHttpContentNegotiation] ?? {};
+		// Stryker disable next-line ConditionalExpression: equivalent. With nothing disabled the filter keeps every entry and isEnabledContentEncoding is always true, so forcing the block on only copies the list; the size check is a fast path.
+		if (disabledContentEncodings.size) {
+			// Drop disabled encodings from the negotiated list so the client's next
+			// acceptable encoding (or identity) is used instead.
+			preferredEncodings = preferredEncodings?.filter(isEnabledContentEncoding);
+			if (!isEnabledContentEncoding(preferredEncoding)) {
+				preferredEncoding = preferredEncodings?.[0];
+			}
+		}
 
 		// Encoding not supported, already encoded, or doesn't need to
 		const eventCacheControl =

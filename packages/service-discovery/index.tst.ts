@@ -66,3 +66,41 @@ test("setToContext: false", () => {
 			expect(data.foo).type.toBe<HttpInstanceSummary[]>();
 		});
 });
+
+test("accepts contextKey", () => {
+	expect(serviceDiscovery).type.toBeCallableWith({ contextKey: "custom" });
+});
+
+test("contextKey renames the context namespace", () => {
+	handler
+		.use(
+			serviceDiscovery({
+				...options,
+				fetchData: { foo: { NamespaceName: "ns", ServiceName: "svc" } },
+				setToContext: true,
+				contextKey: "custom" as const,
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.foo).type.toBe<
+				HttpInstanceSummary[]
+			>();
+		});
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			serviceDiscovery({
+				...options,
+				fetchData: { foo: { NamespaceName: "ns", ServiceName: "svc" } },
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.foo).type.toBe<
+				HttpInstanceSummary[]
+			>();
+		});
+});

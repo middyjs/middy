@@ -14,10 +14,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mutation:
-    name: Tests (mutation)
+  packages:
+    name: List packages
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          disable-telemetry: true
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List packages
+        id: list
+        # One matrix leg per package directory that has an index.js; stale
+        # directories left behind by removed packages are skipped.
+        run: |
+          packages=$(for d in packages/*/; do [ -f "${d}index.js" ] && basename "$d"; done | jq -R . | jq -c -s .)
+          echo "packages=${packages}" >> "$GITHUB_OUTPUT"
+          echo "$packages" | jq -r '"\(length) packages: \(join(" "))"'
+
+  package:
+    name: Tests (mutation) (${{ matrix.package }})
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        package: ${{ fromJSON(needs.packages.outputs.packages) }}
 
     steps:
       - name: Harden runner
@@ -49,5 +85,31 @@ jobs:
         run: |
           npm run build --if-present
       - name: Mutation tests
+        env:
+          MUTATE_PACKAGE: ${{ matrix.package }}
         run: |
           npm run test:mutation
+
+  # Single required status check; fails when any matrix leg failed, was
+  # cancelled, or was skipped because the package list could not be built.
+  mutation:
+    name: Tests (mutation)
+    needs: package
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: block
+          disable-sudo: true
+          disable-telemetry: true
+          allowed-endpoints: >
+            api.github.com:443
+      - name: Check matrix result
+        env:
+          RESULT: ${{ needs.package.result }}
+        run: |
+          echo "matrix result: ${RESULT}"
+          [ "$RESULT" = "success" ] || exit 1

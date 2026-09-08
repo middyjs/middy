@@ -18,7 +18,7 @@ Each middleware should do a single task. We try to balance each to be as perform
 
 ## Lifecycle
 
-- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Sets callbackWaitsForEmptyEventLoop property to false
+- [`do-not-wait-for-empty-event-loop`](/docs/middlewares/do-not-wait-for-empty-event-loop): Deprecated in v8 and removed from the monorepo (7.x remains on npm). `callbackWaitsForEmptyEventLoop` only applies to callback-based handlers, which Lambda supports on Node.js 22 and earlier only
 - [`warmup`](/docs/middlewares/warmup): Used to pre-warm a lambda function
 
 ## Request Transformation

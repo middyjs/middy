@@ -1,4 +1,4 @@
-import { ok, strictEqual } from "node:assert/strict";
+import { ok, rejects, strictEqual } from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import {
@@ -764,6 +764,65 @@ describe("executionModeStreamifyResponse", () => {
 			strictEqual(e, pipelineErr);
 			strictEqual(e.cause, hookErr);
 		}
+	});
+
+	test("Should run requestEnd once and reject with the handler error when the handler throws in streamify mode", async (t) => {
+		const handlerErr = new Error("handler failed");
+		const requestEnd = t.mock.fn();
+		const handler = middy(
+			async () => {
+				throw handlerErr;
+			},
+			{ executionMode: executionModeStreamifyResponse, requestEnd },
+		);
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		await rejects(
+			() => handler(event, responseStream, context),
+			(e) => e === handlerErr,
+		);
+		strictEqual(requestEnd.mock.callCount(), 1);
+		strictEqual(handlerErr.cause, undefined);
+	});
+
+	test("Should run requestEnd once and reject with a before middleware error in streamify mode", async (t) => {
+		const middlewareErr = new Error("before failed");
+		const requestEnd = t.mock.fn();
+		const handler = middy(async () => "ok", {
+			executionMode: executionModeStreamifyResponse,
+			requestEnd,
+		}).before(() => {
+			throw middlewareErr;
+		});
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		await rejects(
+			() => handler(event, responseStream, context),
+			(e) => e === middlewareErr,
+		);
+		strictEqual(requestEnd.mock.callCount(), 1);
+	});
+
+	test("Should attach requestEnd error as cause when both handler and requestEnd throw in streamify mode", async (t) => {
+		const handlerErr = new Error("handler failed");
+		const hookErr = new Error("requestEnd failed");
+		const handler = middy(
+			async () => {
+				throw handlerErr;
+			},
+			{
+				executionMode: executionModeStreamifyResponse,
+				requestEnd: () => {
+					throw hookErr;
+				},
+			},
+		);
+
+		const { responseStream } = createResponseStreamMockAndCapture();
+		await rejects(
+			() => handler(event, responseStream, context),
+			(e) => e === handlerErr && e.cause === hookErr,
+		);
 	});
 
 	// L49 - invalid (non-stream, non-string) handler response must throw

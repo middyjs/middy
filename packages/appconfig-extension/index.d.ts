@@ -23,6 +23,7 @@ export interface AppConfigExtensionOptions {
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
 export type Context<TOptions extends AppConfigExtensionOptions | undefined> =
@@ -55,8 +56,13 @@ export type Internal<TOptions extends AppConfigExtensionOptions | undefined> =
 			: {}
 		: {};
 
-declare function appConfigExtension<TOptions extends AppConfigExtensionOptions>(
-	options?: TOptions,
+declare function appConfigExtension<
+	TOptions extends AppConfigExtensionOptions,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	any,

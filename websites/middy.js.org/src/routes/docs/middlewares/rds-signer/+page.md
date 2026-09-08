@@ -21,7 +21,8 @@ npm install --save-dev @aws-sdk/rds-signer
 - `fetchData` (object) (required): Mapping of internal key name to API request parameters.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can.
 - `cacheKey` (string) (default `rds-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. IAM auth tokens are valid for 15 minutes, so a token is refreshed 14 minutes after issue regardless of a longer setting.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['rds-signer']`.
 - `contextKey` (string) (default `rds-signer`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 

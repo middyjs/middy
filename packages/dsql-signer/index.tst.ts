@@ -18,7 +18,6 @@ const options = {
 			accessKeyId: "key",
 		},
 	},
-	awsClientAssumeRole: "some-role",
 	fetchData: {
 		foo: {
 			hostname: "cluster.dsql.ca-central-1.on.aws",
@@ -76,5 +75,29 @@ test("use with setToContext: false", () => {
 		.before(async (request) => {
 			const data = await getInternal("foo", request);
 			expect(data.foo).type.toBe<string>();
+		});
+});
+
+test("rejects options the middleware does not honour", () => {
+	expect(dsqlSigner).type.not.toBeCallableWith({
+		awsClientAssumeRole: "some-role",
+	});
+	expect(dsqlSigner).type.not.toBeCallableWith({
+		awsClientCapture: (client: DsqlSigner) => client,
+	});
+	expect(dsqlSigner).type.not.toBeCallableWith({ cacheMaxSize: 10 });
+});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			dsqlSigner({
+				...options,
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.foo).type.toBe<string>();
 		});
 });

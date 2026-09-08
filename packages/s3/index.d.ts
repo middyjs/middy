@@ -9,25 +9,19 @@ import type middy from "@middy/core";
 import type { ContextNamespace, Options as MiddyOptions } from "@middy/util";
 import type { Context as LambdaContext } from "aws-lambda";
 
-export type GetObjectCommandInputNoChecksumMode = Omit<
-	GetObjectCommandInput,
-	"ChecksumMode"
-> & {
-	ChecksumMode?: never;
-};
-export type ParamType<T> = GetObjectCommandInputNoChecksumMode & {
+// GetObject accepts `ChecksumMode: "ENABLED"`, which the option schema also
+// allows, so the SDK input type is used as-is.
+export type ParamType<T> = GetObjectCommandInput & {
 	__returnType?: T;
 };
-export declare function s3Param<T>(
-	name: GetObjectCommandInputNoChecksumMode,
-): ParamType<T>;
+export declare function s3Param<T>(name: GetObjectCommandInput): ParamType<T>;
 
 export type S3Options<AwsS3Client = S3Client> = Omit<
 	MiddyOptions<AwsS3Client, S3ClientConfig>,
 	"fetchData"
 > & {
 	fetchData?: {
-		[key: string]: GetObjectCommandInputNoChecksumMode | ParamType<unknown>;
+		[key: string]: GetObjectCommandInput | ParamType<unknown>;
 	};
 };
 
@@ -58,8 +52,13 @@ export type Internal<TOptions extends S3Options | undefined> =
 			: {}
 		: {};
 
-declare function s3Middleware<TOptions extends S3Options | undefined>(
-	options?: TOptions,
+declare function s3Middleware<
+	TOptions extends S3Options | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

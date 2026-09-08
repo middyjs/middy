@@ -34,31 +34,63 @@ const queueArnFromUrl = (queueUrl) => {
 		const region = u.host.split(".")[1];
 		const [, accountId, queueName] = u.pathname.split("/");
 		if (!region || !accountId || !queueName) return undefined;
+		// Stryker disable BlockStatement: equivalent; an empty catch falls off the end of the function, which returns undefined just like the explicit return.
 		return `arn:aws:sqs:${region}:${accountId}:${queueName}`;
 	} catch {
 		return undefined;
 	}
 };
+// Stryker restore BlockStatement
 
 const regionFromUrl = (queueUrl) => {
 	try {
+		// Stryker disable BlockStatement: equivalent; an empty catch falls off the end of the function, which returns undefined just like the explicit return.
 		return new URL(queueUrl).host.split(".")[1];
 	} catch {
 		return undefined;
 	}
 };
+// Stryker restore BlockStatement
 
-const toLambdaRecord = (message, eventSourceARN, awsRegion) => ({
-	messageId: message.MessageId,
-	receiptHandle: message.ReceiptHandle,
-	body: message.Body ?? "",
-	attributes: message.Attributes ?? {},
-	messageAttributes: message.MessageAttributes ?? {},
-	md5OfBody: message.MD5OfBody,
-	eventSource: "aws:sqs",
-	eventSourceARN,
-	awsRegion,
-});
+// Lambda camel-cases message attributes and base64-encodes binaryValue. The
+// SQS API marks stringListValues/binaryListValues "Not implemented. Reserved
+// for future use.", yet the documented event carries them as empty arrays.
+// https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html
+// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_MessageAttributeValue.html
+const toLambdaMessageAttributes = (attributes) => {
+	const out = {};
+	for (const [name, attr] of Object.entries(attributes ?? {})) {
+		const entry = {};
+		if (attr.StringValue !== undefined) entry.stringValue = attr.StringValue;
+		if (attr.BinaryValue !== undefined) {
+			entry.binaryValue = Buffer.from(attr.BinaryValue).toString("base64");
+		}
+		entry.stringListValues = [];
+		entry.binaryListValues = [];
+		entry.dataType = attr.DataType;
+		out[name] = entry;
+	}
+	return out;
+};
+
+const toLambdaRecord = (message, eventSourceARN, awsRegion) => {
+	const record = {
+		messageId: message.MessageId,
+		receiptHandle: message.ReceiptHandle,
+		body: message.Body ?? "",
+		attributes: message.Attributes ?? {},
+		messageAttributes: toLambdaMessageAttributes(message.MessageAttributes),
+		md5OfBody: message.MD5OfBody,
+		eventSource: "aws:sqs",
+		eventSourceARN,
+		awsRegion,
+	};
+	// Only present when the message carries message attributes.
+	if (message.MD5OfMessageAttributes !== undefined) {
+		record.md5OfMessageAttributes = message.MD5OfMessageAttributes;
+	}
+	return record;
+};
 
 const chunk = (arr, size) => {
 	const out = [];
@@ -110,14 +142,22 @@ export const pollSqs = (opts) => {
 		},
 		async acknowledge(event, response) {
 			const failedIds = new Set(
+				// Stryker disable next-line ArrayDeclaration: equivalent; the placeholder entry has no itemIdentifier, and no SQS record carries an undefined messageId, so the filter below behaves as with an empty list.
 				(response?.batchItemFailures ?? []).map((f) => f.itemIdentifier),
 			);
 			const toDelete = (event.Records ?? []).filter(
 				(r) => !failedIds.has(r.messageId),
 			);
+			// Stryker disable next-line ConditionalExpression: equivalent; an empty toDelete produces no chunks, so the loop below sends nothing and raises nothing.
 			if (!toDelete.length) return;
+			// DeleteMessageBatch reports each entry as Successful or Failed. A
+			// Failed entry stays in the queue and redelivers after the visibility
+			// timeout, so it must not count as acknowledged: every chunk is still
+			// sent, then the failures are raised so the runner's onError sees them.
+			// https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessageBatch.html
+			const failed = [];
 			for (const group of chunk(toDelete, 10)) {
-				await client.send(
+				const res = await client.send(
 					new DeleteMessageBatchCommand({
 						QueueUrl: opts.queueUrl,
 						Entries: group.map((r, i) => ({
@@ -126,6 +166,21 @@ export const pollSqs = (opts) => {
 						})),
 					}),
 				);
+				for (const entry of res.Failed ?? []) {
+					const record = group[Number(entry.Id)];
+					failed.push({
+						messageId: record.messageId,
+						receiptHandle: record.receiptHandle,
+						code: entry.Code,
+						message: entry.Message,
+						senderFault: entry.SenderFault,
+					});
+				}
+			}
+			if (failed.length) {
+				throw new Error("DeleteMessageBatch reported failed entries", {
+					cause: { package: pkg, data: { failed } },
+				});
 			}
 		},
 	};

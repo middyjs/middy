@@ -11,6 +11,8 @@ node_modules/
 
 # Output of 'npm pack'
 *.tgz
+# Copied from the root by the release workflow before packing
+packages/*/LICENSE
 
 # dotenv environment variables file
 .env

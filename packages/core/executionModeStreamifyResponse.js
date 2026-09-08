@@ -17,30 +17,31 @@ export const executionModeStreamifyResponse = (
 		async (event, lambdaResponseStream, context) => {
 			const request = middyRequest(event, context);
 			plugin.requestStart(request);
-			const handlerResponse = await runRequest(
-				request,
-				beforeMiddlewares,
-				lambdaHandler,
-				afterMiddlewares,
-				onErrorMiddlewares,
-				plugin,
-			);
-			let responseStream = lambdaResponseStream;
-			let handlerBody = handlerResponse ?? "";
-			if (handlerResponse?.statusCode) {
-				const { body, ...restResponse } = handlerResponse;
-				handlerBody = body ?? ""; // #1137
-				responseStream = awslambda.HttpResponseStream.from(
-					responseStream,
-					restResponse,
-				);
-				responseStream.write("");
-			}
-
-			// See executionModeStandard for the .cause-chaining rationale.
+			// See executionModeStandard for the .cause-chaining rationale. The
+			// middleware/handler run and the stream write share one try so that
+			// requestEnd still runs when a middleware or the handler throws.
 			let handlerError;
 			let hasError = false;
 			try {
+				const handlerResponse = await runRequest(
+					request,
+					beforeMiddlewares,
+					lambdaHandler,
+					afterMiddlewares,
+					onErrorMiddlewares,
+					plugin,
+				);
+				let responseStream = lambdaResponseStream;
+				let handlerBody = handlerResponse ?? "";
+				if (handlerResponse?.statusCode) {
+					const { body, ...restResponse } = handlerResponse;
+					handlerBody = body ?? ""; // #1137
+					responseStream = awslambda.HttpResponseStream.from(
+						responseStream,
+						restResponse,
+					);
+					responseStream.write("");
+				}
 				if (typeof handlerBody === "string") {
 					await writeString(responseStream, handlerBody);
 				} else if (

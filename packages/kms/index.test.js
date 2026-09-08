@@ -244,6 +244,17 @@ const rejects = (options, mustMention) => {
 	}
 };
 
+test("kmsValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	kmsValidateOptions({ cacheMaxSize: 10 });
+	try {
+		kmsValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
+	}
+});
+
 test("kmsValidateOptions accepts a valid full option set", () => {
 	// Asserts every valid-shaped option passes; kills the `instanceof:''` /
 	// `type:''` string mutants which would make valid values throw.

@@ -1,6 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import {
+	HttpError,
 	jsonSafeParse,
 	normalizeHttpResponse,
 	validateOptions,
@@ -32,12 +33,23 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const { filteringKeyName } = options;
 
+	// A selector the middleware refuses is the client's mistake, so it answers
+	// 400 rather than quietly returning the whole body.
+	const badSelector = (reason) =>
+		new HttpError(400, { cause: { package: pkg, data: { reason } } });
+
 	const httpPartialResponseMiddlewareAfter = (request) => {
 		const fields = request.event?.queryStringParameters?.[filteringKeyName];
 		if (!fields) return;
 
+		// VPC Lattice V2 delivers query string values as arrays.
+		if (typeof fields !== "string") {
+			throw badSelector("Selector must be a string");
+		}
 		// Reject abusive selectors before they reach json-mask.
-		if (fields.length > maxFieldsLength) return;
+		if (fields.length > maxFieldsLength) {
+			throw badSelector(`Selector exceeds ${maxFieldsLength} characters`);
+		}
 		// 47 = '/', 40 = '('
 		let depth = 0;
 		// Stryker disable next-line EqualityOperator: equivalent. `i <= l` reads charCodeAt(l), which is NaN and never equals 47 or 40, so the depth is identical. Kept as an index loop on purpose: `for...of` over a string allocates a one-character string per iteration on a per-request path bounded by maxFieldsLength.
@@ -45,7 +57,9 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 			const code = fields.charCodeAt(i);
 			if (code === 47 || code === 40) depth += 1;
 		}
-		if (depth > maxFieldsDepth) return;
+		if (depth > maxFieldsDepth) {
+			throw badSelector(`Selector exceeds a depth of ${maxFieldsDepth}`);
+		}
 
 		const body = request.response?.body;
 		const bodyIsString = typeof body === "string";
@@ -57,7 +71,7 @@ const httpPartialResponseMiddleware = (opts = {}) => {
 		try {
 			filteredBody = mask(parsedBody, fields);
 		} catch {
-			return;
+			throw badSelector("Selector could not be applied");
 		}
 
 		normalizeHttpResponse(request);

@@ -1022,6 +1022,17 @@ test("ssmValidateOptions should accept valid options", () => {
 	});
 });
 
+test("ssmValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	ssmValidateOptions({ cacheMaxSize: 10 });
+	try {
+		ssmValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
+	}
+});
+
 test("ssmValidateOptions should accept empty options", () => {
 	ssmValidateOptions({});
 	ssmValidateOptions();
@@ -1347,4 +1358,94 @@ test("It should blank only the invalid parameter in the cache and keep its sibli
 	} finally {
 		clearCache();
 	}
+});
+
+test("It should retry client init after a rejected attempt", async (t) => {
+	mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.resolves({
+			Parameters: [{ Name: "/dev/service_name/key_name", Value: "key-value" }],
+		});
+
+	let constructed = 0;
+	class FlakySSMClient extends SSMClient {
+		constructor(...args) {
+			constructed++;
+			if (constructed === 1) throw new Error("init boom");
+			super(...args);
+		}
+	}
+
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: FlakySSMClient,
+				cacheExpiry: -1,
+				fetchData: {
+					key: "/dev/service_name/key_name",
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.key, "key-value");
+		});
+
+	// A rejected init must not be memoized for the life of the container.
+	await rejects(() => handler(event, context), /init boom/);
+	await handler(event, context);
+	strictEqual(constructed, 2);
+});
+
+// Drives `keyCount` named parameters through GetParameters and returns the
+// number of Names carried by each call, in order.
+const getParametersBatchSizes = async (keyCount, opts = {}) => {
+	const mockService = mockClient(SSMClient)
+		.on(GetParametersCommand)
+		.callsFake(async (input) => ({
+			Parameters: input.Names.map((Name) => ({ Name, Value: `value:${Name}` })),
+		}));
+	const fetchData = {};
+	for (let i = 0; i < keyCount; i++) {
+		fetchData[`key${i}`] = `/dev/batch/key${i}`;
+	}
+	const handler = middy(() => {})
+		.use(
+			ssm({
+				AwsClient: SSMClient,
+				cacheExpiry: 0,
+				fetchData,
+				disablePrefetch: true,
+				...opts,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			for (let i = 0; i < keyCount; i++) {
+				strictEqual(values[`key${i}`], `value:/dev/batch/key${i}`);
+			}
+		});
+	await handler(event, context);
+	return mockService
+		.commandCalls(GetParametersCommand)
+		.map((call) => call.args[0].input.Names.length);
+};
+
+test("It should send one name per GetParameters call when awsRequestLimit is 1", async (t) => {
+	deepStrictEqual(
+		await getParametersBatchSizes(3, { awsRequestLimit: 1 }),
+		[1, 1, 1],
+	);
+});
+
+test("It should split names into batches of awsRequestLimit with a shorter tail", async (t) => {
+	deepStrictEqual(
+		await getParametersBatchSizes(3, { awsRequestLimit: 2 }),
+		[2, 1],
+	);
+});
+
+test("It should batch 12 names as [10, 2] with the default awsRequestLimit", async (t) => {
+	deepStrictEqual(await getParametersBatchSizes(12), [10, 2]);
 });

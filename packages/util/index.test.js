@@ -7,6 +7,7 @@ import {
 	throws,
 } from "node:assert/strict";
 import { STATUS_CODES } from "node:http";
+import { Readable, Writable } from "node:stream";
 import { describe, test } from "node:test";
 import {
 	assignSetToContext,
@@ -17,9 +18,10 @@ import {
 	clearCache,
 	contextNamespace,
 	createClient,
+	createClientInit,
 	createPrefetchClient,
 	decodeBody,
-	executionContextKeys,
+	evictCacheOnFailure,
 	getCache,
 	getInternal,
 	HttpError,
@@ -35,6 +37,7 @@ import {
 	processCache,
 	resolveHttpEventVersion,
 	sanitizeKey,
+	setCacheKeyExpiry,
 	setContextNamespace,
 	validateOptions,
 } from "./index.js";
@@ -389,6 +392,56 @@ describe("getInternal", () => {
 		};
 		const values = await getInternal("object.key", syncRequest);
 		deepStrictEqual(values, nullObj({ object_key: undefined }));
+	});
+
+	test("getInternal should throw a TypeError when two keys sanitize to the same name (sync path)", async (t) => {
+		await rejects(
+			() => getInternal(["object.key", "object_key"], getInternalRequest),
+			{
+				name: "TypeError",
+				message:
+					'Keys "object.key", "object_key" sanitize to the same name "object_key"',
+				cause: {
+					package: "@middy/util",
+					data: { keys: ["object.key", "object_key"] },
+				},
+			},
+		);
+	});
+
+	test("getInternal should throw a TypeError when two keys sanitize to the same name (async path)", async (t) => {
+		await rejects(
+			() =>
+				getInternal(
+					["promiseObject.key", "promiseObject_key"],
+					getInternalRequest,
+				),
+			{
+				name: "TypeError",
+				cause: {
+					package: "@middy/util",
+					data: { keys: ["promiseObject.key", "promiseObject_key"] },
+				},
+			},
+		);
+	});
+
+	test("getInternal should throw a TypeError when two remapped names sanitize to the same name", async (t) => {
+		await rejects(
+			() => getInternal({ "a.b": "string", a_b: "number" }, getInternalRequest),
+			{
+				name: "TypeError",
+				cause: { package: "@middy/util", data: { keys: ["a.b", "a_b"] } },
+			},
+		);
+	});
+
+	test("getInternal should still remap distinct names that need sanitizing", async (t) => {
+		const values = await getInternal(
+			{ "a.b": "string", "c-d": "number" },
+			getInternalRequest,
+		);
+		deepStrictEqual(values, nullObj({ a_b: "string", c_d: 1 }));
 	});
 
 	test("getInternal(true) returns an empty object when request.internal is missing", async (t) => {
@@ -820,6 +873,41 @@ describe("processCache / clearCache", () => {
 		const cache = getCache("key-past-timestamp");
 		notStrictEqual(cache.value, undefined);
 		strictEqual(cache.refresh, undefined); // No refresh scheduled for past timestamp
+		clearCache();
+	});
+
+	test("processCache should not schedule a refresh when the unix timestamp expiry exceeds the setTimeout ceiling", async (t) => {
+		// setTimeout caps its delay at 2^31-1 ms (~24.8 days); a larger value
+		// emits TimeoutOverflowWarning and fires after 1 ms, which would refetch
+		// immediately. Such an entry must simply carry no refresh timer.
+		const fetchRequest = t.mock.fn(() => "value");
+		t.mock.timers.tick(86400001);
+		const options = {
+			cacheKey: "key-unix-beyond-timeout-ceiling",
+			cacheExpiry: Date.now() + 30 * 86400000, // 30 days > 2^31-1 ms
+		};
+		processCache(options, fetchRequest, cacheRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		strictEqual(getCache(options.cacheKey).refresh, undefined);
+		t.mock.timers.tick(1);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		t.mock.timers.tick(2 ** 31);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		clearCache();
+	});
+
+	test("processCache should schedule a refresh when the unix timestamp expiry equals the setTimeout ceiling", async (t) => {
+		const fetchRequest = t.mock.fn(() => "value");
+		t.mock.timers.tick(86400001);
+		const options = {
+			cacheKey: "key-unix-at-timeout-ceiling",
+			cacheExpiry: Date.now() + 2147483647,
+		};
+		processCache(options, fetchRequest, cacheRequest);
+		strictEqual(fetchRequest.mock.callCount(), 1);
+		notStrictEqual(getCache(options.cacheKey).refresh, undefined);
+		t.mock.timers.tick(2147483647);
+		strictEqual(fetchRequest.mock.callCount(), 2);
 		clearCache();
 	});
 
@@ -1792,6 +1880,42 @@ describe("buildSetToContextSpec", () => {
 			],
 		});
 	});
+	test("throws a TypeError when two fetchData keys sanitize to the same name", () => {
+		// `a.b`, `a_b` and `a-b` all sanitize to `a_b`; silently keeping the last
+		// one would drop two fetched values.
+		throws(
+			() =>
+				buildSetToContextSpec({
+					setToContext: true,
+					contextKey: "ssm",
+					fetchData: { "a.b": "x", ok: "w", a_b: "y", "a-b": "z" },
+				}),
+			{
+				name: "TypeError",
+				message: 'Keys "a.b", "a_b", "a-b" sanitize to the same name "a_b"',
+				cause: {
+					package: "@middy/util",
+					data: { keys: ["a.b", "a_b", "a-b"] },
+				},
+			},
+		);
+	});
+	test("throws at construction for a sanitized collision even when setToContext is false", () => {
+		// With setToContext off the values still land in request.internal, where
+		// getInternal would throw on every invocation instead of once here.
+		throws(
+			() =>
+				buildSetToContextSpec({
+					setToContext: false,
+					fetchData: { "a.b": 1, a_b: 2 },
+				}),
+			{
+				name: "TypeError",
+				message: 'Keys "a.b", "a_b" sanitize to the same name "a_b"',
+				cause: { package: "@middy/util", data: { keys: ["a.b", "a_b"] } },
+			},
+		);
+	});
 });
 
 const contextSpec = (contextKey, pairs) => ({ contextKey, pairs });
@@ -2103,7 +2227,7 @@ describe("jsonContentTypePattern", () => {
 	});
 });
 
-// lambdaContextKeys / executionContextKeys: pin the exact key strings.
+// lambdaContextKeys: pin the exact key strings.
 describe("context key tables", () => {
 	test("lambdaContextKeys lists the documented Lambda context keys", () => {
 		deepStrictEqual(lambdaContextKeys, [
@@ -2116,10 +2240,8 @@ describe("context key tables", () => {
 			"logStreamName",
 			"identity",
 			"clientContext",
+			"tenantId",
 		]);
-	});
-	test("executionContextKeys lists the execution context keys", () => {
-		deepStrictEqual(executionContextKeys, ["tenantId"]);
 	});
 });
 
@@ -2169,15 +2291,19 @@ describe("buildPathTree / omit", () => {
 		});
 	});
 	test("skips prototype-polluting paths", () => {
-		deepStrictEqual(
-			buildPathTree(["__proto__.x", "constructor.y", "a.prototype"]),
-			{},
-		);
+		const tree = buildPathTree(["__proto__.x", "constructor.y", "a.prototype"]);
+		deepStrictEqual(tree, {});
 		// `tree.__proto__ ??= {}` would leave the tree empty while writing the
 		// leaf straight onto Object.prototype, so an empty tree is not on its own
 		// proof the guard held.
 		strictEqual({}.x, undefined);
 		strictEqual(Object.prototype.y, undefined);
+		// Nor is `tree.__proto__ = {}`: that swaps the tree's prototype for a
+		// fresh object carrying `x`, which the walk then reads as a configured
+		// top-level leaf and drops from every payload.
+		strictEqual(Object.getPrototypeOf(tree), Object.prototype);
+		const obj = { x: 1, y: 2 };
+		strictEqual(omit(obj, tree), obj);
 	});
 	test("a leaf path overrides a longer path on the same branch", () => {
 		const tree = buildPathTree(["a.b.c", "a.b"]);
@@ -2329,18 +2455,27 @@ describe("omit mechanics", () => {
 		deepStrictEqual(b, { secret: "sb", keep: "kb" });
 	});
 
-	test("does not treat primitives or class instances as records", () => {
+	test("does not treat primitives as records", () => {
+		const obj = { prim: 42, str: "s", fn: () => {} };
+		strictEqual(
+			omit(obj, buildPathTree(["prim.secret", "str.secret", "fn.secret"])),
+			obj,
+		);
+	});
+
+	test("walks a class instance through a copy of its own properties", () => {
 		class Custom {
 			constructor() {
 				this.secret = "keep";
+				this.other = 1;
 			}
+			method() {}
 		}
 		const inst = new Custom();
-		const obj = { prim: 42, inst };
-		const out = omit(obj, buildPathTree(["prim.secret", "inst.secret"]));
-		strictEqual(out.prim, 42);
-		strictEqual(out.inst, inst);
-		strictEqual(out.inst.secret, "keep");
+		const out = omit({ inst }, buildPathTree(["inst.secret"]));
+		deepStrictEqual(out.inst, { other: 1 });
+		strictEqual(Object.getPrototypeOf(out.inst), Object.prototype);
+		strictEqual(inst.secret, "keep");
 	});
 
 	// A literal own `constructor` key still equal to Object keeps the payload a
@@ -2576,4 +2711,688 @@ test("processCache should silence rejections from a modified re-fetch", async (t
 		process.off("unhandledRejection", onUnhandled);
 		clearCache();
 	}
+});
+
+describe("createClientInit", () => {
+	test("memoizes a successful client init across calls", async () => {
+		let calls = 0;
+		class FakeClient {
+			constructor(opts) {
+				calls += 1;
+				this.opts = opts;
+			}
+		}
+		const initClient = createClientInit({
+			AwsClient: FakeClient,
+			awsClientOptions: {},
+		});
+		const request = { internal: {} };
+		const a = await initClient(request);
+		const b = await initClient(request);
+		strictEqual(a, b);
+		strictEqual(calls, 1);
+	});
+
+	test("ignores the request when no role is assumed", async () => {
+		let calls = 0;
+		const initClient = createClientInit({
+			AwsClient: class {
+				constructor() {
+					calls += 1;
+				}
+			},
+			awsClientOptions: {},
+		});
+		// Nothing is keyed on `request.internal`: a request without one is fine
+		// and a different one on the next call does not rebuild the client.
+		const a = await initClient({});
+		const b = await initClient({ internal: { role: Promise.resolve({}) } });
+		strictEqual(a, b);
+		strictEqual(calls, 1);
+	});
+
+	test("forgets a rejected init so the next call retries", async () => {
+		let calls = 0;
+		const initClient = createClientInit({
+			AwsClient: class {
+				constructor() {
+					calls += 1;
+					if (calls === 1) throw new Error("boom");
+				}
+			},
+			awsClientOptions: {},
+		});
+		await rejects(initClient({ internal: {} }), /boom/);
+		await initClient({ internal: {} });
+		strictEqual(calls, 2);
+	});
+
+	test("rebuilds the client when the assumed-role credentials are refetched", async () => {
+		let calls = 0;
+		class FakeClient {
+			constructor(opts) {
+				calls += 1;
+				this.opts = opts;
+			}
+		}
+		const initClient = createClientInit({
+			AwsClient: FakeClient,
+			awsClientOptions: {},
+			awsClientAssumeRole: "role",
+		});
+		const credentials = Promise.resolve({ accessKeyId: "a" });
+		const a = await initClient({ internal: { role: credentials } });
+		// A later invocation carries the same cached credential promise.
+		strictEqual(await initClient({ internal: { role: credentials } }), a);
+		strictEqual(calls, 1);
+		deepStrictEqual(a.opts.credentials, { accessKeyId: "a" });
+		// sts refetched: its cache entry now holds a new promise object.
+		const refreshed = Promise.resolve({ accessKeyId: "b" });
+		const b = await initClient({ internal: { role: refreshed } });
+		notStrictEqual(b, a);
+		strictEqual(calls, 2);
+		deepStrictEqual(b.opts.credentials, { accessKeyId: "b" });
+		strictEqual(await initClient({ internal: { role: refreshed } }), b);
+		strictEqual(calls, 2);
+	});
+
+	test("forgets a rejected assumed-role init so the same credentials retry", async () => {
+		let calls = 0;
+		const initClient = createClientInit({
+			AwsClient: class {
+				constructor() {
+					calls += 1;
+					if (calls === 1) throw new Error("boom");
+				}
+			},
+			awsClientOptions: {},
+			awsClientAssumeRole: "role",
+		});
+		const request = { internal: { role: Promise.resolve({}) } };
+		await rejects(initClient(request), /boom/);
+		await initClient(request);
+		strictEqual(calls, 2);
+	});
+
+	test("rejects with the packaged error when assuming a role without a request", async () => {
+		const initClient = createClientInit({
+			AwsClient: class {},
+			awsClientOptions: {},
+			awsClientAssumeRole: "role",
+		});
+		await rejects(initClient(), {
+			message: "Request required when assuming role",
+			cause: { package: "@middy/util" },
+		});
+	});
+});
+
+describe("evictCacheOnFailure", () => {
+	test("marks the failed key undefined, flags the entry modified, and rethrows", async () => {
+		const options = { cacheKey: "evict-on-failure", cacheExpiry: -1 };
+		let attempt = 0;
+		const fetch = () => {
+			attempt += 1;
+			return {
+				a:
+					attempt === 1
+						? Promise.reject(new Error("fetch failed")).catch(
+								evictCacheOnFailure(options.cacheKey, "a"),
+							)
+						: Promise.resolve("ok"),
+				b: Promise.resolve("b"),
+			};
+		};
+		const first = processCache(options, fetch, { internal: {} });
+		await rejects(first.value.a, /fetch failed/);
+		strictEqual(getCache(options.cacheKey).modified, true);
+		strictEqual(getCache(options.cacheKey).value.a, undefined);
+		const second = processCache(options, fetch, { internal: {} });
+		strictEqual(await second.value.a, "ok");
+		strictEqual(await second.value.b, "b");
+		strictEqual(attempt, 2);
+		clearCache(options.cacheKey);
+	});
+
+	test("is a no-op when nothing is cached", async () => {
+		await rejects(
+			Promise.reject(new Error("x")).catch(
+				evictCacheOnFailure("missing-key", "a"),
+			),
+			/x/,
+		);
+	});
+});
+
+describe("setCacheKeyExpiry", () => {
+	const now = 1_700_000_000_000;
+
+	test("records the learned expiry apart from the user-facing cacheKeyExpiry", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "k", cacheExpiry: -1, cacheKeyExpiry: {} };
+		setCacheKeyExpiry(options, now + 5_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 5_000);
+		deepStrictEqual(options.cacheKeyExpiry, {});
+	});
+
+	test("creates cacheLearnedExpiry when the middleware did not", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "k", cacheExpiry: -1 };
+		setCacheKeyExpiry(options, now + 5_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 5_000);
+		strictEqual(options.cacheKeyExpiry, undefined);
+	});
+
+	test("floors a fractional expiry to whole milliseconds", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "k", cacheExpiry: -1 };
+		setCacheKeyExpiry(options, now + 5_000.75);
+		strictEqual(options.cacheLearnedExpiry.k, now + 5_000);
+	});
+
+	test("keeps the earliest learned expiry within a cycle and ignores a stale one", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "k",
+			cacheExpiry: -1,
+			cacheLearnedExpiry: { k: now - 100_000 },
+		};
+		setCacheKeyExpiry(options, now + 9_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 9_000);
+		setCacheKeyExpiry(options, now + 4_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 4_000);
+		setCacheKeyExpiry(options, now + 8_000);
+		strictEqual(options.cacheLearnedExpiry.k, now + 4_000);
+	});
+
+	test("clears a stale learned expiry when the fetched value carries none", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "k",
+			cacheExpiry: -1,
+			cacheLearnedExpiry: { k: now - 100_000 },
+		};
+		setCacheKeyExpiry(options, Number.POSITIVE_INFINITY);
+		strictEqual(options.cacheLearnedExpiry.k, undefined);
+	});
+
+	test("keeps a fresh learned expiry when a later key in the cycle carries none", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "k", cacheExpiry: -1 };
+		setCacheKeyExpiry(options, now + 5_000);
+		setCacheKeyExpiry(options, Number.POSITIVE_INFINITY);
+		strictEqual(options.cacheLearnedExpiry.k, now + 5_000);
+	});
+
+	// A duration, a disabled/infinite marker, NaN or a negative number is not an
+	// absolute expiry; treating it as one would either disable caching or pin
+	// the entry to 1970. It carries no information, so it neither replaces a
+	// fresh learned expiry nor keeps a stale one alive.
+	test("ignores a value that is not a unix timestamp", (t) => {
+		t.mock.timers.setTime(now);
+		for (const value of [
+			Number.NaN,
+			Number.NEGATIVE_INFINITY,
+			-1,
+			0,
+			50,
+			3_600_000,
+			86_400_000,
+			undefined,
+			null,
+			"soon",
+		]) {
+			const options = {
+				cacheKey: "k",
+				cacheExpiry: -1,
+				cacheLearnedExpiry: { k: now - 100_000 },
+			};
+			setCacheKeyExpiry(options, value);
+			strictEqual(options.cacheLearnedExpiry.k, undefined, String(value));
+			setCacheKeyExpiry(options, now + 5_000);
+			setCacheKeyExpiry(options, value);
+			strictEqual(options.cacheLearnedExpiry.k, now + 5_000, String(value));
+		}
+	});
+
+	test("processCache expires an infinite cache at the expiry learned after the entry was stored", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-inf", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		// A real fetch learns the expiry once its promise resolves, after the
+		// entry is stored with the configured (infinite) lifetime.
+		setCacheKeyExpiry(options, now + 5_000);
+		t.mock.timers.tick(4_999);
+		processCache(options, fetch);
+		strictEqual(fetches, 1);
+		t.mock.timers.tick(1);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache never caches a key the user disabled, whatever was learned", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "k",
+			cacheExpiry: -1,
+			cacheKeyExpiry: { k: 0 },
+		};
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, now + 5_000);
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		deepStrictEqual(getCache("k"), {});
+		deepStrictEqual(options.cacheKeyExpiry, { k: 0 });
+	});
+
+	test("processCache keeps a user duration that is shorter than the learned expiry", (t) => {
+		for (const options of [
+			{ cacheKey: "learned-dur", cacheExpiry: 50 },
+			{
+				cacheKey: "learned-dur-key",
+				cacheExpiry: -1,
+				cacheKeyExpiry: { "learned-dur-key": 50 },
+			},
+		]) {
+			t.mock.timers.setTime(now);
+			const configured = structuredClone(options.cacheKeyExpiry);
+			let fetches = 0;
+			const fetch = () => {
+				fetches += 1;
+				setCacheKeyExpiry(options, Date.now() + 14 * 60_000);
+				return { a: fetches };
+			};
+			processCache(options, fetch);
+			strictEqual(getCache(options.cacheKey).expiry, now + 50);
+			t.mock.timers.tick(49);
+			processCache(options, fetch);
+			strictEqual(fetches, 1);
+			// The refresh timer fires at the configured duration, not at the clamp.
+			t.mock.timers.tick(1);
+			strictEqual(fetches, 2);
+			deepStrictEqual(options.cacheKeyExpiry, configured);
+			clearCache(options.cacheKey);
+		}
+	});
+
+	test("processCache honours a per-key -1 and expires it at the learned expiry", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "learned-key-inf",
+			cacheExpiry: 100,
+			cacheKeyExpiry: { "learned-key-inf": -1 },
+		};
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, Date.now() + 5_000);
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		strictEqual(getCache(options.cacheKey).expiry, now + 5_000);
+		t.mock.timers.tick(4_999);
+		processCache(options, fetch);
+		strictEqual(fetches, 1);
+		t.mock.timers.tick(1);
+		strictEqual(fetches, 2);
+		deepStrictEqual(options.cacheKeyExpiry, { "learned-key-inf": -1 });
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache caps a unix-timestamp cacheExpiry by the learned expiry and never extends it", (t) => {
+		t.mock.timers.setTime(now);
+		const later = { cacheKey: "learned-ts-later", cacheExpiry: now + 60_000 };
+		processCache(later, () => {
+			setCacheKeyExpiry(later, now + 90_000);
+			return { a: 1 };
+		});
+		strictEqual(getCache(later.cacheKey).expiry, now + 60_000);
+		clearCache(later.cacheKey);
+
+		const sooner = { cacheKey: "learned-ts-sooner", cacheExpiry: now + 60_000 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(sooner, Date.now() + 30_000);
+			return { a: fetches };
+		};
+		processCache(sooner, fetch);
+		strictEqual(getCache(sooner.cacheKey).expiry, now + 30_000);
+		t.mock.timers.tick(29_999);
+		processCache(sooner, fetch);
+		strictEqual(fetches, 1);
+		t.mock.timers.tick(1);
+		strictEqual(fetches, 2);
+		clearCache(sooner.cacheKey);
+	});
+
+	test("processCache shares one fetch across callers in the tick after the learned expiry passes", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-stale", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		setCacheKeyExpiry(options, now + 5_000);
+		t.mock.timers.tick(6_000);
+		processCache(options, fetch);
+		processCache(options, fetch);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		// The stale clamp is dropped rather than pinning the new entry to the past.
+		strictEqual(getCache(options.cacheKey).expiry, Number.POSITIVE_INFINITY);
+		strictEqual(options.cacheLearnedExpiry[options.cacheKey], undefined);
+		clearCache(options.cacheKey);
+	});
+
+	// An entry is unexpired only while its expiry is strictly ahead of the
+	// clock, so an expiry learned for this very millisecond is already past:
+	// applied, it would pin the entry to now and every caller in the tick
+	// would refetch.
+	test("processCache drops an expiry learned on the miss that is already due", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-due", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, Date.now());
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		processCache(options, fetch);
+		strictEqual(fetches, 1);
+		strictEqual(getCache(options.cacheKey).expiry, Number.POSITIVE_INFINITY);
+		strictEqual(options.cacheLearnedExpiry[options.cacheKey], undefined);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache schedules a refresh from the expiry learned on the first miss after the clamp passes", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-refresh", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			// The first cycle learns after the entry is stored (as a fetch does
+			// once its promise resolves); the refetch learns synchronously so the
+			// miss can fold the new expiry into the entry it stores.
+			if (fetches > 1) setCacheKeyExpiry(options, Date.now() + 5_000);
+			return { a: fetches };
+		};
+		processCache(options, fetch);
+		setCacheKeyExpiry(options, now + 5_000);
+		strictEqual(getCache(options.cacheKey).refresh, undefined);
+		t.mock.timers.tick(6_000);
+		strictEqual(fetches, 1);
+		processCache(options, fetch);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		const entry = getCache(options.cacheKey);
+		strictEqual(entry.expiry, now + 11_000);
+		notStrictEqual(entry.refresh, undefined);
+		t.mock.timers.tick(5_000);
+		strictEqual(fetches, 3);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache expires at the earliest expiry learned across the keys of one cycle", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-multi", cacheExpiry: -1 };
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, Date.now() + 9_000);
+			setCacheKeyExpiry(options, Date.now() + 4_000);
+			setCacheKeyExpiry(options, Date.now() + 8_000);
+			return { a: 1, b: 2, c: 3 };
+		};
+		processCache(options, fetch);
+		strictEqual(getCache(options.cacheKey).expiry, now + 4_000);
+		t.mock.timers.tick(3_999);
+		processCache(options, fetch);
+		strictEqual(fetches, 1);
+		t.mock.timers.tick(1);
+		strictEqual(fetches, 2);
+		strictEqual(getCache(options.cacheKey).expiry, now + 8_000);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache re-fetch of a modified entry keeps the learned expiry", (t) => {
+		t.mock.timers.setTime(now);
+		const options = { cacheKey: "learned-modified", cacheExpiry: -1 };
+		processCache(options, () => ({ a: 1, b: undefined }));
+		setCacheKeyExpiry(options, now + 5_000);
+		modifyCache(options.cacheKey, { a: 1, b: undefined });
+		let refetches = 0;
+		const entry = processCache(options, () => {
+			refetches += 1;
+			return { b: 2 };
+		});
+		strictEqual(entry.expiry, now + 5_000);
+		notStrictEqual(entry.refresh, undefined);
+		deepStrictEqual(entry.value, { a: 1, b: 2 });
+		t.mock.timers.tick(5_000);
+		strictEqual(refetches, 2);
+		clearCache(options.cacheKey);
+	});
+
+	test("processCache refetches once the clamped expiry passes", (t) => {
+		t.mock.timers.setTime(now);
+		const options = {
+			cacheKey: "clamped",
+			cacheExpiry: -1,
+			cacheKeyExpiry: {},
+		};
+		let fetches = 0;
+		const fetch = () => {
+			fetches += 1;
+			setCacheKeyExpiry(options, Date.now() + 5_000);
+			return { a: Promise.resolve(fetches) };
+		};
+		processCache(options, fetch);
+		processCache(options, fetch);
+		strictEqual(fetches, 1);
+		t.mock.timers.tick(6_000);
+		processCache(options, fetch);
+		strictEqual(fetches, 2);
+		deepStrictEqual(options.cacheKeyExpiry, {});
+		clearCache(options.cacheKey);
+	});
+});
+
+// Redaction must not be defeated by keys that collide with Object.prototype,
+// whether they arrive in the payload or in the configured path.
+describe("buildPathTree / omit prototype hardening", () => {
+	// jsonParseProtectProto lets a string `constructor` through, so a body can
+	// legitimately carry one; deciding plain-ness by `value.constructor` would
+	// then skip the object and leak everything under it.
+	test("redacts under a plain object carrying an own constructor key", () => {
+		const obj = { event: { body: { constructor: "x", password: "s3cret" } } };
+		deepStrictEqual(omit(obj, buildPathTree(["event.body.password"])), {
+			event: { body: { constructor: "x" } },
+		});
+	});
+
+	test("walks a class instance when a path reaches into it", () => {
+		class Widget {
+			constructor() {
+				this.password = "keep";
+				this.name = "w";
+			}
+		}
+		const widget = new Widget();
+		const out = omit({ widget }, buildPathTree(["widget.password"]), "***");
+		deepStrictEqual(out.widget, { password: "***", name: "w" });
+		strictEqual(widget.password, "keep");
+	});
+
+	test("returns a class instance untouched when nothing under it matches", () => {
+		class Widget {
+			constructor() {
+				this.name = "w";
+			}
+		}
+		const widget = new Widget();
+		const out = omit(
+			{ widget },
+			buildPathTree(["widget.password", "widget.nested.secret"]),
+		);
+		strictEqual(out.widget, widget);
+	});
+
+	test("never reads prototype members of a class instance", () => {
+		class Widget {
+			get secret() {
+				throw new Error("prototype getter read");
+			}
+		}
+		const widget = new Widget();
+		const out = omit({ widget }, buildPathTree(["widget.secret.inner"]));
+		strictEqual(out.widget, widget);
+	});
+
+	// The durable execution SDK hands the handler a class instance as
+	// `context`; core still seeds `middyContext` on it as an own property, so
+	// the secrets middleware publish there must stay reachable by path.
+	test("redacts under a class-instance context such as the durable execution context", () => {
+		class DurableContext {
+			constructor() {
+				this.awsRequestId = "id";
+				this.middyContext = Object.create(null);
+				this.middyContext.ssm = { secret: "s3cret", other: "x" };
+			}
+			step() {}
+		}
+		const context = new DurableContext();
+		const request = { event: {}, context, internal: {} };
+		const out = omit(
+			request,
+			buildPathTree(["context.middyContext.ssm.secret"]),
+			"***",
+		);
+		strictEqual(out.context.middyContext.ssm.secret, "***");
+		strictEqual(out.context.middyContext.ssm.other, "x");
+		strictEqual(out.context.awsRequestId, "id");
+		strictEqual(out.event, request.event);
+		strictEqual(request.context, context);
+		strictEqual(context.middyContext.ssm.secret, "s3cret");
+	});
+
+	test("keeps built-ins closed even when a path names one of their own properties", () => {
+		const values = {
+			date: new Date(0),
+			map: new Map([["secret", 1]]),
+			set: new Set([1]),
+			weakMap: new WeakMap(),
+			weakSet: new WeakSet(),
+			buffer: Buffer.from("secret"),
+			arrayBuffer: new ArrayBuffer(1),
+			regexp: /x/g,
+			promise: Promise.resolve(),
+			stream: new Readable({ read() {} }),
+			writable: new Writable({ write() {} }),
+			webStream: new ReadableStream(),
+			webWritable: new WritableStream(),
+		};
+		const tree = buildPathTree(
+			Object.keys(values).flatMap((key) => [
+				`${key}.secret`,
+				`${key}.0`,
+				`${key}.lastIndex`,
+				`${key}._readableState`,
+				`${key}._writableState`,
+			]),
+		);
+		strictEqual(omit(values, tree), values);
+		strictEqual(omit(values, tree, "***"), values);
+	});
+
+	// A property attached to a built-in (`map.meta = ...`) is not data to
+	// redact either: a spread copy would drop the entries, the time value or
+	// the bytes that make the value what it is, so the whole value stays a leaf.
+	test("keeps a built-in as a leaf when a path names a property attached to it", () => {
+		const values = {
+			date: new Date(0),
+			regexp: /x/g,
+			map: new Map([["k", 1]]),
+			set: new Set([1]),
+			weakMap: new WeakMap(),
+			weakSet: new WeakSet(),
+			arrayBuffer: new ArrayBuffer(1),
+		};
+		for (const value of Object.values(values)) value.secret = "s";
+		const tree = buildPathTree(
+			Object.keys(values).map((key) => `${key}.secret`),
+		);
+		strictEqual(omit(values, tree), values);
+		strictEqual(omit(values, tree, "***"), values);
+		for (const value of Object.values(values)) strictEqual(value.secret, "s");
+	});
+
+	// A thenable is a pending value like a promise, not data: a query builder
+	// or deferred carries its state (connection settings included) in own
+	// properties, and a spread copy of it would be neither awaitable nor safe.
+	test("treats a thenable instance as a leaf like a promise", async () => {
+		class Deferred {
+			constructor() {
+				this.secret = "s";
+			}
+			// biome-ignore lint/suspicious/noThenProperty: a thenable is the point
+			then(resolve) {
+				resolve(this.secret);
+			}
+		}
+		const pending = new Deferred();
+		const tree = buildPathTree(["pending.secret"]);
+		strictEqual(omit({ pending }, tree).pending, pending);
+		strictEqual(omit({ pending }, tree, "***").pending, pending);
+		strictEqual(await pending, "s");
+	});
+
+	// A plain or null-prototype object is walked in place, so an own accessor
+	// off the configured paths (a lazily parsed body, the Lambda context's
+	// `callbackWaitsForEmptyEventLoop`) is never read when nothing matches.
+	test("reads only the configured keys of a plain or null-prototype object", () => {
+		for (const proto of [Object.prototype, null]) {
+			let reads = 0;
+			const obj = Object.create(proto, {
+				lazy: {
+					get() {
+						reads += 1;
+						return "x";
+					},
+					enumerable: true,
+				},
+				a: { value: { b: 1 }, enumerable: true },
+			});
+			strictEqual(omit(obj, buildPathTree(["absent", "a.absent"])), obj);
+			strictEqual(reads, 0);
+		}
+	});
+
+	test("returns null and undefined values untouched", () => {
+		const obj = { a: null, b: undefined };
+		strictEqual(omit(obj, buildPathTree(["a.x", "b.x"])), obj);
+	});
+
+	// `node[seg] ??= {}` resolves an inherited member, so the leaf would be
+	// written onto the shared `Object.prototype.toString` function.
+	test("does not walk into Object.prototype members via an intermediate segment", () => {
+		const tree = buildPathTree(["event.toString.secret"]);
+		strictEqual(Object.prototype.toString.secret, undefined);
+		ok(Object.hasOwn(tree.event, "toString"));
+		deepStrictEqual(tree, { event: { toString: { secret: true } } });
+	});
 });

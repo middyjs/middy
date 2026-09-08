@@ -50,6 +50,7 @@ const defaults = {
 	setToContext: false,
 	cacheExpiry: undefined,
 	cooldownDuration: undefined,
+	jwksTimeoutMs: 5000,
 	disablePrefetch: false,
 };
 
@@ -96,6 +97,7 @@ const optionSchema = {
 		setToContext: { type: "boolean" },
 		cacheExpiry: { type: "number", minimum: 0 },
 		cooldownDuration: { type: "number", minimum: 0 },
+		jwksTimeoutMs: { type: "integer", minimum: 1 },
 		disablePrefetch: { type: "boolean" },
 	},
 	additionalProperties: false,
@@ -104,13 +106,20 @@ const optionSchema = {
 export const httpJwtValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+// `name=value` entry of `event.cookies`. The header is searched first, so an
+// event that somehow carries both keeps its header semantics.
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
 	const cookieHeader = headers?.cookie ?? headers?.Cookie;
-	if (!cookieHeader) return undefined;
-	const match = cookieHeader
-		.split(";")
-		.find((c) => c.trim().startsWith(`${cookieName}=`));
+	// Stryker disable next-line ArrayDeclaration: equivalent; the lookup below only selects an entry starting with `<cookieName>=`, and a seed string with no "=" can never match, so neither the found cookie nor the miss changes.
+	const candidates = cookieHeader ? cookieHeader.split(";") : [];
+	if (Array.isArray(event?.cookies)) {
+		for (const cookie of event.cookies) {
+			if (typeof cookie === "string") candidates.push(cookie);
+		}
+	}
+	const match = candidates.find((c) => c.trim().startsWith(`${cookieName}=`));
 	if (!match) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value
@@ -168,41 +177,92 @@ const assertValidAlgs = (algs, where) => {
 	}
 };
 
+// A JWKS is a handful of public keys. RFC 7517 puts no bound on the document,
+// but 1 MiB is far beyond any real keyset and small enough that a wrong URI
+// cannot buffer a download into an out-of-memory.
+const MAX_JWKS_BYTES = 1_048_576;
+
+// Counted as it streams so the cap holds without a Content-Length header, and
+// so an oversized body is dropped as soon as it crosses the line.
+const readJwksDocument = async (res) => {
+	// A 2xx with no body (a 204, say) is not a keyset.
+	if (!res.body) {
+		throw new Error("JWKS response has no body");
+	}
+	const chunks = [];
+	let total = 0;
+	for await (const chunk of res.body) {
+		total += chunk.byteLength;
+		if (total > MAX_JWKS_BYTES) {
+			throw new Error(`JWKS document exceeds ${MAX_JWKS_BYTES} bytes`);
+		}
+		chunks.push(chunk);
+	}
+	return JSON.parse(Buffer.concat(chunks, total).toString("utf8"));
+};
+
+// RFC 7517 §4.2 and §4.3: a key published for encryption, or whose permitted
+// operations leave out `verify`, must not verify a signature however well its
+// `kid` and `alg` line up.
+const canVerify = (jwk) =>
+	(jwk.use === undefined || jwk.use === "sig") &&
+	(jwk.key_ops === undefined ||
+		(Array.isArray(jwk.key_ops) && jwk.key_ops.includes("verify")));
+
+const findJwk = (doc, kid) =>
+	doc.keys.find((jwk) => jwk.kid === kid && canVerify(jwk));
+
 // Minimal JWKS resolver. Owns its own cache so we can read the raw JWK
 // (including `alg`) before converting to a key.
 const createJwksResolver = (uri, options = {}) => {
 	// Stryker disable next-line LogicalOperator: `?? 600_000` -> `&& 600_000` only differs when cacheMaxAge is undefined (default), yielding `undefined` so the staleness check (`> undefined` -> always false) never expires the cache. The sole observable difference is whether a cached doc is refetched AFTER 600s of cache life, which no bounded test can reach without process-global time mocking (unsafe under node:test concurrency).
 	const cacheMaxAge = options.cacheMaxAge ?? 600_000;
 	const cooldownDuration = options.cooldownDuration ?? 30_000;
+	// `{ ...defaults, ...opts }` lets an explicit `jwksTimeoutMs: undefined`
+	// through, and `AbortSignal.timeout(undefined)` throws on every fetch.
+	const timeoutMs = options.timeoutMs ?? defaults.jwksTimeoutMs;
 	let cache = null;
 	let cacheTime = 0;
 	let lastFetchTime = Number.NEGATIVE_INFINITY;
+	let lastError = null;
 	let inflight = null;
 
 	const fetchJwks = () => {
 		if (inflight) return inflight;
 		const now = Date.now();
 		// Stryker disable next-line EqualityOperator: equivalent. `<` and `<=` differ only at the exact millisecond the cooldown elapses, and reaching that instant deterministically is not something a test can arrange; either way the next call refetches.
-		if (cache && now - lastFetchTime < cooldownDuration) {
-			return Promise.resolve(cache);
+		if (now - lastFetchTime < cooldownDuration) {
+			// The last fetch has settled (inflight is null), so exactly one of
+			// these is set. With nothing cached, every request inside the cooldown
+			// would otherwise pay the full fetch (up to timeoutMs) against an IdP
+			// that just failed; it gets that failure at once instead.
+			return cache ? Promise.resolve(cache) : Promise.reject(lastError);
 		}
 		lastFetchTime = now;
 		inflight = (async () => {
+			let doc;
 			try {
-				const res = await fetch(uri);
+				// Without a deadline a stalled IdP would hold every request that
+				// misses the cache until Lambda itself times out.
+				const res = await fetch(uri, {
+					signal: AbortSignal.timeout(timeoutMs),
+				});
 				if (!res.ok) {
 					throw new Error(`JWKS fetch failed: HTTP ${res.status}`);
 				}
-				const doc = await res.json();
+				doc = await readJwksDocument(res);
 				if (!doc || !Array.isArray(doc.keys)) {
 					throw new Error("Invalid JWKS document: missing keys array");
 				}
 				cache = doc;
 				cacheTime = Date.now();
-				return doc;
+			} catch (e) {
+				lastError = e;
+				throw e;
 			} finally {
 				inflight = null;
 			}
+			return doc;
 		})();
 		return inflight;
 	};
@@ -218,11 +278,11 @@ const createJwksResolver = (uri, options = {}) => {
 			if (!doc || now - cacheTime > cacheMaxAge) {
 				doc = await fetchJwks();
 			}
-			let jwk = doc.keys.find((k) => k.kid === kid);
+			let jwk = findJwk(doc, kid);
 			if (!jwk) {
 				// Possible key rotation. Refetch subject to cooldown.
 				doc = await fetchJwks();
-				jwk = doc.keys.find((k) => k.kid === kid);
+				jwk = findJwk(doc, kid);
 			}
 			return jwk;
 		},
@@ -273,6 +333,7 @@ const httpJwtMiddleware = (opts = {}) => {
 			const resolver = createJwksResolver(entry.jwksUri, {
 				cacheMaxAge: options.cacheExpiry,
 				cooldownDuration: options.cooldownDuration,
+				timeoutMs: options.jwksTimeoutMs,
 			});
 			issuersMap.set(iss, {
 				resolver,
@@ -381,7 +442,14 @@ const httpJwtMiddleware = (opts = {}) => {
 			try {
 				jwk = await entry.resolver.getJwk(header.kid);
 			} catch (e) {
-				throw new HttpError(401, {
+				// The token was not refused; it could not be checked. A 401 would
+				// send the client off for a new token that the same outage would
+				// reject again. The failure is upstream, so it is a gateway error:
+				// 504 past the `jwksTimeoutMs` deadline (`AbortSignal.timeout`
+				// rejects with a TimeoutError), 502 for everything else the
+				// endpoint did wrong. The negative cache re-throws the recorded
+				// error, so a remembered failure keeps its status.
+				throw new HttpError(e.name === "TimeoutError" ? 504 : 502, {
 					cause: {
 						package: pkg,
 						data: { reason: `JWKS fetch failed: ${e.message}` },

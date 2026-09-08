@@ -637,6 +637,17 @@ test("dynamodbValidateOptions accepts valid options and rejects typos", () => {
 	}
 });
 
+test("dynamodbValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	dynamodbValidateOptions({ cacheMaxSize: 10 });
+	try {
+		dynamodbValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
+	}
+});
+
 test("dynamodbValidateOptions rejects wrong type", () => {
 	try {
 		dynamodbValidateOptions({ fetchData: "no" });

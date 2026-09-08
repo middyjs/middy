@@ -24,7 +24,8 @@ npm install --save-dev @aws-sdk/dsql-signer
   - `username` (string) (optional): Database role. When set to `"admin"` the middleware calls `getDbConnectAdminAuthToken`; any other value (or omitted) calls `getDbConnectAuthToken`.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can.
 - `cacheKey` (string) (default `dsql-signer`): Cache key for the fetched data responses. Must be unique across all middleware.
-- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. Note: DSQL tokens have a default TTL of 900 s; cache for less than that to avoid using expired tokens on warm invocations.
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms. A DSQL authentication token [automatically expires in 15 minutes by default](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html) (`awsClientOptions.expiresIn` seconds, `900` by default, up to a maximum of `604800`), so a token is refreshed one minute before it expires, 14 minutes after issue by default, regardless of a longer setting. With an `expiresIn` of `60` or less that margin leaves no lifetime, so the token is not cached and a fresh one is signed on every invocation.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['dsql-signer']`.
 - `contextKey` (string) (default `dsql-signer`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
@@ -32,6 +33,7 @@ NOTES:
 
 - Lambda is required to have IAM permission for `dsql:DbConnect` (non-admin role) or `dsql:DbConnectAdmin` (admin role) on the cluster ARN.
 - DSQL connections always use port `5432`, database `postgres`, and require SSL.
+- The token only authenticates the connection: [after the connection is established, the connection remains valid even if the authentication token expires](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html).
 - Region is taken from the default credential provider chain (e.g. `AWS_REGION`); cross-region access is not a supported DSQL pattern.
 
 ## Sample usage
@@ -53,7 +55,6 @@ export const handler = middy()
           username: 'admin',
         },
       },
-      cacheExpiry: 14 * 60 * 1000,
     }),
   )
   .use(

@@ -3,7 +3,7 @@ title: http-router
 description: "Route HTTP requests to nested handlers based on method and path with Middy."
 ---
 
-This handler can route to requests to one of a nested handler based on `method` and `path` of an http event from API Gateway (REST or HTTP) or Elastic Load Balancer.
+This handler can route to requests to one of a nested handler based on `method` and `path` of an http event from API Gateway (REST or HTTP), Elastic Load Balancer, or VPC Lattice (V1 and V2 event structures).
 
 ## Install
 
@@ -28,7 +28,8 @@ NOTES:
 - Shared middlewares, connected to the router middleware stack, can only be run before the lambdaHandler middleware stack.
 - `pathParameters` will automatically be set if not already set
 - Path parameters in kebab notation (`{my-var}`) are not supported. Workaround example below.
-- Static routes (those without `{var}`) are evaluated first, follow by Dynamic routes (those with `{var}`) evaluated in the order they appear.
+- Static routes (those without `{var}`) are evaluated first, followed by Dynamic routes (those with `{var}`) evaluated in the order they appear.
+- A method-specific route wins over an `ANY` route on the same path regardless of registration order. Dynamic `ANY` routes are evaluated after every method-specific dynamic route, each group in the order they appear. Registering a path twice for the same method (including through `ANY`) throws, static or dynamic; a method-specific and an `ANY` route on the same dynamic path are allowed.
 
 ## Sample usage
 

@@ -4,7 +4,7 @@ description: "Fetch and cache AWS Glue Schema Registry schemas in Lambda."
 status: alpha
 ---
 
-Fetches AWS Glue Schema Registry schema definitions and exposes them on `request.internal` for downstream consumers — most commonly `@middy/event-batch-parser`'s `parseAvro` / `parseProtobuf` parsers, but usable standalone in any handler that needs schemas (HTTP, WebSocket, EventBridge, producer-side encoding, etc.).
+Fetches AWS Glue Schema Registry schema definitions and exposes them on `request.internal` for downstream consumers, most commonly the `parseAvro` / `parseProtobuf` parsers of `@middy/event-batch-parser`, but usable standalone in any handler that needs schemas (HTTP, WebSocket, EventBridge, producer-side encoding, etc.).
 
 ## Install
 
@@ -19,26 +19,17 @@ npm install --save-dev @aws-sdk/client-glue
 - `awsClientOptions` (object) (optional): Options to pass to GlueClient constructor.
 - `awsClientAssumeRole` (string) (optional): The internal-storage key holding STS-assumed credentials.
 - `awsClientCapture` (function) (optional): Enable XRay by passing `captureAWSv3Client` from `aws-xray-sdk` in.
-- `fetchData` (object) (optional): Map of internal-key → `GetSchemaVersion` request parameters. Each entry is either `{ SchemaVersionId }` or `{ SchemaId: { SchemaName, RegistryName }, SchemaVersionNumber }`.
+- `fetchData` (object) (optional): Map of internal key to `GetSchemaVersion` request parameters. Each entry is either `{ SchemaVersionId }` or `{ SchemaId: { SchemaName, RegistryName }, SchemaVersionNumber: { VersionNumber } }`. `SchemaVersionNumber` is the SDK object, so `{ LatestVersion: true }` selects the newest version.
 - `disablePrefetch` (boolean) (default `false`): On cold start, requests trigger early when possible. `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `glue-schema-registry`): Cache key for fetched data.
 - `cacheKeyExpiry` (object) (optional): Per-key expiry overrides.
-- `cacheExpiry` (number) (default `-1`): How long to cache. `-1` = forever (recommended — schema versions are immutable). `0` = no cache.
+- `cacheExpiry` (number) (default `-1`): How long to cache. `-1` = forever (recommended, schema versions are immutable). `0` = no cache.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext['glue-schema-registry']`.
 - `contextKey` (string) (default `glue-schema-registry`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.
 
 ## Internal output
 
-The middleware writes one consolidated slot:
-
-```javascript
-request.internal['glue-schema-registry'] = {
-  schemas: new Map(),  // schemaVersionId -> { schemaDefinition, dataFormat }
-  schema: undefined,   // last-resolved schema (single-schema convenience)
-}
-```
-
-In addition, each `fetchData` entry is written as a top-level `request.internal` property (sts/s3 convention) so existing `getInternal` patterns keep working.
+Each `fetchData` entry is written to `request.internal` under its key as `{ schemaVersionId, schemaDefinition, dataFormat }`, so it can be read with `getInternal` like any other fetched value.
 
 ## Named exports
 
@@ -53,7 +44,7 @@ const schema = await resolveSchemaVersion(uuid, { cacheExpiry: -1 }, request)
 // schema = { schemaVersionId, schemaDefinition, dataFormat }
 ```
 
-## Sample usage — static fetch
+## Sample usage: static fetch
 
 ```javascript
 import middy from '@middy/core'
@@ -66,29 +57,32 @@ export const handler = middy()
       userSchema: { SchemaVersionId: 'abc123-...' },
       orderSchema: {
         SchemaId: { SchemaName: 'orders', RegistryName: 'default' },
-        SchemaVersionNumber: 3,
+        SchemaVersionNumber: { VersionNumber: 3 },
       },
     },
     cacheExpiry: -1,
   }))
-  .handler(async (event, context) => {
-    const { userSchema } = await getInternal(['userSchema'], context.middlewareRequest)
+  .before(async (request) => {
+    const { userSchema } = await getInternal(['userSchema'], request)
     // userSchema = { schemaVersionId, schemaDefinition, dataFormat }
   })
+  .handler(async (event, context) => { /* ... */ })
 ```
 
-## Sample usage — paired with `event-batch-parser`
+## Sample usage: paired with `event-batch-parser`
 
 ```javascript
 import middy from '@middy/core'
 import glueSchemaRegistry from '@middy/glue-schema-registry'
-import eventBatchParser, { parseAvro } from '@middy/event-batch-parser'
+import eventBatchParser from '@middy/event-batch-parser'
+import parseAvro from '@middy/event-batch-parser/parseAvro'
 
 export const handler = middy()
-  .use(glueSchemaRegistry())
+  .use(glueSchemaRegistry({
+    fetchData: { userSchema: { SchemaVersionId: 'abc123-...' } },
+  }))
   .use(eventBatchParser({
-    body: parseAvro(),
-    glueSchemaRegistry: {},
+    data: parseAvro({ internalKey: 'userSchema' }),
   }))
   .handler(async (event) => { /* ... */ })
 ```

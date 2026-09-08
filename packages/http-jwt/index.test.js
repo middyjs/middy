@@ -1299,7 +1299,7 @@ test("issuers: token claiming HS256 while pinned RS256 fails", async (t) => {
 	}
 });
 
-test("issuers: JWKS endpoint returns 500 surfaces as 401", async (t) => {
+test("issuers: JWKS endpoint returns 500 surfaces as 502", async (t) => {
 	const { privateKey, kid } = await jwksFixture();
 	const iss = "https://idp.example.com/pool";
 	const jwksUri = nextJwksUri();
@@ -1323,7 +1323,7 @@ test("issuers: JWKS endpoint returns 500 surfaces as 401", async (t) => {
 			);
 			ok(false, "expected throw");
 		} catch (e) {
-			strictEqual(e.statusCode, 401);
+			strictEqual(e.statusCode, 502);
 			strictEqual(e.cause.package, "@middy/http-jwt");
 		}
 	} finally {
@@ -1759,7 +1759,7 @@ test("issuers: JWK without alg + multi-alg allowlist rejects as ambiguous", asyn
 	}
 });
 
-test("issuers: JWKS document without keys array throws 401", async (t) => {
+test("issuers: JWKS document without keys array surfaces as 502", async (t) => {
 	const iss = "https://idp.example.com/pool";
 	const jwksUri = nextJwksUri();
 	const token = await new SignJWT({})
@@ -1793,7 +1793,7 @@ test("issuers: JWKS document without keys array throws 401", async (t) => {
 			);
 			ok(false, "expected throw");
 		} catch (e) {
-			strictEqual(e.statusCode, 401);
+			strictEqual(e.statusCode, 502);
 			strictEqual(e.cause.package, "@middy/http-jwt");
 			ok(e.cause.data.reason.includes("JWKS fetch failed"));
 		}
@@ -2895,7 +2895,7 @@ test("issuers: unknown-issuer message text", async (t) => {
 	}
 });
 
-test("issuers: JWKS-fetch-failed surfaces 'Unauthorized' message", async (t) => {
+test("issuers: a non-2xx JWKS endpoint surfaces as 502 Bad Gateway with the status in the reason", async (t) => {
 	const { privateKey, kid } = await jwksFixture();
 	const iss = "https://idp.example.com/pool";
 	const jwksUri = nextJwksUri();
@@ -2918,7 +2918,8 @@ test("issuers: JWKS-fetch-failed surfaces 'Unauthorized' message", async (t) => 
 			);
 			ok(false, "expected throw");
 		} catch (e) {
-			strictEqual(e.message, "Unauthorized");
+			strictEqual(e.statusCode, 502);
+			strictEqual(e.message, "Bad Gateway");
 			ok(e.cause.data.reason.includes("JWKS fetch failed: HTTP 503"));
 		}
 	} finally {
@@ -2995,6 +2996,7 @@ test("issuers: invalid-JWKS-document message text (missing keys array)", async (
 			);
 			ok(false, "expected throw");
 		} catch (e) {
+			strictEqual(e.statusCode, 502);
 			ok(
 				e.cause.data.reason.includes(
 					"JWKS fetch failed: Invalid JWKS document: missing keys array",
@@ -4189,5 +4191,599 @@ test("It should still refuse a key shape it cannot place", async (t) => {
 			!e.cause.data.reason.includes("is a string secret"),
 			e.cause.data.reason,
 		);
+	}
+});
+
+// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+// `name=value` entry of `event.cookies`, so a header-only lookup always 401s.
+test("It should read JWT from event.cookies on an HTTP API payload 2.0 event when tokenCookieName is set", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+
+	const token = await new SignJWT({ sub: "user-1" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.setExpirationTime("1h")
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context.middyContext).use(
+		httpJwt({
+			secretKey: secret,
+			algorithm: "HS256",
+			tokenCookieName: "access_token",
+		}),
+	);
+
+	const result = await handler(
+		{
+			version: "2.0",
+			headers: {},
+			cookies: ["other=val", `access_token=${token}`, "extra=1"],
+		},
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.jwt.sub, "user-1");
+});
+
+test("It should prefer the Cookie header over event.cookies when both carry the cookie", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+
+	const sign = (sub) =>
+		new SignJWT({ sub })
+			.setProtectedHeader({ alg: "HS256" })
+			.setIssuedAt()
+			.setExpirationTime("1h")
+			.sign(Buffer.from(secret));
+	const headerToken = await sign("from-header");
+	const cookiesToken = await sign("from-cookies");
+
+	const handler = middy((event, context) => context.middyContext).use(
+		httpJwt({
+			secretKey: secret,
+			algorithm: "HS256",
+			tokenCookieName: "access_token",
+		}),
+	);
+
+	const result = await handler(
+		{
+			headers: { cookie: `access_token=${headerToken}` },
+			cookies: [`access_token=${cookiesToken}`],
+		},
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.jwt.sub, "from-header");
+});
+
+test("It should skip non-string entries in event.cookies", async (t) => {
+	const secret = "super-secret-key-for-testing-1234";
+
+	const token = await new SignJWT({ sub: "user-1" })
+		.setProtectedHeader({ alg: "HS256" })
+		.setIssuedAt()
+		.setExpirationTime("1h")
+		.sign(Buffer.from(secret));
+
+	const handler = middy((event, context) => context.middyContext).use(
+		httpJwt({
+			secretKey: secret,
+			algorithm: "HS256",
+			tokenCookieName: "access_token",
+		}),
+	);
+
+	const result = await handler(
+		{ cookies: [42, null, `access_token=${token}`] },
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.jwt.sub, "user-1");
+});
+
+test("It should throw 401 when event.cookies is not an array", async (t) => {
+	const handler = middy(() => {}).use(
+		httpJwt({
+			secretKey: "super-secret-key-for-testing-1234",
+			algorithm: "HS256",
+			tokenCookieName: "access_token",
+		}),
+	);
+
+	try {
+		await handler({ cookies: "access_token=x" }, { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-jwt");
+	}
+});
+
+// The JWKS fetch had no deadline and no size cap, and the `kid` lookup ignored
+// what the key was published for.
+test("issuers: JWKS fetch is aborted after jwksTimeoutMs and surfaces as 504", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const original = globalThis.fetch;
+	const signals = [];
+	// Never responds; only the caller's signal can end it.
+	globalThis.fetch = (input, init) =>
+		new Promise((_, reject) => {
+			signals.push(init.signal);
+			init.signal.addEventListener("abort", () => reject(init.signal.reason), {
+				once: true,
+			});
+		});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+				jwksTimeoutMs: 10,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 504);
+			strictEqual(e.message, "Gateway Timeout");
+			strictEqual(e.cause.package, "@middy/http-jwt");
+			ok(e.cause.data.reason.includes("JWKS fetch failed"));
+		}
+		strictEqual(signals.length, 1);
+		strictEqual(signals[0].aborted, true);
+		strictEqual(signals[0].reason.name, "TimeoutError");
+	} finally {
+		globalThis.fetch = original;
+	}
+});
+
+test("issuers: JWKS fetch carries a timeout signal by default", async (t) => {
+	const { jwk } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		httpJwt({ issuers: { [iss]: { jwksUri } }, algorithm: "RS256" });
+		await new Promise((resolve) => setImmediate(resolve));
+		strictEqual(fetchStub.calls.length, 1);
+		ok(fetchStub.calls[0].init.signal instanceof AbortSignal);
+		strictEqual(fetchStub.calls[0].init.signal.aborted, false);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: JWKS document larger than 1 MiB is rejected and surfaces as 502", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const fetchStub = installFetch({
+		[jwksUri]: () =>
+			new Response(`{"keys":[],"pad":"${"x".repeat(1_048_576)}"}`, {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			}),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 502);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+			ok(e.cause.data.reason.includes("exceeds"));
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWKS document of exactly 1 MiB is accepted", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const head = `{"keys":[${JSON.stringify(jwk)}],"pad":"`;
+	const tail = '"}';
+	const body = head + "x".repeat(1_048_576 - head.length - tail.length) + tail;
+	strictEqual(Buffer.byteLength(body), 1_048_576);
+
+	const fetchStub = installFetch({
+		[jwksUri]: () =>
+			new Response(body, {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			}),
+	});
+	try {
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		const result = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(result.jwt.iss, iss);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWK with use 'enc' is skipped in favour of the 'sig' key with the same kid", async (t) => {
+	const enc = await jwksFixture({ kid: "shared" });
+	const sig = await jwksFixture({ kid: "shared" });
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	// Signed by the second key; picking the first would fail the signature.
+	const token = await signToken({
+		privateKey: sig.privateKey,
+		alg: "RS256",
+		kid: "shared",
+		iss,
+	});
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({
+			keys: [{ ...enc.jwk, use: "enc" }, sig.jwk],
+		}),
+	});
+	try {
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		const result = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(result.jwt.iss, iss);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWK with use 'enc' and a matching kid is not selected", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [{ ...jwk, use: "enc" }] }),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes(`No key in JWKS with kid '${kid}'`));
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWK whose key_ops excludes 'verify' is not selected", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const { use: _use, ...bare } = jwk;
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({
+			keys: [
+				{ ...bare, key_ops: ["encrypt"] },
+				// Malformed: RFC 7517 §4.3 says key_ops is an array.
+				{ ...bare, key_ops: "verify" },
+			],
+		}),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 401);
+			ok(e.cause.data.reason.includes(`No key in JWKS with kid '${kid}'`));
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWK whose key_ops includes 'verify' is selected", async (t) => {
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const { use: _use, ...bare } = jwk;
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [{ ...bare, key_ops: ["verify"] }] }),
+	});
+	try {
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		const result = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(result.jwt.iss, iss);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("httpJwtValidateOptions accepts jwksTimeoutMs as a positive integer", () => {
+	httpJwtValidateOptions({ jwksTimeoutMs: 1 });
+	for (const jwksTimeoutMs of [0, 1.5, "5000"]) {
+		try {
+			httpJwtValidateOptions({ jwksTimeoutMs });
+			ok(false, `expected throw for ${JSON.stringify(jwksTimeoutMs)}`);
+		} catch (e) {
+			ok(e.message.includes("jwksTimeoutMs"), e.message);
+		}
+	}
+});
+
+test("issuers: an explicit `jwksTimeoutMs: undefined` falls back to the default deadline", async (t) => {
+	// `{ ...defaults, ...opts }` lets an explicit undefined override the default,
+	// and `AbortSignal.timeout(undefined)` throws, so every fetch would 502.
+	const { privateKey, jwk, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	const fetchStub = installFetch({
+		[jwksUri]: jwksResponse({ keys: [jwk] }),
+	});
+	try {
+		const handler = middy((event, context) => context.middyContext).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+				jwksTimeoutMs: undefined,
+			}),
+		);
+		const result = await handler(
+			{ headers: { authorization: `Bearer ${token}` } },
+			{ ...defaultContext },
+		);
+		strictEqual(result.jwt.iss, iss);
+		const [call] = fetchStub.calls.filter((c) => c.url === jwksUri);
+		ok(call.init.signal instanceof AbortSignal);
+		strictEqual(call.init.signal.aborted, false);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a 2xx JWKS response with no body surfaces as a clear 502", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	const fetchStub = installFetch({
+		[jwksUri]: () => new Response(null, { status: 204 }),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 502);
+			strictEqual(e.cause.package, "@middy/http-jwt");
+			strictEqual(
+				e.cause.data.reason,
+				"JWKS fetch failed: JWKS response has no body",
+			);
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a failed JWKS fetch is remembered for cooldownDuration instead of refetching on every request", async (t) => {
+	// During an IdP outage with nothing cached, every cache miss would otherwise
+	// pay the full fetch (up to jwksTimeoutMs). The failure is held for
+	// cooldownDuration and every request inside it gets the same 502 at once.
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+	let fetchN = 0;
+	const fetchStub = installFetch({
+		[jwksUri]: () => {
+			fetchN += 1;
+			return new Response("nope", { status: 503 });
+		},
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+				cooldownDuration: 30_000,
+			}),
+		);
+		const request = async () => {
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${token}` } },
+					{ ...defaultContext },
+				);
+				return undefined;
+			} catch (e) {
+				return e;
+			}
+		};
+		for (const _ of [1, 2]) {
+			const e = await request();
+			strictEqual(e?.statusCode, 502);
+			ok(e.cause.data.reason.includes("JWKS fetch failed: HTTP 503"));
+		}
+		strictEqual(fetchN, 1);
+
+		t.mock.timers.tick(30_001);
+		const e = await request();
+		strictEqual(e?.statusCode, 502);
+		strictEqual(fetchN, 2);
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a JWKS document that is not JSON surfaces as 502", async (t) => {
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+	const fetchStub = installFetch({
+		[jwksUri]: () =>
+			new Response("<html>maintenance</html>", {
+				status: 200,
+				headers: { "content-type": "text/html" },
+			}),
+	});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+			}),
+		);
+		try {
+			await handler(
+				{ headers: { authorization: `Bearer ${token}` } },
+				{ ...defaultContext },
+			);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 502);
+			strictEqual(e.message, "Bad Gateway");
+			strictEqual(e.cause.package, "@middy/http-jwt");
+			ok(e.cause.data.reason.startsWith("JWKS fetch failed: "));
+		}
+	} finally {
+		fetchStub.restore();
+	}
+});
+
+test("issuers: a remembered JWKS timeout keeps answering 504 inside cooldownDuration", async (t) => {
+	// The negative cache re-throws the failure it recorded, so a timed-out
+	// fetch stays a 504 (not a 502) for every request inside the cooldown, and
+	// none of them contacts the endpoint again.
+	const { privateKey, kid } = await jwksFixture();
+	const iss = "https://idp.example.com/pool";
+	const jwksUri = nextJwksUri();
+	const token = await signToken({ privateKey, alg: "RS256", kid, iss });
+
+	const original = globalThis.fetch;
+	let fetchN = 0;
+	// Never responds; only the caller's signal can end it.
+	globalThis.fetch = (input, init) =>
+		new Promise((_, reject) => {
+			fetchN += 1;
+			init.signal.addEventListener("abort", () => reject(init.signal.reason), {
+				once: true,
+			});
+		});
+	try {
+		const handler = middy(() => {}).use(
+			httpJwt({
+				issuers: { [iss]: { jwksUri } },
+				algorithm: "RS256",
+				disablePrefetch: true,
+				jwksTimeoutMs: 10,
+				cooldownDuration: 30_000,
+			}),
+		);
+		for (const _ of [1, 2]) {
+			try {
+				await handler(
+					{ headers: { authorization: `Bearer ${token}` } },
+					{ ...defaultContext },
+				);
+				ok(false, "expected throw");
+			} catch (e) {
+				strictEqual(e.statusCode, 504);
+				ok(e.cause.data.reason.includes("JWKS fetch failed"));
+			}
+		}
+		strictEqual(fetchN, 1);
+	} finally {
+		globalThis.fetch = original;
 	}
 });

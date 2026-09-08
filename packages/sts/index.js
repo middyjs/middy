@@ -7,16 +7,19 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "sts";
 const pkg = `@middy/${name}`;
+
+// Refresh credentials this long before STS says they expire.
+const expirationMarginMs = 60 * 1000;
 
 const defaults = {
 	AwsClient: STSClient,
@@ -92,6 +95,7 @@ const stsMiddleware = (opts = {}) => {
 		...defaults,
 		...opts,
 		fetchData: cloneFetchData({ ...defaults.fetchData, ...opts.fetchData }),
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
 	};
 
 	const fetchDataKeys = Object.keys(options.fetchData);
@@ -108,24 +112,32 @@ const stsMiddleware = (opts = {}) => {
 			values[internalKey] = client
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
-				.then((resp) => ({
-					accessKeyId: resp.Credentials.AccessKeyId,
-					secretAccessKey: resp.Credentials.SecretAccessKey,
-					sessionToken: resp.Credentials.SessionToken,
-				}))
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.then((resp) => {
+					// The SDK unmarshals `Expiration` to a Date, but a custom client may
+					// hand back the ISO string; `new Date()` yields epoch ms for both.
+					// Clamp the cache entry to the earliest credential expiry of this
+					// cycle, less a safety margin, so a `-1` cacheExpiry never serves
+					// expired credentials.
+					const { Expiration } = resp.Credentials;
+					setCacheKeyExpiry(
+						options,
+						Expiration
+							? Number(new Date(Expiration)) - expirationMarginMs
+							: Number.POSITIVE_INFINITY,
+					);
+					return {
+						accessKeyId: resp.Credentials.AccessKeyId,
+						secretAccessKey: resp.Credentials.SecretAccessKey,
+						sessionToken: resp.Credentials.SessionToken,
+					};
+				})
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
 		}
 
 		return values;
 	};
 
 	let client;
-	let clientInit;
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -139,10 +151,10 @@ const stsMiddleware = (opts = {}) => {
 		}
 	};
 
+	const clientInit = createClientInit(options);
 	const stsMiddlewareBefore = (request) => {
 		if (client) return stsMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return stsMiddlewareFetch(request);
 		});

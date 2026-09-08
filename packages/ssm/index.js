@@ -10,8 +10,9 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
+	evictCacheOnFailure,
 	getCache,
 	jsonSafeParse,
 	modifyCache,
@@ -56,6 +57,7 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
+		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 		awsRequestLimit: { type: "integer", minimum: 1, maximum: 10 },
@@ -95,10 +97,10 @@ const ssmMiddleware = (opts = {}) => {
 		for (const [idx, internalKey] of namedKeys.entries()) {
 			const fetchKey = options.fetchData[internalKey];
 			batchKeys.set(internalKey, fetchKey);
-			// from the first to the batch size skip, unless it's the last entry
+			// Flush once the batch holds awsRequestLimit names, or on the last name.
 			if (
-				(!idx || (idx + 1) % options.awsRequestLimit !== 0) &&
-				!(idx + 1 === namedKeys.length)
+				(idx + 1) % options.awsRequestLimit !== 0 &&
+				idx + 1 !== namedKeys.length
 			) {
 				continue;
 			}
@@ -169,12 +171,9 @@ const ssmMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 			const fetchKey = options.fetchData[internalKey];
 			if (!fetchKey.endsWith("/")) continue; // Skip not path passed in
-			values[internalKey] = fetchPathRequest(fetchKey).catch((e) => {
-				const value = getCache(options.cacheKey).value ?? {};
-				value[internalKey] = undefined;
-				modifyCache(options.cacheKey, value);
-				throw e;
-			});
+			values[internalKey] = fetchPathRequest(fetchKey).catch(
+				evictCacheOnFailure(options.cacheKey, internalKey),
+			);
 		}
 		return values;
 	};
@@ -208,7 +207,7 @@ const ssmMiddleware = (opts = {}) => {
 	};
 
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -224,8 +223,7 @@ const ssmMiddleware = (opts = {}) => {
 
 	const ssmMiddlewareBefore = (request) => {
 		if (client) return ssmMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return ssmMiddlewareFetch(request);
 		});

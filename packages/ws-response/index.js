@@ -47,26 +47,63 @@ const wsResponseMiddleware = (opts = {}) => {
 		client = createPrefetchClient(options);
 	}
 
+	// Clients built from `event.requestContext` are keyed by endpoint so a
+	// function served through several stages or custom domains posts to the
+	// endpoint the request arrived on, instead of the first one the container
+	// saw. Bounded so an unbounded set of domains cannot grow memory.
+	const derivedClients = new Map();
+	const derivedClientsMax = 8;
+
+	const resolveClient = async (request) => {
+		if (client) return client;
+		// Build a per-request client config without mutating the shared options
+		// object (which would otherwise leak one request's endpoint to later
+		// warm invocations).
+		const awsClientOptions = { ...options.awsClientOptions };
+		if (request.event.requestContext) {
+			awsClientOptions.endpoint ??= `https://${request.event.requestContext.domainName}/${request.event.requestContext.stage}`;
+		}
+		const { endpoint } = awsClientOptions;
+		if (derivedClients.has(endpoint)) return derivedClients.get(endpoint);
+		// Only a resolved client is memoized, so a rejected init is retried on
+		// the next invocation.
+		const derivedClient = await createClient(
+			{ ...options, awsClientOptions },
+			request,
+		);
+		derivedClients.set(endpoint, derivedClient);
+		if (derivedClients.size > derivedClientsMax) {
+			const [oldestEndpoint, oldestClient] = derivedClients
+				.entries()
+				.next().value;
+			derivedClients.delete(oldestEndpoint);
+			// Release the evicted client's keep-alive sockets.
+			oldestClient.destroy?.();
+		}
+		return derivedClient;
+	};
+
 	const wsResponseMiddlewareAfter = async (request) => {
 		const normalizedResponse = normalizeWsResponse(request);
 
 		if (!normalizedResponse.ConnectionId) return;
 
-		if (!client) {
-			// Build a per-request client config without mutating the shared options
-			// object (which would otherwise leak one request's endpoint to later
-			// warm invocations).
-			const awsClientOptions = { ...options.awsClientOptions };
-			if (request.event.requestContext) {
-				awsClientOptions.endpoint ??= `https://${request.event.requestContext.domainName}/${request.event.requestContext.stage}`;
-			}
-			client = await createClient({ ...options, awsClientOptions }, request);
-		}
+		const requestClient = await resolveClient(request);
 
 		const command = new PostToConnectionCommand(normalizedResponse);
-		await client
-			.send(command)
-			.catch((e) => catchInvalidSignatureException(e, client, command));
+		try {
+			await requestClient
+				.send(command)
+				.catch((e) =>
+					catchInvalidSignatureException(e, requestClient, command),
+				);
+		} catch (e) {
+			// The client already disconnected. Nothing can be delivered, but that
+			// is not a failure of this invocation.
+			if (e.name !== "GoneException") throw e;
+			request.response = { statusCode: 410 };
+			return;
+		}
 
 		request.response = { statusCode: 200 };
 	};

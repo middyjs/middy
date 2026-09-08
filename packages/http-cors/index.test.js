@@ -979,10 +979,11 @@ test("It should not match origins with unescaped dots (e.g. example.com should n
 
 	const response = await handler(event, defaultContext);
 
-	// Should NOT match - the dot in example.com is literal, not a regex wildcard
+	// Should NOT match - the dot in example.com is literal, not a regex wildcard.
+	// Vary: Origin is still emitted: the response differs by request Origin.
 	deepStrictEqual(response, {
 		statusCode: 204,
-		headers: {},
+		headers: { Vary: "Origin" },
 	});
 });
 
@@ -1692,10 +1693,66 @@ test("It should handle OPTIONS when event.headers is undefined", async (t) => {
 	});
 });
 
-test("It should add vary header when lowercase header already exists", async (t) => {
+test("It should keep a handler-set lowercase vary header as-is when the vary option differs", async (t) => {
 	const handler = middy((event, context) => ({
 		statusCode: 200,
 		headers: { vary: "Accept-Encoding" },
+	}));
+
+	// Same rule as for `Vary`: the handler's own header wins in either casing,
+	// and the `vary` option is not appended to it.
+	handler.use(
+		httpCors({
+			origin: "*",
+			vary: "Accept",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.headers, {
+		"Access-Control-Allow-Origin": "*",
+		vary: "Accept-Encoding",
+	});
+});
+
+test("It should append Origin to a handler-set lowercase vary header when origins is configured", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { vary: "Accept-Encoding" },
+	}));
+
+	// The handler's header wins over the `vary` option, but the automatic
+	// `Vary: Origin` for a configured origins list still lands in it.
+	handler.use(
+		httpCors({
+			origins: ["https://example.com"],
+			vary: "Accept",
+		}),
+	);
+
+	const event = {
+		httpMethod: "GET",
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response.headers, {
+		"Access-Control-Allow-Origin": "https://example.com",
+		vary: "Accept-Encoding, Origin",
+	});
+});
+
+test("It should apply the vary option when the handler set no Vary header", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { "Content-Type": "text/plain" },
 	}));
 
 	handler.use(
@@ -1712,7 +1769,11 @@ test("It should add vary header when lowercase header already exists", async (t)
 
 	const response = await handler(event, defaultContext);
 
-	strictEqual(response.headers.vary, "Accept-Encoding, Accept");
+	deepStrictEqual(response.headers, {
+		"Access-Control-Allow-Origin": "*",
+		"Content-Type": "text/plain",
+		Vary: "Accept",
+	});
 });
 
 // *** requestHeaders *** //
@@ -2739,12 +2800,10 @@ test("It should not overwrite a pre-set Access-Control-Allow-Headers with option
 	});
 });
 
-// *** reflectsRequestOrigin: getOrigin returning "*" with origins configured *** //
-test("It should not flag reflectsRequestOrigin when getOrigin returns '*' with origins configured", async (t) => {
-	// origins length > 0 and newOrigin === "*"; reflectsRequestOrigin must be
-	// false. Vary: Origin still gets added by the originAny branch, but the
-	// reflection-specific path (newOrigin === punycode(incomingOrigin)) is not
-	// what drives it.
+// *** Vary: Origin with a custom getOrigin and origins configured *** //
+test("It should not add Vary: Origin when origins is only '*' and the emitted origin is '*'", async (t) => {
+	// origins is ["*"] alone, so nothing in the list varies by request, and the
+	// emitted origin is "*", so the originAny branch does not fire either.
 	const handler = middy((event, context) => ({ statusCode: 200 })).use(
 		httpCors({
 			disableBeforePreflightResponse: false,
@@ -2759,8 +2818,7 @@ test("It should not flag reflectsRequestOrigin when getOrigin returns '*' with o
 
 	const response = await handler(event, defaultContext);
 
-	// newOrigin is "*" and equals punycode("*"); only the `newOrigin !== "*"`
-	// guard keeps reflectsRequestOrigin false, so no Vary: Origin is emitted.
+	// newOrigin is "*", so no Vary: Origin is emitted.
 	deepStrictEqual(response, {
 		statusCode: 204,
 		headers: {
@@ -2769,10 +2827,10 @@ test("It should not flag reflectsRequestOrigin when getOrigin returns '*' with o
 	});
 });
 
-test("It should not flag reflectsRequestOrigin when resolved origin differs from incoming", async (t) => {
-	// origins configured, a different origin reflected via getOrigin than the
-	// incoming one => reflectsRequestOrigin is false, no Vary: Origin from that
-	// path.
+test("It should add Vary: Origin when a custom getOrigin resolves a different origin than the incoming one", async (t) => {
+	// origins configured, a different origin returned by getOrigin than the
+	// incoming one. The middleware cannot know a custom getOrigin ignores the
+	// request, so a configured list always emits Vary: Origin.
 	const handler = middy((event, context) => ({ statusCode: 200 })).use(
 		httpCors({
 			disableBeforePreflightResponse: false,
@@ -2792,15 +2850,15 @@ test("It should not flag reflectsRequestOrigin when resolved origin differs from
 		statusCode: 204,
 		headers: {
 			"Access-Control-Allow-Origin": "https://allowed.com",
+			Vary: "Origin",
 		},
 	});
 });
 
-test("It should flag reflectsRequestOrigin when custom getOrigin reflects the incoming origin with origins configured", async (t) => {
+test("It should add Vary: Origin when a custom getOrigin reflects the incoming origin with origins configured", async (t) => {
 	// origins configured and a custom getOrigin that echoes the incoming
 	// origin => the response varies by request origin, so Vary: Origin must
-	// be emitted via the reflectsRequestOrigin path (originMany/originAny are
-	// both false with a single static origin).
+	// be emitted.
 	const handler = middy((event, context) => ({ statusCode: 200 })).use(
 		httpCors({
 			disableBeforePreflightResponse: false,
@@ -3014,4 +3072,241 @@ test("It should skip modifyHeaders onError when response is undefined", async (t
 	}
 	ok(thrown instanceof Error);
 	strictEqual(thrown.message, "handler");
+});
+
+// *** Vary: Origin whenever a specific origin list is configured (cache-correctness) *** //
+// With `origins: ["https://example.com"]` the response differs by request
+// Origin even when the request does not match: a shared cache that stored the
+// ACAO-less variant would otherwise serve it to the allowed origin.
+test("It should add Vary: Origin when a single configured origin matches", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+		}),
+	);
+
+	const response = await handler(
+		{ httpMethod: "OPTIONS", headers: { Origin: "https://example.com" } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should add Vary: Origin when a single configured origin does not match the request", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+		}),
+	);
+
+	const response = await handler(
+		{ httpMethod: "OPTIONS", headers: { Origin: "https://evil.example" } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: { Vary: "Origin" },
+	});
+});
+
+test("It should add Vary: Origin when a single configured origin is set and the request carries no Origin", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com"],
+		}),
+	);
+
+	const response = await handler(
+		{ httpMethod: "OPTIONS", headers: {} },
+		defaultContext,
+	);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: { Vary: "Origin" },
+	});
+});
+
+test("It should not add Vary: Origin for a bare origin: '*' with no origins list", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 })).use(
+		httpCors({ disableBeforePreflightResponse: false, origin: "*" }),
+	);
+
+	const response = await handler(
+		{ httpMethod: "OPTIONS", headers: { Origin: "https://example.com" } },
+		defaultContext,
+	);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: { "Access-Control-Allow-Origin": "*" },
+	});
+});
+
+// *** VPC Lattice V2 events *** //
+// `version: "2.0"` with top-level `method` and `path`, no `requestContext.http`,
+// and every header value delivered as an array.
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+const latticeV2Event = (method, headers) => ({
+	version: "2.0",
+	path: "/?query1=value1",
+	method,
+	headers,
+	requestContext: {
+		serviceNetworkArn:
+			"arn:aws:vpc-lattice:us-east-1:123456789012:servicenetwork/sn-0bf3f2882e9cc805a",
+		serviceArn:
+			"arn:aws:vpc-lattice:us-east-1:123456789012:service/svc-0a40eebed65f8d69c",
+		targetGroupArn:
+			"arn:aws:vpc-lattice:us-east-1:123456789012:targetgroup/tg-6d0ecf831eec9f09",
+		region: "us-east-1",
+		timeEpoch: "1690497599177430",
+	},
+	isBase64Encoded: false,
+});
+
+test("It should answer a VPC Lattice V2 preflight with array headers", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			disableBeforePreflightResponse: false,
+			origins: ["https://example.com", "https://other.com"],
+			requestMethods: ["POST"],
+			requestHeaders: ["x-custom"],
+			methods: "POST",
+			headers: "x-custom",
+		}),
+	);
+
+	const event = latticeV2Event("OPTIONS", {
+		origin: ["https://example.com"],
+		"access-control-request-method": ["POST"],
+		"access-control-request-headers": ["x-custom"],
+	});
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 204,
+		headers: {
+			"Access-Control-Allow-Headers": "x-custom",
+			"Access-Control-Allow-Methods": "POST",
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should reflect an array Origin header from a VPC Lattice V2 event in the after hook", async (t) => {
+	const handler = middy((event, context) => ({ statusCode: 200 }));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://other.com"],
+		}),
+	);
+
+	const event = latticeV2Event("GET", { origin: ["https://example.com"] });
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+// *** Vary: Origin dedupe *** //
+test("It should not append Origin to a Vary header that already lists it", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { Vary: "Origin" },
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+		}),
+	);
+
+	const event = {
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Origin",
+		},
+	});
+});
+
+test("It should match an existing Vary token case-insensitively when deduping Origin", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { Vary: "Accept-Encoding, origin" },
+	}));
+
+	handler.use(
+		httpCors({
+			origins: ["https://example.com", "https://example.org"],
+		}),
+	);
+
+	const event = {
+		headers: { Origin: "https://example.com" },
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "https://example.com",
+			Vary: "Accept-Encoding, origin",
+		},
+	});
+});
+
+test("It should keep a handler-set Vary header as-is when the vary option differs", async (t) => {
+	const handler = middy((event, context) => ({
+		statusCode: 200,
+		headers: { Vary: "Accept-Encoding" },
+	}));
+
+	// The `vary` option is a default for responses that set no Vary of their
+	// own; a handler that already chose one keeps it.
+	handler.use(httpCors({ vary: "Accept" }));
+
+	const event = {
+		httpMethod: "GET",
+		headers: {},
+	};
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {
+			Vary: "Accept-Encoding",
+		},
+	});
 });

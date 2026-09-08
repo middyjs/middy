@@ -5,7 +5,7 @@ import type {
 	APIGatewayProxyEventV2,
 } from "aws-lambda";
 import { expect, test } from "tstyche";
-import httpDpop from "./index.js";
+import httpDpop, { verifyDpopProof } from "./index.js";
 
 test("use with default options", () => {
 	const middleware = httpDpop();
@@ -62,3 +62,21 @@ test("allow specifying the event type", () => {
 });
 
 import type { Options } from "./index.js";
+
+test("verifyDpopProof requires the request method", () => {
+	expect(
+		verifyDpopProof("a.b.c", {
+			method: "GET",
+			url: "https://api.example.com/v1/things",
+			accessToken: "token",
+			algorithms: ["ES256"],
+			maxAge: 60,
+		}),
+	).type.toBe<{ jkt: string; claims: DpopProofClaims }>();
+	expect(verifyDpopProof).type.not.toBeCallableWith("a.b.c", {
+		url: "https://api.example.com/v1/things",
+	});
+	expect(verifyDpopProof).type.not.toBeCallableWith("a.b.c");
+});
+
+import type { DpopProofClaims } from "./index.js";

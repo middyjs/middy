@@ -21,7 +21,11 @@ npm install --save @middy/error-logger
 
 ## Options
 
-- `logger` property: a function (default `(request) => console.error(request.error)`) that is used to define the logging logic. It receives the Error object as first and only parameter.
+- `logger` function (default `(request) => console.error(request.error)`): logging function that receives the [request object](/docs/writing-middlewares/request-object). Must be a function; to disable logging, omit the middleware. The return value is ignored, so a logger that returns itself (winston, for example) is safe
+- `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. Examples: `error.cause.data.body`, `event.headers.authorization`
+- `mask` string: string to replace omitted values with, instead of removing the key. Example: `***omitted***`
+
+`omitPaths` never mutates the real `request`. Only plain objects and arrays are walked; a class instance is opened only when a path reaches into it, which is what keeps `context.middyContext.*` redactable under the durable execution SDK, where `context` is a class instance. The logger then gets a plain copy of its own properties. Built-ins such as `Date`, `Map`, `Set`, `Buffer` and streams are never opened.
 
 ## Sample usage
 

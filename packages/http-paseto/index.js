@@ -87,13 +87,20 @@ const importKey = (entry) => {
 	return createPublicKey({ key: bytes, format: "der", type: "spki" });
 };
 
+// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+// `name=value` entry of `event.cookies`. The header is searched first, so an
+// event that somehow carries both keeps its header semantics.
 const readCookieValue = (event, cookieName) => {
 	const headers = event?.headers;
 	const cookieHeader = headers?.cookie ?? headers?.Cookie;
-	if (!cookieHeader) return undefined;
-	const match = cookieHeader
-		.split(";")
-		.find((c) => c.trim().startsWith(`${cookieName}=`));
+	// Stryker disable next-line ArrayDeclaration: equivalent. The list is only ever searched for a `name=` prefix, and a seeded fallback entry carries no `=`, so it can never be the match.
+	const candidates = cookieHeader ? cookieHeader.split(";") : [];
+	if (Array.isArray(event?.cookies)) {
+		for (const cookie of event.cookies) {
+			if (typeof cookie === "string") candidates.push(cookie);
+		}
+	}
+	const match = candidates.find((c) => c.trim().startsWith(`${cookieName}=`));
 	if (!match) return undefined;
 	let value = match.trim().slice(cookieName.length + 1);
 	// RFC 6265 quoted-string cookie value

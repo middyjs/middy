@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: MIT
 import {
 	canPrefetch,
+	clearCache,
+	getCache,
 	getInternal,
+	isExecutionModeDurable,
 	processCache,
 	setContextNamespace,
 	validateOptions,
@@ -86,18 +89,122 @@ const rdsMiddleware = (opts = {}) => {
 		return { ...options.config, password: token };
 	};
 
-	const fetch = options.internalKey
+	const connect = options.internalKey
 		? async (request) => options.client(await buildConfig(request))
-		: (request) => options.client(options.config);
+		: () => options.client(options.config);
+
+	// Clients that leave the cache (replaced by a refresh, superseded after a
+	// failed reconnect, or flagged broken) are closed once the invocations
+	// holding them finish, so a refresh never kills a running query. Leases are
+	// counted per client, so a retired client closes as soon as its own holders
+	// release while newer clients stay open.
+	const holders = new Map(); // request -> client
+	const leases = new Map(); // client -> invocations holding it
+	const retired = new Set();
+	let live;
+	const close = (client) => {
+		// Stryker disable next-line CallExpression: equivalent; a client is retired at most once and closed only after its last lease is released (or before any lease exists), so a closed client is never looked up in `retired` again. The delete only frees the reference.
+		retired.delete(client);
+		Promise.try(() => client.end()).catch((e) => {
+			console.error("%s: cleanup error: %s", pkg, e.message);
+		});
+	};
+	const retire = (client) => {
+		if (leases.has(client)) {
+			retired.add(client);
+		} else {
+			close(client);
+		}
+	};
+	const lease = (request, client) => {
+		holders.set(request, client);
+		leases.set(client, (leases.get(client) ?? 0) + 1);
+	};
+	const release = (request) => {
+		const client = holders.get(request);
+		// Stryker disable next-line ConditionalExpression: equivalent; with no holder the fall-through only touches `leases` and `retired` with an undefined key, which neither ever holds, so nothing changes.
+		if (client === undefined) return;
+		holders.delete(request);
+		const remaining = leases.get(client) - 1;
+		if (remaining > 0) {
+			leases.set(client, remaining);
+			return;
+		}
+		leases.delete(client);
+		if (retired.has(client)) close(client);
+	};
+	// Durable execution skips onError, so an invocation that threw never
+	// released its lease. Invocations are sequential there, so every lease
+	// still held when the next one starts belongs to a finished invocation.
+	const reclaim = () => {
+		for (const [request, client] of holders) {
+			if (options.cacheExpiry === 0) close(client);
+			release(request);
+		}
+	};
+	// Make a freshly connected client the one the cache hands out, retiring
+	// the previous one.
+	const adopt = (client) => {
+		if (live !== undefined) retire(live);
+		live = client;
+		return client;
+	};
+
+	const fetch = (request) => {
+		const pending = Promise.try(() => connect(request)).then(
+			(client) => {
+				if (options.cacheExpiry === 0) return client;
+				const current = getCache(options.cacheKey).value;
+				if (current === undefined || current === pending) {
+					return adopt(client);
+				}
+				// Another connect replaced this entry while it was in flight (a
+				// refresh timer, or a broken-client reconnect racing this one).
+				// The cache owns that client, so hand it back and close this one;
+				// keep this one only if that connect fails.
+				return current.then(
+					(cached) => {
+						retire(client);
+						return cached;
+					},
+					() => adopt(client),
+				);
+			},
+			(e) => {
+				// Drop the rejected promise so the next invocation reconnects
+				// instead of replaying the failure for the life of the entry.
+				clearCache(options.cacheKey);
+				throw e;
+			},
+		);
+		return pending;
+	};
 
 	if (!options.internalKey && canPrefetch(options)) {
 		processCache(options, fetch);
 	}
 
 	const rdsMiddlewareBefore = async (request) => {
-		const { value } = processCache(options, () => fetch(request), request);
-		const resolved = await value;
-		setContextNamespace(request, options.contextKey, resolved);
+		if (isExecutionModeDurable(request?.context)) reclaim();
+		const entry = processCache(options, () => fetch(request), request);
+		let client = await entry.value;
+		if (client.broken) {
+			// The adapter flagged an unexpected disconnect: drop the dead client
+			// and reconnect now rather than hand it out again. When a concurrent
+			// invocation already replaced the entry, join its reconnect instead
+			// of starting a second one that would race it for the cache.
+			if (
+				options.cacheExpiry === 0 ||
+				getCache(options.cacheKey).value === entry.value
+			) {
+				clearCache(options.cacheKey);
+				retire(client);
+				live = undefined;
+			}
+			client = await processCache(options, () => fetch(request), request).value;
+		}
+		setContextNamespace(request, options.contextKey, client);
+		lease(request, client);
 	};
 	const rdsMiddlewareAfter = async (request) => {
 		try {
@@ -107,6 +214,7 @@ const rdsMiddleware = (opts = {}) => {
 		} catch (e) {
 			console.error("%s: cleanup error: %s", pkg, e.message);
 		}
+		release(request);
 	};
 	const rdsMiddlewareOnError = rdsMiddlewareAfter;
 

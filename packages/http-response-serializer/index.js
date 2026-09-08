@@ -66,7 +66,11 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 		];
 
 		outerLoop: for (const type of types) {
-			if (typeof type === "string" && type.length > maxMediaTypeLength) {
+			if (typeof type !== "string") {
+				continue;
+			}
+
+			if (type.length > maxMediaTypeLength) {
 				continue;
 			}
 
@@ -76,7 +80,7 @@ const httpResponseSerializerMiddleware = (opts = {}) => {
 					continue;
 				}
 
-				if (typeof type === "string" && mediaTypeGrammar.test(type)) {
+				if (mediaTypeGrammar.test(type)) {
 					request.response.headers["Content-Type"] = type;
 				}
 				const result = s.serializer(request.response);

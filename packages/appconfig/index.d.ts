@@ -54,8 +54,13 @@ export type Internal<TOptions extends AppConfigOptions | undefined> =
 			: {}
 		: {};
 
-declare function appConfigMiddleware<TOptions extends AppConfigOptions>(
-	options?: TOptions,
+declare function appConfigMiddleware<
+	TOptions extends AppConfigOptions,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

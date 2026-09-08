@@ -32,10 +32,10 @@ test("Options logger is optional", () => {
 	expect(noLogger).type.toBeAssignableTo<Options>();
 });
 
-test("Options logger accepts false to disable logging", () => {
-	const disabled: Options = { logger: false };
-	expect(disabled).type.toBeAssignableTo<Options>();
-	expect<true>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
+test("Options logger rejects false", () => {
+	expect(responseLogger({ logger: false })).type.toRaiseError(2322);
+	expect<false>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
+	expect<boolean>().type.not.toBeAssignableTo<NonNullable<Options["logger"]>>();
 });
 
 test("Options omitPaths accepts string array", () => {

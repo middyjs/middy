@@ -756,8 +756,17 @@ test("It should throw a 500 when the event carries no path", async () => {
 test("It should throw at construction on an origin that is not a URL", () => {
 	// A misconfigured origin cannot produce a working request, so it is a
 	// deployment that should never start rather than a 500 per request.
-	throws(() => realHttpDpop({ origin: "not a url" }), { name: "TypeError" });
-	throws(() => realHttpDpop({ origin: 42 }), { name: "TypeError" });
+	for (const origin of ["not a url", 42]) {
+		throws(
+			() => realHttpDpop({ origin }),
+			(e) => {
+				strictEqual(e.name, "TypeError");
+				strictEqual(e.message, `Option 'origin' is not a URL: '${origin}'`);
+				strictEqual(e.cause.package, "@middy/http-dpop");
+				return true;
+			},
+		);
+	}
 });
 
 test("It should read an API Gateway REST event", async () => {
@@ -1381,6 +1390,156 @@ test("It should accept a proof of exactly maxProofLength", async () => {
 	const result = await handler(makeEvent({ dpop: proof }), {
 		...defaultContext,
 	});
+
+	strictEqual(result.dpop.jti, "proof-1");
+});
+
+// RFC 9449 §4.2: `htm` is REQUIRED. A comparison of `claims.htm !== method`
+// passes when both are undefined, which let an event with no method accept a
+// proof that never named one.
+test("It should reject a proof without 'htm' even when no method is given to the verifier", () => {
+	const key = keyFor();
+	throws(
+		() =>
+			verifyDpopProof(proofFor(key, { htm: null }), {
+				url: `https://${DOMAIN}${PATH}`,
+				accessToken: TOKEN,
+			}),
+		{ message: "Proof 'htm' is 'undefined', expected 'undefined'" },
+	);
+});
+
+test("It should reject a proof whose 'htm' is not a string", () => {
+	const key = keyFor();
+	throws(
+		() =>
+			verifyDpopProof(proofFor(key, { htm: 42 }), {
+				method: "GET",
+				url: `https://${DOMAIN}${PATH}`,
+				accessToken: TOKEN,
+			}),
+		{ message: "Proof 'htm' is '42', expected 'GET'" },
+	);
+});
+
+test("It should throw a 500 when the event carries no method", async () => {
+	// A VPC Lattice event, or anything else without `requestContext.http.method`
+	// or `httpMethod`, gives the verifier nothing to hold `htm` against. That
+	// is a shape the operator has to act on, not a proof the caller got wrong.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		{
+			rawPath: PATH,
+			headers: {
+				authorization: `DPoP ${TOKEN}`,
+				dpop: proofFor(key),
+			},
+			requestContext: { domainName: DOMAIN },
+		},
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+	ok(result.cause.data.reason.includes("method"));
+	strictEqual(result.headers, undefined);
+});
+
+test("It should strip repeated trailing slashes from origin", async () => {
+	// One slash is the common typo; every trailing slash goes, so none can
+	// double the `/` in front of the path.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key), {
+		origin: `https://${DOMAIN}//`,
+	});
+
+	const result = await handler(makeEvent({ dpop: proofFor(key) }), {
+		...defaultContext,
+	});
+
+	strictEqual(result.dpop.jti, "proof-1");
+});
+
+test("It should throw a 500 when the request domain does not form a URL", async () => {
+	// A `requestContext.domainName` that cannot be parsed is the same operator
+	// problem as a missing one: a 500, never a 401 the caller has to guess at.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		makeEvent({ dpop: proofFor(key), domainName: "not a host" }),
+		{ ...defaultContext },
+	).catch((e) => e);
+
+	strictEqual(result.statusCode, 500);
+	ok(result.cause.data.reason.includes("'origin' option"));
+	strictEqual(result.headers, undefined);
+});
+
+test("verifyDpopProof rejects an RSA jwk without a string exponent as unusable", () => {
+	// A missing or non-string `e` never reaches the exponent cap; it is the
+	// import that refuses the key, so the failure is named as such rather than
+	// escaping as a TypeError.
+	const key = keyFor("RS256");
+	const { e: _e, ...withoutE } = key.jwk;
+	expectMessage(
+		() => verifyDpopProof(proofFor(key, { jwk: withoutE }), VERIFY_OPTS),
+		"Proof 'jwk' is not a usable public key",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, e: 65537 } }),
+				VERIFY_OPTS,
+			),
+		"Proof 'jwk' is not a usable public key",
+	);
+});
+
+test("verifyDpopProof caps the RSA public exponent at 64 bits", () => {
+	// Eight bytes is the ceiling OpenSSL applies itself, so a key with exactly
+	// that is imported and fails on its signature; one byte more is refused
+	// before any import.
+	const key = keyFor("RS256");
+	const eightBytes = Buffer.from([1, 0, 0, 0, 0, 0, 0, 1]).toString(
+		"base64url",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, e: eightBytes } }),
+				VERIFY_OPTS,
+			),
+		"Proof signature is invalid",
+	);
+	const nineBytes = Buffer.from([1, 0, 0, 0, 0, 0, 0, 0, 1]).toString(
+		"base64url",
+	);
+	expectMessage(
+		() =>
+			verifyDpopProof(
+				proofFor(key, { jwk: { ...key.jwk, e: nineBytes } }),
+				VERIFY_OPTS,
+			),
+		"Proof 'jwk' has an oversized RSA public exponent",
+	);
+});
+
+test("It should apply the RSA exponent cap to RSA keys only", async () => {
+	// An EC jwk carrying a stray `e` member is not an RSA key. The member is
+	// ignored by the import and by the thumbprint, so the proof still verifies.
+	const key = keyFor();
+	const handler = makeHandler(boundPayload(key));
+
+	const result = await handler(
+		makeEvent({
+			dpop: proofFor(key, {
+				jwk: { ...key.jwk, e: Buffer.alloc(9, 0xff).toString("base64url") },
+			}),
+		}),
+		{ ...defaultContext },
+	);
 
 	strictEqual(result.dpop.jti, "proof-1");
 });

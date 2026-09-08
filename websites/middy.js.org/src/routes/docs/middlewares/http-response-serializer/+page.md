@@ -15,7 +15,7 @@ npm install --save @middy/http-response-serializer
 
 ## Options
 
-- `defaultContentType` (optional): used if the request and handler don't specify what type is wanted.
+- `defaultContentType` (optional): used if the request and handler don't specify what type is wanted. When it is unset and no media type was negotiated, no serializer runs and the response passes through.
 - `serializers` (array): Array for regex and serializer function.
 
 ```javascript
@@ -107,7 +107,7 @@ const event = {
   }
 }
 
-handler(event, {}, (_, response) => {
-  strictEqual(response.body, '<message>Hello World</message>')
-})
+const response = await handler(event, {})
+strictEqual(response.headers['Content-Type'], 'application/xml')
+strictEqual(response.body, '<message>Hello World</message>')
 ```

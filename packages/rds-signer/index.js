@@ -5,14 +5,18 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "rds-signer";
 const pkg = `@middy/${name}`;
+
+// The SDK signer issues tokens with `expiresIn: 900` (15 min). Refresh one
+// minute early so a warm container never presents an expired token.
+const tokenLifetimeMs = 14 * 60 * 1000;
 
 const defaults = {
 	AwsClient: Signer,
@@ -61,7 +65,11 @@ export const rdsSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const rdsSignerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const defaultFetchData = {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
@@ -106,14 +114,10 @@ const rdsSignerMiddleware = (opts = {}) => {
 							cause: { package: pkg, data: { method } },
 						});
 					}
+					setCacheKeyExpiry(options, Date.now() + tokenLifetimeMs);
 					return token;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
 		}
 
 		return values;

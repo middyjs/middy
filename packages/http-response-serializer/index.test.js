@@ -414,6 +414,26 @@ test("default serializers list is empty and defaultContentType undefined when no
 	});
 });
 
+test("default serializers list is empty so a defaultContentType alone leaves the response untouched", async (t) => {
+	const handler = middy((event, context) => createHttpResponse());
+
+	handler.use(
+		httpResponseSerializer({ defaultContentType: "application/json" }),
+	);
+
+	const event = { headers: {} };
+	const response = await handler(event, { ...defaultContext });
+
+	// The candidate type is a real string here, so the (empty) default serializer
+	// list is actually walked; nothing matches, so no Content-Type is set and the
+	// body is not serialized.
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {},
+		body: "Hello World",
+	});
+});
+
 test("httpResponseSerializerValidateOptions requires 'regex' on each serializer item", () => {
 	try {
 		httpResponseSerializerValidateOptions({
@@ -498,13 +518,11 @@ test("httpResponseSerializerValidateOptions rejects unknown keys on a serializer
 });
 
 test("preferredMediaTypes fallback is empty when the negotiation namespace is absent", async (t) => {
-	// No http-content-negotiation, so the negotiation namespace is
-	// nullish. With a catch-all serializer regex and NO defaultContentType, the
-	// candidate `types` list is exactly the preferredMediaTypes fallback plus
-	// the (undefined) defaultContentType. The real empty `[]` fallback means the
-	// first (and only) candidate matched is `undefined`. A catch-all regex still
-	// matches and the body is serialized, but the non-string `undefined` candidate
-	// fails the media-type grammar so no Content-Type header is reflected.
+	// No http-content-negotiation, so the negotiation namespace is nullish.
+	// With a catch-all serializer regex and NO defaultContentType, the only
+	// candidate is the (undefined) defaultContentType. It must not be tested
+	// against the regex as the string "undefined": nothing matches, so the body
+	// is left alone and no Content-Type is set.
 	const handler = middy((event, context) => createHttpResponse());
 	handler.use(
 		httpResponseSerializer({
@@ -519,10 +537,11 @@ test("preferredMediaTypes fallback is empty when the negotiation namespace is ab
 
 	const response = await handler({ headers: {} }, { ...defaultContext });
 
-	strictEqual(response.body, "serialized:Hello World");
-	// The matched candidate type is undefined: not a valid media type, so no
-	// Content-Type is echoed.
-	ok(!Object.hasOwn(response.headers, "Content-Type"));
+	deepStrictEqual(response, {
+		statusCode: 200,
+		headers: {},
+		body: "Hello World",
+	});
 });
 
 test("over-length attacker media type is skipped and not reflected (#9 ReDoS)", async (t) => {
@@ -734,11 +753,11 @@ test("It should serialize with the default content type when no negotiation ran"
 	strictEqual(response.headers["Content-Type"], "text/plain");
 });
 
-test("It should not set Content-Type from a non-string preferred media type", async (t) => {
+test("It should skip a non-string preferred media type and fall through to the default", async (t) => {
 	// `preferredMediaTypes` is read straight off the negotiation namespace, so a
-	// non-string entry must not reach the Content-Type header. It has to
-	// stringify to a valid media type, otherwise the grammar test rejects it on
-	// its own and the string guard is doing no work.
+	// non-string entry must never be matched or reach the Content-Type header.
+	// It stringifies to a valid media type on purpose: if it were tested against
+	// the regex, that string would match and be reflected.
 	const notAString = { toString: () => "text/plain" };
 	const handler = middy(() => ({ statusCode: 200, body: "hello" }))
 		.use({
@@ -751,13 +770,14 @@ test("It should not set Content-Type from a non-string preferred media type", as
 		.use(
 			httpResponseSerializer({
 				serializers: [{ regex: /^.*$/, serializer: ({ body }) => body }],
-				defaultContentType: "text/plain",
+				defaultContentType: "application/json",
 			}),
 		);
 
 	const response = await handler({ headers: {} }, defaultContext);
 
-	strictEqual(response.headers["Content-Type"], undefined);
+	strictEqual(response.headers["Content-Type"], "application/json");
+	strictEqual(response.body, "hello");
 });
 
 test("It should accept a media type of exactly the maximum length", async (t) => {

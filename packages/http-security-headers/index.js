@@ -306,7 +306,7 @@ helmet.reportTo = (headers, config) => {
 					? `, "include_subdomains": ${includeSubDomains}`
 					: "";
 			return config[group]
-				? `{ "group": "default", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${subdomains} }`
+				? `{ "group": "${group}", "max_age": ${config.maxAge}, "endpoints": [ { "url": "${config[group]}" } ]${subdomains} }`
 				: "";
 		})
 		.filter((str) => str)

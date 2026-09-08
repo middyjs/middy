@@ -87,15 +87,17 @@ const eventBatchParserMiddleware = (opts = {}) => {
 			for (let w = 0; w < work.length; w += 1) {
 				const { field, accessor, parser } = work[w];
 				const raw = accessor.get(record);
-				if (raw == null) continue;
-				let payload = raw;
-				let framing;
-				if (!text) {
-					payload = Buffer.from(raw, encoding);
-					framing = parseGlueFraming(payload, maxDecompressedBytes);
-				}
+				if (raw === undefined || raw === null) continue;
 				let parsed;
 				try {
+					let payload = raw;
+					let framing;
+					if (!text) {
+						// A non-string here (a record already decoded upstream) makes
+						// Buffer.from throw, reported like any other bad payload.
+						payload = Buffer.from(raw, encoding);
+						framing = parseGlueFraming(payload, maxDecompressedBytes);
+					}
 					// Skip `await` for sync parsers (parseJson, schema-bound
 					// parseAvro/parseProtobuf bindings), saves a microtask per
 					// record across the batch. Only awaits when the parser
@@ -106,6 +108,12 @@ const eventBatchParserMiddleware = (opts = {}) => {
 						parsed = await parsed;
 					}
 				} catch (err) {
+					// An error that already carries an HTTP status (the 413 cap
+					// breach, the 422 from the JSON prototype guard, a parser's own
+					// HttpError) is the intended response; only opaque failures
+					// (base64 decode, framing, zlib, decode) are wrapped.
+					// Stryker disable next-line OptionalChaining: equivalent; a parser that throws null/undefined reaches `err.message` in the wrap below and raises a TypeError either way, so dropping the optional chain only changes which property name that TypeError reports. Every real error object is non-null, so no input can observe the difference.
+					if (typeof err?.statusCode === "number") throw err;
 					throw new HttpError(422, {
 						cause: {
 							package: pkg,
@@ -134,10 +142,12 @@ const eventBatchParserMiddleware = (opts = {}) => {
 // returns the source's own array uncopied; only multi-group events allocate.
 const flattenGroups = (groups) => {
 	// Stryker disable next-line ConditionalExpression: single-group fast path is a copy-avoidance optimization; forcing the multi-group branch still flattens the same record references (mutated in place), producing an identical observable result.
-	if (groups.length === 1) return groups[0];
+	if (groups.length === 1 && Array.isArray(groups[0])) return groups[0];
 	// Stryker disable next-line ArrayDeclaration: a non-empty seed only adds a primitive sentinel record whose key/value/body/data accessors all read undefined, so it is skipped (no parser call, no write-back) and never reaches the event.
 	const out = [];
 	for (const group of groups) {
+		// A group that isn't an array (a malformed event) has no records.
+		if (!Array.isArray(group)) continue;
 		for (const record of group) out.push(record);
 	}
 	return out;
@@ -264,35 +274,48 @@ const detectEventSource = (event) => {
 	return undefined;
 };
 
+// Glue defines exactly two compression types, NONE (0x00) and ZLIB (0x05):
+// `COMPRESSION { NONE, ZLIB }`, `COMPRESSION_DEFAULT_BYTE = 0` and
+// `COMPRESSION_BYTE = 5` in AWSSchemaRegistryConstants.java of
+// github.com/awslabs/aws-glue-schema-registry. parseGlueFraming only frames
+// those two, so no other byte reaches here.
 const decompress = (compressionByte, payload, maxOutputLength) => {
 	if (compressionByte === 0x00) return payload;
-	if (compressionByte === 0x05) {
-		try {
-			return inflateSync(payload, { maxOutputLength });
-		} catch (err) {
-			// Stryker disable next-line OptionalChaining: inflateSync only ever throws a non-null Error, so `err?.code` and `err.code` are indistinguishable; no input can make the suite observe the nullish-safety branch.
-			if (err?.code === "ERR_BUFFER_TOO_LARGE") {
-				throw new HttpError(413, {
-					cause: {
-						package: pkg,
-						data: {
-							reason: "Decompressed payload exceeds cap",
-							maxDecompressedBytes: maxOutputLength,
-						},
+	try {
+		return inflateSync(payload, { maxOutputLength });
+	} catch (err) {
+		// Stryker disable next-line OptionalChaining: inflateSync only ever throws a non-null Error, so `err?.code` and `err.code` are indistinguishable; no input can make the suite observe the nullish-safety branch.
+		if (err?.code === "ERR_BUFFER_TOO_LARGE") {
+			throw new HttpError(413, {
+				cause: {
+					package: pkg,
+					data: {
+						reason: "Decompressed payload exceeds cap",
+						maxDecompressedBytes: maxOutputLength,
 					},
-				});
-			}
-			throw err;
+				},
+			});
 		}
+		throw err;
 	}
-	throw new Error(
-		`Unsupported Glue Schema Registry compression byte: 0x${compressionByte.toString(16).padStart(2, "0")}`,
-	);
 };
 
+// Glue Schema Registry header: 0x03 version byte, compression byte, 16-byte
+// schema version id (`HEADER_VERSION_BYTE = 3`, `SCHEMA_VERSION_ID_SIZE = 16`
+// in the constants cited above; the serializer "decorates each record with
+// the schema version ID ... compresses the record (optional producer
+// configuration)" per
+// docs.aws.amazon.com/glue/latest/dg/schema-registry-works.html).
+// The version byte alone is not proof of framing: a raw Avro/Protobuf record
+// can start with 0x03 too, so the compression byte must also be one of the
+// two values Glue defines (0x00 none, 0x05 zlib). Anything else is not a Glue
+// header and is handed to the parser unframed.
 const parseGlueFraming = (buffer, maxDecompressedBytes) => {
-	// 0x03 == Glue Header
-	if (buffer.length >= 18 && buffer[0] === 0x03) {
+	if (
+		buffer.length >= 18 &&
+		buffer[0] === 0x03 &&
+		(buffer[1] === 0x00 || buffer[1] === 0x05)
+	) {
 		const uuidBytes = buffer.subarray(2, 18);
 		const hex = uuidBytes.toString("hex");
 		return {

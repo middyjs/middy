@@ -18,6 +18,7 @@ export interface PollDynamoDBStreamsOptions {
 	sequenceNumber?: string;
 	limit?: number;
 	pollingDelay?: number;
+	/** Defaults to the region in `streamArn`. */
 	awsRegion?: string;
 }
 

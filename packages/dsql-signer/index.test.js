@@ -795,6 +795,100 @@ test("It should fall back to PGUSER for the default username", async (t) => {
 	strictEqual(getDbConnectAuthToken.mock.callCount(), 0);
 });
 
+test("It should refresh the token 14 min after issue with the default cacheExpiry", async (t) => {
+	// Only Date is mocked: the cache refresh timer stays real (and unref'd) so
+	// the refetch below is driven by the invocation, not by a fired timer.
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheKey: "dsql-signer-token-lifetime",
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	// 13 min after issue the 15 min IAM token is still valid: cache hit.
+	t.mock.timers.tick(13 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+	// 15 min after issue the token has expired, so a new one is signed even
+	// though cacheExpiry is -1.
+	t.mock.timers.tick(2 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
+});
+
+test("It should refresh one minute before a custom expiresIn", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			awsClientOptions: { expiresIn: 300 },
+			cacheKey: "dsql-signer-custom-expiresIn",
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(3 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 1);
+	// A 5 min token is refreshed after 4 min, not after the default 14 min.
+	t.mock.timers.tick(2 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
+});
+
+test("It should never cache the token when cacheExpiry is 0", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheKey: "dsql-signer-no-cache",
+			cacheExpiry: 0,
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 3);
+});
+
 test("dsqlSignerValidateOptions validates contextKey as a string", () => {
 	// Pins the rule itself: an empty `{}` rule would accept the number below,
 	// and a blank `type` would reject the valid string above.
@@ -805,4 +899,93 @@ test("dsqlSignerValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should sign a fresh token per invocation when expiresIn is shorter than the refresh margin", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			awsClientOptions: { expiresIn: 30 },
+			cacheKey: "dsql-signer-short-expiresIn",
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	// A 30 s token minus the 60 s refresh margin leaves no lifetime in which a
+	// cached token is guaranteed valid, so it is not cached: every invocation
+	// signs a new token, even with the default cacheExpiry of -1.
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
+	t.mock.timers.tick(10 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 3);
+});
+
+test("It should sign a fresh token per invocation when expiresIn equals the refresh margin", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			awsClientOptions: { expiresIn: 60 },
+			cacheKey: "dsql-signer-margin-expiresIn",
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	// 60 s minus the 60 s margin is a zero lifetime: the token is not cached.
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
+});
+
+test("It should honour a per-cacheKey expiry override from cacheKeyExpiry", async (t) => {
+	const getDbConnectAuthToken = t.mock.fn(
+		async () => "X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getDbConnectAuthToken = getDbConnectAuthToken;
+	}
+	const handler = middy(() => {}).use(
+		dsqlSigner({
+			AwsClient,
+			cacheKey: "dsql-signer-keyexpiry-cache",
+			// Infinite default, but the per-key override disables caching for this
+			// cacheKey, forcing a fresh token on every invocation.
+			cacheExpiry: -1,
+			cacheKeyExpiry: { "dsql-signer-keyexpiry-cache": 0 },
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(getDbConnectAuthToken.mock.callCount(), 2);
 });

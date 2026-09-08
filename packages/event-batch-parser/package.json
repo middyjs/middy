@@ -92,7 +92,7 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "8.0.0-alpha.0"
 	},
 	"peerDependencies": {
 		"avro-js": "^1.0.0",
@@ -108,8 +108,8 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-glue": "^3.0.0",
-		"@middy/core": "7.9.2",
-		"@middy/glue-schema-registry": "7.9.2",
+		"@middy/core": "8.0.0-alpha.0",
+		"@middy/glue-schema-registry": "8.0.0-alpha.0",
 		"@types/aws-lambda": "^8.0.0",
 		"@types/node": "^24.0.0",
 		"avro-js": "^1.0.0",

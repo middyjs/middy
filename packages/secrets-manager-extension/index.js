@@ -44,6 +44,20 @@ const optionSchema = {
 export const secretsManagerExtensionValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
+// The extension returns the GetSecretValue JSON, which carries the secret in
+// exactly one of two fields: SecretBinary "if the secret value was originally
+// provided as binary data" (Base64-encoded over the HTTP API), otherwise
+// "this field is omitted. The secret value appears in SecretString instead."
+// Binary secrets are handed back as a Buffer.
+// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+// https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets_lambda.html
+const parseSecretValue = (res) => {
+	if (typeof res.SecretBinary !== "undefined") {
+		return Buffer.from(res.SecretBinary, "base64");
+	}
+	return jsonSafeParse(res.SecretString);
+};
+
 const secretsManagerExtensionMiddleware = (opts = {}) => {
 	const options = { ...defaults, ...opts };
 	const port = process.env.PARAMETERS_SECRETS_EXTENSION_HTTP_PORT ?? 2773;
@@ -74,7 +88,7 @@ const secretsManagerExtensionMiddleware = (opts = {}) => {
 					}
 					return res.json();
 				})
-				.then((res) => jsonSafeParse(res.SecretString))
+				.then(parseSecretValue)
 				.catch((e) => {
 					const value = getCache(options.cacheKey).value ?? {};
 					value[internalKey] = undefined;

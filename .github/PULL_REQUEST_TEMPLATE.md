@@ -17,13 +17,14 @@ assignees: ''
 
 **Environment:**
  - Node.js: [e.g. 24]
- - Middy: [e.g. 6.0.0]
+ - Middy: [e.g. 8.0.0]
  - AWS SDK [e.g. 3.999.0]
 
 **Any other comments?**
 
 **Todo List:**
 - [ ] All commits are cryptographically signed
+- [ ] All commits carry a DCO sign-off (`git commit -s`)
 - [ ] Feature/Fix fully implemented
 - [ ] Updated relevant types
 - [ ] Added tests (if applicable)

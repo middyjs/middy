@@ -15,10 +15,15 @@ env:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   website:
     name: Publish website
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Harden runner

@@ -30,13 +30,14 @@ npm install --save @middy/dsql @middy/dsql-signer postgres
 - `disablePrefetch` (boolean) (default `false`): On cold start, requests will trigger early if they can. Ignored when `internalKey` is set.
 - `cacheKey` (string) (default `@middy/dsql`): Cache key for the instantiated client. Must be unique across middleware.
 - `cacheKeyExpiry` (object) (default `{}`): Per-key cache expiry overrides.
-- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`), `n`: cache for n ms.
+- `cacheExpiry` (number) (default `-1`): How long the client should be cached for. `-1`: cache forever (recommended for connection pooling), `0`: never cache (calls `client.end()` on `after` / `onError`), `n`: cache for n ms. A connection replaced by a refresh, or flagged broken by the adapter, is closed once the invocations using it finish; newer connections stay open.
 
 NOTES:
 
 - Lambda is required to have IAM permission for `dsql:DbConnect` (or `dsql:DbConnectAdmin` if `username` is `admin`) on the cluster ARN.
 - DSQL clusters listen on port `5432` and require TLS. `ssl: true` is applied by default.
 - Token TTL and caching should be configured on `@middy/dsql-signer` (default DSQL token TTL is 900 s).
+- Under `@middy/core/executionModeDurableContext` a handler that throws does not run `onError`, so the connection that invocation held is released at the start of the next invocation on the same execution environment instead (and, with `cacheExpiry: 0`, closed then).
 
 ## Sample usage
 

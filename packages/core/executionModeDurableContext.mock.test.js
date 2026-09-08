@@ -29,15 +29,22 @@ describe("executionModeDurableContext (mocked withDurableExecution)", () => {
 		moduleMock.restore();
 	});
 
+	// The SDK exposes only `durableExecutionArn` under `executionContext`;
+	// `tenantId` lives on the Lambda context (`lambdaContext`), where the SDK
+	// itself reads it from.
 	const baseContext = () => ({
 		getRemainingTimeInMillis: () => 1000,
-		executionContext: { tenantId: "tenant-123" },
-		lambdaContext: { functionName: "fn-xyz", awsRequestId: "req-1" },
+		executionContext: { durableExecutionArn: "arn:aws:lambda:::durable" },
+		lambdaContext: {
+			functionName: "fn-xyz",
+			awsRequestId: "req-1",
+			tenantId: "tenant-123",
+		},
 	});
 
-	// L62/L63 - copyKeys copies the expected keys from nested contexts and does
-	// not over-iterate (no spurious `undefined` key).
-	test("executionModeDurableContext copies lambda/execution context keys to top level", async () => {
+	// L62/L63 - copyKeys copies the expected keys from the nested Lambda
+	// context and does not over-iterate (no spurious `undefined` key).
+	test("executionModeDurableContext copies lambda context keys to top level", async () => {
 		let captured;
 		const handler = middy({
 			executionMode: executionModeDurableContext,
@@ -54,10 +61,9 @@ describe("executionModeDurableContext (mocked withDurableExecution)", () => {
 		const result = await handler({}, baseContext());
 
 		strictEqual(result, "ok");
-		// lambdaContextKeys copied
+		// lambdaContextKeys copied, including tenantId
 		strictEqual(captured.functionName, "fn-xyz");
 		strictEqual(captured.awsRequestId, "req-1");
-		// executionContextKeys copied
 		strictEqual(captured.tenantId, "tenant-123");
 		// No off-by-one over-iteration writing `to[keys[len]]` (an `undefined` key).
 		strictEqual(captured.hasUndefinedKey, false);

@@ -27,22 +27,20 @@ import middy from '@middy/core'
 import httpUrlEncodePathParser from '@middy/http-urlencode-path-parser'
 
 const handler = middy((event, context) => {
-  return event.body // propagates the body as response
+  return event.pathParameters // propagates the path parameters as response
 })
 
 handler.use(httpUrlEncodePathParser())
 
 // When Lambda runs the handler with a sample event...
 const event = {
-
   pathParameters: {
     name: encodeURIComponent('Mîddy')
   }
 }
 
-handler(event, {}, (_, body) => {
-  deepStrictEqual(body, {
-    name: 'Mîddy'
-  })
+const response = await handler(event, {})
+deepStrictEqual(response, {
+  name: 'Mîddy'
 })
 ```

@@ -17,6 +17,7 @@ export interface S3ObjectResponseOptions<AwsS3Client = S3Client>
 		| "disablePrefetch"
 	> {
 	contextKey?: string;
+	allowedHosts?: string[];
 }
 
 export type Context<
@@ -27,9 +28,14 @@ export type Context<
 	Promise<Response> | undefined
 >;
 
-declare function s3ObjectResponse(
-	options?: S3ObjectResponseOptions,
-): middy.MiddlewareObj<unknown, unknown, Error>;
+declare function s3ObjectResponse<
+	TOptions extends S3ObjectResponseOptions | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
+): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
 export declare function s3ObjectResponseValidateOptions(
 	options?: Record<string, unknown>,

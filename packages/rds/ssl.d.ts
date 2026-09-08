@@ -1,15 +1,21 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import type { PeerCertificate } from "node:tls";
 
-declare const ssl: (ca: string) => {
+export interface SslOptions {
+	/**
+	 * Hostname the server certificate is verified against (also sent as SNI).
+	 * Set this to the real RDS endpoint when connecting through a CNAME.
+	 */
+	servername?: string;
+}
+
+export interface SslConfig {
 	ssl: {
-		rejectUnauthorized: boolean;
+		rejectUnauthorized: true;
 		ca: string;
-		checkServerIdentity: (
-			host: string,
-			cert: PeerCertificate,
-		) => Error | undefined;
+		servername?: string;
 	};
-};
+}
+
+declare const ssl: (ca: string, options?: SslOptions) => SslConfig;
 export default ssl;

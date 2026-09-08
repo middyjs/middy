@@ -1606,3 +1606,92 @@ test("It should refuse a key shape it cannot place with a 500, not a raw TypeErr
 		);
 	}
 });
+
+// HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
+// `name=value` entry of `event.cookies`, so a header-only lookup always 401s.
+test("It should read PASETO from event.cookies on an HTTP API payload 2.0 event when tokenCookieName is set", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, {
+		tokenCookieName: "paseto_token",
+	});
+
+	const result = await handler(
+		{
+			version: "2.0",
+			headers: {},
+			cookies: ["other=val", `paseto_token=${token}`, "extra=1"],
+		},
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.paseto.sub, "user-1");
+});
+
+test("It should prefer the Cookie header over event.cookies when both carry the cookie for PASETO", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
+		expiresIn: "1h",
+	});
+	const cookiesToken = await V4.sign({ sub: "from-cookies" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, {
+		tokenCookieName: "paseto_token",
+	});
+
+	const result = await handler(
+		{
+			headers: { cookie: `paseto_token=${headerToken}` },
+			cookies: [`paseto_token=${cookiesToken}`],
+		},
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.paseto.sub, "from-header");
+});
+
+test("It should skip non-string entries in event.cookies for PASETO", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: "1h",
+	});
+
+	const handler = makeHandlerWithKey(publicKey, {
+		tokenCookieName: "paseto_token",
+	});
+
+	const result = await handler(
+		{ cookies: [42, null, `paseto_token=${token}`] },
+		{ ...defaultContext },
+	);
+
+	strictEqual(result.paseto.sub, "user-1");
+});
+
+test("It should throw 401 when event.cookies is not an array for PASETO", async (t) => {
+	const privateKey = await V4.generateKey("public");
+	const publicKey = createPublicKey(privateKey);
+
+	const handler = makeHandlerWithKey(publicKey, {
+		tokenCookieName: "paseto_token",
+	});
+
+	try {
+		await handler({ cookies: "paseto_token=x" }, { ...defaultContext });
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-paseto");
+	}
+});

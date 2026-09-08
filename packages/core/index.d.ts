@@ -14,10 +14,74 @@ declare type PluginHookPromise = (
 	request: Request,
 ) => Promise<unknown> | unknown;
 declare type PluginTimeoutEarlyResponse = () => unknown;
-export type PluginExecutionMode = () => void;
-export declare const executionModeStandard: PluginExecutionMode;
-export declare const executionModeDurableContext: PluginExecutionMode;
-export declare const executionModeStreamifyResponse: PluginExecutionMode;
+
+/**
+ * The handler an execution mode wraps. middy's `runRequest` invokes it with
+ * `(event, context, { signal })`.
+ */
+export type PluginExecutionModeLambdaHandler = MiddyInputHandler<any, any, any>;
+
+/**
+ * The handler an execution mode returns. Its call signature is runtime
+ * specific (`(event, context)` for standard, `(event, responseStream, context)`
+ * for streamify), so it is typed loosely. middy attaches `use`, `before`,
+ * `after` and `onError` to it after the mode returns.
+ */
+export interface PluginExecutionModeHandler {
+	(...args: any[]): Promise<any>;
+	handler: (
+		lambdaHandler: PluginExecutionModeLambdaHandler,
+	) => PluginExecutionModeHandler;
+}
+
+/**
+ * Core internals handed to an execution mode. `middyRequest` builds the
+ * per-invocation request object; `runRequest` runs the middleware stack
+ * around the handler and resolves with the response.
+ */
+export interface PluginExecutionModeCore {
+	middyRequest: (
+		event: unknown,
+		context: LambdaContext | LambdaContextDurable,
+	) => Request<any, any, any, any, any>;
+	runRequest: (
+		request: Request<any, any, any, any, any>,
+		beforeMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+		lambdaHandler: PluginExecutionModeLambdaHandler,
+		afterMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+		onErrorMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+		plugin: PluginExecutionModePlugin,
+	) => Promise<any>;
+}
+
+/**
+ * The plugin object as middy hands it to an execution mode: the single-call
+ * hooks are defaulted to no-ops, so a mode may call them unguarded.
+ */
+export type PluginExecutionModePlugin = PluginObject &
+	Required<
+		Pick<
+			PluginObject,
+			"requestStart" | "requestEnd" | "beforeHandler" | "afterHandler"
+		>
+	>;
+
+/**
+ * Runtime adapter selected with `plugin.executionMode`. The built-in modes are
+ * exported from their subpaths (`@middy/core/executionModeStandard`,
+ * `@middy/core/executionModeDurableContext`,
+ * `@middy/core/executionModeStreamifyResponse`), not from the package root.
+ * A custom mode takes the same six arguments and returns the handler middy
+ * decorates and exports.
+ */
+export type PluginExecutionMode = (
+	core: PluginExecutionModeCore,
+	beforeMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+	lambdaHandler: PluginExecutionModeLambdaHandler,
+	afterMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+	onErrorMiddlewares: MiddlewareFn<any, any, any, any, any>[],
+	plugin: PluginExecutionModePlugin,
+) => PluginExecutionModeHandler;
 
 interface PluginObject {
 	internal?: Record<string, unknown>;

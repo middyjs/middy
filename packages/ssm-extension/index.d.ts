@@ -15,6 +15,7 @@ export interface SsmExtensionOptions {
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
 export type Context<TOptions extends SsmExtensionOptions | undefined> =
@@ -45,8 +46,13 @@ export type Internal<TOptions extends SsmExtensionOptions | undefined> =
 			: {}
 		: {};
 
-declare function ssmExtension<TOptions extends SsmExtensionOptions>(
-	options?: TOptions,
+declare function ssmExtension<
+	TOptions extends SsmExtensionOptions,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	any,

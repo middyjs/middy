@@ -41,7 +41,8 @@ test("RunnerOptions accepts all optional fields", () => {
 		gracefulShutdownMs: 60_000,
 		onError: (err, event) => {
 			expect(err).type.toBe<Error>();
-			expect(event).type.toBe<SQSEvent>();
+			// undefined when the poller itself failed rather than a batch.
+			expect(event).type.toBe<SQSEvent | undefined>();
 		},
 	};
 	expect(options).type.toBeAssignableTo<

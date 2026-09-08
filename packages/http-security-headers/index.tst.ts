@@ -56,10 +56,30 @@ test("use with all options", () => {
 		reportTo: {
 			maxAge: 365 * 24 * 60 * 60,
 			default: "",
-			includeSubdomains: true,
+			includeSubDomains: true,
 			csp: "",
 			staple: "",
 			xss: "",
+		},
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("reportTo accepts includeSubDomains (aligned with strictTransportSecurity)", () => {
+	const middleware = httpSecurityHeaders({
+		reportTo: {
+			default: "https://example.com/report",
+			includeSubDomains: false,
+		},
+	});
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("reportTo still accepts the deprecated includeSubdomains casing", () => {
+	const middleware = httpSecurityHeaders({
+		reportTo: {
+			default: "https://example.com/report",
+			includeSubdomains: false,
 		},
 	});
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();

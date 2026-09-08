@@ -17,6 +17,7 @@ export interface SecretsManagerExtensionOptions {
 	cacheKeyExpiry?: { [key: string]: number };
 	cacheExpiry?: number;
 	setToContext?: boolean;
+	contextKey?: string;
 }
 
 export type Context<
@@ -49,8 +50,11 @@ export type Internal<
 
 declare function secretsManagerExtension<
 	TOptions extends SecretsManagerExtensionOptions,
+	TKey extends string = string,
 >(
-	options?: TOptions,
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	any,

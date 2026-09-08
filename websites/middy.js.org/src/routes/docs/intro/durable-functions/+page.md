@@ -20,7 +20,7 @@ import middy from '@middy/core'
 import { executionModeDurableContext } from '@middy/core/DurableContext'
 import { createReadableStream } from '@datastream/core'
 
-const lambdaHandler = (event, context, {signal}) => {
+const lambdaHandler = async (event, context, {signal}) => {
   const response = await context.step(async()=>{
     return fetch(..., {..., signal}).then(...)
   })

@@ -1,5 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
+import { randomUUID } from "node:crypto";
 import { jsonSafeParse, validateOptions } from "@middy/util";
 
 const name = "ecs-task";
@@ -144,10 +145,12 @@ export const ecsTaskRunner = async (opts, deps = {}) => {
 
 	const event = resolveTaskEvent(options, argv, env);
 	const startTime = Date.now();
+	// Falls back to a random UUID so logs and traces always carry a request id,
+	// as documented for the runner.
 	const awsRequestId =
 		taskIdFromArn(ecs.taskArn) ??
 		options.contextOverride?.awsRequestId?.(event) ??
-		"";
+		randomUUID();
 	const invokedFunctionArn = ecs.taskArn;
 	const context = buildTaskContext({
 		timeout: options.timeout,

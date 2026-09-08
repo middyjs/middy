@@ -19,13 +19,15 @@ npm install --save @middy/event-logger
 
 ## Options
 
-- `logger` function (default logs `{event}` via `console.log`): logging function that receives the [request object](/docs/writing-middlewares/request-object). Set to `false` to disable
+- `logger` function (default logs `{event}` via `console.log`): logging function that receives the [request object](/docs/writing-middlewares/request-object). Must be a function; to disable logging, omit the middleware. The return value is ignored, so a logger that returns itself (winston, for example) is safe
 - `omitPaths` string[] (default `[]`): paths to remove from the copy handed to `logger`. Paths are dot-delimited and relative to the `request`, with `[]` to descend into arrays. This is the simple way to keep sensitive data out of your logs. Examples: `event.headers.authorization`, `event.Records.[].body`, `internal.DB_PASSWORD`
 - `mask` string: string to replace omitted values with, instead of removing the key. Example: `***omitted***`
 
 The logger receives the whole `request`, so `request.internal` and `request.context.middyContext` are reachable. Those are where middlewares such as [ssm](/docs/middlewares/ssm) and [secrets-manager](/docs/middlewares/secrets-manager) publish resolved secrets. The default logger only prints `event`; a custom one should either stay narrow or add the relevant `omitPaths`.
 
 `omitPaths` never mutates the real `request`. The logger gets a shallow copy of only the branches that changed, and when nothing matches it gets the `request` itself.
+
+Only plain objects and arrays are walked. A class instance is opened only when a path reaches into it, which is what keeps `context.middyContext.*` redactable under the durable execution SDK, where `context` is a class instance: the logger then gets a plain copy of its own properties. Built-ins such as `Date`, `Map`, `Set`, `Buffer` and streams are never opened.
 
 ## Sample usage
 

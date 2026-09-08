@@ -34,6 +34,13 @@ export interface EcsHttpRunnerOptions<
 	workers?: number;
 	timeout?: number;
 	bodyLimit?: number;
+	/**
+	 * Number of trailing `X-Forwarded-For` hops appended by proxies you
+	 * control. `1` (default) takes the hop ALB appended, `2` skips a trailing
+	 * CloudFront hop, `0` ignores the header and uses the socket address.
+	 * A client port ALB appends (`ip:port`, `[ipv6]:port`) is stripped.
+	 */
+	trustedProxies?: number;
 	contextOverride?: {
 		awsRequestId?: (
 			headers: Record<string, string | string[] | undefined>,

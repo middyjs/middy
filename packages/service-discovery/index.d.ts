@@ -26,6 +26,7 @@ export interface ServiceDiscoveryOptions<
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
 		| "setToContext"
+		| "contextKey"
 	> {
 	fetchData?: { [key: string]: DiscoverInstancesCommandInput };
 }
@@ -52,8 +53,11 @@ export type Internal<TOptions extends ServiceDiscoveryOptions | undefined> =
 
 declare function serviceDiscovery<
 	TOptions extends ServiceDiscoveryOptions | undefined,
+	TKey extends string = string,
 >(
-	options?: TOptions,
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

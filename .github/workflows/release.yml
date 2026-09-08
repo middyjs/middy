@@ -22,6 +22,7 @@ jobs:
     name: Build
     if: ${{ github.event.pull_request.merged }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     permissions:
       contents: read
@@ -71,10 +72,27 @@ jobs:
       - name: Build
         run: |
           npm run build --if-present
+      - name: Verify workspace versions
+        run: |
+          version=$(npm pkg get version | tr -d '"')
+          workspaces=$(npm query '.workspace:not([private])')
+          if ! jq -e --arg v "$version" 'all(.[]; .version == $v)' <<< "$workspaces" > /dev/null; then
+            echo "::error::workspaces not at ${version} (run npm run release:sync):"
+            jq -r --arg v "$version" '.[] | select(.version != $v) | "\(.name)@\(.version)"' <<< "$workspaces"
+            exit 1
+          fi
+          if ! jq -e '[.packages | keys[] | select(test("packages/.*/node_modules/@middy"))] | length == 0' package-lock.json > /dev/null; then
+            echo "::error::package-lock.json resolves @middy/* from the registry instead of the workspace (run npm install):"
+            jq -r '.packages | keys[] | select(test("packages/.*/node_modules/@middy"))' package-lock.json
+            exit 1
+          fi
+          echo "all $(jq length <<< "$workspaces") workspaces at ${version}"
       - name: Pack
         id: pack
         run: |
           mapfile -t args < <(npm query '.workspace:not([private])' | jq -r '.[] | "--workspace", .location')
+          # npm only ships a LICENSE that sits inside the package directory.
+          for dir in packages/*/; do cp LICENSE "$dir"; done
           {
             echo "packages<<EOF"
             npm pack "${args[@]}" --json
@@ -90,8 +108,7 @@ jobs:
         with:
           name: ${{ env.tag }}
           path: |
-            **/package.json
-            **/*.tgz
+            *.tgz
     outputs:
       tag: ${{ env.tag }}
       prerelease: ${{ env.prerelease }}
@@ -100,6 +117,7 @@ jobs:
     name: Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     permissions:
       contents: write # softprops/action-gh-release
@@ -137,6 +155,7 @@ jobs:
     name: Publish
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     environment: npm-publish
 
@@ -158,6 +177,7 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
             github.com:443
             api.github.com:443
+            tuf-repo.github.com:443
             tmaproduction.blob.core.windows.net:443
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -173,12 +193,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find . -name '*.tgz' -print -exec gh attestation verify {} --repo ${{ github.repository }} \;
-      - name: npm stage publish (next)
-        if: ${{ needs.release.outputs.prerelease == 'true' }}
+          for f in ./*.tgz; do
+            echo "$f"
+            gh attestation verify "$f" --repo "$GITHUB_REPOSITORY" --format json || exit 1
+          done
+      - name: npm stage publish
+        env:
+          PRERELEASE: ${{ needs.release.outputs.prerelease }}
         run: |
-          find . -name '*.tgz' -exec npm stage publish --tag next --provenance --access public --ignore-scripts {} \;
-      - name: npm stage publish (latest)
-        if: ${{ needs.release.outputs.prerelease == 'false' }}
-        run: |
-          find . -name '*.tgz' -exec npm stage publish --tag latest --provenance --access public --ignore-scripts {} \;
+          tag=latest
+          if [ "$PRERELEASE" = "true" ]; then tag=next; fi
+          mkdir -p staged
+          for f in ./*.tgz; do
+            npm stage publish --tag "$tag" --provenance --access public --ignore-scripts --json "$f" > "staged/$(basename "$f" .tgz).json" || exit 1
+          done
+          jq -s -r 'map(to_entries[].value) | .[] | "\(.name)@\(.version) staged with id \(.stageId)"' staged/*.json

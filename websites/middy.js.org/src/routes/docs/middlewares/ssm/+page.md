@@ -31,7 +31,8 @@ npm install --save-dev @aws-sdk/client-ssm
 - `fetchData` (object) (required): Mapping of internal key name to API request parameter `Names`/`Path`. `SecureString` are automatically decrypted.
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `@middy/ssm`): Cache key for the fetched data responses. Must be unique across all middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-internal-key cache expiry overrides, keyed by internal key name with a millisecond value (`-1`: cache forever, `0`: never cache, `n`: cache for n ms).
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.ssm`.
 - `contextKey` (string) (default `ssm`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.

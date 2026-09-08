@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import errorLogger, { errorLoggerValidateOptions } from "./index.js";
@@ -38,23 +38,39 @@ test("It should log errors and propagate the error", async (t) => {
 	}
 });
 
-test("It should throw error when invalid logger", async (t) => {
-	const error = new Error("something bad happened");
-	const logger = false;
+// Logging is this middleware's only job, so there is no "off" setting: the
+// way to disable it is to not register the middleware.
+test("It should reject logger: false at construction", () => {
+	for (const logger of [false, null]) {
+		// The factory says what to do instead; the validator keeps the generic
+		// option wording every other option uses.
+		throws(() => errorLogger({ logger }), {
+			name: "TypeError",
+			message:
+				"Option 'logger' must be a function; @middy/error-logger only logs, omit the middleware to disable logging",
+			cause: { package: "@middy/error-logger" },
+		});
+		throws(() => errorLoggerValidateOptions({ logger }), {
+			name: "TypeError",
+			message: "Option 'logger' must be instanceof Function",
+			cause: { package: "@middy/error-logger" },
+		});
+	}
+});
+
+// winston's `logger.error()` returns the logger; a hook that forwarded it would
+// make core treat it as an early response and swallow the error.
+test("It should ignore the logger's return value", async (t) => {
+	const error = new Error("boom");
 
 	const handler = middy(() => {
 		throw error;
-	});
+	}).use(errorLogger({ logger: () => ({ chained: true }) }));
 
-	try {
-		handler.use(errorLogger({ logger }));
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		strictEqual(
-			e.message,
-			'Middleware must be an object containing at least one key among "before", "after", "onError"',
-		);
-	}
+	await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+		strictEqual(e, error);
+		return true;
+	});
 });
 
 test("It should use default logger (console.error) when no logger is provided", async (t) => {
@@ -80,6 +96,24 @@ test("It should use default logger (console.error) when no logger is provided", 
 		console.error = originalError;
 		strictEqual(errorLogged, error);
 	}
+});
+
+// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override the
+// default; it means "not set", not "off", so the default logger must be kept.
+test("It should use the default logger when logger is explicitly undefined", async (t) => {
+	const error = new Error("something bad happened");
+	const consoleError = t.mock.method(console, "error", () => {});
+
+	const handler = middy(() => {
+		throw error;
+	}).use(errorLogger({ logger: undefined }));
+
+	await t.assert.rejects(handler(defaultEvent, defaultContext), (e) => {
+		strictEqual(e, error);
+		return true;
+	});
+	strictEqual(consoleError.mock.callCount(), 1);
+	strictEqual(consoleError.mock.calls[0].arguments[0], error);
 });
 
 test("It should log non-Error throws (string, plain object, null)", async (t) => {
@@ -134,20 +168,6 @@ test("errorLoggerValidateOptions rejects wrong type", () => {
 		errorLoggerValidateOptions({ logger: "not-a-fn" });
 		ok(false, "expected throw");
 	} catch (e) {
-		ok(e.message.includes("logger"));
-	}
-});
-
-test("errorLoggerValidateOptions accepts logger: false to disable logging", () => {
-	errorLoggerValidateOptions({ logger: false });
-});
-
-test("errorLoggerValidateOptions rejects logger: true", () => {
-	try {
-		errorLoggerValidateOptions({ logger: true });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
 		ok(e.message.includes("logger"));
 	}
 });

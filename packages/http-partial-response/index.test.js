@@ -193,7 +193,24 @@ test("It should leave the body unchanged when fields query param is absent", asy
 	deepStrictEqual(request.response, { statusCode: 200, body });
 });
 
-test("It should not throw and return the response unchanged for a deeply nested fields selector", async (t) => {
+// A selector the middleware refuses is the client's mistake, so it answers
+// 400 rather than quietly returning the whole body (or letting a TypeError
+// out as a 500).
+const expect400 = async (handler, fields, reason) => {
+	try {
+		await handler(
+			{ headers: {}, queryStringParameters: { fields } },
+			defaultContext,
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 400);
+		strictEqual(e.cause.package, "@middy/http-partial-response");
+		deepStrictEqual(e.cause.data, { reason });
+	}
+};
+
+test("It should respond 400 for a deeply nested fields selector", async (t) => {
 	const handler = middy(() => createDefaultObjectResponse());
 
 	handler.use(httpPartialResponse());
@@ -201,66 +218,33 @@ test("It should not throw and return the response unchanged for a deeply nested 
 	// Deeply nested selector "a/a/.../a" that would overflow the V8 call
 	// stack inside json-mask and bubble a RangeError out of the after phase.
 	const nested = new Array(9000).fill("a").join("/");
-	const event = {
-		headers: {},
-		queryStringParameters: {
-			fields: nested,
-		},
-	};
 
-	const response = await handler(event, defaultContext);
-
-	deepStrictEqual(response.body, {
-		firstname: "john",
-		lastname: "doe",
-	});
+	await expect400(handler, nested, "Selector exceeds 2048 characters");
 });
 
-test("It should not throw and return the response unchanged for an over-length flat fields selector", async (t) => {
+test("It should respond 400 for an over-length flat fields selector", async (t) => {
 	const handler = middy(() => createDefaultObjectResponse());
 
 	handler.use(httpPartialResponse());
 
 	// Huge flat comma list that exceeds the length cap.
 	const flat = new Array(5000).fill("a").join(",");
-	const event = {
-		headers: {},
-		queryStringParameters: {
-			fields: flat,
-		},
-	};
 
-	const response = await handler(event, defaultContext);
-
-	deepStrictEqual(response.body, {
-		firstname: "john",
-		lastname: "doe",
-	});
+	await expect400(handler, flat, "Selector exceeds 2048 characters");
 });
 
-test("It should return the response unchanged when fields nesting depth exceeds the cap", async (t) => {
+test("It should respond 400 when fields nesting depth exceeds the cap", async (t) => {
 	const handler = middy(() => createDefaultObjectResponse());
 
 	handler.use(httpPartialResponse());
 
 	// Short overall, but nesting depth (count of "/") is above the cap.
 	const deep = new Array(150).fill("a").join("/");
-	const event = {
-		headers: {},
-		queryStringParameters: {
-			fields: deep,
-		},
-	};
 
-	const response = await handler(event, defaultContext);
-
-	deepStrictEqual(response.body, {
-		firstname: "john",
-		lastname: "doe",
-	});
+	await expect400(handler, deep, "Selector exceeds a depth of 100");
 });
 
-test("It should return the response unchanged when fields grouping depth exceeds the cap", async (t) => {
+test("It should respond 400 when fields grouping depth exceeds the cap", async (t) => {
 	const handler = middy(() => createDefaultObjectResponse());
 
 	handler.use(httpPartialResponse());
@@ -269,25 +253,23 @@ test("It should return the response unchanged when fields grouping depth exceeds
 	const grouped = `${new Array(150).fill("a(").join("")}b${new Array(150)
 		.fill(")")
 		.join("")}`;
-	const event = {
-		headers: {},
-		queryStringParameters: {
-			fields: grouped,
-		},
-	};
 
-	const response = await handler(event, defaultContext);
-
-	deepStrictEqual(response.body, {
-		firstname: "john",
-		lastname: "doe",
-	});
+	await expect400(handler, grouped, "Selector exceeds a depth of 100");
 });
 
-test("It should return the response unchanged when mask throws", async (t) => {
+test("It should respond 400 when fields is not a string", async (t) => {
+	const handler = middy(() => createDefaultObjectResponse());
+
+	handler.use(httpPartialResponse());
+
+	// VPC Lattice V2 delivers every query string value as an array.
+	await expect400(handler, ["firstname"], "Selector must be a string");
+});
+
+test("It should respond 400 when mask throws", async (t) => {
 	const { after } = httpPartialResponse();
 	// An object body whose selected property throws when json-mask reads it,
-	// forcing mask() itself to throw and exercising the try/catch safety net.
+	// forcing mask() itself to throw.
 	const body = {
 		get firstname() {
 			throw new Error("boom");
@@ -297,7 +279,14 @@ test("It should return the response unchanged when mask throws", async (t) => {
 		event: { queryStringParameters: { fields: "firstname" } },
 		response: { statusCode: 200, body },
 	};
-	after(request);
+	try {
+		after(request);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 400);
+		strictEqual(e.cause.package, "@middy/http-partial-response");
+		deepStrictEqual(e.cause.data, { reason: "Selector could not be applied" });
+	}
 	strictEqual(request.response.body, body);
 });
 

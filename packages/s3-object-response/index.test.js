@@ -1,4 +1,5 @@
 import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
+import { Readable } from "node:stream";
 import { test } from "node:test";
 import { S3Client, WriteGetObjectResponseCommand } from "@aws-sdk/client-s3";
 import { clearCache } from "@middy/util";
@@ -12,7 +13,9 @@ test.afterEach((t) => {
 	clearCache();
 });
 
-const awsOrigin = "https://s3.amazonservices.com";
+// Host shape of the presigned inputS3Url S3 Object Lambda hands the function.
+const awsOrigin =
+	"https://my-s3-ap-111122223333.s3-accesspoint.us-east-1.amazonaws.com";
 const defaultEvent = {
 	getObjectContext: {
 		inputS3Url: `${awsOrigin}/key?signature`,
@@ -542,4 +545,370 @@ test("s3ObjectResponseValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should retry client init after a rejected attempt", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("body-data"));
+	let constructed = 0;
+	class AwsClient {
+		constructor() {
+			constructed += 1;
+			if (constructed === 1) throw new Error("init boom");
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ Body: "body-data" }));
+	handler.use(s3ObjectResponse({ AwsClient, disablePrefetch: true }));
+
+	// A rejected init must not be memoized for the life of the container.
+	await rejects(() => handler(defaultEvent, defaultContext), /init boom/);
+	const response = await handler(defaultEvent, defaultContext);
+	strictEqual(response.statusCode, 200);
+	strictEqual(constructed, 2);
+});
+
+const fetchSpy = (t) => {
+	const calls = [];
+	t.mock.method(globalThis, "fetch", async (url) => {
+		calls.push(url);
+		return new Response("original");
+	});
+	return calls;
+};
+
+const eventWithInputUrl = (inputS3Url) => ({
+	getObjectContext: {
+		inputS3Url,
+		outputRoute: "route",
+		outputToken: "token",
+	},
+});
+
+const expectRejectedInputUrl = async (t, inputS3Url, opts = {}) => {
+	const calls = fetchSpy(t);
+	class AwsClient {
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	const handler = middy(async () => ({ Body: "b" })).use(
+		s3ObjectResponse({ AwsClient, ...opts }),
+	);
+	try {
+		await handler(eventWithInputUrl(inputS3Url), defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 400);
+		strictEqual(e.cause.package, "@middy/s3-object-response");
+		// The presigned query string carries credentials, so only the host is
+		// reported.
+		ok(!JSON.stringify(e.cause.data).includes("signature"));
+		const parsed = URL.parse(inputS3Url);
+		const { reason, hostname, port, allowedHosts } = e.cause.data;
+		strictEqual(
+			reason,
+			"inputS3Url must be an https URL without a port on an allowed host",
+		);
+		strictEqual(hostname, parsed?.hostname);
+		strictEqual(port, parsed?.port);
+		if (opts.allowedHosts) deepStrictEqual(allowedHosts, opts.allowedHosts);
+		else ok(allowedHosts.includes("*.s3-accesspoint.*.amazonaws.com"));
+	}
+	// Nothing is fetched from a host that failed the allowlist.
+	deepStrictEqual(calls, []);
+};
+
+const expectAcceptedInputUrl = async (t, inputS3Url, opts = {}) => {
+	const calls = fetchSpy(t);
+	class AwsClient {
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	const handler = middy(async (event, context) => {
+		const res = await context.middyContext["s3-object-response"];
+		return { Body: await res.text() };
+	}).use(s3ObjectResponse({ AwsClient, ...opts }));
+	const response = await handler(eventWithInputUrl(inputS3Url), defaultContext);
+	strictEqual(response.statusCode, 200);
+	deepStrictEqual(calls, [inputS3Url]);
+};
+
+test("It should reject an http inputS3Url without fetching it", async (t) => {
+	await expectRejectedInputUrl(
+		t,
+		"http://bucket.s3-accesspoint.us-east-1.amazonaws.com/key?signature",
+	);
+});
+
+test("It should reject an inputS3Url on a host outside allowedHosts", async (t) => {
+	await expectRejectedInputUrl(t, "https://evil.example/key?signature");
+});
+
+test("It should reject a host that only ends with the allowed text", async (t) => {
+	await expectRejectedInputUrl(t, "https://evilamazonaws.com/key?signature");
+});
+
+test("It should reject an inputS3Url that is not a URL", async (t) => {
+	await expectRejectedInputUrl(t, "not a url");
+});
+
+test("It should accept hosts listed in allowedHosts, with or without a subdomain", async (t) => {
+	await expectAcceptedInputUrl(t, "https://minio.internal/bucket/key", {
+		allowedHosts: ["minio.internal"],
+	});
+	await expectAcceptedInputUrl(t, "https://s3.minio.internal/bucket/key", {
+		allowedHosts: [".minio.internal"],
+	});
+});
+
+test("It should not accept the default host once allowedHosts overrides it", async (t) => {
+	await expectRejectedInputUrl(t, `${awsOrigin}/key?signature`, {
+		allowedHosts: ["minio.internal"],
+	});
+});
+
+test("s3ObjectResponseValidateOptions validates allowedHosts as an array of strings", () => {
+	s3ObjectResponseValidateOptions({ allowedHosts: [".amazonaws.com"] });
+	try {
+		s3ObjectResponseValidateOptions({ allowedHosts: ".amazonaws.com" });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("allowedHosts"));
+	}
+	try {
+		s3ObjectResponseValidateOptions({ allowedHosts: [1] });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e.message.includes("allowedHosts"));
+	}
+});
+
+test("It should forward the handler's WriteGetObjectResponse fields, taking route and token from the event", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({
+		Body: "the-body",
+		ContentType: "text/plain",
+		Metadata: { source: "middy" },
+		StatusCode: 206,
+		ContentEncoding: "gzip",
+		// The event, not the handler, decides where the response is routed.
+		RequestRoute: "handler-route",
+		RequestToken: "handler-token",
+	}));
+	handler.use(s3ObjectResponse({ AwsClient }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(captured.input, {
+		RequestRoute: defaultEvent.getObjectContext.outputRoute,
+		RequestToken: defaultEvent.getObjectContext.outputToken,
+		Body: "the-body",
+		ContentType: "text/plain",
+		Metadata: { source: "middy" },
+		StatusCode: 206,
+		ContentEncoding: "gzip",
+	});
+});
+
+test("It should not forward a lowercase body alias alongside Body", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(async () => ({ body: "lowercase", StatusCode: 200 }));
+	handler.use(s3ObjectResponse({ AwsClient }));
+
+	await handler(defaultEvent, defaultContext);
+
+	deepStrictEqual(captured.input, {
+		RequestRoute: defaultEvent.getObjectContext.outputRoute,
+		RequestToken: defaultEvent.getObjectContext.outputToken,
+		Body: "lowercase",
+		StatusCode: 200,
+	});
+});
+
+// ---------- default allowedHosts: supporting access point shapes only ----------
+
+test("It should reject other amazonaws.com hosts by default (EC2, S3 bucket, API Gateway, Object Lambda)", async (t) => {
+	await expectRejectedInputUrl(
+		t,
+		"https://ec2-203-0-113-25.compute-1.amazonaws.com/key?signature",
+	);
+	await expectRejectedInputUrl(
+		t,
+		"https://bucket.s3.us-east-1.amazonaws.com/key?signature",
+	);
+	await expectRejectedInputUrl(
+		t,
+		"https://abc123.execute-api.us-east-1.amazonaws.com/prod/key?signature",
+	);
+	// Callers hit the Object Lambda endpoint; inputS3Url never points at it.
+	await expectRejectedInputUrl(
+		t,
+		"https://bucket.s3-object-lambda.us-east-1.amazonaws.com/key?signature",
+	);
+});
+
+test("It should reject access-point-like hosts with a missing or extra label", async (t) => {
+	await expectRejectedInputUrl(
+		t,
+		"https://s3-accesspoint.us-east-1.amazonaws.com/key?signature",
+	);
+	await expectRejectedInputUrl(
+		t,
+		"https://a.b.s3-accesspoint.us-east-1.amazonaws.com/key?signature",
+	);
+	await expectRejectedInputUrl(
+		t,
+		"https://ap-111122223333.s3-accesspoint.us-east-1.amazonaws.com.evil.example/key?signature",
+	);
+});
+
+test("It should accept every supporting access point host shape by default", async (t) => {
+	for (const host of [
+		"my-s3-ap-111122223333.s3-accesspoint.us-east-1.amazonaws.com",
+		"my-s3-ap-111122223333.s3-accesspoint-fips.us-gov-west-1.amazonaws.com",
+		"my-s3-ap-111122223333.s3-accesspoint.dualstack.eu-west-1.amazonaws.com",
+		"my-s3-ap-111122223333.s3-accesspoint-fips.dualstack.us-east-2.amazonaws.com",
+		"my-s3-ap-111122223333.s3-accesspoint.cn-north-1.amazonaws.com.cn",
+		"my-s3-ap-111122223333.s3-accesspoint.dualstack.cn-northwest-1.amazonaws.com.cn",
+	]) {
+		await expectAcceptedInputUrl(t, `https://${host}/key?signature`);
+	}
+});
+
+test("It should reject an inputS3Url with an explicit port", async (t) => {
+	await expectRejectedInputUrl(t, `${awsOrigin}:8443/key?signature`);
+	// A port can't be allow-listed, so a host carrying one is always refused.
+	await expectRejectedInputUrl(t, "https://s3.minio.internal:9000/k", {
+		allowedHosts: ["minio.internal"],
+	});
+});
+
+test("It should treat the default https port as no port", async (t) => {
+	await expectAcceptedInputUrl(t, `${awsOrigin}:443/key?signature`);
+});
+
+test("It should compare allowedHosts entries case-insensitively and as punycode", async (t) => {
+	await expectAcceptedInputUrl(t, "https://s3.minio.internal/k", {
+		allowedHosts: ["MinIO.Internal"],
+	});
+	await expectAcceptedInputUrl(t, "https://xn--bcher-kva.example/k", {
+		allowedHosts: ["bücher.example"],
+	});
+	await expectAcceptedInputUrl(t, "https://BÜCHER.example/k", {
+		allowedHosts: ["xn--bcher-kva.example"],
+	});
+});
+
+test("It should reject an allowedHosts entry that is not a bare hostname at construction", () => {
+	for (const entry of [
+		"a b",
+		"minio.internal:9000",
+		"minio.internal/bucket",
+		"user@minio.internal",
+		"",
+	]) {
+		let caught;
+		try {
+			s3ObjectResponse({ allowedHosts: [entry] });
+		} catch (e) {
+			caught = e;
+		}
+		ok(caught instanceof TypeError, `entry ${JSON.stringify(entry)}`);
+		strictEqual(
+			caught.message,
+			"@middy/s3-object-response: allowedHosts entry must be a bare hostname",
+		);
+		strictEqual(caught.cause.package, "@middy/s3-object-response");
+		strictEqual(caught.cause.data.entry, entry);
+	}
+});
+
+test("It should not spread a Buffer, string or stream handler response into WriteGetObjectResponse fields", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	const route = {
+		RequestRoute: defaultEvent.getObjectContext.outputRoute,
+		RequestToken: defaultEvent.getObjectContext.outputToken,
+	};
+	const run = (response) =>
+		middy(async () => response).use(s3ObjectResponse({ AwsClient }))(
+			defaultEvent,
+			defaultContext,
+		);
+
+	const buffer = Buffer.from("raw-bytes");
+	await run(buffer);
+	deepStrictEqual(captured.input, { ...route, Body: buffer });
+	strictEqual(captured.input[0], undefined);
+
+	await run("text");
+	deepStrictEqual(captured.input, { ...route, Body: "text" });
+
+	const stream = Readable.from(["chunk"]);
+	await run(stream);
+	strictEqual(captured.input.Body, stream);
+	deepStrictEqual(Object.keys(captured.input).sort(), [
+		"Body",
+		"RequestRoute",
+		"RequestToken",
+	]);
+
+	// A null-prototype object is still a plain field map.
+	const bare = Object.create(null);
+	bare.Body = "bare";
+	bare.ContentType = "text/plain";
+	await run(bare);
+	deepStrictEqual(captured.input, {
+		...route,
+		Body: "bare",
+		ContentType: "text/plain",
+	});
+});
+
+test("It should send no Body when the handler returns null", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => new Response("ignored"));
+	let captured;
+	class AwsClient {
+		send(command) {
+			captured = command;
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+	// null is not a field map and must not be walked for a prototype.
+	const handler = middy(async () => null).use(s3ObjectResponse({ AwsClient }));
+
+	const response = await handler(defaultEvent, defaultContext);
+
+	strictEqual(response.statusCode, 200);
+	deepStrictEqual(captured.input, {
+		RequestRoute: defaultEvent.getObjectContext.outputRoute,
+		RequestToken: defaultEvent.getObjectContext.outputToken,
+		Body: undefined,
+	});
 });

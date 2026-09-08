@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, rejects, strictEqual } from "node:assert/strict";
 import { test } from "node:test";
 
 import {
@@ -636,4 +636,171 @@ test("wsResponseValidateOptions rejects a non-function awsClientCapture", () => 
 		ok(e instanceof TypeError);
 		ok(e.message.includes("awsClientCapture"));
 	}
+});
+
+test("It should retry client init after a rejected attempt", async (t) => {
+	let constructed = 0;
+	class FlakyClient {
+		constructor() {
+			constructed++;
+			if (constructed === 1) throw new Error("init boom");
+		}
+		send() {
+			return Promise.resolve({ statusCode: 200 });
+		}
+	}
+
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: FlakyClient }),
+	);
+	const event = {
+		requestContext: {
+			domainName: "d.example.com",
+			stage: "production",
+			connectionId: "conn-1",
+		},
+	};
+
+	// A rejected init must not be memoized for the life of the container.
+	await rejects(() => handler(event, defaultContext), /init boom/);
+	deepStrictEqual(await handler(event, defaultContext), { statusCode: 200 });
+	strictEqual(constructed, 2);
+});
+
+test("It should post to each stage/domain endpoint rather than the first one seen", async (t) => {
+	const { FakeClient, constructions, sends } = makeFakeClientFactory();
+
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: FakeClient }),
+	);
+	const eventFor = (domainName, stage, connectionId) => ({
+		requestContext: { domainName, stage, connectionId },
+	});
+
+	await handler(
+		eventFor("a.example.com", "production", "conn-a"),
+		defaultContext,
+	);
+	await handler(eventFor("b.example.com", "staging", "conn-b"), defaultContext);
+
+	// One client per endpoint: the second invocation must not reuse the client
+	// built for the first request's domainName/stage.
+	deepStrictEqual(
+		constructions.map((c) => c.endpoint),
+		["https://a.example.com/production", "https://b.example.com/staging"],
+	);
+	strictEqual(sends.length, 2);
+
+	// A repeat of the first endpoint reuses its client instead of rebuilding it.
+	await handler(
+		eventFor("a.example.com", "production", "conn-a2"),
+		defaultContext,
+	);
+	strictEqual(constructions.length, 2);
+	strictEqual(sends.length, 3);
+});
+
+test("It should evict the oldest derived client once more than 8 endpoints are seen", async (t) => {
+	const { FakeClient, constructions } = makeFakeClientFactory();
+
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: FakeClient }),
+	);
+	const eventFor = (i) => ({
+		requestContext: {
+			domainName: `d${i}.example.com`,
+			stage: "production",
+			connectionId: `conn-${i}`,
+		},
+	});
+
+	for (let i = 0; i < 9; i++) {
+		await handler(eventFor(i), defaultContext);
+	}
+	strictEqual(constructions.length, 9);
+
+	// The newest endpoint is still cached.
+	await handler(eventFor(8), defaultContext);
+	strictEqual(constructions.length, 9);
+	// The oldest endpoint was evicted when the ninth arrived, so it is rebuilt.
+	await handler(eventFor(0), defaultContext);
+	strictEqual(constructions.length, 10);
+	strictEqual(constructions[9].endpoint, "https://d0.example.com/production");
+});
+
+test("It should resolve with 410 when the connection is gone", async (t) => {
+	const client = mockClient(ApiGatewayManagementApiClient);
+	client.on(PostToConnectionCommand).rejects({ name: "GoneException" });
+
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "d.example.com",
+			stage: "production",
+			connectionId: "conn-gone",
+		},
+	};
+	const response = await handler(event, defaultContext);
+
+	// A client that already disconnected is not an invocation failure.
+	deepStrictEqual(response, { statusCode: 410 });
+	strictEqual(client.commandCalls(PostToConnectionCommand).length, 1);
+});
+
+test("It should rethrow PostToConnection errors other than GoneException", async (t) => {
+	const error = new Error("boom");
+	error.name = "LimitExceededException";
+	mockClient(ApiGatewayManagementApiClient)
+		.on(PostToConnectionCommand)
+		.rejects(error);
+
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: ApiGatewayManagementApiClient }),
+	);
+
+	const event = {
+		requestContext: {
+			domainName: "d.example.com",
+			stage: "production",
+			connectionId: "conn-err",
+		},
+	};
+	await rejects(() => handler(event, defaultContext), /boom/);
+});
+
+test("It should destroy a derived client when it is evicted", async (t) => {
+	const destroyed = [];
+	class FakeClient {
+		constructor(awsClientOptions) {
+			this.endpoint = awsClientOptions.endpoint;
+		}
+		async send() {
+			return { statusCode: 200 };
+		}
+		destroy() {
+			destroyed.push(this.endpoint);
+		}
+	}
+	const handler = middy(() => "string").use(
+		wsResponse({ AwsClient: FakeClient }),
+	);
+	const eventFor = (i) => ({
+		requestContext: {
+			domainName: `d${i}.example.com`,
+			stage: "production",
+			connectionId: `conn-${i}`,
+		},
+	});
+
+	for (let i = 0; i < 8; i++) {
+		await handler(eventFor(i), defaultContext);
+	}
+	deepStrictEqual(destroyed, []);
+	// The ninth endpoint evicts the oldest client, whose keep-alive sockets
+	// would otherwise stay open for the life of the container.
+	await handler(eventFor(8), defaultContext);
+	deepStrictEqual(destroyed, ["https://d0.example.com/production"]);
 });

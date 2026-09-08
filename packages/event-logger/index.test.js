@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { test } from "node:test";
 import middy from "../core/index.js";
 import eventLogger, { eventLoggerValidateOptions } from "./index.js";
@@ -72,11 +72,55 @@ test("It should use the default logger when none is provided", async (t) => {
 	deepStrictEqual(response, event);
 });
 
-test("It should return no-op middleware when logger is false", async (t) => {
-	const middleware = eventLogger({ logger: false });
-	strictEqual(middleware.before, undefined);
-	strictEqual(middleware.after, undefined);
-	strictEqual(middleware.onError, undefined);
+// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override the
+// default; it means "not set", not "off", so the default logger must be kept.
+test("It should use the default logger when logger is explicitly undefined", async (t) => {
+	const log = t.mock.method(console, "log", () => {});
+
+	const handler = middy((event) => event).use(
+		eventLogger({ logger: undefined }),
+	);
+
+	const event = { foo: "bar" };
+	deepStrictEqual(await handler(event, defaultContext), event);
+
+	strictEqual(log.mock.callCount(), 1);
+	deepStrictEqual(JSON.parse(log.mock.calls[0].arguments[0]), { event });
+});
+
+// Logging is this middleware's only job, so there is no "off" setting: the
+// way to disable it is to not register the middleware.
+test("It should reject logger: false at construction", () => {
+	for (const logger of [false, null]) {
+		// The factory says what to do instead; the validator keeps the generic
+		// option wording every other option uses.
+		throws(() => eventLogger({ logger }), {
+			name: "TypeError",
+			message:
+				"Option 'logger' must be a function; @middy/event-logger only logs, omit the middleware to disable logging",
+			cause: { package: "@middy/event-logger" },
+		});
+		throws(() => eventLoggerValidateOptions({ logger }), {
+			name: "TypeError",
+			message: "Option 'logger' must be instanceof Function",
+			cause: { package: "@middy/event-logger" },
+		});
+	}
+});
+
+// winston's `logger.info()` returns the logger; a hook that forwarded it would
+// make core treat it as an early response and skip the handler.
+test("It should ignore the logger's return value", async (t) => {
+	const lambdaHandler = t.mock.fn(() => "handler");
+
+	const handler = middy(lambdaHandler).use(
+		eventLogger({ logger: () => ({ chained: true }) }),
+	);
+
+	const response = await handler({ foo: "bar" }, defaultContext);
+
+	strictEqual(lambdaHandler.mock.callCount(), 1);
+	strictEqual(response, "handler");
 });
 
 test("It should omit paths", async (t) => {
@@ -192,16 +236,5 @@ test("eventLoggerValidateOptions rejects wrong types", () => {
 		ok(false, "expected throw");
 	} catch (e) {
 		ok(e.message.includes("mask"));
-	}
-});
-
-test("eventLoggerValidateOptions accepts logger:false and rejects logger:true", () => {
-	eventLoggerValidateOptions({ logger: false });
-	try {
-		eventLoggerValidateOptions({ logger: true });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		ok(e.message.includes("logger"));
 	}
 });

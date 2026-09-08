@@ -10,9 +10,11 @@ export declare function dsqlSignerParam<T>(name: string): ParamType<T>;
 
 export type DsqlSignerFetchConfig = DsqlSignerConfig & { username?: string };
 
+// The signer is constructed directly rather than through `createClient`, so
+// assume-role, X-Ray capture and the shared cache size are not honoured.
 export type DsqlSignerOptions<AwsSigner = DsqlSigner> = Omit<
 	MiddyOptions<AwsSigner, DsqlSignerFetchConfig>,
-	"fetchData"
+	"fetchData" | "awsClientAssumeRole" | "awsClientCapture" | "cacheMaxSize"
 > & {
 	fetchData?: {
 		[key: string]: DsqlSignerFetchConfig;
@@ -39,8 +41,13 @@ export type Internal<TOptions extends DsqlSignerOptions | undefined> =
 			: {}
 		: {};
 
-declare function dsqlSigner<TOptions extends DsqlSignerOptions | undefined>(
-	options?: TOptions,
+declare function dsqlSigner<
+	TOptions extends DsqlSignerOptions | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

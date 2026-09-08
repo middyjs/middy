@@ -33,16 +33,22 @@ export const transpileFTL = transpile;
 
 // Inlined from `ajv-cmd/compile` to avoid extra dependency
 
-const instance = (options = {}) => {
-	// ajvKeywords() below registers the keyword set, so a caller-supplied
-	// `keywords` list is dropped rather than merged.
-	Object.assign(options, { keywords: [] });
-
+const instance = ({ keywords = [], ...options } = {}) => {
 	const ajv = new Ajv(options);
 	ajvFormats(ajv);
 	ajvFormatsDraft2019(ajv);
 	ajvKeywords(ajv);
 	ajvErrors(ajv);
+	// The plugins above register their keyword sets with `addKeyword`, which
+	// throws on a name that is already defined. The caller's `keywords` are
+	// held back from the constructor and added last, so a user definition
+	// replaces a plugin keyword of the same name instead of colliding with it.
+	for (const definition of keywords) {
+		for (const name of [definition.keyword ?? definition].flat()) {
+			ajv.removeKeyword(name);
+		}
+		ajv.addKeyword(definition);
+	}
 	return ajv;
 };
 

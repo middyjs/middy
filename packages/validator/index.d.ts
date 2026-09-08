@@ -1,12 +1,12 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import type middy from "@middy/core";
-import type { Ajv, ErrorObject } from "ajv";
+import type { AsyncValidateFunction, ErrorObject, ValidateFunction } from "ajv";
 
 export interface Options {
-	eventSchema?: Ajv;
-	contextSchema?: Ajv;
-	responseSchema?: Ajv;
+	eventSchema?: ValidateFunction | AsyncValidateFunction;
+	contextSchema?: ValidateFunction | AsyncValidateFunction;
+	responseSchema?: ValidateFunction | AsyncValidateFunction;
 	defaultLanguage?: string;
 	languages?: Record<
 		string,

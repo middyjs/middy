@@ -788,6 +788,69 @@ test("It should cache forever by default (cacheExpiry defaults -1)", async (t) =
 	strictEqual(getAuthToken.mock.callCount(), 1);
 });
 
+test("It should refresh the token 14 min after issue with the default cacheExpiry", async (t) => {
+	// Only Date is mocked: the cache refresh timer stays real (and unref'd) so
+	// the refetch below is driven by the invocation, not by a fired timer.
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getAuthToken = t.mock.fn(
+		async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getAuthToken = getAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		rdsSigner({
+			AwsClient,
+			cacheKey: "rds-signer-token-lifetime",
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	// 13 min after issue the 15 min IAM token is still valid: cache hit.
+	t.mock.timers.tick(13 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getAuthToken.mock.callCount(), 1);
+	// 15 min after issue the token has expired, so a new one is signed even
+	// though cacheExpiry is -1.
+	t.mock.timers.tick(2 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getAuthToken.mock.callCount(), 2);
+});
+
+test("It should never cache the token when cacheExpiry is 0", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const getAuthToken = t.mock.fn(
+		async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getAuthToken = getAuthToken;
+	}
+
+	const handler = middy(() => {}).use(
+		rdsSigner({
+			AwsClient,
+			cacheKey: "rds-signer-no-cache",
+			cacheExpiry: 0,
+			fetchData: {
+				token: { region: "us-east-1" },
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(getAuthToken.mock.callCount(), 3);
+});
+
 test("rdsSignerValidateOptions validates contextKey as a string", () => {
 	// Pins the rule itself: an empty `{}` rule would accept the number below,
 	// and a blank `type` would reject the valid string above.
@@ -798,4 +861,44 @@ test("rdsSignerValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should honour a per-cacheKey expiry override (cacheKeyExpiry)", async (t) => {
+	const getAuthToken = t.mock.fn(
+		async () => "https://rds.amazonaws.com?X-Amz-Security-Token=token",
+	);
+	class AwsClient {
+		getAuthToken = getAuthToken;
+	}
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(
+			values.token,
+			"https://rds.amazonaws.com?X-Amz-Security-Token=token",
+		);
+	};
+
+	handler
+		.use(
+			rdsSigner({
+				AwsClient,
+				cacheKey: "rds-signer-keyexpiry-cache",
+				// Infinite default, but the per-key override disables caching for this
+				// cacheKey, forcing a fresh token on every invocation.
+				cacheExpiry: -1,
+				cacheKeyExpiry: { "rds-signer-keyexpiry-cache": 0 },
+				fetchData: {
+					token: { region: "us-east-1" },
+				},
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(getAuthToken.mock.callCount(), 2);
 });

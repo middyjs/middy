@@ -1,4 +1,10 @@
-import { deepStrictEqual, match, ok, strictEqual } from "node:assert/strict";
+import {
+	rejects as assertRejects,
+	deepStrictEqual,
+	match,
+	ok,
+	strictEqual,
+} from "node:assert/strict";
 import { test } from "node:test";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
 import { clearCache, getInternal } from "@middy/util";
@@ -224,6 +230,125 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	await handler(defaultEvent, defaultContext);
 
 	strictEqual(sendStub.callCount, 2);
+});
+
+test("It should expire cached credentials 60 s before the AssumeRole Expiration", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(STSClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+				Expiration: new Date(Date.now() + 60 * 60 * 1000),
+			},
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: STSClient,
+			cacheKey: "sts-expiration-clamp",
+			cacheExpiry: -1,
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	// 58 min later the credentials are still inside the 60 s margin, so the
+	// cache is served.
+	t.mock.timers.tick(58 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 1);
+	// 61 min later the credentials have expired, so AssumeRole runs again even
+	// though cacheExpiry is -1.
+	t.mock.timers.tick(3 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 2);
+});
+
+test("It should keep a shorter cacheExpiry over a later AssumeRole Expiration", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(STSClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+				Expiration: new Date(Date.now() + 60 * 60 * 1000),
+			},
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: STSClient,
+			cacheKey: "sts-expiration-shorter-cacheExpiry",
+			cacheExpiry: 10 * 60 * 1000,
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(9 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 1);
+	// The configured 10 min wins over the 1 h credential lifetime.
+	t.mock.timers.tick(2 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 2);
+});
+
+test("It should retry client creation on the next invocation after a rejected init", async (t) => {
+	let constructed = 0;
+	class FlakyClient extends STSClient {
+		constructor(...args) {
+			constructed++;
+			if (constructed === 1) throw new Error("init failed");
+			super(...args);
+		}
+	}
+	mockClient(FlakyClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+			},
+		});
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: FlakyClient,
+			cacheKey: "sts-client-init-retry",
+			cacheExpiry: 0,
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await assertRejects(handler(defaultEvent, defaultContext), /init failed/);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 2);
 });
 
 test("It should catch if an error is returned from fetch", async (t) => {
@@ -702,4 +827,121 @@ test("stsValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should honour an Expiration returned as an ISO string", async (t) => {
+	// A custom AwsClient can hand back the timestamp as a string rather than
+	// the Date the SDK unmarshals; it must still clamp the cache instead of
+	// dissolving into NaN and caching the credentials forever.
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(STSClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+				Expiration: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+			},
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: STSClient,
+			cacheKey: "sts-expiration-iso",
+			cacheExpiry: -1,
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(58 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 1);
+	t.mock.timers.tick(3 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 2);
+});
+
+test("It should honour a per-cacheKey expiry override from cacheKeyExpiry", async (t) => {
+	const mockService = mockClient(STSClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+			},
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: STSClient,
+			cacheKey: "sts-keyexpiry-cache",
+			// Infinite default, but the per-key override disables caching for this
+			// cacheKey, forcing a fresh AssumeRole on every invocation.
+			cacheExpiry: -1,
+			cacheKeyExpiry: { "sts-keyexpiry-cache": 0 },
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(sendStub.callCount, 2);
+});
+
+test("It should refetch inside the 60 s margin before the AssumeRole Expiration", async (t) => {
+	t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+	t.mock.timers.setTime(1_700_000_000_000);
+	const mockService = mockClient(STSClient)
+		.on(AssumeRoleCommand)
+		.resolves({
+			Credentials: {
+				AccessKeyId: "accessKeyId",
+				SecretAccessKey: "secretAccessKey",
+				SessionToken: "sessionToken",
+				Expiration: new Date(Date.now() + 60 * 60 * 1000),
+			},
+		});
+	const sendStub = mockService.send;
+
+	const handler = middy(() => {}).use(
+		sts({
+			AwsClient: STSClient,
+			cacheKey: "sts-expiration-margin",
+			cacheExpiry: -1,
+			fetchData: {
+				role: {
+					RoleArn: ".../role",
+				},
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(58 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 1);
+	// 59 min 30 s after issue the credentials are still valid for 30 s, but
+	// that is inside the 60 s margin, so AssumeRole runs again rather than
+	// handing out credentials about to expire.
+	t.mock.timers.tick(90 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(sendStub.callCount, 2);
 });

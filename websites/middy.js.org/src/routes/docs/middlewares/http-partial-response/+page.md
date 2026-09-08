@@ -19,6 +19,17 @@ npm install --save @middy/http-partial-response
 
 - `filteringKeyName` (`string`) (optional): defaults to `fields` the querystring key that will be used to filter the response.
 
+## Limits
+
+The selector is refused with a `400 Bad Request` when it:
+
+- is longer than 2048 characters
+- nests or groups deeper than 100 levels (counted as `/` and `(` characters)
+- is not a string (VPC Lattice V2 delivers query string values as arrays)
+- cannot be applied by `json-mask`
+
+The reason is in `cause.data.reason`. A missing or empty selector leaves the response untouched.
+
 ## Sample usage
 
 ```javascript
@@ -51,10 +62,9 @@ const event = {
   }
 }
 
-handler(event, {}, (_, response) => {
-  expect(response.body).toEqual({
-    firstname: 'John',
-    lastname: 'Doe'
-  })
+const response = await handler(event, {})
+deepStrictEqual(response.body, {
+  firstname: 'John',
+  lastname: 'Doe'
 })
 ```

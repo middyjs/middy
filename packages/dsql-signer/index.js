@@ -5,14 +5,26 @@ import {
 	assignSetToContext,
 	buildSetToContextSpec,
 	canPrefetch,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
+	setCacheKeyExpiry,
 	validateOptions,
 } from "@middy/util";
 
 const name = "dsql-signer";
 const pkg = `@middy/${name}`;
+
+// A DSQL authentication token "automatically expires in 15 minutes by
+// default" (the maximum is 604,800 seconds); the SDK signer implements that
+// as `expiresIn: 900`, the number of seconds the token is valid, unless the
+// signer options override it. The token is cached for its validity minus a
+// one minute margin so a warm container never presents an expired token. With
+// an `expiresIn` of 60 s or less the margin leaves no lifetime, so the token
+// is not cached and every invocation signs a fresh one.
+// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_authentication-token.html
+const defaultExpiresIn = 900;
+const expiryMarginMs = 60 * 1000;
+const tokenLifetimeMs = (expiresIn) => expiresIn * 1000 - expiryMarginMs;
 
 const defaults = {
 	AwsClient: DsqlSigner,
@@ -64,7 +76,11 @@ export const dsqlSignerValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
 const dsqlSignerMiddleware = (opts = {}) => {
-	const options = { ...defaults, ...opts };
+	const options = {
+		...defaults,
+		...opts,
+		cacheKeyExpiry: { ...defaults.cacheKeyExpiry, ...opts.cacheKeyExpiry },
+	};
 
 	const defaultFetchData = {
 		hostname: process.env.PGHOST ?? process.env.DBHOST,
@@ -89,10 +105,11 @@ const dsqlSignerMiddleware = (opts = {}) => {
 			if (cachedValues[internalKey]) continue;
 
 			const { username, ...signerConfig } = options.fetchData[internalKey];
-			clients[internalKey] ??= new options.AwsClient({
-				...options.awsClientOptions,
-				...signerConfig,
-			});
+			const signerOptions = { ...options.awsClientOptions, ...signerConfig };
+			clients[internalKey] ??= new options.AwsClient(signerOptions);
+			const lifetimeMs = tokenLifetimeMs(
+				signerOptions.expiresIn ?? defaultExpiresIn,
+			);
 			const method =
 				username === "admin"
 					? "getDbConnectAdminAuthToken"
@@ -108,14 +125,12 @@ const dsqlSignerMiddleware = (opts = {}) => {
 							cause: { package: pkg, data: { method } },
 						});
 					}
+					// A lifetime of zero or less records an expiry that has already
+					// passed, which processCache treats as expired on the next read.
+					setCacheKeyExpiry(options, Date.now() + lifetimeMs);
 					return token;
 				})
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
 		}
 
 		return values;

@@ -64,10 +64,10 @@
 		"url": "https://github.com/sponsors/willfarrell"
 	},
 	"dependencies": {
-		"@middy/util": "7.9.2"
+		"@middy/util": "8.0.0-alpha.0"
 	},
 	"devDependencies": {
-		"@middy/core": "7.9.2",
+		"@middy/core": "8.0.0-alpha.0",
 		"@types/http-errors": "^2.0.0",
 		"@types/node": "^24.0.0"
 	}

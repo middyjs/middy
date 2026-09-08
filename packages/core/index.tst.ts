@@ -1,3 +1,6 @@
+import { executionModeDurableContext } from "@middy/core/executionModeDurableContext";
+import { executionModeStandard } from "@middy/core/executionModeStandard";
+import { executionModeStreamifyResponse } from "@middy/core/executionModeStreamifyResponse";
 import type {
 	APIGatewayProxyEvent,
 	APIGatewayProxyResult,
@@ -5,14 +8,78 @@ import type {
 	Context,
 	S3Event,
 } from "aws-lambda";
-import { expect } from "tstyche";
+import { expect, test } from "tstyche";
 import middy, {
 	type MiddyfiedHandler,
 	type PluginExecutionMode,
+	type PluginExecutionModeCore,
+	type PluginExecutionModeLambdaHandler,
+	type PluginExecutionModePlugin,
 } from "./index.js";
 
-const executionModeStreamifyResponse: PluginExecutionMode =
-	{} as PluginExecutionMode;
+test("execution modes are not exported from the package root", () => {
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeStandard",
+	);
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeDurableContext",
+	);
+	expect<typeof import("@middy/core")>().type.not.toHaveProperty(
+		"executionModeStreamifyResponse",
+	);
+	expect(
+		import("@middy/core").then((core) => core.executionModeStreamifyResponse),
+	).type.toRaiseError(
+		"Property 'executionModeStreamifyResponse' does not exist",
+	);
+});
+
+test("execution modes are exported from their subpaths", () => {
+	expect(executionModeStandard).type.toBe<PluginExecutionMode>();
+	expect(executionModeDurableContext).type.toBe<PluginExecutionMode>();
+	expect(executionModeStreamifyResponse).type.toBe<PluginExecutionMode>();
+	expect(
+		middy(lambdaHandler, { executionMode: executionModeStreamifyResponse }),
+	).type.toBe<Handler>();
+});
+
+test("a six-argument custom mode is assignable to PluginExecutionMode", () => {
+	const customMode = (
+		{ middyRequest, runRequest }: PluginExecutionModeCore,
+		beforeMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		lambdaHandler: PluginExecutionModeLambdaHandler,
+		afterMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		onErrorMiddlewares: middy.MiddlewareFn<any, any, any, any, any>[],
+		plugin: PluginExecutionModePlugin,
+	) => {
+		const mode = async (event: unknown, context: Context) => {
+			const request = middyRequest(event, context);
+			plugin.requestStart(request);
+			return runRequest(
+				request,
+				beforeMiddlewares,
+				lambdaHandler,
+				afterMiddlewares,
+				onErrorMiddlewares,
+				plugin,
+			);
+		};
+		mode.handler = (replacement: PluginExecutionModeLambdaHandler) => {
+			lambdaHandler = replacement;
+			return mode;
+		};
+		return mode;
+	};
+	expect(customMode).type.toBeAssignableTo<PluginExecutionMode>();
+	expect(
+		middy(lambdaHandler, { executionMode: customMode }),
+	).type.toBe<Handler>();
+
+	// The returned handler must carry `.handler`; a bare function does not.
+	expect(
+		() => async () => "ok",
+	).type.not.toBeAssignableTo<PluginExecutionMode>();
+});
 
 // extends Handler type from aws-lambda
 type EnhanceHandlerType<T, NewReturn> = T extends (

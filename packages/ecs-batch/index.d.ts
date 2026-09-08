@@ -18,7 +18,12 @@ export interface RunnerOptions<TEvent = unknown, TResult = unknown> {
 	workers?: number;
 	timeout?: number;
 	gracefulShutdownMs?: number;
-	onError?: (error: Error, event: TEvent) => void;
+	/**
+	 * Called when the handler or `acknowledge` throws for a batch (`event` is
+	 * that batch), or when the poller itself fails (`event` is undefined; the
+	 * worker then exits with code 1 and the primary re-forks it with backoff).
+	 */
+	onError?: (error: Error, event?: TEvent) => void;
 	contextOverride?: {
 		awsRequestId?: () => string;
 	};

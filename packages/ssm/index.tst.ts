@@ -93,3 +93,21 @@ test("chain of multiple ssm middleware", () => {
 			}>();
 		});
 });
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			ssm({
+				fetchData: {
+					accessToken: ssmParam<string>("/dev/service_name/access_token"),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.accessToken,
+			).type.toBe<string>();
+		});
+});

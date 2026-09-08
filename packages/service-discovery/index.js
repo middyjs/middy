@@ -9,10 +9,9 @@ import {
 	buildSetToContextSpec,
 	canPrefetch,
 	catchInvalidSignatureException,
-	createClient,
+	createClientInit,
 	createPrefetchClient,
-	getCache,
-	modifyCache,
+	evictCacheOnFailure,
 	processCache,
 	validateOptions,
 } from "@middy/util";
@@ -100,19 +99,14 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 				.send(command)
 				.catch((e) => catchInvalidSignatureException(e, client, command))
 				.then((resp) => resp.Instances)
-				.catch((e) => {
-					const value = getCache(options.cacheKey).value ?? {};
-					value[internalKey] = undefined;
-					modifyCache(options.cacheKey, value);
-					throw e;
-				});
+				.catch(evictCacheOnFailure(options.cacheKey, internalKey));
 		}
 
 		return values;
 	};
 
 	let client;
-	let clientInit;
+	const clientInit = createClientInit(options);
 	if (canPrefetch(options)) {
 		client = createPrefetchClient(options);
 		processCache(options, fetchRequest);
@@ -128,8 +122,7 @@ const serviceDiscoveryMiddleware = (opts = {}) => {
 
 	const serviceDiscoveryMiddlewareBefore = (request) => {
 		if (client) return serviceDiscoveryMiddlewareFetch(request);
-		clientInit ??= createClient(options, request);
-		return clientInit.then((resolvedClient) => {
+		return clientInit(request).then((resolvedClient) => {
 			client = resolvedClient;
 			return serviceDiscoveryMiddlewareFetch(request);
 		});

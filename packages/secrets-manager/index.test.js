@@ -2,6 +2,7 @@ import {
 	deepStrictEqual,
 	doesNotThrow,
 	ok,
+	rejects,
 	strictEqual,
 	throws,
 } from "node:assert/strict";
@@ -241,7 +242,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired", asy
 	strictEqual(sendStub.callCount, 2);
 });
 
-test("It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate", async (t) => {
+test("It should refresh after cacheExpiry when the secret has no NextRotationDate", async (t) => {
 	t.mock.timers.setTime(1_700_000_000_000);
 	const changed = new Date(Date.now() - 50 * 1000);
 	const mockService = mockClient(SecretsManagerClient)
@@ -276,10 +277,13 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	await handler(defaultEvent, defaultContext);
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+	// Without a rotation schedule the plain cacheExpiry governs the entry, so
+	// the secret is fetched again once 15 min have passed.
 	t.mock.timers.tick(15 * 60 * 1000);
 	await handler(defaultEvent, defaultContext);
 
-	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
 });
 
 test("It should swallow prefetch errors when rotation lookup fails", async (t) => {
@@ -311,10 +315,13 @@ test("It should swallow prefetch errors when rotation lookup fails", async (t) =
 		)
 		.before(middleware);
 
-	// Prefetch fires the (rejecting) DescribeSecret synchronously at .use(); its
-	// rejection is swallowed by the prefetch .catch before the request runs.
+	// Prefetch fires the (rejecting) DescribeSecret at .use(); the failed key is
+	// dropped from the cache entry, so once the rejection has landed the first
+	// request describes and fetches it again instead of replaying the error.
+	await new Promise((resolve) => setImmediate(resolve));
 	await handler(defaultEvent, defaultContext);
-	ok(mockService.commandCalls(GetSecretValueCommand).length >= 1);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired using LastRotationDate, fallback to NextRotationDate", async (t) => {
@@ -364,7 +371,7 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 });
 
-test("It should call aws-sdk if cache enabled but cached param has expired using LastChangedDate when LastRotationDate is undefined", async (t) => {
+test("It should refresh after cacheExpiry when NextRotationDate is later", async (t) => {
 	t.mock.timers.setTime(1_700_000_000_000);
 	const changed = new Date(Date.now() - 50 * 1000);
 	const nextRotation = new Date(Date.now() + 50 * 60 * 1000);
@@ -400,50 +407,13 @@ test("It should call aws-sdk if cache enabled but cached param has expired using
 	await handler(defaultEvent, defaultContext);
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+	// The 15 min cacheExpiry is sooner than the 50 min rotation date, so the
+	// shorter configured lifetime wins.
 	t.mock.timers.tick(15 * 60 * 1000);
 	await handler(defaultEvent, defaultContext);
 
-	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
-});
-
-test("It should call aws-sdk if cache enabled using LastRotationDate when LastChangedDate is undefined", async (t) => {
-	t.mock.timers.setTime(1_700_000_000_000);
-	const rotated = new Date(Date.now() - 50 * 1000);
-	const mockService = mockClient(SecretsManagerClient)
-		.on(DescribeSecretCommand, { SecretId: "api_key_NoLastChanged" })
-		.resolves({
-			LastRotationDate: rotated,
-		})
-		.on(GetSecretValueCommand, { SecretId: "api_key_NoLastChanged" })
-		.resolves({ SecretString: "token" });
-	const handler = middy(() => {});
-
-	const middleware = async (request) => {
-		const values = await getInternal(true, request);
-		strictEqual(values.token, "token");
-	};
-
-	handler
-		.use(
-			secretsManager({
-				AwsClient: SecretsManagerClient,
-				cacheExpiry: 15 * 60 * 1000,
-				fetchData: {
-					token: "api_key_NoLastChanged",
-				},
-				fetchRotationDate: true,
-				disablePrefetch: true,
-			}),
-		)
-		.before(middleware);
-
-	await handler(defaultEvent, defaultContext);
-	await handler(defaultEvent, defaultContext);
-	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
-	t.mock.timers.tick(15 * 60 * 1000);
-	await handler(defaultEvent, defaultContext);
-
-	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
 });
 
 test("It should call aws-sdk if cache enabled but cached param has expired using NextRotationDate", async (t) => {
@@ -740,7 +710,7 @@ test("It should treat rotation date fields as millisecond Date values", async (t
 	// expiry ~1000x into the future and defeat rotation-based invalidation).
 	t.mock.timers.setTime(1_700_000_000_000);
 	const lastChanged = new Date(Date.now() - 60 * 1000);
-	const nextRotation = new Date(Date.now() + 30 * 1000);
+	const nextRotation = new Date(Date.now() + 90 * 1000);
 	const mockService = mockClient(SecretsManagerClient)
 		.on(DescribeSecretCommand, { SecretId: "api_key_DateFields" })
 		.resolves({
@@ -761,7 +731,7 @@ test("It should treat rotation date fields as millisecond Date values", async (t
 		.use(
 			secretsManager({
 				AwsClient: SecretsManagerClient,
-				// 1h duration; the sooner NextRotationDate (+30s) must clamp expiry.
+				// 1h duration; the sooner NextRotationDate (+90s) must clamp expiry.
 				cacheExpiry: 60 * 60 * 1000,
 				fetchData: {
 					token: "api_key_DateFields",
@@ -774,9 +744,9 @@ test("It should treat rotation date fields as millisecond Date values", async (t
 
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
-	// Advance past NextRotationDate (+30s) but well within cacheExpiry (1h). The
+	// Advance past NextRotationDate (+90s) but well within cacheExpiry (1h). The
 	// cache must expire at the rotation date, forcing a fresh DescribeSecret.
-	t.mock.timers.tick(45 * 1000);
+	t.mock.timers.tick(100 * 1000);
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 });
@@ -873,6 +843,132 @@ test("It should not fetch rotation date for keys without rotation enabled", asyn
 	);
 });
 
+test("It should cache for cacheExpiry when the secret last changed longer ago than cacheExpiry", async (t) => {
+	// A secret that last changed two days ago must still be cached for the full
+	// cacheExpiry window; deriving the expiry from LastChangedDate would put it
+	// in the past and refetch on every invocation.
+	t.mock.timers.setTime(1_700_000_000_000);
+	const changed = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+	const nextRotation = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_stale_change" })
+		.resolves({
+			LastRotationDate: changed,
+			LastChangedDate: changed,
+			NextRotationDate: nextRotation,
+		})
+		.on(GetSecretValueCommand, { SecretId: "api_key_stale_change" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheKey: "secrets-stale-change-cache",
+				cacheExpiry: 60 * 60 * 1000,
+				fetchData: {
+					token: "api_key_stale_change",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(20 * 1000);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(20 * 1000);
+	await handler(defaultEvent, defaultContext);
+
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+});
+
+test("It should expire at NextRotationDate when it is sooner than cacheExpiry", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	const changed = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+	const nextRotation = new Date(Date.now() + 30 * 60 * 1000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_soon_rotation" })
+		.resolves({
+			LastRotationDate: changed,
+			LastChangedDate: changed,
+			NextRotationDate: nextRotation,
+		})
+		.on(GetSecretValueCommand, { SecretId: "api_key_soon_rotation" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheKey: "secrets-soon-rotation-cache",
+				cacheExpiry: 60 * 60 * 1000,
+				fetchData: {
+					token: "api_key_soon_rotation",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(20 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+	// 31 min later NextRotationDate has passed, well inside the 1 h cacheExpiry,
+	// so the secret is described and fetched again.
+	t.mock.timers.tick(31 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
+});
+
+test("It should retry client creation on the next invocation after a rejected init", async (t) => {
+	let constructed = 0;
+	class FlakyClient extends SecretsManagerClient {
+		constructor(...args) {
+			constructed++;
+			if (constructed === 1) throw new Error("init failed");
+			super(...args);
+		}
+	}
+	mockClient(FlakyClient)
+		.on(GetSecretValueCommand, { SecretId: "api_key_init_retry" })
+		.resolves({ SecretString: "token" });
+
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: FlakyClient,
+			cacheKey: "secrets-client-init-retry",
+			cacheExpiry: 0,
+			fetchData: {
+				token: "api_key_init_retry",
+			},
+			disablePrefetch: true,
+		}),
+	);
+
+	await rejects(handler(defaultEvent, defaultContext), /init failed/);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(constructed, 2);
+});
+
 test("It should export secretsManagerParam helper for TypeScript type inference", async (t) => {
 	const { secretsManagerParam } = await import("./index.js");
 	const secretName = "test-secret";
@@ -891,6 +987,17 @@ test("secretsManagerValidateOptions accepts valid options and rejects typos", ()
 		ok(e instanceof TypeError);
 		ok(e.message.includes("fetchRotationData"));
 		strictEqual(e.cause.package, "@middy/secrets-manager");
+	}
+});
+
+test("secretsManagerValidateOptions accepts cacheMaxSize and rejects values below 1", () => {
+	secretsManagerValidateOptions({ cacheMaxSize: 10 });
+	try {
+		secretsManagerValidateOptions({ cacheMaxSize: 0 });
+		ok(false, "expected throw");
+	} catch (e) {
+		ok(e instanceof TypeError);
+		ok(e.message.includes("cacheMaxSize"));
 	}
 });
 
@@ -1126,9 +1233,9 @@ test("It should not set secrets to context by default (setToContext default of f
 });
 
 test("It should treat cacheExpiry:0 with rotation as an immediate (non-rotation-clamped) expiry", async (t) => {
-	// cacheExpiry === 0 must take the `else` branch (lastChanged + 0), NOT the
-	// `< 0` NextRotationDate branch. lastChanged is in the past, so the derived
-	// expiry is already past and every invocation re-describes the secret.
+	// cacheExpiry === 0 disables caching outright: the far-future
+	// NextRotationDate must not enable a cache entry, so every invocation
+	// re-describes and re-fetches the secret.
 	t.mock.timers.setTime(1_700_000_000_000);
 	const changed = new Date(Date.now() - 50 * 1000);
 	const nextRotation = new Date(Date.now() + 60 * 60 * 1000);
@@ -1165,9 +1272,9 @@ test("It should treat cacheExpiry:0 with rotation as an immediate (non-rotation-
 
 	await handler(defaultEvent, defaultContext);
 	await handler(defaultEvent, defaultContext);
-	// Past lastChanged expiry on every call (cacheExpiry:0 -> lastChanged+0).
-	// If the `< 0` boundary were `<= 0`, expiry would clamp to the far-future
-	// NextRotationDate and the second call would skip DescribeSecret.
+	// If the rotation clamp were applied with cacheExpiry:0, the entry would
+	// live until the far-future NextRotationDate and the second call would skip
+	// DescribeSecret.
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 });
 
@@ -1217,11 +1324,11 @@ test("It should not corrupt expiry when one rotation key lacks an expiry date", 
 });
 
 test("It should treat an exactly-current expiry as expired (strict greater-than)", async (t) => {
-	// cacheUnexpired uses `cached.expiry > Date.now()`. When the stored rotation
-	// expiry equals the current time exactly, the entry must be considered
-	// expired and re-described. A `>=` boundary would wrongly keep it.
+	// The cache is served only while its expiry is strictly after Date.now().
+	// When the rotation expiry equals the current time exactly, the entry must
+	// be considered expired and re-described. A `>=` boundary would keep it.
 	t.mock.timers.setTime(1_700_000_000_000);
-	const rotationDate = new Date(Date.now() + 30 * 1000);
+	const rotationDate = new Date(Date.now() + 90 * 1000);
 	const mockService = mockClient(SecretsManagerClient)
 		.on(DescribeSecretCommand, { SecretId: "api_key_exact_expiry" })
 		.resolves({ NextRotationDate: rotationDate })
@@ -1252,24 +1359,24 @@ test("It should treat an exactly-current expiry as expired (strict greater-than)
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
 	// Advance to EXACTLY the rotation expiry (now === cached.expiry).
-	t.mock.timers.tick(30 * 1000);
+	t.mock.timers.tick(90 * 1000);
 	await handler(defaultEvent, defaultContext);
 	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
 });
 
-test("It should evict the stale cache entry before refreshing rotation expiry", async (t) => {
-	// On rotation expiry the stale entry must be cleared so processCache
-	// re-fetches GetSecretValue under the new expiry. If the entry were NOT
-	// evicted, the newer (future) rotation override would mask the now-expired
-	// cached value: processCache would see it as still-fresh and skip the fetch.
+test("It should expire at the NextRotationDate learned once a rotation has passed", async (t) => {
+	// After the first rotation date lapses the secret is described again, and
+	// the later rotation date it reports must govern the next expiry: neither
+	// the lapsed date (which would refetch on every invocation) nor the -1
+	// cacheExpiry (which would never refetch again).
 	t.mock.timers.setTime(1_700_000_000_000);
-	const firstRotation = new Date(Date.now() + 30 * 1000);
+	const firstRotation = new Date(Date.now() + 90 * 1000);
 	const secondRotation = new Date(Date.now() + 600 * 1000);
 	const mockService = mockClient(SecretsManagerClient)
-		.on(DescribeSecretCommand, { SecretId: "api_key_evict" })
+		.on(DescribeSecretCommand, { SecretId: "api_key_relearn" })
 		.resolvesOnce({ NextRotationDate: firstRotation })
 		.resolves({ NextRotationDate: secondRotation })
-		.on(GetSecretValueCommand, { SecretId: "api_key_evict" })
+		.on(GetSecretValueCommand, { SecretId: "api_key_relearn" })
 		.resolves({ SecretString: "token" });
 	const handler = middy(() => {});
 
@@ -1282,10 +1389,10 @@ test("It should evict the stale cache entry before refreshing rotation expiry", 
 		.use(
 			secretsManager({
 				AwsClient: SecretsManagerClient,
-				cacheKey: "secrets-evict-cache",
+				cacheKey: "secrets-rotation-relearn",
 				cacheExpiry: -1,
 				fetchData: {
-					token: "api_key_evict",
+					token: "api_key_relearn",
 				},
 				fetchRotationDate: true,
 				disablePrefetch: true,
@@ -1294,13 +1401,19 @@ test("It should evict the stale cache entry before refreshing rotation expiry", 
 		.before(middleware);
 
 	await handler(defaultEvent, defaultContext);
-	// First rotation date (+30s) lapses; the scheduled refresh re-fetches once.
-	// The second invocation (+60s) then finds the entry expired and, after
-	// eviction, re-fetches a third time. Without eviction the value would be
-	// masked by the new future override and only 2 fetches would occur.
-	t.mock.timers.tick(60 * 1000);
+	// Past the first rotation date: described and fetched again.
+	t.mock.timers.tick(120 * 1000);
 	await handler(defaultEvent, defaultContext);
-
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
+	// Before the second rotation date: served from the cache.
+	t.mock.timers.tick(300 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	// Past the second rotation date: described and fetched once more.
+	t.mock.timers.tick(200 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 3);
 	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 3);
 });
 
@@ -1410,4 +1523,201 @@ test("secretsManagerValidateOptions validates contextKey as a string", () => {
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+test("It should refresh rotation dates only once the cached entry has expired", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	const firstRotation = new Date(Date.now() + 90 * 1000);
+	const secondRotation = new Date(Date.now() + 600 * 1000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_refresh" })
+		.resolvesOnce({ NextRotationDate: firstRotation })
+		.resolves({ NextRotationDate: secondRotation })
+		.on(GetSecretValueCommand, { SecretId: "api_key_refresh" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {})
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheKey: "secrets-refresh-path",
+				cacheExpiry: -1,
+				fetchData: { token: "api_key_refresh" },
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.token, "token");
+		});
+
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+
+	// Inside the rotation window: the cached entry is served untouched, with no
+	// DescribeSecret round trip.
+	t.mock.timers.tick(10 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+
+	// Past NextRotationDate: the rotation date is described again and the
+	// secret re-fetched under the new expiry.
+	t.mock.timers.tick(90 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 2);
+});
+
+test("It should return a SecretBinary secret as a Buffer", async (t) => {
+	mockClient(SecretsManagerClient)
+		.on(GetSecretValueCommand, { SecretId: "binary_key" })
+		.resolvesOnce({ SecretBinary: new Uint8Array([104, 105]) });
+	const handler = middy(() => {})
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: 0,
+				fetchData: { blob: "binary_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			ok(Buffer.isBuffer(values.blob));
+			strictEqual(values.blob.toString(), "hi");
+		});
+
+	await handler(defaultEvent, defaultContext);
+});
+
+test("It should resolve undefined when a secret has neither SecretString nor SecretBinary", async (t) => {
+	mockClient(SecretsManagerClient)
+		.on(GetSecretValueCommand, { SecretId: "empty_key" })
+		.resolvesOnce({});
+	const handler = middy(() => {})
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheExpiry: 0,
+				fetchData: { nothing: "empty_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			strictEqual(values.nothing, undefined);
+		});
+
+	await handler(defaultEvent, defaultContext);
+});
+
+test("It should honour a NextRotationDate returned as an ISO string", async (t) => {
+	// A custom AwsClient can hand back the timestamp as a string rather than
+	// the Date the SDK unmarshals; it must still clamp the cache instead of
+	// dissolving into NaN and caching forever.
+	t.mock.timers.setTime(1_700_000_000_000);
+	const nextRotation = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_iso_rotation" })
+		.resolves({ NextRotationDate: nextRotation })
+		.on(GetSecretValueCommand, { SecretId: "api_key_iso_rotation" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheKey: "secrets-iso-rotation",
+			cacheExpiry: -1,
+			fetchData: {
+				token: "api_key_iso_rotation",
+			},
+			fetchRotationDate: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(4 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	t.mock.timers.tick(2 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+});
+
+test("It should keep an overdue NextRotationDate for 60 s before describing the secret again", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	const overdue = new Date(Date.now() - 5 * 60 * 1000);
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_overdue_rotation" })
+		.resolves({ NextRotationDate: overdue })
+		.on(GetSecretValueCommand, { SecretId: "api_key_overdue_rotation" })
+		.resolves({ SecretString: "token" });
+	const handler = middy(() => {}).use(
+		secretsManager({
+			AwsClient: SecretsManagerClient,
+			cacheKey: "secrets-overdue-rotation",
+			cacheExpiry: -1,
+			fetchData: {
+				token: "api_key_overdue_rotation",
+			},
+			fetchRotationDate: true,
+			disablePrefetch: true,
+		}),
+	);
+
+	await handler(defaultEvent, defaultContext);
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(30 * 1000);
+	await handler(defaultEvent, defaultContext);
+	// A rotation whose date has passed but has not run yet must not turn every
+	// invocation into a DescribeSecret and GetSecretValue round trip.
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 1);
+	strictEqual(mockService.commandCalls(GetSecretValueCommand).length, 1);
+	t.mock.timers.tick(30 * 1000);
+	await handler(defaultEvent, defaultContext);
+	strictEqual(mockService.commandCalls(DescribeSecretCommand).length, 2);
+});
+
+test("It should fall back to cacheExpiry when NextRotationDate is null (rotation disabled)", async (t) => {
+	t.mock.timers.setTime(1_700_000_000_000);
+	// DescribeSecret returns null for NextRotationDate when the secret is not
+	// configured for rotation or rotation has been disabled; that is not an
+	// epoch-0 rotation date, so the cache must not expire on it.
+	// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_DescribeSecret.html#SecretsManager-DescribeSecret-response-NextRotationDate
+	const mockService = mockClient(SecretsManagerClient)
+		.on(DescribeSecretCommand, { SecretId: "api_key_NullRotation" })
+		.resolves({ RotationEnabled: false, NextRotationDate: null })
+		.on(GetSecretValueCommand, { SecretId: "api_key_NullRotation" })
+		.resolves({ SecretString: "token" });
+	const sendStub = mockService.send;
+	const handler = middy(() => {});
+
+	const middleware = async (request) => {
+		const values = await getInternal(true, request);
+		strictEqual(values.token, "token");
+	};
+
+	handler
+		.use(
+			secretsManager({
+				AwsClient: SecretsManagerClient,
+				cacheKey: "secrets-null-rotation",
+				cacheExpiry: -1,
+				fetchData: {
+					token: "api_key_NullRotation",
+				},
+				fetchRotationDate: true,
+				disablePrefetch: true,
+			}),
+		)
+		.before(middleware);
+
+	await handler(defaultEvent, defaultContext);
+	t.mock.timers.tick(15 * 60 * 1000);
+	await handler(defaultEvent, defaultContext);
+
+	// Cached indefinitely: only 1 Describe + 1 GetSecretValue
+	strictEqual(sendStub.callCount, 2);
 });

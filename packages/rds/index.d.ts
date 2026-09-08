@@ -8,6 +8,9 @@ export type RdsClient<TClient = unknown, TConfig = unknown> = (
 
 export interface RdsBaseConfig {
 	host: string;
+	/** Database user for the `pg` adapters (`username` is mapped to it). */
+	user?: string;
+	/** Database user for the `postgres.js` adapter; mapped to `user` by the `pg` adapters. */
 	username?: string;
 	database?: string;
 	port?: number;

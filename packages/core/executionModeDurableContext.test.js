@@ -46,6 +46,30 @@ describe("executionModeDurableContext", () => {
 		strictEqual(detected, true);
 	});
 
+	test("Should expose tenantId from the Lambda context to the handler under the real SDK", async (t) => {
+		// The SDK reads `tenantId` from the Lambda context it is invoked with
+		// (`context.tenantId`) and exposes only `durableExecutionArn` under
+		// `context.executionContext`. The local runner builds its own Lambda
+		// context per invocation, so the handler it invokes is wrapped to add
+		// the tenant id the same way Lambda tenant isolation would.
+		let seen;
+		const handler = middy({
+			executionMode: executionModeDurableContext,
+		}).handler((event, context) => {
+			seen = context.tenantId;
+			return "ok";
+		});
+		const runner = new LocalDurableTestRunner({
+			handlerFunction: (event, context) =>
+				handler(event, { ...context, tenantId: "tenant-123" }),
+		});
+
+		const execution = await runner.run({ payload: {} });
+
+		strictEqual(execution.getStatus(), "SUCCEEDED");
+		strictEqual(seen, "tenant-123");
+	});
+
 	test("Should return with executionMode:executionModeDurableContext using string", async (t) => {
 		const input = "x".repeat(1024 * 1024);
 		const handler = middy({

@@ -21,8 +21,6 @@ response to the user.
 
 It can also be used in combination with [`http-content-negotiation`](#httpContentNegotiation) to load localized translations for the error messages (based on the currently requested language). This feature uses internally [`ajv-ftl-i18n`](https://www.npmjs.com/package/ajv-ftl-i18n) module, so reference to this module for options and more advanced use cases. By default the language used will be English (`en`), but you can redefine the default language with the top-level `defaultLanguage` option and supply localizers with the top-level `languages` option.
 
-Also, this middleware accepts an object with plugins to be applied to customize the internal `ajv` instance.
-
 ## Install
 
 To install this middleware you can use NPM:
@@ -48,22 +46,23 @@ NOTES:
 
 - At least one of `eventSchema`, `contextSchema`, or `responseSchema` may be supplied.
 - `contextSchema` validates the whole `request.context`, which always carries the `middyContext` namespace. A schema with `additionalProperties: false` must allow it.
-- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data`, the original response can be found at `request.error.response`.
+- If you'd like to have the error details as part of the response, it will need to be handled separately. You can access them from `request.error.cause.data` (`reason` and the ajv `errors`). When a response fails validation the rejected response is still on `request.response` for `onError` middlewares.
 - **Important** Transpiling schemas & locales on the fly will cause a 50-150ms performance hit during cold start for simple JSON Schemas. Precompiling is highly recommended.
 
 ## transpileSchema
 
-Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-i18n`, `ajv-formats`, `@silverbucket/ajv-formats-draft2019`, `ajv-keywords`, `ajv-errors`.
+Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-formats`, `@silverbucket/ajv-formats-draft2019`, `ajv-keywords`, `ajv-errors`.
 
 - `schema` (object) (required): JSON-Schema object
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
-  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`.
+  class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`. `keywords` are registered after the plugins, so a custom keyword compiles under `strict: true` and a definition with the same name as a plugin keyword replaces it.
 
 ## transpileFTL
 
-Transpile Fluent (.ftl) localization file into ajv compatible format. Allows the overriding of the default messages and adds support for multi-language `errrorMessages`.
+Transpile Fluent (.ftl) localization file into ajv compatible format using [`ajv-ftl-i18n`](https://www.npmjs.com/package/ajv-ftl-i18n). Allows the overriding of the default messages and adds support for multi-language `errorMessage`s. Returns the source text of an ESM module, so run it in a build step and import the result as a `languages` entry.
 
 - `ftl` (string) (required): Contents of an ftl file to be transpiled.
+- `options` (object) (default `undefined`): Passed through to `ajv-ftl-i18n`, for example `{ locale: 'en-CA' }`.
 
 ## Sample usage
 
@@ -105,8 +104,10 @@ export const handler = middy()
 const event = {
   body: JSON.stringify({ something: 'somethingelse' })
 }
-handler(event, {}, (err, res) => {
-  strictEqual(err.message, 'Event object failed validation')
+await rejects(handler(event, {}), (err) => {
+  strictEqual(err.statusCode, 400)
+  strictEqual(err.cause.data.reason, 'Event object failed validation')
+  return true
 })
 ```
 
@@ -138,13 +139,12 @@ export const handler = middy()
   .use(validator({ responseSchema }))
   .handler(lambdaHandler)
 
-//
-handler({}, {}, (err, response) => {
-  notStrictEqual(err, null)
-  strictEqual(err.message, 'Response object failed validation')
-  expect(response).not.toBe(null)
-  // it doesn't destroy the response so it can be used by other middlewares
+await rejects(handler({}, {}), (err) => {
+  strictEqual(err.statusCode, 500)
+  strictEqual(err.cause.data.reason, 'Response object failed validation')
+  return true
 })
+// the invalid response stays on request.response for onError middlewares
 ```
 
 Example for body validation:
@@ -240,39 +240,27 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
-## Transpile during cold-start
+## Transpile locales in a build step
+
+`transpileFTL` returns JavaScript source, not a localizer, so write it out
+before deploying and import the generated modules at runtime:
 
 ```javascript
-import { readFile } from 'node:fs/promises'
-import middy from '@middy/core'
-import validator from '@middy/validator'
-import { transpileSchema, transpileFTL } from '@middy/validator/transpile'
-import eventSchema from './schema.event.json'
+import { readFile, writeFile } from 'node:fs/promises'
+import { transpileFTL } from '@middy/validator/transpile'
 
-const lambdaHandler = (event, context) => {
-  return {}
+for (const locale of ['en', 'fr']) {
+  const ftl = await readFile(`./${locale}.ftl`, 'utf8')
+  await writeFile(`./${locale}.js`, transpileFTL(ftl, { locale }), 'utf8')
 }
-
-const en = transpileFTL(await readFile('./en.ftl'))
-const fr = transpileFTL(await readFile('./fr.ftl'))
-
-export const handler = middy()
-  .use(
-    validator({
-      eventSchema: transpileSchema(eventSchema),
-      languages: { en, fr }
-    })
-  )
-  .handler(lambdaHandler)
 ```
 
-## Transpile during cold-start with default messages
+## Transpile the schema during cold-start with default messages
 
 ```javascript
-import { readFile } from 'node:fs/promises'
 import middy from '@middy/core'
 import validator from '@middy/validator'
-import { transpileSchema, transpileFTL } from '@middy/validator/transpile'
+import { transpileSchema } from '@middy/validator/transpile'
 import { en, fr } from 'ajv-ftl-i18n' // `ajv-i18n` can also be used
 import eventSchema from './schema.event.json'
 

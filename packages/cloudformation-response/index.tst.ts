@@ -8,6 +8,14 @@ test("use with default options", () => {
 	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
 });
 
-test("should not accept options", () => {
-	expect(cloudformationResponse).type.not.toBeCallableWith({});
+test("use with all options", () => {
+	const middleware = cloudformationResponse({ sendResponse: false });
+	expect(middleware).type.toBe<middy.MiddlewareObj<unknown, unknown, Error>>();
+});
+
+test("should not accept unknown or mistyped options", () => {
+	expect(cloudformationResponse).type.not.toBeCallableWith({ routes: [] });
+	expect(cloudformationResponse).type.not.toBeCallableWith({
+		sendResponse: "no",
+	});
 });

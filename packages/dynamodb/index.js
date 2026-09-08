@@ -72,6 +72,7 @@ const optionSchema = {
 			additionalProperties: { type: "number", minimum: -1 },
 		},
 		cacheExpiry: { type: "number", minimum: -1 },
+		cacheMaxSize: { type: "integer", minimum: 1 },
 		setToContext: { type: "boolean" },
 		contextKey: { type: "string" },
 	},

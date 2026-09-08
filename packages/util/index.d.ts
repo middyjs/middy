@@ -21,6 +21,11 @@ export interface Options<Client, ClientOptions> {
 	cacheKey?: string;
 	cacheExpiry?: number;
 	cacheKeyExpiry?: Record<string, number>;
+	/**
+	 * Absolute expiries (unix ms) recorded by `setCacheKeyExpiry`, kept apart
+	 * from the user-facing `cacheKeyExpiry`. Managed by the middleware.
+	 */
+	cacheLearnedExpiry?: Record<string, number | undefined>;
 	cacheMaxSize?: number;
 	setToContext?: boolean;
 	contextKey?: string;
@@ -68,6 +73,14 @@ declare function createClient<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
 	request: middy.Request,
 ): Promise<Client>;
+
+/**
+ * Memoized client initialisation for the warm path. A rejected attempt is
+ * forgotten so the next invocation retries instead of replaying the failure.
+ */
+declare function createClientInit<Client, ClientOptions>(
+	options: Options<Client, ClientOptions>,
+): (request: middy.Request) => Promise<Client>;
 
 declare function canPrefetch<Client, ClientOptions>(
 	options: Options<Client, ClientOptions>,
@@ -154,6 +167,37 @@ declare function setContextNamespace(
 	value: unknown,
 ): void;
 
+/**
+ * The precomputed `setToContext` copy for a middleware's `fetchData` keys:
+ * the target `contextKey` and the `[originalKey, sanitizedKey]` pairs.
+ */
+export type SetToContextSpec = {
+	contextKey: string;
+	pairs: Array<[string, string]>;
+};
+
+/**
+ * Called once at factory time. Returns `null` when `setToContext` is off.
+ * Throws a `TypeError` when two `fetchData` keys sanitize to the same name,
+ * whether or not `setToContext` is on, since they would also collide in
+ * `request.internal`.
+ */
+declare function buildSetToContextSpec(options: {
+	fetchData: Record<string, unknown>;
+	setToContext?: boolean;
+	contextKey?: string;
+}): SetToContextSpec | null;
+
+/**
+ * Called once per invocation. Returns `undefined` synchronously when every
+ * value is already resolved, or a Promise when at least one is still pending.
+ */
+declare function assignSetToContext(
+	spec: SetToContextSpec,
+	value: Record<string, unknown>,
+	request: middy.Request,
+): Promise<void> | undefined;
+
 declare function sanitizeKey<T extends string>(key: T): SanitizeKey<T>;
 
 declare function processCache<Client, ClientOptions>(
@@ -196,11 +240,42 @@ declare function buildPathTree(
  * Returns `value` unchanged when no `pathTree` entry applies; otherwise a
  * shallow clone with the matched leaves removed, or replaced by `mask`.
  * `Error` values are normalized to a plain object first, so non-enumerable
- * properties such as `cause` and `stack` are still reachable by path.
+ * properties such as `cause` and `stack` are still reachable by path. Plain
+ * objects and arrays are walked in place; a class instance (the durable
+ * execution `context`) is walked through a copy of its own properties when a
+ * path reaches into it, and built-ins such as `Date`, `Map`, `Set`, `Buffer`
+ * and streams are never opened.
  */
 declare function omit<T>(value: T, pathTree?: PathTree, mask?: string): T;
 
 declare function modifyCache(cacheKey: string, value: unknown): void;
+
+/**
+ * `.catch` handler for a per-key fetch: drops the failed key from the cached
+ * value, flags the entry modified so only that key is refetched next time,
+ * and rethrows.
+ */
+declare function evictCacheOnFailure(
+	cacheKey: string,
+	internalKey: string,
+): (e: unknown) => never;
+
+/**
+ * Records an absolute expiry (unix ms) learned from the fetched value in
+ * `options.cacheLearnedExpiry`; `processCache` then expires the entry at the
+ * sooner of it and the configured `cacheExpiry`. It never extends the
+ * configured lifetime, never enables caching when it is disabled, and never
+ * touches the user-facing `cacheKeyExpiry`. Several keys fetched in one
+ * cycle keep the earliest expiry. A value that is not a unix timestamp
+ * (`Infinity`, `NaN`, a duration, a negative number) is ignored.
+ */
+declare function setCacheKeyExpiry(
+	options: Pick<
+		Options<unknown, unknown>,
+		"cacheKey" | "cacheExpiry" | "cacheKeyExpiry" | "cacheLearnedExpiry"
+	>,
+	expiryMs: number,
+): void;
 
 declare function catchInvalidSignatureException<Client, Command>(
 	e: Error & { __type?: string },
@@ -218,8 +293,6 @@ declare function decodeBody(
 ): string | null | undefined;
 
 declare const lambdaContextKeys: string[];
-
-declare const executionContextKeys: string[];
 
 declare function isExecutionModeDurable(context: LambdaContext): boolean;
 

@@ -23,7 +23,8 @@ npm install --save-dev @aws-sdk/client-appconfigdata
 - `fetchData` (object) (required): Mapping of internal key name to `StartConfigurationSessionCommand` input. Each entry requires `ApplicationIdentifier`, `ConfigurationProfileIdentifier`, and `EnvironmentIdentifier` (all strings), and optionally `RequiredMinimumPollIntervalInSeconds` (number, minimum `15`).
 - `disablePrefetch` (boolean) (default `false`): On cold start requests will trigger early if they can. Setting `awsClientAssumeRole` disables prefetch.
 - `cacheKey` (string) (default `appconfig`): Cache key for the fetched data responses. Must be unique across all middleware.
-- `cacheKeyExpiry` (object) (default `{}`): Per-`fetchData`-key cache expiry overrides (ms; `-1` = forever, `0` = no cache).
+- `cacheKeyExpiry` (object) (default `{}`): Per-`cacheKey` expiry override, `{ [cacheKey]: cacheExpiry }`; a unix timestamp in ms above 86400000 is treated as an absolute expiry.
+- `cacheMaxSize` (number) (default `128`): Maximum number of entries kept in the shared middleware cache; the oldest expiring entry is evicted when exceeded.
 - `cacheExpiry` (number) (default `-1`): How long fetch data responses should be cached for. `-1`: cache forever, `0`: never cache, `n`: cache for n ms.
 - `setToContext` (boolean) (default `false`): Also publish each `fetchData` entry to `context.middyContext.appconfig`.
 - `contextKey` (string) (default `appconfig`): The key under `context.middyContext` used when `setToContext` is `true`. Override it to run two instances side by side.

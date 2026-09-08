@@ -10,6 +10,7 @@ export interface Options {
 	namespace?: string;
 	dimensions?: Record<string, string> | Array<Record<string, string>>;
 	onFlushError?: (error: Error) => void;
+	contextKey?: string;
 }
 
 export type Context = LambdaContext & {

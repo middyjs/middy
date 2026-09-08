@@ -566,7 +566,7 @@ test("Glue framing: decompressed payload under cap succeeds", async () => {
 	strictEqual(out.records["t-0"][0].value, "hello");
 });
 
-test("Glue framing: malformed deflate stream rethrows underlying zlib error", async () => {
+test("Glue framing: malformed deflate stream is a 422 carrying the zlib message", async () => {
 	const uuid = "33334444-1234-1234-1234-1234567890ab";
 	const hex = uuid.replace(/-/g, "");
 	const uuidBytes = Buffer.from(hex, "hex");
@@ -594,10 +594,12 @@ test("Glue framing: malformed deflate stream rethrows underlying zlib error", as
 	}
 	ok(caught);
 	// Not an HTTP 413; the cap wasn't breached, the stream was malformed.
-	strictEqual(caught.statusCode, undefined);
+	strictEqual(caught.statusCode, 422);
+	strictEqual(caught.cause.data.reason, "Invalid record payload");
+	strictEqual(caught.cause.data.message, "incorrect header check");
 });
 
-test("Glue framing: unsupported compression byte throws", async () => {
+test("A 0x03 0x99 buffer is unframed for a parser without Glue binding, so the decode failure is an ordinary 422", async () => {
 	const uuid = "fedcba98-1234-1234-1234-1234567890ab";
 	const hex = uuid.replace(/-/g, "");
 	const uuidBytes = Buffer.from(hex, "hex");
@@ -606,9 +608,7 @@ test("Glue framing: unsupported compression byte throws", async () => {
 		uuidBytes,
 		Buffer.from("payload"),
 	]);
-	const handler = middy().use(
-		eventBatchParser({ value: parseAvro({ schema: AVRO_USER_SCHEMA }) }),
-	);
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
 	handler.handler((event) => event);
 
 	const event = {
@@ -616,7 +616,15 @@ test("Glue framing: unsupported compression byte throws", async () => {
 		records: { "t-0": [{ value: framed.toString("base64") }] },
 	};
 
-	await rejects(() => handler(event, defaultContext), /0x99/);
+	await rejects(
+		() => handler(event, defaultContext),
+		(e) => {
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.data.reason, "Invalid record payload");
+			ok(!e.cause.data.message.includes("compression byte"));
+			return true;
+		},
+	);
 });
 
 test("parseAvro() throws TypeError when no schema and no internalKey supplied", async () => {
@@ -1029,6 +1037,28 @@ test("Records with missing parser field are skipped (raw == null)", async () => 
 	deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
 });
 
+test("Records whose parser field is null are skipped, not decoded (raw === null)", async () => {
+	// Kafka is a binary source: a null value must not reach Buffer.from, which
+	// would throw and be reported as a 422 for a record that simply has no
+	// payload. The null is left in place.
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"t-0": [
+				{ topic: "t", partition: 0, value: null },
+				{ topic: "t", partition: 0, value: b64('{"x":1}') },
+			],
+		},
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, null);
+	deepStrictEqual(out.records["t-0"][1].value, { x: 1 });
+});
+
 test("End-to-end: glueSchemaRegistry feeds parseAvro({ internalKey })", async () => {
 	mockClient(GlueClient)
 		.on(GetSchemaVersionCommand)
@@ -1225,37 +1255,6 @@ test("413 over-cap error carries the exact 'Decompressed payload exceeds cap' me
 	ok(caught);
 	strictEqual(caught.message, "Payload Too Large");
 	strictEqual(caught.cause.data.reason, "Decompressed payload exceeds cap");
-});
-
-test("Unsupported compression byte message hex-pads to two digits (0x07)", async () => {
-	// 0x07 < 0x10, so padStart(2, "0") yields "07"; padStart(2, "") yields "7".
-	const uuid = "88889999-1234-1234-1234-1234567890ab";
-	const hex = uuid.replace(/-/g, "");
-	const uuidBytes = Buffer.from(hex, "hex");
-	const framed = Buffer.concat([
-		Buffer.from([0x03, 0x07]),
-		uuidBytes,
-		Buffer.from("payload"),
-	]);
-	const handler = middy().use(eventBatchParser({ value: parseJson() }));
-	handler.handler((event) => event);
-
-	const event = {
-		eventSource: "aws:kafka",
-		records: { "t-0": [{ value: framed.toString("base64") }] },
-	};
-
-	let caught;
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		caught = e;
-	}
-	ok(caught);
-	strictEqual(
-		caught.message,
-		"Unsupported Glue Schema Registry compression byte: 0x07",
-	);
 });
 
 // ---------- text vs binary path (SQS) ----------
@@ -1461,6 +1460,36 @@ test("Glue framing: a buffer with first byte != 0x03 is treated as unframed (pay
 	// Unframed: no schemaVersionId, payload is the original decoded buffer.
 	strictEqual(observedFraming.schemaVersionId, undefined);
 	ok(Buffer.isBuffer(observedFraming.payload));
+	strictEqual(out.records["t-0"][0].value.isOriginal, true);
+});
+
+test("Glue framing: a buffer with a valid compression byte but first byte != 0x03 is treated as unframed", async () => {
+	let observedFraming;
+	// Second byte 0x00 is a valid Glue compression byte and the buffer is long
+	// enough for a header, so only the 0x03 magic check can reject framing.
+	const raw = Buffer.concat([
+		Buffer.from([0x01, 0x00]),
+		Buffer.alloc(16, 0xab),
+		Buffer.from("payload"),
+	]);
+	const handler = middy().use(
+		eventBatchParser({
+			value: (payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return { isOriginal: framing.payload === payload };
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(observedFraming.schemaVersionId, undefined);
+	strictEqual(observedFraming.payload.length, raw.length);
 	strictEqual(out.records["t-0"][0].value.isOriginal, true);
 });
 
@@ -1697,4 +1726,222 @@ test("parseAvro() caches the compiled type across records", async () => {
 	} finally {
 		avro.parse = originalParse;
 	}
+});
+
+// ---------- prototype pollution guard (parseJson) ----------
+
+test("parseJson rejects a record payload carrying an own __proto__ key with 422", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: b64('{"__proto__":{"polluted":1}}') }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 422);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+	strictEqual(caught.cause.data.reason, "Forbidden key in JSON body");
+	// The record keeps its raw value: nothing polluted was written back.
+	strictEqual(typeof event.records["t-0"][0].value, "string");
+	strictEqual({}.polluted, undefined);
+});
+
+test("parseJson rejects a constructor.prototype payload with 422 and still parses an ordinary one", async () => {
+	const handler = middy().use(eventBatchParser({ body: parseJson() }));
+	handler.handler((event) => event);
+
+	const sqs = (body) => ({ Records: [{ eventSource: "aws:sqs", body }] });
+
+	await rejects(
+		() => handler(sqs('{"constructor":{"prototype":{"x":1}}}'), defaultContext),
+		(e) =>
+			e.statusCode === 422 &&
+			e.cause.data.reason === "Forbidden key in JSON body",
+	);
+
+	const out = await handler(
+		sqs('{"safe":true,"nested":{"constructor":"ok"}}'),
+		defaultContext,
+	);
+	deepStrictEqual(out.Records[0].body, {
+		safe: true,
+		nested: { constructor: "ok" },
+	});
+});
+
+test("parseJson({ reviver }) applies the reviver behind the prototype guard", () => {
+	const fn = parseJson({
+		reviver: (_key, value) => (typeof value === "number" ? value * 2 : value),
+	});
+	deepStrictEqual(fn(Buffer.from('{"n":2,"s":"x"}')), { n: 4, s: "x" });
+});
+
+// ---------- decode and framing failures are 422 ----------
+
+test("A non-string binary payload (already parsed upstream) is rejected with 422, not a raw TypeError", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: { already: "parsed" } }] },
+	};
+
+	let caught;
+	try {
+		await handler(event, defaultContext);
+	} catch (e) {
+		caught = e;
+	}
+	ok(caught);
+	strictEqual(caught.statusCode, 422);
+	strictEqual(caught.cause.package, "@middy/event-batch-parser");
+	strictEqual(caught.cause.data.reason, "Invalid record payload");
+	strictEqual(caught.cause.data.source, "aws:kafka");
+	strictEqual(caught.cause.data.field, "value");
+	strictEqual(typeof caught.cause.data.message, "string");
+});
+
+test("Kafka groups that are not arrays are skipped instead of throwing 'not iterable'", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: {
+			"t-0": "junk",
+			"t-1": null,
+			"t-2": [{ value: b64('{"ok":1}') }],
+		},
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"], "junk");
+	strictEqual(out.records["t-1"], null);
+	deepStrictEqual(out.records["t-2"][0].value, { ok: 1 });
+});
+
+test("A Kafka event whose only group is not an array is returned untouched", async () => {
+	const handler = middy().use(eventBatchParser({ value: parseJson() }));
+	handler.handler((event) => event);
+
+	const event = { eventSource: "aws:kafka", records: { "t-0": "junk" } };
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(out, {
+		eventSource: "aws:kafka",
+		records: { "t-0": "junk" },
+	});
+});
+
+test("A payload starting with 0x03 whose second byte is not a Glue compression byte is passed to the parser unframed", async () => {
+	let observedFraming;
+	// 0x03 then 0x07: not 0x00/0x05, so this is an ordinary record that merely
+	// starts with the Glue magic byte, not a Glue header.
+	const raw = Buffer.concat([
+		Buffer.from([0x03, 0x07]),
+		Buffer.alloc(30, 0x41),
+	]);
+	const handler = middy().use(
+		eventBatchParser({
+			value: (payload, _record, _request, framing) => {
+				observedFraming = framing;
+				return framing.payload === payload;
+			},
+		}),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	strictEqual(out.records["t-0"][0].value, true);
+	strictEqual(observedFraming.schemaVersionId, undefined);
+});
+
+test("A raw Avro record whose first byte is 0x03 decodes with parseAvro({ schema })", async () => {
+	// zigzag(-2) === 3, so an int field of -2 puts 0x03 first; a 26-char
+	// string follows (length byte 0x34), so the buffer is > 18 bytes and was
+	// previously mis-read as a Glue header with compression byte 0x34.
+	const schema = {
+		type: "record",
+		name: "Reading",
+		fields: [
+			{ name: "delta", type: "int" },
+			{ name: "label", type: "string" },
+		],
+	};
+	const value = { delta: -2, label: "abcdefghijklmnopqrstuvwxyz" };
+	const buf = avro.parse(schema).toBuffer(value);
+	strictEqual(buf[0], 0x03);
+	ok(buf.length > 18);
+
+	const handler = middy().use(
+		eventBatchParser({ value: parseAvro({ schema }) }),
+	);
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: buf.toString("base64") }] },
+	};
+
+	const out = await handler(event, defaultContext);
+	deepStrictEqual(plain(out.records["t-0"][0].value), value);
+});
+
+test("A Glue-bound parser (internalKey) gets a 0x03 record with an unknown compression byte unframed, so its own decode failure is the ordinary 422", async () => {
+	const uuid = "fedcba98-1234-1234-1234-1234567890ab";
+	const uuidBytes = Buffer.from(uuid.replace(/-/g, ""), "hex");
+	// 0x99 is not a Glue compression byte (only 0x00/0x05 exist), so this is
+	// not a Glue header: no schema version id is extracted and the bound
+	// parser is handed the whole buffer, which is not a valid Avro User.
+	const raw = Buffer.concat([
+		Buffer.from([0x03, 0x99]),
+		uuidBytes,
+		Buffer.from("payload"),
+	]);
+	let expectedMessage;
+	try {
+		avro.parse(AVRO_USER_SCHEMA).fromBuffer(raw);
+	} catch (e) {
+		expectedMessage = e.message;
+	}
+	ok(expectedMessage);
+	const stubRegistry = () => ({
+		before: (request) => {
+			request.internal.userSchema = { schemaDefinition: AVRO_USER_SCHEMA };
+		},
+	});
+	const handler = middy()
+		.use(stubRegistry())
+		.use(eventBatchParser({ value: parseAvro({ internalKey: "userSchema" }) }));
+	handler.handler((event) => event);
+
+	const event = {
+		eventSource: "aws:kafka",
+		records: { "t-0": [{ value: raw.toString("base64") }] },
+	};
+
+	await rejects(
+		() => handler(event, defaultContext),
+		(e) => {
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.data.reason, "Invalid record payload");
+			strictEqual(e.cause.data.field, "value");
+			ok(!e.cause.data.message.includes("compression byte"));
+			strictEqual(e.cause.data.message, expectedMessage);
+			return true;
+		},
+	);
 });

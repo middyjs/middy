@@ -1312,3 +1312,124 @@ test("httpContentEncodingValidateOptions validates contextKeyHttpContentNegotiat
 		ok(e.message.includes("contextKeyHttpContentNegotiation"));
 	}
 });
+
+// `{ [encoding]: false }` disables that encoder. Negotiation then falls through
+// to the client's next acceptable encoding, or leaves the body unencoded.
+test("It should not encode when the negotiated encoding is disabled with `false`", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body }))
+		.use(httpContentNegotiation())
+		.use(httpContentEncoding({ gzip: false }));
+
+	const event = { headers: { "accept-encoding": "gzip" } };
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
+});
+
+test("It should fall through to the next acceptable encoding when the negotiated one is disabled", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body }))
+		.use(httpContentNegotiation())
+		.use(httpContentEncoding({ gzip: false }));
+
+	const event = { headers: { "accept-encoding": "gzip, br" } };
+
+	const response = await handler(event, defaultContext);
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
+test("It should keep the negotiated encoding when only another encoding is disabled", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		contentEncodingStack({ gzip: false }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "br",
+		preferredEncodings: ["br", "gzip"],
+	});
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
+test("It should not encode when the negotiated encoding is disabled and no alternatives were negotiated", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		contentEncodingStack({ gzip: false }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "gzip",
+		preferredEncodings: undefined,
+	});
+
+	deepStrictEqual(response, { statusCode: 200, body, headers: {} });
+});
+
+test("It should skip a disabled encoding listed in overridePreferredEncoding", async (t) => {
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		contentEncodingStack({
+			gzip: false,
+			overridePreferredEncoding: ["gzip", "br"],
+		}),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "deflate",
+		preferredEncodings: ["deflate", "gzip", "br"],
+	});
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});
+
+test("It should keep an enabled negotiated encoding when another is disabled and no alternatives were negotiated", async (t) => {
+	// Only a disabled `preferredEncoding` is replaced by the next negotiated
+	// one. An enabled one stays as it is, even with no list to fall back on.
+	const body = compressibleBody;
+	const handler = middy((event, context) => ({ statusCode: 200, body })).use(
+		contentEncodingStack({ gzip: false }),
+	);
+
+	const event = { headers: {} };
+
+	const response = await handler(event, {
+		...defaultContext,
+		preferredEncoding: "br",
+		preferredEncodings: undefined,
+	});
+
+	deepStrictEqual(response, {
+		statusCode: 200,
+		body: brotliCompressSync(body).toString("base64"),
+		headers: { "Content-Encoding": "br", Vary: "Accept-Encoding" },
+		isBase64Encoded: true,
+	});
+});

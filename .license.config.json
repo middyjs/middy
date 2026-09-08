@@ -1,7 +1,7 @@
 {
 	"license": ".license.template",
 	"licenseFormats": {
-		"js|ts": {
+		"js|mjs|cjs|ts": {
 			"eachLine": {
 				"prepend": "// "
 			}
@@ -30,7 +30,6 @@
 		"**/*.yaml",
 		"**/certificates",
 		"**/certificates/*.js",
-		"test/**/*",
 		"websites/**/*",
 		".DS_Store"
 	]

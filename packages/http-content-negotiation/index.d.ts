@@ -34,9 +34,14 @@ export interface NegotiationResults {
 export type Context<TOptions extends Options | undefined = undefined> =
 	ContextNamespace<TOptions, "http-content-negotiation", NegotiationResults>;
 
-declare function httpContentNegotiation(
-	options?: Options,
-): middy.MiddlewareObj<unknown, unknown, Error>;
+declare function httpContentNegotiation<
+	TOptions extends Options | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
+): middy.MiddlewareObj<unknown, unknown, Error, Context<TOptions>>;
 
 export declare function httpContentNegotiationValidateOptions(
 	options?: Record<string, unknown>,

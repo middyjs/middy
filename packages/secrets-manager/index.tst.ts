@@ -123,3 +123,25 @@ test("setToContext: false, use return type hint function", () => {
 			expect(data.someSecret).type.toBe<{ User: string; Password: string }>();
 		});
 });
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			secretsManager({
+				...options,
+				fetchData: {
+					someSecret: secretsManagerParam<{ User: string; Password: string }>(
+						"someHiddenSecret",
+					),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.someSecret).type.toBe<{
+				User: string;
+				Password: string;
+			}>();
+		});
+});

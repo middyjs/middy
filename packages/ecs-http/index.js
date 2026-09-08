@@ -14,6 +14,7 @@ const defaults = {
 	requestContext: {},
 	timeout: 60_000,
 	bodyLimit: 10 * 1024 * 1024,
+	trustedProxies: 1,
 };
 
 const optionSchema = {
@@ -26,6 +27,7 @@ const optionSchema = {
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		bodyLimit: { type: "integer", minimum: 0 },
+		trustedProxies: { type: "integer", minimum: 0 },
 		contextOverride: {
 			type: "object",
 			properties: {
@@ -88,14 +90,19 @@ const composeInvokedFunctionArn = (ecs) => {
 	return `arn:aws:ecs:${ecs.region}:${ecs.accountId}:service/${ecs.family}`;
 };
 
+// Stryker disable Regex: making the `([a-z0-9.+-]+\+)?` suffix prefix mandatory is equivalent; the bare `json|xml` alternatives earlier in the same group already accept every subtype the optional form would, and only match/no-match is observed. (The anchor and character-class variants are killed by the content-type table test.)
 const textContentTypePattern =
 	/^(text\/|application\/(json|xml|x-www-form-urlencoded|javascript|graphql|ld\+json|vnd\.api\+json|([a-z0-9.+-]+\+)?(json|xml)))/i;
+// Stryker restore Regex
 
 const isTextContentType = (contentType) => {
 	if (!contentType) return true;
 	// Fast paths for the ~95% of real traffic. Avoids regex when possible.
+	// Stryker disable next-line ConditionalExpression,StringLiteral: pure fast path; skipping it (or comparing against "", which `!contentType` already returned on) sends the value to the regex below, which accepts "application/json" too.
 	if (contentType === "application/json") return true;
+	// Stryker disable next-line ConditionalExpression: pure fast path; the regex below also accepts every "text/" prefix.
 	if (contentType.startsWith("text/")) return true;
+	// Stryker disable next-line ConditionalExpression: pure fast path; the regex below also accepts every "application/json;" prefix.
 	if (contentType.startsWith("application/json;")) return true;
 	return textContentTypePattern.test(contentType);
 };
@@ -122,11 +129,29 @@ const buildMultiValueHeaders = (rawHeaders) => {
 	return out;
 };
 
-export const resolveSourceIp = (headers, socketAddress) => {
-	const xff = headers["x-forwarded-for"];
-	if (xff) {
-		const first = xff.split(",")[0].trim();
-		if (first) return first;
+// With routing.http.xff_client_port.enabled ALB appends "ip:port" for IPv4
+// and "[ip]:port" for IPv6; a bare IPv6 hop has no brackets. The event
+// carries the address only.
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
+const ipv6WithPort = /^\[([^\]]+)\]:\d+$/;
+const ipv4WithPort = /^([^:]+):\d+$/;
+const stripClientPort = (hop) => {
+	const match = ipv6WithPort.exec(hop) ?? ipv4WithPort.exec(hop);
+	return match ? match[1] : hop;
+};
+
+// Behind ALB the client address is the hop the load balancer appends, i.e. the
+// last one. Anything before it arrived in the client's own request and can be
+// spoofed. `trustedProxies` is the number of trailing hops added by proxies
+// you control (1 for a lone ALB, 2 for CloudFront in front of ALB). 0 ignores
+// the header and uses the socket address.
+export const resolveSourceIp = (headers, socketAddress, trustedProxies = 1) => {
+	if (trustedProxies > 0) {
+		const xff = headers["x-forwarded-for"];
+		if (xff) {
+			const hop = xff.split(",").at(-trustedProxies)?.trim();
+			if (hop) return stripClientPort(hop);
+		}
 	}
 	return socketAddress ?? "";
 };
@@ -161,6 +186,7 @@ const splitUrl = (rawUrl) => {
 // allocate the multi-value map on every request and discard it.
 const collectQuery = (queryString) => {
 	const single = Object.create(null);
+	// Stryker disable next-line ConditionalExpression: pure fast path; new URLSearchParams("") iterates nothing, so falling through yields the same empty map and size 0.
 	if (!queryString) return { single, size: 0 };
 	const params = new URLSearchParams(queryString);
 	let size = 0;
@@ -174,6 +200,7 @@ const collectQuery = (queryString) => {
 const collectQueryMultiValue = (queryString) => {
 	const single = Object.create(null);
 	const multi = Object.create(null);
+	// Stryker disable next-line ConditionalExpression,ObjectLiteral: pure fast path; new URLSearchParams("") iterates nothing, so falling through yields the same empty maps and size 0, and the only consumer (buildEventV1) emits null for both maps whenever size is not > 0, so returning {} is indistinguishable too.
 	if (!queryString) return { single, multi, size: 0 };
 	const params = new URLSearchParams(queryString);
 	let size = 0;
@@ -188,11 +215,13 @@ const collectQueryMultiValue = (queryString) => {
 
 // Pre-cached protocol strings. ~99.9% of requests are HTTP/1.1; fall back to
 // concat only for anything else.
+// Stryker disable ObjectLiteral: emptying the cache is equivalent; every lookup then falls through to the `HTTP/${httpVersion}` concat, which produces the same strings. (The per-entry StringLiteral mutants are killed by the protocol table test.)
 const PROTOCOLS = {
 	1.1: "HTTP/1.1",
 	"1.0": "HTTP/1.0",
 	"2.0": "HTTP/2.0",
 };
+// Stryker restore ObjectLiteral
 const protocolFor = (httpVersion) =>
 	PROTOCOLS[httpVersion] ?? `HTTP/${httpVersion}`;
 
@@ -277,9 +306,11 @@ export const buildEventV1 = (input) => {
 	};
 };
 
+// ALB events carry only requestContext.elb: no identity block, so the client
+// address is left to the X-Forwarded-For header like on Lambda.
+// https://docs.aws.amazon.com/lambda/latest/dg/services-alb.html
 export const buildEventAlb = (input) => {
-	const { req, body, isBase64Encoded, requestContext, sourceIp, requestId } =
-		input;
+	const { req, body, isBase64Encoded, requestContext, requestId } = input;
 	const headers = input.headers ?? req.headers;
 	const url = input.url ?? splitUrl(req.url);
 	const { single: queryStringParameters } = collectQuery(url.queryString);
@@ -289,7 +320,6 @@ export const buildEventAlb = (input) => {
 			...requestContext,
 			elb: requestContext.elb ?? { targetGroupArn: "" },
 			requestId,
-			identity: { sourceIp, userAgent: headers["user-agent"] ?? "" },
 		},
 		httpMethod: req.method,
 		path: url.path,
@@ -364,8 +394,10 @@ const writeError = (res, err) => {
 		typeof err?.statusCode === "number" && err.statusCode >= 400
 			? err.statusCode
 			: 500;
+	// Stryker disable OptionalChaining: equivalent; the `err?.message` branch only runs when statusCode < 500, which requires err to be an object carrying a numeric statusCode, so err is never nullish there.
 	const message =
 		statusCode >= 500 ? "Internal Server Error" : (err?.message ?? "");
+	// Stryker restore OptionalChaining
 	res.writeHead(statusCode, { "content-type": "application/json" });
 	res.end(JSON.stringify({ message }));
 };
@@ -406,6 +438,7 @@ export const createRequestHandler = ({
 	requestContext,
 	timeout,
 	bodyLimit,
+	trustedProxies,
 	invokedFunctionArn,
 	contextOverride,
 }) => {
@@ -421,7 +454,11 @@ export const createRequestHandler = ({
 			const body = hasBody ? await readBody(req, bodyLimit) : EMPTY_BUFFER;
 			const isBase64Encoded =
 				hasBody && !isTextContentType(headers["content-type"]);
-			const sourceIp = resolveSourceIp(headers, req.socket?.remoteAddress);
+			const sourceIp = resolveSourceIp(
+				headers,
+				req.socket?.remoteAddress,
+				trustedProxies,
+			);
 			const requestId = resolveRequestId(headers, requestIdOverride);
 			const url = splitUrl(req.url);
 			const event = buildEvent({
@@ -469,6 +506,7 @@ export const runWorker = async (options, deps = {}) => {
 		requestContext,
 		timeout: options.timeout,
 		bodyLimit: options.bodyLimit,
+		trustedProxies: options.trustedProxies,
 		invokedFunctionArn,
 		contextOverride: options.contextOverride,
 	});
@@ -489,19 +527,62 @@ export const runWorker = async (options, deps = {}) => {
 	return { server, onSigterm };
 };
 
+// Crash-loop guard for worker re-forks. Each worker exit within `healthyMs` of
+// the previous one doubles the delay before the replacement is forked, from
+// 1 s up to a 30 s cap; 60 s without any exit starts over at 1 s.
+const reforkBackoff = { initialMs: 1_000, maxMs: 30_000, healthyMs: 60_000 };
+
 export const runPrimary = async (options, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
 	const fetchImpl = deps.fetch ?? fetch;
+	const exitImpl = deps.exit ?? process.exit;
+	const setTimeoutImpl = deps.setTimeout ?? setTimeout;
 	const meta = await fetchEcsMetadata(
 		process.env.ECS_CONTAINER_METADATA_URI_V4,
 		fetchImpl,
 	);
 	writeEcsEnv(meta);
+	let stopping = false;
+	let delayMs = 0;
+	let lastExitAt = -Infinity;
+	// Highest exit code a worker reported while draining, so a worker that died
+	// non-zero during shutdown surfaces as a non-zero task exit instead of 0. A
+	// crash before SIGTERM is re-forked and does not count: the worker was
+	// replaced and the task went on serving.
+	let workerExitCode = 0;
+	const liveWorkers = () => Object.values(clusterImpl.workers ?? {});
+	const exitWhenDrained = () => {
+		if (liveWorkers().length === 0) exitImpl(workerExitCode);
+	};
+	const nextReforkDelay = () => {
+		const now = Date.now();
+		delayMs =
+			now - lastExitAt >= reforkBackoff.healthyMs
+				? reforkBackoff.initialMs
+				: Math.min(delayMs * 2, reforkBackoff.maxMs);
+		lastExitAt = now;
+		return delayMs;
+	};
 	for (let i = 0; i < options.workers; i++) clusterImpl.fork();
-	clusterImpl.on("exit", () => clusterImpl.fork());
+	clusterImpl.on("exit", (_worker, code) => {
+		if (stopping) {
+			// code is null when a signal killed the worker; that is not a clean exit.
+			workerExitCode = Math.max(workerExitCode, code ?? 1);
+			return exitWhenDrained();
+		}
+		setTimeoutImpl(() => {
+			if (!stopping) clusterImpl.fork();
+		}, nextReforkDelay());
+	});
+	// node:cluster drops a worker from cluster.workers before the last of its
+	// exit/disconnect events, in either order, so the drain check runs on both.
+	clusterImpl.on("disconnect", () => {
+		if (stopping) exitWhenDrained();
+	});
 	const onSigterm = () => {
-		const workers = clusterImpl.workers ?? {};
-		for (const w of Object.values(workers)) w?.process.kill("SIGTERM");
+		stopping = true;
+		for (const w of liveWorkers()) w?.process.kill("SIGTERM");
+		exitWhenDrained();
 	};
 	process.once("SIGTERM", onSigterm);
 	return { onSigterm };

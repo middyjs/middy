@@ -28,12 +28,14 @@ export interface STSOptions<AwsSTSClient = STSClient>
 		MiddyOptions<AwsSTSClient, STSClientConfig>,
 		| "AwsClient"
 		| "awsClientOptions"
+		| "awsClientAssumeRole"
 		| "awsClientCapture"
 		| "disablePrefetch"
 		| "cacheKey"
 		| "cacheExpiry"
 		| "cacheKeyExpiry"
 		| "setToContext"
+		| "contextKey"
 	> {
 	fetchData?: {
 		[key: string]: AssumeRoleCommandInputWithOptionalRoleSessionName;
@@ -60,8 +62,13 @@ export type Internal<TOptions extends STSOptions | undefined> =
 			: {}
 		: {};
 
-declare function sts<TOptions extends STSOptions | undefined>(
-	options?: TOptions,
+declare function sts<
+	TOptions extends STSOptions | undefined,
+	TKey extends string = string,
+>(
+	// `TKey` keeps a `contextKey` literal from widening to `string`, so the
+	// key narrows `middyContext` without `as const`.
+	options?: TOptions & { contextKey?: TKey },
 ): middy.MiddlewareObj<
 	unknown,
 	unknown,

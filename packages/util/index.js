@@ -362,6 +362,32 @@ export const createClient = async (options, request) => {
 	});
 };
 
+// Memoized client initialisation for the warm path. A rejected attempt is
+// forgotten so the next invocation retries instead of replaying the same
+// failure for the life of the container. With `awsClientAssumeRole` the memo
+// is keyed on the credential value sts stored in `request.internal` (the same
+// promise object until sts refetches), so refreshed credentials rebuild the
+// client instead of it keeping the first invocation's, by then expired, session.
+export const createClientInit = (options) => {
+	const { awsClientAssumeRole } = options;
+	let pending;
+	let credentials;
+	return (request) => {
+		if (awsClientAssumeRole) {
+			const current = request?.internal[awsClientAssumeRole];
+			if (current !== credentials) {
+				credentials = current;
+				pending = undefined;
+			}
+		}
+		pending ??= createClient(options, request).catch((e) => {
+			pending = undefined;
+			throw e;
+		});
+		return pending;
+	};
+};
+
 export const canPrefetch = (options = {}) => {
 	return (
 		!options.awsClientAssumeRole &&
@@ -372,6 +398,19 @@ export const canPrefetch = (options = {}) => {
 
 const safeGet = (obj, key) =>
 	obj != null && Object.hasOwn(obj, key) ? obj[key] : undefined;
+
+// `sanitizeKey` maps e.g. `a.b`, `a_b` and `a-b` all to `a_b`, so two
+// requested keys can land on the same output name and one value would
+// silently overwrite the other. Callers detect the collision on write (an
+// `in` check against the null-prototype output) and build the error here,
+// off the hot path, listing every requested key that collides.
+const duplicateSanitizedKeyError = (keys, sanitized) => {
+	const collisions = keys.filter((key) => sanitizeKey(key) === sanitized);
+	return new TypeError(
+		`Keys ${collisions.map((key) => `"${key}"`).join(", ")} sanitize to the same name "${sanitized}"`,
+		{ cause: { package: pkg, data: { keys: collisions } } },
+	);
+};
 
 // Internal Context
 export const getInternal = async (variables, request) => {
@@ -425,7 +464,9 @@ export const getInternal = async (variables, request) => {
 	if (allSync) {
 		const obj = Object.create(null);
 		for (let i = 0; i < keys.length; i++) {
-			obj[sanitizeKey(keys[i])] = syncResults[i];
+			const sanitized = sanitizeKey(keys[i]);
+			if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
+			obj[sanitized] = syncResults[i];
 		}
 		return obj;
 	}
@@ -455,7 +496,9 @@ export const getInternal = async (variables, request) => {
 			errors ??= [];
 			errors.push(values[i].reason);
 		} else {
-			obj[sanitizeKey(keys[i])] = values[i].value;
+			const sanitized = sanitizeKey(keys[i]);
+			if (sanitized in obj) throw duplicateSanitizedKeyError(keys, sanitized);
+			obj[sanitized] = values[i].value;
 		}
 	}
 	if (errors) {
@@ -532,18 +575,27 @@ export const setContextNamespace = (request, contextKey, value) => {
 // `buildSetToContextSpec(options)` is called once at factory time and
 // returns either `null` (when `setToContext` is false) or the target
 // `contextKey` plus the precomputed `[[originalKey, sanitizedKey], …]` pairs.
+// Either way it rejects two `fetchData` keys that sanitize to the same name up
+// front: with `setToContext` off they still collide in `request.internal`,
+// where `getInternal` would throw on every invocation instead of once here.
 //
 // `assignSetToContext(spec, value, request)` is called once per invocation.
 // Returns `undefined` synchronously when all entries are resolved (the
 // common warm path), or a Promise when at least one is still pending. The
 // caller should `if (p) await p` so the sync path keeps zero microtask hops.
-export const buildSetToContextSpec = (options) =>
-	options.setToContext
-		? {
-				contextKey: options.contextKey,
-				pairs: Object.keys(options.fetchData).map((k) => [k, sanitizeKey(k)]),
-			}
-		: null;
+export const buildSetToContextSpec = (options) => {
+	const keys = Object.keys(options.fetchData);
+	const pairs = [];
+	const seen = new Set();
+	for (const key of keys) {
+		const sanitized = sanitizeKey(key);
+		if (seen.has(sanitized)) throw duplicateSanitizedKeyError(keys, sanitized);
+		seen.add(sanitized);
+		pairs.push([key, sanitized]);
+	}
+	if (!options.setToContext) return null;
+	return { contextKey: options.contextKey, pairs };
+};
 
 export const assignSetToContext = ({ contextKey, pairs }, value, request) => {
 	for (let i = 0; i < pairs.length; i++) {
@@ -596,6 +648,13 @@ const silenceFetchRejections = (value) => {
 	}
 };
 
+// setTimeout clamps delays above 2^31-1 ms (~24.8 days) to 1 ms and emits
+// TimeoutOverflowWarning, so a refresh that far out is not scheduled at all
+// (this also covers the Infinity duration of a `-1` cacheExpiry). The entry
+// still expires on time, because expiry is checked on every read; it is just
+// refetched on the first request after expiry instead of in the background.
+const maxTimeoutDuration = 2147483647;
+
 // Module-scope so the warm cache-hit path allocates no closure; only the
 // scheduling paths (modified entry, miss) create the timer callback.
 const scheduleRefresh = (
@@ -604,12 +663,17 @@ const scheduleRefresh = (
 	middlewareFetch,
 	middlewareFetchRequest,
 ) =>
-	duration > 0 && Number.isFinite(duration)
+	duration > 0 && duration <= maxTimeoutDuration
 		? setTimeout(
 				() => processCache(options, middlewareFetch, middlewareFetchRequest),
 				duration,
 			).unref()
 		: undefined;
+
+// Absolute expiry learned for `cacheKey` (see setCacheKeyExpiry), or Infinity
+// when there is none.
+const learnedExpiry = (options, cacheKey) =>
+	options.cacheLearnedExpiry?.[cacheKey] ?? Number.POSITIVE_INFINITY;
 
 export const processCache = (
 	options,
@@ -623,11 +687,15 @@ export const processCache = (
 	const now = Date.now();
 	if (cacheExpiry) {
 		const cached = getCache(cacheKey);
-		const effectiveExpiry =
-			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry;
-		const unexpired =
-			// Stryker disable next-line ConditionalExpression,EqualityOperator: the `cacheExpiry < 0` branch is equivalent. cacheExpiry === 0 is unreachable (guarded by `if (cacheExpiry)`), and for the only negative value -1 the stored expiry is Infinity so `effectiveExpiry > now` is already always true. (-1 -> 0 boundary cannot be observed.)
-			cached.expiry && (cacheExpiry < 0 || effectiveExpiry > now);
+		// A unix-timestamp cacheExpiry is re-read on every call so a changed
+		// option takes effect; a duration or -1 relies on the expiry stored with
+		// the entry. Either is capped by the learned expiry, which a fetch may
+		// have set after the entry was stored (once its promise resolved).
+		const effectiveExpiry = Math.min(
+			cacheExpiry > 86400000 ? cacheExpiry : cached.expiry,
+			learnedExpiry(options, cacheKey),
+		);
+		const unexpired = cached.expiry && effectiveExpiry > now;
 
 		if (unexpired) {
 			if (cached.modified) {
@@ -635,12 +703,12 @@ export const processCache = (
 				silenceFetchRejections(value);
 				Object.assign(cached.value, value);
 				const refresh = scheduleRefresh(
-					cached.expiry - now,
+					effectiveExpiry - now,
 					options,
 					middlewareFetch,
 					middlewareFetchRequest,
 				);
-				const entry = { value: cached.value, expiry: cached.expiry, refresh };
+				const entry = { value: cached.value, expiry: effectiveExpiry, refresh };
 				cache.set(cacheKey, entry);
 				return entry;
 			}
@@ -655,18 +723,28 @@ export const processCache = (
 	//   >0 && <=86400000: treated as duration (ms) from now
 	//   -1: infinite cache (never expires)
 	//   0/undefined/null: no caching
-	const expiry =
+	let expiry =
 		cacheExpiry < 0
 			? Number.POSITIVE_INFINITY
 			: cacheExpiry > 86400000
 				? cacheExpiry
 				: now + cacheExpiry;
-	// Stryker disable next-line EqualityOperator: the `> 86400000` -> `>= 86400000` change is equivalent for the refresh duration. It only differs at cacheExpiry === 86400000, where it shifts the auto-refresh timer by `now` ms; the refresh callback re-validates the (separately-set) expiry, so the same number of fetches occur and no observable difference results.
-	const duration = cacheExpiry > 86400000 ? cacheExpiry - now : cacheExpiry;
 	if (cacheExpiry) {
+		// Read after the fetch, which may have learned the expiry synchronously,
+		// so the entry and its refresh fold it in from the start. One that has
+		// already passed (it is what expired the previous entry) is dropped:
+		// applied, it would pin the new entry to the past, so every caller in
+		// the same tick would refetch and no refresh could be scheduled.
+		const learned = learnedExpiry(options, cacheKey);
+		if (learned > now) {
+			// Stryker disable next-line EqualityOperator: equivalent; when learned === expiry the assignment writes the same number back, so <= cannot be told apart from <.
+			if (learned < expiry) expiry = learned;
+		} else {
+			options.cacheLearnedExpiry[cacheKey] = undefined;
+		}
 		clearTimeout(cache.get(cacheKey)?.refresh);
 		const refresh = scheduleRefresh(
-			duration,
+			expiry - now,
 			options,
 			middlewareFetch,
 			middlewareFetchRequest,
@@ -695,6 +773,41 @@ export const modifyCache = (cacheKey, value) => {
 	clearTimeout(entry.refresh);
 	entry.value = value;
 	entry.modified = true;
+};
+
+// `.catch` handler for a per-key fetch: drop the failed key from the cached
+// value and flag the entry modified so the next `processCache` call refetches
+// only that key, then rethrow so the current invocation still fails.
+export const evictCacheOnFailure = (cacheKey, internalKey) => (e) => {
+	const value = getCache(cacheKey).value ?? {};
+	value[internalKey] = undefined;
+	modifyCache(cacheKey, value);
+	throw e;
+};
+
+// Record an absolute expiry (unix ms) learned from a fetched value (credential
+// `Expiration`, token lifetime, rotation date). It lives in
+// `options.cacheLearnedExpiry`, apart from the user-facing `cacheKeyExpiry`,
+// and `processCache` only ever uses it to shorten the configured lifetime: it
+// can neither enable caching that is disabled (0) nor extend a shorter
+// `cacheExpiry`. Several keys fetched in one cycle keep the earliest expiry,
+// while one left by an earlier cycle (already past) is ignored. A value that
+// is not a unix timestamp (Infinity for "no expiry", NaN, a duration, a
+// negative number) carries no information: it never displaces a fresh learned
+// expiry and clears a stale one.
+export const setCacheKeyExpiry = (options, expiryMs) => {
+	const { cacheKey } = options;
+	const now = Date.now();
+	const existing = options.cacheLearnedExpiry?.[cacheKey];
+	const floor = existing > now ? existing : Number.POSITIVE_INFINITY;
+	const learned =
+		Number.isFinite(expiryMs) && expiryMs > 86400000
+			? Math.floor(expiryMs)
+			: Number.POSITIVE_INFINITY;
+	const clamp = Math.min(learned, floor);
+	options.cacheLearnedExpiry ??= {};
+	options.cacheLearnedExpiry[cacheKey] =
+		clamp === Number.POSITIVE_INFINITY ? undefined : clamp;
 };
 
 const evictCache = (maxSize) => {
@@ -729,6 +842,8 @@ export const clearCache = (inputKeys = null) => {
 
 // context
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-context.html
+// `tenantId` is documented under tenant isolation:
+// https://docs.aws.amazon.com/lambda/latest/dg/tenant-isolation-context.html
 export const lambdaContextKeys = [
 	"functionName",
 	"functionVersion",
@@ -739,9 +854,8 @@ export const lambdaContextKeys = [
 	"logStreamName",
 	"identity",
 	"clientContext",
+	"tenantId",
 ];
-
-export const executionContextKeys = ["tenantId"];
 
 const durableContextBrand = Symbol.for(
 	"@aws/durable-execution-sdk-js/durable-context",
@@ -853,8 +967,12 @@ export const buildPathTree = (paths) => {
 		}
 		let node = tree;
 		for (let i = 0; i < path.length - 1; i++) {
-			node[path[i]] ??= {};
-			node = node[path[i]];
+			const segment = path[i];
+			// `??=` would resolve an inherited member (`toString`, `valueOf`) and
+			// the leaf would then be written onto the shared Object.prototype
+			// function instead of the tree.
+			if (!Object.hasOwn(node, segment)) node[segment] = {};
+			node = node[segment];
 		}
 		node[path[path.length - 1]] = true;
 	}
@@ -865,15 +983,44 @@ export const buildPathTree = (paths) => {
 // on the cold subtree); otherwise returns a shallow clone with matched keys
 // masked or removed. Only branches present in `pathTree` are walked.
 export const omit = (obj, pathTree, mask) => {
-	if (!pathTree) return obj;
+	if (!pathTree || typeof obj !== "object" || obj === null) return obj;
 	if (Array.isArray(obj)) return omitArray(obj, pathTree["[]"], mask);
 	// Errors are not plain objects, so without this branch `omitObject` would
 	// never run and the configured path would silently leak.
 	if (obj instanceof Error)
 		return omitObject(errorToObject(obj), pathTree, mask);
 	if (isRecord(obj)) return omitObject(obj, pathTree, mask);
-	return obj;
+	if (isOpaque(obj)) return obj;
+	return omitInstance(obj, pathTree, mask);
 };
+
+// A class instance (the durable execution context, a request wrapper from a
+// framework) is walked through a copy of its own enumerable properties, so a
+// prototype getter is never read and the instance itself comes back when
+// nothing under it matched. What the logger gets for it is that plain copy.
+const omitInstance = (obj, pathTree, mask) => {
+	const copy = { ...obj };
+	const next = omitObject(copy, pathTree, mask);
+	return next === copy ? obj : next;
+};
+
+// Built-ins stay leaves: their own properties are not data to redact (a
+// Buffer's indices, a RegExp's lastIndex, a stream's internal state) and a
+// spread copy would strip the state that makes them what they are.
+const isOpaque = (value) =>
+	value instanceof Date ||
+	value instanceof RegExp ||
+	value instanceof Map ||
+	value instanceof Set ||
+	value instanceof WeakMap ||
+	value instanceof WeakSet ||
+	value instanceof ArrayBuffer ||
+	ArrayBuffer.isView(value) ||
+	typeof value.then === "function" ||
+	value instanceof ReadableStream ||
+	value instanceof WritableStream ||
+	value._readableState !== undefined ||
+	value._writableState !== undefined;
 
 // `cause`, `stack` and `AggregateError.errors` are own but non-enumerable, so a
 // spread drops them, and `cause.data` is where middy puts the payload that
@@ -937,16 +1084,19 @@ const omitObject = (obj, pathTree, mask) => {
 	return survivors;
 };
 
-// Stricter than the schema validator's `isPlainObject`: a Date, Buffer or stream
-// must not be shallow-cloned into a bare record. Null-prototype maps (built by
-// httpHeaderNormalizer and event-normalizer) do count, or the keys they hold
-// would leak into the logs unredacted.
-// No `typeof value === "object"` check: only objects have `constructor` Object,
-// and `Object.getPrototypeOf` on a primitive returns its wrapper prototype,
-// never null, so a primitive already fails both arms.
-const isRecord = (value) =>
-	value &&
-	(value.constructor === Object || Object.getPrototypeOf(value) === null);
+// Stricter than the schema validator's `isPlainObject`: only a plain object
+// is walked in place. Null-prototype maps (built by httpHeaderNormalizer and
+// event-normalizer) do count, or the keys they hold would leak into the logs
+// unredacted.
+// Decided by prototype rather than `value.constructor`: jsonParseProtectProto
+// lets a string `constructor` key through, and reading it would mark a plain
+// body as non-plain and leave everything under it unredacted.
+// `omit` has already ruled out primitives and `null`, on which
+// `Object.getPrototypeOf` throws or returns a wrapper prototype.
+const isRecord = (value) => {
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+};
 
 // import { STATUS_CODES } from "node:http"; // cost ~14ms
 const STATUS_CODES = {

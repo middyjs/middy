@@ -67,6 +67,11 @@ const httpRouteHandler = (opts = {}) => {
 
 	const routesStatic = Object.create(null);
 	const routesDynamic = Object.create(null);
+	// Dynamic ANY routes are staged here and appended after every method-specific
+	// list once registration is complete, so a method-specific match wins over
+	// ANY regardless of registration order. (Static ANY routes expand into each
+	// method table instead, where a duplicate path throws.)
+	const routesDynamicAny = [];
 	for (const route of routes) {
 		let { method, path, handler } = route;
 
@@ -90,7 +95,25 @@ const httpRouteHandler = (opts = {}) => {
 		}
 
 		// Dynamic
-		attachDynamicRoute(method, path, handler, routesDynamic);
+		const compiled = compileDynamicRoute(path, handler);
+		if (method === "ANY") {
+			attachDynamicRoute(method, path, compiled, routesDynamicAny);
+			continue;
+		}
+		// Stryker disable next-line ArrayDeclaration: a sentinel seed element has segmentCount===undefined, which the loop's `segmentCount !== reqSegments` filter always skips before any `.match`, so it cannot change routing.
+		routesDynamic[method] ??= [];
+		attachDynamicRoute(method, path, compiled, routesDynamic[method]);
+	}
+	// Stryker disable next-line ConditionalExpression: equivalent; with no dynamic ANY routes the loop only copies each method's existing list or seeds an empty one, and an empty list and a missing key both fall straight through to notFoundResponse.
+	if (routesDynamicAny.length) {
+		for (const method of methods) {
+			// Stryker disable next-line ArrayDeclaration: same sentinel argument as above; a seed element can never match.
+			routesDynamic[method] = [
+				// Stryker disable next-line ArrayDeclaration: same sentinel argument; a seed element has segmentCount===undefined and is skipped by the pre-filter before any `.match`.
+				...(routesDynamic[method] ?? []),
+				...routesDynamicAny,
+			];
+		}
 	}
 
 	const handler = (event, context, abort) => {
@@ -188,15 +211,20 @@ const attachStaticRoute = (method, path, handler, routesType) => {
 	routesType[method][`${path}/`] = handler; // Optional `/`
 };
 
-const attachDynamicRoute = (method, path, handler, routesType) => {
-	if (method === "ANY") {
-		for (const method of methods) {
-			attachDynamicRoute(method, path, handler, routesType);
-		}
-		return;
+// Same method and same compiled pattern (`/a/{id}` twice, or once more with a
+// trailing slash) is a duplicate, as it is for a static path. A method-specific
+// route and an ANY route on one pattern are not: `routes` here only ever holds
+// one or the other, and the method-specific one wins at dispatch.
+const attachDynamicRoute = (method, path, route, routes) => {
+	if (routes.some((existing) => existing.path.source === route.path.source)) {
+		throw new Error("Duplicate route", {
+			cause: { package: pkg, data: { method, path } },
+		});
 	}
-	// Stryker disable next-line ArrayDeclaration: a sentinel seed element has segmentCount===undefined, which the loop's `segmentCount !== reqSegments` filter always skips before any `.match`, so it cannot change routing.
-	routesType[method] ??= [];
+	routes.push(route);
+};
+
+const compileDynamicRoute = (path, handler) => {
 	const pathPartialRegExp = path
 		.replace(regExpEscapeChars, "\\$&")
 		.replace(regExpDynamicWildcards, "(?:/(?<$1>.*))?")
@@ -213,7 +241,7 @@ const attachDynamicRoute = (method, path, handler, routesType) => {
 	// All other dynamic params capture a single segment, so depth == slash count.
 	// Stryker disable next-line StringLiteral: forcing segmentCount to -1 only disables the performance pre-filter; the authoritative `path.match` regex still gates every route, so routing results are unchanged.
 	const segmentCount = path.includes("{proxy+}") ? -1 : countSlashes(path);
-	routesType[method].push({ path: pathRegExp, handler, segmentCount });
+	return { path: pathRegExp, handler, segmentCount };
 };
 
 const countSlashes = (s) => {
@@ -225,23 +253,35 @@ const countSlashes = (s) => {
 	return n;
 };
 
+// Both VPC Lattice event structures put the query string on the path.
+const stripQueryString = (rawPath) => {
+	const q = rawPath?.indexOf("?") ?? -1;
+	return q < 0 ? rawPath : rawPath.substring(0, q);
+};
+
 const getVersionRoute = Object.assign(Object.create(null), {
 	"1.0": (event) => ({
 		method: event.httpMethod,
 		path: event.path,
 	}),
-	"2.0": (event) => ({
-		method: event.requestContext?.http?.method,
-		path: event.requestContext?.http?.path,
-	}),
-	vpc: (event) => {
-		const rawPath = event.raw_path;
-		const q = rawPath?.indexOf("?") ?? -1;
-		return {
-			method: event.method,
-			path: q < 0 ? rawPath : rawPath.substring(0, q),
-		};
+	"2.0": (event) => {
+		const http = event.requestContext?.http;
+		if (http) {
+			return { method: http.method, path: http.path };
+		}
+		// VPC Lattice V2 events also carry `version: "2.0"`, but put `method` and
+		// `path` at the top level (no `requestContext.http`; `requestContext`
+		// holds the service/target-group ARNs), and `path` includes the query
+		// string.
+		// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+		return { method: event.method, path: stripQueryString(event.path) };
 	},
+	// VPC Lattice V1: `method` + `raw_path` (query string included), no `version`.
+	// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v1
+	vpc: (event) => ({
+		method: event.method,
+		path: stripQueryString(event.raw_path),
+	}),
 });
 
 export default httpRouteHandler;

@@ -382,6 +382,38 @@ test("It should route to a dynamic ANY method", async (t) => {
 	ok(response);
 });
 
+// A method-specific dynamic route wins over an ANY route on the same path
+// regardless of registration order; the ANY route still serves other methods.
+test("It should prefer a method-specific dynamic route over ANY registered after it", async (t) => {
+	const handler = httpRouter([
+		{ method: "GET", path: "/a/{id}", handler: () => "get" },
+		{ method: "ANY", path: "/a/{id}", handler: () => "any" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1" }, defaultContext),
+		"get",
+	);
+	strictEqual(
+		await handler({ httpMethod: "POST", path: "/a/1" }, defaultContext),
+		"any",
+	);
+});
+
+test("It should prefer a method-specific dynamic route over ANY registered before it", async (t) => {
+	const handler = httpRouter([
+		{ method: "ANY", path: "/a/{id}", handler: () => "any" },
+		{ method: "GET", path: "/a/{id}", handler: () => "get" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1" }, defaultContext),
+		"get",
+	);
+	strictEqual(
+		await handler({ httpMethod: "POST", path: "/a/1" }, defaultContext),
+		"any",
+	);
+});
+
 // event versions
 test("It should route to a REST v1 event", async (t) => {
 	const event = {
@@ -446,6 +478,81 @@ test("It should route to a VPC Lattice event with query parameters", async (t) =
 			method: "GET",
 			path: "/path",
 			handler: () => true,
+		},
+	]);
+	const response = await handler(event, defaultContext);
+	ok(response);
+});
+
+// VPC Lattice V2 events carry `version: "2.0"` like API Gateway HTTP API
+// payloads, but put `method` and `path` at the top level (no
+// `requestContext.http`), and `path` includes the query string.
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/lambda-functions.html#event-structure-v2
+const createVpcLatticeV2Event = (method, path) => ({
+	version: "2.0",
+	path,
+	method,
+	headers: { "x-forwarded-for": ["10.0.0.1"] },
+	queryStringParameters: {},
+	body: "",
+	isBase64Encoded: false,
+	requestContext: {
+		serviceNetworkArn:
+			"arn:aws:vpc-lattice:ca-central-1:123456789012:servicenetwork/sn-0bf3f2882e9cc805a",
+		serviceArn:
+			"arn:aws:vpc-lattice:ca-central-1:123456789012:service/svc-0a40eebed65f8d69c",
+		targetGroupArn:
+			"arn:aws:vpc-lattice:ca-central-1:123456789012:targetgroup/tg-6d0ecf831eec9f09",
+		identity: {
+			sourceVpcArn:
+				"arn:aws:ec2:ca-central-1:123456789012:vpc/vpc-0b8276c84697e7339",
+			type: "AWS_IAM",
+			principal: "arn:aws:iam::123456789012:assumed-role/my-role/my-session",
+		},
+		region: "ca-central-1",
+		timeEpoch: "1690497599177430",
+	},
+});
+
+test("It should route to a VPC Lattice v2 event", async (t) => {
+	const event = createVpcLatticeV2Event("GET", "/");
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/",
+			handler: () => true,
+		},
+	]);
+	const response = await handler(event, defaultContext);
+	ok(response);
+});
+
+test("It should route to a VPC Lattice v2 event with query parameters", async (t) => {
+	const event = createVpcLatticeV2Event(
+		"GET",
+		"/path?query1=value1&query2=value2",
+	);
+	const handler = httpRouter([
+		{
+			method: "GET",
+			path: "/path",
+			handler: () => true,
+		},
+	]);
+	const response = await handler(event, defaultContext);
+	ok(response);
+});
+
+test("It should route a VPC Lattice v2 event to a dynamic route", async (t) => {
+	const event = createVpcLatticeV2Event("POST", "/user/1?query1=value1");
+	const handler = httpRouter([
+		{
+			method: "POST",
+			path: "/user/{id}",
+			handler: (event) => {
+				deepStrictEqual(event.pathParameters, { id: "1" });
+				return true;
+			},
 		},
 	]);
 	const response = await handler(event, defaultContext);
@@ -1435,4 +1542,51 @@ test("It should throw at construction for an empty dynamic parameter", async (t)
 		strictEqual(e.message, "Invalid route path");
 	}
 	ok(thrown, "expected construction error for path '/users/{}'");
+});
+
+// Duplicate dynamic routes throw at construction, the same as static ones:
+// two `ANY` routes on one pattern, or two routes for one method on one
+// pattern. A method-specific route and an `ANY` route on the same pattern
+// are not duplicates; the method-specific one wins.
+test("It should throw on a duplicate dynamic route registered twice through ANY", () => {
+	try {
+		httpRouter([
+			{ method: "ANY", path: "/a/{id}", handler: () => "first" },
+			{ method: "ANY", path: "/a/{id}", handler: () => "second" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "ANY", path: "/a/{id}" });
+	}
+});
+
+test("It should throw on a duplicate dynamic route registered twice for the same method", () => {
+	try {
+		httpRouter([
+			{ method: "GET", path: "/a/{id}", handler: () => "first" },
+			{ method: "GET", path: "/a/{id}/", handler: () => "second" },
+		]);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.message, "Duplicate route");
+		strictEqual(e.cause.package, "@middy/http-router");
+		deepStrictEqual(e.cause.data, { method: "GET", path: "/a/{id}" });
+	}
+});
+
+test("It should allow a method-specific and an ANY dynamic route on the same pattern", async (t) => {
+	const handler = httpRouter([
+		{ method: "ANY", path: "/a/{id}", handler: () => "any" },
+		{ method: "GET", path: "/a/{id}", handler: () => "get" },
+	]);
+	strictEqual(
+		await handler({ httpMethod: "GET", path: "/a/1" }, defaultContext),
+		"get",
+	);
+	strictEqual(
+		await handler({ httpMethod: "POST", path: "/a/1" }, defaultContext),
+		"any",
+	);
 });

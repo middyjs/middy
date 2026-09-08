@@ -1034,13 +1034,37 @@ test("transpileSchema fills defaults for empty values (useDefaults 'empty')", ()
 	strictEqual(emptyFilled.emptyString, "fromDefault");
 });
 
-test("transpileSchema resets keywords so user keywords do not conflict with plugins", () => {
-	const schema = { type: "object" };
-	// `typeof` is a keyword added by ajv-keywords; passing it via ajvOptions
-	// would conflict unless the compile path resets the keywords list first.
-	transpileSchema(schema, {
+test("transpileSchema lets a user keyword replace the plugin keyword of the same name", () => {
+	const schema = { type: "object", typeof: "function" };
+	// `typeof` is a keyword added by ajv-keywords; the user definition must
+	// win rather than collide with it, so a plain object passes here.
+	const validate = transpileSchema(schema, {
 		keywords: [{ keyword: "typeof", validate: () => true }],
 	});
+	strictEqual(validate({}), true);
+});
+
+test("transpileSchema keeps user ajvOptions.keywords so custom keywords compile in strict mode", () => {
+	const schema = { type: "object", myKw: true };
+	const validate = transpileSchema(schema, {
+		keywords: [{ keyword: "myKw" }],
+	});
+	strictEqual(validate({}), true);
+});
+
+test("transpileSchema accepts string entries in ajvOptions.keywords", () => {
+	const schema = { type: "object", myKw: true };
+	const validate = transpileSchema(schema, { keywords: ["myKw"] });
+	strictEqual(validate({}), true);
+});
+
+test("transpileSchema keeps the plugin keywords when user keywords are supplied", () => {
+	const schema = { type: "object", properties: { fn: { typeof: "function" } } };
+	const validate = transpileSchema(schema, {
+		keywords: [{ keyword: "myKw" }],
+	});
+	strictEqual(validate({ fn: () => {} }), true);
+	strictEqual(validate({ fn: "no" }), false);
 });
 
 test("It should reject a hand-written async validator at setup rather than failing open", () => {

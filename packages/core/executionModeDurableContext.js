@@ -1,7 +1,7 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
 import { withDurableExecution } from "@aws/durable-execution-sdk-js";
-import { executionContextKeys, lambdaContextKeys } from "@middy/util";
+import { lambdaContextKeys } from "@middy/util";
 
 export const executionModeDurableContext = (
 	{ middyRequest, runRequest },
@@ -17,12 +17,10 @@ export const executionModeDurableContext = (
 
 		// normalize context with executionModeStandard
 		// https://docs.aws.amazon.com/lambda/latest/dg/typescript-context.html
+		// The SDK keeps the Lambda context (including `tenantId`, which it reads
+		// from there itself) under `lambdaContext`; `executionContext` only
+		// carries `durableExecutionArn`.
 		// Idea: Use Proxy instead of copying. Faster for common use case?
-		copyKeys(
-			request.context,
-			request.context.executionContext,
-			executionContextKeys,
-		);
 		copyKeys(request.context, request.context.lambdaContext, lambdaContextKeys);
 
 		// See executionModeStandard for the .cause-chaining rationale.

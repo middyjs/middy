@@ -44,7 +44,7 @@ npm install --save-dev @aws-sdk/client-glue
 
 ### `parseJson({ reviver? })`
 
-Parses each record body as JSON. Equivalent to `JSON.parse(buffer.toString('utf-8'), reviver)`.
+Parses each record body as JSON, like `JSON.parse(buffer.toString('utf-8'), reviver)`, but a payload carrying an own `__proto__` key or a `constructor.prototype` key is rejected with a 422 (see Errors below).
 
 ### `parseAvro({ schema?, internalKey? })`
 
@@ -125,7 +125,7 @@ export const handler = middy()
 
 ## Glue framing
 
-When a record's base64-decoded buffer starts with byte `0x03`, the middleware treats it as AWS Glue Schema Registry framing:
+A record's base64-decoded buffer is treated as AWS Glue Schema Registry framing when it starts with the header version byte `0x03` **and** the compression byte is one of the documented values. A raw Avro or Protobuf record can start with `0x03` too, so the magic byte alone is not enough.
 
 ```
 byte 0     : header version (0x03)
@@ -134,7 +134,16 @@ bytes 2-17 : SchemaVersionId UUID
 bytes 18+  : payload (Avro/Protobuf/JSON-Schema-encoded)
 ```
 
-The middleware sets `record._schemaVersionId` (canonical UUID with dashes) and `record._payload` (decompressed bytes after the prefix). Parsers read these properties when present and fall back to the full buffer otherwise.
+`0x00` and `0x05` are the only compression types the Glue serializer defines, so a `0x03` record with any other second byte is not a Glue header and reaches the parser unframed. A parser bound to [`@middy/glue-schema-registry`](/docs/middlewares/glue-schema-registry) through `internalKey` (`parseAvro({ internalKey })`, `parseProtobuf({ internalKey })`) then decodes the raw bytes and fails with the usual 422 when they are not a valid record.
+
+The framing is passed to the parser as its fourth argument, `{ schemaVersionId, payload }` (canonical UUID with dashes, decompressed bytes after the header); an unframed record gets `{ payload: buffer }`. The bundled parsers decode `framing.payload` when present and fall back to the full buffer otherwise.
+
+## Errors
+
+- A record whose payload cannot be handled (a non-string value already decoded upstream, an invalid base64/zlib stream, a decode failure in the parser) fails the invocation with a 422 `HttpError`. `cause.data` carries `{ reason: 'Invalid record payload', source, field, message }`.
+- `parseJson` rejects a payload with an own `__proto__` key or a `constructor.prototype` key with a 422 (`cause.data.reason` `Forbidden key in JSON body`), so a crafted record cannot smuggle a prototype gadget into the object handed to your handler.
+- A zlib-framed record whose decompressed size exceeds `maxDecompressedBytes` fails with a 413 `HttpError`.
+- Kafka and RabbitMQ groups that are not arrays are skipped.
 
 
 ## Pairs well with

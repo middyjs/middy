@@ -278,6 +278,50 @@ test("modifyCache", () => {
 	expect(util.modifyCache("someKey", { key: "value" })).type.toBe<void>();
 });
 
+test("createClientInit", () => {
+	const initClient = util.createClientInit<SSMClient, {}>({
+		AwsClient: SSMClient,
+	});
+	expect(initClient({} as middy.Request)).type.toBe<Promise<SSMClient>>();
+});
+
+test("evictCacheOnFailure", () => {
+	const handler = util.evictCacheOnFailure("someKey", "internalKey");
+	expect(handler(new Error("boom"))).type.toBe<never>();
+});
+
+test("setCacheKeyExpiry", () => {
+	expect(
+		util.setCacheKeyExpiry(
+			{ cacheKey: "someKey", cacheExpiry: -1, cacheKeyExpiry: {} },
+			Date.now(),
+		),
+	).type.toBe<void>();
+	expect(
+		util.setCacheKeyExpiry(
+			{ cacheKey: "someKey", cacheLearnedExpiry: { someKey: undefined } },
+			Date.now(),
+		),
+	).type.toBe<void>();
+});
+
+test("buildSetToContextSpec / assignSetToContext", () => {
+	const spec = util.buildSetToContextSpec({
+		fetchData: { "my-key": "x" },
+		setToContext: true,
+		contextKey: "ssm",
+	});
+	expect(spec).type.toBe<util.SetToContextSpec | null>();
+	expect(
+		util.buildSetToContextSpec({ fetchData: { "my-key": { region: "x" } } }),
+	).type.toBe<util.SetToContextSpec | null>();
+	if (spec) {
+		expect(
+			util.assignSetToContext(spec, { "my-key": "y" }, {} as middy.Request),
+		).type.toBe<Promise<void> | undefined>();
+	}
+});
+
 test("catchInvalidSignatureException", () => {
 	const client = new SSMClient({});
 	const result = util.catchInvalidSignatureException(
@@ -304,10 +348,6 @@ test("decodeBody", () => {
 
 test("lambdaContextKeys", () => {
 	expect(util.lambdaContextKeys).type.toBe<string[]>();
-});
-
-test("executionContextKeys", () => {
-	expect(util.executionContextKeys).type.toBe<string[]>();
 });
 
 test("isExecutionModeDurable", () => {

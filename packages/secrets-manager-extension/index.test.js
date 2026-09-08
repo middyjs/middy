@@ -265,23 +265,6 @@ test("It should use custom port from PARAMETERS_SECRETS_EXTENSION_HTTP_PORT", as
 	}
 });
 
-test("It should parse secret response with missing SecretString as undefined", async (_t) => {
-	mockFetch(`${baseUrl}no_secret`, {});
-	const handler = middy(() => {})
-		.use(
-			secretsManagerExtension({
-				cacheExpiry: 0,
-				fetchData: { val: "no_secret" },
-				disablePrefetch: true,
-			}),
-		)
-		.before(async (request) => {
-			const values = await getInternal(true, request);
-			equal(values.val, undefined);
-		});
-	await handler(event, context);
-});
-
 test("It should skip already-cached keys when cache is modified", async (_t) => {
 	const handler = middy(() => {})
 		.use(
@@ -616,4 +599,66 @@ test("secretsManagerExtensionValidateOptions validates contextKey as a string", 
 	} catch (e) {
 		ok(e.message.includes("contextKey"));
 	}
+});
+
+// The extension returns the GetSecretValue JSON, which carries the secret in
+// exactly one of two fields. Per the API reference, SecretBinary is "the
+// decrypted secret value, if the secret value was originally provided as
+// binary data", Base64-encoded over the HTTP API; when the value "was
+// originally provided as a string, then this field is omitted. The secret
+// value appears in SecretString instead." A response carrying both fields is
+// outside the contract and is not tested.
+// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+test("It should return a SecretString-only secret as a string, even when it is valid base64", async (_t) => {
+	mockFetch(`${baseUrl}base64_string_key`, { SecretString: "aGk=" });
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { text: "base64_string_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			equal(values.text, "aGk=");
+		});
+	await handler(event, context);
+});
+
+test("It should decode a base64 SecretBinary-only secret into a Buffer", async (_t) => {
+	mockFetch(`${baseUrl}binary_key`, {
+		SecretBinary: Buffer.from("hi").toString("base64"),
+	});
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { blob: "binary_key" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			ok(Buffer.isBuffer(values.blob));
+			equal(values.blob.toString(), "hi");
+		});
+	await handler(event, context);
+});
+
+test("It should resolve undefined when a secret has neither SecretString nor SecretBinary", async (_t) => {
+	mockFetch(`${baseUrl}no_secret`, {});
+	const handler = middy(() => {})
+		.use(
+			secretsManagerExtension({
+				cacheExpiry: 0,
+				fetchData: { val: "no_secret" },
+				disablePrefetch: true,
+			}),
+		)
+		.before(async (request) => {
+			const values = await getInternal(true, request);
+			equal(values.val, undefined);
+		});
+	await handler(event, context);
 });

@@ -157,6 +157,7 @@ const normalizeOrigin = (origin) => {
 	if (origin === undefined) return undefined;
 	let uri;
 	try {
+		// Stryker disable next-line StringLiteral: equivalent. The label only appears in the error httpUri throws, which the catch below discards in favour of its own TypeError.
 		uri = httpUri(origin, "Option 'origin'");
 	} catch {
 		throw new TypeError(`Option 'origin' is not a URL: '${origin}'`, {
@@ -197,11 +198,12 @@ const readMethod = (event) =>
 // stage from `event.path` and keeps it on `requestContext.path`, so preferring
 // the latter is what makes a stage other than `$default` work at all. HTTP
 // (v2) has no `requestContext.path`; ALB has neither, and only `path`.
-// Stryker disable next-line OptionalChaining: equivalent, for the same reason as readMethod above.
+// Stryker disable OptionalChaining: equivalent, for the same reason as readMethod above.
 const readPath = (event) =>
 	asString(event?.rawPath) ??
 	asString(event?.requestContext?.path) ??
 	asString(event?.path);
+// Stryker restore OptionalChaining
 
 // Never the Host header: a client controls it, so trusting it would let a proof
 // be minted for any origin the attacker chose. `requestContext.domainName` is
@@ -302,7 +304,10 @@ export const verifyDpopProof = (
 	}
 
 	const claims = decodeJson(payloadSegment, "payload");
-	if (claims.htm !== method) {
+	// RFC 9449 §4.2: `htm` is REQUIRED. Checked as a string in its own right, so
+	// a proof that omits it fails even when the caller had no method to hold it
+	// against; a bare `!==` would let two undefineds pass as a match.
+	if (typeof claims.htm !== "string" || claims.htm !== method) {
 		throw new Error(`Proof 'htm' is '${claims.htm}', expected '${method}'`);
 	}
 	if (
@@ -413,8 +418,8 @@ const httpDpopMiddleware = (opts = {}) => {
 			// `url` was declared without an initialiser, so it is already
 			// undefined here; the check below is what reports it.
 		}
-		// Stryker disable next-line ConditionalExpression: equivalent. An undefined requestOrigin makes the template above unparseable, so `url` is undefined too and the third arm already rejects.
 		if (
+			// Stryker disable next-line ConditionalExpression: equivalent. An undefined requestOrigin makes the template above unparseable, so `url` is undefined too and the third arm already rejects.
 			requestOrigin === undefined ||
 			path === undefined ||
 			url === undefined
@@ -429,10 +434,26 @@ const httpDpopMiddleware = (opts = {}) => {
 			});
 		}
 
+		// Same reasoning as the URI: an event with no method (nothing under
+		// `requestContext.http.method` or `httpMethod`) is a shape the operator
+		// has to act on, not a proof the caller got wrong.
+		const method = readMethod(request.event);
+		if (method === undefined) {
+			throw new HttpError(500, {
+				cause: {
+					package: pkg,
+					data: {
+						reason:
+							"Cannot determine the request method: the event carries neither 'requestContext.http.method' nor 'httpMethod'",
+					},
+				},
+			});
+		}
+
 		let verified;
 		try {
 			verified = verifyDpopProof(proof, {
-				method: readMethod(request.event),
+				method,
 				url,
 				accessToken,
 				algorithms,

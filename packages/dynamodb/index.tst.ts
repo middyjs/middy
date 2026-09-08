@@ -230,3 +230,25 @@ handler
 			param3: number;
 		}>();
 	});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			dynamodb({
+				...options,
+				fetchData: {
+					configurationObjFromDynamo: {
+						TableName: "someConfigTableName",
+						Key: { pk: { S: "someConfigItemPrimaryKey" } },
+					},
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(
+				request.context.middyContext.custom.configurationObjFromDynamo,
+			).type.toBe<Record<string, any>>();
+		});
+});

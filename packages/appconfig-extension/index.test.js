@@ -463,8 +463,6 @@ test("It should prefetch at factory time when using defaults", async (_t) => {
 		.before(async (request) => {
 			const values = await getInternal(true, request);
 			strictEqual(values.config?.option, "value");
-			// v8 publishes to context.middyContext[contextKey], not the context
-			// root, so the root is empty either way and cannot show the default.
 			seen.contextHasConfig =
 				"appconfig-extension" in request.context.middyContext;
 		});

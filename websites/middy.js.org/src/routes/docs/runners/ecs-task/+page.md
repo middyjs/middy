@@ -34,6 +34,7 @@ npm install --save @middy/ecs-task
 - `stopTimeout` (integer, ms): On `SIGTERM`, the runner waits up to this many milliseconds before forcing `process.exit(124)`. Defaults to `30000` — match this to (or set just below) the ECS task's configured `stopTimeout`.
 - `onSuccess(result, context)` (async function, optional): Called after the handler resolves, before `process.exit(0)`. Use it to post results — `SendTaskSuccess` for Step Functions `.waitForTaskToken`, write to S3, etc.
 - `onFailure(error, context)` (async function, optional): Called when the handler throws, before `process.exit(1)`. Use for `SendTaskFailure` or error reporting. Errors thrown inside `onFailure` are swallowed; the original handler error still drives the exit code.
+- `contextOverride` (object, optional): Escape hatch for tests and hosts that need fixed context values. Accepts `{ awsRequestId: (event) => string }`, called with the parsed event to supply `context.awsRequestId` when no ECS task ARN is available (for example a local run outside ECS).
 
 ## Input resolution
 
@@ -52,7 +53,6 @@ The runner builds a Lambda-compatible `context`:
 - `awsRequestId`: ECS task ID (from the task ARN), else a `crypto.randomUUID()`.
 - `invokedFunctionArn`: the ECS task ARN, when available from the metadata endpoint.
 - `getRemainingTimeInMillis()`: clamped countdown of `timeout` from task start.
-- `callbackWaitsForEmptyEventLoop: false`.
 - ECS metadata fields (`accountId`, `region`, `taskArn`, `family`, `revision`) merged in.
 
 The ECS task metadata endpoint (`$ECS_CONTAINER_METADATA_URI_V4`) is fetched once on startup and cached on the process env (`MIDDY_ECS_*`).

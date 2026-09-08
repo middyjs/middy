@@ -166,3 +166,25 @@ handler
 			config3: number;
 		}>();
 	});
+
+test("contextKey literal narrows middyContext without as const", () => {
+	handler
+		.use(
+			appConfig({
+				fetchData: {
+					config: appConfigParam<{ config1: string }>({
+						ApplicationIdentifier: "app",
+						ConfigurationProfileIdentifier: "configId",
+						EnvironmentIdentifier: "development",
+					}),
+				},
+				setToContext: true,
+				contextKey: "custom",
+			}),
+		)
+		.before(async (request) => {
+			expect(request.context.middyContext.custom.config).type.toBe<{
+				config1: string;
+			}>();
+		});
+});

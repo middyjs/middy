@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from "node:assert/strict";
+import { deepStrictEqual, ok, strictEqual, throws } from "node:assert/strict";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createReadableStream, createWritableStream } from "@datastream/core";
@@ -65,11 +65,64 @@ test("It should use the default logger when none is provided", async (t) => {
 	deepStrictEqual(response, event);
 });
 
-test("It should return no-op middleware when logger is false", async (t) => {
-	const middleware = responseLogger({ logger: false });
-	strictEqual(middleware.before, undefined);
-	strictEqual(middleware.after, undefined);
-	strictEqual(middleware.onError, undefined);
+// `{ ...defaults, ...opts }` lets an explicit `logger: undefined` override the
+// default; it means "not set", not "off", so the default logger must be kept.
+test("It should use the default logger when logger is explicitly undefined", async (t) => {
+	const log = t.mock.method(console, "log", () => {});
+
+	const handler = middy((event) => event).use(
+		responseLogger({ logger: undefined }),
+	);
+
+	const event = { foo: "bar" };
+	deepStrictEqual(await handler(event, defaultContext), event);
+
+	strictEqual(log.mock.callCount(), 1);
+	deepStrictEqual(JSON.parse(log.mock.calls[0].arguments[0]), {
+		response: event,
+	});
+});
+
+// Logging is this middleware's only job, so there is no "off" setting: the
+// way to disable it is to not register the middleware.
+test("It should reject logger: false at construction", () => {
+	for (const logger of [false, null]) {
+		// The factory says what to do instead; the validator keeps the generic
+		// option wording every other option uses.
+		throws(() => responseLogger({ logger }), {
+			name: "TypeError",
+			message:
+				"Option 'logger' must be a function; @middy/response-logger only logs, omit the middleware to disable logging",
+			cause: { package: "@middy/response-logger" },
+		});
+		throws(() => responseLoggerValidateOptions({ logger }), {
+			name: "TypeError",
+			message: "Option 'logger' must be instanceof Function",
+			cause: { package: "@middy/response-logger" },
+		});
+	}
+});
+
+// winston's `logger.info()` returns the logger; a hook that forwarded it would
+// make core treat it as an early response and replace the real one.
+test("It should ignore the logger's return value after the handler", async (t) => {
+	const handler = middy(() => "handler").use(
+		responseLogger({ logger: () => ({ chained: true }) }),
+	);
+
+	strictEqual(await handler({ foo: "bar" }, defaultContext), "handler");
+});
+
+test("It should ignore the logger's return value when an error is handled", async (t) => {
+	const handler = middy(() => {
+		throw new Error("error");
+	})
+		.use(responseLogger({ logger: () => ({ chained: true }) }))
+		.onError((request) => {
+			request.response = "recovered";
+		});
+
+	strictEqual(await handler({ foo: "bar" }, defaultContext), "recovered");
 });
 
 test("It should log the response when an error is handled", async (t) => {
@@ -672,13 +725,69 @@ test("responseLoggerValidateOptions rejects wrong types", () => {
 	}
 });
 
-test("responseLoggerValidateOptions accepts logger:false and rejects logger:true", () => {
-	responseLoggerValidateOptions({ logger: false });
-	try {
-		responseLoggerValidateOptions({ logger: true });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		ok(e.message.includes("logger"));
-	}
+test("It should destroy the source stream when the consumer destroys the teed response early", async (t) => {
+	const logger = t.mock.fn();
+	const source = new Readable({ read() {} });
+	const request = { event: {}, context: {}, internal: {}, response: source };
+	responseLogger({ logger }).after(request);
+	const teed = request.response;
+	ok(teed !== source);
+	teed.on("error", () => {});
+	const closed = new Promise((resolve) => teed.once("close", resolve));
+	teed.destroy(new Error("consumer gone"));
+	await closed;
+	strictEqual(source.destroyed, true);
+	strictEqual(logger.mock.callCount(), 0);
+});
+
+test("It should still end a Node stream when the logger throws on flush", async (t) => {
+	const error = new Error("logger broke");
+	const consoleError = t.mock.method(console, "error", () => {});
+	const handler = middy(async () => Readable.from(["a", "b"]), {
+		executionMode: executionModeStreamifyResponse,
+	}).use(
+		responseLogger({
+			logger: () => {
+				throw error;
+			},
+		}),
+	);
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	strictEqual(await handler({}, responseStream, defaultContext), undefined);
+	strictEqual(chunkResponse, "ab");
+	strictEqual(consoleError.mock.callCount(), 1);
+	strictEqual(consoleError.mock.calls[0].arguments[0], error);
+});
+
+test("It should still end a Web stream when the logger throws on flush", async (t) => {
+	const error = new Error("logger broke");
+	const consoleError = t.mock.method(console, "error", () => {});
+	const handler = middy(
+		async () =>
+			new ReadableStream({
+				start(controller) {
+					controller.enqueue("a");
+					controller.enqueue("b");
+					controller.close();
+				},
+			}),
+		{ executionMode: executionModeStreamifyResponse },
+	).use(
+		responseLogger({
+			logger: () => {
+				throw error;
+			},
+		}),
+	);
+	let chunkResponse = "";
+	const responseStream = createWritableStream((chunk) => {
+		chunkResponse += chunk;
+	});
+	strictEqual(await handler({}, responseStream, defaultContext), undefined);
+	strictEqual(chunkResponse, "ab");
+	strictEqual(consoleError.mock.callCount(), 1);
+	strictEqual(consoleError.mock.calls[0].arguments[0], error);
 });

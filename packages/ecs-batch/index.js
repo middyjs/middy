@@ -30,6 +30,7 @@ const optionSchema = {
 		workers: { type: "integer", minimum: 1 },
 		timeout: { type: "integer", minimum: 0 },
 		gracefulShutdownMs: { type: "integer", minimum: 0 },
+		onError: { instanceof: "Function" },
 		contextOverride: {
 			type: "object",
 			properties: {
@@ -156,13 +157,21 @@ export const drainAndExit = async ({
 }) => {
 	abortController.abort();
 	const deadlineCtl = new AbortController();
+	// The "drained" settle values below only feed `winner === "deadline"`, so
+	// undefined or "" map to the same exit code 0, and the catch on the
+	// deadline runs after the race is decided so its value is never read.
 	const drained = loopPromise.then(
+		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
 		() => "drained",
+		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
 		() => "drained",
 	);
 	const deadline = delay(gracefulShutdownMs, "deadline", {
 		signal: deadlineCtl.signal,
-	}).catch(() => "drained");
+	}).catch(
+		// Stryker disable next-line ArrowFunction,StringLiteral: equivalent; see above.
+		() => "drained",
+	);
 	const winner = await Promise.race([drained, deadline]);
 	deadlineCtl.abort();
 	exitImpl(winner === "deadline" ? 1 : 0);
@@ -182,6 +191,19 @@ export const runWorker = async (options, deps = {}) => {
 		onError: options.onError,
 		contextOverride: options.contextOverride,
 	});
+	// A poller throw (network error, expired iterator, throttling) would
+	// otherwise surface as an unhandledRejection and kill the worker without
+	// reaching onError. Report it and exit; the primary re-forks with backoff.
+	loopPromise.catch((err) => {
+		// A throwing onError must not leave the worker alive with a dead loop.
+		try {
+			// Stryker disable next-line OptionalChaining: equivalent; with no onError the plain call throws a TypeError that the catch below swallows, so the worker still exits 1 either way.
+			options.onError?.(err);
+		} catch {
+			// process.exit pre-empts anything the throw could still report.
+		}
+		exitImpl(1);
+	});
 	const onSigterm = () =>
 		drainAndExit({
 			abortController,
@@ -193,19 +215,62 @@ export const runWorker = async (options, deps = {}) => {
 	return { abortController, loopPromise, onSigterm };
 };
 
+// Crash-loop guard for worker re-forks. Each worker exit within `healthyMs` of
+// the previous one doubles the delay before the replacement is forked, from
+// 1 s up to a 30 s cap; 60 s without any exit starts over at 1 s.
+const reforkBackoff = { initialMs: 1_000, maxMs: 30_000, healthyMs: 60_000 };
+
 export const runPrimary = async (options, deps = {}) => {
 	const clusterImpl = deps.cluster ?? cluster;
 	const fetchImpl = deps.fetch ?? fetch;
+	const exitImpl = deps.exit ?? process.exit;
+	const setTimeoutImpl = deps.setTimeout ?? setTimeout;
 	const meta = await fetchEcsMetadata(
 		process.env.ECS_CONTAINER_METADATA_URI_V4,
 		fetchImpl,
 	);
 	writeEcsEnv(meta);
+	let stopping = false;
+	let delayMs = 0;
+	let lastExitAt = -Infinity;
+	// Highest exit code a worker reported while draining, so a drain that hit
+	// its deadline or a poller failure surfaces as a non-zero task exit instead
+	// of 0. A crash before SIGTERM is re-forked and does not count: the worker
+	// was replaced and the task went on running.
+	let workerExitCode = 0;
+	const liveWorkers = () => Object.values(clusterImpl.workers ?? {});
+	const exitWhenDrained = () => {
+		if (liveWorkers().length === 0) exitImpl(workerExitCode);
+	};
+	const nextReforkDelay = () => {
+		const now = Date.now();
+		delayMs =
+			now - lastExitAt >= reforkBackoff.healthyMs
+				? reforkBackoff.initialMs
+				: Math.min(delayMs * 2, reforkBackoff.maxMs);
+		lastExitAt = now;
+		return delayMs;
+	};
 	for (let i = 0; i < options.workers; i++) clusterImpl.fork();
-	clusterImpl.on("exit", () => clusterImpl.fork());
+	clusterImpl.on("exit", (_worker, code) => {
+		if (stopping) {
+			// code is null when a signal killed the worker; that is not a clean exit.
+			workerExitCode = Math.max(workerExitCode, code ?? 1);
+			return exitWhenDrained();
+		}
+		setTimeoutImpl(() => {
+			if (!stopping) clusterImpl.fork();
+		}, nextReforkDelay());
+	});
+	// node:cluster drops a worker from cluster.workers before the last of its
+	// exit/disconnect events, in either order, so the drain check runs on both.
+	clusterImpl.on("disconnect", () => {
+		if (stopping) exitWhenDrained();
+	});
 	const onSigterm = () => {
-		const workers = clusterImpl.workers ?? {};
-		for (const w of Object.values(workers)) w?.process.kill("SIGTERM");
+		stopping = true;
+		for (const w of liveWorkers()) w?.process.kill("SIGTERM");
+		exitWhenDrained();
 	};
 	process.once("SIGTERM", onSigterm);
 	return { onSigterm };
