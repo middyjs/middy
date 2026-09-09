@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: block
           disable-sudo: true
@@ -40,23 +40,42 @@ jobs:
             objects.githubusercontent.com:443
             registry.npmjs.org:443
             release-assets.githubusercontent.com:443
+            sparrow.cloudflare.com:443
+            workers.cloudflare.com:443
+      # allowed-endpoints: >
+      #   github.com:443
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # allowed-endpoints: >
+      #   api.github.com:443
+      #   nodejs.org:443
+      #   objects.githubusercontent.com:443
+      #   registry.npmjs.org:443
+      #   release-assets.githubusercontent.com:443
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false # deployed artifacts must never touch the shared Actions cache
+      # allowed-endpoints: >
+      #   registry.npmjs.org:443
       - name: Install dependencies
         run: |
           npm ci --ignore-scripts --workspace websites/${{ env.DOMAIN_NAME }}
+      # allowed-endpoints: >
+      #   registry.npmjs.org:443
       - name: Build website
         working-directory: websites/${{ env.DOMAIN_NAME }}
         run: |
           npm run build
+      # allowed-endpoints: >
+      #   api.cloudflare.com:443
+      #   registry.npmjs.org:443
+      #   sparrow.cloudflare.com:443
+      #   workers.cloudflare.com:443
       - name: Publish website
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         env:
