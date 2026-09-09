@@ -1,9 +1,39 @@
 import { ok, strictEqual } from "node:assert/strict";
-import { createPublicKey } from "node:crypto";
+import { createPrivateKey, createPublicKey } from "node:crypto";
 import { test } from "node:test";
-import { V4 } from "paseto";
+import { PublicProtocol } from "paseto";
+import { SecretKeyFromCryptoKey, SignFactory } from "paseto/v4/public";
 import middy from "../core/index.js";
 import realHttpPaseto, { httpPasetoValidateOptions } from "./index.js";
+
+const signer = new PublicProtocol(SignFactory);
+
+// paseto v4 removed the `V4` namespace and works in WebCrypto keys. These tests
+// build public keys with `createPublicKey`, so the shim keeps minting node
+// KeyObjects and converts at the point of signing. `expiresIn` is seconds now,
+// and defaults to 3600 when omitted.
+const V4 = {
+	generateKey: async () => {
+		const { privateKey } = await crypto.subtle.generateKey("Ed25519", true, [
+			"sign",
+			"verify",
+		]);
+		const pkcs8 = await crypto.subtle.exportKey("pkcs8", privateKey);
+		return createPrivateKey({
+			key: Buffer.from(pkcs8),
+			format: "der",
+			type: "pkcs8",
+		});
+	},
+	sign: async (payload, privateKey, options) =>
+		signer.Sign(
+			await SecretKeyFromCryptoKey(
+				privateKey.toCryptoKey("Ed25519", true, ["sign"]),
+			),
+			payload,
+			options,
+		),
+};
 
 // Tests below assume the verified payload is exposed on request.context for
 // assertion convenience. The middleware default is internal-only (matches
@@ -30,11 +60,11 @@ const makeHandlerWithKey = (publicKey, opts = {}) => {
 };
 
 test("It should verify a valid v4.public PASETO token and set payload to internal and context", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1", role: "admin" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const ctx = { ...defaultContext };
@@ -48,11 +78,11 @@ test("It should verify a valid v4.public PASETO token and set payload to interna
 });
 
 test("It should always set payload to context", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const ctx = { ...defaultContext };
@@ -64,11 +94,11 @@ test("It should always set payload to context", async (t) => {
 });
 
 test("It should use a custom payloadKey", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const ctx = { ...defaultContext };
@@ -80,13 +110,13 @@ test("It should use a custom payloadKey", async (t) => {
 });
 
 test("It should verify audience claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign(
 		{ sub: "user-1", aud: "https://api.example.com" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const ctx = { ...defaultContext };
@@ -100,13 +130,13 @@ test("It should verify audience claim", async (t) => {
 });
 
 test("It should verify issuer claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign(
 		{ sub: "user-1", iss: "https://auth.example.com" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const ctx = { ...defaultContext };
@@ -120,12 +150,12 @@ test("It should verify issuer claim", async (t) => {
 });
 
 test("It should respect clockTolerance option for expired tokens", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	// Token already expired 5s ago, but well within the 30s clockTolerance.
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1s",
+		expiresIn: 1,
 		now: new Date(Date.now() - 5000),
 	});
 
@@ -137,7 +167,7 @@ test("It should respect clockTolerance option for expired tokens", async (t) => 
 		.use(
 			httpPaseto({
 				internalKey: "pubKey",
-				clockTolerance: "30s",
+				clockTolerance: 30,
 			}),
 		);
 
@@ -148,7 +178,7 @@ test("It should respect clockTolerance option for expired tokens", async (t) => 
 });
 
 test("It should throw 401 when Authorization header is missing", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -163,7 +193,7 @@ test("It should throw 401 when Authorization header is missing", async (t) => {
 });
 
 test("It should throw 401 when Authorization scheme is not Bearer or DPoP", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -180,11 +210,11 @@ test("It should accept the DPoP scheme", async (t) => {
 	// RFC 9449 §7.1: a sender-constrained token travels under `DPoP`. Verifying
 	// it is unchanged; pair with `@middy/http-dpop` to require the proof, which
 	// is the only thing that can read the token's `cnf` claim.
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const handler = makeHandlerWithKey(publicKey);
 
@@ -196,12 +226,12 @@ test("It should accept the DPoP scheme", async (t) => {
 });
 
 test("It should throw 401 when token is invalid", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const wrongPrivateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
+	const wrongPrivateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "x" }, wrongPrivateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const ctx = { ...defaultContext };
@@ -222,7 +252,7 @@ test("It should throw 401 when token is invalid", async (t) => {
 });
 
 test("It should throw 401 for unsupported PASETO version", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const ctx = { ...defaultContext };
@@ -248,12 +278,12 @@ test("It should throw TypeError at factory when internalKey is not configured", 
 });
 
 test("It should NOT return the credential of a non-Bearer 2-part Authorization header", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	// A valid token carried under the wrong scheme must be ignored (the scheme
 	// check rejects it). With only the Authorization source, that means 401.
 	const token = await V4.sign({ sub: "wrong-scheme" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -268,12 +298,12 @@ test("It should NOT return the credential of a non-Bearer 2-part Authorization h
 });
 
 test("It should NOT return a part of a 3-part Bearer Authorization header", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	// `Bearer <token> extra` has 3 parts: the length check must reject it even
 	// though the scheme is Bearer.
 	const token = await V4.sign({ sub: "three-parts" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -288,7 +318,7 @@ test("It should NOT return a part of a 3-part Bearer Authorization header", asyn
 });
 
 test("It should 401 (not crash) when the header source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const handler = makeHandlerWithKey(publicKey);
 
@@ -304,7 +334,7 @@ test("It should 401 (not crash) when the header source gets a nullish event", as
 });
 
 test("It should 401 (not crash) when the query source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -326,10 +356,10 @@ test("It should 401 (not crash) when the query source gets a nullish event", asy
 });
 
 test("It should NOT fall back to the Authorization header when an explicit source is configured", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "should-not-be-read" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -357,11 +387,11 @@ test("It should NOT fall back to the Authorization header when an explicit sourc
 });
 
 test("It should read PASETO from a cookie when tokenCookieName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -382,11 +412,11 @@ test("It should read PASETO from a cookie when tokenCookieName is set", async (t
 });
 
 test("It should read PASETO from capitalized Cookie header when lowercase is absent", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -407,7 +437,7 @@ test("It should read PASETO from capitalized Cookie header when lowercase is abs
 });
 
 test("It should throw 401 when no cookie header is present for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -429,7 +459,7 @@ test("It should throw 401 when no cookie header is present for PASETO", async (t
 });
 
 test("It should throw 401 when cookie is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -451,11 +481,11 @@ test("It should throw 401 when cookie is missing for PASETO", async (t) => {
 });
 
 test("It should handle KMS { publicKey, keySpec } shape from internalKey", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-kms" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -492,11 +522,11 @@ test("It should throw 500 when internalKey resolves to undefined for PASETO", as
 });
 
 test("It should read PASETO from a custom header when tokenHeaderName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-hdr" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -515,11 +545,11 @@ test("It should read PASETO from a custom header when tokenHeaderName is set", a
 });
 
 test("It should read PASETO from a lowercased custom header when literal case is absent", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-hdr-lower" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -538,7 +568,7 @@ test("It should read PASETO from a lowercased custom header when literal case is
 });
 
 test("It should throw 401 when custom header is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -558,11 +588,11 @@ test("It should throw 401 when custom header is missing for PASETO", async (t) =
 });
 
 test("It should read PASETO from a query parameter when tokenQueryStringName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-qs" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -581,7 +611,7 @@ test("It should read PASETO from a query parameter when tokenQueryStringName is 
 });
 
 test("It should throw 401 when tokenQueryStringName is missing for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -601,7 +631,7 @@ test("It should throw 401 when tokenQueryStringName is missing for PASETO", asyn
 });
 
 test("It should throw 401 when event has no headers at all for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -621,11 +651,11 @@ test("It should throw 401 when event has no headers at all for PASETO", async (t
 });
 
 test("It should fall through when Authorization header has wrong number of parts for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "from-query-malformed" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -653,14 +683,14 @@ test("It should fall through when Authorization header has wrong number of parts
 });
 
 test("It should chain cookie -> header -> query, cookie wins when present for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const cookieToken = await V4.sign({ sub: "from-cookie" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -692,11 +722,11 @@ test("It should chain cookie -> header -> query, cookie wins when present for PA
 });
 
 test("It should fall through to query when cookie and header are absent for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "from-query" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -722,10 +752,10 @@ test("It should fall through to query when cookie and header are absent for PASE
 });
 
 test("setToContext: false (default) writes only to internal, not context for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-internal-only" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -751,7 +781,7 @@ test("setToContext: false (default) writes only to internal, not context for PAS
 
 test("httpPasetoValidateOptions accepts valid options and rejects typos", () => {
 	httpPasetoValidateOptions({ audience: "https://example.com" });
-	httpPasetoValidateOptions({ internalKey: "k", maxTokenAge: "1h" });
+	httpPasetoValidateOptions({ internalKey: "k", maxTokenAge: 3600 });
 	httpPasetoValidateOptions({});
 	try {
 		httpPasetoValidateOptions({ audiance: "typo" });
@@ -763,10 +793,10 @@ test("httpPasetoValidateOptions accepts valid options and rejects typos", () => 
 });
 
 test("It should accept Authorization header delivered as an array (multiValueHeaders / repeated headers)", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "array-hdr" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -780,10 +810,10 @@ test("It should accept Authorization header delivered as an array (multiValueHea
 });
 
 test("It should strip RFC 6265 surrounding double-quotes from a cookie value", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "quoted-cookie" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -799,10 +829,10 @@ test("It should strip RFC 6265 surrounding double-quotes from a cookie value", a
 });
 
 test("It should resolve a hyphenated internalKey without a spurious 500", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-hyphen-key" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -820,10 +850,10 @@ test("It should resolve a hyphenated internalKey without a spurious 500", async 
 });
 
 test("It should resolve a dotted nested internalKey without a spurious 500", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-dotted-key" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
@@ -840,30 +870,38 @@ test("It should resolve a dotted nested internalKey without a spurious 500", asy
 	strictEqual(result.paseto.sub, "user-dotted-key");
 });
 
-test("It should accept a token without exp by default", async (t) => {
-	const privateKey = await V4.generateKey("public");
+test("It should reject a token without exp", async (t) => {
+	// paseto v3 validated `exp` only when present; v4 requires it unless the
+	// caller opts out with `allowNonExpiring`, which this middleware does not.
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
-	// No expiresIn: token has no exp claim.
-	const token = await V4.sign({ sub: "user-no-exp" }, privateKey);
+	const token = await V4.sign({ sub: "user-no-exp" }, privateKey, {
+		nonExpiring: true,
+	});
 
 	const handler = makeHandlerWithKey(publicKey);
 
-	const result = await handler(makeEvent(`Bearer ${token}`), {
-		...defaultContext,
-	});
-
-	strictEqual(result.paseto.sub, "user-no-exp");
+	try {
+		await handler(makeEvent(`Bearer ${token}`), defaultContext);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(e.cause.package, "@middy/http-paseto");
+		ok(e.cause.data.reason.includes("exp"));
+	}
 });
 
 test("It should reject a token older than maxTokenAge", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
-	// iat stamped 2 hours ago via the `now` option, no exp claim.
+	// iat stamped 2 hours ago, but a 3 hour lifetime, so `exp` is still an hour
+	// out: the only thing that can reject this token is its age.
 	const token = await V4.sign({ sub: "user-stale" }, privateKey, {
 		now: new Date(Date.now() - 7200 * 1000),
+		expiresIn: 10800,
 	});
 
-	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
+	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: 3600 });
 
 	try {
 		await handler(makeEvent(`Bearer ${token}`), defaultContext);
@@ -875,11 +913,11 @@ test("It should reject a token older than maxTokenAge", async (t) => {
 });
 
 test("It should accept a fresh token within maxTokenAge", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-fresh" }, privateKey);
 
-	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: "1h" });
+	const handler = makeHandlerWithKey(publicKey, { maxTokenAge: 3600 });
 
 	const result = await handler(makeEvent(`Bearer ${token}`), {
 		...defaultContext,
@@ -930,11 +968,34 @@ test("httpPasetoValidateOptions accepts and enforces string type for issuer", ()
 	expectOptionTypeError({ issuer: 123 }, "Option 'issuer' must be string");
 });
 
-test("httpPasetoValidateOptions accepts and enforces string type for clockTolerance", () => {
-	httpPasetoValidateOptions({ clockTolerance: "30s" });
+test("httpPasetoValidateOptions accepts and enforces number type for clockTolerance", () => {
+	httpPasetoValidateOptions({ clockTolerance: 30 });
+	httpPasetoValidateOptions({ clockTolerance: 0 });
 	expectOptionTypeError(
-		{ clockTolerance: 123 },
-		"Option 'clockTolerance' must be string",
+		{ clockTolerance: "30s" },
+		"Option 'clockTolerance' must be number",
+	);
+	expectOptionTypeError(
+		{ clockTolerance: -1 },
+		"Option 'clockTolerance' must be >= 0",
+	);
+	// paseto requires a finite number; ajv rejects NaN under `type: "number"`
+	// but lets Infinity through without the `maximum` bound.
+	expectOptionTypeError(
+		{ clockTolerance: Infinity },
+		`Option 'clockTolerance' must be <= ${Number.MAX_SAFE_INTEGER}`,
+	);
+});
+
+test("httpPasetoValidateOptions accepts and enforces number type for maxTokenAge", () => {
+	httpPasetoValidateOptions({ maxTokenAge: 3600 });
+	expectOptionTypeError(
+		{ maxTokenAge: "1h" },
+		"Option 'maxTokenAge' must be number",
+	);
+	expectOptionTypeError(
+		{ maxTokenAge: -1 },
+		"Option 'maxTokenAge' must be >= 0",
 	);
 });
 
@@ -957,12 +1018,12 @@ test("httpPasetoValidateOptions accepts and enforces boolean type for setToConte
 // --- Verify-options forwarding to V4.verify (claim mismatches must 401) ---
 
 test("It should reject a token whose audience does not match the configured audience", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-1", aud: "https://wrong.example.com" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -979,12 +1040,12 @@ test("It should reject a token whose audience does not match the configured audi
 });
 
 test("It should accept a token (no audience option) regardless of its aud claim", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-no-aud-opt", aud: "https://whatever.example.com" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const handler = makeHandlerWithKey(publicKey);
@@ -997,12 +1058,12 @@ test("It should accept a token (no audience option) regardless of its aud claim"
 });
 
 test("It should reject a token whose issuer does not match the configured issuer", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-1", iss: "https://wrong-auth.example.com" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1019,11 +1080,11 @@ test("It should reject a token whose issuer does not match the configured issuer
 });
 
 test("It should reject an expired token when no clockTolerance is configured", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	// Expired 10s ago.
 	const token = await V4.sign({ sub: "user-expired" }, privateKey, {
-		expiresIn: "1s",
+		expiresIn: 1,
 		now: new Date(Date.now() - 10000),
 	});
 
@@ -1041,7 +1102,7 @@ test("It should reject an expired token when no clockTolerance is configured", a
 // --- Error messages and causes ---
 
 test("It should throw 401 'Unauthorized' with the no-token cause when no token is found", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const handler = makeHandlerWithKey(publicKey);
 
@@ -1056,7 +1117,7 @@ test("It should throw 401 'Unauthorized' with the no-token cause when no token i
 });
 
 test("It should throw 401 'Unauthorized' with the unsupported-version cause for a non-v4.public token", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const handler = makeHandlerWithKey(publicKey);
 
@@ -1072,7 +1133,7 @@ test("It should throw 401 'Unauthorized' with the unsupported-version cause for 
 });
 
 test("It should require the exact v4.public. prefix (a v4.local token is rejected as unsupported)", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const handler = makeHandlerWithKey(publicKey);
 
@@ -1106,7 +1167,7 @@ test("It should throw 500 'Internal Server Error' with the resolved-undefined ca
 });
 
 test("It should 401 (not crash) when the cookie source gets a nullish event", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -1131,7 +1192,7 @@ test("It should 401 (not crash) when the cookie source gets a nullish event", as
 });
 
 test("It should 401 (not crash) when the cookie source gets null headers", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const spkiDer = publicKey.export({ type: "spki", format: "der" });
 
@@ -1155,8 +1216,8 @@ test("It should 401 (not crash) when the cookie source gets null headers", async
 });
 
 test("It should surface an unsupported-key-shape 500 (not a null-deref) when internalKey resolves to null", async (t) => {
-	const privateKey = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: "1h" });
+	const privateKey = await V4.generateKey();
+	const token = await V4.sign({ sub: "x" }, privateKey, { expiresIn: 3600 });
 
 	const handler = middy(() => {})
 		.before((request) => {
@@ -1185,10 +1246,10 @@ test("It should surface an unsupported-key-shape 500 (not a null-deref) when int
 });
 
 test("It should NOT strip an unquoted cookie value (plain token verifies as-is)", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "plain-cookie" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1207,33 +1268,42 @@ test("It should NOT strip an unquoted cookie value (plain token verifies as-is)"
 });
 
 test("It should NOT strip a cookie value with only a trailing quote (kept verbatim)", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "trail-quote" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
 		tokenCookieName: "paseto_token",
 	});
 
-	// Trailing quote only (no leading quote): real code must NOT strip, and
-	// PASETO tolerates the stray trailing quote, so verification succeeds.
-	// A mutant that strips on the trailing quote alone would slice off the
-	// leading token byte and fail verification.
-	const result = await handler(
-		{ headers: { cookie: `paseto_token=${token}"` } },
-		{ ...defaultContext },
-	);
-
-	strictEqual(result.paseto.sub, "trail-quote");
+	// Trailing quote only (no leading quote): real code must NOT strip, so the
+	// stray quote reaches paseto and fails the token decode. A mutant that
+	// strips on the trailing quote alone would slice off the leading `v`, and
+	// the value would be rejected earlier by the `v4.public.` prefix check -
+	// so the two are told apart by which failure comes back, not by the status.
+	try {
+		await handler(
+			{ headers: { cookie: `paseto_token=${token}"` } },
+			defaultContext,
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 401);
+		strictEqual(
+			e.cause.data.reason,
+			"Invalid base64url in token payload",
+			"token should have reached paseto with the trailing quote intact",
+		);
+	}
 });
 
 test("It should NOT strip a cookie value that has a leading quote but no trailing quote", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "lead-quote" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1274,8 +1344,8 @@ const derOf = (publicKey) =>
 	new Uint8Array(publicKey.export({ type: "spki", format: "der" }));
 
 test("It should verify against either key during a rotation overlap", async (t) => {
-	const retiring = await V4.generateKey("public");
-	const current = await V4.generateKey("public");
+	const retiring = await V4.generateKey();
+	const current = await V4.generateKey();
 	const keyData = [
 		derOf(createPublicKey(current)),
 		derOf(createPublicKey(retiring)),
@@ -1284,10 +1354,10 @@ test("It should verify against either key during a rotation overlap", async (t) 
 	// A token signed by the key being retired still verifies, which is the whole
 	// point: it was minted before the rotation and has not expired yet.
 	const old = await V4.sign({ sub: "minted-before" }, retiring, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const fresh = await V4.sign({ sub: "minted-after" }, current, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	strictEqual(
@@ -1309,12 +1379,12 @@ test("It should verify against either key during a rotation overlap", async (t) 
 });
 
 test("It should still reject a token signed by no configured key", async (t) => {
-	const stranger = await V4.generateKey("public");
+	const stranger = await V4.generateKey();
 	const keyData = [
-		derOf(createPublicKey(await V4.generateKey("public"))),
-		derOf(createPublicKey(await V4.generateKey("public"))),
+		derOf(createPublicKey(await V4.generateKey())),
+		derOf(createPublicKey(await V4.generateKey())),
 	];
-	const token = await V4.sign({ sub: "nope" }, stranger, { expiresIn: "1h" });
+	const token = await V4.sign({ sub: "nope" }, stranger, { expiresIn: 3600 });
 
 	try {
 		await makeHandlerWithKeys(keyData)(makeEvent(`Bearer ${token}`), {
@@ -1329,9 +1399,9 @@ test("It should still reject a token signed by no configured key", async (t) => 
 test("It should throw 500 when internalKey resolves to an empty array", async (t) => {
 	// A misconfiguration, not a rejection: with no key to try there is no reason to
 	// report that anyone could act on.
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	try {
@@ -1346,10 +1416,10 @@ test("It should throw 500 when internalKey resolves to an empty array", async (t
 });
 
 test("It should accept a KeyObject that the caller resolved itself", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	// Straight KeyObject, no DER round trip: what you get from createPublicKey on a
@@ -1363,10 +1433,10 @@ test("It should accept a KeyObject that the caller resolved itself", async (t) =
 });
 
 test("It should accept an array of KeyObjects", async (t) => {
-	const retiring = await V4.generateKey("public");
-	const current = await V4.generateKey("public");
+	const retiring = await V4.generateKey();
+	const current = await V4.generateKey();
 	const token = await V4.sign({ sub: "minted-before" }, retiring, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const result = await makeHandlerWithKeys([
@@ -1389,10 +1459,10 @@ test("It should accept an array of KeyObjects", async (t) => {
 // reusing it for an equality check would mean one name and two meanings.
 
 test("It should accept a token whose expected claims all match", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1", typ: "access" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1407,13 +1477,13 @@ test("It should accept a token whose expected claims all match", async (t) => {
 });
 
 test("It should reject a token whose expected claim differs", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-1", typ: "credential" },
 		privateKey,
 		{
-			expiresIn: "1h",
+			expiresIn: 3600,
 		},
 	);
 
@@ -1433,10 +1503,10 @@ test("It should reject a token whose expected claim differs", async (t) => {
 test("It should reject a token missing an expected claim entirely", async (t) => {
 	// A credential minted before the discriminator existed carries no claim at all,
 	// and must be refused by the same comparison rather than sliding through.
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1452,12 +1522,12 @@ test("It should reject a token missing an expected claim entirely", async (t) =>
 });
 
 test("It should check every expected claim, not just the first", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-1", typ: "access", tier: "free" },
 		privateKey,
-		{ expiresIn: "1h" },
+		{ expiresIn: 3600 },
 	);
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1474,13 +1544,13 @@ test("It should check every expected claim, not just the first", async (t) => {
 });
 
 test("It should not publish a payload that expectedClaims rejected", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign(
 		{ sub: "user-1", typ: "credential" },
 		privateKey,
 		{
-			expiresIn: "1h",
+			expiresIn: 3600,
 		},
 	);
 
@@ -1495,10 +1565,10 @@ test("It should not publish a payload that expectedClaims rejected", async (t) =
 });
 
 test("It should ignore an empty expectedClaims object", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, { expectedClaims: {} });
@@ -1543,11 +1613,10 @@ test("It should reject an expectedClaims value that strict equality can never ma
 // turns every rotation-era 401 into a dead end.
 
 test("It should report the signing key's claim failure, not an earlier key's signature miss", async (t) => {
-	const other = await V4.generateKey("public");
-	const signer = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, signer, {
-		expiresIn: "1h",
-		audience: "other-api",
+	const other = await V4.generateKey();
+	const signer = await V4.generateKey();
+	const token = await V4.sign({ sub: "user-1", aud: "other-api" }, signer, {
+		expiresIn: 3600,
 	});
 
 	try {
@@ -1558,18 +1627,17 @@ test("It should report the signing key's claim failure, not an earlier key's sig
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.reason.includes("audience"), e.cause.data.reason);
+		ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
 	}
 });
 
 test("It should keep the signing key's claim failure when a later key misses on signature", async (t) => {
 	// Same as above with the order flipped, so neither "keep the first" nor "keep
 	// the last" passes both.
-	const signer = await V4.generateKey("public");
-	const other = await V4.generateKey("public");
-	const token = await V4.sign({ sub: "user-1" }, signer, {
-		expiresIn: "1h",
-		audience: "other-api",
+	const signer = await V4.generateKey();
+	const other = await V4.generateKey();
+	const token = await V4.sign({ sub: "user-1", aud: "other-api" }, signer, {
+		expiresIn: 3600,
 	});
 
 	try {
@@ -1580,16 +1648,16 @@ test("It should keep the signing key's claim failure when a later key misses on 
 		ok(false, "expected throw");
 	} catch (e) {
 		strictEqual(e.statusCode, 401);
-		ok(e.cause.data.reason.includes("audience"), e.cause.data.reason);
+		ok(e.cause.data.reason.includes("aud"), e.cause.data.reason);
 	}
 });
 
 test("It should refuse a key shape it cannot place with a 500, not a raw TypeError", async (t) => {
-	// `createPublicKey` throws a bare TypeError on anything it does not recognise,
-	// which escaped the middleware as an unlabelled 500. Name the problem instead.
-	const privateKey = await V4.generateKey("public");
+	// `crypto.subtle.importKey` throws a bare error on anything it does not
+	// recognise, which escaped the middleware as an unlabelled 500. Name it.
+	const privateKey = await V4.generateKey();
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	try {
@@ -1607,14 +1675,49 @@ test("It should refuse a key shape it cannot place with a 500, not a raw TypeErr
 	}
 });
 
+test("It should refuse well-formed SPKI bytes for a non-Ed25519 key with a 500", async (t) => {
+	// v4.public is Ed25519 only. A P-256 key is a valid SPKI, so it clears the
+	// shape check and fails inside `crypto.subtle.importKey` instead. That is an
+	// operator installing the wrong key, not a bad request, so it is a 500.
+	const privateKey = await V4.generateKey();
+	const token = await V4.sign({ sub: "user-1" }, privateKey, {
+		expiresIn: 3600,
+	});
+	const { publicKey } = await crypto.subtle.generateKey(
+		{ name: "ECDSA", namedCurve: "P-256" },
+		true,
+		["sign", "verify"],
+	);
+	const wrongAlgorithmSpki = new Uint8Array(
+		await crypto.subtle.exportKey("spki", publicKey),
+	);
+
+	try {
+		await makeHandlerWithKeys(wrongAlgorithmSpki)(
+			makeEvent(`Bearer ${token}`),
+			{
+				...defaultContext,
+			},
+		);
+		ok(false, "expected throw");
+	} catch (e) {
+		strictEqual(e.statusCode, 500);
+		strictEqual(e.cause.package, "@middy/http-paseto");
+		ok(
+			e.cause.data.reason.includes("not an Ed25519 verification key"),
+			e.cause.data.reason,
+		);
+	}
+});
+
 // HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
 // `name=value` entry of `event.cookies`, so a header-only lookup always 401s.
 test("It should read PASETO from event.cookies on an HTTP API payload 2.0 event when tokenCookieName is set", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1634,14 +1737,14 @@ test("It should read PASETO from event.cookies on an HTTP API payload 2.0 event 
 });
 
 test("It should prefer the Cookie header over event.cookies when both carry the cookie for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const headerToken = await V4.sign({ sub: "from-header" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 	const cookiesToken = await V4.sign({ sub: "from-cookies" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1660,11 +1763,11 @@ test("It should prefer the Cookie header over event.cookies when both carry the 
 });
 
 test("It should skip non-string entries in event.cookies for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const token = await V4.sign({ sub: "user-1" }, privateKey, {
-		expiresIn: "1h",
+		expiresIn: 3600,
 	});
 
 	const handler = makeHandlerWithKey(publicKey, {
@@ -1680,7 +1783,7 @@ test("It should skip non-string entries in event.cookies for PASETO", async (t) 
 });
 
 test("It should throw 401 when event.cookies is not an array for PASETO", async (t) => {
-	const privateKey = await V4.generateKey("public");
+	const privateKey = await V4.generateKey();
 	const publicKey = createPublicKey(privateKey);
 
 	const handler = makeHandlerWithKey(publicKey, {

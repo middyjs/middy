@@ -31,7 +31,14 @@ const optionSchema = {
 		facilitatorUrl: { type: "string" },
 		versions: { type: "array", items: { enum: [1, 2] } },
 		price: {
-			oneOf: [{ type: "number", exclusiveMinimum: 0 }, { type: "string" }],
+			oneOf: [
+				{
+					type: "number",
+					exclusiveMinimum: 0,
+					maximum: Number.MAX_SAFE_INTEGER,
+				},
+				{ type: "string" },
+			],
 		},
 		amount: { type: "string" },
 		decimals: { type: "integer" },

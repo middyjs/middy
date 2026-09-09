@@ -25,8 +25,10 @@ export interface Options {
 	tokenQueryStringName?: string;
 	audience?: string;
 	issuer?: string;
-	clockTolerance?: string;
-	maxTokenAge?: string;
+	/** Permitted temporal skew, in seconds. */
+	clockTolerance?: number;
+	/** Maximum token age, in seconds, measured from `iat`. */
+	maxTokenAge?: number;
 	expectedClaims?: Record<string, string | number | boolean>;
 	payloadKey?: string;
 	setToContext?: boolean;

@@ -1,4 +1,4 @@
-import visit from "unist-util-visit";
+import { visit } from "unist-util-visit";
 
 /**
  * Rehype plugin to add a copy button to code blocks.

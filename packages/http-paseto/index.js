@@ -1,6 +1,6 @@
 // Copyright 2017 - 2026 will Farrell, Luciano Mammino, and Middy contributors.
 // SPDX-License-Identifier: MIT
-import { createPublicKey, KeyObject } from "node:crypto";
+import { KeyObject } from "node:crypto";
 import {
 	getInternal,
 	HttpError,
@@ -8,7 +8,12 @@ import {
 	setContextNamespace,
 	validateOptions,
 } from "@middy/util";
-import { V4 } from "paseto";
+import { PublicProtocol } from "paseto";
+import { PublicKeyFromCryptoKey, VerifyFactory } from "paseto/v4/public";
+
+// Verify is the only capability this middleware needs; the rest of v4.public
+// (signing, key generation, PASERK) tree-shakes away.
+const v4 = new PublicProtocol(VerifyFactory);
 
 const name = "http-paseto";
 const pkg = `@middy/${name}`;
@@ -39,8 +44,20 @@ const optionSchema = {
 		tokenQueryStringName: { type: "string" },
 		audience: { type: "string" },
 		issuer: { type: "string" },
-		clockTolerance: { type: "string" },
-		maxTokenAge: { type: "string" },
+		// Seconds. paseto v4 dropped the `ms`-style strings v3 accepted, and
+		// requires a finite non-negative number. `maximum` is the finite bound,
+		// not a policy ceiling: ajv rejects NaN under `type: "number"` but lets
+		// Infinity through, which paseto then refuses at verify time as a 500.
+		clockTolerance: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		maxTokenAge: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		// Values are compared with strict equality, so an array or an object could
 		// only ever match itself by reference. Refuse them here rather than 401 every
 		// request with a message reading `is 'a,b', expected 'a,b'`.
@@ -59,32 +76,44 @@ const optionSchema = {
 export const httpPasetoValidateOptions = (options) =>
 	validateOptions(pkg, optionSchema, options);
 
-// One entry of `internalKey` -> a KeyObject. Three shapes are accepted, and neither new
-// one used to work by accident: `createPublicKey` throws on a KeyObject and on an array.
+const keyError = (reason) =>
+	new HttpError(500, { cause: { package: pkg, data: { reason } } });
+
+// One entry of `internalKey` -> a paseto PublicKey. Three shapes are accepted:
 //   - `{ publicKey: Uint8Array }`, what @middy/kms returns
 //   - a Uint8Array / Buffer of DER SPKI bytes
 //   - a KeyObject, for a caller that resolved its own key, e.g. from a PEM in the
 //     environment. A KMS asymmetric key never rotates in place, so its public half is
 //     immutable and there is nothing to refetch, which makes a plain env var a
-//     reasonable place to keep it.
-const importKey = (entry) => {
-	if (entry instanceof KeyObject) return entry;
+//     reasonable place to keep it. paseto v4 keys are WebCrypto-backed, so a
+//     KeyObject is re-exported to SPKI and re-imported through `crypto.subtle`.
+const importKey = async (entry) => {
 	const bytes =
-		entry?.publicKey instanceof Uint8Array ? entry.publicKey : entry;
+		entry instanceof KeyObject
+			? entry.export({ type: "spki", format: "der" })
+			: entry?.publicKey instanceof Uint8Array
+				? entry.publicKey
+				: entry;
 	if (!(bytes instanceof Uint8Array)) {
-		// `createPublicKey` throws a bare TypeError on anything else, which escaped
-		// as an unlabelled 500. Name the problem instead.
-		throw new HttpError(500, {
-			cause: {
-				package: pkg,
-				data: {
-					reason:
-						"internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
-				},
-			},
-		});
+		// Both `crypto.subtle.importKey` and `KeyObject#export` throw bare errors on
+		// anything else, which escape as an unlabelled 500. Name the problem instead.
+		throw keyError(
+			"internalKey holds an unsupported key shape; expected a KeyObject, SPKI DER bytes, or a { publicKey } object",
+		);
 	}
-	return createPublicKey({ key: bytes, format: "der", type: "spki" });
+	let cryptoKey;
+	try {
+		cryptoKey = await crypto.subtle.importKey("spki", bytes, "Ed25519", false, [
+			"verify",
+		]);
+	} catch (e) {
+		// A well-formed SPKI for the wrong algorithm (RSA, P-256, ...) lands here. It
+		// is a deployment mistake, not a bad request, so it stays a 500.
+		throw keyError(
+			`internalKey is not an Ed25519 verification key: ${e.message}`,
+		);
+	}
+	return PublicKeyFromCryptoKey(cryptoKey);
 };
 
 // HTTP API payload 2.0 strips the Cookie header and delivers each cookie as a
@@ -184,11 +213,11 @@ const httpPasetoMiddleware = (opts = {}) => {
 
 	const expectedClaims = Object.entries(options.expectedClaims ?? {});
 
-	// Per-middleware-instance cache of imported KeyObjects, keyed by the
-	// keyData reference. createPublicKey reparses DER through OpenSSL on
-	// every call (~tens of μs); since the resolved key is stable across
-	// warm invocations, cache it. WeakMap keys must be objects — string
-	// keyData (rare) falls through to the slow path each time.
+	// Per-middleware-instance cache of imported keys, keyed by the keyData
+	// reference. crypto.subtle.importKey reparses the DER on every call;
+	// since the resolved key is stable across warm invocations, cache it.
+	// WeakMap keys must be objects — string keyData (rare) falls through to
+	// the slow path each time.
 	const keyCache = new WeakMap();
 
 	const httpPasetoMiddlewareBefore = async (request) => {
@@ -219,13 +248,15 @@ const httpPasetoMiddleware = (opts = {}) => {
 
 		// WeakMap.get on a primitive returns `undefined` (only `set` throws),
 		// so a single lookup works for all keyData shapes; cache writes happen
-		// only for object-shaped keys. `createPublicKey` accepts Uint8Array /
-		// Buffer directly — no copy needed.
+		// only for object-shaped keys. `crypto.subtle.importKey` accepts
+		// Uint8Array / Buffer directly — no copy needed.
 		let keys = keyCache.get(keyData);
-		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical KeyObject); the verified payload is byte-identical, so the optimization is unobservable through the public interface.
+		// Stryker disable next-line ConditionalExpression: forcing this `true` only bypasses the warm-cache reuse (re-importing an identical key); the verified claims are byte-identical, so the optimization is unobservable through the public interface.
 		if (keys === undefined) {
-			keys = (Array.isArray(keyData) ? keyData : [keyData]).map(importKey);
-			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical KeyObject, which verifies to a byte-identical payload.
+			keys = await Promise.all(
+				(Array.isArray(keyData) ? keyData : [keyData]).map(importKey),
+			);
+			// Stryker disable next-line CallExpression: same warm-cache optimization as the guard above. Dropping the write only means the next invocation re-imports an identical key, which verifies to byte-identical claims.
 			keyCache.set(keyData, keys);
 		}
 
@@ -250,7 +281,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 		let failure;
 		for (const key of keys) {
 			try {
-				payload = await V4.verify(token, key, baseVerifyOptions);
+				({ claims: payload } = await v4.Verify(key, token, baseVerifyOptions));
 				break;
 			} catch (e) {
 				// A key that is not the signer fails on the signature and says nothing
@@ -259,7 +290,7 @@ const httpPasetoMiddleware = (opts = {}) => {
 				// miss from any position in the array.
 				if (
 					failure === undefined ||
-					failure.code === "ERR_PASETO_VERIFICATION_FAILED"
+					failure.code === "ERR_PASETO_INVALID_TOKEN"
 				) {
 					failure = e;
 				}

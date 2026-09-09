@@ -34,7 +34,7 @@
 		"mdsvex": "^0.12.0",
 		"svelte": "^5.0.0",
 		"svgo": "^4.0.0",
-		"unist-util-visit": "^2",
+		"unist-util-visit": "^5.0.0",
 		"vite": "^8.0.0",
 		"vite-plugin-mkcert": "^2.0.0",
 		"vite-plugin-sri": "^0.0.2",

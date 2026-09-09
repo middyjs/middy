@@ -81,7 +81,11 @@ const optionSchema = {
 		algorithm: stringOrStringArraySchema,
 		audience: stringOrStringArraySchema,
 		issuer: stringOrStringArraySchema,
-		clockTolerance: { type: "number", minimum: 0 },
+		clockTolerance: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		requireExp: { type: "boolean" },
 		// Values are compared with strict equality, so an array or an object could
 		// only ever match itself by reference. Refuse them here rather than 401 every
@@ -95,9 +99,21 @@ const optionSchema = {
 		maxTokenAge: { oneOf: [{ type: "string" }, { type: "number" }] },
 		payloadKey: { type: "string" },
 		setToContext: { type: "boolean" },
-		cacheExpiry: { type: "number", minimum: 0 },
-		cooldownDuration: { type: "number", minimum: 0 },
-		jwksTimeoutMs: { type: "integer", minimum: 1 },
+		cacheExpiry: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		cooldownDuration: {
+			type: "number",
+			minimum: 0,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
+		jwksTimeoutMs: {
+			type: "integer",
+			minimum: 1,
+			maximum: Number.MAX_SAFE_INTEGER,
+		},
 		disablePrefetch: { type: "boolean" },
 	},
 	additionalProperties: false,

@@ -1,5 +1,5 @@
 import { toString as nodetoString } from "mdast-util-to-string";
-import visit from "unist-util-visit";
+import { visit } from "unist-util-visit";
 
 /**
  * Remark plugin to extract H2 headings and add them to frontmatter

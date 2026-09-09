@@ -1,5 +1,5 @@
-import { createPublicKey } from "node:crypto";
-import { V4 } from "paseto";
+import { PublicProtocol } from "paseto";
+import { SecretKeyFromCryptoKey, SignFactory } from "paseto/v4/public";
 import { Bench } from "tinybench";
 import middy from "../core/index.js";
 import httpPaseto from "./index.js";
@@ -12,13 +12,18 @@ const bench = new Bench({
 
 const defaultContext = { getRemainingTimeInMillis: () => 30000 };
 
-const privateKey = await V4.generateKey("public");
-const publicKey = createPublicKey(privateKey);
-const spkiDer = publicKey.export({ type: "spki", format: "der" });
-const pubBytes = new Uint8Array(spkiDer);
-const token = await V4.sign({ sub: "user-1" }, privateKey, {
-	expiresIn: "1h",
-});
+const pair = await crypto.subtle.generateKey("Ed25519", true, [
+	"sign",
+	"verify",
+]);
+const pubBytes = new Uint8Array(
+	await crypto.subtle.exportKey("spki", pair.publicKey),
+);
+const token = await new PublicProtocol(SignFactory).Sign(
+	await SecretKeyFromCryptoKey(pair.privateKey),
+	{ sub: "user-1" },
+	{ expiresIn: 3600 },
+);
 
 const setupHandler = () =>
 	middy((event, context) => context)

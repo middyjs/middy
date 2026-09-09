@@ -86,7 +86,11 @@ const optionSchema = {
 		strictTransportSecurity: booleanOr({
 			type: "object",
 			properties: {
-				maxAge: { type: "number", minimum: 0 },
+				maxAge: {
+					type: "number",
+					minimum: 0,
+					maximum: Number.MAX_SAFE_INTEGER,
+				},
 				includeSubDomains: { type: "boolean" },
 				preload: { type: "boolean" },
 			},
