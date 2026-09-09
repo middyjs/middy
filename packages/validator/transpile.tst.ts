@@ -1,7 +1,7 @@
 import type { AsyncValidateFunction, ValidateFunction } from "ajv";
 import { expect, test } from "tstyche";
 import type { LocalizeFunction } from "./transpile.js";
-import { transpileFTL, transpileSchema } from "./transpile.js";
+import { nestedSchema, transpileFTL, transpileSchema } from "./transpile.js";
 
 test("transpileSchema returns a compiled validate function", () => {
 	const validate = transpileSchema({ type: "object" }, {});
@@ -13,6 +13,15 @@ test("transpileSchema accepts ajv options including keywords", () => {
 		{ type: "object" },
 		{ keywords: [{ keyword: "myKw" }] },
 	);
+	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
+});
+
+test("nestedSchema returns a schema object", () => {
+	expect(nestedSchema("/body", { type: "object" })).type.toBe<object>();
+});
+
+test("nestedSchema output is accepted by transpileSchema", () => {
+	const validate = transpileSchema(nestedSchema("/body", { type: "object" }));
 	expect(validate).type.toBe<ValidateFunction | AsyncValidateFunction>();
 });
 

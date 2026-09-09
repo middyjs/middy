@@ -8,7 +8,7 @@ import { test } from "node:test";
 import localize from "ajv-ftl-i18n";
 import middy from "../core/index.js";
 import validator, { validatorValidateOptions } from "./index.js";
-import { transpileSchema } from "./transpile.js";
+import { nestedSchema, transpileSchema } from "./transpile.js";
 
 const defaultEvent = {};
 const seedPreferredLanguage = (preferredLanguage) => ({
@@ -1207,4 +1207,189 @@ test("It should compile schemas using draft-2019 formats", async (t) => {
 
 	const event = { host: "example.com" };
 	deepStrictEqual(await handler(event, defaultContext), event);
+});
+
+// ---------- nestedSchema ----------
+
+const bodySchema = {
+	type: "object",
+	required: ["age"],
+	properties: { age: { type: "number" } },
+};
+
+test("It should validate a nested schema in place", async (t) => {
+	const handler = middy((event) => event).use(
+		validator({
+			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+		}),
+	);
+
+	const event = { body: { age: 42 } };
+	deepStrictEqual(await handler(event, defaultContext), event);
+});
+
+test("It should report the full instancePath for a nested schema", async (t) => {
+	const handler = middy((event) => event).use(
+		validator({
+			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+		}),
+	);
+
+	let thrown;
+	try {
+		await handler({ body: { age: "old" } }, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+	strictEqual(thrown.cause.data.errors[0].instancePath, "/body/age");
+});
+
+test("It should reject an event missing the nested property", async (t) => {
+	const handler = middy((event) => event).use(
+		validator({
+			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+		}),
+	);
+
+	let thrown;
+	try {
+		await handler({}, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
+});
+
+test("It should validate a nested schema after the body has been parsed", async (t) => {
+	// The point of nesting: the envelope is checked while `body` is still a
+	// string, the payload once a parser has replaced it, and neither schema
+	// repeats the other.
+	const envelope = transpileSchema({
+		type: "object",
+		required: ["body"],
+		properties: { body: { type: "string" } },
+	});
+	const parseBody = {
+		before: (request) => {
+			request.event.body = JSON.parse(request.event.body);
+		},
+	};
+
+	const handler = middy((event) => event.body)
+		.use(validator({ eventSchema: envelope }))
+		.use(parseBody)
+		.use(
+			validator({
+				eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+			}),
+		);
+
+	deepStrictEqual(await handler({ body: '{"age":42}' }, defaultContext), {
+		age: 42,
+	});
+
+	let thrown;
+	try {
+		await handler({ body: 42 }, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown, "the envelope validator rejects a non-string body");
+	strictEqual(thrown.cause.data.errors[0].instancePath, "/body");
+});
+
+test("It should nest a schema at a multi-segment pointer", async (t) => {
+	const handler = middy((event) => event).use(
+		validator({
+			eventSchema: transpileSchema(
+				nestedSchema("/detail/data", { type: "string" }),
+			),
+		}),
+	);
+
+	const event = { detail: { data: "ok" } };
+	deepStrictEqual(await handler(event, defaultContext), event);
+});
+
+test("It should compile a nested schema that uses internal $refs", async (t) => {
+	// `#/$defs/...` resolves from the document root, so nesting has to hoist the
+	// definitions or the schema no longer compiles at all.
+	const schema = nestedSchema("/body", {
+		$defs: { age: { type: "number" } },
+		type: "object",
+		required: ["age"],
+		properties: { age: { $ref: "#/$defs/age" } },
+	});
+
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: transpileSchema(schema) }),
+	);
+
+	const event = { body: { age: 42 } };
+	deepStrictEqual(await handler(event, defaultContext), event);
+});
+
+test("It should throw for a pointer that is not a JSON Pointer", async (t) => {
+	for (const pointer of ["body", "/", ""]) {
+		let thrown;
+		try {
+			nestedSchema(pointer, bodySchema);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, `expected ${JSON.stringify(pointer)} to throw`);
+		ok(thrown.message.includes("JSON Pointer"));
+	}
+});
+
+test("It should keep a self-recursive $ref pointing at the nested schema", async (t) => {
+	// Without an `$id` on the nested schema, `#` resolves to the wrapper, so a
+	// recursive schema demands the wrapper shape of every child: correct events
+	// rejected, wrapper-shaped ones accepted, with no error either way.
+	const tree = {
+		type: "object",
+		required: ["name"],
+		properties: {
+			name: { type: "string" },
+			children: { type: "array", items: { $ref: "#" } },
+		},
+	};
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: transpileSchema(nestedSchema("/body", tree)) }),
+	);
+
+	const event = { body: { name: "a", children: [{ name: "b" }] } };
+	deepStrictEqual(await handler(event, defaultContext), event);
+
+	let thrown;
+	try {
+		await handler(
+			{ body: { name: "a", children: [{ body: { name: "b" } }] } },
+			defaultContext,
+		);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown, "the wrapper shape is not a valid child");
+	strictEqual(thrown.statusCode, 400);
+});
+
+test("It should nest a boolean schema as-is", async (t) => {
+	// `false` rejects everything; spreading it would produce `{}`, which accepts
+	// everything.
+	const handler = middy((event) => event).use(
+		validator({ eventSchema: transpileSchema(nestedSchema("/body", false)) }),
+	);
+
+	let thrown;
+	try {
+		await handler({ body: { age: 42 } }, defaultContext);
+	} catch (e) {
+		thrown = e;
+	}
+	ok(thrown);
+	strictEqual(thrown.statusCode, 400);
 });

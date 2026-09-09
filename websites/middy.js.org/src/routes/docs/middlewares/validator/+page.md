@@ -57,6 +57,17 @@ Transpile JSON-Schema in to JavaScript. Default ajv plugins used: `ajv-formats`,
 - `ajvOptions` (object) (default `undefined`): Options to pass to [ajv](https://ajv.js.org/docs/api.html#options)
   class constructor. Defaults are `{ strict: true, coerceTypes: 'array', allErrors: true, useDefaults: 'empty', messages: true }`. `keywords` are registered after the plugins, so a custom keyword compiles under `strict: true` and a definition with the same name as a plugin keyword replaces it.
 
+## nestedSchema
+
+Wrap a schema so it validates at a JSON Pointer inside a larger event, one required `type: 'object'` level per pointer segment. Lets a payload schema stay standalone while a second `validator` checks it in place, with no duplicated envelope.
+
+- `pointer` (string) (required): JSON Pointer to the property, for example `/body`. Each segment becomes a required object property.
+- `schema` (object) (required): JSON-Schema object for the value at that pointer.
+
+A schema without an `$id` is given one, so its `#`-relative references (`#/$defs/...`, or a recursive `$ref: '#'`) keep resolving against the schema itself rather than the wrapper. One that already has an `$id`, and the boolean schemas `true` and `false`, are nested verbatim.
+
+The same wrapping is available in a build step as `ajv transpile schema.body.json --nested /body`.
+
 ## transpileFTL
 
 Transpile Fluent (.ftl) localization file into ajv compatible format using [`ajv-ftl-i18n`](https://www.npmjs.com/package/ajv-ftl-i18n). Allows the overriding of the default messages and adds support for multi-language `errorMessage`s. Returns the source text of an ESM module, so run it in a build step and import the result as a `languages` entry.
@@ -186,6 +197,52 @@ export const handler = middy()
   .handler(lambdaHandler)
 ```
 
+## Validating the envelope and the body separately
+
+The example above validates once, after parsing, so its schema has to describe the envelope as well as the payload. Splitting it in two means the envelope is checked while `body` is still a string, so a malformed request never reaches the parser, and `nestedSchema` keeps the body schema standalone so neither schema repeats the other.
+
+```javascript
+import middy from '@middy/core'
+import httpJsonBodyParser from '@middy/http-json-body-parser'
+import validator from '@middy/validator'
+import { nestedSchema, transpileSchema } from '@middy/validator/transpile'
+
+const lambdaHandler = (event, context) => {
+  return {}
+}
+
+// Knows nothing about where it lives, reusable as-is elsewhere.
+const bodySchema = {
+  type: 'object',
+  required: ['name', 'email'],
+  properties: {
+    name: { type: 'string' },
+    email: { type: 'string', format: 'email' }
+  }
+}
+
+const envelopeSchema = transpileSchema({
+  type: 'object',
+  required: ['httpMethod', 'body'],
+  properties: {
+    httpMethod: { const: 'POST' },
+    body: { type: 'string' }
+  }
+})
+
+export const handler = middy()
+  .use(validator({ eventSchema: envelopeSchema }))
+  .use(httpJsonBodyParser())
+  .use(
+    validator({
+      eventSchema: transpileSchema(nestedSchema('/body', bodySchema))
+    })
+  )
+  .handler(lambdaHandler)
+```
+
+Both validators throw a `400`. The first rejects a malformed envelope before the parser runs, the second reports the full path to the offending field, so the ajv `errors` on `request.error.cause.data` say which one fired (`/httpMethod` against a `GET`, `/body/email` against a bad address).
+
 ## Pre-transpiling example (recommended)
 
 Run a build script to before running tests & deployment.
@@ -204,6 +261,10 @@ bundle () {
   --strict true --coerce-types array --all-errors true --use-defaults empty \
   -o ${1%.json}.js
 }
+
+# A payload schema compiled to validate in place, once a parser has replaced the
+# raw value:
+# $ ajv transpile handlers/user/schema.body.json --nested /body -o handlers/user/schema.body.js
 
 for file in handlers/*/schema.*.json; do
   bundle $file
@@ -288,4 +349,5 @@ export const handler = middy()
 ## See also
 
 - Pre-compile schemas with `transpileSchema` at module load time, not inside the handler.
+- Validate a payload in place with `nestedSchema` rather than repeating the envelope in a second schema.
 - [CORS and error handling recipe](/docs/recipes/cors-and-errors).

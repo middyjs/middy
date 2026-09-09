@@ -23,6 +23,18 @@ export function transpileSchema(
 ): ValidateFunction | AsyncValidateFunction;
 
 /**
+ * Wraps a schema so it validates at `pointer` within a larger event, one
+ * `type: "object"` level per pointer segment, each one `required`. Lets a
+ * payload schema stay standalone while a second `validator` checks it in place
+ * after a parser has replaced the raw value, with no duplicated envelope.
+ *
+ *
+ * @example
+ * validator({ eventSchema: transpileSchema(nestedSchema("/body", bodySchema)) })
+ */
+export function nestedSchema(pointer: string, schema: object): object;
+
+/**
  * Transpiles Fluent (.ftl) source into the ESM source text of an ajv
  * localizer module (re-export of `transpile` from `ajv-ftl-i18n`). Write the
  * result to a file during a build step and import it as a `languages` entry.

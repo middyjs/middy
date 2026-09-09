@@ -29,6 +29,8 @@ import ajvFormats from "ajv-formats";
 import { transpile } from "ajv-ftl-i18n";
 import ajvKeywords from "ajv-keywords";
 
+const pkg = "@middy/validator";
+
 export const transpileFTL = transpile;
 
 // Inlined from `ajv-cmd/compile` to avoid extra dependency
@@ -57,6 +59,39 @@ const compileSchema = (schema, options = {}) => {
 	return ajv.compile(schema);
 };
 // *** End `ajv-cmd/compile` *** //
+
+// Inlined from `ajv-cmd/nested` to avoid extra dependency
+// import { nested as nestedSchema } from 'ajv-cmd/nested'
+
+export const nestedSchema = (pointer, schema) => {
+	if (!pointer.startsWith("/") || pointer.length < 2) {
+		throw new Error(
+			`${pkg} expected a JSON Pointer to a property, received "${pointer}"`,
+			{ cause: { package: pkg } },
+		);
+	}
+	// RFC 6901: `~1` is an encoded `/`, `~0` an encoded `~`. Order matters —
+	// unescaping `~0` first would turn `~01` into `~1` and then into `/`.
+	const keys = pointer
+		.slice(1)
+		.split("/")
+		.map((key) => key.replaceAll("~1", "/").replaceAll("~0", "~"));
+
+	const inner =
+		typeof schema === "object" && schema !== null && !schema.$id
+			? { ...schema, $id: `middy:nested:${pointer}` }
+			: schema;
+
+	return keys.reduceRight(
+		(subschema, key) => ({
+			type: "object",
+			required: [key],
+			properties: { [key]: subschema },
+		}),
+		inner,
+	);
+};
+// *** End `ajv-cmd/nested` *** //
 
 const ajvDefaults = {
 	strict: true,
