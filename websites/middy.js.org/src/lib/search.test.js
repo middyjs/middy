@@ -3,7 +3,6 @@ import { describe, test } from "node:test";
 import {
 	buildSearchIndex,
 	cleanContentForSearch,
-	escapeRegExp,
 	extractTitle,
 	highlightSegments,
 	searchIndex,
@@ -85,18 +84,9 @@ describe("buildSearchIndex", () => {
 	});
 });
 
-describe("escapeRegExp", () => {
-	test("escapes every special character", () => {
-		equal(
-			escapeRegExp("a.b*c?d(e)[f]{g}|h^i$j\\k+"),
-			"a\\.b\\*c\\?d\\(e\\)\\[f\\]\\{g\\}\\|h\\^i\\$j\\\\k\\+",
-		);
-	});
-});
-
 describe("highlightSegments", () => {
 	test("marks every case-insensitive occurrence", () => {
-		deepEqual(highlightSegments("Cors and cors", /cors/gi), [
+		deepEqual(highlightSegments("Cors and cors", "cors"), [
 			{ text: "Cors", match: true },
 			{ text: " and ", match: false },
 			{ text: "cors", match: true },
@@ -104,7 +94,7 @@ describe("highlightSegments", () => {
 	});
 
 	test("keeps leading and trailing text", () => {
-		deepEqual(highlightSegments("pre <b>x</b> post", /x/gi), [
+		deepEqual(highlightSegments("pre <b>x</b> post", "x"), [
 			{ text: "pre <b>", match: false },
 			{ text: "x", match: true },
 			{ text: "</b> post", match: false },
@@ -112,8 +102,14 @@ describe("highlightSegments", () => {
 	});
 
 	test("returns one segment when nothing matches", () => {
-		deepEqual(highlightSegments("nothing", /zzz/gi), [
+		deepEqual(highlightSegments("nothing", "zzz"), [
 			{ text: "nothing", match: false },
+		]);
+	});
+
+	test("takes regex metacharacters in the needle literally", () => {
+		deepEqual(highlightSegments("a.b and aXb", ".*"), [
+			{ text: "a.b and aXb", match: false },
 		]);
 	});
 });

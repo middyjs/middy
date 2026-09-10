@@ -1016,8 +1016,12 @@ export const normalizeHttpResponse = (request) => {
 
 // Paths are dot-delimited and relative to the `request`, with `[]` for array
 // elements: `event.headers.authorization`, `error.cause.data.body`.
+// Nodes are Maps: a segment is caller data, and a Map key can never resolve to
+// an inherited member the way `node[segment]` would, so building the tree needs
+// no own-property guard. The segments are still filtered, because `omit` reads
+// and writes them as real property names on the payload.
 export const buildPathTree = (paths) => {
-	const tree = {};
+	const tree = new Map();
 	// Copy before sorting so the caller-provided array is never mutated. Reverse
 	// so a leaf path (`a.b`) overrides a longer one (`a.b.c`) when both are set.
 	for (let path of [...paths].sort().reverse()) {
@@ -1032,14 +1036,14 @@ export const buildPathTree = (paths) => {
 		let node = tree;
 		for (let i = 0; i < path.length - 1; i++) {
 			const segment = path[i];
-			// `??=` would resolve an inherited member (`toString`, `valueOf`) and
-			// the leaf would then be written onto the shared Object.prototype
-			// function instead of the tree.
-			if (!Object.hasOwn(node, segment)) node[segment] = {};
-			// nosemgrep: javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop
-			node = node[segment];
+			let child = node.get(segment);
+			if (child === undefined) {
+				child = new Map();
+				node.set(segment, child);
+			}
+			node = child;
 		}
-		node[path[path.length - 1]] = true;
+		node.set(path[path.length - 1], true);
 	}
 	return tree;
 };
@@ -1049,7 +1053,7 @@ export const buildPathTree = (paths) => {
 // masked or removed. Only branches present in `pathTree` are walked.
 export const omit = (obj, pathTree, mask) => {
 	if (!pathTree || typeof obj !== "object" || obj === null) return obj;
-	if (Array.isArray(obj)) return omitArray(obj, pathTree["[]"], mask);
+	if (Array.isArray(obj)) return omitArray(obj, pathTree.get("[]"), mask);
 	// Errors are not plain objects, so without this branch `omitObject` would
 	// never run and the configured path would silently leak.
 	if (obj instanceof Error)
@@ -1133,8 +1137,7 @@ const omitArray = (arr, childTree, mask) => {
 const omitObject = (obj, pathTree, mask) => {
 	let clone = obj;
 	let dropped = false;
-	for (const key in pathTree) {
-		const sub = pathTree[key];
+	for (const [key, sub] of pathTree) {
 		if (sub === true) {
 			if (!Object.hasOwn(obj, key)) continue;
 			if (mask === undefined) {
@@ -1154,11 +1157,11 @@ const omitObject = (obj, pathTree, mask) => {
 	if (!dropped) return clone;
 	// Copying the survivors, not spread-then-delete: `delete` drops the object
 	// into dictionary mode, making the logger's later reads ~28x slower.
-	// `pathTree[key] === true` already identifies every dropped leaf, so no list
-	// of them is accumulated and the check stays a property read, not a scan.
+	// `pathTree.get(key) === true` already identifies every dropped leaf, so no
+	// list of them is accumulated and the check stays a lookup, not a scan.
 	const survivors = {};
 	for (const key in clone) {
-		if (pathTree[key] !== true) survivors[key] = clone[key];
+		if (pathTree.get(key) !== true) survivors[key] = clone[key];
 	}
 	return survivors;
 };

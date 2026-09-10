@@ -2353,16 +2353,12 @@ describe("@middy/util", () => {
 				"constructor.y",
 				"a.prototype",
 			]);
-			deepStrictEqual(tree, {});
-			// `tree.__proto__ ??= {}` would leave the tree empty while writing the
-			// leaf straight onto Object.prototype, so an empty tree is not on its own
-			// proof the guard held.
+			deepStrictEqual(tree, new Map());
+			// A Map node cannot reach Object.prototype, but `omit` turns these
+			// segments back into property names, so an empty tree is what keeps the
+			// walk off them.
 			strictEqual({}.x, undefined);
 			strictEqual(Object.prototype.y, undefined);
-			// Nor is `tree.__proto__ = {}`: that swaps the tree's prototype for a
-			// fresh object carrying `x`, which the walk then reads as a configured
-			// top-level leaf and drops from every payload.
-			strictEqual(Object.getPrototypeOf(tree), Object.prototype);
 			const obj = { x: 1, y: 2 };
 			strictEqual(omit(obj, tree), obj);
 		});
@@ -3771,13 +3767,18 @@ describe("@middy/util", () => {
 			strictEqual(omit(obj, buildPathTree(["a.x", "b.x"])), obj);
 		});
 
-		// `node[seg] ??= {}` resolves an inherited member, so the leaf would be
-		// written onto the shared `Object.prototype.toString` function.
+		// On an object node `node[seg] ??= {}` would resolve the inherited member
+		// and write the leaf onto the shared `Object.prototype.toString` function;
+		// a Map keyed by the segment has no such member to resolve.
 		test("does not walk into Object.prototype members via an intermediate segment", () => {
 			const tree = buildPathTree(["event.toString.secret"]);
 			strictEqual(Object.prototype.toString.secret, undefined);
-			ok(Object.hasOwn(tree.event, "toString"));
-			deepStrictEqual(tree, { event: { toString: { secret: true } } });
+			deepStrictEqual(
+				tree,
+				new Map([
+					["event", new Map([["toString", new Map([["secret", true]])]])],
+				]),
+			);
 		});
 	});
 });

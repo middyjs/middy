@@ -255,7 +255,7 @@ declare function normalizeHttpResponse(
  * A compiled `omitPaths` lookup. `true` marks a leaf to remove or mask; `[]`
  * is the segment used to descend into array elements.
  */
-export type PathTree = { [segment: string]: PathTree | true };
+export type PathTree = Map<string, PathTree | true>;
 
 declare function buildPathTree(
 	paths: ReadonlyArray<string | string[]>,

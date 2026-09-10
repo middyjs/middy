@@ -14,7 +14,6 @@ const MD_LINK_RE = /\[([^\]]+)\]\([^)]+\)/g;
 const MD_EMPHASIS_RE = /[*_]{1,2}([^*_]+)[*_]{1,2}/g;
 const LIST_RE = /^\s*[-*+]\s+/gm;
 const WHITESPACE_RE = /\s+/g;
-const REGEXP_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g;
 const PAGE_FILE_RE = /\/?\+page\.md$/;
 
 export function extractTitle(content) {
@@ -53,21 +52,31 @@ export function buildSearchIndex(files) {
 	});
 }
 
-export function escapeRegExp(value) {
-	return value.replace(REGEXP_SPECIAL_RE, "\\$&");
-}
-
 // Splits text into [{ text, match }] so the template can wrap matches in
 // <mark> while Svelte escapes every segment; no HTML string is built here.
-export function highlightSegments(text, matcher) {
+// Matching is a case-folded indexOf rather than a compiled pattern: the needle
+// is user input, and indexOf has no metacharacters to escape and no backtracking.
+// ponytail: toLowerCase() shifts offsets for the few characters whose lower case
+// is longer (Turkish dotted I), nudging a highlight a character sideways. Swap in
+// Intl.Collator search-sensitivity if the docs ever carry them.
+export function highlightSegments(text, needle) {
 	const segments = [];
+	const haystack = text.toLowerCase();
+	const target = needle.toLowerCase();
 	let cursor = 0;
-	for (const found of text.matchAll(matcher)) {
-		if (found.index > cursor) {
-			segments.push({ text: text.slice(cursor, found.index), match: false });
+	for (
+		let found = haystack.indexOf(target, cursor);
+		found !== -1;
+		found = haystack.indexOf(target, cursor)
+	) {
+		if (found > cursor) {
+			segments.push({ text: text.slice(cursor, found), match: false });
 		}
-		segments.push({ text: found[0], match: true });
-		cursor = found.index + found[0].length;
+		segments.push({
+			text: text.slice(found, found + target.length),
+			match: true,
+		});
+		cursor = found + target.length;
 	}
 	if (cursor < text.length) {
 		segments.push({ text: text.slice(cursor), match: false });
@@ -92,11 +101,10 @@ export function searchIndex(
 	const results = [];
 	const needle = query.trim();
 	if (!needle) return results;
-	// Escaped literal, so the pattern is linear and safe for user input.
-	const matcher = new RegExp(escapeRegExp(needle), "gi");
+	const target = needle.toLowerCase();
 	for (const entry of index) {
 		if (results.length >= maxResults) break;
-		const position = entry.text.search(matcher);
+		const position = entry.text.toLowerCase().indexOf(target);
 		if (position === -1) continue;
 		results.push({
 			id: entry.id,
@@ -104,7 +112,7 @@ export function searchIndex(
 			title: entry.title,
 			description: highlightSegments(
 				snippetAround(entry.text, position, snippetLength),
-				matcher,
+				needle,
 			),
 		});
 	}
