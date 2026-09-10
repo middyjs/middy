@@ -1036,6 +1036,7 @@ export const buildPathTree = (paths) => {
 			// the leaf would then be written onto the shared Object.prototype
 			// function instead of the tree.
 			if (!Object.hasOwn(node, segment)) node[segment] = {};
+			// nosemgrep: javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop
 			node = node[segment];
 		}
 		node[path[path.length - 1]] = true;

@@ -5,7 +5,7 @@ import {
 	rejects,
 	strictEqual,
 } from "node:assert/strict";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import middy from "../core/index.js";
 import jsonBodyParser, { wsJsonBodyParserValidateOptions } from "./index.js";
 
@@ -13,202 +13,213 @@ const defaultContext = {
 	getRemainingTimeInMillis: () => 1000,
 };
 
-test("It should parse a JSON request", async (t) => {
-	const handler = middy((event) => {
-		return event; // propagates the processed event as a response
+describe("@middy/ws-json-body-parser", () => {
+	test("It should parse a JSON request", async (t) => {
+		const handler = middy((event) => {
+			return event; // propagates the processed event as a response
+		});
+
+		handler.use(jsonBodyParser());
+
+		// invokes the handler
+		const event = {
+			body: '{ "foo" :   "bar"   }',
+		};
+
+		const processedEvent = await handler(event, defaultContext);
+
+		deepStrictEqual(processedEvent.body, { foo: "bar" });
 	});
 
-	handler.use(jsonBodyParser());
+	test("It should use a reviver when parsing a JSON request", async (t) => {
+		const handler = middy((event) => {
+			return event.body; // propagates the body as a response
+		});
+		const reviver = t.mock.fn((_key, value) =>
+			typeof value === "string" ? value.toUpperCase() : value,
+		);
+		handler.use(jsonBodyParser({ reviver }));
 
-	// invokes the handler
-	const event = {
-		body: '{ "foo" :   "bar"   }',
-	};
+		// invokes the handler
+		const event = {
+			body: JSON.stringify({ foo: "bar" }),
+		};
 
-	const processedEvent = await handler(event, defaultContext);
+		const body = await handler(event, defaultContext);
 
-	deepStrictEqual(processedEvent.body, { foo: "bar" });
-});
-
-test("It should use a reviver when parsing a JSON request", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
-	});
-	const reviver = t.mock.fn((_key, value) =>
-		typeof value === "string" ? value.toUpperCase() : value,
-	);
-	handler.use(jsonBodyParser({ reviver }));
-
-	// invokes the handler
-	const event = {
-		body: JSON.stringify({ foo: "bar" }),
-	};
-
-	const body = await handler(event, defaultContext);
-
-	ok(reviver.mock.callCount() >= 1);
-	deepStrictEqual(body, { foo: "BAR" });
-});
-
-test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
+		ok(reviver.mock.callCount() >= 1);
+		deepStrictEqual(body, { foo: "BAR" });
 	});
 
-	handler.use(jsonBodyParser());
+	test("It should handle invalid JSON as an UnprocessableEntity", async (t) => {
+		const handler = middy((event) => {
+			return event.body; // propagates the body as a response
+		});
 
-	// invokes the handler
-	const event = {
-		body: `make it broken${JSON.stringify({ foo: "bar" })}`,
-	};
+		handler.use(jsonBodyParser());
 
-	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		match(e.cause.data.message, /^Unexpected token/);
-		return true;
-	});
-});
+		// invokes the handler
+		const event = {
+			body: `make it broken${JSON.stringify({ foo: "bar" })}`,
+		};
 
-test("It should handle a base64 body", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
-	});
-
-	handler.use(jsonBodyParser());
-
-	// invokes the handler
-	const data = JSON.stringify({ foo: "bar" });
-	const base64Data = Buffer.from(data).toString("base64");
-	const event = {
-		isBase64Encoded: true,
-		body: base64Data,
-	};
-
-	const body = await handler(event, defaultContext);
-
-	deepStrictEqual(body, { foo: "bar" });
-});
-
-test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
+		await rejects(handler(event, defaultContext), (e) => {
+			strictEqual(
+				e.cause.data.reason,
+				"Invalid or malformed JSON was provided",
+			);
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+			match(e.cause.data.message, /^Unexpected token/);
+			return true;
+		});
 	});
 
-	handler.use(jsonBodyParser());
+	test("It should handle a base64 body", async (t) => {
+		const handler = middy((event) => {
+			return event.body; // propagates the body as a response
+		});
 
-	// invokes the handler
-	const data = `make it broken${JSON.stringify({ foo: "bar" })}`;
-	const base64Data = Buffer.from(data).toString("base64");
-	const event = {
-		isBase64Encoded: true,
-		body: base64Data,
-	};
+		handler.use(jsonBodyParser());
 
-	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		match(e.cause.data.message, /^Unexpected token/);
-		return true;
-	});
-});
+		// invokes the handler
+		const data = JSON.stringify({ foo: "bar" });
+		const base64Data = Buffer.from(data).toString("base64");
+		const event = {
+			isBase64Encoded: true,
+			body: base64Data,
+		};
 
-test("It should handle missing body as an UnprocessableEntity", async (t) => {
-	const handler = middy((event) => {
-		return event.body; // propagates the body as a response
+		const body = await handler(event, defaultContext);
+
+		deepStrictEqual(body, { foo: "bar" });
 	});
 
-	handler.use(jsonBodyParser());
+	test("It should handle invalid base64 JSON as an UnprocessableEntity", async (t) => {
+		const handler = middy((event) => {
+			return event.body; // propagates the body as a response
+		});
 
-	// invokes the handler with no body
-	const event = {};
+		handler.use(jsonBodyParser());
 
-	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.cause.data.reason, "Invalid or malformed JSON was provided");
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		strictEqual(e.cause.data.contentType, undefined);
-		// The missing-body guard throws directly (no JSON.parse), so the cause
-		// carries no parser `message`. A body that reached JSON.parse would.
-		ok(!("message" in e.cause.data));
-		return true;
+		// invokes the handler
+		const data = `make it broken${JSON.stringify({ foo: "bar" })}`;
+		const base64Data = Buffer.from(data).toString("base64");
+		const event = {
+			isBase64Encoded: true,
+			body: base64Data,
+		};
+
+		await rejects(handler(event, defaultContext), (e) => {
+			strictEqual(
+				e.cause.data.reason,
+				"Invalid or malformed JSON was provided",
+			);
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+			match(e.cause.data.message, /^Unexpected token/);
+			return true;
+		});
 	});
-});
 
-test("It should reject a body containing a __proto__ key with 422", async (t) => {
-	const handler = middy((event) => event.body);
+	test("It should handle missing body as an UnprocessableEntity", async (t) => {
+		const handler = middy((event) => {
+			return event.body; // propagates the body as a response
+		});
 
-	handler.use(jsonBodyParser());
+		handler.use(jsonBodyParser());
 
-	const event = {
-		body: '{ "__proto__": { "polluted": true }, "foo": "bar" }',
-	};
+		// invokes the handler with no body
+		const event = {};
 
-	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
-		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-		strictEqual(e.cause.data.key, "__proto__");
-		return true;
+		await rejects(handler(event, defaultContext), (e) => {
+			strictEqual(
+				e.cause.data.reason,
+				"Invalid or malformed JSON was provided",
+			);
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+			strictEqual(e.cause.data.contentType, undefined);
+			// The missing-body guard throws directly (no JSON.parse), so the cause
+			// carries no parser `message`. A body that reached JSON.parse would.
+			ok(!("message" in e.cause.data));
+			return true;
+		});
 	});
-	// Object.prototype must be untouched.
-	strictEqual({}.polluted, undefined);
-});
 
-test("It should reject a deeply nested constructor.prototype payload with 422", async (t) => {
-	const handler = middy((event) => event.body);
+	test("It should reject a body containing a __proto__ key with 422", async (t) => {
+		const handler = middy((event) => event.body);
 
-	handler.use(jsonBodyParser());
+		handler.use(jsonBodyParser());
 
-	const event = {
-		body: '{ "a": { "constructor": { "prototype": { "x": 1 } } }, "foo": "bar" }',
-	};
+		const event = {
+			body: '{ "__proto__": { "polluted": true }, "foo": "bar" }',
+		};
 
-	await rejects(handler(event, defaultContext), (e) => {
-		strictEqual(e.statusCode, 422);
-		strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
-		strictEqual(e.cause.data.key, "constructor");
-		return true;
+		await rejects(handler(event, defaultContext), (e) => {
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+			strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+			strictEqual(e.cause.data.key, "__proto__");
+			return true;
+		});
+		// Object.prototype must be untouched.
+		strictEqual({}.polluted, undefined);
 	});
-});
 
-test("It should keep a benign constructor or standalone prototype key", async (t) => {
-	const handler = middy((event) => event.body);
+	test("It should reject a deeply nested constructor.prototype payload with 422", async (t) => {
+		const handler = middy((event) => event.body);
 
-	handler.use(jsonBodyParser());
+		handler.use(jsonBodyParser());
 
-	const event = {
-		body: '{ "prototype": { "x": 1 }, "constructor": "Widget", "foo": "bar" }',
-	};
+		const event = {
+			body: '{ "a": { "constructor": { "prototype": { "x": 1 } } }, "foo": "bar" }',
+		};
 
-	const body = await handler(event, defaultContext);
-
-	deepStrictEqual(body, {
-		prototype: { x: 1 },
-		constructor: "Widget",
-		foo: "bar",
+		await rejects(handler(event, defaultContext), (e) => {
+			strictEqual(e.statusCode, 422);
+			strictEqual(e.cause.data.reason, "Forbidden key in JSON body");
+			strictEqual(e.cause.data.key, "constructor");
+			return true;
+		});
 	});
-});
 
-test("wsJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {
-	wsJsonBodyParserValidateOptions({ reviver: (_k, v) => v });
-	wsJsonBodyParserValidateOptions({});
-	try {
-		wsJsonBodyParserValidateOptions({ revivr: (_k, v) => v });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/ws-json-body-parser");
-	}
-});
+	test("It should keep a benign constructor or standalone prototype key", async (t) => {
+		const handler = middy((event) => event.body);
 
-test("wsJsonBodyParserValidateOptions rejects wrong type", () => {
-	try {
-		wsJsonBodyParserValidateOptions({ reviver: "not-a-fn" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e.message.includes("reviver"));
-	}
+		handler.use(jsonBodyParser());
+
+		const event = {
+			body: '{ "prototype": { "x": 1 }, "constructor": "Widget", "foo": "bar" }',
+		};
+
+		const body = await handler(event, defaultContext);
+
+		deepStrictEqual(body, {
+			prototype: { x: 1 },
+			constructor: "Widget",
+			foo: "bar",
+		});
+	});
+
+	test("wsJsonBodyParserValidateOptions accepts valid options and rejects typos", () => {
+		wsJsonBodyParserValidateOptions({ reviver: (_k, v) => v });
+		wsJsonBodyParserValidateOptions({});
+		try {
+			wsJsonBodyParserValidateOptions({ revivr: (_k, v) => v });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/ws-json-body-parser");
+		}
+	});
+
+	test("wsJsonBodyParserValidateOptions rejects wrong type", () => {
+		try {
+			wsJsonBodyParserValidateOptions({ reviver: "not-a-fn" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("reviver"));
+		}
+	});
 });

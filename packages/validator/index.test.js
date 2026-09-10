@@ -4,7 +4,7 @@ import {
 	ok,
 	strictEqual,
 } from "node:assert/strict";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import localize from "ajv-ftl-i18n";
 import middy from "../core/index.js";
 import validator, { validatorValidateOptions } from "./index.js";
@@ -127,130 +127,148 @@ const contextSchema = {
 	],
 };
 
-test("It should validate an event object", async (t) => {
-	const handler = middy((event, context) => {
-		return event.body; // propagates the body as a response
-	});
+describe("@middy/validator", () => {
+	test("It should validate an event object", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body; // propagates the body as a response
+		});
 
-	const schema = {
-		type: "object",
-		required: ["body"],
-		properties: {
-			body: {
-				type: "object",
-				properties: {
-					string: {
-						type: "string",
-					},
-					boolean: {
-						type: "boolean",
-					},
-					integer: {
-						type: "integer",
-					},
-					number: {
-						type: "number",
+		const schema = {
+			type: "object",
+			required: ["body"],
+			properties: {
+				body: {
+					type: "object",
+					properties: {
+						string: {
+							type: "string",
+						},
+						boolean: {
+							type: "boolean",
+						},
+						integer: {
+							type: "integer",
+						},
+						number: {
+							type: "number",
+						},
 					},
 				},
 			},
-		},
-	};
+		};
 
-	handler.use(
-		validator({
-			eventSchema: transpileSchema(schema),
-		}),
-	);
+		handler.use(
+			validator({
+				eventSchema: transpileSchema(schema),
+			}),
+		);
 
-	// invokes the handler
-	const event = {
-		body: {
-			string: JSON.stringify({ foo: "bar" }),
-			boolean: "true",
-			integer: "0",
-			number: "0.1",
-		},
-	};
-
-	const body = await handler(event, defaultContext);
-
-	deepStrictEqual(body, {
-		boolean: true,
-		integer: 0,
-		number: 0.1,
-		string: '{"foo":"bar"}',
-	});
-});
-
-test("It should validate an event object with formats", async (t) => {
-	const handler = middy((event, context) => {
-		return event.body; // propagates the body as a response
-	});
-
-	const schema = {
-		type: "object",
-		required: ["body"],
-		properties: {
+		// invokes the handler
+		const event = {
 			body: {
-				type: "object",
-				properties: {
-					date: {
-						type: "string",
-						format: "date",
-					},
-					time: {
-						type: "string",
-						format: "time",
-					},
-					"date-time": {
-						type: "string",
-						format: "date-time",
-					},
-					"iso-time": {
-						type: "string",
-						format: "iso-time",
-					},
-					"iso-date-time": {
-						type: "string",
-						format: "iso-date-time",
-					},
-					uri: {
-						type: "string",
-						format: "uri",
-					},
-					email: {
-						type: "string",
-						format: "email",
-					},
-					hostname: {
-						type: "string",
-						format: "hostname",
-					},
-					ipv4: {
-						type: "string",
-						format: "ipv4",
-					},
-					ipv6: {
-						type: "string",
-						format: "ipv6",
-					},
-					uuid: {
-						type: "string",
-						format: "uuid",
+				string: JSON.stringify({ foo: "bar" }),
+				boolean: "true",
+				integer: "0",
+				number: "0.1",
+			},
+		};
+
+		const body = await handler(event, defaultContext);
+
+		deepStrictEqual(body, {
+			boolean: true,
+			integer: 0,
+			number: 0.1,
+			string: '{"foo":"bar"}',
+		});
+	});
+
+	test("It should validate an event object with formats", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body; // propagates the body as a response
+		});
+
+		const schema = {
+			type: "object",
+			required: ["body"],
+			properties: {
+				body: {
+					type: "object",
+					properties: {
+						date: {
+							type: "string",
+							format: "date",
+						},
+						time: {
+							type: "string",
+							format: "time",
+						},
+						"date-time": {
+							type: "string",
+							format: "date-time",
+						},
+						"iso-time": {
+							type: "string",
+							format: "iso-time",
+						},
+						"iso-date-time": {
+							type: "string",
+							format: "iso-date-time",
+						},
+						uri: {
+							type: "string",
+							format: "uri",
+						},
+						email: {
+							type: "string",
+							format: "email",
+						},
+						hostname: {
+							type: "string",
+							format: "hostname",
+						},
+						ipv4: {
+							type: "string",
+							format: "ipv4",
+						},
+						ipv6: {
+							type: "string",
+							format: "ipv6",
+						},
+						uuid: {
+							type: "string",
+							format: "uuid",
+						},
 					},
 				},
 			},
-		},
-	};
+		};
 
-	handler.use(
-		validator({
-			eventSchema: transpileSchema(schema),
-		}),
-	);
+		handler.use(
+			validator({
+				eventSchema: transpileSchema(schema),
+			}),
+		);
 
-	const event = {
-		body: {
+		const event = {
+			body: {
+				date: "2000-01-01",
+				time: "00:00:00-0000",
+				"date-time": "2000-01-01T00:00:00-0000",
+				"iso-time": "00:00:00",
+				"iso-date-time": "2000-01-01T00:00:00",
+				uri: "https://example.org",
+				email: "username@example.org",
+				hostname: "sub.example.org",
+				ipv4: "127.0.0.1",
+				ipv6: "2001:0db8:0000:0000:0000:ff00:0042:8329",
+				uuid: "123e4567-e89b-12d3-a456-426614174000",
+			},
+		};
+
+		const body = await handler(event, defaultContext);
+
+		deepStrictEqual(body, {
 			date: "2000-01-01",
 			time: "00:00:00-0000",
 			"date-time": "2000-01-01T00:00:00-0000",
@@ -262,85 +280,10 @@ test("It should validate an event object with formats", async (t) => {
 			ipv4: "127.0.0.1",
 			ipv6: "2001:0db8:0000:0000:0000:ff00:0042:8329",
 			uuid: "123e4567-e89b-12d3-a456-426614174000",
-		},
-	};
-
-	const body = await handler(event, defaultContext);
-
-	deepStrictEqual(body, {
-		date: "2000-01-01",
-		time: "00:00:00-0000",
-		"date-time": "2000-01-01T00:00:00-0000",
-		"iso-time": "00:00:00",
-		"iso-date-time": "2000-01-01T00:00:00",
-		uri: "https://example.org",
-		email: "username@example.org",
-		hostname: "sub.example.org",
-		ipv4: "127.0.0.1",
-		ipv6: "2001:0db8:0000:0000:0000:ff00:0042:8329",
-		uuid: "123e4567-e89b-12d3-a456-426614174000",
-	});
-});
-
-test("It should handle invalid schema as a BadRequest", async (t) => {
-	const handler = middy((event, context) => {
-		return event.body; // propagates the body as a response
+		});
 	});
 
-	const schema = {
-		type: "object",
-		required: ["body", "foo"],
-		properties: {
-			// this will pass validation
-			body: {
-				type: "string",
-			},
-			// this won't as it won't be in the event
-			foo: {
-				type: "string",
-			},
-		},
-	};
-
-	handler.use(
-		validator({
-			eventSchema: transpileSchema(schema),
-			languages: {
-				en: localize.en,
-			},
-		}),
-	);
-
-	// invokes the handler, note that property foo is missing
-	const event = {
-		body: JSON.stringify({ something: "somethingelse" }),
-	};
-
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data.reason, "Event object failed validation");
-		deepStrictEqual(e.cause.data.errors, [
-			{
-				instancePath: "",
-				keyword: "required",
-				message: "must have required property foo",
-				params: { missingProperty: "foo" },
-				schemaPath: "#/required",
-			},
-		]);
-	}
-});
-
-const cases = [
-	{ lang: "fr", message: "requiert la propriété foo" },
-	{ lang: "zh", message: "应当有必需属性 foo" },
-	{ lang: "zh-TW", message: "應該有必須屬性 foo" },
-];
-
-for (const c of cases) {
-	test(`It should handle invalid schema as a BadRequest in a different language (${c.lang})`, async (t) => {
+	test("It should handle invalid schema as a BadRequest", async (t) => {
 		const handler = middy((event, context) => {
 			return event.body; // propagates the body as a response
 		});
@@ -360,11 +303,11 @@ for (const c of cases) {
 			},
 		};
 
-		handler.use(seedPreferredLanguage(c.lang)).use(
+		handler.use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: {
-					[c.lang]: localize[c.lang],
+					en: localize.en,
 				},
 			}),
 		);
@@ -383,118 +326,505 @@ for (const c of cases) {
 				{
 					instancePath: "",
 					keyword: "required",
-					message: c.message,
+					message: "must have required property foo",
 					params: { missingProperty: "foo" },
 					schemaPath: "#/required",
 				},
 			]);
 		}
 	});
-}
 
-test("It should handle invalid schema as a BadRequest in a different language (with normalization)", async (t) => {
-	const handler = middy((event, context) => {
-		return event.body; // propagates the body as a response
+	const cases = [
+		{ lang: "fr", message: "requiert la propriété foo" },
+		{ lang: "zh", message: "应当有必需属性 foo" },
+		{ lang: "zh-TW", message: "應該有必須屬性 foo" },
+	];
+
+	for (const c of cases) {
+		test(`It should handle invalid schema as a BadRequest in a different language (${c.lang})`, async (t) => {
+			const handler = middy((event, context) => {
+				return event.body; // propagates the body as a response
+			});
+
+			const schema = {
+				type: "object",
+				required: ["body", "foo"],
+				properties: {
+					// this will pass validation
+					body: {
+						type: "string",
+					},
+					// this won't as it won't be in the event
+					foo: {
+						type: "string",
+					},
+				},
+			};
+
+			handler.use(seedPreferredLanguage(c.lang)).use(
+				validator({
+					eventSchema: transpileSchema(schema),
+					languages: {
+						[c.lang]: localize[c.lang],
+					},
+				}),
+			);
+
+			// invokes the handler, note that property foo is missing
+			const event = {
+				body: JSON.stringify({ something: "somethingelse" }),
+			};
+
+			try {
+				await handler(event, defaultContext);
+			} catch (e) {
+				strictEqual(e.cause.package, "@middy/validator");
+				strictEqual(e.cause.data.reason, "Event object failed validation");
+				deepStrictEqual(e.cause.data.errors, [
+					{
+						instancePath: "",
+						keyword: "required",
+						message: c.message,
+						params: { missingProperty: "foo" },
+						schemaPath: "#/required",
+					},
+				]);
+			}
+		});
+	}
+
+	test("It should handle invalid schema as a BadRequest in a different language (with normalization)", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body; // propagates the body as a response
+		});
+
+		const schema = {
+			type: "object",
+			required: ["body", "foo"],
+			properties: {
+				// this will pass validation
+				body: {
+					type: "string",
+				},
+				// this won't as it won't be in the event
+				foo: {
+					type: "string",
+				},
+			},
+		};
+
+		handler.use(seedPreferredLanguage("pt-BR")).use(
+			validator({
+				eventSchema: transpileSchema(schema),
+				languages: {
+					"pt-BR": localize["pt-BR"],
+				},
+			}),
+		);
+
+		// invokes the handler, note that property foo is missing
+		const event = {
+			body: JSON.stringify({ something: "somethingelse" }),
+		};
+
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			strictEqual(e.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(e.cause.data.errors, [
+				{
+					instancePath: "",
+					keyword: "required",
+					message: "deve ter a propriedade obrigatória foo",
+					params: { missingProperty: "foo" },
+					schemaPath: "#/required",
+				},
+			]);
+		}
 	});
 
-	const schema = {
-		type: "object",
-		required: ["body", "foo"],
-		properties: {
-			// this will pass validation
-			body: {
-				type: "string",
-			},
-			// this won't as it won't be in the event
-			foo: {
-				type: "string",
-			},
-		},
-	};
+	test("It should handle invalid schema as a BadRequest without i18n", async (t) => {
+		const handler = middy((event, context) => {
+			return event.body; // propagates the body as a response
+		});
 
-	handler.use(seedPreferredLanguage("pt-BR")).use(
-		validator({
-			eventSchema: transpileSchema(schema),
-			languages: {
-				"pt-BR": localize["pt-BR"],
+		const schema = {
+			type: "object",
+			required: ["body", "foo"],
+			properties: {
+				// this will pass validation
+				body: {
+					type: "string",
+				},
+				// this won't as it won't be in the event
+				foo: {
+					type: "string",
+				},
 			},
-		}),
-	);
+		};
 
-	// invokes the handler, note that property foo is missing
-	const event = {
-		body: JSON.stringify({ something: "somethingelse" }),
-	};
+		handler.use(
+			validator({
+				eventSchema: transpileSchema(schema),
+			}),
+		);
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data.reason, "Event object failed validation");
-		deepStrictEqual(e.cause.data.errors, [
-			{
-				instancePath: "",
-				keyword: "required",
-				message: "deve ter a propriedade obrigatória foo",
-				params: { missingProperty: "foo" },
-				schemaPath: "#/required",
-			},
-		]);
-	}
-});
+		// invokes the handler, note that property foo is missing
+		const event = {
+			body: JSON.stringify({ something: "somethingelse" }),
+		};
 
-test("It should handle invalid schema as a BadRequest without i18n", async (t) => {
-	const handler = middy((event, context) => {
-		return event.body; // propagates the body as a response
+		try {
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			strictEqual(e.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(e.cause.data.errors, [
+				{
+					instancePath: "",
+					keyword: "required",
+					message: "must have required property 'foo'",
+					params: { missingProperty: "foo" },
+					schemaPath: "#/required",
+				},
+			]);
+		}
 	});
 
-	const schema = {
-		type: "object",
-		required: ["body", "foo"],
-		properties: {
-			// this will pass validation
-			body: {
-				type: "string",
-			},
-			// this won't as it won't be in the event
-			foo: {
-				type: "string",
-			},
-		},
-	};
+	const prototypePollutionKeys = ["valueOf", "hasOwnProperty", "__proto__"];
 
-	handler.use(
-		validator({
-			eventSchema: transpileSchema(schema),
-		}),
-	);
+	for (const lang of prototypePollutionKeys) {
+		test(`It should ignore a prototype-chain preferredLanguage (${lang}) and still return the 400`, async (t) => {
+			const handler = middy((event, context) => event.body);
 
-	// invokes the handler, note that property foo is missing
-	const event = {
-		body: JSON.stringify({ something: "somethingelse" }),
-	};
+			const schema = {
+				type: "object",
+				required: ["foo"],
+				properties: { foo: { type: "string" } },
+			};
 
-	try {
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data.reason, "Event object failed validation");
-		deepStrictEqual(e.cause.data.errors, [
-			{
-				instancePath: "",
-				keyword: "required",
-				message: "must have required property 'foo'",
-				params: { missingProperty: "foo" },
-				schemaPath: "#/required",
-			},
-		]);
+			handler.use(seedPreferredLanguage(lang)).use(
+				validator({
+					eventSchema: transpileSchema(schema),
+					languages: { en: localize.en },
+				}),
+			);
+
+			let error;
+			try {
+				await handler({}, defaultContext);
+			} catch (e) {
+				error = e;
+			}
+			ok(error, "expected the event validation to throw");
+			strictEqual(error.cause.package, "@middy/validator");
+			strictEqual(error.statusCode, 400);
+			strictEqual(error.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(error.cause.data.errors, [
+				{
+					instancePath: "",
+					keyword: "required",
+					message: "must have required property foo",
+					params: { missingProperty: "foo" },
+					schemaPath: "#/required",
+				},
+			]);
+		});
 	}
-});
 
-const prototypePollutionKeys = ["valueOf", "hasOwnProperty", "__proto__"];
+	test("It should validate context object", async (t) => {
+		const expectedResponse = {
+			body: "Hello world",
+			statusCode: 200,
+		};
 
-for (const lang of prototypePollutionKeys) {
-	test(`It should ignore a prototype-chain preferredLanguage (${lang}) and still return the 400`, async (t) => {
+		const handler = middy((event, context) => {
+			return expectedResponse;
+		});
+
+		handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, expectedResponse);
+	});
+
+	test("It should make requests with invalid context fails with an Internal Server Error", async (t) => {
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		handler
+			.before((request) => {
+				request.context.memoryLimitInMB = {}; // schema requires a string
+			})
+			.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			notStrictEqual(e, null);
+			strictEqual(e.cause.data.reason, "Context object failed validation");
+		}
+	});
+
+	test("It should validate response object", async (t) => {
+		const expectedResponse = {
+			body: "Hello world",
+			statusCode: 200,
+		};
+
+		const handler = middy((event, context) => {
+			return expectedResponse;
+		});
+
+		const schema = {
+			type: "object",
+			required: ["body", "statusCode"],
+			properties: {
+				body: {
+					type: "string",
+				},
+				statusCode: {
+					type: "number",
+				},
+			},
+		};
+
+		handler.use(validator({ responseSchema: transpileSchema(schema) }));
+
+		const response = await handler(defaultEvent, defaultContext);
+
+		deepStrictEqual(response, expectedResponse);
+	});
+
+	test("It should make requests with invalid responses fail with an Internal Server Error", async (t) => {
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		const schema = {
+			type: "object",
+			required: ["body", "statusCode"],
+			properties: {
+				body: {
+					type: "object",
+				},
+				statusCode: {
+					type: "number",
+				},
+			},
+		};
+
+		handler.use(validator({ responseSchema: transpileSchema(schema) }));
+
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			notStrictEqual(e, null);
+			strictEqual(e.cause.data.reason, "Response object failed validation");
+		}
+	});
+
+	test("It should not allow bad email format", async (t) => {
+		const schema = {
+			type: "object",
+			required: ["email"],
+			properties: { email: { type: "string", format: "email" } },
+		};
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		handler.use(validator({ eventSchema: transpileSchema(schema) }));
+
+		const event = { email: "abc@abc" };
+		try {
+			// This same email is not a valid one in 'full' validation mode
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			strictEqual(e.cause.data.errors[0].message, 'must match format "email"');
+		}
+	});
+
+	test("It should error when unsupported keywords used (input)", async (t) => {
+		const schema = {
+			type: "object",
+			somethingnew: "must be an object with an integer property foo only",
+		};
+
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		const event = { foo: "a" };
+		try {
+			handler.use(validator({ eventSchema: transpileSchema(schema) }));
+			await handler(event, defaultContext);
+		} catch (e) {
+			strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
+		}
+	});
+
+	test("It should error when unsupported keywords used (output)", async (t) => {
+		const schema = {
+			type: "object",
+			somethingnew: "must be an object with an integer property foo only",
+		};
+
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		const event = { foo: "a" };
+		try {
+			handler.use(validator({ responseSchema: transpileSchema(schema) }));
+			await handler(event.context);
+		} catch (e) {
+			strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
+		}
+	});
+
+	test("It should use out-of-the-box ajv-errors plugin", async (t) => {
+		const schema = {
+			type: "object",
+			required: ["foo"],
+			properties: {
+				foo: { type: "integer" },
+			},
+			errorMessage: "must be an object with an integer property foo only",
+		};
+
+		const handler = middy((event, context) => {
+			return {};
+		});
+
+		handler.use(validator({ eventSchema: transpileSchema(schema) }));
+
+		try {
+			await handler({ foo: "a" });
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			strictEqual(e.cause.data.reason, "Event object failed validation");
+			deepStrictEqual(e.cause.data.errors, [
+				{
+					instancePath: "",
+					keyword: "errorMessage",
+					params: {
+						errors: [
+							{
+								instancePath: "/foo",
+								emUsed: true,
+								keyword: "type",
+								message: "must be integer",
+								params: {
+									type: "integer",
+								},
+								schemaPath: "#/properties/foo/type",
+							},
+						],
+					},
+					schemaPath: "#/errorMessage",
+					message: "must be an object with an integer property foo only",
+				},
+			]);
+		}
+	});
+
+	test("validatorValidateOptions accepts valid options and rejects typos", () => {
+		validatorValidateOptions({
+			eventSchema: () => true,
+			defaultLanguage: "en",
+			languages: {},
+		});
+		validatorValidateOptions({});
+		try {
+			validatorValidateOptions({ evenSchema: () => true });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/validator");
+		}
+	});
+
+	test("validatorValidateOptions rejects wrong type", () => {
+		try {
+			validatorValidateOptions({ defaultLanguage: 42 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("defaultLanguage"));
+		}
+	});
+
+	test("validatorValidateOptions rejects non-function localizer in languages", () => {
+		validatorValidateOptions({ languages: { en: () => {}, fr: () => {} } });
+		try {
+			validatorValidateOptions({ languages: { en: "not-a-function" } });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			ok(e.message.includes("languages.en"));
+		}
+	});
+
+	test("It should reject an $async AJV validator at setup rather than failing open", () => {
+		// An $async validator returns a promise (truthy) instead of a boolean, which
+		// the synchronous validation path would treat as always valid.
+		const asyncValidator = () => Promise.resolve(true);
+		asyncValidator.$async = true;
+		try {
+			validator({ eventSchema: asyncValidator });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("$async"));
+		}
+	});
+
+	test("It should reject an $async contextSchema validator naming contextSchema", () => {
+		const asyncValidator = () => Promise.resolve(true);
+		asyncValidator.$async = true;
+		try {
+			validator({ contextSchema: asyncValidator });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("$async"));
+			ok(e.message.includes("contextSchema"));
+		}
+	});
+
+	test("It should reject an $async responseSchema validator naming responseSchema", () => {
+		const asyncValidator = () => Promise.resolve(true);
+		asyncValidator.$async = true;
+		try {
+			validator({ responseSchema: asyncValidator });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("$async"));
+			ok(e.message.includes("responseSchema"));
+		}
+	});
+
+	test("It should reject an $async eventSchema validator naming eventSchema", () => {
+		const asyncValidator = () => Promise.resolve(true);
+		asyncValidator.$async = true;
+		try {
+			validator({ eventSchema: asyncValidator });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("$async"));
+			ok(e.message.includes("eventSchema"));
+		}
+	});
+
+	test("It should throw a 400 when the event fails validation", async (t) => {
 		const handler = middy((event, context) => event.body);
 
 		const schema = {
@@ -503,7 +833,7 @@ for (const lang of prototypePollutionKeys) {
 			properties: { foo: { type: "string" } },
 		};
 
-		handler.use(seedPreferredLanguage(lang)).use(
+		handler.use(
 			validator({
 				eventSchema: transpileSchema(schema),
 				languages: { en: localize.en },
@@ -530,866 +860,541 @@ for (const lang of prototypePollutionKeys) {
 			},
 		]);
 	});
-}
 
-test("It should validate context object", async (t) => {
-	const expectedResponse = {
-		body: "Hello world",
-		statusCode: 200,
-	};
+	test("It should pass a valid event without throwing", async (t) => {
+		const handler = middy((event, context) => event.foo);
 
-	const handler = middy((event, context) => {
-		return expectedResponse;
-	});
+		const schema = {
+			type: "object",
+			required: ["foo"],
+			properties: { foo: { type: "string" } },
+		};
 
-	handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
-
-	const response = await handler(defaultEvent, defaultContext);
-
-	deepStrictEqual(response, expectedResponse);
-});
-
-test("It should make requests with invalid context fails with an Internal Server Error", async (t) => {
-	const handler = middy((event, context) => {
-		return {};
-	});
-
-	handler
-		.before((request) => {
-			request.context.memoryLimitInMB = {}; // schema requires a string
-		})
-		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
-
-	try {
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		notStrictEqual(e, null);
-		strictEqual(e.cause.data.reason, "Context object failed validation");
-	}
-});
-
-test("It should validate response object", async (t) => {
-	const expectedResponse = {
-		body: "Hello world",
-		statusCode: 200,
-	};
-
-	const handler = middy((event, context) => {
-		return expectedResponse;
-	});
-
-	const schema = {
-		type: "object",
-		required: ["body", "statusCode"],
-		properties: {
-			body: {
-				type: "string",
-			},
-			statusCode: {
-				type: "number",
-			},
-		},
-	};
-
-	handler.use(validator({ responseSchema: transpileSchema(schema) }));
-
-	const response = await handler(defaultEvent, defaultContext);
-
-	deepStrictEqual(response, expectedResponse);
-});
-
-test("It should make requests with invalid responses fail with an Internal Server Error", async (t) => {
-	const handler = middy((event, context) => {
-		return {};
-	});
-
-	const schema = {
-		type: "object",
-		required: ["body", "statusCode"],
-		properties: {
-			body: {
-				type: "object",
-			},
-			statusCode: {
-				type: "number",
-			},
-		},
-	};
-
-	handler.use(validator({ responseSchema: transpileSchema(schema) }));
-
-	try {
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		notStrictEqual(e, null);
-		strictEqual(e.cause.data.reason, "Response object failed validation");
-	}
-});
-
-test("It should not allow bad email format", async (t) => {
-	const schema = {
-		type: "object",
-		required: ["email"],
-		properties: { email: { type: "string", format: "email" } },
-	};
-	const handler = middy((event, context) => {
-		return {};
-	});
-
-	handler.use(validator({ eventSchema: transpileSchema(schema) }));
-
-	const event = { email: "abc@abc" };
-	try {
-		// This same email is not a valid one in 'full' validation mode
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data.errors[0].message, 'must match format "email"');
-	}
-});
-
-test("It should error when unsupported keywords used (input)", async (t) => {
-	const schema = {
-		type: "object",
-		somethingnew: "must be an object with an integer property foo only",
-	};
-
-	const handler = middy((event, context) => {
-		return {};
-	});
-
-	const event = { foo: "a" };
-	try {
 		handler.use(validator({ eventSchema: transpileSchema(schema) }));
-		await handler(event, defaultContext);
-	} catch (e) {
-		strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
-	}
-});
 
-test("It should error when unsupported keywords used (output)", async (t) => {
-	const schema = {
-		type: "object",
-		somethingnew: "must be an object with an integer property foo only",
-	};
-
-	const handler = middy((event, context) => {
-		return {};
+		const result = await handler({ foo: "bar" }, defaultContext);
+		strictEqual(result, "bar");
 	});
 
-	const event = { foo: "a" };
-	try {
-		handler.use(validator({ responseSchema: transpileSchema(schema) }));
-		await handler(event.context);
-	} catch (e) {
-		strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
-	}
-});
-
-test("It should use out-of-the-box ajv-errors plugin", async (t) => {
-	const schema = {
-		type: "object",
-		required: ["foo"],
-		properties: {
-			foo: { type: "integer" },
-		},
-		errorMessage: "must be an object with an integer property foo only",
-	};
-
-	const handler = middy((event, context) => {
-		return {};
+	test("validatorValidateOptions rejects a non-function contextSchema", () => {
+		validatorValidateOptions({ contextSchema: () => true });
+		try {
+			validatorValidateOptions({ contextSchema: "not-a-function" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("contextSchema"));
+			ok(e.message.includes("Function"));
+		}
 	});
 
-	handler.use(validator({ eventSchema: transpileSchema(schema) }));
+	test("validatorValidateOptions rejects a non-function responseSchema", () => {
+		validatorValidateOptions({ responseSchema: () => true });
+		try {
+			validatorValidateOptions({ responseSchema: "not-a-function" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("responseSchema"));
+			ok(e.message.includes("Function"));
+		}
+	});
 
-	try {
-		await handler({ foo: "a" });
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		strictEqual(e.cause.data.reason, "Event object failed validation");
-		deepStrictEqual(e.cause.data.errors, [
-			{
-				instancePath: "",
-				keyword: "errorMessage",
-				params: {
-					errors: [
-						{
-							instancePath: "/foo",
-							emUsed: true,
-							keyword: "type",
-							message: "must be integer",
-							params: {
-								type: "integer",
-							},
-							schemaPath: "#/properties/foo/type",
-						},
-					],
-				},
-				schemaPath: "#/errorMessage",
-				message: "must be an object with an integer property foo only",
+	test("validatorValidateOptions rejects a non-function eventSchema", () => {
+		validatorValidateOptions({ eventSchema: () => true });
+		try {
+			validatorValidateOptions({ eventSchema: "not-a-function" });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e instanceof TypeError);
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("eventSchema"));
+			ok(e.message.includes("Function"));
+		}
+	});
+
+	test("It should run context validation and reject an invalid context with a 500", async (t) => {
+		const handler = middy((event, context) => ({}));
+
+		handler
+			.before((request) => {
+				request.context.memoryLimitInMB = {}; // schema requires a string
+			})
+			.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+		let error;
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			error = e;
+		}
+		ok(error, "expected context validation to throw");
+		strictEqual(error.cause.package, "@middy/validator");
+		strictEqual(error.statusCode, 500);
+		strictEqual(error.cause.data.reason, "Context object failed validation");
+		ok(Array.isArray(error.cause.data.errors));
+		ok(error.cause.data.errors.length > 0);
+	});
+
+	test("It should run context validation and pass a valid context", async (t) => {
+		const expectedResponse = { body: "Hello world", statusCode: 200 };
+		const handler = middy((event, context) => expectedResponse);
+
+		handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
+
+		// earlier tests mutate defaultContext in place; restore the valid value
+		const response = await handler(defaultEvent, {
+			...defaultContext,
+			memoryLimitInMB: "128",
+		});
+		deepStrictEqual(response, expectedResponse);
+	});
+
+	test("It should run response validation and reject an invalid response with a 500", async (t) => {
+		const handler = middy((event, context) => ({}));
+
+		const schema = {
+			type: "object",
+			required: ["body", "statusCode"],
+			properties: {
+				body: { type: "object" },
+				statusCode: { type: "number" },
 			},
-		]);
-	}
-});
+		};
 
-test("validatorValidateOptions accepts valid options and rejects typos", () => {
-	validatorValidateOptions({
-		eventSchema: () => true,
-		defaultLanguage: "en",
-		languages: {},
+		handler.use(validator({ responseSchema: transpileSchema(schema) }));
+
+		let error;
+		try {
+			await handler(defaultEvent, defaultContext);
+		} catch (e) {
+			error = e;
+		}
+		ok(error, "expected response validation to throw");
+		strictEqual(error.cause.package, "@middy/validator");
+		strictEqual(error.statusCode, 500);
+		strictEqual(error.cause.data.reason, "Response object failed validation");
+		ok(Array.isArray(error.cause.data.errors));
+		ok(error.cause.data.errors.length > 0);
 	});
-	validatorValidateOptions({});
-	try {
-		validatorValidateOptions({ evenSchema: () => true });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/validator");
-	}
-});
 
-test("validatorValidateOptions rejects wrong type", () => {
-	try {
-		validatorValidateOptions({ defaultLanguage: 42 });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e.message.includes("defaultLanguage"));
-	}
-});
+	test("It should run response validation and pass a valid response", async (t) => {
+		const expectedResponse = { body: "Hello world", statusCode: 200 };
+		const handler = middy((event, context) => expectedResponse);
 
-test("validatorValidateOptions rejects non-function localizer in languages", () => {
-	validatorValidateOptions({ languages: { en: () => {}, fr: () => {} } });
-	try {
-		validatorValidateOptions({ languages: { en: "not-a-function" } });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		ok(e.message.includes("languages.en"));
-	}
-});
+		const schema = {
+			type: "object",
+			required: ["body", "statusCode"],
+			properties: {
+				body: { type: "string" },
+				statusCode: { type: "number" },
+			},
+		};
 
-test("It should reject an $async AJV validator at setup rather than failing open", () => {
-	// An $async validator returns a promise (truthy) instead of a boolean, which
-	// the synchronous validation path would treat as always valid.
-	const asyncValidator = () => Promise.resolve(true);
-	asyncValidator.$async = true;
-	try {
-		validator({ eventSchema: asyncValidator });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("$async"));
-	}
-});
+		handler.use(validator({ responseSchema: transpileSchema(schema) }));
 
-test("It should reject an $async contextSchema validator naming contextSchema", () => {
-	const asyncValidator = () => Promise.resolve(true);
-	asyncValidator.$async = true;
-	try {
-		validator({ contextSchema: asyncValidator });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("$async"));
-		ok(e.message.includes("contextSchema"));
-	}
-});
-
-test("It should reject an $async responseSchema validator naming responseSchema", () => {
-	const asyncValidator = () => Promise.resolve(true);
-	asyncValidator.$async = true;
-	try {
-		validator({ responseSchema: asyncValidator });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("$async"));
-		ok(e.message.includes("responseSchema"));
-	}
-});
-
-test("It should reject an $async eventSchema validator naming eventSchema", () => {
-	const asyncValidator = () => Promise.resolve(true);
-	asyncValidator.$async = true;
-	try {
-		validator({ eventSchema: asyncValidator });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("$async"));
-		ok(e.message.includes("eventSchema"));
-	}
-});
-
-test("It should throw a 400 when the event fails validation", async (t) => {
-	const handler = middy((event, context) => event.body);
-
-	const schema = {
-		type: "object",
-		required: ["foo"],
-		properties: { foo: { type: "string" } },
-	};
-
-	handler.use(
-		validator({
-			eventSchema: transpileSchema(schema),
-			languages: { en: localize.en },
-		}),
-	);
-
-	let error;
-	try {
-		await handler({}, defaultContext);
-	} catch (e) {
-		error = e;
-	}
-	ok(error, "expected the event validation to throw");
-	strictEqual(error.cause.package, "@middy/validator");
-	strictEqual(error.statusCode, 400);
-	strictEqual(error.cause.data.reason, "Event object failed validation");
-	deepStrictEqual(error.cause.data.errors, [
-		{
-			instancePath: "",
-			keyword: "required",
-			message: "must have required property foo",
-			params: { missingProperty: "foo" },
-			schemaPath: "#/required",
-		},
-	]);
-});
-
-test("It should pass a valid event without throwing", async (t) => {
-	const handler = middy((event, context) => event.foo);
-
-	const schema = {
-		type: "object",
-		required: ["foo"],
-		properties: { foo: { type: "string" } },
-	};
-
-	handler.use(validator({ eventSchema: transpileSchema(schema) }));
-
-	const result = await handler({ foo: "bar" }, defaultContext);
-	strictEqual(result, "bar");
-});
-
-test("validatorValidateOptions rejects a non-function contextSchema", () => {
-	validatorValidateOptions({ contextSchema: () => true });
-	try {
-		validatorValidateOptions({ contextSchema: "not-a-function" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("contextSchema"));
-		ok(e.message.includes("Function"));
-	}
-});
-
-test("validatorValidateOptions rejects a non-function responseSchema", () => {
-	validatorValidateOptions({ responseSchema: () => true });
-	try {
-		validatorValidateOptions({ responseSchema: "not-a-function" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("responseSchema"));
-		ok(e.message.includes("Function"));
-	}
-});
-
-test("validatorValidateOptions rejects a non-function eventSchema", () => {
-	validatorValidateOptions({ eventSchema: () => true });
-	try {
-		validatorValidateOptions({ eventSchema: "not-a-function" });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e instanceof TypeError);
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("eventSchema"));
-		ok(e.message.includes("Function"));
-	}
-});
-
-test("It should run context validation and reject an invalid context with a 500", async (t) => {
-	const handler = middy((event, context) => ({}));
-
-	handler
-		.before((request) => {
-			request.context.memoryLimitInMB = {}; // schema requires a string
-		})
-		.use(validator({ contextSchema: transpileSchema(contextSchema) }));
-
-	let error;
-	try {
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		error = e;
-	}
-	ok(error, "expected context validation to throw");
-	strictEqual(error.cause.package, "@middy/validator");
-	strictEqual(error.statusCode, 500);
-	strictEqual(error.cause.data.reason, "Context object failed validation");
-	ok(Array.isArray(error.cause.data.errors));
-	ok(error.cause.data.errors.length > 0);
-});
-
-test("It should run context validation and pass a valid context", async (t) => {
-	const expectedResponse = { body: "Hello world", statusCode: 200 };
-	const handler = middy((event, context) => expectedResponse);
-
-	handler.use(validator({ contextSchema: transpileSchema(contextSchema) }));
-
-	// earlier tests mutate defaultContext in place; restore the valid value
-	const response = await handler(defaultEvent, {
-		...defaultContext,
-		memoryLimitInMB: "128",
+		const response = await handler(defaultEvent, defaultContext);
+		deepStrictEqual(response, expectedResponse);
 	});
-	deepStrictEqual(response, expectedResponse);
-});
 
-test("It should run response validation and reject an invalid response with a 500", async (t) => {
-	const handler = middy((event, context) => ({}));
-
-	const schema = {
-		type: "object",
-		required: ["body", "statusCode"],
-		properties: {
-			body: { type: "object" },
-			statusCode: { type: "number" },
-		},
-	};
-
-	handler.use(validator({ responseSchema: transpileSchema(schema) }));
-
-	let error;
-	try {
-		await handler(defaultEvent, defaultContext);
-	} catch (e) {
-		error = e;
-	}
-	ok(error, "expected response validation to throw");
-	strictEqual(error.cause.package, "@middy/validator");
-	strictEqual(error.statusCode, 500);
-	strictEqual(error.cause.data.reason, "Response object failed validation");
-	ok(Array.isArray(error.cause.data.errors));
-	ok(error.cause.data.errors.length > 0);
-});
-
-test("It should run response validation and pass a valid response", async (t) => {
-	const expectedResponse = { body: "Hello world", statusCode: 200 };
-	const handler = middy((event, context) => expectedResponse);
-
-	const schema = {
-		type: "object",
-		required: ["body", "statusCode"],
-		properties: {
-			body: { type: "string" },
-			statusCode: { type: "number" },
-		},
-	};
-
-	handler.use(validator({ responseSchema: transpileSchema(schema) }));
-
-	const response = await handler(defaultEvent, defaultContext);
-	deepStrictEqual(response, expectedResponse);
-});
-
-test("transpileSchema compiles in strict mode and rejects unknown keywords", () => {
-	const schema = {
-		type: "object",
-		somethingnew: "must be an object with an integer property foo only",
-	};
-	let threw;
-	try {
-		transpileSchema(schema);
-		threw = false;
-	} catch (e) {
-		threw = true;
-		strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
-	}
-	ok(threw, "expected strict mode to reject the unknown keyword");
-});
-
-test("transpileSchema fills defaults for empty values (useDefaults 'empty')", () => {
-	const schema = {
-		type: "object",
-		properties: {
-			missing: { type: "string", default: "fromDefault" },
-			emptyString: { type: "string", default: "fromDefault" },
-		},
-	};
-	const validate = transpileSchema(schema);
-
-	const missingFilled = {};
-	validate(missingFilled);
-	strictEqual(missingFilled.missing, "fromDefault");
-
-	// 'empty' mode (unlike a falsy useDefaults) also replaces empty strings.
-	const emptyFilled = { emptyString: "" };
-	validate(emptyFilled);
-	strictEqual(emptyFilled.emptyString, "fromDefault");
-});
-
-test("transpileSchema lets a user keyword replace the plugin keyword of the same name", () => {
-	const schema = { type: "object", typeof: "function" };
-	// `typeof` is a keyword added by ajv-keywords; the user definition must
-	// win rather than collide with it, so a plain object passes here.
-	const validate = transpileSchema(schema, {
-		keywords: [{ keyword: "typeof", validate: () => true }],
+	test("transpileSchema compiles in strict mode and rejects unknown keywords", () => {
+		const schema = {
+			type: "object",
+			somethingnew: "must be an object with an integer property foo only",
+		};
+		let threw;
+		try {
+			transpileSchema(schema);
+			threw = false;
+		} catch (e) {
+			threw = true;
+			strictEqual(e.message, 'strict mode: unknown keyword: "somethingnew"');
+		}
+		ok(threw, "expected strict mode to reject the unknown keyword");
 	});
-	strictEqual(validate({}), true);
-});
 
-test("transpileSchema keeps user ajvOptions.keywords so custom keywords compile in strict mode", () => {
-	const schema = { type: "object", myKw: true };
-	const validate = transpileSchema(schema, {
-		keywords: [{ keyword: "myKw" }],
+	test("transpileSchema fills defaults for empty values (useDefaults 'empty')", () => {
+		const schema = {
+			type: "object",
+			properties: {
+				missing: { type: "string", default: "fromDefault" },
+				emptyString: { type: "string", default: "fromDefault" },
+			},
+		};
+		const validate = transpileSchema(schema);
+
+		const missingFilled = {};
+		validate(missingFilled);
+		strictEqual(missingFilled.missing, "fromDefault");
+
+		// 'empty' mode (unlike a falsy useDefaults) also replaces empty strings.
+		const emptyFilled = { emptyString: "" };
+		validate(emptyFilled);
+		strictEqual(emptyFilled.emptyString, "fromDefault");
 	});
-	strictEqual(validate({}), true);
-});
 
-test("transpileSchema accepts string entries in ajvOptions.keywords", () => {
-	const schema = { type: "object", myKw: true };
-	const validate = transpileSchema(schema, { keywords: ["myKw"] });
-	strictEqual(validate({}), true);
-});
-
-test("transpileSchema keeps the plugin keywords when user keywords are supplied", () => {
-	const schema = { type: "object", properties: { fn: { typeof: "function" } } };
-	const validate = transpileSchema(schema, {
-		keywords: [{ keyword: "myKw" }],
+	test("transpileSchema lets a user keyword replace the plugin keyword of the same name", () => {
+		const schema = { type: "object", typeof: "function" };
+		// `typeof` is a keyword added by ajv-keywords; the user definition must
+		// win rather than collide with it, so a plain object passes here.
+		const validate = transpileSchema(schema, {
+			keywords: [{ keyword: "typeof", validate: () => true }],
+		});
+		strictEqual(validate({}), true);
 	});
-	strictEqual(validate({ fn: () => {} }), true);
-	strictEqual(validate({ fn: "no" }), false);
-});
 
-test("It should reject a hand-written async validator at setup rather than failing open", () => {
-	// `async () => false` returns a promise (truthy), so the synchronous
-	// validation path would treat every input as valid.
-	try {
-		validator({ eventSchema: async () => false });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("async"));
-		ok(e.message.includes("eventSchema"));
-	}
-});
+	test("transpileSchema keeps user ajvOptions.keywords so custom keywords compile in strict mode", () => {
+		const schema = { type: "object", myKw: true };
+		const validate = transpileSchema(schema, {
+			keywords: [{ keyword: "myKw" }],
+		});
+		strictEqual(validate({}), true);
+	});
 
-test("It should reject a hand-written async responseSchema validator", () => {
-	try {
-		validator({ responseSchema: async () => false });
-		ok(false, "expected throw");
-	} catch (e) {
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("responseSchema"));
-	}
-});
+	test("transpileSchema accepts string entries in ajvOptions.keywords", () => {
+		const schema = { type: "object", myKw: true };
+		const validate = transpileSchema(schema, { keywords: ["myKw"] });
+		strictEqual(validate({}), true);
+	});
 
-test("It should throw when a validator returns a promise at runtime", async (t) => {
-	// A transpiled async fn (or any promise-returning sync fn) has no
-	// AsyncFunction constructor and no $async flag; it must fail closed at
-	// runtime, not validate nothing.
-	const promiseValidator = () => Promise.resolve(false);
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: promiseValidator }),
-	);
-	let thrown = false;
-	try {
-		await handler({ hello: "world" }, defaultContext);
-	} catch (e) {
-		thrown = true;
-		strictEqual(e.cause.package, "@middy/validator");
-		ok(e.message.includes("promise"));
-	}
-	ok(thrown, "expected promise-returning validator to fail closed");
-});
+	test("transpileSchema keeps the plugin keywords when user keywords are supplied", () => {
+		const schema = {
+			type: "object",
+			properties: { fn: { typeof: "function" } },
+		};
+		const validate = transpileSchema(schema, {
+			keywords: [{ keyword: "myKw" }],
+		});
+		strictEqual(validate({ fn: () => {} }), true);
+		strictEqual(validate({ fn: "no" }), false);
+	});
 
-test("validatorValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
-	// Pins the rule itself: an empty `{}` rule would accept the number below,
-	// and a blank `type` would reject the valid string above.
-	validatorValidateOptions({ contextKeyHttpContentNegotiation: "custom" });
-	try {
-		validatorValidateOptions({ contextKeyHttpContentNegotiation: 123 });
-		ok(false, "expected throw");
-	} catch (e) {
-		ok(e.message.includes("contextKeyHttpContentNegotiation"));
-	}
-});
+	test("It should reject a hand-written async validator at setup rather than failing open", () => {
+		// `async () => false` returns a promise (truthy), so the synchronous
+		// validation path would treat every input as valid.
+		try {
+			validator({ eventSchema: async () => false });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("async"));
+			ok(e.message.includes("eventSchema"));
+		}
+	});
 
-test("It should name the failing schema when a validator returns a promise", async (t) => {
-	// The label is the only thing telling the three call sites apart in the
-	// error message, so each has to be asserted by name.
-	const promiseValidator = () => Promise.resolve(false);
+	test("It should reject a hand-written async responseSchema validator", () => {
+		try {
+			validator({ responseSchema: async () => false });
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("responseSchema"));
+		}
+	});
 
-	const cases = [
-		["eventSchema", { eventSchema: promiseValidator }],
-		["contextSchema", { contextSchema: promiseValidator }],
-		["responseSchema", { responseSchema: promiseValidator }],
-	];
+	test("It should throw when a validator returns a promise at runtime", async (t) => {
+		// A transpiled async fn (or any promise-returning sync fn) has no
+		// AsyncFunction constructor and no $async flag; it must fail closed at
+		// runtime, not validate nothing.
+		const promiseValidator = () => Promise.resolve(false);
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: promiseValidator }),
+		);
+		let thrown = false;
+		try {
+			await handler({ hello: "world" }, defaultContext);
+		} catch (e) {
+			thrown = true;
+			strictEqual(e.cause.package, "@middy/validator");
+			ok(e.message.includes("promise"));
+		}
+		ok(thrown, "expected promise-returning validator to fail closed");
+	});
 
-	for (const [label, options] of cases) {
-		const handler = middy((event) => event).use(validator(options));
+	test("validatorValidateOptions validates contextKeyHttpContentNegotiation as a string", () => {
+		// Pins the rule itself: an empty `{}` rule would accept the number below,
+		// and a blank `type` would reject the valid string above.
+		validatorValidateOptions({ contextKeyHttpContentNegotiation: "custom" });
+		try {
+			validatorValidateOptions({ contextKeyHttpContentNegotiation: 123 });
+			ok(false, "expected throw");
+		} catch (e) {
+			ok(e.message.includes("contextKeyHttpContentNegotiation"));
+		}
+	});
+
+	test("It should name the failing schema when a validator returns a promise", async (t) => {
+		// The label is the only thing telling the three call sites apart in the
+		// error message, so each has to be asserted by name.
+		const promiseValidator = () => Promise.resolve(false);
+
+		const cases = [
+			["eventSchema", { eventSchema: promiseValidator }],
+			["contextSchema", { contextSchema: promiseValidator }],
+			["responseSchema", { responseSchema: promiseValidator }],
+		];
+
+		for (const [label, options] of cases) {
+			const handler = middy((event) => event).use(validator(options));
+			let thrown;
+			try {
+				await handler({ hello: "world" }, defaultContext);
+			} catch (e) {
+				thrown = e;
+			}
+			ok(thrown, `expected ${label} to fail closed`);
+			ok(
+				thrown.message.includes(label),
+				`expected the error to name ${label}, got: ${thrown.message}`,
+			);
+		}
+	});
+
+	test("It should treat an undefined validator result as a validation failure", async (t) => {
+		// `typeof valid?.then` has to tolerate a nullish result: without the `?.`
+		// this becomes a TypeError instead of the documented 400.
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: () => undefined }),
+		);
+
 		let thrown;
 		try {
 			await handler({ hello: "world" }, defaultContext);
 		} catch (e) {
 			thrown = e;
 		}
-		ok(thrown, `expected ${label} to fail closed`);
-		ok(
-			thrown.message.includes(label),
-			`expected the error to name ${label}, got: ${thrown.message}`,
+		ok(thrown);
+		strictEqual(thrown.statusCode, 400);
+		strictEqual(thrown.cause.package, "@middy/validator");
+	});
+
+	test("It should build without throwing for a schema that has no constructor", () => {
+		// `schema?.constructor?.name` must tolerate a null-prototype schema;
+		// dropping the second `?.` throws while merely constructing the middleware.
+		const middleware = validator({ eventSchema: Object.create(null) });
+		ok(middleware);
+	});
+
+	test("It should validate when context.middyContext is absent", async (t) => {
+		// core seeds middyContext, so only a direct call reaches the `?.` guard on
+		// the negotiation lookup used to localize error messages.
+		const middleware = validator({ eventSchema: () => false });
+		const request = { event: {}, context: {}, internal: {} };
+
+		let thrown;
+		try {
+			await middleware.before(request);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown);
+		strictEqual(thrown.statusCode, 400);
+	});
+
+	test("It should compile schemas using draft-2019 formats", async (t) => {
+		// `ajv-formats` alone does not register `idn-hostname`, and ajv runs in
+		// strict mode here, so dropping ajvFormatsDraft2019() makes this schema
+		// fail to compile rather than silently validating differently.
+		const schema = transpileSchema({
+			type: "object",
+			required: ["host"],
+			properties: {
+				host: { type: "string", format: "idn-hostname" },
+			},
+		});
+
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: schema }),
 		);
-	}
-});
 
-test("It should treat an undefined validator result as a validation failure", async (t) => {
-	// `typeof valid?.then` has to tolerate a nullish result: without the `?.`
-	// this becomes a TypeError instead of the documented 400.
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: () => undefined }),
-	);
-
-	let thrown;
-	try {
-		await handler({ hello: "world" }, defaultContext);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown);
-	strictEqual(thrown.statusCode, 400);
-	strictEqual(thrown.cause.package, "@middy/validator");
-});
-
-test("It should build without throwing for a schema that has no constructor", () => {
-	// `schema?.constructor?.name` must tolerate a null-prototype schema;
-	// dropping the second `?.` throws while merely constructing the middleware.
-	const middleware = validator({ eventSchema: Object.create(null) });
-	ok(middleware);
-});
-
-test("It should validate when context.middyContext is absent", async (t) => {
-	// core seeds middyContext, so only a direct call reaches the `?.` guard on
-	// the negotiation lookup used to localize error messages.
-	const middleware = validator({ eventSchema: () => false });
-	const request = { event: {}, context: {}, internal: {} };
-
-	let thrown;
-	try {
-		await middleware.before(request);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown);
-	strictEqual(thrown.statusCode, 400);
-});
-
-test("It should compile schemas using draft-2019 formats", async (t) => {
-	// `ajv-formats` alone does not register `idn-hostname`, and ajv runs in
-	// strict mode here, so dropping ajvFormatsDraft2019() makes this schema
-	// fail to compile rather than silently validating differently.
-	const schema = transpileSchema({
-		type: "object",
-		required: ["host"],
-		properties: {
-			host: { type: "string", format: "idn-hostname" },
-		},
+		const event = { host: "example.com" };
+		deepStrictEqual(await handler(event, defaultContext), event);
 	});
 
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: schema }),
-	);
+	// ---------- nestedSchema ----------
 
-	const event = { host: "example.com" };
-	deepStrictEqual(await handler(event, defaultContext), event);
-});
-
-// ---------- nestedSchema ----------
-
-const bodySchema = {
-	type: "object",
-	required: ["age"],
-	properties: { age: { type: "number" } },
-};
-
-test("It should validate a nested schema in place", async (t) => {
-	const handler = middy((event) => event).use(
-		validator({
-			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
-		}),
-	);
-
-	const event = { body: { age: 42 } };
-	deepStrictEqual(await handler(event, defaultContext), event);
-});
-
-test("It should report the full instancePath for a nested schema", async (t) => {
-	const handler = middy((event) => event).use(
-		validator({
-			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
-		}),
-	);
-
-	let thrown;
-	try {
-		await handler({ body: { age: "old" } }, defaultContext);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown);
-	strictEqual(thrown.statusCode, 400);
-	strictEqual(thrown.cause.data.errors[0].instancePath, "/body/age");
-});
-
-test("It should reject an event missing the nested property", async (t) => {
-	const handler = middy((event) => event).use(
-		validator({
-			eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
-		}),
-	);
-
-	let thrown;
-	try {
-		await handler({}, defaultContext);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown);
-	strictEqual(thrown.statusCode, 400);
-});
-
-test("It should validate a nested schema after the body has been parsed", async (t) => {
-	// The point of nesting: the envelope is checked while `body` is still a
-	// string, the payload once a parser has replaced it, and neither schema
-	// repeats the other.
-	const envelope = transpileSchema({
+	const bodySchema = {
 		type: "object",
-		required: ["body"],
-		properties: { body: { type: "string" } },
-	});
-	const parseBody = {
-		before: (request) => {
-			request.event.body = JSON.parse(request.event.body);
-		},
+		required: ["age"],
+		properties: { age: { type: "number" } },
 	};
 
-	const handler = middy((event) => event.body)
-		.use(validator({ eventSchema: envelope }))
-		.use(parseBody)
-		.use(
+	test("It should validate a nested schema in place", async (t) => {
+		const handler = middy((event) => event).use(
 			validator({
 				eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
 			}),
 		);
 
-	deepStrictEqual(await handler({ body: '{"age":42}' }, defaultContext), {
-		age: 42,
+		const event = { body: { age: 42 } };
+		deepStrictEqual(await handler(event, defaultContext), event);
 	});
 
-	let thrown;
-	try {
-		await handler({ body: 42 }, defaultContext);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown, "the envelope validator rejects a non-string body");
-	strictEqual(thrown.cause.data.errors[0].instancePath, "/body");
-});
+	test("It should report the full instancePath for a nested schema", async (t) => {
+		const handler = middy((event) => event).use(
+			validator({
+				eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+			}),
+		);
 
-test("It should nest a schema at a multi-segment pointer", async (t) => {
-	const handler = middy((event) => event).use(
-		validator({
-			eventSchema: transpileSchema(
-				nestedSchema("/detail/data", { type: "string" }),
-			),
-		}),
-	);
-
-	const event = { detail: { data: "ok" } };
-	deepStrictEqual(await handler(event, defaultContext), event);
-});
-
-test("It should compile a nested schema that uses internal $refs", async (t) => {
-	// `#/$defs/...` resolves from the document root, so nesting has to hoist the
-	// definitions or the schema no longer compiles at all.
-	const schema = nestedSchema("/body", {
-		$defs: { age: { type: "number" } },
-		type: "object",
-		required: ["age"],
-		properties: { age: { $ref: "#/$defs/age" } },
-	});
-
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: transpileSchema(schema) }),
-	);
-
-	const event = { body: { age: 42 } };
-	deepStrictEqual(await handler(event, defaultContext), event);
-});
-
-test("It should throw for a pointer that is not a JSON Pointer", async (t) => {
-	for (const pointer of ["body", "/", ""]) {
 		let thrown;
 		try {
-			nestedSchema(pointer, bodySchema);
+			await handler({ body: { age: "old" } }, defaultContext);
 		} catch (e) {
 			thrown = e;
 		}
-		ok(thrown, `expected ${JSON.stringify(pointer)} to throw`);
-		ok(thrown.message.includes("JSON Pointer"));
-	}
-});
+		ok(thrown);
+		strictEqual(thrown.statusCode, 400);
+		strictEqual(thrown.cause.data.errors[0].instancePath, "/body/age");
+	});
 
-test("It should keep a self-recursive $ref pointing at the nested schema", async (t) => {
-	// Without an `$id` on the nested schema, `#` resolves to the wrapper, so a
-	// recursive schema demands the wrapper shape of every child: correct events
-	// rejected, wrapper-shaped ones accepted, with no error either way.
-	const tree = {
-		type: "object",
-		required: ["name"],
-		properties: {
-			name: { type: "string" },
-			children: { type: "array", items: { $ref: "#" } },
-		},
-	};
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: transpileSchema(nestedSchema("/body", tree)) }),
-	);
-
-	const event = { body: { name: "a", children: [{ name: "b" }] } };
-	deepStrictEqual(await handler(event, defaultContext), event);
-
-	let thrown;
-	try {
-		await handler(
-			{ body: { name: "a", children: [{ body: { name: "b" } }] } },
-			defaultContext,
+	test("It should reject an event missing the nested property", async (t) => {
+		const handler = middy((event) => event).use(
+			validator({
+				eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+			}),
 		);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown, "the wrapper shape is not a valid child");
-	strictEqual(thrown.statusCode, 400);
-});
 
-test("It should nest a boolean schema as-is", async (t) => {
-	// `false` rejects everything; spreading it would produce `{}`, which accepts
-	// everything.
-	const handler = middy((event) => event).use(
-		validator({ eventSchema: transpileSchema(nestedSchema("/body", false)) }),
-	);
+		let thrown;
+		try {
+			await handler({}, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown);
+		strictEqual(thrown.statusCode, 400);
+	});
 
-	let thrown;
-	try {
-		await handler({ body: { age: 42 } }, defaultContext);
-	} catch (e) {
-		thrown = e;
-	}
-	ok(thrown);
-	strictEqual(thrown.statusCode, 400);
+	test("It should validate a nested schema after the body has been parsed", async (t) => {
+		// The point of nesting: the envelope is checked while `body` is still a
+		// string, the payload once a parser has replaced it, and neither schema
+		// repeats the other.
+		const envelope = transpileSchema({
+			type: "object",
+			required: ["body"],
+			properties: { body: { type: "string" } },
+		});
+		const parseBody = {
+			before: (request) => {
+				request.event.body = JSON.parse(request.event.body);
+			},
+		};
+
+		const handler = middy((event) => event.body)
+			.use(validator({ eventSchema: envelope }))
+			.use(parseBody)
+			.use(
+				validator({
+					eventSchema: transpileSchema(nestedSchema("/body", bodySchema)),
+				}),
+			);
+
+		deepStrictEqual(await handler({ body: '{"age":42}' }, defaultContext), {
+			age: 42,
+		});
+
+		let thrown;
+		try {
+			await handler({ body: 42 }, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "the envelope validator rejects a non-string body");
+		strictEqual(thrown.cause.data.errors[0].instancePath, "/body");
+	});
+
+	test("It should nest a schema at a multi-segment pointer", async (t) => {
+		const handler = middy((event) => event).use(
+			validator({
+				eventSchema: transpileSchema(
+					nestedSchema("/detail/data", { type: "string" }),
+				),
+			}),
+		);
+
+		const event = { detail: { data: "ok" } };
+		deepStrictEqual(await handler(event, defaultContext), event);
+	});
+
+	test("It should compile a nested schema that uses internal $refs", async (t) => {
+		// `#/$defs/...` resolves from the document root, so nesting has to hoist the
+		// definitions or the schema no longer compiles at all.
+		const schema = nestedSchema("/body", {
+			$defs: { age: { type: "number" } },
+			type: "object",
+			required: ["age"],
+			properties: { age: { $ref: "#/$defs/age" } },
+		});
+
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: transpileSchema(schema) }),
+		);
+
+		const event = { body: { age: 42 } };
+		deepStrictEqual(await handler(event, defaultContext), event);
+	});
+
+	test("It should throw for a pointer that is not a JSON Pointer", async (t) => {
+		for (const pointer of ["body", "/", ""]) {
+			let thrown;
+			try {
+				nestedSchema(pointer, bodySchema);
+			} catch (e) {
+				thrown = e;
+			}
+			ok(thrown, `expected ${JSON.stringify(pointer)} to throw`);
+			ok(thrown.message.includes("JSON Pointer"));
+		}
+	});
+
+	test("It should keep a self-recursive $ref pointing at the nested schema", async (t) => {
+		// Without an `$id` on the nested schema, `#` resolves to the wrapper, so a
+		// recursive schema demands the wrapper shape of every child: correct events
+		// rejected, wrapper-shaped ones accepted, with no error either way.
+		const tree = {
+			type: "object",
+			required: ["name"],
+			properties: {
+				name: { type: "string" },
+				children: { type: "array", items: { $ref: "#" } },
+			},
+		};
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: transpileSchema(nestedSchema("/body", tree)) }),
+		);
+
+		const event = { body: { name: "a", children: [{ name: "b" }] } };
+		deepStrictEqual(await handler(event, defaultContext), event);
+
+		let thrown;
+		try {
+			await handler(
+				{ body: { name: "a", children: [{ body: { name: "b" } }] } },
+				defaultContext,
+			);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown, "the wrapper shape is not a valid child");
+		strictEqual(thrown.statusCode, 400);
+	});
+
+	test("It should nest a boolean schema as-is", async (t) => {
+		// `false` rejects everything; spreading it would produce `{}`, which accepts
+		// everything.
+		const handler = middy((event) => event).use(
+			validator({ eventSchema: transpileSchema(nestedSchema("/body", false)) }),
+		);
+
+		let thrown;
+		try {
+			await handler({ body: { age: 42 } }, defaultContext);
+		} catch (e) {
+			thrown = e;
+		}
+		ok(thrown);
+		strictEqual(thrown.statusCode, 400);
+	});
 });

@@ -37,7 +37,7 @@ const withMockedCoreTimers = async (t, run) => {
 	}
 };
 
-describe("middy core", () => {
+describe("@middy/core", () => {
 	test.beforeEach(async (t) => {
 		t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
 	});

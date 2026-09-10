@@ -20,300 +20,302 @@ const createThenable = (onThen) => ({ [thenKey]: onThen });
 // (isolation:"none") a root-level beforeEach runs before every test in every
 // core file; the durable setup would then run before the timer-mocked
 // index/streamify tests and vice versa.
-describe("executionModeDurableContext", () => {
-	test.beforeEach(async () => {
-		await LocalDurableTestRunner.setupTestEnvironment({
-			skipTime: true,
+describe("@middy/core/DurableContext", () => {
+	describe("executionModeDurableContext", () => {
+		test.beforeEach(async () => {
+			await LocalDurableTestRunner.setupTestEnvironment({
+				skipTime: true,
+			});
 		});
-	});
-	test.afterEach(async () => {
-		await LocalDurableTestRunner.teardownTestEnvironment();
-	});
-
-	test("Should detect the real SDK durable context via isExecutionModeDurable", async (t) => {
-		let detected;
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context) => {
-			detected = isExecutionModeDurable(context);
-			return "ok";
-		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
-
-		const execution = await runner.run({ payload: {} });
-
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		strictEqual(detected, true);
-	});
-
-	test("Should expose tenantId from the Lambda context to the handler under the real SDK", async (t) => {
-		// The SDK reads `tenantId` from the Lambda context it is invoked with
-		// (`context.tenantId`) and exposes only `durableExecutionArn` under
-		// `context.executionContext`. The local runner builds its own Lambda
-		// context per invocation, so the handler it invokes is wrapped to add
-		// the tenant id the same way Lambda tenant isolation would.
-		let seen;
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context) => {
-			seen = context.tenantId;
-			return "ok";
-		});
-		const runner = new LocalDurableTestRunner({
-			handlerFunction: (event, context) =>
-				handler(event, { ...context, tenantId: "tenant-123" }),
+		test.afterEach(async () => {
+			await LocalDurableTestRunner.teardownTestEnvironment();
 		});
 
-		const execution = await runner.run({ payload: {} });
+		test("Should detect the real SDK durable context via isExecutionModeDurable", async (t) => {
+			let detected;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context) => {
+				detected = isExecutionModeDurable(context);
+				return "ok";
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		strictEqual(seen, "tenant-123");
-	});
+			const execution = await runner.run({ payload: {} });
 
-	test("Should return with executionMode:executionModeDurableContext using string", async (t) => {
-		const input = "x".repeat(1024 * 1024);
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context, { signal }) => {
-			return event;
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(detected, true);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: input });
+		test("Should expose tenantId from the Lambda context to the handler under the real SDK", async (t) => {
+			// The SDK reads `tenantId` from the Lambda context it is invoked with
+			// (`context.tenantId`) and exposes only `durableExecutionArn` under
+			// `context.executionContext`. The local runner builds its own Lambda
+			// context per invocation, so the handler it invokes is wrapped to add
+			// the tenant id the same way Lambda tenant isolation would.
+			let seen;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context) => {
+				seen = context.tenantId;
+				return "ok";
+			});
+			const runner = new LocalDurableTestRunner({
+				handlerFunction: (event, context) =>
+					handler(event, { ...context, tenantId: "tenant-123" }),
+			});
 
-		strictEqual(execution.getOperations().length, 0);
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		strictEqual(execution.getResult(), input);
-	});
+			const execution = await runner.run({ payload: {} });
 
-	test("Should return with executionMode:executionModeDurableContext using object", async (t) => {
-		const input = {};
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context, { signal }) => {
-			return event;
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(seen, "tenant-123");
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: input });
+		test("Should return with executionMode:executionModeDurableContext using string", async (t) => {
+			const input = "x".repeat(1024 * 1024);
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context, { signal }) => {
+				return event;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getOperations().length, 0);
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		deepStrictEqual(execution.getResult(), input);
-	});
+			const execution = await runner.run({ payload: input });
 
-	test("Should return with executionMode:executionModeDurableContext using body:undefined", async (t) => {
-		const input = {
-			statusCode: 200,
-			headers: {
-				"Content-Type": "plain/text",
-			},
-		};
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context, { signal }) => {
-			return event;
+			strictEqual(execution.getOperations().length, 0);
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(execution.getResult(), input);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: input });
+		test("Should return with executionMode:executionModeDurableContext using object", async (t) => {
+			const input = {};
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context, { signal }) => {
+				return event;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getOperations().length, 0);
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		deepStrictEqual(execution.getResult(), input);
-	});
+			const execution = await runner.run({ payload: input });
 
-	test("Should return with executionMode:executionModeDurableContext using body:string", async (t) => {
-		const input = {
-			statusCode: 200,
-			headers: {
-				"Content-Type": "plain/text",
-			},
-			body: "x".repeat(1024 * 1024),
-		};
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context, { signal }) => {
-			return event;
+			strictEqual(execution.getOperations().length, 0);
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			deepStrictEqual(execution.getResult(), input);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: input });
+		test("Should return with executionMode:executionModeDurableContext using body:undefined", async (t) => {
+			const input = {
+				statusCode: 200,
+				headers: {
+					"Content-Type": "plain/text",
+				},
+			};
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context, { signal }) => {
+				return event;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getOperations().length, 0);
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		deepStrictEqual(execution.getResult(), input);
-	});
+			const execution = await runner.run({ payload: input });
 
-	test("Should trigger requestStart and requestEnd hooks with executionModeDurableContext", async (t) => {
-		let startCalled = false;
-		let endCalled = false;
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestStart: () => {
-				startCalled = true;
-			},
-			requestEnd: () => {
-				endCalled = true;
-			},
-		}).handler((event) => event);
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
-
-		const execution = await runner.run({ payload: {} });
-
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		ok(startCalled);
-		ok(endCalled);
-	});
-
-	test("Should propagate requestEnd hook error when handler succeeds in durable context", async (t) => {
-		const hookErr = new Error("requestEnd failed");
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: () => {
-				throw hookErr;
-			},
-		}).handler(() => "ok");
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
-
-		const execution = await runner.run({ payload: {} });
-
-		strictEqual(execution.getStatus(), "FAILED");
-		strictEqual(execution.getError().errorMessage, "requestEnd failed");
-	});
-
-	test("Should keep a primitive handler error when requestEnd also throws in durable context", async (t) => {
-		// Primitives cannot carry a `cause`; assigning one throws in strict mode,
-		// so the guard must skip the assignment and keep the handler error.
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: () => {
-				throw new Error("requestEnd failed");
-			},
-		}).handler(() => {
-			throw "boom";
+			strictEqual(execution.getOperations().length, 0);
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			deepStrictEqual(execution.getResult(), input);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: {} });
+		test("Should return with executionMode:executionModeDurableContext using body:string", async (t) => {
+			const input = {
+				statusCode: 200,
+				headers: {
+					"Content-Type": "plain/text",
+				},
+				body: "x".repeat(1024 * 1024),
+			};
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context, { signal }) => {
+				return event;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getStatus(), "FAILED");
-		// The durable SDK reports a non-Error throw as "Unknown error". Assigning
-		// a cause to the primitive instead would surface a TypeError message.
-		strictEqual(execution.getError().errorMessage, "Unknown error");
-	});
+			const execution = await runner.run({ payload: input });
 
-	test("Should keep a null handler error when requestEnd also throws in durable context", async (t) => {
-		// `typeof null === "object"`, so only the explicit null check keeps the
-		// `cause` assignment off it.
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: () => {
-				throw new Error("requestEnd failed");
-			},
-		}).handler(() => {
-			throw null;
+			strictEqual(execution.getOperations().length, 0);
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			deepStrictEqual(execution.getResult(), input);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: {} });
+		test("Should trigger requestStart and requestEnd hooks with executionModeDurableContext", async (t) => {
+			let startCalled = false;
+			let endCalled = false;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestStart: () => {
+					startCalled = true;
+				},
+				requestEnd: () => {
+					endCalled = true;
+				},
+			}).handler((event) => event);
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getStatus(), "FAILED");
-		strictEqual(execution.getError().errorMessage, "Unknown error");
-	});
+			const execution = await runner.run({ payload: {} });
 
-	test("Should not await a thenable returned by requestEnd in durable context", async (t) => {
-		// Real-Promises-only contract: only a real Promise from requestEnd is
-		// awaited; a plain thenable is ignored, so its then() must never run.
-		let thenAwaited = false;
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: () =>
-				createThenable((resolve) => {
-					thenAwaited = true;
-					resolve();
-				}),
-		}).handler(() => "ok");
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
-
-		const execution = await runner.run({ payload: {} });
-
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		strictEqual(thenAwaited, false);
-	});
-
-	test("Should await async requestEnd hook and propagate its rejection in durable context", async (t) => {
-		// An async requestEnd hook returns a real Promise; it must be awaited
-		// so its rejection is caught and propagated like a sync throw.
-		const hookErr = new Error("requestEnd failed");
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: async () => {
-				throw hookErr;
-			},
-		}).handler(() => "ok");
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
-
-		const execution = await runner.run({ payload: {} });
-
-		strictEqual(execution.getStatus(), "FAILED");
-		strictEqual(execution.getError().errorMessage, "requestEnd failed");
-	});
-
-	test("Should preserve handler error when requestEnd hook also throws in durable context", async (t) => {
-		const handlerErr = new Error("handler failed");
-		const hookErr = new Error("requestEnd failed");
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-			requestEnd: () => {
-				throw hookErr;
-			},
-		}).handler(() => {
-			throw handlerErr;
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			ok(startCalled);
+			ok(endCalled);
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: {} });
+		test("Should propagate requestEnd hook error when handler succeeds in durable context", async (t) => {
+			const hookErr = new Error("requestEnd failed");
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () => {
+					throw hookErr;
+				},
+			}).handler(() => "ok");
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getStatus(), "FAILED");
-		strictEqual(execution.getError().errorMessage, "handler failed");
-	});
+			const execution = await runner.run({ payload: {} });
 
-	test("Should propagate handler error with no requestEnd error in durable context", async (t) => {
-		const handlerErr = new Error("handler failed");
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler(() => {
-			throw handlerErr;
+			strictEqual(execution.getStatus(), "FAILED");
+			strictEqual(execution.getError().errorMessage, "requestEnd failed");
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: {} });
+		test("Should keep a primitive handler error when requestEnd also throws in durable context", async (t) => {
+			// Primitives cannot carry a `cause`; assigning one throws in strict mode,
+			// so the guard must skip the assignment and keep the handler error.
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			}).handler(() => {
+				throw "boom";
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getStatus(), "FAILED");
-		strictEqual(execution.getError().errorMessage, "handler failed");
-	});
+			const execution = await runner.run({ payload: {} });
 
-	test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {
-		const input = {
-			statusCode: 301,
-			headers: {
-				"Content-Type": "plain/text",
-				Location: "https://example.com",
-			},
-			body: "",
-		};
-		const handler = middy({
-			executionMode: executionModeDurableContext,
-		}).handler((event, context, { signal }) => {
-			return event;
+			strictEqual(execution.getStatus(), "FAILED");
+			// The durable SDK reports a non-Error throw as "Unknown error". Assigning
+			// a cause to the primitive instead would surface a TypeError message.
+			strictEqual(execution.getError().errorMessage, "Unknown error");
 		});
-		const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		const execution = await runner.run({ payload: input });
+		test("Should keep a null handler error when requestEnd also throws in durable context", async (t) => {
+			// `typeof null === "object"`, so only the explicit null check keeps the
+			// `cause` assignment off it.
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () => {
+					throw new Error("requestEnd failed");
+				},
+			}).handler(() => {
+				throw null;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
 
-		strictEqual(execution.getOperations().length, 0);
-		strictEqual(execution.getStatus(), "SUCCEEDED");
-		deepStrictEqual(execution.getResult(), input);
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "FAILED");
+			strictEqual(execution.getError().errorMessage, "Unknown error");
+		});
+
+		test("Should not await a thenable returned by requestEnd in durable context", async (t) => {
+			// Real-Promises-only contract: only a real Promise from requestEnd is
+			// awaited; a plain thenable is ignored, so its then() must never run.
+			let thenAwaited = false;
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () =>
+					createThenable((resolve) => {
+						thenAwaited = true;
+						resolve();
+					}),
+			}).handler(() => "ok");
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			strictEqual(thenAwaited, false);
+		});
+
+		test("Should await async requestEnd hook and propagate its rejection in durable context", async (t) => {
+			// An async requestEnd hook returns a real Promise; it must be awaited
+			// so its rejection is caught and propagated like a sync throw.
+			const hookErr = new Error("requestEnd failed");
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: async () => {
+					throw hookErr;
+				},
+			}).handler(() => "ok");
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "FAILED");
+			strictEqual(execution.getError().errorMessage, "requestEnd failed");
+		});
+
+		test("Should preserve handler error when requestEnd hook also throws in durable context", async (t) => {
+			const handlerErr = new Error("handler failed");
+			const hookErr = new Error("requestEnd failed");
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+				requestEnd: () => {
+					throw hookErr;
+				},
+			}).handler(() => {
+				throw handlerErr;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "FAILED");
+			strictEqual(execution.getError().errorMessage, "handler failed");
+		});
+
+		test("Should propagate handler error with no requestEnd error in durable context", async (t) => {
+			const handlerErr = new Error("handler failed");
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler(() => {
+				throw handlerErr;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: {} });
+
+			strictEqual(execution.getStatus(), "FAILED");
+			strictEqual(execution.getError().errorMessage, "handler failed");
+		});
+
+		test("Should return with executionMode:executionModeDurableContext using body:''", async (t) => {
+			const input = {
+				statusCode: 301,
+				headers: {
+					"Content-Type": "plain/text",
+					Location: "https://example.com",
+				},
+				body: "",
+			};
+			const handler = middy({
+				executionMode: executionModeDurableContext,
+			}).handler((event, context, { signal }) => {
+				return event;
+			});
+			const runner = new LocalDurableTestRunner({ handlerFunction: handler });
+
+			const execution = await runner.run({ payload: input });
+
+			strictEqual(execution.getOperations().length, 0);
+			strictEqual(execution.getStatus(), "SUCCEEDED");
+			deepStrictEqual(execution.getResult(), input);
+		});
 	});
 });
