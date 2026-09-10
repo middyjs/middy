@@ -182,7 +182,7 @@ const splitUrl = (rawUrl) => {
 	};
 };
 
-// Only v1 carries multiValueQueryStringParameters; v2 and ALB would otherwise
+// Only v1 carries multiValueQueryStringParameters; v2 would otherwise
 // allocate the multi-value map on every request and discard it.
 const collectQuery = (queryString) => {
 	const single = Object.create(null);
@@ -195,6 +195,26 @@ const collectQuery = (queryString) => {
 		size++;
 	}
 	return { single, size };
+};
+
+// ALB splits the query string on `&`/`=` and hands over the raw substrings:
+// "If the query parameters are URL-encoded, the load balancer does not decode
+// them. You must decode them in your Lambda function."
+// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+// Decoding here would make an ecs-http handler see different values than the
+// same handler behind a real load balancer.
+const collectQueryEncoded = (queryString) => {
+	const single = Object.create(null);
+	// Stryker disable next-line ConditionalExpression: pure fast path; "".split("&") yields [""], which the empty-pair guard below skips, so falling through yields the same empty map.
+	if (!queryString) return single;
+	for (const pair of queryString.split("&")) {
+		if (!pair) continue;
+		const eq = pair.indexOf("=");
+		// Last value wins, matching ALB's default (non multi-value) format.
+		if (eq === -1) single[pair] = "";
+		else single[pair.slice(0, eq)] = pair.slice(eq + 1);
+	}
+	return single;
 };
 
 const collectQueryMultiValue = (queryString) => {
@@ -313,7 +333,7 @@ export const buildEventAlb = (input) => {
 	const { req, body, isBase64Encoded, requestContext, requestId } = input;
 	const headers = input.headers ?? req.headers;
 	const url = input.url ?? splitUrl(req.url);
-	const { single: queryStringParameters } = collectQuery(url.queryString);
+	const queryStringParameters = collectQueryEncoded(url.queryString);
 	const albBody = encodeBody(body, isBase64Encoded);
 	return {
 		requestContext: {

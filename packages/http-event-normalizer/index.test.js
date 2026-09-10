@@ -207,6 +207,93 @@ describe("@middy/http-event-normalizer", () => {
 		deepStrictEqual(normalizedEvent.pathParameters, { param: "hello" });
 	});
 
+	// ALB does not URL-decode query parameters before invoking the target, so
+	// the normalizer has to, using form semantics (`+` is a space).
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+	const albEvent = (queryStringParameters, multi) => ({
+		requestContext: {
+			elb: { targetGroupArn: "arn:aws:elasticloadbalancing:" },
+		},
+		httpMethod: "GET",
+		path: "/",
+		queryStringParameters,
+		multiValueQueryStringParameters: multi,
+	});
+
+	test("It should form-decode ALB queryStringParameters", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			albEvent({
+				full_name: "Alex+Taylor",
+				spaced: "Alex%20Taylor",
+				plus: "Alex%2BTaylor",
+				plain: "42",
+			}),
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.queryStringParameters, {
+			full_name: "Alex Taylor",
+			spaced: "Alex Taylor",
+			plus: "Alex+Taylor",
+			plain: "42",
+		});
+	});
+
+	test("It should form-decode ALB queryStringParameter keys", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			albEvent({ "full+name": "1", "e%2Dmail": "2" }),
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.queryStringParameters, {
+			"full name": "1",
+			"e-mail": "2",
+		});
+	});
+
+	test("It should form-decode ALB multiValueQueryStringParameters", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			albEvent(
+				{ full_name: "Sam+Lee" },
+				{ full_name: ["Alex+Taylor", "Sam%20Lee"] },
+			),
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.multiValueQueryStringParameters, {
+			full_name: ["Alex Taylor", "Sam Lee"],
+		});
+	});
+
+	test("It should throw 400 on an ALB query parameter with invalid encoding", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		try {
+			await handler(albEvent({ discount: "50%" }), defaultContext);
+			ok(false, "expected throw");
+		} catch (e) {
+			strictEqual(e.statusCode, 400);
+			strictEqual(e.cause.package, "@middy/http-event-normalizer");
+		}
+	});
+
+	test("It should not decode query parameters of non-ALB events", async (t) => {
+		const handler = middy((event) => event).use(httpEventNormalizer());
+		const normalizedEvent = await handler(
+			{
+				httpMethod: "GET",
+				queryStringParameters: { full_name: "Alex+Taylor" },
+			},
+			defaultContext,
+		);
+
+		deepStrictEqual(normalizedEvent.queryStringParameters, {
+			full_name: "Alex+Taylor",
+		});
+	});
+
 	test("httpEventNormalizerValidateOptions accepts empty options and rejects anything", () => {
 		httpEventNormalizerValidateOptions({});
 		httpEventNormalizerValidateOptions();

@@ -237,6 +237,7 @@ one `console.error` away from CloudWatch.
 - The primary replaces exited workers with exponential backoff (1 s, doubling to 30 s, reset after 60 s without an exit) instead of immediately. On `SIGTERM` it stops replacing them and exits once the last worker is gone instead of re-forking each drained worker until ECS sends `SIGKILL`, with the highest exit code any worker reported during the drain instead of always `0`; a worker killed by a signal counts as `1`. Worker crashes before `SIGTERM` are re-forked and do not affect the exit code.
 - `sourceIp` strips the client port ALB appends when `routing.http.xff_client_port.enabled` is on (`ip:port`, `[ipv6]:port`), so it is always the bare address.
 - ALB events (`eventVersion: "alb"`) no longer carry `requestContext.identity`; Lambda's ALB event has only `requestContext.elb`. Read `X-Forwarded-For` from `event.headers` instead **Breaking Change**
+- ALB events (`eventVersion: "alb"`) now carry `queryStringParameters` still URL-encoded, matching [what ALB sends](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html); 7.x decoded them, so a handler decoding the values as AWS instructs decoded twice under ecs-http but not in production. Empty pairs are skipped and the last value of a repeated key wins, as on ALB's default (non multi-value) format. Add [http-event-normalizer](/docs/middlewares/http-event-normalizer) to decode them **Breaking Change**
 
 ### [ecs-task](/docs/runners/ecs-task)
 
@@ -375,6 +376,8 @@ prints only `{event}`; a custom one should stay narrow or add the matching
 ### [http-event-normalizer](/docs/middlewares/http-event-normalizer)
 
 - TypeScript: `RequestEvent` now includes `ALBEvent` and `VPCLatticeEvent`, so `httpEventNormalizer<ALBEvent>()` and `httpEventNormalizer<VPCLatticeEvent>()` type check. The default event type is the union of all four
+- ALB events (`requestContext.elb`) now have `queryStringParameters` and `multiValueQueryStringParameters` form-decoded, keys and values, so the same handler sees the same values behind an ALB, an API Gateway and a Function URL. [ALB does not decode them](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html): `?full_name=Alex+Taylor` arrived as `Alex+Taylor` in 7.x and is now `Alex Taylor`. Decoding uses query-string semantics rather than `decodeURIComponent` alone, so `+` is a space and `%2B` is a literal plus. Remove any decoding you do in an ALB handler, it will now decode twice **Breaking Change**
+- A query parameter with an invalid percent-escape (`?discount=50%`) throws a `400` (`cause.data` `{ reason: 'Invalid query parameter encoding', value }`) on ALB events, where 7.x passed the raw value through. No other event source is touched, decoding an already-decoded value would change its meaning **Breaking Change**
 
 ### [http-header-normalizer](/docs/middlewares/http-header-normalizer)
 

@@ -638,6 +638,55 @@ describe("@middy/ecs-http", () => {
 		});
 	});
 
+	// ALB does not URL-decode query parameters before invoking the target, so
+	// neither may we: a handler that decodes (as AWS instructs) would otherwise
+	// double-decode here but not in production.
+	// https://docs.aws.amazon.com/elasticloadbalancing/latest/application/lambda-functions.html
+	test("buildEventAlb leaves query parameters URL-encoded", () => {
+		const event = buildEventAlb({
+			req: makeReq({
+				url: "/?full_name=Alex%2BTaylor&spaced=Alex+Taylor&bare",
+			}),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "rid",
+		});
+		deepStrictEqual(
+			event.queryStringParameters,
+			nullProto({
+				full_name: "Alex%2BTaylor",
+				spaced: "Alex+Taylor",
+				bare: "",
+			}),
+		);
+	});
+
+	test("buildEventAlb keeps the last value for a repeated key", () => {
+		const event = buildEventAlb({
+			req: makeReq({ url: "/?myKey=val1&myKey=val2" }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "rid",
+		});
+		deepStrictEqual(event.queryStringParameters, nullProto({ myKey: "val2" }));
+	});
+
+	test("buildEventAlb skips empty pairs rather than emitting a blank key", () => {
+		const event = buildEventAlb({
+			req: makeReq({ url: "/?&a=1&&b=2&" }),
+			body: Buffer.alloc(0),
+			isBase64Encoded: false,
+			requestContext: {},
+			sourceIp: "",
+			requestId: "rid",
+		});
+		deepStrictEqual(event.queryStringParameters, nullProto({ a: "1", b: "2" }));
+	});
+
 	test("buildEventAlb emits an empty queryStringParameters map when there is no query", () => {
 		const event = buildEventAlb({
 			req: makeReq({ url: "/health" }),
